@@ -111,11 +111,19 @@ export function estimateSecondsByGame(inputs: readonly EstimateInput[], from: st
   return out;
 }
 
-/** Годы, в которые попадает хотя бы одна доля оценки. */
+/**
+ * Годы, в которые оценка даёт ненулевые часы: сумма долей всех игр за год, округлённая как в calcHours (secondsToHours > 0).
+ * Год с долей < 0.05 ч «данных» не даёт: Итоги откроются как empty.
+ */
 export function estimateYears(inputs: readonly EstimateInput[]): number[] {
-  const ys = new Set<number>();
-  for (const inp of inputs) for (const k of estimateByMonth(inp).keys()) ys.add(Number(k.slice(0, 4)));
-  return [...ys];
+  const byYear = new Map<number, number>();
+  for (const inp of inputs) {
+    for (const [k, v] of estimateByMonth(inp)) {
+      const y = Number(k.slice(0, 4));
+      byYear.set(y, (byYear.get(y) ?? 0) + v);
+    }
+  }
+  return [...byYear].filter(([, sec]) => secondsToHours(sec) > 0).map(([y]) => y);
 }
 
 export type HoursCalc = {

@@ -224,8 +224,8 @@ describe('Статистика и Итоги: одинаковые часы, с�
     expect(s.header.hours).toBe(7);
   });
 
-  // BUG-E1: ожидаемое падение, пока years[].hasData считает год с нулевой долей оценки (< 0.05 ч) «с данными».
-  it.fails('КРАЙ: крошечный S0 (меньше числа месяцев): years[].hasData и mode Итогов', async () => {
+  // BUG-E1 (исправлен): год с долей оценки < 0.05 ч не считается годом с данными.
+  it('КРАЙ: крошечный S0 (меньше числа месяцев): years[].hasData и mode Итогов', async () => {
     // 5 секунд игры за 75 месяцев: доли 0, остаток 5 с в последний месяц
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 5 });
@@ -236,7 +236,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
     }
   });
 
-  it.fails('КРАЙ: игра 1 минута за 6 лет (доля года < 0.05 ч): years.hasData vs mode', async () => {
+  it('КРАЙ: игра 1 минута за 6 лет (доля года < 0.05 ч): years.hasData vs mode', async () => {
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 60 });
     const base = await getWrapped(t.db, 2026, null, NOW);
@@ -244,6 +244,18 @@ describe('Статистика и Итоги: одинаковые часы, с�
       const w = await getWrapped(t.db, y.year, null, NOW);
       expect(w.mode === 'story', `year ${y.year}`).toBe(y.hasData);
     }
+  });
+
+  it('граница округления: год с оценкой 179 с не с данными, 180 с (0.1 ч) с данными', async () => {
+    // два месяца 2025-12 и 2026-01: S0 = 359 -> доли 179 и 180
+    const a = await game(1, { firstPlayedAt: new Date('2025-12-10T12:00:00Z'), lastPlayedAt: new Date('2026-01-04T00:00:00Z') });
+    await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-01-05', playDurationSeconds: 359 });
+    const y = (await getWrapped(t.db, 2026, null, NOW)).years;
+    expect(y.find((v) => v.year === 2025)?.hasData ?? false).toBe(false);
+    expect(y.find((v) => v.year === 2026)?.hasData).toBe(true);
+    expect((await getWrapped(t.db, 2025, null, NOW)).mode).toBe('empty');
+    expect((await getWrapped(t.db, 2026, null, NOW)).mode).toBe('story');
+    expect((await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW)).years).not.toContain(2025);
   });
 
   it('sql-сверка: сумма оценки по всем месяцам игры равна S0 (нет потерь остатка)', async () => {
