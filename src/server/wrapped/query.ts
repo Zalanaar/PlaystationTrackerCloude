@@ -1,0 +1,141 @@
+// Чтение данных для /api/wrapped (контракт 11). Расчёты в calc.ts/compose.ts, здесь только выборки.
+import { and, desc, eq, gte, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
+import { schema } from '@/db';
+import type { AnyDb } from '@/db/types';
+import { getGamesByIds } from '@/server/collection/query';
+import type { FinishedEvent } from '@/server/stats/finished';
+import type { GenreGame } from '@/server/stats/genre-stats';
+import { groupSnapshots, secondsByGame, type Snapshot } from '@/server/stats/hours';
+import { mskDateString, mskMidnightUtc, ymd } from '@/server/stats/period';
+import type { EarnedTrophy } from '@/server/stats/trophies';
+import { TOP_GAMES } from './calc';
+import { composeWrapped } from './compose';
+import type { WrappedPlatinum, WrappedResponse } from './types';
+
+const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies, trophySets } = schema;
+const TZ = 'Europe/Moscow';
+
+/** Годы с данными для карточек выбора года (11.1). Текущий год МСК есть всегда. Признак приближённый. */
+export async function getWrappedYears(db: AnyDb, currentYear: number): Promise<{ year: number; hasData: boolean }[]> {
+  const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
+  const lagged = db
+    .select({
+      y: sql<number>`extract(year from ${ps.snapshotDate})::int`.as('y'),
+      inc: sql<boolean>`${ps.playDurationSeconds} > lag(${ps.playDurationSeconds}) over (partition by ${ps.gameId} order by ${ps.snapshotDate})`.as('inc'),
+    })
+    .from(ps)
+    .as('lagged');
+  const [hrs, tr, comp, drop] = await Promise.all([
+    db.selectDistinct({ y: lagged.y }).from(lagged).where(eq(lagged.inc, true)),
+    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.earned, true), isNotNull(trophies.earnedAt))),
+    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.status, 'completed'), isNotNull(gameStatus.completedAt))),
+    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.status, 'dropped'), isNotNull(gameStatus.droppedAt))),
+  ]);
+  const set = new Set<number>();
+  for (const r of [...hrs, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
+  const all = new Set<number>([...set, currentYear]);
+  return [...all].sort((a, b) => b - a).map((year) => ({ year, hasData: set.has(year) }));
+}
+
+export async function getWrapped(db: AnyDb, year: number, onlineId: string | null, now: Date = new Date()): Promise<WrappedResponse> {
+  const today = mskDateString(now);
+  const currentYear = Number(today.slice(0, 4));
+  const yearFrom = ymd(year, 1, 1);
+  const yearTo = ymd(year, 12, 31);
+  const fromUtc = mskMidnightUtc(year, 1, 1);
+  const toUtc = mskMidnightUtc(year + 1, 1, 1);
+  const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc));
+
+  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows] = await Promise.all([
+    getWrappedYears(db, currentYear),
+    db
+      .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
+      .from(ps)
+      .where(and(gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`)),
+    db
+      .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
+      .from(ps)
+      .where(lt(ps.snapshotDate, yearFrom))
+      .orderBy(ps.gameId, desc(ps.snapshotDate)),
+    db.select({ d: min(ps.snapshotDate) }).from(ps),
+    db.select({ type: trophies.type, earnedAt: trophies.earnedAt }).from(trophies).where(earnedInYear),
+    db
+      .select({
+        setId: trophies.trophySetId,
+        at: trophies.earnedAt,
+        name: trophies.name,
+        earnedRate: trophies.earnedRate,
+        rarity: trophies.rarity,
+        setName: trophySets.name,
+      })
+      .from(trophies)
+      .innerJoin(trophySets, eq(trophySets.id, trophies.trophySetId))
+      .where(and(earnedInYear, eq(trophies.type, 'platinum'))),
+    db
+      .select({ gameId: gameStatus.gameId, at: gameStatus.completedAt })
+      .from(gameStatus)
+      .where(and(eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc))),
+    db
+      .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
+      .from(gameStatus)
+      .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc))),
+    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games),
+  ]);
+
+  // Игра сета платины: минимальный id из game_trophy_sets (сет может быть у нескольких версий).
+  const setIds = [...new Set(platRows.map((r) => r.setId))];
+  const links = setIds.length
+    ? await db
+        .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId) })
+        .from(gameTrophySets)
+        .where(inArray(gameTrophySets.trophySetId, setIds))
+        .groupBy(gameTrophySets.trophySetId)
+    : [];
+  const gameBySet = new Map(links.map((l) => [l.setId, l.gameId]));
+
+  const finishedEvents: FinishedEvent[] = [
+    ...completedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'completed' as const, at: r.at }] : [])),
+    ...droppedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'dropped' as const, at: r.at }] : [])),
+  ];
+
+  const snapshots: Snapshot[] = [...bases, ...inYear];
+  // Карточки (GameItem) грузим только для нужных игр: топ по часам (с запасом на ничью на границе топа), завершённые, игры платин.
+  const yearSeconds = secondsByGame(groupSnapshots(snapshots), yearFrom, yearTo);
+  const ranked = [...yearSeconds.entries()].sort((a, b) => b[1] - a[1]);
+  const cutoff = ranked.length >= TOP_GAMES ? ranked[TOP_GAMES - 1][1] : 0;
+  const needed = new Set<number>(finishedEvents.map((e) => e.gameId));
+  for (const [id, s] of ranked) if (s >= cutoff) needed.add(id);
+  for (const id of gameBySet.values()) if (id !== null) needed.add(id);
+  const items = await getGamesByIds(db, [...needed]);
+  const gameById = new Map(items.map((g) => [g.id, g]));
+
+  const platinums: WrappedPlatinum[] = platRows.flatMap((r) => {
+    if (!r.at) return [];
+    const gid = gameBySet.get(r.setId);
+    return [
+      {
+        at: r.at.toISOString(),
+        name: r.name,
+        earnedRate: r.earnedRate === null ? null : Number(r.earnedRate),
+        rarity: r.rarity,
+        setName: r.setName,
+        game: (gid !== undefined && gid !== null ? gameById.get(gid) : undefined) ?? null,
+      },
+    ];
+  });
+  const earned: EarnedTrophy[] = trophyRows;
+
+  return composeWrapped({
+    year,
+    today,
+    years,
+    onlineId,
+    snapshots,
+    firstSnapshotDate: first[0]?.d ?? null,
+    trophies: earned,
+    platinums,
+    finishedEvents,
+    gameById,
+    genreGames: new Map<number, GenreGame>(genreRows.map((g) => [g.id, g])),
+  });
+}

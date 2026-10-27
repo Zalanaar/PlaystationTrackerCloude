@@ -740,3 +740,91 @@ Query-параметры (все необязательные; неизвест�
 
 **Что не учитывается.** Трофеи с `earned = true`, но `earned_at = NULL` (PSN не отдал дату) не попадают ни в какой период (ни в счётчики, ни в линию). Жанры по трофеям не считаются.
 
+
+## 11. Итоги года (Фаза 6)
+
+Эндпоинт под сессией (proxy, 3.4), конверт по разделу 4, только БД. БД недоступна: `503 db_unavailable`. Типы: `src/server/wrapped/types.ts` (только типы, во frontend через `import type`). Экран: design-system 4.12. Все расчёты переиспользуют модули `src/server/stats/` (формула часов 1.6, трофеи по `earned_at`, жанры 1.9), расхождений со Статистикой за тот же год быть не должно.
+
+### 11.1 `GET /api/wrapped`
+| Параметр | Значение | По умолчанию |
+|---|---|---|
+| `year` | целое 2000..2100 | текущий год по Москве |
+
+Мусор (не число, вне диапазона, пустая строка трактуется как отсутствие) = `400 invalid_request`. Будущие и пустые годы допустимы (`200`, `mode: "empty"`). Границы года: календарный год **Europe/Moscow** (как в 10.1): `[fromUtc, toUtc)`, даты снимков сравниваются строками `from..to`.
+
+Ответ 200 (`mode: "story"`):
+```json
+{
+  "ok": true,
+  "data": {
+    "year": 2026,
+    "mode": "story",
+    "period": { "from": "2026-01-01", "to": "2026-12-31", "fromUtc": "2025-12-31T21:00:00.000Z", "toUtc": "2026-12-31T21:00:00.000Z" },
+    "years": [ { "year": 2026, "hasData": true }, { "year": 2025, "hasData": false } ],
+    "profile": { "onlineId": "Artem_PS" },
+    "firstSnapshotDate": "2026-03-04",
+    "periodPartial": true,
+    "slides": ["start", "hours", "topGames", "finished", "trophies", "genres", "longestGame", "final"],
+    "hours": {
+      "hasData": true, "total": 412.4, "days": 17.2,
+      "byMonth": [null, null, 31.5, 40.2, 55.0, 38.9, 61.3, 47.7, 52.8, 85.0, null, null],
+      "topMonth": { "month": 10, "hours": 85.0 }
+    },
+    "topGames": {
+      "hasData": true,
+      "items": [ { "rank": 1, "seconds": 101853, "hours": 28.3, "game": { "...": "GameItem по 9.1" } } ]
+    },
+    "finished": {
+      "hasData": true,
+      "completed": { "count": 12, "items": [ { "at": "2026-10-05T18:42:11.000Z", "game": { "...": "GameItem" } } ] },
+      "dropped":   { "count": 3,  "items": [ { "at": "2026-08-01T10:00:00.000Z", "game": { "...": "GameItem" } } ] },
+      "busiestMonth": { "month": 10, "count": 4 }
+    },
+    "trophies": {
+      "hasData": true,
+      "counts": { "platinum": 7, "gold": 31, "silver": 88, "bronze": 240, "total": 366 },
+      "platinum": {
+        "first":  { "at": "2026-01-12T20:00:00.000Z", "name": "Платина", "earnedRate": 4.3, "rarity": 1, "setName": "Horizon", "game": { "...": "GameItem" } },
+        "last":   { "...": "тот же формат" },
+        "rarest": { "...": "тот же формат" }
+      }
+    },
+    "genres": { "hasData": true, "items": [ { "key": "ACTION", "label": "Экшен", "value": 14.5 } ] },
+    "longestGame": { "hasData": true, "seconds": 101853, "hours": 28.3, "playCount": 19, "game": { "...": "GameItem" } },
+    "emptyState": null
+  }
+}
+```
+
+Ответ 200 для года без данных (`mode: "empty"`):
+```json
+{ "year": 2025, "mode": "empty", "slides": ["empty"], "emptyState": { "syncStartedOn": "2026-03-04" },
+  "hours": { "hasData": false, "total": null, "days": null, "byMonth": [null x12], "topMonth": null },
+  "topGames": { "hasData": false, "items": [] },
+  "finished": { "hasData": false, "completed": { "count": 0, "items": [] }, "dropped": { "count": 0, "items": [] }, "busiestMonth": null },
+  "trophies": { "hasData": false, "counts": { "platinum": 0, "gold": 0, "silver": 0, "bronze": 0, "total": 0 }, "platinum": { "first": null, "last": null, "rarest": null } },
+  "genres": { "hasData": false, "items": [] },
+  "longestGame": { "hasData": false, "seconds": 0, "hours": 0, "playCount": 0, "game": null } }
+```
+Блоки в `empty` присутствуют всегда и пустые (форма ответа не меняется, UI не проверяет на undefined). `period`, `years`, `profile`, `firstSnapshotDate`, `periodPartial` тоже присутствуют.
+
+| Поле | Правило |
+|---|---|
+| `mode` | `empty`, если одновременно: нет часов (`hours.hasData = false`), нет трофеев (`trophies.counts.total = 0`), нет пройденных/брошенных (`finished.completed.count + dropped.count = 0`). Иначе `story` |
+| `slides` | упорядоченный список слайдов, которые UI должен показать, сегментов прогресса ровно столько. Идентификаторы в порядке 4.12: `start`, `hours`, `topGames`, `finished`, `trophies`, `genres`, `longestGame`, `final`. `start` и `final` всегда в `story`; остальные только при `hasData = true` своего блока. В `empty` ровно `["empty"]` (без автоперехода, кнопка «Закрыть»). Случай «нет часов, но есть трофеи» даёт `["start","trophies","final"]` (+`finished`/`genres`, если есть данные): `hours`, `topGames`, `longestGame` выпадают сами, потому что у них `hasData = false` |
+| `years` | `{year, hasData}[]` по убыванию, для карточек выбора года. Текущий год МСК присутствует всегда. `hasData = false` приглушает карточку («нет данных»). Признак приближённый: год имеет прирост часов между соседними снимками, трофеи с `earned_at`, `completed_at` или `dropped_at` в этом году. Окончательное решение показывает `mode` ответа за выбранный год |
+| `profile.onlineId` | `PSN_TARGET_ONLINE_ID` из env или `null`. Аватара в БД нет (синк его не сохраняет), поэтому слайд «Старт» рисует инициал/плейсхолдер. Токены и NPSSO в ответ не попадают |
+| `firstSnapshotDate` / `periodPartial` | как в 10.1: `min(snapshot_date)` по БД или `null`; `periodPartial = true`, если `firstSnapshotDate = null` или `from` года раньше него. Плашка слайда «Часы»: «часы с даты первого синка (ДД.ММ.ГГГГ)» показывается при `hours.hasData && periodPartial` |
+| `emptyState.syncStartedOn` | в `empty`: `firstSnapshotDate` (дата МСК `YYYY-MM-DD`; UI формат ДД.ММ.ГГГГ); `null`, если синка не было, тогда UI убирает строку «Синк начался…». В `story` всегда `null` |
+| `hours.hasData` | год имеет охват снимками (10.1) и `total > 0` |
+| `hours.total` | часы за год по 1.6 (сумма по играм, до 0.1), `null`, если нет охвата. `days = round(total / 24, 1)` для «≈ N дней», `null` вместе с `total` |
+| `hours.byMonth` | 12 элементов, правила как в 10.1 (`null` нет охвата). `topMonth` = месяц (1..12) с максимумом часов; при равенстве более ранний; `null`, если `hasData = false` |
+| `topGames.items` | до 5 игр с положительными часами за год, по убыванию `seconds`; при равенстве по `lower(title)`, затем `id`. `rank` 1..5, `seconds` и `hours` это часы **за год** (не суммарные `game.hours`), `game` это `GameItem` 9.1 (обложка, название) |
+| `finished.completed` / `dropped` | `count` = число игр со `status = completed` / `dropped` и датой в году (как `header` в 10.1); `items` = все такие игры по `at` по убыванию, затем `lower(title)`, `id` (UI берёт первые 4 и 3 обложки). `at` это `completed_at`/`dropped_at` |
+| `finished.busiestMonth` | месяц (1..12) с наибольшим числом завершённых и брошенных вместе и это число; при равенстве более ранний; `null`, если `hasData = false`. `hasData = completed.count + dropped.count > 0` |
+| `trophies.counts` | как `trophies.counts` в 10.1 за год. `hasData = total > 0` |
+| `trophies.platinum` | `first` и `last` это самая ранняя и самая поздняя платина года по `earned_at` (при одной платине совпадают), `rarest` это платина с минимальным `earnedRate` (ничья: более ранняя; платины без `earnedRate` не участвуют). Любое из трёх `null`, если подходящих нет. Объект: `at` (ISO), `name` (`trophies.name` или `null`), `earnedRate` (число % или `null`), `rarity` (0..3 или `null`), `setName` (`trophy_sets.name`), `game`: `GameItem` игры сета (при нескольких играх на сет минимальный `id`) или `null` для сета-сироты |
+| `genres` | топ-3 (10.1: те же правила выбора игр и веса 1/N, меняется только размер топа). `hasData = items.length > 0` |
+| `longestGame` | игра №1 из `topGames` (тот же порядок, та же ничья). `seconds`/`hours` за год, `playCount` = `game.playCount` (общее число запусков игры за всё время, PSN не отдаёт запуски по периодам). `hasData = false`, `game = null`, нули, если `topGames` пуст |
+
+**Что не учитывается.** Трофеи без `earned_at` не попадают в год (как в 10.1). Годы до первого синка не имеют часов: слайды `hours`, `topGames`, `longestGame` для них пропускаются, остальное строится по трофеям и датам статусов.
