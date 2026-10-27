@@ -6,7 +6,7 @@ export type Status = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved'
 export type G = {
   id: number; title: string; lastPlayedAt: string | null; status: Status | null;
   completedAt: string | null; droppedAt: string | null; playSeconds: number; playCount: number;
-  platform?: 'PS4' | 'PS5'; trophies?: { earned: number; defined: number; plat?: boolean } | null;
+  platform?: 'PS4' | 'PS5'; coverUrl?: string | null; trophies?: { earned: number; defined: number; plat?: boolean } | null;
 };
 
 const ALL: Status[] = ['playing', 'completed', 'dropped', 'backlog', 'shelved'];
@@ -37,7 +37,7 @@ const done = (g: G) => g.completedAt ?? g.droppedAt;
 function item(g: G) {
   const t = g.trophies;
   return {
-    id: g.id, title: g.title, coverUrl: null, platform: g.platform ?? 'PS5', playSeconds: g.playSeconds,
+    id: g.id, title: g.title, coverUrl: g.coverUrl ?? null, platform: g.platform ?? 'PS5', playSeconds: g.playSeconds,
     hours: Math.round(g.playSeconds / 360) / 10, playCount: g.playCount, lastPlayedAt: g.lastPlayedAt,
     status: g.status, completedAt: g.status === 'completed' ? g.completedAt : null, droppedAt: g.status === 'dropped' ? g.droppedAt : null,
     trophies: t ? {
