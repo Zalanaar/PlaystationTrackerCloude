@@ -3,6 +3,7 @@ import { Inter, Manrope, Pixelify_Sans } from 'next/font/google';
 import '@/ui/tokens/tokens.css';
 import '@/ui/tokens/themes.css';
 import '@/ui/tokens/decor.css';
+import '@/ui/components.css';
 import './globals.css';
 import { themeInitScript } from '@/ui/theme-script';
 
