@@ -1,0 +1,125 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
+import { proxy } from './proxy';
+import { createSessionToken, SESSION_COOKIE } from './server/auth/session';
+import { originAllowed } from './server/http';
+
+const SECRET = 's'.repeat(40);
+const CRON = 'c'.repeat(40);
+const BASE = 'http://localhost:3000';
+
+function req(path: string, init: { cookie?: string; auth?: string; method?: string } = {}) {
+  const headers = new Headers();
+  if (init.cookie) headers.set('cookie', `${SESSION_COOKIE}=${init.cookie}`);
+  if (init.auth) headers.set('authorization', init.auth);
+  return new NextRequest(BASE + path, { method: init.method ?? 'GET', headers });
+}
+
+describe('proxy: закрытый доступ', () => {
+  beforeEach(() => {
+    vi.stubEnv('SESSION_SECRET', SECRET);
+    vi.stubEnv('CRON_SECRET', CRON);
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('страница без cookie: 307 на /login?next=', async () => {
+    const r = await proxy(req('/games?q=1'));
+    expect(r.status).toBe(307);
+    expect(r.headers.get('location')).toBe(`${BASE}/login?next=${encodeURIComponent('/games?q=1')}`);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('API без cookie: 401 JSON, без редиректа', async () => {
+    for (const p of ['/api/health', '/api/anything', '/api']) {
+      const r = await proxy(req(p));
+      expect(r.status).toBe(401);
+      expect((await r.json()).error.code).toBe('unauthorized');
+      expect(r.headers.get('location')).toBeNull();
+    }
+  });
+
+  it('fail closed: SESSION_SECRET не задан, даже «валидный» токен не пускает', async () => {
+    const t = await createSessionToken(SECRET);
+    vi.stubEnv('SESSION_SECRET', '');
+    expect((await proxy(req('/', { cookie: t }))).status).toBe(307);
+    expect((await proxy(req('/api/health', { cookie: t }))).status).toBe(401);
+  });
+
+  it('валидная cookie пускает; /login редиректит на /', async () => {
+    const t = await createSessionToken(SECRET);
+    const ok = await proxy(req('/', { cookie: t }));
+    expect(ok.headers.get('x-middleware-next')).toBe('1');
+    const login = await proxy(req('/login', { cookie: t }));
+    expect(login.status).toBe(307);
+    expect(login.headers.get('location')).toBe(`${BASE}/`);
+  });
+
+  it('просроченная и подделанная cookie: нет сессии, cookie очищается', async () => {
+    const old = await createSessionToken(SECRET, Date.now() - 31 * 24 * 3600 * 1000);
+    const forged = (await createSessionToken('x'.repeat(40))) as string;
+    for (const c of [old, forged, 'garbage']) {
+      const r = await proxy(req('/', { cookie: c }));
+      expect(r.status).toBe(307);
+      expect(r.headers.get('set-cookie')).toMatch(/pst_session=;/);
+    }
+  });
+
+  it('next не уходит на чужой хост: //evil.com и /\evil.com превращаются в /', async () => {
+    for (const p of ['//evil.com', '/%5Cevil.com']) {
+      const r = await proxy(new NextRequest(BASE + p));
+      const loc = new URL(r.headers.get('location')!);
+      expect(loc.origin).toBe(BASE);
+      expect(loc.pathname).toBe('/login');
+      const next = loc.searchParams.get('next')!;
+      expect(next.startsWith('//')).toBe(false);
+    }
+  });
+
+  it('/login и /api/auth/* открыты без сессии', async () => {
+    for (const p of ['/login', '/api/auth/login', '/api/auth/logout']) {
+      expect((await proxy(req(p, { method: 'POST' }))).headers.get('x-middleware-next')).toBe('1');
+    }
+  });
+
+  it('cron: сессия не нужна, но нужен Bearer; без/с чужим секретом 401', async () => {
+    expect((await proxy(req('/api/cron/sync'))).status).toBe(401);
+    expect((await proxy(req('/api/cron/sync', { auth: 'Bearer wrong' }))).status).toBe(401);
+    expect((await proxy(req('/api/cron/sync', { auth: CRON }))).status).toBe(401);
+    expect((await proxy(req('/api/cron/sync', { auth: `Bearer ${CRON}` }))).headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it('cron fail closed: CRON_SECRET не задан', async () => {
+    vi.stubEnv('CRON_SECRET', '');
+    expect((await proxy(req('/api/cron/sync', { auth: 'Bearer ' }))).status).toBe(401);
+    expect((await proxy(req('/api/cron/sync', { auth: 'Bearer undefined' }))).status).toBe(401);
+  });
+
+  it('cookie сессии не заменяет Bearer для cron', async () => {
+    const t = await createSessionToken(SECRET);
+    expect((await proxy(req('/api/cron/sync', { cookie: t }))).status).toBe(401);
+  });
+});
+
+describe('originAllowed', () => {
+  const mk = (h: Record<string, string>) => new Request('http://x/api/auth/login', { method: 'POST', headers: h });
+  it('нет Origin: ок; совпадает: ок; чужой или мусор: нет', () => {
+    expect(originAllowed(mk({ host: 'a.test' }))).toBe(true);
+    expect(originAllowed(mk({ host: 'a.test', origin: 'https://a.test' }))).toBe(true);
+    expect(originAllowed(mk({ host: 'a.test', origin: 'https://evil.test' }))).toBe(false);
+    expect(originAllowed(mk({ host: 'a.test', origin: 'null' }))).toBe(false);
+    expect(originAllowed(mk({ host: 'a.test', origin: 'https://a.test.evil.test' }))).toBe(false);
+  });
+});
+
+describe('B4: matcher', async () => {
+  const { config } = await import('./proxy');
+  const matches = (path: string) =>
+    config.matcher.some((m) => (m.includes(':path*') ? path === '/api' || path.startsWith('/api/') : new RegExp(`^${m}$`).test(path)));
+  it('/api/* никогда не пропускается по расширению', () => {
+    for (const p of ['/api/x.png', '/api/x/[id].svg', '/api/a/b.woff2', '/api/favicon.ico', '/api/health']) expect(matches(p)).toBe(true);
+  });
+  it('статика вне /api пропускается, страницы нет', () => {
+    for (const p of ['/logo.png', '/fonts/a.woff2', '/favicon.ico', '/_next/static/x.js']) expect(matches(p)).toBe(false);
+    for (const p of ['/', '/games', '/login', '/apiary.png.html']) expect(matches(p)).toBe(true);
+  });
+});

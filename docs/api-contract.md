@@ -1,0 +1,416 @@
+# API-контракт PS Tracker
+
+Версия: 1 (Фаза 1). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
+
+Источник фактов о PSN: `docs/api-notes.md` (результаты Фазы 0).
+
+## 0. Общие соглашения
+- БД: Postgres (Neon), Drizzle ORM, схема в `src/db/schema.ts`.
+- Все моменты времени: `timestamptz` (хранится UTC). Календарные даты (`date`) всегда по Europe/Moscow, это явно указано в колонке.
+- Имена: таблицы и колонки в `snake_case`, во множественном числе для таблиц (кроме `game_status`, `psn_auth`).
+- Первичные ключи: `integer generated always as identity` (в Drizzle `integer().primaryKey().generatedAlwaysAsIdentity()`), если не сказано иное.
+- Идентификаторы PSN хранятся как `text` (не числа): `title_id`, `concept_id`, `np_communication_id`.
+- Длительности: в секундах, `integer` (PSN отдаёт ISO 8601 `PT228H56M33S`, парсится в `src/server/psn/`). Максимум int32 даёт 68 лет, хватает.
+- Фильтр «не игры»: в `games` попадают только `category` из `ps4_game`, `ps5_native_game`, `pspc_game`. Остальное (медиа-приложения, мини-аппы) отбрасывается на маппинге и не хранится.
+- Ничего не удаляется синком. Игра, пропавшая из ответа PSN, остаётся в БД (обновляется `last_seen_at` только у тех, кто пришёл). Ошибка PSN не меняет данные.
+
+## 1. Схема БД
+
+### 1.1 Перечисления (pgEnum)
+| Имя | Значения |
+|---|---|
+| `game_status_value` | `playing`, `completed`, `dropped`, `backlog`, `shelved` |
+| `trophy_type` | `bronze`, `silver`, `gold`, `platinum` |
+| `trophy_set_link_source` | `title_id`, `concept`, `name`, `manual` |
+| `sync_run_kind` | `daily` (cron), `manual` (кнопка/ручной запуск), `trophy_backfill` (дозагрузка трофеев) |
+| `sync_run_status` | `running`, `success`, `partial`, `failed` |
+| `sync_error_reason` | `auth_expired`, `npsso_invalid`, `access_denied`, `rate_limited`, `psn_unavailable`, `timeout`, `internal` |
+
+«Без статуса» это отсутствие строки в `game_status`. Значения `none` в enum нет.
+
+### 1.2 `games`
+Одна строка на PSN `titleId` (CUSA/PPSA/PCSA...). Разные платформенные версии одной игры это разные строки; общий `concept_id` позволяет их объединять в UI при необходимости.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `title_id` | text | нет | PSN `titleId`. **UNIQUE** |
+| `concept_id` | text | да | `concept.id`; общий для версий одной игры |
+| `name` | text | нет | `name` из PSN (приоритет `localizedName`, если есть, иначе `name`) |
+| `category` | text | нет | `ps4_game` / `ps5_native_game` / `pspc_game`. CHECK на три значения |
+| `image_url` | text | да | `imageUrl`, иначе `localizedImageUrl`, иначе первая из `concept.media.images` |
+| `psn_genres` | text[] | нет, default `'{}'` | сырые значения `concept.genres` как отдал PSN (английские, в верхнем регистре, без нормализации). Порядок сохраняется |
+| `genres_override` | text[] | да | **заготовка** под ручную правку жанров. NULL = не переопределено. В MVP не заполняется и в UI не редактируется. Хранит уже нормализованные ключи (см. 1.9) |
+| `play_duration_seconds` | integer | нет, default 0 | суммарное время из `playDuration` |
+| `play_count` | integer | нет, default 0 | |
+| `first_played_at` | timestamptz | да | `firstPlayedDateTime` |
+| `last_played_at` | timestamptz | да | `lastPlayedDateTime` |
+| `trophy_checked_at` | timestamptz | да | когда последний раз искали трофейные сеты для этой игры. NULL = ещё не искали |
+| `first_seen_at` | timestamptz | нет, default now() | когда игра впервые попала в БД |
+| `last_seen_at` | timestamptz | нет | когда последний раз пришла из PSN |
+| `created_at` / `updated_at` | timestamptz | нет, default now() | `updated_at` обновляется приложением при апсёрте |
+
+Индексы: UNIQUE `games_title_id_key (title_id)`; `games_concept_id_idx (concept_id)`; `games_last_played_at_idx (last_played_at desc nulls last)`; GIN `games_psn_genres_gin (psn_genres)` не нужен для MVP (жанры агрегируются в коде).
+
+Upsert синка: `INSERT ... ON CONFLICT (title_id) DO UPDATE` по всем PSN-полям. Поля `genres_override` и всё из других таблиц не затрагиваются. Если PSN отдал `play_duration_seconds` меньше сохранённого, сохраняется значение из PSN (PSN авторитетен), но это логируется как предупреждение в `sync_runs.warnings` (см. 1.7).
+
+### 1.3 `game_status`
+Ручной статус игры. Отдельная таблица, чтобы синк никогда не мог перетереть ручные данные.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `game_id` | integer PK, FK -> `games.id` ON DELETE CASCADE | нет | связь 1:1 |
+| `status` | `game_status_value` | нет | |
+| `completed_at` | timestamptz | да | заполнено только при `status = 'completed'` |
+| `dropped_at` | timestamptz | да | заполнено только при `status = 'dropped'` |
+| `status_changed_at` | timestamptz | нет, default now() | когда статус менялся последний раз |
+| `created_at` / `updated_at` | timestamptz | нет, default now() | |
+
+CHECK-ограничения:
+- `completed_at IS NULL OR status = 'completed'`
+- `dropped_at IS NULL OR status = 'dropped'`
+
+Правила (реализуются в `src/server/sync/` или сервисе статусов, не в триггерах):
+1. Нет строки = «без статуса». Сброс в «без статуса» = `DELETE` строки.
+2. Смена на `completed`: `completed_at = games.last_played_at`; если `last_played_at` NULL, то `now()`. Аналогично `dropped` -> `dropped_at`.
+3. Смена с `completed`/`dropped` на другой статус: соответствующая дата обнуляется.
+4. Повторная установка того же статуса не трогает даты.
+5. Ручная правка `completed_at`/`dropped_at` допустима только пока статус соответствует; меняет только эту колонку и `updated_at`.
+6. Синк никогда не пишет в `game_status`. Исключение: нет. Автосмены статусов в MVP нет.
+
+Индекс: `game_status_status_idx (status)`; `game_status_completed_at_idx (completed_at) WHERE completed_at IS NOT NULL`; `game_status_dropped_at_idx (dropped_at) WHERE dropped_at IS NOT NULL` (партиальные индексы для статистики по месяцам).
+
+### 1.4 `trophy_sets` и `game_trophy_sets` (связь многие-ко-многим)
+Трофейный сет (`npCommunicationId`) и игра (`titleId`) связаны через промежуточную таблицу. Факты из api-notes: у 6 игр несколько сетов, у 49 игр сета нет, 1 сет сиротский (без игры).
+
+`trophy_sets`:
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `np_communication_id` | text | нет | `NPWR...`. **UNIQUE** |
+| `np_service_name` | text | нет | `trophy` или `trophy2` (нужен для запросов) |
+| `name` | text | нет | `trophyTitleName` |
+| `platform` | text | да | `trophyTitlePlatform` как есть |
+| `icon_url` | text | да | |
+| `defined_bronze` / `defined_silver` / `defined_gold` / `defined_platinum` | integer | нет, default 0 | `definedTrophies` |
+| `earned_bronze` / `earned_silver` / `earned_gold` / `earned_platinum` | integer | нет, default 0 | `earnedTrophies` (кэш из `getUserTitles`; источник истины для периодов, это таблица `trophies`) |
+| `progress` | smallint | нет, default 0 | 0..100. CHECK |
+| `last_updated_at` | timestamptz | да | `lastUpdatedDateTime` из PSN |
+| `trophies_synced_at` | timestamptz | да | когда успешно загружен полный список трофеев. NULL = детали не загружены |
+| `created_at` / `updated_at` | timestamptz | нет | |
+
+Индексы: UNIQUE `trophy_sets_np_communication_id_key`.
+
+`game_trophy_sets`:
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `game_id` | integer FK -> `games.id` ON DELETE CASCADE | нет | |
+| `trophy_set_id` | integer FK -> `trophy_sets.id` ON DELETE CASCADE | нет | |
+| `source` | `trophy_set_link_source` | нет | как найдена связь (алгоритм из api-notes: `title_id` -> `concept` -> `name`; `manual` для ручной правки) |
+| `created_at` | timestamptz | нет, default now() | |
+
+PK составной `(game_id, trophy_set_id)`. Индекс `game_trophy_sets_trophy_set_id_idx (trophy_set_id)`.
+
+Семантика:
+- Игра без сета: нет строк в `game_trophy_sets`. Признак «проверяли, не нашли»: `games.trophy_checked_at IS NOT NULL` и нет связей. UI показывает «нет данных».
+- Игры без сетов перепроверяются при каждом полном синке (раз в N дней, решает sync; в MVP: если `trophy_checked_at` старше 7 дней).
+- Сет без игры (сирота) хранится, трофеи учитываются в статистике по `earned_at`, но к конкретной игре не привязаны.
+- Повторный синк идемпотентен: связи вставляются `ON CONFLICT (game_id, trophy_set_id) DO NOTHING`. Источник `manual` не перезаписывается автоматическими источниками. Автосвязи сами не удаляются.
+- Если игра имеет несколько сетов, её прогресс считается суммой по сетам (правило для `stats`).
+
+### 1.5 `trophies`
+Одна строка на трофей сета. Хранит и определение трофея, и факт получения (аккаунт один).
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `trophy_set_id` | integer FK -> `trophy_sets.id` ON DELETE CASCADE | нет | |
+| `trophy_id` | integer | нет | `trophyId` внутри сета (0 обычно платина) |
+| `type` | `trophy_type` | нет | |
+| `name` | text | да | NULL для скрытых, пока не получены |
+| `detail` | text | да | |
+| `icon_url` | text | да | |
+| `hidden` | boolean | нет, default false | `trophyHidden` |
+| `earned` | boolean | нет, default false | |
+| `earned_at` | timestamptz | да | `earnedDateTime`. CHECK: `earned = true` => допускается NULL (PSN иногда не отдаёт дату), `earned = false` => `earned_at IS NULL` |
+| `rarity` | smallint | да | `trophyRare` (0..3) |
+| `earned_rate` | numeric(5,2) | да | `trophyEarnedRate`, % |
+| `created_at` / `updated_at` | timestamptz | нет | |
+
+Ограничения и индексы:
+- UNIQUE `trophies_set_trophy_key (trophy_set_id, trophy_id)` для идемпотентного апсёрта.
+- `trophies_earned_at_idx (earned_at) WHERE earned_at IS NOT NULL` для статистики по периодам.
+- `trophies_set_earned_idx (trophy_set_id, earned)`.
+
+Правила:
+- Апсёрт `ON CONFLICT (trophy_set_id, trophy_id) DO UPDATE`. Признак `earned = true` и `earned_at` обратно в false/NULL **не откатываются** (защита от неполного ответа PSN): обновление `earned`/`earned_at` только если пришло `earned = true`. Если PSN реально забрал трофей (бывает крайне редко), это игнорируем.
+- Трофеи за период = `COUNT(*) WHERE earned_at >= :from AND earned_at < :to`, границы периода это полночи Europe/Moscow, переведённые в UTC.
+- Загрузка деталей трофеев батчами по сетам; сет считается загруженным после успеха всех его страниц (`trophies_synced_at`). Сет перезагружается, если `trophy_sets.last_updated_at` > `trophies_synced_at` или счётчики `earned_*` в `getUserTitles` изменились.
+
+### 1.6 `playtime_snapshots`
+Ежедневный снимок суммарного времени игры. Единственный источник часов за период.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `game_id` | integer FK -> `games.id` ON DELETE CASCADE | нет | |
+| `snapshot_date` | date | нет | календарная дата **по Europe/Moscow** |
+| `play_duration_seconds` | integer | нет | суммарное время на момент снимка |
+| `play_count` | integer | нет, default 0 | |
+| `last_played_at` | timestamptz | да | |
+| `captured_at` | timestamptz | нет, default now() | реальный момент снимка |
+| `sync_run_id` | integer FK -> `sync_runs.id` ON DELETE SET NULL | да | |
+
+UNIQUE `playtime_snapshots_game_date_key (game_id, snapshot_date)`. Индекс `playtime_snapshots_date_idx (snapshot_date)`.
+
+**Решение про границу дня: Europe/Moscow.** Обоснование: весь UI и статистика (месяц, год, Wrapped) показываются по Москве; граница месяца в Москве не совпадает с UTC на 3 часа, и по UTC часы игры в 01:00 МСК 1 числа ушли бы в прошлый месяц. Хранить дату в МСК проще, чем пересчитывать каждый запрос.
+
+Как работает:
+- `snapshot_date` для всех снимков одного запуска берётся **один раз из `sync_runs.started_at`** (в МСК), а не из текущего времени батча. Так запуск, растянутый на полночь, не размазывается по двум датам.
+- Vercel Cron в UTC: расписание `0 20 * * *` (23:00 МСК). Снимок отражает конец московского дня. На Hobby точность cron в пределах часа, то есть 23:00..23:59 МСК, дата остаётся той же. Расписание `0 20 * * *` фиксируется в `vercel.json` (зона frontend/оркестратора, здесь только контракт).
+- Идемпотентность: `INSERT ... ON CONFLICT (game_id, snapshot_date) DO UPDATE` (позднейший запуск того же дня перезаписывает значение, `captured_at` обновляется).
+- Снимок пишется для **каждой игры, присутствующей в ответе PSN**, даже если время не изменилось (иначе нельзя отличить «не играл» от «не снимали»). Игры, которых нет в ответе, снимок не получают.
+- Ошибка PSN: снимки не пишутся, данные не стираются. Дни без снимков это пропуски; дельта считается между ближайшими снимками.
+- Формула часов за период `[from, to]` (даты МСК, включительно) для игры: `S_end - S_base`, где `S_end` = последний снимок с `snapshot_date <= to`, `S_base` = последний снимок с `snapshot_date < from`. Если базового снимка нет (до первого синка истории нет), берётся первый снимок внутри периода, и часы до него не учитываются (дельта от первого снимка). Отрицательные дельты обнуляются. Реализация в `src/server/stats/` с Vitest.
+- Хранение: ~214 игр x 365 = ~78 тыс. строк в год, объём незначителен; сжатие/очистка не нужны.
+
+### 1.7 `sync_runs`
+Каждый запуск синка. Пишется до первого обращения к PSN и закрывается в `finally`.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `kind` | `sync_run_kind` | нет | |
+| `status` | `sync_run_status` | нет, default `running` | `partial` = часть батчей выполнена, продолжение будет следующим вызовом |
+| `error_reason` | `sync_error_reason` | да | заполняется при `failed` и `partial`. **`auth_expired`**: refresh token PSN протух (живёт ~10 дней, `docs/api-notes.md`) или обмен не удался, нужен новый NPSSO. `npsso_invalid`: переданный NPSSO отвергнут PSN. `access_denied`: цель закрыла список игр/трофеи или перестала быть другом. `rate_limited`: 429 после исчерпания повторов. `psn_unavailable`: 5xx/сеть. `timeout`: функция близка к лимиту, остаток отложен. `internal`: наша ошибка |
+| `error_message` | text | да | краткое описание без токенов, NPSSO, заголовков (макс. 500 символов, санитизируется) |
+| `snapshot_date` | date | нет | дата МСК, фиксируется при старте (см. 1.6) |
+| `started_at` | timestamptz | нет, default now() | |
+| `finished_at` | timestamptz | да | |
+| `phase` | text | да | текущий/последний этап: `auth`, `games`, `trophy_sets`, `trophy_link`, `trophies` |
+| `cursor` | jsonb | да | состояние для продолжения батчей (например, `{"trophies":{"nextSetId":123}}`). Без секретов |
+| `games_seen` / `games_upserted` / `snapshots_written` / `trophy_sets_synced` / `trophies_upserted` | integer | нет, default 0 | счётчики |
+| `warnings` | jsonb | да | массив коротких предупреждений (`{code,message}`), например уменьшение `playDuration` |
+
+Индексы: `sync_runs_started_at_idx (started_at desc)`; партиальный UNIQUE `sync_runs_one_running_idx ON sync_runs ((true)) WHERE status = 'running'` (не больше одного одновременного запуска; если запуск завис, считается «брошенным» через 15 минут и закрывается как `failed`/`timeout` при старте следующего).
+
+Влияние `auth_expired` на систему:
+- Синк при `auth_expired` останавливается, пишет `failed` с `error_reason = 'auth_expired'`, **данные не трогает**.
+- UI/health показывает «PSN недоступен: нужен новый NPSSO» и дату последнего успешного синка.
+- Следующий cron снова попробует; восстановление только после обновления секрета `PSN_NPSSO` (или записи нового NPSSO) в окружении Vercel. Так как смена секретов требует согласия Артёма, процесс обновления описывается оркестратором отдельно.
+- Из-за ~10 дней жизни refresh token суточный синк обязан обновлять пару токенов при каждом запуске и сохранять новый refresh token (см. 1.8).
+- Определение «последний успешный синк»: последняя строка со `status = 'success'`.
+
+### 1.8 `psn_auth` (одна строка)
+Хранит токены PSN между запусками serverless-функций.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | smallint PK | нет | всегда 1, CHECK `id = 1` |
+| `refresh_token_enc` | text | нет | refresh token, зашифрован AES-256-GCM ключом `TOKEN_ENCRYPTION_KEY`. Формат `v1:<iv_b64url>:<tag_b64url>:<ciphertext_b64url>` |
+| `refresh_expires_at` | timestamptz | да | расчётный срок жизни refresh token (`now + expires_in`) |
+| `access_token_enc` | text | да | опционально, тот же формат; можно не хранить (access живёт ~1 час, при каждом синке обновляется) |
+| `access_expires_at` | timestamptz | да | |
+| `source` | text | нет | `npsso` (получено обменом NPSSO) или `refresh` |
+| `updated_at` | timestamptz | нет | |
+
+Правила: токены никогда не логируются и не отдаются через API. Порядок получения токенов в `src/server/psn/`: 1) если в БД есть refresh token и он не истёк, обмен refresh -> новая пара, сохранить; 2) иначе обмен `PSN_NPSSO` -> пара, сохранить; 3) иначе `auth_expired` (если был refresh) или `npsso_invalid` (если NPSSO отвергнут). Запись пары атомарна (один UPDATE/UPSERT).
+
+### 1.9 Жанры: нормализация и словарь (код, не БД)
+- В БД: `games.psn_genres` (сырое), `games.genres_override` (заготовка).
+- Эффективные жанры игры: `genres_override ?? normalize(psn_genres)`.
+- Нормализация в `src/server/stats/genres.ts` (или рядом): `SIMULATOR` -> `SIMULATION`; `UNIQUE` -> `OTHER`; прочее как есть в нижнем ключе из словаря; неизвестное значение -> `OTHER` (и предупреждение в тестах, не падение). Дубликаты после нормализации схлопываются.
+- Пустой массив жанров -> `OTHER`.
+- Словарь RU-подписей: константа `GENRE_LABELS_RU: Record<GenreKey, string>` там же. Покрывает 17 известных значений (ACTION, ADVENTURE, ROLE_PLAYING_GAMES, SHOOTER, HORROR, UNIQUE, RACING, SIMULATOR, FIGHTING, ARCADE, MUSIC/RHYTHM, CASUAL, STRATEGY, SIMULATION, PUZZLE, FAMILY, PARTY). Точные ключи `MUSIC/RHYTHM` нормализовать в `MUSIC_RHYTHM`.
+- Вес в статистике: игра делится между жанрами по 1/N (N после нормализации и схлопывания).
+
+### 1.10 `login_attempts`
+Для защиты от перебора (serverless без общей памяти).
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `ip_hash` | text | нет | HMAC-SHA256(ip, `SESSION_SECRET`) в hex; сырой IP не хранится |
+| `attempted_at` | timestamptz | нет, default now() | |
+| `success` | boolean | нет | |
+
+Индекс `login_attempts_ip_time_idx (ip_hash, attempted_at desc)`. Записи старше 24 часов удаляются при каждом входе (`DELETE ... WHERE attempted_at < now() - interval '24 hours'`).
+
+### 1.11 Диаграмма связей
+```
+games 1---1 game_status
+games 1---N playtime_snapshots
+games N---M trophy_sets   (через game_trophy_sets)
+trophy_sets 1---N trophies
+sync_runs 1---N playtime_snapshots (nullable)
+psn_auth (singleton), login_attempts (самостоятельная)
+```
+
+## 2. Идемпотентный синк (требования к схеме)
+- Порядок: `auth` -> `games` (страницы по 200) -> `trophy_sets` (`getUserTitles`, до 800) -> `trophy_link` (для новых/непроверенных игр пачки по 5 titleId, пауза 300 мс) -> `trophies` (сеты пачками).
+- Все записи через апсерты по ключам выше. Повтор запуска даёт тот же результат.
+- Каждый батч в транзакции; курсор в `sync_runs.cursor` обновляется в той же транзакции.
+- Запуск вне срока функции: останавливаемся с запасом, пишем `partial` + `error_reason = 'timeout'`, продолжаем с курсора следующим вызовом `/api/cron/sync` (cron вызывает его один раз в сутки; продолжение инициирует сам эндпоинт повторным вызовом/`waitUntil` либо ручной запуск, детали в плане синка).
+- Снимки пишутся на фазе `games` в том же батче, что и апсерт игр.
+
+## 3. Auth
+
+### 3.1 Механизм
+- Единственный пароль `ADMIN_PASSWORD`, пользователей нет.
+- Сессия: cookie `pst_session`, значение `<payload_b64url>.<signature_b64url>`.
+  - `payload` = JSON `{"v":1,"iat":<unix сек>,"exp":<unix сек>}`.
+  - `signature` = HMAC-SHA256(`payload_b64url`, `SESSION_SECRET`).
+- Атрибуты cookie: `HttpOnly; Secure` (кроме `localhost` в dev); `SameSite=Lax`; `Path=/`; `Max-Age=2592000`.
+- **Срок сессии: 30 дней, фиксированный** (без продления; после истечения нужен повторный вход). Обоснование: один пользователь, личное устройство; фиксированный срок проще и безопаснее скользящего.
+- Отзыв всех сессий: смена `SESSION_SECRET` (нужно согласие Артёма: смена секретов).
+- Проверка подписи и срока в `src/proxy.ts` (Next.js 16: `middleware.ts` переименован в `proxy.ts`, runtime Node.js; код совместим с Edge) через Web Crypto (`crypto.subtle`, HMAC verify). `crypto.subtle.verify` сравнивает подпись за постоянное время; ручное сравнение через `===` запрещено. Реализация в `src/server/auth/session.ts`, без зависимостей от Node-API, чтобы работала и в Edge.
+
+### 3.2 Сравнение пароля
+- В route handler `/api/auth/login` (runtime `nodejs`): `sha256(input)` и `sha256(ADMIN_PASSWORD)` -> `crypto.timingSafeEqual` по двум буферам по 32 байта (выравнивает длину, не раскрывает её).
+- Пустой или отсутствующий `ADMIN_PASSWORD` или `SESSION_SECRET` (менее 32 символов) -> сервер отвечает `500 config_error`, вход невозможен (fail closed). Значения не логируются.
+
+### 3.3 Защита от перебора
+- Лимит по IP (из `x-forwarded-for`, первый адрес; на Vercel заголовку можно доверять): **5 неудачных попыток за 15 минут** -> `429 rate_limited`, заголовок `Retry-After` (секунды до освобождения старейшей попытки в окне).
+- Глобальный лимит: **20 неудачных попыток за час на всех** -> `429` (защита от ротации IP).
+- При неверном пароле ответ с искусственной задержкой 500 мс.
+- Успешный вход не сбрасывает счётчик (запись `success = true`, в лимит не входит).
+- Атомарность: проверка лимита и запись попытки идут в одной транзакции под `pg_advisory_xact_lock`. Попытка записывается как неудача (`success = false`) **до** сравнения пароля; при верном пароле запись обновляется до `success = true`. Заблокированный запрос (429) ничего не пишет. Параллельная пачка неверных паролей не может превысить лимит.
+- Источник: таблица `login_attempts` (1.10).
+- Проверка лимита идёт **до** сравнения пароля, чтобы заблокированный IP не мог ничего проверять.
+
+### 3.4 Proxy (`src/proxy.ts`, бывший middleware)
+Matcher: `/api/*` проходит через proxy всегда (расширение в пути не пропускает). Остальные пути, кроме `_next/static`, `_next/image`, `favicon.ico` и файлов с расширениями статики (иконки, шрифты), тоже. Логика:
+
+| Путь | Правило |
+|---|---|
+| `/login` | открыт. Если сессия валидна, redirect на `/` |
+| `/api/auth/login` | открыт (POST) |
+| `/api/auth/logout` | открыт (сессия не требуется), идемпотентен, очищает cookie |
+| `/api/cron/*` | открыт для сессии, но требует `Authorization: Bearer <CRON_SECRET>`; сравнение constant-time; иначе `401` JSON. Vercel Cron подставляет этот заголовок сам, когда задан `CRON_SECRET` |
+| всё остальное (страницы) | нет валидной cookie -> `302` на `/login?next=<path>` (только относительные пути, начинающиеся с одного `/`, иначе игнорировать `next`) |
+| всё остальное под `/api/*` | нет валидной cookie -> `401` JSON `{"ok":false,"error":{"code":"unauthorized",...}}` (без редиректа) |
+
+Дополнительно:
+- `/api/health` закрыт обычной сессией (не публичный), чтобы не раскрывать состояние.
+- Cookie с неверной подписью или истёкшим сроком = нет сессии; cookie очищается в ответе.
+- Все ответы закрытых зон: заголовок `Cache-Control: no-store`.
+- Если `CRON_SECRET` не задан, `/api/cron/*` отвечает `401` всегда (fail closed).
+- CSRF: `SameSite=Lax` + POST-эндпоинты принимают только `application/json` и проверяют `Origin`, если заголовок есть (должен совпадать с хостом). Мутации только POST/PUT/PATCH/DELETE.
+
+### 3.5 Эндпоинты
+
+**`POST /api/auth/login`**
+- Запрос: `Content-Type: application/json`, тело `{"password": string, "next"?: string}`. `password` 1..256 символов.
+- 200: `{"ok":true,"data":{"redirectTo":"/"}}` + `Set-Cookie: pst_session=...`. `redirectTo` = валидный `next` или `/`.
+- 400 `invalid_request`: тело не JSON или нет `password`.
+- 401 `invalid_credentials`: пароль неверен (одно и то же сообщение независимо от причины).
+- 429 `rate_limited`: `Retry-After`; в `error.details` поле `retryAfterSeconds`.
+- 500 `config_error`.
+
+Страница `/login` (UI, зона frontend) вызывает этот эндпоинт через fetch и по 200 делает переход на `redirectTo`.
+
+**`POST /api/auth/logout`**
+- Запрос: без тела, но `Content-Type: application/json` обязателен; `Origin`, если есть, должен совпадать с хостом, иначе `400 invalid_request` (3.4).
+- 200: `{"ok":true,"data":{}}` + `Set-Cookie: pst_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`.
+- Идемпотентен: без сессии тоже 200.
+
+**`GET /api/cron/sync`** (описание эндпоинта в плане синка; здесь только защита): `Authorization: Bearer <CRON_SECRET>` обязателен.
+
+## 4. Формат ответов API
+
+### 4.1 Конверт
+Успех (HTTP 2xx):
+```json
+{ "ok": true, "data": { } }
+```
+Ошибка (HTTP 4xx/5xx):
+```json
+{ "ok": false, "error": { "code": "string", "message": "string", "details": { } } }
+```
+- `code`: стабильный машинный код в `snake_case` из списка ниже. `message`: короткий текст на русском для показа пользователю, без внутренних деталей. `details`: необязательный объект.
+- `Content-Type: application/json; charset=utf-8`.
+- Даты в ответах: ISO 8601 строка UTC с `Z` (`2026-10-27T20:00:00.000Z`); календарные даты: `YYYY-MM-DD` (МСК). Форматирование для показа делает UI в Europe/Moscow.
+- Неожиданные исключения: `500 internal_error`, стек и SQL наружу не уходят.
+
+### 4.2 Коды ошибок
+| HTTP | code | Когда |
+|---|---|---|
+| 400 | `invalid_request` | невалидный JSON, нарушена валидация |
+| 401 | `unauthorized` | нет валидной сессии (API) или неверный `CRON_SECRET` |
+| 401 | `invalid_credentials` | неверный пароль |
+| 404 | `not_found` | |
+| 429 | `rate_limited` | перебор пароля |
+| 500 | `config_error` | не заданы или невалидны обязательные env |
+| 500 | `internal_error` | прочее |
+| 503 | `db_unavailable` | БД недоступна |
+
+### 4.3 `GET /api/health`
+Требует сессию. Всегда отвечает быстро, к PSN **не обращается** (только БД).
+
+200 при рабочей БД (даже если последний синк упал):
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "ok",
+    "time": "2026-10-27T20:00:00.000Z",
+    "db": { "ok": true },
+    "sync": {
+      "lastRun": {
+        "id": 12,
+        "kind": "daily",
+        "status": "success",
+        "errorReason": null,
+        "startedAt": "2026-10-26T20:00:03.000Z",
+        "finishedAt": "2026-10-26T20:01:10.000Z",
+        "snapshotDate": "2026-10-26"
+      },
+      "lastSuccessAt": "2026-10-26T20:01:10.000Z",
+      "psnAuth": "ok"
+    }
+  }
+}
+```
+- `sync.lastRun` = последняя запись `sync_runs` (любого статуса) или `null`, если синков не было. `lastSuccessAt` = `finished_at` последнего `success` или `null`.
+- `sync.psnAuth`: `ok` | `auth_expired` | `unknown`. `auth_expired`, если последний завершённый запуск (не `running`) упал с `error_reason in ('auth_expired','npsso_invalid')`; `unknown`, если запусков нет; иначе `ok`.
+- `data.status`: `ok` если БД ответила; `degraded` если БД ответила, но `psnAuth = auth_expired` или последний запуск `failed`.
+- 503 `db_unavailable`, если запрос к БД не удался (в этом случае конверт ошибки).
+
+## 5. Переменные окружения
+Секреты только на сервере (без префикса `NEXT_PUBLIC_`). В репозитории только `.env.example` без значений. Валидация при старте (`src/server/env.ts`, zod): отсутствие обязательной переменной = `config_error`, значения в логи не попадают.
+
+| Переменная | Обязательна | Где | Описание |
+|---|---|---|---|
+| `DATABASE_URL` | да | сервер | строка подключения Neon (pooled) для приложения |
+| `DATABASE_URL_UNPOOLED` | для миграций | сервер, CI | прямое подключение Neon для `drizzle-kit migrate` |
+| `ADMIN_PASSWORD` | да | сервер | пароль входа, не короче 12 символов |
+| `SESSION_SECRET` | да | сервер | ключ HMAC для cookie и `ip_hash`, не короче 32 символов случайных (`openssl rand -base64 48`) |
+| `CRON_SECRET` | да | сервер | Bearer-секрет для `/api/cron/*`, не короче 32 символов. Vercel подставляет сам |
+| `PSN_NPSSO` | да | сервер | NPSSO технического аккаунта (64 символа). Используется только когда нет рабочего refresh token |
+| `PSN_TARGET_ONLINE_ID` | да | сервер | PSN ID отслеживаемого аккаунта (Артёма) |
+| `TOKEN_ENCRYPTION_KEY` | да | сервер | ключ AES-256-GCM для токенов в `psn_auth`: 32 байта в base64 |
+| `PSN_REQUEST_DELAY_MS` | нет, 300 | сервер | пауза между запросами к PSN |
+| `SYNC_TIME_BUDGET_MS` | нет, 50000 | сервер | бюджет времени одного вызова синка до остановки с курсором (значение подбирается под `maxDuration` функции) |
+| `APP_TIMEZONE` | нет | - | **не используется**: часовой пояс жёстко `Europe/Moscow` в константе кода |
+
+Запрещено: логировать любую из переменных, `PSN_NPSSO`, токены, заголовки `Authorization` и `Cookie`. В `error_message` синка токены вырезаются.
+
+## 6. Правила миграций
+1. Источник истины схемы: `src/db/schema.ts`. SQL-миграции генерирует `drizzle-kit generate` в `src/db/migrations/`, коммитятся в репозиторий. Править сгенерированный SQL вручную можно только для данных/индексов, которые drizzle не выражает (партиальные индексы, CHECK, partial UNIQUE), с комментарием.
+2. Применение: `drizzle-kit migrate` по `DATABASE_URL_UNPOOLED`, отдельным шагом (скрипт `db:migrate`), **не** при старте приложения и не в рантайме функции.
+3. Миграции только вперёд (down-миграций нет); исправление = новая миграция. Одна миграция = одно логическое изменение.
+4. Совместимость: двухшаговые изменения (expand -> contract). Добавление колонки с default или nullable безопасно; переименование и удаление делаются отдельной миграцией после выката кода.
+5. **Миграции с потерей данных** (`DROP TABLE/COLUMN`, сужение типа, `TRUNCATE`, `DELETE` без возможности восстановления) требуют согласия Артёма через оркестратора. В заголовке такой миграции комментарий `-- DATA LOSS: <что теряется>`.
+6. Применение к проду только с согласия оркестратора; до этого проверка на отдельной ветке Neon (branching) или локальной БД.
+7. Таблицы `game_status` и `playtime_snapshots` содержат невосстановимые данные (ручные статусы, история часов): перед любыми изменениями этих таблиц сделать backup/ветку Neon.
+8. Начальная миграция `0000` создаёт все таблицы и enum из раздела 1 целиком.
+9. Seed-данных нет. Тестовые фикстуры живут в тестах.
+
+## 7. Открытые вопросы (к оркестратору)
+1. Расписание cron `0 20 * * *` (23:00 МСК) и фиксация `snapshot_date` по МСК согласовать (повлияет на `vercel.json`).
+2. Хранение refresh token PSN в БД в зашифрованном виде (`psn_auth`) нужно для суточного продления (~10 дней жизни); альтернатива (только env) невозможна, так как env нельзя обновлять из функции. Подтвердить.
+3. Процесс обновления NPSSO при `auth_expired` (кто и как меняет `PSN_NPSSO` на Vercel): нужен регламент и индикатор в UI.
+4. Продолжение `partial`-синка: как именно инициировать следующий батч в рамках Vercel (self-invoke / повторный cron / кнопка). Решается в плане синка.
+5. Имя `ADMIN_PASSWORD` минимальная длина 12 и `Secure`-cookie в dev на `http://localhost`: оставить как есть?
