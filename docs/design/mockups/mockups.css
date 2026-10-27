@@ -17,7 +17,7 @@
   --dur-fast: 120ms; --dur-base: 200ms; --ease: cubic-bezier(.2,.8,.2,1);
   --hover-lift: -3px;
 }
-@media (max-width: 767px) { :root { --gutter: 16px; --cover-gap: 10px; } }
+@media (max-width: 767px) { :root { --gutter: 16px; --cover-gap: 10px; } .page .grid { --cols: 2; } .page .grid.dense { --cols: 3; } }
 
 /* ---------- Night ---------- */
 :root, [data-theme="night"] {
@@ -151,8 +151,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .yh .k b { color: var(--text); font-weight: 600; }
 .yh .tg { margin-left: auto; color: var(--text-3); font-size: 12px; }
 .yh.collapsed { border-bottom-color: transparent; opacity: .85; }
-.mh { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 10px; color: var(--text-2); font-size: 13px; font-weight: 600; }
-.mh small { font-weight: 400; color: var(--text-3); display: inline-flex; gap: 10px; }
+.mh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 20px 0 10px; color: var(--text-2); font-size: 13px; font-weight: 600; }
+.mh small { font-weight: 400; color: var(--text-3); display: inline-flex; gap: 10px; white-space: nowrap; flex: none; }
+.mh small > span { display: inline-flex; align-items: center; white-space: nowrap; }
 .mh small .sh { width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; color: var(--st); }
 .btn { height: 36px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--border-strong); display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
@@ -175,7 +176,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .plat { position: absolute; top: 8px; left: 8px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--on-cover-bg); color: var(--platinum); border: 1px solid rgba(255,255,255,.12); }
 .plat svg { width: 14px; height: 14px; fill: currentColor; }
 .dense .plat { display: none; }
-.plaque { position: absolute; left: 8px; right: 8px; bottom: 8px; height: 24px; padding: 0 8px; display: flex; align-items: center; gap: 6px; border-radius: calc(var(--r-cover) - 4px); background: var(--on-cover-bg); color: #fff; font: 600 11px/14px var(--font-body); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.plaque { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); height: 24px; padding: 0 8px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: calc(var(--r-cover) - 4px); background: var(--on-cover-bg); color: #fff; font: 600 11px/14px var(--font-body); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .plaque .sh { width: 12px; height: 12px; color: var(--st); }
 .dense .plaque { display: none; }
 .hov { position: absolute; inset: auto 0 0 0; padding: 36px 10px 10px; background: var(--cover-scrim); color: #fff; font-size: 12px; line-height: 16px; opacity: 0; transition: opacity var(--dur-base); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
@@ -187,7 +188,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .dense .hov b { font-size: 11px; }
 .dense .hov span { display: none; }
 .ttl { margin-top: 8px; font: 600 13px/16px var(--font-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.sub { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--text-3); }
+.sub { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dense .ttl, .dense .sub { display: none; }
 .card.dropped .cover { filter: saturate(.45) brightness(.9); }
 .card.none .badge { border-style: dashed; border-color: rgba(255,255,255,.4); }
@@ -238,7 +239,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .phone .yh .tg { display: none; }
 .phone .badge { width: 22px; height: 22px; top: 6px; right: 6px; }
 .phone .badge .sh { width: 13px; height: 13px; }
-.phone .plaque { left: 5px; right: 5px; bottom: 5px; height: 20px; padding: 0 5px; font-size: 10px; }
+.phone .plaque { left: 6px; bottom: 6px; max-width: calc(100% - 12px); height: 20px; padding: 0 6px; font-size: 11px; }
 .phone .plat { width: 22px; height: 22px; top: 6px; left: 6px; }
 .phone .ttl { font-size: 12px; }
 .sheet { position: sticky; bottom: 56px; margin-top: 24px; z-index: 2; }
