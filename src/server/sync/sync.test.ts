@@ -424,7 +424,7 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('статус: прогресс, счётчики и конверт для running', async () => {
-    expect(await getSyncStatus(t.db)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null });
+    expect(await getSyncStatus(t.db)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 } });
     const s = await startRun(t.db, { kind: 'manual', now: new Date(clock.t) });
     if (s.kind !== 'started') throw new Error();
     const st = await getSyncStatus(t.db);
@@ -432,6 +432,19 @@ describe('синк на PGlite и фейковом PSN', () => {
     expect(st.run).toMatchObject({ status: 'running', phase: 'auth', progress: { step: 1, steps: 4, done: null, total: null } });
     await t.db.update(syncRuns).set({ phase: 'trophies', cursor: { phase: 'trophies', hops: 0, progress: { done: 3, total: 5 } } }).where(and(eq(syncRuns.id, s.run.id)));
     expect((await getSyncStatus(t.db)).run?.progress).toEqual({ phase: 'trophies', step: 4, steps: 4, done: 3, total: 5 });
+  });
+
+  it('статус: totals считаются из БД', async () => {
+    const [set] = await t.db.insert(schema.trophySets).values({ npCommunicationId: 'NPWRTOT', npServiceName: 'trophy', name: 'T' }).returning();
+    await t.db.insert(schema.trophies).values([
+      { trophySetId: set.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date(clock.t) },
+      { trophySetId: set.id, trophyId: 1, type: 'bronze', earned: true, earnedAt: new Date(clock.t) },
+      { trophySetId: set.id, trophyId: 2, type: 'gold' },
+      { trophySetId: set.id, trophyId: 3, type: 'platinum' },
+    ]);
+    const st = await getSyncStatus(t.db);
+    const gamesCount = (await t.db.select().from(schema.games)).length;
+    expect(st.totals).toEqual({ games: gamesCount, trophySets: 1, trophies: 4, trophiesEarned: 2, platinumEarned: 1 });
   });
 
   it('ошибка БД/внутренняя: failed/internal без SQL-параметров в сообщении', async () => {

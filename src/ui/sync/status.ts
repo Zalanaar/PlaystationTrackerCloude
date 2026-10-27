@@ -29,7 +29,17 @@ export interface SyncRun {
   warningsCount?: number;
 }
 
+/** Итоги из БД (не по запуску). */
+export interface SyncTotals {
+  games: number;
+  trophySets: number;
+  trophies: number;
+  trophiesEarned: number;
+  platinumEarned: number;
+}
+
 export interface SyncStatus {
+  totals?: SyncTotals | null;
   running: boolean;
   run: SyncRun | null;
   lastSuccessAt: string | null;
@@ -87,6 +97,31 @@ export function progressFraction(run: SyncRun): number | null {
   if (!p) return null;
   if (p.done !== null && p.total !== null && p.total > 0) return Math.min(1, p.done / p.total);
   return null;
+}
+
+const nf = new Intl.NumberFormat('ru-RU');
+
+/** Строки итогов из БД; пустой список, если totals нет. */
+export function totalsRows(t: SyncTotals | null | undefined): { label: string; value: string }[] {
+  if (!t) return [];
+  const rows: { label: string; value: string }[] = [];
+  if (Number.isFinite(t.games)) rows.push({ label: 'Игр', value: nf.format(t.games) });
+  if (Number.isFinite(t.trophiesEarned) && Number.isFinite(t.trophies)) {
+    rows.push({ label: 'Трофеев', value: `${nf.format(t.trophiesEarned)} из ${nf.format(t.trophies)}` });
+  }
+  if (Number.isFinite(t.platinumEarned)) rows.push({ label: 'Платин', value: nf.format(t.platinumEarned) });
+  return rows;
+}
+
+/** Прогресс запуска (только пока идёт синк). */
+export function runCountersText(run: SyncRun): string | null {
+  const c = run.counters;
+  if (!c) return null;
+  const parts: string[] = [];
+  if (c.gamesSeen !== undefined) parts.push(`игр: ${c.gamesSeen}`);
+  if (c.trophySetsSynced !== undefined) parts.push(`наборов трофеев: ${c.trophySetsSynced}`);
+  if (c.trophiesUpserted !== undefined) parts.push(`трофеев: ${c.trophiesUpserted}`);
+  return parts.length ? `Обработано за этот запуск: ${parts.join(', ')}` : null;
 }
 
 export function buttonLabel(s: Pick<SyncStatus, 'run' | 'running'>, busy: boolean): string {

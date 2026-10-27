@@ -1,5 +1,5 @@
 // GET /api/sync/status (контракт 8.4). Только БД.
-import { desc, eq, ne } from 'drizzle-orm';
+import { desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { PHASES, parseCursor } from './context';
@@ -16,6 +16,25 @@ export async function getSyncStatus(db: AnyDb) {
     .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
     .limit(1);
   const [auth] = await db.select({ refreshExpiresAt: psnAuth.refreshExpiresAt }).from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+
+  // Один запрос: скалярные подзапросы-агрегаты, без N+1.
+  const totalsRes = await db.execute(sql`
+    select
+      (select count(*) from games)::int as games,
+      (select count(*) from trophy_sets)::int as trophy_sets,
+      count(*)::int as trophies,
+      (count(*) filter (where earned))::int as trophies_earned,
+      (count(*) filter (where earned and type = 'platinum'))::int as platinum_earned
+    from trophies`);
+  const rows = (Array.isArray(totalsRes) ? totalsRes : (totalsRes as { rows: unknown[] }).rows) as Record<string, number>[];
+  const tr = rows[0] ?? {};
+  const totals = {
+    games: Number(tr.games ?? 0),
+    trophySets: Number(tr.trophy_sets ?? 0),
+    trophies: Number(tr.trophies ?? 0),
+    trophiesEarned: Number(tr.trophies_earned ?? 0),
+    platinumEarned: Number(tr.platinum_earned ?? 0),
+  };
 
   const authFailed = lastDone?.errorReason === 'auth_expired' || lastDone?.errorReason === 'npsso_invalid';
   const psnAuthState = !lastDone ? 'unknown' : authFailed ? 'auth_expired' : 'ok';
@@ -59,5 +78,6 @@ export async function getSyncStatus(db: AnyDb) {
     lastSuccessAt: lastSuccess?.finishedAt ? lastSuccess.finishedAt.toISOString() : null,
     psnAuth: psnAuthState,
     psnAuthExpiresAt: auth?.refreshExpiresAt ? auth.refreshExpiresAt.toISOString() : null,
+    totals,
   };
 }

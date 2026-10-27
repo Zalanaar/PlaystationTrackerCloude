@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
-  STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, startErrorText,
+  STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText,
+  startErrorText, totalsRows,
   type SyncStatus,
 } from './status';
 
@@ -125,24 +126,19 @@ export function SyncPanel() {
                 <dd className="text-text" data-testid="run-status">{STATUS_LABEL[run.status]}</dd>
               </>
             )}
-            {run?.counters?.gamesSeen !== undefined && (
-              <>
-                <dt>Игр</dt>
-                <dd className="font-num text-text">{run.counters.gamesSeen}</dd>
-              </>
-            )}
-            {run?.counters?.trophiesUpserted !== undefined && (
-              <>
-                <dt>Трофеев</dt>
-                <dd className="font-num text-text">{run.counters.trophiesUpserted}</dd>
-              </>
-            )}
+            {totalsRows(status?.totals).map((r) => (
+              <Fragment key={r.label}>
+                <dt>{r.label}</dt>
+                <dd className="font-num text-text">{r.value}</dd>
+              </Fragment>
+            ))}
           </dl>
         )}
 
         {running && run && (
           <div role="status" className="flex flex-col gap-2">
             <p className="text-text">{phaseText(run)}</p>
+            {runCountersText(run) && <p className="text-text-2">{runCountersText(run)}</p>}
             <div
               className="h-[6px] overflow-hidden rounded-pill bg-surface-3"
               role="progressbar"

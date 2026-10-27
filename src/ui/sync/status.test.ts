@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, startErrorText, type SyncRun } from './status';
+import { buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText, startErrorText, totalsRows, type SyncRun } from './status';
 
 const run = (o: Partial<SyncRun> = {}): SyncRun => ({
   id: 1, kind: 'manual', status: 'running', phase: 'trophies', errorReason: null, errorMessage: null,
@@ -38,6 +38,17 @@ describe('sync status mapping', () => {
     expect(formatMoscow('2026-10-26T20:01:10.000Z')).toContain('23:01');
     expect(formatMoscow(null)).toBeNull();
     expect(formatMoscow('мусор')).toBeNull();
+  });
+  it('итоги из totals; без totals строк нет', () => {
+    const rows = totalsRows({ games: 214, trophySets: 200, trophies: 9000, trophiesEarned: 4321, platinumEarned: 12 });
+    expect(rows.map((r) => r.label)).toEqual(['Игр', 'Трофеев', 'Платин']);
+    expect(rows[1].value.replace(/\s/g, ' ')).toBe('4 321 из 9 000');
+    expect(totalsRows(null)).toEqual([]);
+    expect(totalsRows(undefined)).toEqual([]);
+  });
+  it('счётчики запуска как прогресс', () => {
+    expect(runCountersText(run({ counters: { gamesSeen: 5, trophiesUpserted: 0 } }))).toBe('Обработано за этот запуск: игр: 5, трофеев: 0');
+    expect(runCountersText(run({ counters: null }))).toBeNull();
   });
   it('409 = уже идёт', () => {
     expect(startErrorText(409, 'sync_in_progress')).toBe('Синк уже идёт.');

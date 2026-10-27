@@ -478,10 +478,12 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
     },
     "lastSuccessAt": "2026-10-26T20:01:10.000Z",
     "psnAuth": "ok",
-    "psnAuthExpiresAt": "2026-11-05T20:00:09.000Z"
+    "psnAuthExpiresAt": "2026-11-05T20:00:09.000Z",
+    "totals": { "games": 214, "trophySets": 170, "trophies": 9120, "trophiesEarned": 4310, "platinumEarned": 38 }
   }
 }
 ```
+- `totals` = итоги из БД (не счётчики последнего запуска), один агрегатный запрос: `games` = строки `games`, `trophySets` = строки `trophy_sets`, `trophies` = строки `trophies`, `trophiesEarned` = `trophies.earned = true`, `platinumEarned` = `earned` и `type = 'platinum'`. Целые числа, при пустой БД 0.
 - `run` = последняя запись `sync_runs` или `null`. `running` = есть запись со статусом `running`.
 - `progress.step`/`steps`: номер фазы среди `games, trophy_sets, trophy_link, trophies`; `done`/`total` заполнены только для `trophy_link` и `trophies`, иначе `null`.
 - `lastSuccessAt` = `finished_at` последнего `success`.
