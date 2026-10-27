@@ -60,7 +60,6 @@ test.describe('wrapped QA: стресс', () => {
 
   for (const vp of [{ width: 1280, height: 800 }, { width: 1280, height: 600 }, { width: 390, height: 844 }, { width: 360, height: 640 }, { width: 320, height: 568 }]) {
     test(`все слайды ${vp.width}x${vp.height}: содержимое не вылезает, крестик в экране, нет h-скролла`, async ({ page, context, baseURL }) => {
-      test.fail(vp.width === 320, 'BUG-W2/W3: на 320px длинные ник/названия и ряд обложек вылезают, слайд «Самая долгая игра» выше экрана; снять после исправления');
       await page.setViewportSize(vp);
       await open(page, context, baseURL!, '/wrapped');
       await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -220,7 +219,6 @@ test.describe('wrapped QA: реалистичные данные на узких
   };
   for (const vp of [{ width: 390, height: 844 }, { width: 360, height: 740 }, { width: 320, height: 568 }]) {
     test(`finished ${vp.width}px: ряд обложек не вылезает из слайда`, async ({ page, context, baseURL }) => {
-      test.fail(vp.width === 320, 'BUG-W2: на 320px ряд из 4 обложек шире слайда на 3px; снять после исправления');
       await page.setViewportSize(vp);
       await open(page, context, baseURL!, '/wrapped', real);
       await page.emulateMedia({ reducedMotion: 'reduce' });
