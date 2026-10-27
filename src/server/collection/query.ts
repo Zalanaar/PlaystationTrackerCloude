@@ -17,6 +17,7 @@ const { games, gameStatus, gameTrophySets, trophySets, trophies } = schema;
 
 export const CONTINUE_LIMIT = 8;
 export const PLAYING_LIMIT = 20;
+export const SERVICES_LIMIT = 50;
 const TZ = 'Europe/Moscow';
 
 const PLATFORM: Record<string, Platform> = { ps4_game: 'PS4', ps5_native_game: 'PS5', pspc_game: 'PC' };
@@ -156,7 +157,7 @@ export async function getGamesByIds(db: AnyDb, ids: number[]): Promise<GameItem[
 }
 
 export function emptyCounts(): StatusCounts {
-  return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 0 };
+  return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 };
 }
 
 async function statusCounts(db: AnyDb, where: SQL | undefined): Promise<StatusCounts> {
@@ -227,7 +228,7 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
 
 export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummaryResponse> {
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
-  const [gameTotals, trophyTotals, counts, playingRows, continueRows] = await Promise.all([
+  const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
       .from(games),
@@ -239,6 +240,7 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
       .from(trophies),
     statusCounts(db, undefined),
     itemsQuery(db).q.where(eq(gameStatus.status, 'playing')).orderBy(...byRecent).limit(PLAYING_LIMIT),
+    itemsQuery(db).q.where(eq(gameStatus.status, 'service')).orderBy(...byRecent).limit(SERVICES_LIMIT),
     itemsQuery(db)
       .q.where(and(isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
       .orderBy(desc(games.lastPlayedAt), desc(games.id))
@@ -255,6 +257,7 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
     },
     counts,
     playing: playingRows.map((r) => toGameItem(normalizeRow(r as never))),
+    services: serviceRows.map((r) => toGameItem(normalizeRow(r as never))),
     continue: continueRows.map((r) => toGameItem(normalizeRow(r as never))),
   };
 }

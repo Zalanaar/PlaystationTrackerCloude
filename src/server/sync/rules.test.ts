@@ -35,7 +35,7 @@ describe('computeStatusChange (чистые правила 1.3)', () => {
   it('уход с completed обнуляет дату; другие статусы дат не имеют', () => {
     const t = computeStatusChange(cur('completed', { completedAt: LAST }), 'playing', { lastPlayedAt: LAST, now: NOW });
     expect(t).toMatchObject({ row: { status: 'playing', completedAt: null, droppedAt: null } });
-    for (const s of ['playing', 'backlog', 'shelved'] as const) {
+    for (const s of ['playing', 'backlog', 'shelved', 'service'] as const) {
       expect(computeStatusChange(none, s, { lastPlayedAt: LAST, now: NOW })).toMatchObject({ row: { completedAt: null, droppedAt: null } });
     }
   });
@@ -56,6 +56,8 @@ describe('computeStatusChange (чистые правила 1.3)', () => {
     expect(computeDateEdit(cur('completed', { completedAt: LAST }), date)).toMatchObject({ completedAt: date, droppedAt: null });
     expect(computeDateEdit(cur('dropped'), date)).toMatchObject({ droppedAt: date, completedAt: null });
     expect(() => computeDateEdit(cur('playing'), date)).toThrow(StatusRuleError);
+    expect(() => computeDateEdit(cur('service'), date)).toThrow(StatusRuleError);
+    expect(computeStatusChange(cur('completed', { completedAt: LAST }), 'service', { lastPlayedAt: LAST, now: NOW })).toMatchObject({ row: { status: 'service', completedAt: null, droppedAt: null } });
     expect(() => computeDateEdit(null, date)).toThrow(StatusRuleError);
   });
 });
