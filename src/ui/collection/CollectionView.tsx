@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CollectionSummaryResponse, GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { cssUrl, formatNumber } from '../format';
@@ -15,7 +15,7 @@ import { buttonLabel, phaseText, progressFraction } from '../sync/status';
 import { STATUS_META, type ViewMode } from '../tokens';
 import { ApiError, errorText, fetchGames, fetchSummary, patchStatusDate, postBulk, putStatus } from './api';
 import {
-  blockGames, buildPlan, blockSort, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
+  blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
 } from './blocks';
 import { BlockHead, MonthHeader, YearHeader } from './Chronicle';
 import { defaultExpandedYears, emptyCounts, groupChronicle, gridCols, previewSlots } from './chronicle';
@@ -36,7 +36,8 @@ const PAGE = 60;
 const BULK_MAX = 250;
 
 type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
-type Pool = { items: GameItem[]; counts: StatusCounts; total: number };
+type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[] };
+const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Не разобрано' };
 
 function oldDate(g: GameItem): DateRestore | undefined {
   if (g.status === 'completed' && g.completedAt) return { kind: 'completed', iso: g.completedAt };
@@ -107,12 +108,21 @@ export function CollectionView() {
       let next: Pool;
       if (isChronicleMode(f)) {
         const plan = buildPlan(f.status, f.q);
-        const rs = await Promise.all(plan.map((p) => fetchGames(p.query)));
-        const chronIdx = plan.findIndex((p) => p.block === 'chronicle');
-        next = { items: union(rs.map((r) => r.items)), counts: rs[0].counts, total: chronIdx >= 0 ? rs[chronIdx].total : rs[0].total };
+        const rs = await Promise.allSettled(plan.map((p) => fetchGames(p.query)));
+        const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
+        if (ok.length === 0) {
+          const first = rs[0];
+          if (first.status === 'rejected' && first.reason instanceof ApiError && first.reason.status === 401) return;
+          throw new Error('all blocks failed');
+        }
+        const failed = plan.filter((_, i) => rs[i].status === 'rejected').map((p) => p.block);
+        // у упавшего блока остаются ранее загруженные игры его статусов
+        const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
+        const chron = ok.find((x) => x.block === 'chronicle');
+        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed };
       } else {
         const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
-        next = { items: r.items, counts: r.counts, total: r.total };
+        next = { items: r.items, counts: r.counts, total: r.total, failed: [] };
       }
       if (id !== reqId.current) return;
       setPool(next);
@@ -327,7 +337,8 @@ export function CollectionView() {
     ...(isOpen('undated') ? chron.undated : []),
   ];
   const shownGames = chronicleMode ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : byBlock[b])) : flat;
-  const empty = !!pool && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
+  const failedBlocks = pool?.failed ?? [];
+  const empty = !!pool && failedBlocks.length === 0 && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
   const noData = !!pool && pool.counts.all === 0 && !active && !error;
   const playing = byBlock.playing ?? [];
   const openGame = open ? (all.find((g) => g.id === open.id) ?? open.snapshot) : null;
@@ -514,7 +525,20 @@ export function CollectionView() {
             <button type="button" className="ps-btn ps-btn--ghost" onClick={() => setFilters(resetFilters(filters))}>Сбросить фильтры</button>
           </EmptyState>
         ) : chronicleMode ? (
-          <div className="ps-blocks">{blocks.map((b) => renderBlock(b))}</div>
+          <div className="ps-blocks">
+            {blocks.map((b) => (
+              <Fragment key={b}>
+                {failedBlocks.includes(b) && (
+                  <p className="ps-inline-error ps-block-error" role="alert">
+                    <Icon name="circle-alert" size={18} />
+                    <span>Не удалось загрузить блок «{BLOCK_TITLES[b]}».</span>
+                    <button type="button" className="ps-link" onClick={() => void loadAll(filtersRef.current, 0)}>Повторить</button>
+                  </p>
+                )}
+                {renderBlock(b)}
+              </Fragment>
+            ))}
+          </div>
         ) : (
           <div className="ps-block">
             <BlockHead title="Результаты" count={pool?.total ?? 0} />
