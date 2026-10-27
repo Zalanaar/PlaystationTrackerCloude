@@ -1,5 +1,5 @@
 // Чистая логика экрана «Статистика»: параметры URL, навигация по периодам, подготовка данных для графиков.
-import type { StatsGenreItem } from '@/server/stats/types';
+import type { StatsGenreItem, StatsResponse } from '@/server/stats/types';
 import { mskParts, monthName } from '../format';
 
 export type PeriodType = 'year' | 'month';
@@ -138,4 +138,14 @@ export function linePoints(values: readonly number[], width: number, height: num
 
 export function linePath(points: readonly LinePoint[]): string {
   return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+}
+
+/**
+ * Нет ничего показывать за период. `hours.byMonth` контракт отдаёт за весь год, поэтому для месяца его не учитываем:
+ * иначе пустой месяц внутри года с данными не покажет пустое состояние.
+ */
+export function isEmptyPeriod(d: StatsResponse, period: PeriodType): boolean {
+  const hoursEmpty = period === 'month' || d.hours.byMonth.every((v) => v === null || v === 0);
+  return d.header.completed === 0 && d.header.dropped === 0 && (d.header.hours ?? 0) === 0 && d.trophies.counts.total === 0
+    && d.finished.groups.length === 0 && !d.genres.hasData && hoursEmpty;
 }

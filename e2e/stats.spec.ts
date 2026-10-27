@@ -162,8 +162,9 @@ test.describe('/stats', () => {
     await expect(page.getByText('Что-то пошло не так')).toBeVisible();
   });
 
-  test('пустой МЕСЯЦ внутри года с данными: что видит пользователь (контракт: byMonth всегда год)', async ({ page, context, baseURL }) => {
-    const ctl = await open(page, context, baseURL!, '/blank-never');
+  // BUG-S1: byMonth приходит за весь год, но для месяца без данных нужно пустое состояние
+  test('пустой МЕСЯЦ внутри года с данными: пустое состояние (контракт: byMonth всегда год)', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/blank-never');
     await page.route(/\/api\/stats\?/, (r) => {
       const d = respond(new URL(r.request().url()));
       const e = { ...d, header: { completed: 0, dropped: 0, hours: 0, platinum: 0 }, genres: { hasData: false, items: [] }, trophies: { counts: z, byMonth: d.trophies.byMonth.map((m) => ({ ...m, ...z })) }, finished: { groups: [] } };
@@ -171,8 +172,8 @@ test.describe('/stats', () => {
     });
     await page.goto(`/stats?period=month&year=${TODAY.year}&month=${TODAY.month}`);
     await expect(page.locator('.ps-st-head')).toBeVisible();
-    const empty = await page.getByText('За этот период ничего нет').count();
-    console.log('EMPTY MONTH IN ACTIVE YEAR: empty-state =', empty, 'ctl calls =', ctl.calls.length);
+    await expect(page.getByText('За этот период ничего нет')).toBeVisible();
+    await expect(page.locator('.ps-st-bar')).toHaveCount(0);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|Invalid/);
   });
 
@@ -195,11 +196,21 @@ test.describe('/stats', () => {
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 
-  // BUG-S2: onMouseEnter открывает подсказку, следующий же click её закрывает (toggle): на тач-экране и при клике мышью подсказки нет.
   test('часы-столбцы: клик/тап по столбцу оставляет подсказку открытой', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-S2: click после hover закрывает подсказку');
     await open(page, context, baseURL!);
-    await page.locator('.ps-st-bar').nth(3).click();
+    const bar = page.locator('.ps-st-bar').nth(3);
+    await bar.click();
     await expect(page.getByRole('tooltip')).toContainText('Апр');
+    await page.mouse.move(0, 0); // уход курсора не закрывает закреплённую подсказку
+    await expect(page.getByRole('tooltip')).toContainText('Апр');
+    await page.locator('.ps-st-bar').nth(5).click(); // другой столбец переключает подсказку
+    await expect(page.getByRole('tooltip')).toHaveCount(1);
+    await expect(page.getByRole('tooltip')).toContainText('Июн');
+    await page.locator('.ps-st-bar').nth(5).click(); // повторный тап закрывает
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await bar.click();
+    await expect(page.getByRole('tooltip')).toContainText('Апр');
+    await page.getByRole('heading', { name: 'Статистика' }).click(); // тап вне закрывает
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 });

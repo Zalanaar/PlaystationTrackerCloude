@@ -15,16 +15,11 @@ import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import {
-  genreBars, highlightedMonth, hoursBars, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, partialNote, periodLabel,
+  genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, partialNote, periodLabel,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
 } from './model';
 
 type Loaded = { key: string; data: StatsResponse } | { key: string; error: unknown };
-
-function isEmptyPeriod(d: StatsResponse): boolean {
-  return d.header.completed === 0 && d.header.dropped === 0 && (d.header.hours ?? 0) === 0 && d.trophies.counts.total === 0
-    && d.finished.groups.length === 0 && !d.genres.hasData && d.hours.byMonth.every((v) => v === null || v === 0);
-}
 
 export function StatsView() {
   const router = useRouter();
@@ -151,7 +146,7 @@ function PeriodSwitch({
 }
 
 function Content({ data, sel, today, actions }: { data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions }) {
-  const empty = isEmptyPeriod(data);
+  const empty = isEmptyPeriod(data, sel.period);
   return (
     <>
       <PeriodHeader data={data} sel={sel} />
@@ -206,16 +201,31 @@ function HoursPanel({ data, sel, today, wide }: { data: StatsResponse; sel: Sele
   const bars = useMemo(() => hoursBars(data.hours.byMonth), [data.hours.byMonth]);
   const hl = highlightedMonth(sel, today);
   const [active, setActive] = useState<number | null>(null);
+  // Закреплённая кликом/тапом подсказка: не закрывается уходом курсора, закрывается повторным тапом, тапом вне или Escape.
+  const [pinned, setPinned] = useState(false);
+  const groupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pinned) return;
+    const onDown = (e: PointerEvent) => {
+      if (groupRef.current && e.target instanceof Node && groupRef.current.contains(e.target)) return;
+      setPinned(false);
+      setActive(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [pinned]);
+  const close = () => { setPinned(false); setActive(null); };
   return (
     <Panel title="Часы по месяцам" sub={`Выбранный год: ${sel.year}. Часы игр за месяц`} labelId="st-hours" className={wide ? 'ps-st-panel--hours-wide' : 'ps-st-panel--hours'}>
-      <div className="ps-st-bars" role="group" aria-label={`Часы по месяцам, ${sel.year}`} onMouseLeave={() => setActive(null)}>
+      <div className="ps-st-bars" ref={groupRef} role="group" aria-label={`Часы по месяцам, ${sel.year}`} onMouseLeave={() => { if (!pinned) setActive(null); }}>
         {bars.map((b, i) => (
           <button
             key={b.month} type="button" className="ps-st-bar" aria-label={b.text} data-nodata={b.value === null || undefined}
             data-cur={hl === b.month || undefined} data-active={active === i || undefined}
-            onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive((a) => (a === i ? null : a))}
-            onClick={() => setActive((a) => (a === i ? null : i))}
-            onKeyDown={(e) => { if (e.key === 'Escape') setActive(null); }}
+            onMouseEnter={() => { if (!pinned) setActive(i); }} onFocus={() => { if (!pinned) setActive(i); }}
+            onBlur={() => { if (!pinned) setActive((a) => (a === i ? null : a)); }}
+            onClick={() => { if (pinned && active === i) close(); else { setPinned(true); setActive(i); } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
           >
             <span className="ps-st-bar__col">
               {b.value === null ? <span className="ps-st-bar__hatch" /> : <span className="ps-st-bar__fill" style={{ height: `${b.heightPct}%` }} />}
