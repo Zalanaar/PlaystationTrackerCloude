@@ -1,5 +1,5 @@
 // Часы за период по ежедневным снимкам (контракт 1.6). Чистые функции.
-import { monthRange } from './period';
+import { mskDateString, monthRange } from './period';
 
 export type Snapshot = { gameId: number; date: string; seconds: number };
 
@@ -59,16 +59,116 @@ export function sumSeconds(m: Map<number, number>): number {
   return t;
 }
 
-/** 12 значений по месяцам года: часы или null (нет охвата). */
-export function hoursByMonth(
-  by: Map<number, { date: string; seconds: number }[]>,
-  year: number,
-  firstSnapshotDate: string | null,
-  today: string,
-): (number | null)[] {
-  return Array.from({ length: 12 }, (_, i) => {
-    const { from, to } = monthRange(year, i + 1);
-    if (!hasCoverage(firstSnapshotDate, from, to, today)) return null;
-    return secondsToHours(sumSeconds(secondsByGame(by, from, to)));
-  });
+/** Вход оценки (контракт 1.6): первый снимок игры и даты запусков из games. */
+export type EstimateInput = {
+  gameId: number;
+  /** D0: min(snapshot_date) игры, YYYY-MM-DD (МСК). */
+  firstSnapshotDate: string;
+  /** S0: playDuration в первом снимке, секунды. */
+  firstSeconds: number;
+  firstPlayedAt: Date | null;
+  lastPlayedAt: Date | null;
+};
+
+const monthKey = (date: string) => date.slice(0, 7);
+const nextMonth = (key: string): string => {
+  const y = Number(key.slice(0, 4));
+  const m = Number(key.slice(5, 7));
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+/**
+ * Оценочные секунды игры по месяцам МСК (ключ YYYY-MM), контракт 1.6. Пустая карта = оценки нет.
+ * S0 делится поровну по месяцам [месяц firstPlayedAt .. месяц min(lastPlayedAt, D0)], остаток целиком в последний.
+ */
+export function estimateByMonth(i: EstimateInput): Map<string, number> {
+  const out = new Map<string, number>();
+  if (i.firstPlayedAt === null || i.firstSeconds <= 0) return out;
+  const first = mskDateString(i.firstPlayedAt);
+  if (first > i.firstSnapshotDate) return out;
+  const last = i.lastPlayedAt === null ? null : mskDateString(i.lastPlayedAt);
+  const endDate = last === null || last < first ? first : last < i.firstSnapshotDate ? last : i.firstSnapshotDate;
+  const startKey = monthKey(first);
+  const endKey = monthKey(endDate);
+  const keys: string[] = [];
+  for (let k = startKey; k <= endKey; k = nextMonth(k)) keys.push(k);
+  const n = keys.length;
+  const share = Math.floor(i.firstSeconds / n);
+  keys.forEach((k, idx) => out.set(k, idx === n - 1 ? share + (i.firstSeconds - share * n) : share));
+  return out;
+}
+
+/** Оценочные секунды по играм за целые месяцы периода [from, to] (даты МСК). Только > 0. */
+export function estimateSecondsByGame(inputs: readonly EstimateInput[], from: string, to: string): Map<number, number> {
+  const fromKey = monthKey(from);
+  const toKey = monthKey(to);
+  const out = new Map<number, number>();
+  for (const inp of inputs) {
+    let sum = 0;
+    for (const [k, v] of estimateByMonth(inp)) if (k >= fromKey && k <= toKey) sum += v;
+    if (sum > 0) out.set(inp.gameId, sum);
+  }
+  return out;
+}
+
+/** Годы, в которые попадает хотя бы одна доля оценки. */
+export function estimateYears(inputs: readonly EstimateInput[]): number[] {
+  const ys = new Set<number>();
+  for (const inp of inputs) for (const k of estimateByMonth(inp).keys()) ys.add(Number(k.slice(0, 4)));
+  return [...ys];
+}
+
+export type HoursCalc = {
+  /** Секунды по играм за период: реальные + оценка (только > 0). */
+  seconds: Map<number, number>;
+  /** Оценочная часть секунд по играм за период (только > 0). */
+  estimatedSeconds: Map<number, number>;
+  /** header.hours / hours.total: null, если нет охвата и нет оценки. */
+  totalHours: number | null;
+  estimatedHours: number;
+  hasEstimate: boolean;
+  /** 12 месяцев года: полные часы (реальные + оценка) или null. */
+  byMonth: (number | null)[];
+  /** 12 месяцев года: оценочная часть, 0 если нет. */
+  estimatedByMonth: number[];
+};
+
+/** Единый расчёт часов для Статистики и Wrapped (контракт 1.6, 10.1, 11.1). */
+export function calcHours(args: {
+  by: Map<number, { date: string; seconds: number }[]>;
+  estimates: readonly EstimateInput[];
+  period: { from: string; to: string };
+  year: number;
+  firstSnapshotDate: string | null;
+  today: string;
+}): HoursCalc {
+  const { by, estimates, period, year, firstSnapshotDate, today } = args;
+  const real = secondsByGame(by, period.from, period.to);
+  const estimatedSeconds = estimateSecondsByGame(estimates, period.from, period.to);
+  const seconds = new Map(real);
+  for (const [id, v] of estimatedSeconds) seconds.set(id, (seconds.get(id) ?? 0) + v);
+  const estTotal = sumSeconds(estimatedSeconds);
+  const covered = hasCoverage(firstSnapshotDate, period.from, period.to, today);
+
+  const byMonth: (number | null)[] = [];
+  const estimatedByMonth: number[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const r = monthRange(year, m);
+    const est = sumSeconds(estimateSecondsByGame(estimates, r.from, r.to));
+    estimatedByMonth.push(secondsToHours(est));
+    if (!hasCoverage(firstSnapshotDate, r.from, r.to, today) && est === 0) {
+      byMonth.push(null);
+      continue;
+    }
+    byMonth.push(secondsToHours(sumSeconds(secondsByGame(by, r.from, r.to)) + est));
+  }
+  return {
+    seconds,
+    estimatedSeconds,
+    totalHours: covered || estTotal > 0 ? secondsToHours(sumSeconds(seconds)) : null,
+    estimatedHours: secondsToHours(estTotal),
+    hasEstimate: estTotal > 0,
+    byMonth,
+    estimatedByMonth,
+  };
 }

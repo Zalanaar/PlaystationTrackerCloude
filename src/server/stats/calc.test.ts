@@ -3,7 +3,7 @@ import type { GameItem } from '@/server/collection/types';
 import { composeStats } from './compose';
 import { groupFinished } from './finished';
 import { aggregateGenres } from './genre-stats';
-import { gameSecondsInRange, groupSnapshots, hasCoverage, hoursByMonth } from './hours';
+import { calcHours, estimateByMonth, estimateSecondsByGame, estimateYears, gameSecondsInRange, groupSnapshots, hasCoverage, type EstimateInput } from './hours';
 import { mskDateString, resolvePeriod } from './period';
 import { aggregateTrophies } from './trophies';
 
@@ -72,16 +72,133 @@ describe('охват и помесячные часы', () => {
     expect(hasCoverage('2026-03-04', '2026-01-01', '2026-03-31', '2026-10-27')).toBe(true);
     expect(hasCoverage('2026-03-04', '2026-11-01', '2026-11-30', '2026-10-27')).toBe(false);
   });
-  it('null до первого синка и в будущем, числа между', () => {
-    const m = hoursByMonth(by, 2026, '2026-03-04', '2026-05-15');
+  const hm = (b: typeof by, firstSnap: string | null, today: string, est: EstimateInput[] = []) =>
+    calcHours({ by: b, estimates: est, period: { from: '2026-01-01', to: '2026-12-31' }, year: 2026, firstSnapshotDate: firstSnap, today });
+  it('null до первого синка и в будущем, числа между (без оценки)', () => {
+    const m = hm(by, '2026-03-04', '2026-05-15').byMonth;
     expect(m.slice(0, 2)).toEqual([null, null]);
     expect(m[2]).toBe(2); // март: от первого снимка 10 -> 12
     expect(m[3]).toBe(4); // апрель: игра1 +3, игра2 +1
     expect(m[4]).toBe(0); // май идёт, снимков нет = 0, не null
     expect(m.slice(5)).toEqual(Array(7).fill(null));
   });
-  it('нет снимков вообще: 12 null', () => {
-    expect(hoursByMonth(new Map(), 2026, null, '2026-10-27')).toEqual(Array(12).fill(null));
+  it('нет снимков вообще и нет оценки: 12 null, totalHours null', () => {
+    const r = hm(new Map(), null, '2026-10-27');
+    expect(r.byMonth).toEqual(Array(12).fill(null));
+    expect(r.estimatedByMonth).toEqual(Array(12).fill(0));
+    expect(r.totalHours).toBeNull();
+    expect(r.hasEstimate).toBe(false);
+  });
+});
+
+describe('оценка часов до первого снимка (1.6)', () => {
+  const D = (iso: string | null) => (iso === null ? null : new Date(iso));
+  const est = (o: Partial<EstimateInput> = {}): EstimateInput => ({
+    gameId: 1, firstSnapshotDate: '2026-03-04', firstSeconds: 20 * H, firstPlayedAt: D('2026-01-10T12:00:00Z'), lastPlayedAt: D('2026-02-20T12:00:00Z'), ...o,
+  });
+  const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+
+  it('пример Артёма: январь-февраль, 20 ч -> 10/10', () => {
+    const m = estimateByMonth(est());
+    expect([...m.entries()]).toEqual([['2026-01', 10 * H], ['2026-02', 10 * H]]);
+  });
+  it('один месяц: всё в него', () => {
+    const m = estimateByMonth(est({ firstPlayedAt: D('2026-01-03T12:00:00Z'), lastPlayedAt: D('2026-01-28T12:00:00Z') }));
+    expect([...m.entries()]).toEqual([['2026-01', 20 * H]]);
+  });
+  it('13 месяцев через границу года, остаток в последний, сумма точная', () => {
+    const m = estimateByMonth(est({ firstSnapshotDate: '2026-03-04', firstSeconds: 100003, firstPlayedAt: D('2025-02-10T12:00:00Z'), lastPlayedAt: D('2026-02-10T12:00:00Z') }));
+    expect(m.size).toBe(13);
+    expect([...m.keys()][0]).toBe('2025-02');
+    expect([...m.keys()][12]).toBe('2026-02');
+    expect(sum(m)).toBe(100003);
+    expect(m.get('2025-02')).toBe(Math.floor(100003 / 13));
+    expect(m.get('2026-02')).toBe(Math.floor(100003 / 13) + (100003 % 13));
+  });
+  it('нет firstPlayedAt: оценки нет', () => {
+    expect(estimateByMonth(est({ firstPlayedAt: null })).size).toBe(0);
+  });
+  it('firstPlayedAt позже D0: оценки нет; в тот же день D0 есть', () => {
+    expect(estimateByMonth(est({ firstPlayedAt: D('2026-03-05T12:00:00Z') })).size).toBe(0);
+    expect([...estimateByMonth(est({ firstPlayedAt: D('2026-03-04T12:00:00Z'), lastPlayedAt: D('2026-03-04T13:00:00Z') })).keys()]).toEqual(['2026-03']);
+  });
+  it('lastPlayedAt позже D0: обрезается по месяцу D0', () => {
+    const m = estimateByMonth(est({ firstPlayedAt: D('2026-01-10T12:00:00Z'), lastPlayedAt: D('2026-09-01T12:00:00Z') }));
+    expect([...m.keys()]).toEqual(['2026-01', '2026-02', '2026-03']);
+    expect(sum(m)).toBe(20 * H);
+  });
+  it('lastPlayedAt null или раньше firstPlayedAt: один месяц первого запуска', () => {
+    expect([...estimateByMonth(est({ lastPlayedAt: null })).keys()]).toEqual(['2026-01']);
+    expect([...estimateByMonth(est({ lastPlayedAt: D('2025-12-01T00:00:00Z') })).keys()]).toEqual(['2026-01']);
+  });
+  it('S0 = 0: оценки нет', () => {
+    expect(estimateByMonth(est({ firstSeconds: 0 })).size).toBe(0);
+  });
+  it('граница месяца МСК: запуск 22:00 UTC 31 января это февраль', () => {
+    const m = estimateByMonth(est({ firstPlayedAt: D('2026-01-31T22:00:00Z'), lastPlayedAt: D('2026-02-20T00:00:00Z') }));
+    expect([...m.keys()]).toEqual(['2026-02']);
+    const m2 = estimateByMonth(est({ firstPlayedAt: D('2026-01-31T20:59:59Z'), lastPlayedAt: D('2026-02-20T00:00:00Z') }));
+    expect([...m2.keys()]).toEqual(['2026-01', '2026-02']);
+  });
+  it('игра, добавленная после первого синка, оценивается со своим D0', () => {
+    const late = est({ gameId: 2, firstSnapshotDate: '2026-06-15', firstSeconds: 30 * H, firstPlayedAt: D('2026-04-02T00:00:00Z'), lastPlayedAt: D('2026-06-20T00:00:00Z') });
+    expect([...estimateByMonth(late).entries()]).toEqual([['2026-04', 10 * H], ['2026-05', 10 * H], ['2026-06', 10 * H]]);
+  });
+  it('estimateSecondsByGame: только целые месяцы периода; estimateYears', () => {
+    const e = est();
+    expect(estimateSecondsByGame([e], '2026-02-01', '2026-02-28').get(1)).toBe(10 * H);
+    expect(estimateSecondsByGame([e], '2026-03-01', '2026-03-31').size).toBe(0);
+    expect(estimateSecondsByGame([e], '2026-01-01', '2026-12-31').get(1)).toBe(20 * H);
+    expect(estimateYears([est({ firstPlayedAt: D('2024-12-15T00:00:00Z') }), est({ gameId: 3, firstPlayedAt: null })]).sort()).toEqual([2024, 2025, 2026]);
+  });
+
+  describe('calcHours: оценка + реальные', () => {
+    // D0 игры 1 = 2026-03-04, S0 = 20 ч. Янв-фев 10/10 по оценке. Март: оценки нет (lastPlayed в феврале).
+    const by = groupSnapshots([
+      { gameId: 1, date: '2026-03-04', seconds: 20 * H },
+      { gameId: 1, date: '2026-03-31', seconds: 23 * H },
+      { gameId: 1, date: '2026-04-30', seconds: 24 * H },
+    ]);
+    const run = (e: EstimateInput[], from = '2026-01-01', to = '2026-12-31') =>
+      calcHours({ by, estimates: e, period: { from, to }, year: 2026, firstSnapshotDate: '2026-03-04', today: '2026-10-27' });
+    it('годовые часы = реальные 4 + оценка 20; по месяцам 10/10/3/1', () => {
+      const r = run([est()]);
+      expect(r.totalHours).toBe(24);
+      expect(r.estimatedHours).toBe(20);
+      expect(r.hasEstimate).toBe(true);
+      expect(r.byMonth.slice(0, 4)).toEqual([10, 10, 3, 1]);
+      expect(r.estimatedByMonth.slice(0, 4)).toEqual([10, 10, 0, 0]);
+    });
+    it('нет двойного счёта в месяце D0: lastPlayed в марте даёт долю оценки + реальные после D0', () => {
+      const e = est({ firstPlayedAt: D('2026-02-10T00:00:00Z'), lastPlayedAt: D('2026-03-04T10:00:00Z') });
+      const r = run([e]);
+      expect(r.estimatedByMonth.slice(0, 3)).toEqual([0, 10, 10]);
+      expect(r.byMonth[2]).toBe(13); // 10 оценка + 3 реальные (23-20)
+      expect(r.totalHours).toBe(24); // 20 + 4, ровно (S_end - 0), без повторов
+      expect(r.totalHours).toBe((24 * H) / H); // итог = playDuration в конце периода
+    });
+    it('период-месяц до первого синка: охвата нет, но есть оценка -> число', () => {
+      const r = run([est()], '2026-01-01', '2026-01-31');
+      expect(r.totalHours).toBe(10);
+      expect(r.hasEstimate).toBe(true);
+    });
+    it('период без оценки и без охвата: null', () => {
+      const r = run([est()], '2026-02-01', '2026-02-28');
+      expect(r.totalHours).toBe(10);
+      const none = calcHours({ by: new Map(), estimates: [], period: { from: '2026-01-01', to: '2026-01-31' }, year: 2026, firstSnapshotDate: '2026-03-04', today: '2026-10-27' });
+      expect(none.totalHours).toBeNull();
+    });
+    it('реальный приоритет: игра без firstPlayedAt даёт только реальные часы', () => {
+      const r = run([est({ firstPlayedAt: null })]);
+      expect(r.totalHours).toBe(4);
+      expect(r.hasEstimate).toBe(false);
+      expect(r.byMonth.slice(0, 3)).toEqual([null, null, 3]);
+    });
+    it('игра с оценкой в периоде попадает в seconds (жанры считают её сыгранной)', () => {
+      const r = run([est()], '2026-01-01', '2026-01-31');
+      expect(r.seconds.get(1)).toBe(10 * H);
+      expect(r.estimatedSeconds.get(1)).toBe(10 * H);
+    });
   });
 });
 
@@ -176,13 +293,13 @@ describe('пройдено/брошено: группы по месяцам', ()
 
 describe('composeStats', () => {
   const base = {
-    today: '2026-10-27', years: [2026], snapshots: [], firstSnapshotDate: null, trophies: [], finishedEvents: [],
+    today: '2026-10-27', years: [2026], snapshots: [], estimates: [], firstSnapshotDate: null, trophies: [], finishedEvents: [],
     gameById: new Map<number, GameItem>(), genreGames: new Map(),
   };
   it('год без данных: 200-форма с пустыми блоками', () => {
     const r = composeStats({ ...base, period: resolvePeriod('year', 2020, null) });
     expect(r.header).toEqual({ completed: 0, dropped: 0, hours: null, platinum: 0 });
-    expect(r.hours).toEqual({ byMonth: Array(12).fill(null), firstSnapshotDate: null, periodPartial: true });
+    expect(r.hours).toEqual({ byMonth: Array(12).fill(null), estimatedByMonth: Array(12).fill(0), estimatedHours: 0, hasEstimate: false, firstSnapshotDate: null, periodPartial: true });
     expect(r.genres).toEqual({ hasData: false, items: [] });
     expect(r.trophies.counts.total).toBe(0);
     expect(r.trophies.byMonth).toHaveLength(12);
@@ -193,6 +310,7 @@ describe('composeStats', () => {
       ...base,
       period: resolvePeriod('month', 2026, 10),
       firstSnapshotDate: '2026-03-01',
+      estimates: [],
       snapshots: [
         { gameId: 1, date: '2026-09-30', seconds: 10 * H },
         { gameId: 1, date: '2026-10-31', seconds: 14 * H },

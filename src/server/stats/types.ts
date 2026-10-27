@@ -26,7 +26,17 @@ export type StatsResponse = {
   period: StatsPeriod;
   years: number[];
   header: { completed: number; dropped: number; hours: number | null; platinum: number };
-  hours: { byMonth: (number | null)[]; firstSnapshotDate: string | null; periodPartial: boolean };
+  hours: {
+    /** Полные часы месяца (реальные + оценка) или null. */
+    byMonth: (number | null)[];
+    /** Оценочная часть byMonth, 12 чисел (0 = оценки нет). */
+    estimatedByMonth: number[];
+    /** Оценочная часть header.hours за период. */
+    estimatedHours: number;
+    hasEstimate: boolean;
+    firstSnapshotDate: string | null;
+    periodPartial: boolean;
+  };
   genres: { hasData: boolean; items: StatsGenreItem[] };
   trophies: { counts: TrophyCountsByType; byMonth: (TrophyCountsByType & { month: number })[] };
   finished: { groups: FinishedGroup[] };

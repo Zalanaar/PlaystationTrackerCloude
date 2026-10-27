@@ -5,7 +5,8 @@ import type { AnyDb } from '@/db/types';
 import { getGamesByIds } from '@/server/collection/query';
 import type { FinishedEvent } from '@/server/stats/finished';
 import type { GenreGame } from '@/server/stats/genre-stats';
-import { groupSnapshots, secondsByGame, type Snapshot } from '@/server/stats/hours';
+import { getEstimateInputs } from '@/server/stats/estimate-query';
+import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { mskDateString, mskMidnightUtc, ymd } from '@/server/stats/period';
 import type { EarnedTrophy } from '@/server/stats/trophies';
 import { TOP_GAMES } from './calc';
@@ -16,7 +17,7 @@ const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies, trop
 const TZ = 'Europe/Moscow';
 
 /** Годы с данными для карточек выбора года (11.1). Текущий год МСК есть всегда. Признак приближённый. */
-export async function getWrappedYears(db: AnyDb, currentYear: number): Promise<{ year: number; hasData: boolean }[]> {
+export async function getWrappedYears(db: AnyDb, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<{ year: number; hasData: boolean }[]> {
   const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
   // Тот же критерий, что у часов года (1.6): S_end - S_base > 0 по игре, где S_base = снимок перед годом, иначе первый в году.
   // prev = предыдущий снимок игры; у первого снимка года это ровно «последний снимок до года».
@@ -46,6 +47,7 @@ export async function getWrappedYears(db: AnyDb, currentYear: number): Promise<{
   ]);
   const set = new Set<number>();
   for (const r of [...hrs, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
+  for (const y of estimateYears(estimates)) set.add(y);
   const all = new Set<number>([...set, currentYear]);
   return [...all].sort((a, b) => b - a).map((year) => ({ year, hasData: set.has(year) }));
 }
@@ -59,8 +61,9 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
   const toUtc = mskMidnightUtc(year + 1, 1, 1);
   const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc));
 
+  const estimates = await getEstimateInputs(db);
   const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows] = await Promise.all([
-    getWrappedYears(db, currentYear),
+    getWrappedYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
@@ -113,7 +116,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
 
   const snapshots: Snapshot[] = [...bases, ...inYear];
   // Карточки (GameItem) грузим только для нужных игр: топ по часам (с запасом на ничью на границе топа), завершённые, игры платин.
-  const yearSeconds = secondsByGame(groupSnapshots(snapshots), yearFrom, yearTo);
+  const yearSeconds = calcHours({ by: groupSnapshots(snapshots), estimates, period: { from: yearFrom, to: yearTo }, year, firstSnapshotDate: null, today }).seconds;
   const ranked = [...yearSeconds.entries()].sort((a, b) => b[1] - a[1]);
   const cutoff = ranked.length >= TOP_GAMES ? ranked[TOP_GAMES - 1][1] : 0;
   const needed = new Set<number>(finishedEvents.map((e) => e.gameId));
@@ -144,6 +147,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
     years,
     onlineId,
     snapshots,
+    estimates,
     firstSnapshotDate: first[0]?.d ?? null,
     trophies: earned,
     platinums,

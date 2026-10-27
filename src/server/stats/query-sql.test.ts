@@ -40,6 +40,47 @@ describe('getStats против прямого SQL (PGlite)', () => {
     `);
     return Math.round(Number(r[0]?.s ?? 0) / 360) / 10;
   }
+  /**
+   * Независимая оценка (1.6) в SQL: S0 делится поровну по месяцам МСК [месяц first_played_at .. месяц min(last_played_at, D0)],
+   * остаток в последний месяц. Возвращает секунды оценки по (game_id, месяц).
+   */
+  async function sqlEstimateRows() {
+    return rows<{ game_id: number; m: string; sec: string }>(sql`
+      with f as (
+        select distinct on (p.game_id) p.game_id, p.snapshot_date d0, p.play_duration_seconds s0,
+               (g.first_played_at at time zone ${TZ})::date fp, (g.last_played_at at time zone ${TZ})::date lp
+        from playtime_snapshots p join games g on g.id = p.game_id
+        order by p.game_id, p.snapshot_date
+      ), r as (
+        select game_id, s0, date_trunc('month', fp)::date m1,
+               date_trunc('month', case when lp is null or lp < fp then fp else least(lp, d0) end)::date m2
+        from f where fp is not null and fp <= d0 and s0 > 0
+      ), x as (
+        select r.game_id, r.s0, gs::date m, row_number() over (partition by r.game_id order by gs) i,
+               count(*) over (partition by r.game_id) n
+        from r, generate_series(r.m1, r.m2, interval '1 month') gs
+      )
+      select game_id, m::text m, (s0 / n + case when i = n then s0 % n else 0 end)::text sec from x
+    `);
+  }
+  /** Реальные + оценка за [from,to] (целые месяцы), округление как в контракте. */
+  async function sqlHoursWithEstimate(from: string, to: string) {
+    const real = await rawRealSeconds(from, to);
+    const est = (await sqlEstimateRows())
+      .filter((r) => r.m.slice(0, 7) >= from.slice(0, 7) && r.m.slice(0, 7) <= to.slice(0, 7))
+      .reduce((a, r) => a + Number(r.sec), 0);
+    return { hasEst: est > 0, hours: Math.round((real + est) / 360) / 10, est, real };
+  }
+  async function rawRealSeconds(from: string, to: string): Promise<number> {
+    const r = await rows<{ s: string | null }>(sql`
+      select sum(greatest(0, e.sec - coalesce(b.sec, f.sec))) as s
+      from (select distinct game_id from playtime_snapshots) g
+      join lateral (select play_duration_seconds sec from playtime_snapshots where game_id = g.game_id and snapshot_date <= ${to}::date order by snapshot_date desc limit 1) e on true
+      left join lateral (select play_duration_seconds sec from playtime_snapshots where game_id = g.game_id and snapshot_date < ${from}::date order by snapshot_date desc limit 1) b on true
+      left join lateral (select play_duration_seconds sec from playtime_snapshots where game_id = g.game_id and snapshot_date >= ${from}::date and snapshot_date <= ${to}::date order by snapshot_date asc limit 1) f on true
+    `);
+    return Number(r[0]?.s ?? 0);
+  }
   const sqlTrophies = async (fromUtc: string, toUtc: string) =>
     rows<{ type: string; n: string }>(sql`select type::text, count(*)::text n from trophies where earned and earned_at >= ${fromUtc}::timestamptz and earned_at < ${toUtc}::timestamptz group by type`);
   const sqlFinished = async (fromUtc: string, toUtc: string) => {
@@ -86,7 +127,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       if (i % 4 === 0) sts.push({ gameId: id, status: 'completed', completedAt: at });
       else if (i % 4 === 1) sts.push({ gameId: id, status: 'dropped', droppedAt: at });
       else if (i % 4 === 2) sts.push({ gameId: id, status: 'completed', completedAt: null }); // без даты
-      else sts.push({ gameId: id, status: 'backlog' }); // чужой статус (БД не даёт держать дату при другом статусе)
+      else sts.push({ gameId: id, status: i % 8 === 3 ? 'service' : 'backlog' }); // чужой статус (БД не даёт держать дату при другом статусе)
     });
     await t.db.insert(gameStatus).values(sts);
 
@@ -239,5 +280,83 @@ describe('getStats против прямого SQL (PGlite)', () => {
     const nov = await getStats(t.db, { type: 'month', year: 2026, month: 11 }, now);
     expect(nov.header.hours).toBe(1);
     expect(nov.hours.byMonth[10]).toBe(1);
+  });
+  it('оценка до первого снимка: header/byMonth/estimatedByMonth/years совпадают с независимым SQL (случайный набор, 2022..2027)', async () => {
+    const rand = rng(99);
+    const ids: number[] = [];
+    for (let i = 1; i <= 30; i++) {
+      const fp = i % 6 === 0 ? null : new Date(Date.UTC(2022, 0, 1) + Math.floor(rand() * 4 * 365 * 86400_000));
+      // last: иногда null, иногда раньше first, иногда позже D0
+      const lp = i % 7 === 0 ? null : i % 5 === 0 && fp ? new Date(fp.getTime() - 40 * 86400_000) : new Date(Date.UTC(2022, 0, 1) + Math.floor(rand() * 5 * 365 * 86400_000));
+      ids.push(await game(i, { firstPlayedAt: fp, lastPlayedAt: lp }));
+    }
+    const snaps: (typeof playtimeSnapshots.$inferInsert)[] = [];
+    ids.forEach((id, k) => {
+      let sec = 3600 * (1 + Math.floor(rand() * 60)) + Math.floor(rand() * 3600) + (k % 3); // нечётные секунды: остаток округления
+      const start = new Date(Date.UTC(2026, 2, 4 + (k % 4 === 0 ? 70 + k : 0))); // часть игр добавлена позже
+      for (let d = 0; d < 230; d++) {
+        const date = new Date(start.getTime() + d * 86400_000);
+        if (date.getTime() > Date.UTC(2026, 9, 27)) break;
+        if (rand() < 0.3) continue;
+        sec += rand() < 0.4 ? 0 : Math.floor(rand() * 3000);
+        snaps.push({ gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
+      }
+    });
+    for (let i = 0; i < snaps.length; i += 500) await t.db.insert(playtimeSnapshots).values(snaps.slice(i, i + 500));
+    expect((await sqlEstimateRows()).length, 'оценка не пустая').toBeGreaterThan(30);
+
+    const periods: { type: 'year' | 'month'; year: number; month: number | null }[] = [
+      ...[2022, 2023, 2024, 2025, 2026, 2027].map((year) => ({ type: 'year' as const, year, month: null })),
+      ...Array.from({ length: 12 }, (_, i) => ({ type: 'month' as const, year: 2026, month: i + 1 })),
+      { type: 'month', year: 2024, month: 5 },
+    ];
+    for (const p of periods) {
+      const r = await getStats(t.db, p, NOW);
+      const label = `${p.type} ${p.year}-${p.month}`;
+      const e = await sqlHoursWithEstimate(r.period.from, r.period.to);
+      if (r.header.hours === null) {
+        expect(e.est, `null => нет оценки ${label}`).toBe(0);
+        expect(e.real, `null => нет реальных ${label}`).toBe(0);
+      } else {
+        expect(r.header.hours, `hours ${label}`).toBeCloseTo(e.hours, 5);
+      }
+      expect(r.hours.hasEstimate, `hasEstimate ${label}`).toBe(e.hasEst);
+      expect(r.hours.estimatedHours, `estimatedHours ${label}`).toBeCloseTo(Math.round(e.est / 360) / 10, 5);
+      for (let mi = 1; mi <= 12; mi++) {
+        const from = `${p.year}-${String(mi).padStart(2, '0')}-01`;
+        const to = `${p.year}-${String(mi).padStart(2, '0')}-${new Date(Date.UTC(p.year, mi, 0)).getUTCDate()}`;
+        const em = await sqlHoursWithEstimate(from, to);
+        const v = r.hours.byMonth[mi - 1];
+        expect(r.hours.estimatedByMonth[mi - 1], `estimatedByMonth ${label} m${mi}`).toBeCloseTo(Math.round(em.est / 360) / 10, 5);
+        if (v === null) expect(em.est + em.real, `null month ${label} m${mi}`).toBe(0);
+        else expect(v, `byMonth ${label} m${mi}`).toBeCloseTo(em.hours, 5);
+      }
+    }
+    // годы: каждый год с долей оценки присутствует в years
+    const estYears = new Set((await sqlEstimateRows()).map((x) => Number(x.m.slice(0, 4))));
+    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    for (const yr of estYears) expect(y.years, `year ${yr}`).toContain(yr);
+  });
+
+  it('пример Артёма через БД: янв-фев, 20 ч -> 10/10; месяц первого снимка получает долю оценки + реальные без двойного счёта', async () => {
+    const a = await game(1, { firstPlayedAt: new Date('2026-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T12:00:00Z') });
+    await t.db.insert(playtimeSnapshots).values([
+      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 20 * 3600 },
+      { gameId: a, snapshotDate: '2026-03-20', playDurationSeconds: 23 * 3600 },
+    ]);
+    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    // 3 месяца (янв, фев, март): 20 ч / 3 = 6.666.. ч; март = доля + 3 ч реальных
+    expect(y.hours.estimatedByMonth.slice(0, 4)).toEqual([6.7, 6.7, 6.7, 0]);
+    expect(y.header.hours).toBe(23);
+    expect(y.hours.hasEstimate).toBe(true);
+    expect(y.hours.estimatedHours).toBe(20);
+    expect(y.hours.byMonth[2]).toBe(9.7);
+    expect(y.genres.hasData).toBe(true); // игра с оценкой считается сыгранной
+    const jan = await getStats(t.db, { type: 'month', year: 2026, month: 1 }, NOW);
+    expect(jan.header.hours).toBe(6.7); // раньше было бы null
+    expect(jan.hours.periodPartial).toBe(true);
+    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+    expect(y25.header.hours).toBeNull();
+    expect(y25.hours.hasEstimate).toBe(false);
   });
 });

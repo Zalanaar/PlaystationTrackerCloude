@@ -275,4 +275,44 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     expect((await getWrapped(t.db, 2026, null, NOW)).mode).toBe('empty');
     expect((await getWrapped(t.db, 2025, null, NOW)).mode).toBe('story');
   });
+  it('оценка: топ игр, самая долгая, жанры и years/mode учитывают оценочные часы (сверка с независимым SQL)', async () => {
+    // A: янв-мар 2025 (3 мес), S0 = 31 ч, D0 = март 2026-03-04, реальных после D0 нет
+    const a = await game(1, { name: 'A', psnGenres: ['ACTION'], firstPlayedAt: new Date('2025-01-10T12:00:00Z'), lastPlayedAt: new Date('2025-03-20T12:00:00Z') });
+    // B: оценка в 2026 (фев-март) + реальные 5 ч после D0
+    const b = await game(2, { name: 'B', psnGenres: ['PUZZLE'], firstPlayedAt: new Date('2026-02-01T12:00:00Z'), lastPlayedAt: new Date('2026-09-01T12:00:00Z') });
+    // C: нет firstPlayedAt, только реальные 2 ч
+    const c = await game(3, { name: 'C', psnGenres: ['RACING'], firstPlayedAt: null });
+    await t.db.insert(playtimeSnapshots).values([
+      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 31 * 3600 },
+      { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 10 * 3600 },
+      { gameId: b, snapshotDate: '2026-06-01', playDurationSeconds: 15 * 3600 },
+      { gameId: c, snapshotDate: '2026-03-04', playDurationSeconds: 1 * 3600 },
+      { gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 3 * 3600 },
+    ]);
+    // независимый SQL: A 2025: янв/фев по floor(111600/3)=37200 и март 37200 (111600 делится нацело)
+    const w25 = await getWrapped(t.db, 2025, null, NOW);
+    expect(w25.mode).toBe('story');
+    expect(w25.hours).toMatchObject({ hasData: true, total: 31, hasEstimate: true, estimatedHours: 31 });
+    expect(w25.hours.estimatedByMonth.slice(0, 4)).toEqual([10.3, 10.3, 10.3, 0]);
+    expect(w25.hours.byMonth.slice(0, 4)).toEqual([10.3, 10.3, 10.3, null]);
+    expect(w25.topGames.items.map((x) => [x.game.id, x.seconds, x.estimated])).toEqual([[a, 31 * 3600, true]]);
+    expect(w25.longestGame).toMatchObject({ hasData: true, estimated: true, hours: 31 });
+    expect(w25.genres.items.map((i) => i.key)).toEqual(['ACTION']);
+    expect(w25.slides).toEqual(['start', 'hours', 'topGames', 'genres', 'longestGame', 'final']);
+    expect(w25.periodPartial).toBe(true);
+    expect(w25.years.find((y) => y.year === 2025)?.hasData).toBe(true);
+
+    // 2026: B оценка 10 ч поровну на фев-мар (5/5), D0 в марте + реальные 5 ч; A весь в 2025; C реальные 2 ч
+    const w26 = await getWrapped(t.db, 2026, null, NOW);
+    expect(w26.topGames.items.map((x) => [x.game.id, x.seconds, x.estimated])).toEqual([[b, 15 * 3600, true], [c, 2 * 3600, false]]);
+    expect(w26.hours.total).toBe(17);
+    expect(w26.hours.estimatedHours).toBe(10);
+    expect(w26.hours.byMonth.slice(0, 7)).toEqual([null, 5, 5, 0, 0, 7, 0]); // июнь: B +5, C +2
+    const gk = w26.genres.items.map((i) => i.key).sort();
+    expect(gk).toEqual(['PUZZLE', 'RACING']);
+    // независимая проверка: сумма playDuration на конец года (49 ч) минус S0 игр, чья оценка вне 2026 (A: 31 ч)
+    // и S0 игры без оценки (C: 1 ч) = 17 ч; нет ни потерь, ни двойного счёта
+    const end = await rows<{ s: string }>(sql`select sum(play_duration_seconds)::text s from (select distinct on (game_id) game_id, play_duration_seconds from playtime_snapshots where snapshot_date <= '2026-12-31' order by game_id, snapshot_date desc) x`);
+    expect(Number(end[0].s) / 3600 - 31 - 1).toBe(w26.hours.total);
+  });
 });

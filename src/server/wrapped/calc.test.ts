@@ -13,7 +13,7 @@ const games = new Map([1, 2, 3, 4, 5, 6, 7].map((i) => [i, game(i, `G${i}`)]));
 
 const base = (o: Partial<WrappedInput> = {}): WrappedInput => ({
   year: 2026, today: '2026-10-27', years: [{ year: 2026, hasData: true }], onlineId: 'me',
-  snapshots: [], firstSnapshotDate: null, trophies: [], platinums: [], finishedEvents: [],
+  snapshots: [], estimates: [], firstSnapshotDate: null, trophies: [], platinums: [], finishedEvents: [],
   gameById: games, genreGames: new Map(), ...o,
 });
 const snaps = (id: number, a: [string, number][]) => a.map(([date, h]) => ({ gameId: id, date, seconds: h * H }));

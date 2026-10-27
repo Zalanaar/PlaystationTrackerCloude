@@ -2,7 +2,7 @@
 import type { GameItem } from '@/server/collection/types';
 import type { FinishedEvent } from '@/server/stats/finished';
 import { aggregateGenres, type GenreGame } from '@/server/stats/genre-stats';
-import { groupSnapshots, hasCoverage, hoursByMonth, secondsByGame, secondsToHours, sumSeconds, type Snapshot } from '@/server/stats/hours';
+import { calcHours, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { resolvePeriod } from '@/server/stats/period';
 import { aggregateTrophies, type EarnedTrophy } from '@/server/stats/trophies';
 import { peakMonth, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
@@ -16,6 +16,7 @@ export type WrappedInput = {
   years: { year: number; hasData: boolean }[];
   onlineId: string | null;
   snapshots: Snapshot[];
+  estimates: EstimateInput[];
   firstSnapshotDate: string | null;
   /** Трофеи с earned_at внутри года. */
   trophies: EarnedTrophy[];
@@ -29,14 +30,12 @@ export type WrappedInput = {
 export function composeWrapped(i: WrappedInput): WrappedResponse {
   const p = resolvePeriod('year', i.year, null);
   const by = groupSnapshots(i.snapshots);
-  const seconds = secondsByGame(by, p.from, p.to);
-  const covered = hasCoverage(i.firstSnapshotDate, p.from, p.to, i.today);
-  const totalHours = covered ? secondsToHours(sumSeconds(seconds)) : null;
-  const byMonth = hoursByMonth(by, i.year, i.firstSnapshotDate, i.today);
+  const h = calcHours({ by, estimates: i.estimates, period: p, year: i.year, firstSnapshotDate: i.firstSnapshotDate, today: i.today });
+  const { seconds, totalHours, byMonth } = h;
   const hoursHas = totalHours !== null && totalHours > 0;
   const peak = hoursHas ? peakMonth(byMonth) : null;
 
-  const top = hoursHas ? topGamesBySeconds(seconds, i.gameById) : [];
+  const top = hoursHas ? topGamesBySeconds(seconds, i.gameById, h.estimatedSeconds) : [];
   const { counts } = aggregateTrophies(i.trophies, new Date(p.fromUtc), new Date(p.toUtc), i.year);
   const fin = splitFinished(i.finishedEvents, i.gameById);
   const finHas = fin.completed.count + fin.dropped.count > 0;
@@ -81,6 +80,9 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
       total: totalHours,
       days: totalHours === null ? null : Math.round(totalHours / 2.4) / 10,
       byMonth,
+      estimatedByMonth: h.estimatedByMonth,
+      estimatedHours: h.estimatedHours,
+      hasEstimate: h.hasEstimate,
       topMonth: peak ? { month: peak.month, hours: peak.value } : null,
     },
     topGames: { hasData: top.length > 0, items: top },
@@ -88,8 +90,8 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
     trophies: { hasData: trophiesHas, counts, platinum: pickPlatinums(i.platinums) },
     genres,
     longestGame: leader
-      ? { hasData: true, seconds: leader.seconds, hours: leader.hours, playCount: leader.game.playCount, game: leader.game }
-      : { hasData: false, seconds: 0, hours: 0, playCount: 0, game: null },
+      ? { hasData: true, seconds: leader.seconds, hours: leader.hours, estimated: leader.estimated, playCount: leader.game.playCount, game: leader.game }
+      : { hasData: false, seconds: 0, hours: 0, estimated: false, playCount: 0, game: null },
     emptyState: empty ? { syncStartedOn: i.firstSnapshotDate } : null,
   };
 }

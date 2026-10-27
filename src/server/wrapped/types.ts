@@ -4,7 +4,7 @@ import type { StatsGenreItem, TrophyCountsByType } from '@/server/stats/types';
 
 export type WrappedSlideId = 'start' | 'hours' | 'topGames' | 'finished' | 'trophies' | 'genres' | 'longestGame' | 'final' | 'empty';
 
-export type WrappedTopGame = { rank: number; seconds: number; hours: number; game: GameItem };
+export type WrappedTopGame = { rank: number; seconds: number; hours: number; /** В часах есть оценочная часть (1.6). */ estimated: boolean; game: GameItem };
 export type WrappedFinishedItem = { at: string; game: GameItem };
 export type WrappedPlatinum = {
   at: string;
@@ -29,6 +29,9 @@ export type WrappedResponse = {
     total: number | null;
     days: number | null;
     byMonth: (number | null)[];
+    estimatedByMonth: number[];
+    estimatedHours: number;
+    hasEstimate: boolean;
     topMonth: { month: number; hours: number } | null;
   };
   topGames: { hasData: boolean; items: WrappedTopGame[] };
@@ -44,6 +47,6 @@ export type WrappedResponse = {
     platinum: { first: WrappedPlatinum | null; last: WrappedPlatinum | null; rarest: WrappedPlatinum | null };
   };
   genres: { hasData: boolean; items: StatsGenreItem[] };
-  longestGame: { hasData: boolean; seconds: number; hours: number; playCount: number; game: GameItem | null };
+  longestGame: { hasData: boolean; seconds: number; hours: number; estimated: boolean; playCount: number; game: GameItem | null };
   emptyState: { syncStartedOn: string | null } | null;
 };

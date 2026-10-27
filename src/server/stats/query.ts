@@ -4,9 +4,10 @@ import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { getGamesByIds } from '@/server/collection/query';
 import { composeStats } from './compose';
+import { getEstimateInputs } from './estimate-query';
 import type { FinishedEvent } from './finished';
 import type { GenreGame } from './genre-stats';
-import type { Snapshot } from './hours';
+import { estimateYears, type EstimateInput, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
 import type { EarnedTrophy } from './trophies';
 import type { StatsResponse } from './types';
@@ -15,7 +16,7 @@ import type { StatsQuery } from './validation';
 const { games, gameStatus, playtimeSnapshots: ps, trophies } = schema;
 const TZ = 'Europe/Moscow';
 
-export async function getStatsYears(db: AnyDb, currentYear: number): Promise<number[]> {
+export async function getStatsYears(db: AnyDb, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
   const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
   const [snap, tr, comp, drop] = await Promise.all([
     db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps),
@@ -25,6 +26,7 @@ export async function getStatsYears(db: AnyDb, currentYear: number): Promise<num
   ]);
   const set = new Set<number>([currentYear]);
   for (const r of [...snap, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
+  for (const y of estimateYears(estimates)) set.add(y);
   return [...set].sort((a, b) => b - a);
 }
 
@@ -39,8 +41,9 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
   const fromUtc = new Date(period.fromUtc);
   const toUtc = new Date(period.toUtc);
 
+  const estimates = await getEstimateInputs(db);
   const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows] = await Promise.all([
-    getStatsYears(db, currentYear),
+    getStatsYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
@@ -80,6 +83,7 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     today,
     years,
     snapshots,
+    estimates,
     firstSnapshotDate: first[0]?.d ?? null,
     trophies: earned,
     finishedEvents,

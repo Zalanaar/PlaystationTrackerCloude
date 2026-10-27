@@ -12,6 +12,7 @@ const byTitle = (a: GameItem, b: GameItem) => a.title.toLowerCase().localeCompar
 export function topGamesBySeconds(
   seconds: ReadonlyMap<number, number>,
   gameById: ReadonlyMap<number, GameItem>,
+  estimatedSeconds: ReadonlyMap<number, number> = new Map(),
   top = TOP_GAMES,
 ): WrappedTopGame[] {
   return [...seconds.entries()]
@@ -19,7 +20,7 @@ export function topGamesBySeconds(
     .map(([id, s]) => ({ s, game: gameById.get(id) as GameItem }))
     .sort((a, b) => b.s - a.s || byTitle(a.game, b.game))
     .slice(0, top)
-    .map((x, i) => ({ rank: i + 1, seconds: x.s, hours: Math.round(x.s / 360) / 10, game: x.game }));
+    .map((x, i) => ({ rank: i + 1, seconds: x.s, hours: Math.round(x.s / 360) / 10, estimated: (estimatedSeconds.get(x.game.id) ?? 0) > 0, game: x.game }));
 }
 
 /** Максимум по месяцам (1..12); ничья = более ранний. null, если нет положительных значений. */
