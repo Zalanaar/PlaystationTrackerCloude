@@ -2,14 +2,14 @@
 // Эмуляция повторяет правила контракта (фильтры, год по МСК, счётчики, правила дат), а не логику реализации.
 import type { Page, Route } from '@playwright/test';
 
-export type Status = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved';
+export type Status = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type G = {
   id: number; title: string; lastPlayedAt: string | null; status: Status | null;
   completedAt: string | null; droppedAt: string | null; playSeconds: number; playCount: number;
   platform?: 'PS4' | 'PS5'; coverUrl?: string | null; trophies?: { earned: number; defined: number; plat?: boolean } | null;
 };
 
-const ALL: Status[] = ['playing', 'completed', 'dropped', 'backlog', 'shelved'];
+const ALL: Status[] = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'];
 
 export function seed(): G[] {
   const g = (id: number, title: string, o: Partial<G> = {}): G => ({
@@ -31,6 +31,14 @@ export function seed(): G[] {
   ];
 }
 
+/** N игр-сервисов (id от 100) с убывающим последним запуском: для проверки блока «Игры-сервисы». */
+export function serviceGames(n: number): G[] {
+  return Array.from({ length: n }, (_, i) => ({
+    id: 100 + i, title: `Сервис ${i + 1}`, lastPlayedAt: new Date(Date.UTC(2026, 9, 25 - i, 10)).toISOString(), status: 'service' as const,
+    completedAt: null, droppedAt: null, playSeconds: 7200 + i * 600, playCount: 4, trophies: null,
+  }));
+}
+
 const mskYear = (iso: string) => new Date(new Date(iso).getTime() + 3 * 3600_000).getUTCFullYear();
 const done = (g: G) => g.completedAt ?? g.droppedAt;
 
@@ -50,7 +58,7 @@ function item(g: G) {
 }
 
 function counts(list: G[]) {
-  const c = { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 0 };
+  const c = { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 };
   for (const g of list) { c[g.status ?? 'none']++; c.all++; }
   return c;
 }
@@ -87,6 +95,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       totals: { games: m.games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: 1 },
       counts: counts(m.games),
       playing: m.games.filter((g) => g.status === 'playing').sort(byRecent).map(item),
+      services: m.games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
       continue: m.games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
     });
   });

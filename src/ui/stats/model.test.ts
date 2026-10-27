@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatHours, formatIsoDay, genreBars, highlightedMonth, hoursBars, linePath, linePoints, parseSelection, partialNote,
+  barsHaveEstimate, estimateNote, formatHours, formatIsoDay, genreBars, highlightedMonth, hoursBars, linePath, linePoints, parseSelection,
   periodLabel, selectionToParams, setPeriodType, shiftSelection, todayMsk,
 } from './model';
 
@@ -59,8 +59,12 @@ describe('форматирование', () => {
   it('дата первого синка', () => {
     expect(formatIsoDay('2026-03-04')).toBe('04.03.2026');
     expect(formatIsoDay(null)).toBeNull();
-    expect(partialNote('2026-03-04')).toBe('Часы считаются с даты первого синка (04.03.2026). Для более ранних периодов показаны только трофеи.');
-    expect(partialNote(null)).toContain('после первого синка');
+    expect(estimateNote('2026-03-04')).toBe(
+      'До 04.03.2026 часы оценены: распределены равномерно между первым и последним запуском игры. С этой даты часы измеряются по ежедневным снимкам.',
+    );
+    expect(estimateNote(null)).toBe(
+      'Часы оценены: распределены равномерно между первым и последним запуском игры. Точные данные появятся после ежедневных синков.',
+    );
   });
   it('подпись периода и сегодня по Москве', () => {
     expect(periodLabel({ period: 'month', year: 2026, month: 10 })).toBe('Октябрь 2026');
@@ -77,6 +81,22 @@ describe('графики', () => {
     expect(bars[1]).toMatchObject({ value: 0, heightPct: 0, text: 'Февраль: 0 ч' });
     expect(bars[2].heightPct).toBe(50);
     expect(bars[3]).toMatchObject({ heightPct: 100, text: 'Апрель: 20 ч' });
+  });
+  it('стек: измеренная часть снизу, оценочная сверху, aria-label с обеими частями', () => {
+    const bars = hoursBars([null, 12, 10, 20, ...Array(8).fill(null)], [0, 7, 0, 0, ...Array(8).fill(0)], 2026);
+    expect(bars[1]).toMatchObject({ value: 12, real: 5, estimated: 7, title: 'Февраль 2026', text: 'Февраль 2026: 12 ч, из них 7 ч оценка' });
+    expect(bars[1].realShare).toBeCloseTo((5 / 12) * 100);
+    expect(bars[1].heightPct).toBe(60);
+    expect(bars[2]).toMatchObject({ real: 10, estimated: 0, realShare: 100, text: 'Март 2026: 10 ч' });
+    expect(bars[0]).toMatchObject({ value: null, heightPct: 0, text: 'Январь 2026: нет данных по часам' });
+    expect(barsHaveEstimate(bars)).toBe(true);
+    expect(barsHaveEstimate(hoursBars([1, 2], [0, 0]))).toBe(false);
+  });
+  it('месяц целиком оценочный; оценка не больше всего; пустой месяц без столбца', () => {
+    const [a, b, c] = hoursBars([10, 4, 0, ...Array(9).fill(null)], [10, 9, 0, ...Array(9).fill(0)]);
+    expect(a).toMatchObject({ real: 0, estimated: 10, realShare: 0 });
+    expect(b).toMatchObject({ real: 0, estimated: 4 });
+    expect(c).toMatchObject({ heightPct: 0, estimated: 0 });
   });
   it('все null и крошечные значения', () => {
     expect(hoursBars(Array(12).fill(null)).every((b) => b.heightPct === 0)).toBe(true);

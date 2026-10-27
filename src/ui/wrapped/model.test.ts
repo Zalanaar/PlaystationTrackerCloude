@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import {
   classifyGesture, counterValue, daysText, genreShare, initialOf, inMonth, isAutoAdvance, keyAction, monthPrepositional,
-  parseDurationMs, parseYearParam, partialBadge, resolveSlides, segmentFill, stepIndex, syncStartedText, tapDirection,
+  approxHours, estimateBadge, parseDurationMs, parseYearParam, partialBadge, resolveSlides, segmentFill, stepIndex, syncStartedText, tapDirection,
   tickTimer, timerFraction, TIMER_START, gamesText, hoursText, launchesLabel, cascadeDelay, slideCover,
 } from './model';
 
@@ -23,7 +23,10 @@ describe('слайды', () => {
   });
   it('empty и пустой список', () => {
     expect(resolveSlides({ mode: 'empty', slides: ['empty'] })).toEqual(['empty']);
-    expect(resolveSlides({ mode: 'story', slides: [] })).toEqual(['empty']);
+    expect(resolveSlides({ mode: 'story', slides: [] })).toEqual(['start', 'final']);
+    // год без данных определяется только mode, а не содержимым slides
+    expect(resolveSlides({ mode: 'empty', slides: ['start', 'final'] })).toEqual(['empty']);
+    expect(resolveSlides({ mode: 'story', slides: ['empty'] })).toEqual(['start', 'final']);
   });
   it('неизвестные и дубликаты отбрасываются', () => {
     expect(resolveSlides({ mode: 'story', slides: ['start', 'zzz' as never, 'start', 'final'] })).toEqual(['start', 'final']);
@@ -167,6 +170,10 @@ describe('форматирование', () => {
     expect(syncStartedText('bad')).toBeNull();
     expect(partialBadge('2026-03-04')).toContain('04.03.2026');
     expect(partialBadge(null)).not.toContain('(');
+    expect(estimateBadge('2026-03-04')).toBe('До 04.03.2026 часы оценены: распределены равномерно между первым и последним запуском игры');
+    expect(estimateBadge(null)).toBe('Часы оценены: распределены равномерно между первым и последним запуском игры');
+    expect(approxHours(412.4, true)).toBe('≈ 412,4');
+    expect(approxHours(412.4, false)).toBe('412,4');
   });
   it('доля жанра', () => {
     expect(genreShare(5, 10)).toBe(0.5);

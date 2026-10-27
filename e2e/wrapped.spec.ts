@@ -17,7 +17,7 @@ const game = (id: number, title: string, status: 'completed' | 'dropped' | null 
 const zeroC = { platinum: 0, gold: 0, silver: 0, bronze: 0, total: 0 };
 const plat = { at: '2026-01-12T20:00:00.000Z', name: 'Платина', earnedRate: 4.3, rarity: 1, setName: 'Horizon', game: game(1, 'Horizon Forbidden West') };
 
-function respond(year: number) {
+function respond(year: number, est = false) {
   const full = year === Y_FULL;
   const trophy = year === Y_TROPHY;
   const base = {
@@ -31,12 +31,12 @@ function respond(year: number) {
   if (!full && !trophy) {
     return {
       ...base, mode: 'empty', slides: ['empty'], emptyState: { syncStartedOn: FIRST },
-      hours: { hasData: false, total: null, days: null, byMonth: Array(12).fill(null), topMonth: null },
+      hours: { hasData: false, total: null, days: null, byMonth: Array(12).fill(null), estimatedByMonth: Array(12).fill(0), estimatedHours: 0, hasEstimate: false, topMonth: null },
       topGames: { hasData: false, items: [] },
       finished: { hasData: false, completed: { count: 0, items: [] }, dropped: { count: 0, items: [] }, busiestMonth: null },
       trophies: { hasData: false, counts: zeroC, platinum: { first: null, last: null, rarest: null } },
       genres: { hasData: false, items: [] },
-      longestGame: { hasData: false, seconds: 0, hours: 0, playCount: 0, game: null },
+      longestGame: { hasData: false, seconds: 0, hours: 0, estimated: false, playCount: 0, game: null },
     };
   }
   const counts = { platinum: 7, gold: 31, silver: 88, bronze: 240, total: 366 };
@@ -51,31 +51,34 @@ function respond(year: number) {
   if (trophy) {
     return {
       ...base, mode: 'story', slides: ['start', 'finished', 'trophies', 'genres', 'final'], emptyState: null,
-      hours: { hasData: false, total: null, days: null, byMonth: Array(12).fill(null), topMonth: null },
+      hours: { hasData: false, total: null, days: null, byMonth: Array(12).fill(null), estimatedByMonth: Array(12).fill(0), estimatedHours: 0, hasEstimate: false, topMonth: null },
       topGames: { hasData: false, items: [] }, finished, trophies, genres,
-      longestGame: { hasData: false, seconds: 0, hours: 0, playCount: 0, game: null },
+      longestGame: { hasData: false, seconds: 0, hours: 0, estimated: false, playCount: 0, game: null },
     };
   }
   return {
     ...base, mode: 'story', slides: ['start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final'], emptyState: null,
-    hours: { hasData: true, total: 412.4, days: 17.2, byMonth: Array(12).fill(null), topMonth: { month: 10, hours: 85 } },
-    topGames: { hasData: true, items: [1, 2, 3, 4, 5].map((r) => ({ rank: r, seconds: 100000 / r, hours: 30 - r, game: game(r, `Игра ${r}`) })) },
+    hours: {
+      hasData: true, total: 412.4, days: 17.2, byMonth: Array(12).fill(null), topMonth: { month: 10, hours: 85 },
+      estimatedByMonth: Array(12).fill(0), estimatedHours: est ? 26 : 0, hasEstimate: est,
+    },
+    topGames: { hasData: true, items: [1, 2, 3, 4, 5].map((r) => ({ rank: r, seconds: 100000 / r, hours: 30 - r, estimated: est && r <= 2, game: game(r, `Игра ${r}`) })) },
     finished, trophies, genres,
-    longestGame: { hasData: true, seconds: 101853, hours: 28.3, playCount: 19, game: game(1, 'Horizon Forbidden West') },
+    longestGame: { hasData: true, seconds: 101853, hours: 28.3, estimated: est, playCount: 19, game: game(1, 'Horizon Forbidden West') },
   };
 }
 
-type Ctl = { calls: URL[]; fail: number | null };
+type Ctl = { calls: URL[]; fail: number | null; est: boolean };
 async function open(page: Page, context: BrowserContext, baseURL: string, url = '/wrapped'): Promise<Ctl> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page);
-  const ctl: Ctl = { calls: [], fail: null };
+  const ctl: Ctl = { calls: [], fail: null, est: false };
   await page.route(/\/api\/wrapped/, (r) => {
     const u = new URL(r.request().url());
     ctl.calls.push(u);
     if (ctl.fail) return r.fulfill({ status: ctl.fail, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) });
     const year = Number(u.searchParams.get('year') ?? NOW_YEAR);
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(year) }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(year, ctl.est) }) });
   });
   if (url !== '/blank-never') await page.goto(url);
   return ctl;
@@ -322,5 +325,64 @@ test.describe('/wrapped: истории', () => {
       const b = (await page.locator('.ps-story__stage').boundingBox())!;
       expect(Math.round(b.width)).toBeGreaterThanOrEqual(360);
     }
+  });
+});
+
+test.describe('/wrapped: оценочные часы (§4.12)', () => {
+  test.beforeEach(async ({ page }) => { await page.emulateMedia({ reducedMotion: 'reduce' }); });
+
+  test('слайд «Часы»: «≈» перед числом и плашка оценки; в топе «≈» только у оценочных игр; у самой долгой игры «≈»', async ({ page, context, baseURL }) => {
+    const ctl = await open(page, context, baseURL!, '/blank-never');
+    ctl.est = true;
+    await page.goto('/wrapped');
+    await watch(page);
+    await page.keyboard.press('ArrowRight');
+    expect(await slideId(page)).toBe('hours');
+    const big = page.locator('.ps-story__big');
+    await expect(big).toContainText('≈');
+    await expect(big).toContainText('412,4');
+    await expect(page.locator('.ps-story__badge[data-kind="estimate"]')).toHaveText(
+      `До 04.03.${NOW_YEAR} часы оценены: распределены равномерно между первым и последним запуском игры`,
+    );
+    // старая пометка про первый синк при оценке не показывается
+    await expect(page.getByText('Часы считаются с даты первого синка')).toHaveCount(0);
+
+    await page.keyboard.press('ArrowRight');
+    expect(await slideId(page)).toBe('topGames');
+    const rows = page.locator('.ps-story__top5 li');
+    await expect(rows.nth(0)).toContainText('≈ 29 ч');
+    await expect(rows.nth(1)).toContainText('≈ 28 ч');
+    await expect(rows.nth(2)).not.toContainText('≈');
+    await expect(rows.nth(2)).toContainText('27 ч');
+
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+    expect(await slideId(page)).toBe('longestGame');
+    await expect(page.locator('.ps-story__body')).toContainText('≈ 28,3 ч');
+  });
+
+  test('без оценки: нет «≈», при periodPartial прежняя пометка про первый синк', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!);
+    await watch(page);
+    await page.keyboard.press('ArrowRight');
+    expect(await slideId(page)).toBe('hours');
+    await expect(page.locator('.ps-story__big')).not.toContainText('≈');
+    await expect(page.locator('.ps-story__badge[data-kind="estimate"]')).toHaveCount(0);
+    await expect(page.locator('.ps-story__badge')).toContainText(`Часы считаются с даты первого синка (04.03.${NOW_YEAR})`);
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('.ps-story__top5')).not.toContainText('≈');
+  });
+
+  test('год без данных определяется только по mode: empty', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/blank-never');
+    // mode: empty при «непустом» списке slides: UI всё равно показывает один слайд «данных нет»
+    await page.route(/\/api\/wrapped/, (r) => {
+      const d = { ...respond(Y_FULL), mode: 'empty', slides: ['start', 'hours', 'final'], emptyState: { syncStartedOn: FIRST } };
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: d }) });
+    });
+    await page.goto('/wrapped');
+    await watch(page);
+    await expect(page.locator('.ps-story__seg')).toHaveCount(1);
+    expect(await slideId(page)).toBe('empty');
+    await expect(page.locator('.ps-story__body')).toContainText('данных нет');
   });
 });

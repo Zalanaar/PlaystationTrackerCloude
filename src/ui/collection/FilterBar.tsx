@@ -114,7 +114,7 @@ export function FilterBar({
             return (
               <button
                 key={t.id} type="button" className="ps-filterchip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
-                aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
+                title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
               >
                 {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
                 <span className="ps-filterchip__t">{t.label}</span>

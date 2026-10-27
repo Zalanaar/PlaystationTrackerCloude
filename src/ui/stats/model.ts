@@ -83,26 +83,64 @@ export function formatIsoDay(day: string | null): string | null {
   return m ? `${m[3]}.${m[2]}.${m[1]}` : null;
 }
 
-export function partialNote(firstSnapshotDate: string | null): string {
+const ESTIMATE_RULE = 'распределены равномерно между первым и последним запуском игры.';
+
+/**
+ * Плашка оценки часов (design-system §4.11). Показывается, если в периоде есть оценочные часы.
+ * `firstSnapshotDate` = граница: до неё часы оценены, после измеряются по снимкам. Снимков нет вообще: вариант без даты.
+ */
+export function estimateNote(firstSnapshotDate: string | null): string {
   const d = formatIsoDay(firstSnapshotDate);
   return d
-    ? `Часы считаются с даты первого синка (${d}). Для более ранних периодов показаны только трофеи.`
-    : 'Часы начнут считаться после первого синка. Пока показаны только трофеи.';
+    ? `До ${d} часы оценены: ${ESTIMATE_RULE} С этой даты часы измеряются по ежедневным снимкам.`
+    : `Часы оценены: ${ESTIMATE_RULE} Точные данные появятся после ежедневных синков.`;
 }
 
-export type HoursBar = { month: number; label: string; value: number | null; heightPct: number; text: string };
+export type HoursBar = {
+  month: number; label: string;
+  /** полные часы месяца (измеренные + оценка), null = нет данных */
+  value: number | null;
+  /** измеренная часть (снизу) */
+  real: number;
+  /** оценочная часть (сверху) */
+  estimated: number;
+  /** высота всего столбца, % от максимума (ненулевые не меньше 3%) */
+  heightPct: number;
+  /** доля измеренной части в высоте столбца, 0..100 (оценочная = остаток) */
+  realShare: number;
+  /** название месяца с годом: «Март 2026» */
+  title: string;
+  /** aria-label столбца */
+  text: string;
+};
 
-/** 12 столбцов: высота в % от максимума (ненулевые не меньше 3%), null без высоты. */
-export function hoursBars(byMonth: readonly (number | null)[]): HoursBar[] {
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * 12 столбцов-стеков: измеренная часть снизу (`byMonth - estimatedByMonth`), оценочная сверху.
+ * Месяц без часов (null или 0) без столбца, высота 0.
+ */
+export function hoursBars(byMonth: readonly (number | null)[], estimatedByMonth: readonly number[] = [], year?: number): HoursBar[] {
   const max = Math.max(0, ...byMonth.map((v) => v ?? 0));
   return MONTH_LABELS.map((label, i) => {
     const v = byMonth[i] ?? null;
     const full = monthName(i + 1);
-    if (v === null) return { month: i + 1, label, value: null, heightPct: 0, text: `${full}: нет данных по часам` };
+    const title = year === undefined ? full : `${full} ${year}`;
+    if (v === null) {
+      return { month: i + 1, label, value: null, real: 0, estimated: 0, heightPct: 0, realShare: 0, title, text: `${title}: нет данных по часам` };
+    }
+    const estimated = Math.min(v, Math.max(0, estimatedByMonth[i] ?? 0));
+    const real = round1(Math.max(0, v - estimated));
+    const est = round1(estimated);
     const heightPct = max > 0 && v > 0 ? Math.max(3, (v / max) * 100) : 0;
-    return { month: i + 1, label, value: v, heightPct, text: `${full}: ${formatHours(v)} ч` };
+    const realShare = v > 0 ? (real / v) * 100 : 0;
+    const text = est > 0 ? `${title}: ${formatHours(v)} ч, из них ${formatHours(est)} ч оценка` : `${title}: ${formatHours(v)} ч`;
+    return { month: i + 1, label, value: v, real, estimated: est, heightPct, realShare, title, text };
   });
 }
+
+/** Есть ли в столбцах года оценочная часть (определяется по `estimatedByMonth`, контракт §10.1). */
+export const barsHaveEstimate = (bars: readonly HoursBar[]) => bars.some((b) => b.estimated > 0);
 
 /** Какой столбец подсвечен: выбранный месяц, иначе текущий месяц текущего года. */
 export function highlightedMonth(s: Selection, today: Today): number | null {

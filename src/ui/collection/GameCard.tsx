@@ -33,7 +33,7 @@ export function dateMenuItem(g: GameItem, actions: GameActions) {
 function GlyphBadge({ status }: { status: GameStatusValue | null }) {
   const key = toKey(status);
   return (
-    <span className="ps-card__glyph" data-status={key} title={STATUS_META[key].label}>
+    <span className="ps-card__glyph" data-status={key} title={STATUS_META[key].title ?? STATUS_META[key].label}>
       <StatusGlyph status={key} size={16} />
     </span>
   );

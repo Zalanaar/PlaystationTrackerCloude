@@ -15,7 +15,7 @@ import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import {
-  genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, partialNote, periodLabel,
+  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
 } from './model';
 
@@ -150,7 +150,9 @@ function Content({ data, sel, today, actions }: { data: StatsResponse; sel: Sele
   return (
     <>
       <PeriodHeader data={data} sel={sel} />
-      {data.hours.periodPartial && <p className="ps-st-note" role="note">{partialNote(data.hours.firstSnapshotDate)}</p>}
+      {data.hours.hasEstimate && (
+        <p className="ps-st-note" role="note"><Icon name="info" size={14} /><span>{estimateNote(data.hours.firstSnapshotDate)}</span></p>
+      )}
       {empty ? (
         <EmptyState icon="bar-chart" title="За этот период ничего нет" text="Нет часов, трофеев и завершённых игр. Выбери другой период." />
       ) : (
@@ -179,7 +181,13 @@ function PeriodHeader({ data, sel }: { data: StatsResponse; sel: Selection }) {
         <span className="ps-year__k">
           {h.hours === null
             ? <span title="Нет данных о часах за этот период"><b className="num">— ч</b><span className="ps-year__more"> {scope}</span></span>
-            : <><b className="num">{formatHours(h.hours)} ч</b><span className="ps-year__more"> {scope}</span></>}
+            : data.hours.estimatedHours > 0
+              ? (
+                <span title="Часть часов оценена" aria-label={`Примерно ${formatHours(h.hours)} ч ${scope}. Часть часов оценена`}>
+                  <b className="num"><span className="ps-approx" aria-hidden="true">≈</span> {formatHours(h.hours)} ч</b><span className="ps-year__more"> {scope}</span>
+                </span>
+              )
+              : <><b className="num">{formatHours(h.hours)} ч</b><span className="ps-year__more"> {scope}</span></>}
         </span>
         <span className="ps-year__k"><Icon name="trophy" size={16} /><b className="num">{formatNumber(h.platinum)}</b> {plural(h.platinum, ['платина', 'платины', 'платин'])}</span>
       </div>
@@ -187,18 +195,20 @@ function PeriodHeader({ data, sel }: { data: StatsResponse; sel: Selection }) {
   );
 }
 
-function Panel({ title, sub, className, labelId, children }: { title: string; sub?: string; className?: string; labelId: string; children: React.ReactNode }) {
+function Panel({ title, sub, className, labelId, aside, children }: { title: string; sub?: string; className?: string; labelId: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className={`ps-st-panel ${className ?? ''}`} aria-labelledby={labelId}>
       <h3 className="ps-st-panel__t" id={labelId}>{title}</h3>
       {sub && <p className="ps-st-panel__s">{sub}</p>}
+      {aside}
       {children}
     </section>
   );
 }
 
 function HoursPanel({ data, sel, today, wide }: { data: StatsResponse; sel: Selection; today: { year: number; month: number }; wide: boolean }) {
-  const bars = useMemo(() => hoursBars(data.hours.byMonth), [data.hours.byMonth]);
+  const bars = useMemo(() => hoursBars(data.hours.byMonth, data.hours.estimatedByMonth, sel.year), [data.hours.byMonth, data.hours.estimatedByMonth, sel.year]);
+  const showLegend = data.hours.hasEstimate || barsHaveEstimate(bars);
   const hl = highlightedMonth(sel, today);
   const [active, setActive] = useState<number | null>(null);
   // Закреплённая кликом/тапом подсказка: не закрывается уходом курсора, закрывается повторным тапом, тапом вне или Escape.
@@ -216,28 +226,57 @@ function HoursPanel({ data, sel, today, wide }: { data: StatsResponse; sel: Sele
   }, [pinned]);
   const close = () => { setPinned(false); setActive(null); };
   return (
-    <Panel title="Часы по месяцам" sub={`Выбранный год: ${sel.year}. Часы игр за месяц`} labelId="st-hours" className={wide ? 'ps-st-panel--hours-wide' : 'ps-st-panel--hours'}>
+    <Panel
+      title="Часы по месяцам" sub={`Выбранный год: ${sel.year}. Часы игр за месяц`} labelId="st-hours"
+      className={wide ? 'ps-st-panel--hours-wide' : 'ps-st-panel--hours'}
+      aside={showLegend ? <HoursLegend /> : undefined}
+    >
       <div className="ps-st-bars" ref={groupRef} role="group" aria-label={`Часы по месяцам, ${sel.year}`} onMouseLeave={() => { if (!pinned) setActive(null); }}>
         {bars.map((b, i) => (
           <button
             key={b.month} type="button" className="ps-st-bar" aria-label={b.text} data-nodata={b.value === null || undefined}
-            data-cur={hl === b.month || undefined} data-active={active === i || undefined}
+            data-cur={hl === b.month || undefined} data-active={active === i || undefined} data-est={b.estimated > 0 || undefined}
             onMouseEnter={() => { if (!pinned) setActive(i); }} onFocus={() => { if (!pinned) setActive(i); }}
             onBlur={() => { if (!pinned) setActive((a) => (a === i ? null : a)); }}
             onClick={() => { if (pinned && active === i) close(); else { setPinned(true); setActive(i); } }}
             onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
           >
             <span className="ps-st-bar__col">
-              {b.value === null ? <span className="ps-st-bar__hatch" /> : <span className="ps-st-bar__fill" style={{ height: `${b.heightPct}%` }} />}
+              {b.heightPct > 0 && (
+                <span className="ps-st-bar__stack" style={{ height: `${b.heightPct}%` }}>
+                  {b.estimated > 0 && <span className="ps-st-bar__est" style={{ flexGrow: 100 - b.realShare }} />}
+                  {b.real > 0 && <span className="ps-st-bar__fill" style={{ flexGrow: b.realShare }} />}
+                </span>
+              )}
             </span>
-            {active === i && (
-              <span className="ps-st-tip ps-num" role="tooltip">{MONTH_LABELS[i]}: {b.value === null ? 'нет данных' : `${formatHours(b.value)} ч`}</span>
-            )}
+            {active === i && <BarTip bar={b} />}
             <span className="ps-st-bar__lbl" aria-hidden="true">{b.label}</span>
           </button>
         ))}
       </div>
     </Panel>
+  );
+}
+
+function HoursLegend() {
+  return (
+    <ul className="ps-st-legend" aria-label="Обозначения">
+      <li><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено</li>
+      <li><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка</li>
+    </ul>
+  );
+}
+
+/** Подсказка столбца (§4.11): месяц, всего, затем измеренная и оценочная части; нулевая часть не выводится. */
+function BarTip({ bar }: { bar: HoursBar }) {
+  if (bar.value === null) return <span className="ps-st-tip ps-num" role="tooltip"><b>{bar.title}</b><span>нет данных</span></span>;
+  return (
+    <span className="ps-st-tip ps-num" role="tooltip">
+      <b>{bar.title}</b>
+      <span><b>{formatHours(bar.value)} ч</b> всего</span>
+      {bar.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {formatHours(bar.real)} ч</span>}
+      {bar.estimated > 0 && <span><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка: {formatHours(bar.estimated)} ч</span>}
+    </span>
   );
 }
 

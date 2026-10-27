@@ -9,7 +9,7 @@ import { cssUrl, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useMediaQuery } from '../primitives/hooks';
 import {
-  cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, initialOf, inMonth, isAutoAdvance,
+  estimateBadge, approxHours, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, initialOf, inMonth, isAutoAdvance,
   keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, slideCover, stepIndex,
   syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type TimerState,
 } from './model';
@@ -169,7 +169,7 @@ function Rise({ n, rm, className, children }: { n: number; rm: boolean; classNam
   return <div className={`ps-story__rise ${className ?? ''}`} style={{ animationDelay: `${cascadeDelay(n, rm)}ms` }}>{children}</div>;
 }
 
-function Counter({ target, rm }: { target: number; rm: boolean }) {
+function Counter({ target, rm, approx }: { target: number; rm: boolean; approx?: boolean }) {
   const [v, setV] = useState(0);
   useEffect(() => {
     if (rm) return;
@@ -186,7 +186,8 @@ function Counter({ target, rm }: { target: number; rm: boolean }) {
   const shown = rm ? target : v;
   return (
     <span className="ps-story__num ps-num">
-      <span className="ps-sr">{hoursText(target)}</span>
+      <span className="ps-sr">{approx ? 'примерно ' : ''}{hoursText(target)}</span>
+      {approx && <span className="ps-story__approx" aria-hidden="true">≈</span>}
       <span aria-hidden="true">{hoursText(shown)}</span>
     </span>
   );
@@ -221,10 +222,12 @@ function SlideView({
       return (
         <div className="ps-story__col">
           <Rise n={0} rm={rm}><p className="ps-story__label">Ты наиграл</p></Rise>
-          <Rise n={1} rm={rm}><div className="ps-story__big"><Counter target={total} rm={rm} /><span className="ps-story__unit">ч</span></div></Rise>
+          <Rise n={1} rm={rm}><div className="ps-story__big"><Counter target={total} rm={rm} approx={data.hours.hasEstimate} /><span className="ps-story__unit">ч</span></div></Rise>
           {days && <Rise n={2} rm={rm}><p className="ps-story__sub">{days}</p></Rise>}
           {top && <Rise n={3} rm={rm}><p className="ps-story__label">Больше всего {inMonth(top.month)}: {hoursText(top.hours)} ч</p></Rise>}
-          {data.periodPartial && <Rise n={4} rm={rm}><p className="ps-story__badge">{partialBadge(data.firstSnapshotDate)}</p></Rise>}
+          {data.hours.hasEstimate
+            ? <Rise n={4} rm={rm}><p className="ps-story__badge" data-kind="estimate">{estimateBadge(data.firstSnapshotDate)}</p></Rise>
+            : data.periodPartial && <Rise n={4} rm={rm}><p className="ps-story__badge">{partialBadge(data.firstSnapshotDate)}</p></Rise>}
         </div>
       );
     }
@@ -240,7 +243,7 @@ function SlideView({
                   <Thumb g={it.game} w={it.rank === 1 ? 96 : 56} />
                   <span className="ps-story__gname">
                     <b>{it.game.title}</b>
-                    <span className="ps-num">{hoursText(it.hours)} ч</span>
+                    <span className="ps-num" aria-label={it.estimated ? `примерно ${hoursText(it.hours)} ч` : undefined}>{approxHours(it.hours, it.estimated)} ч</span>
                   </span>
                 </Rise>
               </li>
@@ -326,7 +329,7 @@ function SlideView({
           <Rise n={0} rm={rm}><h2 className="ps-story__title">Самая долгая игра</h2></Rise>
           <Rise n={1} rm={rm}><div className="ps-story__hero"><Cover url={l.game.coverUrl} title={l.game.title} /></div></Rise>
           <Rise n={2} rm={rm}><p className="ps-story__gtitle">{l.game.title}</p></Rise>
-          <Rise n={3} rm={rm}><p className="ps-story__sub ps-num">{hoursText(l.hours)} ч · {launchesLabel(l.playCount)}</p></Rise>
+          <Rise n={3} rm={rm}><p className="ps-story__sub ps-num">{approxHours(l.hours, l.estimated)} ч · {launchesLabel(l.playCount)}</p></Rise>
         </div>
       );
     }

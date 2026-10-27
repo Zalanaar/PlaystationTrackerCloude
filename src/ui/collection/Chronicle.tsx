@@ -6,9 +6,10 @@ import { Icon, StatusGlyph } from '../icons';
 import type { ChronicleMonth } from './chronicle';
 
 /** Заголовок блока (`.ps-block__head`): h2 + счётчик + действие справа. */
-export function BlockHead({ id, title, count, children }: { id?: string; title: string; count?: number; children?: ReactNode }) {
+export function BlockHead({ id, title, count, icon, children }: { id?: string; title: string; count?: number; icon?: ReactNode; children?: ReactNode }) {
   return (
     <div className="ps-block__head">
+      {icon}
       <h2 className="ps-h2" id={id}>{title}</h2>
       {count !== undefined && <span className="ps-block__cnt ps-num">{formatNumber(count)}</span>}
       {children && <span className="ps-block__act">{children}</span>}

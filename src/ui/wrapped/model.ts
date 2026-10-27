@@ -26,11 +26,15 @@ export function parseYearParam(raw: string | null): number | null {
   return n >= MIN_YEAR && n <= MAX_YEAR ? n : null;
 }
 
-/** Слайды строго по ответу сервера; неизвестные id отбрасываются; пустой список или mode=empty = один слайд empty. */
+/**
+ * Слайды строго по ответу сервера; неизвестные id отбрасываются.
+ * «Год без данных» (один слайд empty) определяется только `mode: 'empty'` (контракт §11.1), а не по содержимому `slides`.
+ * Контракт гарантирует `start` и `final` в `story`; пустой список (сбой контракта) не оставляет экран без слайдов.
+ */
 export function resolveSlides(data: Pick<WrappedResponse, 'slides' | 'mode'>): WrappedSlideId[] {
   if (data.mode === 'empty') return ['empty'];
   const list = data.slides.filter((s, i, a) => KNOWN.includes(s) && s !== 'empty' && a.indexOf(s) === i);
-  return list.length ? list : ['empty'];
+  return list.length ? list : ['start', 'final'];
 }
 
 // ---------- навигация ----------
@@ -178,6 +182,16 @@ export function partialBadge(firstSnapshotDate: string | null): string {
   const m = firstSnapshotDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(firstSnapshotDate) : null;
   return m ? `Часы считаются с даты первого синка (${m[3]}.${m[2]}.${m[1]})` : 'Часы считаются с даты первого синка';
 }
+
+/** Плашка слайда «Часы» при оценке (design-system §4.12). Дата первого синка = граница оценки. */
+export function estimateBadge(firstSnapshotDate: string | null): string {
+  const m = firstSnapshotDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(firstSnapshotDate) : null;
+  const rule = 'распределены равномерно между первым и последним запуском игры';
+  return m ? `До ${m[3]}.${m[2]}.${m[1]} часы оценены: ${rule}` : `Часы оценены: ${rule}`;
+}
+
+/** Часы с «≈» перед числом, если в них есть оценка. */
+export const approxHours = (hours: number, estimated: boolean) => `${estimated ? '≈ ' : ''}${hoursText(hours)}`;
 
 /** Доля бара жанра 0..1 относительно максимума. */
 export function genreShare(value: number, max: number): number {

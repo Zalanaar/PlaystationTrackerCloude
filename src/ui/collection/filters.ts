@@ -26,6 +26,7 @@ export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'backlog', label: 'Бэклог' },
   { id: 'dropped', label: 'Брошено' },
   { id: 'shelved', label: 'Отложено' },
+  { id: 'service', label: 'Сервис' },
   { id: 'none', label: UNSORTED_LABEL },
 ];
 

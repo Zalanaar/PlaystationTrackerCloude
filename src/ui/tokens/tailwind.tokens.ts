@@ -7,7 +7,7 @@ export const tokens = {
     accent: 'var(--accent)', 'accent-ink': 'var(--accent-ink)', 'accent-soft': 'var(--accent-soft)',
     tint: 'var(--tint)',
     playing: 'var(--st-playing)', completed: 'var(--st-completed)', backlog: 'var(--st-backlog)',
-    dropped: 'var(--st-dropped)', shelved: 'var(--st-shelved)', unsorted: 'var(--st-none)',
+    dropped: 'var(--st-dropped)', shelved: 'var(--st-shelved)', service: 'var(--st-service)', unsorted: 'var(--st-none)',
     success: 'var(--success)', warning: 'var(--warning)', danger: 'var(--danger)',
     platinum: 'var(--platinum)', gold: 'var(--gold)', silver: 'var(--silver)', bronze: 'var(--bronze)',
     'on-cover': 'var(--on-cover-bg)',

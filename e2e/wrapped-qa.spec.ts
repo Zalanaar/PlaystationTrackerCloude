@@ -19,8 +19,8 @@ function stress(year: number) {
     years: Array.from({ length: 12 }, (_, i) => ({ year: 2026 - i, hasData: i % 2 === 0 })),
     profile: { onlineId: 'Очень_Длинный_Ник_Пользователя_PSN_1234567890' }, firstSnapshotDate: `${year}-03-04`, periodPartial: true,
     slides: ['start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final'], emptyState: null,
-    hours: { hasData: true, total: 99999.9, days: 4166.7, byMonth: Array(12).fill(null), topMonth: { month: 12, hours: 9999.9 } },
-    topGames: { hasData: true, items: titles.map((t, i) => ({ rank: i + 1, seconds: 100000, hours: 9999.9, game: game(i + 1, t) })) },
+    hours: { hasData: true, total: 99999.9, days: 4166.7, byMonth: Array(12).fill(null), topMonth: { month: 12, hours: 9999.9 }, estimatedByMonth: Array(12).fill(0), estimatedHours: 0, hasEstimate: false },
+    topGames: { hasData: true, items: titles.map((t, i) => ({ rank: i + 1, seconds: 100000, hours: 9999.9, estimated: false, game: game(i + 1, t) })) },
     finished: {
       hasData: true,
       completed: { count: 1234, items: titles.map((t, i) => ({ at: '2026-10-05T18:42:11.000Z', game: game(100 + i, t, 'completed') })) },
@@ -32,7 +32,7 @@ function stress(year: number) {
       hasData: true,
       items: ['Музыка и ритм', 'Ролевые игры с очень длинным названием жанра', 'Экшен', 'Другое', 'Хоррор', 'Гонки', 'Файтинги'].map((label, i) => ({ key: `K${i}`, label, value: 9999.9 - i })),
     },
-    longestGame: { hasData: true, seconds: 101853, hours: 99999.9, playCount: 1234567, game: game(1, LONG) },
+    longestGame: { hasData: true, seconds: 101853, hours: 99999.9, estimated: false, playCount: 1234567, game: game(1, LONG) },
   };
 }
 

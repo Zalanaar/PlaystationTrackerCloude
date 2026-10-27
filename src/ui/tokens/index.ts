@@ -8,15 +8,16 @@ export type ThemeId = (typeof THEMES)[number]['id'];
 export const DEFAULT_THEME: ThemeId = 'night';
 export const THEME_STORAGE_KEY = 'ps-theme';
 
-export type GameStatus = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved';
+export type GameStatus = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type StatusKey = GameStatus | 'none';
 
-export const STATUS_META: Record<StatusKey, { label: string; icon: 'triangle' | 'circle' | 'square' | 'cross' | 'pause' | 'dashed'; cssVar: string }> = {
+export const STATUS_META: Record<StatusKey, { label: string; icon: 'triangle' | 'circle' | 'square' | 'cross' | 'pause' | 'diamond' | 'dashed'; cssVar: string; title?: string }> = {
   playing:   { label: 'Играю',      icon: 'triangle', cssVar: '--st-playing' },
   completed: { label: 'Пройдено',   icon: 'circle',   cssVar: '--st-completed' },
   backlog:   { label: 'Бэклог',     icon: 'square',   cssVar: '--st-backlog' },
   dropped:   { label: 'Брошено',    icon: 'cross',    cssVar: '--st-dropped' },
   shelved:   { label: 'Отложено',   icon: 'pause',    cssVar: '--st-shelved' },
+  service:   { label: 'Сервис',     icon: 'diamond',  cssVar: '--st-service', title: 'Игра-сервис' },
   none:      { label: 'Без статуса', icon: 'dashed',  cssVar: '--st-none' }, // пункт меню «сбросить статус»
 };
 /** Подпись «без статуса» в чипе фильтра, блоке коллекции и Разборе. */
@@ -29,6 +30,7 @@ export const STATUS_ICON_PATHS: Record<string, string> = {
   square: 'M3 3 H13 V13 H3 Z',
   cross: 'M3.5 3.5 L12.5 12.5 M12.5 3.5 L3.5 12.5',
   pause: 'M5.5 3 V13 M10.5 3 V13',
+  diamond: 'M8 1.75 L14.25 8 L8 14.25 L1.75 8 Z',
   dashed: 'M8 2.5 a5.5 5.5 0 1 0 0.001 0 Z', // рисуется с stroke-dasharray="2 2.5"
 };
 
@@ -40,9 +42,9 @@ export const VIEW_STORAGE_KEY = 'ps-view';
 export const VIEW_LABELS: Record<ViewMode, string> = { comfort: 'Крупно', dense: 'Плотно', list: 'Список' };
 
 /** Порядок блоков Коллекции (docs/design-system.md §4.3). Хроника = годы внутри блока `chronicle`. */
-export const COLLECTION_BLOCKS = ['playing', 'chronicle', 'backlog', 'shelved', 'unsorted'] as const;
+export const COLLECTION_BLOCKS = ['playing', 'chronicle', 'backlog', 'service', 'shelved', 'unsorted'] as const;
 export type CollectionBlock = (typeof COLLECTION_BLOCKS)[number];
 
 /** «Разбор»: клавиши и свайпы (docs/design-system.md §4.9). */
-export const TRIAGE_KEYS: Record<string, GameStatus> = { '1': 'playing', '2': 'completed', '3': 'backlog', '4': 'dropped', '5': 'shelved' };
+export const TRIAGE_KEYS: Record<string, GameStatus> = { '1': 'playing', '2': 'completed', '3': 'backlog', '4': 'dropped', '5': 'shelved', '6': 'service' };
 export const TRIAGE_SWIPE: { right: GameStatus; left: GameStatus; up: GameStatus; down: 'skip' } = { right: 'completed', left: 'dropped', up: 'backlog', down: 'skip' };

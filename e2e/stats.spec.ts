@@ -14,7 +14,7 @@ const game = (id: number, title: string, status: 'completed' | 'dropped') => ({
   trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }],
 });
 
-type Opts = { empty?: boolean; hoursNull?: boolean };
+type Opts = { empty?: boolean; hoursNull?: boolean; estimate?: boolean };
 /** Ответ по контракту §10.1 для разобранных параметров. */
 function respond(u: URL, o: Opts = {}) {
   const type = u.searchParams.get('period') === 'month' ? 'month' : 'year';
@@ -23,7 +23,7 @@ function respond(u: URL, o: Opts = {}) {
   const last = month ? new Date(Date.UTC(year, month, 0)).getUTCDate() : 31;
   const p = (n: number) => String(n).padStart(2, '0');
   const has = !o.empty && year >= TODAY.year - 1;
-  const byMonth = Array.from({ length: 12 }, (_, i) => (year < TODAY.year ? null : i < 0 || i + 1 > TODAY.month ? null : i === 0 ? null : 10 + i));
+  const byMonth = Array.from({ length: 12 }, (_, i) => (year < TODAY.year ? null : i + 1 > TODAY.month ? null : i === 0 ? (o.estimate ? 5 : null) : 10 + i));
   return {
     period: {
       type, year, month, from: `${year}-${p(month ?? 1)}-01`, to: `${year}-${p(month ?? 12)}-${p(last)}`,
@@ -31,7 +31,12 @@ function respond(u: URL, o: Opts = {}) {
     },
     years: [TODAY.year, TODAY.year - 1],
     header: { completed: has ? 1 : 0, dropped: has ? 1 : 0, hours: o.hoursNull || year < TODAY.year ? null : has ? 123.4 : 0, platinum: has ? 2 : 0 },
-    hours: { byMonth: has ? byMonth : byMonth.map(() => null), firstSnapshotDate: FIRST, periodPartial: year <= TODAY.year && (month ?? 1) <= 1 || year < TODAY.year },
+    hours: {
+      byMonth: has ? byMonth : byMonth.map(() => null),
+      // оценка: январь целиком оценочный, февраль частично (контракт §10.1: estimatedByMonth <= byMonth)
+      estimatedByMonth: has && o.estimate && year === TODAY.year ? byMonth.map((v, i) => (i === 0 ? 5 : i === 1 && v ? 4 : 0)) : Array(12).fill(0),
+      estimatedHours: has && o.estimate ? 9 : 0, hasEstimate: !!has && !!o.estimate,
+      firstSnapshotDate: FIRST, periodPartial: year <= TODAY.year && (month ?? 1) <= 1 || year < TODAY.year },
     genres: has ? { hasData: true, items: [{ key: 'ACTION', label: 'Экшен', value: 14.5 }, { key: 'OTHER', label: 'Другое', value: 3 }] } : { hasData: false, items: [] },
     trophies: {
       counts: has ? { platinum: 2, gold: 3, silver: 4, bronze: 5, total: 14 } : z,
@@ -64,19 +69,93 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 const last = (c: Ctl) => c.calls[c.calls.length - 1];
 
 test.describe('/stats', () => {
-  test('год: шапка, 12 столбцов часов, плашка про первый синк, жанры, трофеи, завершённые', async ({ page, context, baseURL }) => {
+  test('год: шапка, 12 столбцов часов, жанры, трофеи, завершённые; без оценки нет плашки и легенды', async ({ page, context, baseURL }) => {
     const ctl = await open(page, context, baseURL!);
     await expect(page.getByRole('heading', { name: 'Часы по месяцам' })).toBeVisible();
     expect(last(ctl).searchParams.get('period')).toBe('year');
     await expect(page.locator('.ps-st-bar')).toHaveCount(12);
-    await expect(page.locator('.ps-st-bar[data-nodata]').first()).toBeVisible(); // null-месяцы заштрихованы
+    await expect(page.locator('.ps-st-bar[data-nodata]').first()).toBeVisible(); // null-месяцы: кнопка есть, столбца нет
+    await expect(page.locator('.ps-st-bar[data-nodata] .ps-st-bar__stack')).toHaveCount(0);
+    await expect(page.locator('.ps-st-bar__hatch')).toHaveCount(0); // штриховка «нет данных» убрана
     await expect(page.locator('.ps-st-head')).toContainText('123,4 ч');
-    await expect(page.getByRole('note')).toContainText(`15.01.${TODAY.year}`);
+    await expect(page.locator('.ps-st-head')).not.toContainText('≈');
+    await expect(page.getByRole('note')).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Обозначения' })).toHaveCount(0);
+    await expect(page.locator('.ps-st-bar__est')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Жанры' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Трофеи' })).toBeVisible();
     await expect(page.locator('.ps-card__title', { hasText: 'Игра Один' })).toHaveCount(1);
     await expect(page.locator('.ps-card__title', { hasText: 'Игра Два' })).toHaveCount(1);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
+  });
+
+  test('оценка часов: стек «измерено + оценка», легенда, плашка, «≈» в шапке, подсказка с обеими частями', async ({ page, context, baseURL }) => {
+    test.skip(TODAY.month < 2, 'нужны январь и февраль в графике');
+    const ctl = await open(page, context, baseURL!, '/blank-never');
+    ctl.opts = { estimate: true };
+    await page.goto('/stats');
+    await expect(page.locator('.ps-st-bar')).toHaveCount(12);
+    // январь целиком оценка, февраль в части
+    const jan = page.locator('.ps-st-bar').nth(0);
+    const feb = page.locator('.ps-st-bar').nth(1);
+    await expect(jan.locator('.ps-st-bar__est')).toHaveCount(1);
+    await expect(jan.locator('.ps-st-bar__fill')).toHaveCount(0);
+    await expect(feb.locator('.ps-st-bar__est')).toHaveCount(1);
+    await expect(feb.locator('.ps-st-bar__fill')).toHaveCount(1);
+    // измеренная снизу, оценочная сверху
+    const [est, real] = await Promise.all([feb.locator('.ps-st-bar__est').boundingBox(), feb.locator('.ps-st-bar__fill').boundingBox()]);
+    expect(est!.y + est!.height).toBeLessThanOrEqual(real!.y + 1.5);
+    // март без оценки: только измеренная часть
+    if (TODAY.month >= 3) await expect(page.locator('.ps-st-bar').nth(2).locator('.ps-st-bar__est')).toHaveCount(0);
+    // диагональные полосы и пунктир, не только цвет
+    const deco = await feb.locator('.ps-st-bar__est').evaluate((el) => {
+      const after = getComputedStyle(el, '::after');
+      const st = getComputedStyle(el);
+      return { img: after.backgroundImage, border: st.borderTopStyle };
+    });
+    expect(deco.img).toContain('repeating-linear-gradient');
+    expect(deco.border).toBe('dashed');
+    // легенда и плашка
+    const legend = page.getByRole('list', { name: 'Обозначения' });
+    await expect(legend).toContainText('Измерено');
+    await expect(legend).toContainText('Оценка');
+    await expect(page.getByRole('note')).toHaveText(`До 15.01.${TODAY.year} часы оценены: распределены равномерно между первым и последним запуском игры. С этой даты часы измеряются по ежедневным снимкам.`);
+    // KPI с «≈»
+    await expect(page.locator('.ps-st-head')).toContainText('≈ 123,4 ч');
+    await expect(page.locator('.ps-st-head [title="Часть часов оценена"]')).toBeVisible();
+    // aria-label с обеими частями
+    await expect(feb).toHaveAttribute('aria-label', `Февраль ${TODAY.year}: 11 ч, из них 4 ч оценка`);
+    await expect(jan).toHaveAttribute('aria-label', `Январь ${TODAY.year}: 5 ч, из них 5 ч оценка`);
+    // подсказка: обе части
+    await feb.hover();
+    const tip = page.getByRole('tooltip');
+    await expect(tip).toContainText(`Февраль ${TODAY.year}`);
+    await expect(tip).toContainText('11 ч всего');
+    await expect(tip).toContainText('Измерено: 7 ч');
+    await expect(tip).toContainText('Оценка: 4 ч');
+    // целиком оценочный месяц: нулевая часть «Измерено» не выводится
+    await jan.click();
+    await expect(tip).toContainText('Оценка: 5 ч');
+    await expect(tip).not.toContainText('Измерено');
+    // подсказка без оценки: одна строка «Измерено»
+    if (TODAY.month >= 3) {
+      await page.locator('.ps-st-bar').nth(2).click();
+      await expect(tip).toContainText('Измерено: 12 ч');
+      await expect(tip).not.toContainText('Оценка');
+    }
+    if (SHOTS) await page.locator('.ps-st-panel--hours, .ps-st-panel--hours-wide').first().screenshot({ path: `${SHOTS}/stats-est-${test.info().project.name}.png` });
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('оценка без снимков (firstSnapshotDate = null): плашка без даты', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/blank-never');
+    await page.route(/\/api\/stats\?/, (r) => {
+      const d = respond(new URL(r.request().url()), { estimate: true });
+      const e = { ...d, hours: { ...d.hours, firstSnapshotDate: null, periodPartial: true } };
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: e }) });
+    });
+    await page.goto('/stats');
+    await expect(page.getByRole('note')).toHaveText('Часы оценены: распределены равномерно между первым и последним запуском игры. Точные данные появятся после ежедневных синков.');
   });
 
   test('переключатель Год/Месяц и стрелки: URL, запросы, границы', async ({ page, context, baseURL }) => {

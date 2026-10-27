@@ -22,6 +22,7 @@
   --story-track: rgba(255, 255, 255, .3);
   --story-backdrop: rgba(0, 0, 0, .85);
   --story-shade: rgba(0, 0, 0, .55);
+  --story-plate: rgba(0, 0, 0, .45);
   position: fixed; inset: 0; z-index: var(--z-story); display: grid; place-items: center; background: var(--story-backdrop);
   color: var(--story-fg);
 }
@@ -69,7 +70,9 @@
 .ps-story__big { display: flex; align-items: baseline; gap: var(--sp-2); font: var(--fw-display) 72px/72px var(--font-display); letter-spacing: -.04em; }
 .ps-story__unit { font: var(--fw-h3) var(--fs-display)/var(--lh-display) var(--font-display); letter-spacing: 0; color: var(--story-fg-dim); }
 .ps-story__num { font-family: var(--font-display); }
+.ps-story__approx { margin-right: var(--sp-2); color: var(--story-fg-dim); font-weight: var(--fw-display); }
 .ps-story__badge { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--story-shade); border: 1px solid var(--story-track); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--story-fg); }
+.ps-story__badge[data-kind="estimate"] { background: var(--story-plate); border-color: transparent; font-size: 13px; line-height: 18px; font-weight: var(--fw-h3); }
 .ps-story__avatar { display: grid; place-items: center; width: 96px; height: 96px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font: var(--fw-display) 40px/1 var(--font-display); }
 
 .ps-story__thumb { flex: none; border-radius: var(--r-cover); overflow: hidden; }
