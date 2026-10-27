@@ -210,7 +210,6 @@ test.describe('коллекция (desktop)', () => {
   // ЗАМЕЧАНИЕ (BUG-3): "Отменить" возвращает статус через PUT, сервер заново берёт last_played_at,
   // ручная дата теряется. Тест фиксирует желаемое поведение и ожидаемо падает до исправления.
   test('"Отменить" не должен терять вручную поправленную дату завершения', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-3: ручная дата теряется при откате статуса');
     const games = seed();
     games[0].completedAt = '2025-04-01T09:00:00.000Z'; // вручную позже last_played_at
     await open(page, context, baseURL!, '/?status=completed', games);
@@ -240,6 +239,15 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.getByText(/изменено игр 2 из 2/)).toBeVisible();
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'POST', body: { ids: [8, 9], status: 'backlog' } });
     await expect(page.getByText('Выбрано')).toHaveCount(0);
+  });
+
+  test('смена фильтров снимает выбор игр (R3)', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?status=none');
+    await page.getByRole('button', { name: 'Выбрать' }).click();
+    await page.getByRole('button', { name: 'Выбрать все (2)' }).click();
+    await expect(page.getByText('Выбрано 2')).toBeVisible();
+    await tab(page, /Бэклог/).click();
+    await expect(page.getByText('Выбрано 0')).toBeVisible();
   });
 
   test('сортировка и вид "список"', async ({ page, context, baseURL }) => {
@@ -275,7 +283,6 @@ test.describe('коллекция (desktop)', () => {
   // BUG-4: Popover перехватывает Escape (stopPropagation) даже в закрытом состоянии, поэтому при фокусе
   // на кнопке статуса внутри диалога Esc не закрывает диалог.
   test('Esc закрывает диалог, когда фокус на кнопке статуса', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-4: Esc на кнопке статуса не закрывает диалог');
     await open(page, context, baseURL!);
     await coll(page).getByRole('button', { name: 'Открыть: Stray' }).click();
     const dlg = page.getByRole('dialog', { name: 'Stray' });

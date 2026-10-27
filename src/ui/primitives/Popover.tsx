@@ -35,6 +35,7 @@ export function Popover({
   }, [open]);
 
   function onKey(e: KeyboardEvent) {
+    if (!open) return;
     if (e.key === 'Escape') {
       e.stopPropagation();
       setOpen(false);

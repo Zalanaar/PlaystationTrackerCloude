@@ -25,7 +25,14 @@ import { ContinueRow, NowPlaying, StatsHeader } from './Overview';
 const PAGE = 60;
 const BULK_MAX = 250;
 
+type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
 type ListState = Pick<GamesListResponse, 'items' | 'total' | 'counts' | 'years'>;
+
+function oldDate(g: GameItem): DateRestore | undefined {
+  if (g.status === 'completed' && g.completedAt) return { kind: 'completed', iso: g.completedAt };
+  if (g.status === 'dropped' && g.droppedAt) return { kind: 'dropped', iso: g.droppedAt };
+  return undefined;
+}
 
 export function CollectionView() {
   const router = useRouter();
@@ -50,7 +57,10 @@ export function CollectionView() {
   const listRef = useRef<ListState | null>(null);
   useEffect(() => { listRef.current = list; }, [list]);
   const reqId = useRef(0);
-  const undoRef = useRef<((g: GameItem, s: GameStatusValue | null, silent?: boolean) => Promise<void>) | null>(null);
+  const undoRef = useRef<((g: GameItem, s: GameStatusValue | null, silent?: boolean, restore?: DateRestore) => Promise<void>) | null>(null);
+  const moreAbort = useRef<AbortController | null>(null);
+  const filtersRef = useRef(filters);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   // ---------- загрузка ----------
   const loadSummary = useCallback(async () => {
@@ -65,6 +75,7 @@ export function CollectionView() {
 
   const loadList = useCallback(async (f: Filters, limit: number) => {
     const id = ++reqId.current;
+    moreAbort.current?.abort();
     setListLoading(true);
     try {
       const r = await fetchGames(filtersToApi(f, { limit, offset: 0 }));
@@ -85,7 +96,10 @@ export function CollectionView() {
   }, [loadSummary]);
 
   useEffect(() => {
-    const t = setTimeout(() => void loadList(filters, PAGE), 0);
+    const t = setTimeout(() => {
+      setSelected(new Set()); // выбор не должен захватывать игры из прошлой выдачи
+      void loadList(filters, PAGE);
+    }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- перезагрузка только при смене фильтров
   }, [filtersKey, loadList]);
@@ -112,27 +126,35 @@ export function CollectionView() {
 
   async function loadMore() {
     if (!list) return;
+    const id = reqId.current;
+    moreAbort.current?.abort();
+    const ac = new AbortController();
+    moreAbort.current = ac;
     setMore(true);
     try {
-      const r = await fetchGames(filtersToApi(filters, { limit: PAGE, offset: list.items.length }));
+      const r = await fetchGames(filtersToApi(filters, { limit: PAGE, offset: list.items.length }), ac.signal);
+      if (id !== reqId.current || ac.signal.aborted) return;
       setList((l) => {
         if (!l) return l;
         const have = new Set(l.items.map((g) => g.id));
         return { ...l, ...{ total: r.total, counts: r.counts, years: r.years }, items: [...l.items, ...r.items.filter((g) => !have.has(g.id))] };
       });
     } catch (e) {
+      if (id !== reqId.current || ac.signal.aborted) return;
       toast({ kind: 'error', text: `Не удалось загрузить ещё. ${errorText(e)}` });
     } finally {
-      setMore(false);
+      if (moreAbort.current === ac) setMore(false);
     }
   }
 
   // ---------- URL ----------
   const setFilters = useCallback((p: Partial<Filters>) => {
-    const next = { ...filters, ...p };
+    // база — последнее запрошенное состояние, а не фильтры текущего рендера: два вызова в один кадр не теряются
+    const next = { ...filtersRef.current, ...p };
+    filtersRef.current = next;
     const qs = filtersToUrl(next).toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [filters, pathname, router]);
+  }, [pathname, router]);
 
   // ---------- локальное состояние игр ----------
   const replaceGames = useCallback((games: GameItem[]) => {
@@ -152,7 +174,7 @@ export function CollectionView() {
     return listRef.current?.items.find((x) => x.id === g.id) ?? g;
   }, []);
 
-  const setStatus = useCallback(async (game: GameItem, status: GameStatusValue | null, silent = false) => {
+  const setStatus = useCallback(async (game: GameItem, status: GameStatusValue | null, silent = false, restore?: DateRestore) => {
     const prev = current(game);
     if (prev.status === status) return;
     replaceGames([applyStatusLocally(prev, status, new Date().toISOString())]);
@@ -160,9 +182,20 @@ export function CollectionView() {
     try {
       const r = await putStatus(prev.id, status);
       replaceGames([r.game]);
+      if (silent && restore && restore.kind === status && new Date(restore.iso).getTime() <= Date.now()) {
+        const have = restore.kind === 'completed' ? r.game.completedAt : r.game.droppedAt;
+        if (have !== restore.iso) {
+          try {
+            const d = await patchStatusDate(prev.id, restore.kind, restore.iso);
+            replaceGames([d.game]);
+          } catch (e) {
+            toast({ kind: 'error', text: `Статус возвращён, но дату не удалось восстановить. ${errorText(e)}` });
+          }
+        }
+      }
       toast({
         text: silent ? 'Статус возвращён' : `Статус изменён: ${STATUS_META[status ?? 'none'].label}`,
-        action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true) },
+        action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true, oldDate(prev)) },
       });
       refresh();
     } catch (e) {
