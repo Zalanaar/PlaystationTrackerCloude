@@ -1,20 +1,23 @@
 // Чистая логика коллекции: фильтры <-> URL <-> query API, дата завершения, оптимистичные правки.
 import type { GameItem, GameSort, GameStatusValue, SortOrder, StatusCounts, StatusFilterValue } from '@/server/collection/types';
+import { DEFAULT_VIEW, UNSORTED_LABEL, VIEW_MODES, type ViewMode } from '../tokens';
 
 export type StatusTab = 'all' | StatusFilterValue;
-export type ViewMode = 'grid' | 'list';
+export type { ViewMode };
 
 export type Filters = {
   status: StatusTab;
-  year: number | null;
   sort: GameSort;
   /** null = порядок по умолчанию для sort */
   order: SortOrder | null;
   q: string;
-  view: ViewMode;
+  /** null = в URL не задан: берётся сохранённый в localStorage, иначе по умолчанию */
+  view: ViewMode | null;
 };
 
-export const DEFAULT_FILTERS: Filters = { status: 'all', year: null, sort: 'last_played', order: null, q: '', view: 'grid' };
+/** Сортировка по умолчанию = дата завершения: включает хронику (design-system §4.3). */
+export const DEFAULT_SORT: GameSort = 'completed_at';
+export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null };
 
 export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -23,15 +26,15 @@ export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'backlog', label: 'Бэклог' },
   { id: 'dropped', label: 'Брошено' },
   { id: 'shelved', label: 'Отложено' },
-  { id: 'none', label: 'Без статуса' },
+  { id: 'none', label: UNSORTED_LABEL },
 ];
 
 export const SORT_OPTIONS: readonly { id: GameSort; label: string }[] = [
+  { id: 'completed_at', label: 'По дате завершения' },
   { id: 'last_played', label: 'По последней игре' },
   { id: 'title', label: 'По названию' },
   { id: 'hours', label: 'По часам' },
   { id: 'trophies_progress', label: 'По трофеям' },
-  { id: 'completed_at', label: 'По дате завершения' },
 ];
 
 export const DEFAULT_ORDER: Record<GameSort, SortOrder> = {
@@ -44,34 +47,40 @@ export const MAX_QUERY_LENGTH = 100;
 
 type ParamsLike = { get(name: string): string | null };
 
+export function isViewMode(v: string | null | undefined): v is ViewMode {
+  return !!v && (VIEW_MODES as readonly string[]).includes(v);
+}
+
 /** Разбор URL. Неизвестные и битые значения откатываются к умолчаниям. */
 export function parseFilters(params: ParamsLike): Filters {
   const status = params.get('status') as StatusTab | null;
-  const yearRaw = params.get('year');
-  const year = yearRaw && /^\d{4}$/.test(yearRaw) && +yearRaw >= 2000 && +yearRaw <= 2100 ? +yearRaw : null;
   const sortRaw = params.get('sort') as GameSort | null;
   const sort = sortRaw && SORT_IDS.includes(sortRaw) ? sortRaw : DEFAULT_FILTERS.sort;
   const orderRaw = params.get('order');
   const order = orderRaw === 'asc' || orderRaw === 'desc' ? (orderRaw === DEFAULT_ORDER[sort] ? null : orderRaw) : null;
+  const viewRaw = params.get('view');
   return {
     status: status && TAB_IDS.includes(status) ? status : 'all',
-    year,
     sort,
     order,
     q: (params.get('q') ?? '').slice(0, MAX_QUERY_LENGTH),
-    view: params.get('view') === 'list' ? 'list' : 'grid',
+    view: isViewMode(viewRaw) ? viewRaw : null,
   };
+}
+
+/** Вид с учётом сохранённого: URL главнее localStorage, затем умолчание. */
+export function effectiveView(f: Pick<Filters, 'view'>, stored: string | null | undefined): ViewMode {
+  return f.view ?? (isViewMode(stored) ? stored : DEFAULT_VIEW);
 }
 
 /** Состояние для адресной строки: только отличия от умолчаний. */
 export function filtersToUrl(f: Filters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.status !== 'all') p.set('status', f.status);
-  if (f.year !== null) p.set('year', String(f.year));
   if (f.sort !== DEFAULT_FILTERS.sort) p.set('sort', f.sort);
   if (f.order !== null && f.order !== DEFAULT_ORDER[f.sort]) p.set('order', f.order);
   if (f.q.trim()) p.set('q', f.q);
-  if (f.view === 'list') p.set('view', 'list');
+  if (f.view) p.set('view', f.view);
   return p;
 }
 
@@ -81,7 +90,6 @@ export function filtersToApi(f: Filters, page: { limit: number; offset: number }
   const q = f.q.trim();
   if (q) p.set('q', q.slice(0, MAX_QUERY_LENGTH));
   if (f.status !== 'all') p.set('status', f.status);
-  if (f.year !== null) p.set('year', String(f.year));
   p.set('sort', f.sort);
   if (f.order !== null) p.set('order', f.order);
   p.set('limit', String(page.limit));
@@ -89,13 +97,35 @@ export function filtersToApi(f: Filters, page: { limit: number; offset: number }
   return p;
 }
 
+/** Query блока коллекции: статусы через запятую, свой порядок, поиск общий. */
+export function blockQuery(statuses: readonly StatusFilterValue[], sort: GameSort, q: string, page: { limit: number; offset: number }): URLSearchParams {
+  const p = new URLSearchParams();
+  const t = q.trim();
+  if (t) p.set('q', t.slice(0, MAX_QUERY_LENGTH));
+  p.set('status', statuses.join(','));
+  p.set('sort', sort);
+  p.set('limit', String(page.limit));
+  p.set('offset', String(page.offset));
+  return p;
+}
+
+/** Хроника строится только при сортировке по дате завершения. */
+export function isChronicleMode(f: Pick<Filters, 'sort'>): boolean {
+  return f.sort === 'completed_at';
+}
+
+/** Попадает ли игра под выбранную вкладку статуса. */
+export function matchesStatusTab(g: Pick<GameItem, 'status'>, tab: StatusTab): boolean {
+  return tab === 'all' || (g.status ?? 'none') === tab;
+}
+
 /** Фильтры, которые сбрасывает «Сбросить» (сортировка и вид не считаются). */
 export function hasActiveFilters(f: Filters): boolean {
-  return f.status !== 'all' || f.year !== null || f.q.trim() !== '';
+  return f.status !== 'all' || f.q.trim() !== '';
 }
 
 export function resetFilters(f: Filters): Filters {
-  return { ...f, status: 'all', year: null, q: '' };
+  return { ...f, status: 'all', q: '' };
 }
 
 /** Дата завершения для карточки/строки: у пройденной completedAt, у брошенной droppedAt. */
@@ -124,11 +154,6 @@ export function adjustCounts(c: StatusCounts, from: GameStatusValue | null, to: 
   next[from ?? 'none'] = Math.max(0, next[from ?? 'none'] - 1);
   next[to ?? 'none'] += 1;
   return next;
-}
-
-/** «Продолжить» без дубля «Играю сейчас». */
-export function dedupeContinue(playing: GameItem | undefined, list: GameItem[]): GameItem[] {
-  return playing ? list.filter((g) => g.id !== playing.id) : list;
 }
 
 /** Значение `<input type=date>` (ГГГГ-ММ-ДД, день по Москве) -> ISO. Позже now не бывает: обрезается до now. null = неверный ввод. */

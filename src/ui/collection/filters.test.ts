@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
-  DEFAULT_FILTERS, adjustCounts, applyStatusLocally, completionInfo, dateInputToIso, dedupeContinue, filtersToApi,
-  filtersToUrl, hasActiveFilters, isoToDateInput, parseFilters,
+  DEFAULT_FILTERS, adjustCounts, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
+  filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, matchesStatusTab, parseFilters,
 } from './filters';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -12,32 +12,50 @@ const game = (o: Partial<GameItem> = {}): GameItem => ({
 });
 
 describe('фильтры <-> URL', () => {
-  it('пустой URL = умолчания', () => {
+  it('пустой URL = умолчания (сортировка по дате завершения, вид не задан)', () => {
     expect(parseFilters(p(''))).toEqual(DEFAULT_FILTERS);
+    expect(DEFAULT_FILTERS.sort).toBe('completed_at');
+    expect(DEFAULT_FILTERS.view).toBeNull();
   });
   it('круг: разбор и сборка', () => {
-    const f = parseFilters(p('status=completed&year=2026&sort=hours&order=asc&q=halo&view=list'));
-    expect(f).toEqual({ status: 'completed', year: 2026, sort: 'hours', order: 'asc', q: 'halo', view: 'list' });
-    expect(filtersToUrl(f).toString()).toBe('status=completed&year=2026&sort=hours&order=asc&q=halo&view=list');
+    const f = parseFilters(p('status=completed&sort=hours&order=asc&q=halo&view=dense'));
+    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense' });
+    expect(filtersToUrl(f).toString()).toBe('status=completed&sort=hours&order=asc&q=halo&view=dense');
   });
-  it('мусор откатывается', () => {
-    const f = parseFilters(p('status=zzz&year=20x&sort=bad&order=up&view=cards'));
+  it('мусор откатывается, год из URL игнорируется', () => {
+    const f = parseFilters(p('status=zzz&year=2026&sort=bad&order=up&view=cards'));
     expect(f).toEqual(DEFAULT_FILTERS);
-    expect(parseFilters(p('year=1999')).year).toBeNull();
   });
   it('order по умолчанию не пишется в URL', () => {
     expect(parseFilters(p('sort=title&order=asc')).order).toBeNull();
     expect(filtersToUrl({ ...DEFAULT_FILTERS, sort: 'title', order: 'asc' }).toString()).toBe('sort=title');
+    expect(filtersToUrl({ ...DEFAULT_FILTERS, sort: 'last_played' }).toString()).toBe('sort=last_played');
+  });
+  it('вид: URL главнее localStorage, затем умолчание', () => {
+    expect(effectiveView({ view: 'list' }, 'dense')).toBe('list');
+    expect(effectiveView({ view: null }, 'dense')).toBe('dense');
+    expect(effectiveView({ view: null }, 'bogus')).toBe('comfort');
+    expect(effectiveView({ view: null }, null)).toBe('comfort');
   });
   it('query API: пробелы обрезаются, status all не шлётся', () => {
-    const api = filtersToApi({ ...DEFAULT_FILTERS, q: '  halo ', year: 2025 }, { limit: 60, offset: 60 });
-    expect(api.toString()).toBe('q=halo&year=2025&sort=last_played&limit=60&offset=60');
+    const api = filtersToApi({ ...DEFAULT_FILTERS, q: '  halo ' }, { limit: 60, offset: 60 });
+    expect(api.toString()).toBe('q=halo&sort=completed_at&limit=60&offset=60');
     expect(filtersToApi({ ...DEFAULT_FILTERS, status: 'none' }, { limit: 10, offset: 0 }).get('status')).toBe('none');
   });
-  it('активные фильтры', () => {
+  it('query блока хроники', () => {
+    expect(blockQuery(['completed', 'dropped'], 'completed_at', ' ', { limit: 300, offset: 0 }).toString())
+      .toBe('status=completed%2Cdropped&sort=completed_at&limit=300&offset=0');
+    expect(blockQuery(['backlog'], 'last_played', 'x', { limit: 12, offset: 0 }).get('q')).toBe('x');
+  });
+  it('активные фильтры, режим хроники, вкладка статуса', () => {
     expect(hasActiveFilters(DEFAULT_FILTERS)).toBe(false);
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, q: ' ' })).toBe(false);
-    expect(hasActiveFilters({ ...DEFAULT_FILTERS, year: 2026 })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, status: 'none' })).toBe(true);
+    expect(isChronicleMode(DEFAULT_FILTERS)).toBe(true);
+    expect(isChronicleMode({ sort: 'title' })).toBe(false);
+    expect(matchesStatusTab(game({ status: null }), 'none')).toBe(true);
+    expect(matchesStatusTab(game({ status: 'playing' }), 'none')).toBe(false);
+    expect(matchesStatusTab(game({ status: 'playing' }), 'all')).toBe(true);
   });
 });
 
@@ -59,10 +77,6 @@ describe('даты завершения и оптимистичные правк
     const c = { all: 3, playing: 1, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 2 };
     expect(adjustCounts(c, null, 'completed')).toEqual({ ...c, completed: 1, none: 1 });
     expect(adjustCounts(c, 'playing', null)).toEqual({ ...c, playing: 0, none: 3 });
-  });
-  it('dedupeContinue убирает игру из «Играю сейчас»', () => {
-    expect(dedupeContinue(game({ id: 1 }), [game({ id: 1 }), game({ id: 2 })]).map((g) => g.id)).toEqual([2]);
-    expect(dedupeContinue(undefined, [game({ id: 1 })])).toHaveLength(1);
   });
   it('dateInputToIso: день по Москве, не позже now, мусор = null', () => {
     const now = Date.parse('2026-10-27T09:00:00Z');
