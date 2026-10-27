@@ -1,14 +1,16 @@
-/* PS Tracker: базовые токены. НЕ зависят от темы. Темы переопределяют только то, что помечено в themes.css. */
+/* PS Tracker: базовые токены. НЕ зависят от темы. Темы переопределяют только то, что помечено в themes.css.
+   Направление A «Полка» + B «Хроника». Источник правил: docs/design-system.md. */
 :root {
-  /* Типографика: семейства задаются темой (themes.css), здесь размеры */
-  --fs-display: 32px; --lh-display: 40px; --fw-display: 800;
-  --fs-h1: 24px;      --lh-h1: 32px;      --fw-h1: 700;
-  --fs-h2: 20px;      --lh-h2: 28px;      --fw-h2: 700;
+  /* Типографика: семейства задаются в themes.css (общие для всех тем), здесь размеры */
+  --fs-display: 32px; --lh-display: 40px; --fw-display: 700;
+  --fs-year: 28px;    --lh-year: 32px;    --fw-year: 700;   /* год в заголовке хроники, display-шрифт */
+  --fs-h1: 22px;      --lh-h1: 28px;      --fw-h1: 700;
+  --fs-h2: 15px;      --lh-h2: 20px;      --fw-h2: 600;     /* заголовки блоков (display-шрифт) */
   --fs-h3: 16px;      --lh-h3: 24px;      --fw-h3: 600;
   --fs-body: 14px;    --lh-body: 20px;    --fw-body: 400;
   --fs-small: 12px;   --lh-small: 16px;   --fw-small: 500;
-  --fs-micro: 11px;   --lh-micro: 14px;   --fw-micro: 600; /* UPPERCASE, letter-spacing .06em */
-  --fs-stat: 28px;    --lh-stat: 32px;    --fw-stat: 800;  /* крупные числа, tabular-nums */
+  --fs-micro: 11px;   --lh-micro: 14px;   --fw-micro: 600;  /* UPPERCASE, letter-spacing .06em */
+  --fs-stat: 28px;    --lh-stat: 32px;    --fw-stat: 700;   /* крупные числа, tabular-nums */
   --ls-micro: 0.06em;
 
   /* Отступы (шаг 4px) */
@@ -20,38 +22,50 @@
   --gutter: 24px;
   --header-h: 56px;
   --tabbar-h: 56px;
-  --card-gap: 16px;
+  --card-gap: 16px;          /* зазор сетки обложек, режим «Крупно» */
+  --row-gap: 20px;           /* вертикальный зазор рядов (под названием) */
   --cover-ratio: 3 / 4;
-  --control-h: 36px;   /* поиск, фильтры, кнопки */
-  --tap-min: 44px;     /* минимум зоны нажатия на мобильном */
+  --control-h: 36px;         /* поиск, фильтры, кнопки */
+  --tap-min: 44px;           /* минимум зоны нажатия на мобильном */
+  --ribbon-h: 72px;          /* лента «Играю» (десктоп) */
+  --strip-item-w: 220px;     /* элемент ленты «Играю» (мобильный) */
+  --glyph-badge: 26px;       /* кружок фигуры статуса на обложке */
+  --border-w: 1px;
 
-  /* Статусы (одинаковы во всех темах; playing = акцент темы) */
+  /* Сетка обложек: число колонок по режиму плотности (GameGrid ставит data-density) */
+  --cols-comfort: 6;
+  --cols-dense: 10;
+  --cols: var(--cols-comfort);
+
+  /* Статусы: приглушённые, одинаковы во всех темах; playing = акцент. Цвет только у фигуры, подпись text-2/text */
   --st-playing:   var(--accent);
-  --st-completed: #3be8c8;
-  --st-backlog:   #ffc857;
-  --st-dropped:   #ff8fa3;
-  --st-shelved:   #a8b0c8;
+  --st-completed: #7fd1b9;
+  --st-backlog:   #e2bf75;
+  --st-dropped:   #e69aa6;
+  --st-shelved:   #a3abc0;
   --st-none:      var(--text-3);
 
-  /* Семантика */
-  --success: #3be8c8;
-  --warning: #ffc857;
-  --danger:  #ff8fa3;
+  /* Семантика (баннеры, индикатор синка) */
+  --success: #7fd1b9;
+  --warning: #e2bf75;
+  --danger:  #e69aa6;
   --platinum: #bfe6ff;
   --gold: #ffd25e; --silver: #d3d8e4; --bronze: #e39a64;
 
   /* Поверхности поверх обложек (всегда тёмные, независимо от темы) */
   --on-cover-bg: rgba(8, 9, 14, 0.78);
   --on-cover-text: #ffffff;
-  --cover-scrim: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 45%, rgba(0,0,0,0) 100%);
+  --on-cover-border: rgba(255, 255, 255, 0.12);
+  --cover-scrim: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 55%, rgba(0,0,0,0) 100%);
+  --dropped-filter: saturate(.45) brightness(.9);   /* обложка брошенной игры */
 
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
   --dur-slide: 7000ms; /* автопереход Wrapped */
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --ease-in-out: cubic-bezier(.4, 0, .2, 1);
-  --ease-ui: var(--ease-out); /* Memory Card: steps(4, end) */
-  --hover-lift: -4px;  /* translateY карточки при hover */
+  --ease-ui: var(--ease-out);
+  --hover-lift: -3px;  /* translateY обложки при hover */
 
   /* z-index */
   --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-story: 90;
@@ -64,16 +78,25 @@
   --shadow-focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus);
 }
 
+/* Плотный режим: переменные переопределяются на контейнере сетки */
+[data-density="dense"] { --cols: var(--cols-dense); --card-gap: 10px; --row-gap: 10px; --glyph-badge: 20px; }
+
+@media (max-width: 1279px) { :root { --cols-comfort: 5; --cols-dense: 8; } }
+@media (max-width: 1023px) { :root { --cols-comfort: 4; --cols-dense: 6; } }
 @media (max-width: 767px) {
   :root {
+    --cols-comfort: 2; --cols-dense: 3;
     --fs-display: 26px; --lh-display: 32px;
-    --fs-h1: 20px; --lh-h1: 28px;
-    --fs-h2: 18px; --lh-h2: 24px;
+    --fs-year: 24px; --lh-year: 28px;
+    --fs-h1: 19px; --lh-h1: 26px;
     --fs-stat: 22px; --lh-stat: 26px;
     --gutter: 16px;
     --card-gap: 12px;
     --control-h: 40px;
+    --ribbon-h: auto;
+    --glyph-badge: 22px;
   }
+  [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

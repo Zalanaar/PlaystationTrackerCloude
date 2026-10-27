@@ -1,110 +1,55 @@
-/* Значения тем. Набор имён токенов одинаков во всех блоках.
+/* Значения тем. Набор имён токенов одинаков во всех блоках. Тем три: Night, Graphite, Activity.
    Night = :root (по умолчанию, без атрибута). Остальные: <html data-theme="...">.
-   Шрифты подключает frontend через next/font (subsets: latin, cyrillic) и кладёт в --f-inter, --f-manrope, --f-pixel. */
+   Шрифты подключает frontend через next/font (subsets: latin, cyrillic): --f-inter (текст), --f-unbounded (заголовки).
+   Шрифты общие для всех тем (это бренд, не тема). */
 
 :root,
 [data-theme="night"] {
   --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-manrope), var(--f-inter), sans-serif;
+  --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
   --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #0e0f16;           --bg-image: none;
+  --bg: #0e0f16;           --bg-image: none;       --page-art: none;
   --surface: #171925;      --surface-2: #202333;   --surface-3: #2a2e44;
-  --border: #2a2e42;       --border-strong: #424868; --border-w: 1px;
+  --border: #2a2e42;       --border-strong: #424868;
   --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #868cab;
-  --accent: #b99cff;       --accent-ink: #160f26;  --focus: #d6c4ff;
+  /* Акцент пока фиксированный. --tint (цвет обложки) отложен: frontend его не задаёт, --accent берёт запасное значение */
+  --tint: #b99cff;
+  --accent: var(--tint);   --accent-ink: #14101f;  --focus: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
-  --header-bg: rgba(14, 15, 22, 0.88);
-  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
+  --header-bg: rgba(14, 15, 22, 0.86);
+  --r-cover: 10px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
   --shadow-alpha: 0.45;
-}
-
-[data-theme="memory-card"] {
-  --font-body: var(--f-pixel), ui-monospace, monospace;
-  --font-display: var(--f-pixel), ui-monospace, monospace;
-  --font-num: var(--f-pixel), ui-monospace, monospace;
-  --bg: #26262a;           --bg-image: none;
-  --surface: #3a3a3e;      --surface-2: #46464b;   --surface-3: #54545a;
-  --border: #6e6e75;       --border-strong: #9a9aa2; --border-w: 2px;
-  --text: #f4f4f4;         --text-2: #cfcfd4;      --text-3: #b8b8c0;
-  --accent: #a8d0ff;      --accent-ink: #0a1a30;  --focus: #ffffff;
-  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
-  --header-bg: #1c1c1f;
-  --r-sm: 0; --r-md: 0; --r-lg: 0; --r-pill: 0;
-  --shadow-alpha: 0.6;
-  --ease-ui: steps(4, end);
-}
-
-[data-theme="crystal-towers"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-manrope), var(--f-inter), sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #050a1c;           --bg-image: none;
-  --surface: #0b1634;      --surface-2: #12224a;   --surface-3: #1a3068;
-  --border: #1e3a7c;       --border-strong: #3a62b8; --border-w: 1px;
-  --text: #eaf3ff;         --text-2: #a4bde6;      --text-3: #7c98c8;
-  --accent: #52c8ff;       --accent-ink: #03122a;  --focus: #9be0ff;
-  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
-  --header-bg: rgba(5, 10, 28, 0.9);
-  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
-  --shadow-alpha: 0.55;
-}
-
-[data-theme="wave"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-manrope), var(--f-inter), sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #082463;           --bg-image: linear-gradient(180deg, #0a2d7a 0%, #0b4fb0 55%, #082463 100%);
-  --surface: #0d3079;      --surface-2: #143d91;   --surface-3: #1c4ba8;
-  --border: #2a5cbc;       --border-strong: #4f82da; --border-w: 1px;
-  --text: #f0f7ff;         --text-2: #bcd5f7;      --text-3: #92b4e6;
-  --accent: #6fd6ff;       --accent-ink: #04204f;  --focus: #ffffff;
-  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
-  --header-bg: rgba(8, 36, 99, 0.88);
-  --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-pill: 999px;
-  --shadow-alpha: 0.35;
-}
-
-[data-theme="tiles"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-manrope), var(--f-inter), sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #0a2490;           --bg-image: linear-gradient(180deg, #0a2490 0%, #1038c4 100%);
-  --surface: #0e2ea6;      --surface-2: #1639b8;   --surface-3: #1f46c9;
-  --border: #2d55d6;       --border-strong: #5a82ee; --border-w: 1px;
-  --text: #ffffff;         --text-2: #c8d8ff;      --text-3: #9db8f5;
-  --accent: #ffffff;       --accent-ink: #0a1e70;  --focus: #ffd86b;
-  --accent-soft: rgba(255, 255, 255, 0.16);
-  --header-bg: rgba(10, 36, 144, 0.9);
-  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px;
-  --shadow-alpha: 0.35;
-}
-
-[data-theme="activity"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-inter), system-ui, sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #07060a;           --bg-image: none;
-  --surface: #131118;      --surface-2: #1c1a23;   --surface-3: #26232f;
-  --border: #2a2733;       --border-strong: #4a4658; --border-w: 1px;
-  --text: #f6f4fa;         --text-2: #bdb8cc;      --text-3: #8f8aa2;
-  --accent: #ffffff;       --accent-ink: #0b0a0f;  --focus: #ffffff;
-  --accent-soft: rgba(255, 255, 255, 0.12);
-  --header-bg: rgba(7, 6, 10, 0.92);
-  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
-  --shadow-alpha: 0.6;
 }
 
 [data-theme="graphite"] {
   --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-inter), system-ui, sans-serif;
+  --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
   --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #111113;           --bg-image: none;
+  --bg: #111113;           --bg-image: none;       --page-art: none;
   --surface: #1a1a1d;      --surface-2: #232327;   --surface-3: #2d2d32;
-  --border: #2c2c31;       --border-strong: #46464d; --border-w: 1px;
+  --border: #2c2c31;       --border-strong: #46464d;
   --text: #ececee;         --text-2: #b0b0b8;      --text-3: #8e8e98;
+  --tint: #d0d0d8;
   --accent: #d0d0d8;       --accent-ink: #121214;  --focus: #ffffff;
   --accent-soft: rgba(208, 208, 216, 0.14);
   --header-bg: rgba(17, 17, 19, 0.92);
-  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+  --r-cover: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
   --shadow-alpha: 0.5;
+}
+
+[data-theme="activity"] {
+  --font-body: var(--f-inter), system-ui, sans-serif;
+  --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
+  --font-num: var(--f-inter), system-ui, sans-serif;
+  --bg: #07060a;           --bg-image: none;
+  --page-art: none;        /* frontend задаёт inline на .ps-app: url(обложка «Играю сейчас») */
+  --surface: #131118;      --surface-2: #1c1a23;   --surface-3: #26232f;
+  --border: #2a2733;       --border-strong: #4a4658;
+  --text: #f6f4fa;         --text-2: #bdb8cc;      --text-3: #8f8aa2;
+  --tint: #ffffff;
+  --accent: #ffffff;       --accent-ink: #0b0a0f;  --focus: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.12);
+  --header-bg: rgba(7, 6, 10, 0.72);
+  --r-cover: 12px; --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-pill: 999px;
+  --shadow-alpha: 0.6;
 }
