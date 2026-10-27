@@ -24,6 +24,7 @@ export function BacklogView() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState(false);
   const [open, setOpen] = useState<GameItem | null>(null);
+  const [more, setMore] = useState(false);
   const itemsRef = useRef<GameItem[] | null>(null);
   useEffect(() => { itemsRef.current = items; }, [items]);
 
@@ -43,6 +44,21 @@ export function BacklogView() {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
   }, [load]);
+
+  async function loadMore() {
+    const have = itemsRef.current ?? [];
+    setMore(true);
+    try {
+      const r = await fetchGames(new URLSearchParams({ status: 'backlog', sort: 'last_played', limit: String(LIMIT), offset: String(have.length) }));
+      const ids = new Set(have.map((g) => g.id));
+      setItems([...have, ...r.items.filter((g) => !ids.has(g.id))]);
+      setTotal(r.total);
+    } catch (e) {
+      toast({ kind: 'error', text: `Не удалось загрузить ещё. ${errorText(e)}` });
+    } finally {
+      setMore(false);
+    }
+  }
 
   const change = useCallback(async (game: GameItem, status: GameStatusValue | null) => {
     if (game.status === status) return;
@@ -119,6 +135,13 @@ export function BacklogView() {
             </GameGridItem>
           ))}
         </GameGrid>
+      )}
+      {items && items.length > 0 && items.length < total && (
+        <div className="ps-more">
+          <button type="button" className="ps-btn" onClick={() => void loadMore()} disabled={more}>
+            {more ? 'Загрузка…' : `Показать ещё (${formatNumber(total - items.length)})`}
+          </button>
+        </div>
       )}
       <GameDialog
         game={open ? (items?.find((g) => g.id === open.id) ?? open) : null} startEditing={false} now={now} onClose={() => setOpen(null)}

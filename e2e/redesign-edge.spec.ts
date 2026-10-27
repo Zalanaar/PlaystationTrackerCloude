@@ -17,7 +17,6 @@ test.describe('граничные случаи редизайна', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test('один из блоков (бэклог) отвечает 503 при первой загрузке: что видит пользователь', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-R1: известный дефект, см. docs/qa/phase-4-redesign.md');
     await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
     await mockApi(page);
     await page.route(/\/api\/games\?.*status=backlog/, (r) => r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) }));
@@ -76,7 +75,6 @@ test.describe('граничные случаи редизайна', () => {
   });
 
   test('Разбор: удержание клавиши (автоповтор) не должно пролистывать очередь', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-R3: известный дефект, см. docs/qa/phase-4-redesign.md');
     const games = Array.from({ length: 12 }, (_, i) => g(i + 1, { lastPlayedAt: new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString() }));
     const mock = await open(page, context, baseURL!, '/triage', games);
     await expect(page.locator('.ps-tri__pos')).toBeVisible();
@@ -89,7 +87,6 @@ test.describe('граничные случаи редизайна', () => {
   });
 
   test('Разбор: длинное название в очереди не создаёт горизонтальный скролл', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-R2: известный дефект, см. docs/qa/phase-4-redesign.md');
     const games = [g(1, { title: 'Dragon Quest XI S: Echoes of an Elusive Age – Definitive Edition Special Collector Bundle', lastPlayedAt: '2026-10-01T10:00:00.000Z' }), ...Array.from({ length: 4 }, (_, i) => g(i + 2, { lastPlayedAt: '2026-09-01T10:00:00.000Z' }))];
     games[1].title = 'Dragon Quest XI S: Echoes of an Elusive Age – Definitive Edition Special Collector Bundle';
     await open(page, context, baseURL!, '/triage', games);

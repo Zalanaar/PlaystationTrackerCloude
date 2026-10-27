@@ -42,8 +42,8 @@ export function MonthHeader({ m }: { m: Pick<ChronicleMonth, 'month' | 'complete
     <h3 className="ps-month">
       {monthName(m.month)}
       <small className="num">
-        {m.completed > 0 && <span aria-label={`пройдено ${m.completed}`}><StatusGlyph status="completed" size={12} />{m.completed}</span>}
-        {m.dropped > 0 && <span aria-label={`брошено ${m.dropped}`}><StatusGlyph status="dropped" size={12} />{m.dropped}</span>}
+        {m.completed > 0 && <span title={`пройдено ${m.completed}`}><StatusGlyph status="completed" size={12} />{m.completed}</span>}
+        {m.dropped > 0 && <span title={`брошено ${m.dropped}`}><StatusGlyph status="dropped" size={12} />{m.dropped}</span>}
       </small>
     </h3>
   );
