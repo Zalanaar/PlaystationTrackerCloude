@@ -21,8 +21,8 @@ const TZ = 'Europe/Moscow';
 
 const PLATFORM: Record<string, Platform> = { ps4_game: 'PS4', ps5_native_game: 'PS5', pspc_game: 'PC' };
 
-/** Дата «для года»: completed_at, иначе dropped_at, иначе last_played_at; год по Москве. */
-const yearDate = sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}, ${games.lastPlayedAt})`;
+/** Дата «для года» = дата завершения: completed_at, иначе dropped_at (без fallback на last_played_at); год по Москве. */
+const yearDate = sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt})`;
 const yearExpr = sql<number | null>`extract(year from (${yearDate} at time zone ${TZ}))::int`;
 
 function trophyAgg(db: AnyDb) {

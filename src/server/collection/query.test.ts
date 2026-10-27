@@ -120,31 +120,33 @@ describe('коллекция (PGlite)', () => {
     expect(r.counts).toEqual({ all: 2, playing: 1, completed: 0, dropped: 0, backlog: 1, shelved: 0, none: 0 });
   });
 
-  it('год: completed_at > dropped_at > last_played_at, по Москве; без дат не попадает', async () => {
+  it('год: только completed_at > dropped_at, по Москве; без дат завершения не попадает', async () => {
     // 2025-12-31 22:00 UTC = 2026-01-01 01:00 МСК
-    const played = await game('Played', { lastPlayedAt: d('2025-12-31T22:00:00Z') });
-    const done = await game('Done', { lastPlayedAt: d('2024-05-05T10:00:00Z') });
+    const done = await game('Done', { lastPlayedAt: d('2025-12-31T22:00:00Z') });
     const dropped = await game('Dropped', { lastPlayedAt: d('2023-03-03T10:00:00Z') });
+    const playing = await game('Playing', { lastPlayedAt: d('2025-05-05T10:00:00Z') });
     await game('Never'); // last_played_at NULL
     await setGameStatus(t.db, done, 'completed', NOW);
     await setGameStatus(t.db, dropped, 'dropped', NOW);
-    expect(await names('year=2026')).toEqual(['Played']);
-    expect(await names('year=2024')).toEqual(['Done']);
+    await setGameStatus(t.db, playing, 'playing', NOW);
+    expect(await names('year=2026')).toEqual(['Done']);
     expect(await names('year=2023')).toEqual(['Dropped']);
+    // playing с last_played_at в 2025 при year=2025 не виден
     expect(await names('year=2025')).toEqual([]);
-    // ручная правка двигает игру в другой год
+    // ручная правка completed_at двигает игру между годами
     await setStatusDate(t.db, done, d('2025-06-01T00:00:00Z'), NOW, 'completedAt');
     expect(await names('year=2025')).toEqual(['Done']);
-    expect(await names('year=2024')).toEqual([]);
+    expect(await names('year=2026')).toEqual([]);
     const r = await listGames(t.db, lq());
-    expect(r.years).toEqual([2026, 2025, 2023]);
+    expect(r.years).toEqual([2025, 2023]);
     expect(r.total).toBe(4);
-    void played;
   });
 
   it('years не зависят от фильтров; counts учитывают year', async () => {
-    await game('X', { lastPlayedAt: d('2026-02-02T10:00:00Z') });
-    await game('Y', { lastPlayedAt: d('2024-02-02T10:00:00Z') });
+    const x = await game('X', { lastPlayedAt: d('2026-02-02T10:00:00Z') });
+    const y = await game('Y', { lastPlayedAt: d('2024-02-02T10:00:00Z') });
+    await setGameStatus(t.db, x, 'completed', d('2026-02-02T10:00:00Z'));
+    await setGameStatus(t.db, y, 'dropped', d('2024-02-02T10:00:00Z'));
     const r = await listGames(t.db, lq('year=2024&q=x'));
     expect(r.years).toEqual([2026, 2024]);
     expect(r.total).toBe(0);
