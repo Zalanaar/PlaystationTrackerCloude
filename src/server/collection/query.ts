@@ -1,0 +1,260 @@
+// Чтение коллекции (контракт, раздел 9). Агрегация трофеев одним подзапросом, без N+1.
+import { type AnyColumn, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { schema } from '@/db';
+import type { AnyDb } from '@/db/types';
+import { GENRE_LABELS_RU, effectiveGenres } from '@/server/stats/genres';
+import type {
+  CollectionSummaryResponse,
+  GameItem,
+  GameTrophies,
+  GamesListResponse,
+  Platform,
+  StatusCounts,
+} from './types';
+import type { ListQuery } from './validation';
+
+const { games, gameStatus, gameTrophySets, trophySets, trophies } = schema;
+
+export const CONTINUE_LIMIT = 8;
+export const PLAYING_LIMIT = 20;
+const TZ = 'Europe/Moscow';
+
+const PLATFORM: Record<string, Platform> = { ps4_game: 'PS4', ps5_native_game: 'PS5', pspc_game: 'PC' };
+
+/** Дата «для года»: completed_at, иначе dropped_at, иначе last_played_at; год по Москве. */
+const yearDate = sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}, ${games.lastPlayedAt})`;
+const yearExpr = sql<number | null>`extract(year from (${yearDate} at time zone ${TZ}))::int`;
+
+function trophyAgg(db: AnyDb) {
+  const sumOf = (col: AnyColumn) => sql<number>`coalesce(sum(${col}), 0)::int`;
+  return db
+    .select({
+      gameId: gameTrophySets.gameId,
+      dB: sumOf(trophySets.definedBronze).as('d_bronze'),
+      dS: sumOf(trophySets.definedSilver).as('d_silver'),
+      dG: sumOf(trophySets.definedGold).as('d_gold'),
+      dP: sumOf(trophySets.definedPlatinum).as('d_platinum'),
+      eB: sumOf(trophySets.earnedBronze).as('e_bronze'),
+      eS: sumOf(trophySets.earnedSilver).as('e_silver'),
+      eG: sumOf(trophySets.earnedGold).as('e_gold'),
+      eP: sumOf(trophySets.earnedPlatinum).as('e_platinum'),
+    })
+    .from(gameTrophySets)
+    .innerJoin(trophySets, eq(trophySets.id, gameTrophySets.trophySetId))
+    .groupBy(gameTrophySets.gameId)
+    .as('tr');
+}
+
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+export function statusFilterSql(statuses: ListQuery['statuses']): SQL | undefined {
+  if (!statuses) return undefined;
+  const real = statuses.filter((s) => s !== 'none') as Exclude<ListQuery['statuses'], null>;
+  const parts: (SQL | undefined)[] = [];
+  if (real.length) parts.push(inArray(gameStatus.status, real as never));
+  if (statuses.includes('none')) parts.push(isNull(gameStatus.status));
+  return or(...parts);
+}
+
+type Row = {
+  id: number;
+  name: string;
+  imageUrl: string | null;
+  category: string;
+  psnGenres: string[];
+  genresOverride: string[] | null;
+  playSeconds: number;
+  playCount: number;
+  lastPlayedAt: Date | null;
+  status: (typeof gameStatus.$inferSelect)['status'] | null;
+  completedAt: Date | null;
+  droppedAt: Date | null;
+  tr: { dB: number; dS: number; dG: number; dP: number; eB: number; eS: number; eG: number; eP: number } | null;
+};
+
+export function toGameItem(r: Row): GameItem {
+  let trophiesOut: GameTrophies | null = null;
+  if (r.tr) {
+    const t = r.tr;
+    const defined = t.dB + t.dS + t.dG + t.dP;
+    const earned = t.eB + t.eS + t.eG + t.eP;
+    if (defined > 0) {
+      trophiesOut = {
+        earned,
+        defined,
+        progress: Math.min(100, Math.round((earned / defined) * 100)),
+        platinumDefined: t.dP > 0,
+        platinumEarned: t.eP > 0,
+        byType: {
+          platinum: { earned: t.eP, defined: t.dP },
+          gold: { earned: t.eG, defined: t.dG },
+          silver: { earned: t.eS, defined: t.dS },
+          bronze: { earned: t.eB, defined: t.dB },
+        },
+      };
+    }
+  }
+  return {
+    id: r.id,
+    title: r.name,
+    coverUrl: r.imageUrl,
+    platform: PLATFORM[r.category] ?? 'PS4',
+    playSeconds: r.playSeconds,
+    hours: Math.round(r.playSeconds / 360) / 10,
+    playCount: r.playCount,
+    lastPlayedAt: r.lastPlayedAt ? r.lastPlayedAt.toISOString() : null,
+    status: r.status,
+    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+    droppedAt: r.droppedAt ? r.droppedAt.toISOString() : null,
+    trophies: trophiesOut,
+    genres: effectiveGenres(r.psnGenres, r.genresOverride).map((key) => ({ key, label: GENRE_LABELS_RU[key] })),
+  };
+}
+
+function itemsQuery(db: AnyDb) {
+  const tr = trophyAgg(db);
+  const q = db
+    .select({
+      id: games.id,
+      name: games.name,
+      imageUrl: games.imageUrl,
+      category: games.category,
+      psnGenres: games.psnGenres,
+      genresOverride: games.genresOverride,
+      playSeconds: games.playDurationSeconds,
+      playCount: games.playCount,
+      lastPlayedAt: games.lastPlayedAt,
+      status: gameStatus.status,
+      completedAt: gameStatus.completedAt,
+      droppedAt: gameStatus.droppedAt,
+      tr: {
+        dB: tr.dB, dS: tr.dS, dG: tr.dG, dP: tr.dP,
+        eB: tr.eB, eS: tr.eS, eG: tr.eG, eP: tr.eP,
+      },
+      hasTr: sql<boolean>`${tr.gameId} is not null`,
+    })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .leftJoin(tr, eq(tr.gameId, games.id));
+  return { q, tr };
+}
+
+/** Строка запроса -> Row (leftJoin отдаёт tr как объект с null-полями, если сета нет). */
+function normalizeRow(r: Omit<Row, 'tr'> & { tr: Row['tr']; hasTr: boolean }): Row {
+  const { hasTr, ...rest } = r;
+  return { ...rest, tr: hasTr ? r.tr : null };
+}
+
+/** Игры по списку id (для ответов мутаций), порядок по id. */
+export async function getGamesByIds(db: AnyDb, ids: number[]): Promise<GameItem[]> {
+  if (!ids.length) return [];
+  const { q } = itemsQuery(db);
+  const rows = await q.where(inArray(games.id, ids)).orderBy(asc(games.id));
+  return rows.map((r) => toGameItem(normalizeRow(r as never)));
+}
+
+export function emptyCounts(): StatusCounts {
+  return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 0 };
+}
+
+async function statusCounts(db: AnyDb, where: SQL | undefined): Promise<StatusCounts> {
+  const rows = await db
+    .select({ status: gameStatus.status, n: sql<number>`count(*)::int` })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .where(where)
+    .groupBy(gameStatus.status);
+  const c = emptyCounts();
+  for (const r of rows) {
+    c[r.status ?? 'none'] += r.n;
+    c.all += r.n;
+  }
+  return c;
+}
+
+export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListResponse> {
+  const textYear: (SQL | undefined)[] = [
+    p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
+    p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
+  ];
+  const whereBase = and(...textYear);
+  const whereAll = and(whereBase, statusFilterSql(p.statuses));
+
+  const { q, tr } = itemsQuery(db);
+  const dir = p.order === 'asc' ? sql`asc` : sql`desc`;
+  const progress = sql`((${tr.eB} + ${tr.eS} + ${tr.eG} + ${tr.eP})::numeric / nullif(${tr.dB} + ${tr.dS} + ${tr.dG} + ${tr.dP}, 0))`;
+  const earnedAll = sql`(${tr.eB} + ${tr.eS} + ${tr.eG} + ${tr.eP})`;
+  const sortKeys: Record<ListQuery['sort'], SQL[]> = {
+    last_played: [sql`${games.lastPlayedAt} ${dir} nulls last`],
+    hours: [sql`${games.playDurationSeconds} ${dir}`],
+    title: [sql`lower(${games.name}) ${dir}`],
+    trophies_progress: [sql`${progress} ${dir} nulls last`, sql`${earnedAll} ${dir} nulls last`],
+    completed_at: [sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}) ${dir} nulls last`],
+  };
+
+  const [rows, totalRows, counts, yearRows] = await Promise.all([
+    q
+      .where(whereAll)
+      .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
+      .limit(p.limit)
+      .offset(p.offset),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(games)
+      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+      .where(whereAll),
+    statusCounts(db, whereBase),
+    db
+      .selectDistinct({ y: yearExpr })
+      .from(games)
+      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id)),
+  ]);
+
+  return {
+    items: rows.map((r) => toGameItem(normalizeRow(r as never))),
+    total: totalRows[0]?.n ?? 0,
+    limit: p.limit,
+    offset: p.offset,
+    counts,
+    years: yearRows
+      .map((r) => r.y)
+      .filter((y): y is number => y !== null)
+      .sort((a, b) => b - a),
+  };
+}
+
+export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummaryResponse> {
+  const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
+  const [gameTotals, trophyTotals, counts, playingRows, continueRows] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
+      .from(games),
+    db
+      .select({
+        earned: sql<number>`(count(*) filter (where ${trophies.earned}))::int`,
+        plat: sql<number>`(count(*) filter (where ${trophies.earned} and ${trophies.type} = 'platinum'))::int`,
+      })
+      .from(trophies),
+    statusCounts(db, undefined),
+    itemsQuery(db).q.where(eq(gameStatus.status, 'playing')).orderBy(...byRecent).limit(PLAYING_LIMIT),
+    itemsQuery(db)
+      .q.where(and(isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
+      .orderBy(desc(games.lastPlayedAt), desc(games.id))
+      .limit(CONTINUE_LIMIT),
+  ]);
+  const sec = Number(gameTotals[0]?.sec ?? 0);
+  return {
+    totals: {
+      games: gameTotals[0]?.n ?? 0,
+      playSeconds: sec,
+      hours: Math.round(sec / 360) / 10,
+      trophiesEarned: trophyTotals[0]?.earned ?? 0,
+      platinumEarned: trophyTotals[0]?.plat ?? 0,
+    },
+    counts,
+    playing: playingRows.map((r) => toGameItem(normalizeRow(r as never))),
+    continue: continueRows.map((r) => toGameItem(normalizeRow(r as never))),
+  };
+}

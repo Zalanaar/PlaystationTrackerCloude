@@ -1,5 +1,5 @@
 // Правила статусов (docs/api-contract.md, 1.3 и 8.7). Синк сюда не пишет: вызывается из API смены статуса.
-import { eq } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 
@@ -44,8 +44,10 @@ export function computeStatusChange(
 
 export class StatusRuleError extends Error {
   constructor(
-    readonly code: 'not_found' | 'date_not_allowed',
+    readonly code: 'not_found' | 'date_not_allowed' | 'date_in_future',
     message: string,
+    /** Для date_not_allowed: текущий статус игры (null = без статуса). */
+    readonly currentStatus: StatusValue | null = null,
   ) {
     super(message);
   }
@@ -54,7 +56,7 @@ export class StatusRuleError extends Error {
 /** Правило 5: ручная правка даты допустима только пока статус соответствует; меняется только эта дата. */
 export function computeDateEdit(current: StatusRow | null, date: Date): StatusRow {
   if (!current || (current.status !== 'completed' && current.status !== 'dropped')) {
-    throw new StatusRuleError('date_not_allowed', 'Дату можно править только у статусов «пройдено» и «брошено».');
+    throw new StatusRuleError('date_not_allowed', 'Дату можно править только у статусов «пройдено» и «брошено».', current?.status ?? null);
   }
   return current.status === 'completed' ? { ...current, completedAt: date } : { ...current, droppedAt: date };
 }
@@ -84,15 +86,76 @@ export async function setGameStatus(db: AnyDb, gameId: number, next: StatusValue
   });
 }
 
-/** Ручная правка completed_at / dropped_at. */
-export async function setStatusDate(db: AnyDb, gameId: number, date: Date, now: Date = new Date()): Promise<StatusRow> {
+/** Ручная правка completed_at / dropped_at. Дата не позже now (иначе date_in_future), проверка после соответствия статуса. */
+export async function setStatusDate(
+  db: AnyDb,
+  gameId: number,
+  date: Date,
+  now: Date = new Date(),
+  /** Если задано, поле должно соответствовать статусу (completedAt <-> completed, droppedAt <-> dropped). */
+  field?: 'completedAt' | 'droppedAt',
+): Promise<StatusRow> {
   return db.transaction(async (tx) => {
     const { current } = await load(tx, gameId);
+    const want = field === 'completedAt' ? 'completed' : field === 'droppedAt' ? 'dropped' : null;
+    if (want && current?.status !== want) {
+      throw new StatusRuleError('date_not_allowed', 'Дата не соответствует статусу игры.', current?.status ?? null);
+    }
     const row = computeDateEdit(current, date);
+    if (date.getTime() > now.getTime()) throw new StatusRuleError('date_in_future', 'Дата не может быть в будущем.');
     await tx
       .update(gameStatus)
       .set({ completedAt: row.completedAt, droppedAt: row.droppedAt, updatedAt: now })
       .where(eq(gameStatus.gameId, gameId));
     return row;
+  });
+}
+
+export class BulkMissingError extends Error {
+  constructor(readonly missingIds: number[]) {
+    super('Игры не найдены.');
+  }
+}
+
+/**
+ * Массовая смена статуса (контракт 9.6): одна транзакция, фиксированное число запросов
+ * (чтение игр, чтение статусов, один upsert, один delete). Нет хотя бы одной игры: BulkMissingError, ничего не записано.
+ * Возвращает число реально изменённых игр.
+ */
+export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusValue | null, now: Date = new Date()): Promise<number> {
+  const unique = [...new Set(ids)];
+  if (!unique.length) return 0;
+  return db.transaction(async (tx) => {
+    const found = await tx.select({ id: games.id, lastPlayedAt: games.lastPlayedAt }).from(games).where(inArray(games.id, unique));
+    if (found.length !== unique.length) {
+      const have = new Set(found.map((g) => g.id));
+      throw new BulkMissingError(unique.filter((i) => !have.has(i)).sort((a, b) => a - b));
+    }
+    const cur = await tx.select().from(gameStatus).where(inArray(gameStatus.gameId, unique));
+    const curBy = new Map(cur.map((c) => [c.gameId, c as StatusRow]));
+    const upserts: { gameId: number; row: StatusRow }[] = [];
+    const deletes: number[] = [];
+    for (const g of found) {
+      const t = computeStatusChange(curBy.get(g.id) ?? null, next, { lastPlayedAt: g.lastPlayedAt, now });
+      if (t.action === 'delete') deletes.push(g.id);
+      else if (t.action === 'upsert') upserts.push({ gameId: g.id, row: t.row });
+    }
+    if (upserts.length) {
+      await tx
+        .insert(gameStatus)
+        .values(upserts.map((u) => ({ gameId: u.gameId, ...u.row, updatedAt: now })))
+        .onConflictDoUpdate({
+          target: gameStatus.gameId,
+          set: {
+            status: sql`excluded.status`,
+            completedAt: sql`excluded.completed_at`,
+            droppedAt: sql`excluded.dropped_at`,
+            statusChangedAt: sql`excluded.status_changed_at`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        });
+    }
+    if (deletes.length) await tx.delete(gameStatus).where(inArray(gameStatus.gameId, deletes));
+    return upserts.length + deletes.length;
   });
 }

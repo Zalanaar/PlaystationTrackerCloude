@@ -8,6 +8,7 @@ export type ErrorCode =
   | 'not_found'
   | 'rate_limited'
   | 'sync_in_progress'
+  | 'status_conflict'
   | 'config_error'
   | 'internal_error'
   | 'db_unavailable';
