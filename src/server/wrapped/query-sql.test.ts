@@ -244,9 +244,9 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     }
   });
 
-  // BUG-W1 (низкая): years[].hasData считает рост между соседними снимками, а часы года = конец минус база.
-  // Снимки 100 -> 90 -> 95 внутри года: рост есть (hasData), часов 0 (mode empty). Снять `.fails` после исправления.
-  it.fails('years[].hasData согласован с mode, когда значение падает и снова растёт', async () => {
+  // BUG-W1 (исправлен): hasData использует тот же критерий, что часы года (конец минус база).
+  // Снимки 100 -> 90 -> 95: часов 0, hasData=false, mode empty.
+  it('years[].hasData согласован с mode, когда значение падает и снова растёт', async () => {
     const a = await game(1);
     await t.db.insert(playtimeSnapshots).values([
       { gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 100 * 3600 },
@@ -255,5 +255,24 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     ]);
     const w = await getWrapped(t.db, 2026, null, NOW);
     expect(w.years.find((y) => y.year === 2026)?.hasData).toBe(w.mode === 'story');
+  });
+
+  it('hasData: год без часов, но с трофеем или статусом, остаётся true; год с падением часов и без событий false', async () => {
+    const a = await game(1);
+    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
+    await t.db.insert(playtimeSnapshots).values([
+      { gameId: a, snapshotDate: '2024-12-31', playDurationSeconds: 100 * 3600 },
+      { gameId: a, snapshotDate: '2025-02-01', playDurationSeconds: 90 * 3600 },
+      { gameId: a, snapshotDate: '2025-03-01', playDurationSeconds: 95 * 3600 },
+      { gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
+      { gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
+    ]);
+    await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
+    const w = await getWrapped(t.db, 2026, null, NOW);
+    const has = (y: number) => w.years.find((r) => r.year === y)?.hasData;
+    expect(has(2025)).toBe(true); // трофей
+    expect(has(2026)).toBe(false); // база 95 (конец 2025), конец 95: часов 0, событий нет
+    expect((await getWrapped(t.db, 2026, null, NOW)).mode).toBe('empty');
+    expect((await getWrapped(t.db, 2025, null, NOW)).mode).toBe('story');
   });
 });
