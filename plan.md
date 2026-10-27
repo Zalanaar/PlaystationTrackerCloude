@@ -15,10 +15,10 @@
 **Если данных нет** (приватность, друзья, ограничения): стоп, оркестратор докладывает Артёму варианты (открыть приватность, другой способ получения данных).
 
 ## Фаза 1. Основа
-- [ ] Scaffold Next.js + TS + Tailwind, ESLint, Vitest, Playwright.
-- [ ] Схема БД: `games`, `game_status`, `trophies`, `playtime_snapshots`, `sync_runs`. Контракт в `docs/api-contract.md`.
-- [ ] Вход по паролю, закрытый сайт.
-- [ ] Деплой на Vercel (preview), переменные окружения.
+- [x] Scaffold Next.js + TS + Tailwind, ESLint, Vitest, Playwright.
+- [x] Схема БД: `games`, `game_status`, `trophies`, `playtime_snapshots`, `sync_runs`. Контракт в `docs/api-contract.md`.
+- [x] Вход по паролю, закрытый сайт.
+- [x] Деплой на Vercel (preview), переменные окружения.
 
 Приёмка: пустой закрытый сайт открывается на Vercel, миграции применяются.
 
