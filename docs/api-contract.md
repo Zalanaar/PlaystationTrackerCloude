@@ -1,6 +1,6 @@
 # API-контракт PS Tracker
 
-Версия: 1.1 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
+Версия: 1.2 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2; раздел 9 «Коллекция» в Фазе 3). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
 
 Источник фактов о PSN: `docs/api-notes.md` (результаты Фазы 0).
 
@@ -342,6 +342,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | 401 | `invalid_credentials` | неверный пароль |
 | 404 | `not_found` | |
 | 409 | `sync_in_progress` | синк уже идёт (`POST /api/sync`), в `details.runId` id идущего запуска |
+| 409 | `status_conflict` | дату завершения/броска правят у игры, чей статус не соответствует (9.5) |
 | 429 | `rate_limited` | перебор пароля |
 | 500 | `config_error` | не заданы или невалидны обязательные env |
 | 500 | `internal_error` | прочее |
@@ -511,3 +512,154 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 
 ### 8.7 Правила статусов (код)
 `src/server/sync/status-rules.ts` реализует правила 1.3: чистая функция перехода + запись в БД. Синк в `game_status` не пишет.
+
+## 9. Коллекция (Фаза 3)
+
+Все эндпоинты под сессией (proxy, 3.4), конверт по разделу 4. Мутации (PUT/PATCH/POST) требуют `Content-Type: application/json` и проверку `Origin` (3.4), иначе `400 invalid_request`. К PSN не обращаются, только БД. БД недоступна: `503 db_unavailable`. Типы ответов экспортируются из `src/server/collection/types.ts` (только типы, безопасно импортировать во frontend через `import type`).
+
+### 9.1 Объект игры (`GameItem`)
+Общий для всех ответов раздела.
+```json
+{
+  "id": 17,
+  "title": "Horizon Forbidden West",
+  "coverUrl": "https://image.api.playstation.com/....png",
+  "platform": "PS5",
+  "playSeconds": 101853,
+  "hours": 28.3,
+  "playCount": 19,
+  "lastPlayedAt": "2026-10-05T18:42:11.000Z",
+  "status": "completed",
+  "completedAt": "2026-10-05T18:42:11.000Z",
+  "droppedAt": null,
+  "trophies": {
+    "earned": 54,
+    "defined": 78,
+    "progress": 69,
+    "platinumDefined": true,
+    "platinumEarned": false,
+    "byType": {
+      "platinum": { "earned": 0, "defined": 1 },
+      "gold": { "earned": 3, "defined": 8 },
+      "silver": { "earned": 14, "defined": 20 },
+      "bronze": { "earned": 37, "defined": 49 }
+    }
+  },
+  "genres": [
+    { "key": "ACTION", "label": "Экшен" },
+    { "key": "ROLE_PLAYING_GAMES", "label": "Ролевые" }
+  ]
+}
+```
+| Поле | Правило |
+|---|---|
+| `title` | `games.name` |
+| `coverUrl` | `games.image_url` или `null` (UI рисует плейсхолдер с названием) |
+| `platform` | из `games.category`: `ps4_game` -> `"PS4"`, `ps5_native_game` -> `"PS5"`, `pspc_game` -> `"PC"` |
+| `playSeconds` | `play_duration_seconds` (точное значение для «28 ч 17 мин») |
+| `hours` | `playSeconds / 3600`, округлено до 0.1. 0 если игра не запускалась |
+| `playCount` | `play_count` |
+| `lastPlayedAt` | ISO UTC или `null` (игра ни разу не запускалась / PSN не отдал дату) |
+| `status` | `playing \| completed \| dropped \| backlog \| shelved` или `null` («без статуса») |
+| `completedAt` / `droppedAt` | ISO UTC; не `null` только при соответствующем статусе (1.3) |
+| `trophies` | `null`, если у игры нет трофейного сета (нет строк в `game_trophy_sets`) или в сетах `defined = 0`. UI показывает «нет данных». Иначе объект |
+| `trophies.earned` / `defined` | сумма `earned_*` / `defined_*` по всем сетам игры (правило 1.4; значения из `trophy_sets`, кэш `getUserTitles`) |
+| `trophies.progress` | целое 0..100: `round(earned / defined * 100)`. Это не `trophy_sets.progress` PSN (его взвешивание по типам не используется) |
+| `trophies.platinumDefined` / `platinumEarned` | в сетах есть платина / платина получена (`sum(defined_platinum) > 0`, `sum(earned_platinum) > 0`) |
+| `trophies.byType` | `earned`/`defined` по типам для нижней полосы карточки |
+| `genres` | эффективные жанры по 1.9: `genres_override ?? normalize(psn_genres)`, подписи RU из словаря. Порядок как у PSN, дубли схлопнуты. Никогда не пустой массив: нет данных = `[{"key":"OTHER","label":"Другое"}]`. Ключи: `ACTION, ADVENTURE, ROLE_PLAYING_GAMES, SHOOTER, HORROR, RACING, SIMULATION, FIGHTING, ARCADE, MUSIC_RHYTHM, CASUAL, STRATEGY, PUZZLE, FAMILY, PARTY, OTHER` |
+
+### 9.2 `GET /api/games`
+Query-параметры (все необязательные; неизвестные игнорируются):
+| Параметр | Значение | По умолчанию |
+|---|---|---|
+| `q` | поиск по названию, подстрока, регистронезависимо (`ILIKE`, спецсимволы `%` `_` `\` экранируются). Пробелы по краям обрезаются, пустая строка = без поиска. Максимум 100 символов, больше = `400` | нет |
+| `status` | список через запятую из `playing, completed, dropped, backlog, shelved, none` (`none` = без статуса). Несколько = объединение (ИЛИ). Дубли допустимы. Неизвестное значение = `400` | все |
+| `year` | целое 2000..2100, см. правило года ниже. Иначе `400` | все годы |
+| `sort` | `last_played \| hours \| title \| trophies_progress \| completed_at` | `last_played` |
+| `order` | `asc \| desc` | зависит от `sort` (ниже) |
+| `limit` | 1..300 | 60 |
+| `offset` | >= 0 | 0 |
+
+**Правило года (`year`).** Год считается ТОЛЬКО по дате завершения = `coalesce(completed_at, dropped_at)`, год по Europe/Moscow. Fallback на `last_played_at` нет. Игра без `completed_at` и `dropped_at` (`playing`, `backlog`, `shelved`, без статуса, а также пройденная/брошенная без даты) не попадает ни в один год и скрывается при любом заданном `year`. `completed_at`/`dropped_at` по правилу 1.3 по умолчанию равны `last_played_at` в момент смены статуса, а затем правятся вручную, поэтому ручная правка двигает игру между годами.
+
+**Сортировка.** Всегда добавляется стабильный хвост: `lower(title) asc, id asc`. `NULL` всегда в конце, независимо от `order`.
+| `sort` | Ключ | `order` по умолчанию |
+|---|---|---|
+| `last_played` | `last_played_at` | `desc` |
+| `hours` | `play_duration_seconds` | `desc` |
+| `title` | `lower(title)` | `asc` |
+| `trophies_progress` | `trophies.progress` (точное отношение `earned/defined`, затем `earned`); игры без сета (`trophies = null`) в конце | `desc` |
+| `completed_at` | `coalesce(completed_at, dropped_at)` («дата завершения»: у пройденных дата прохождения, у брошенных дата броска); игры без обеих дат в конце | `desc` |
+
+Ответ 200:
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [ { "...": "GameItem по 9.1" } ],
+    "total": 63,
+    "limit": 60,
+    "offset": 0,
+    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "none": 112 },
+    "years": [2026, 2025, 2024]
+  }
+}
+```
+- `total`: число игр после **всех** фильтров (`q`, `status`, `year`), до `limit/offset`. Страница = `items`.
+- `counts`: для табов статуса. Считаются с учётом `q` и `year`, но **без** фильтра `status` (иначе нельзя показать, сколько игр в соседнем табе). `all` = сумма остальных шести. Все семь ключей присутствуют всегда, при пустой БД нули.
+- `years`: годы завершений (по правилу года: только `completed_at`/`dropped_at`), в которых завершена хотя бы одна игра во **всей** коллекции (без `q`/`status`), по убыванию. Для выпадающего списка «Все годы». Пустая БД: `[]`.
+- Пустая БД / нет совпадений: `items: []`, `total: 0`, счётчики нули, `200`.
+- `offset` за пределами: `items: []`, `total` настоящий.
+
+### 9.3 `GET /api/collection/summary`
+Данные для шапки статистики (4.2), блока «Играю сейчас» (4.3) и секции «Продолжить».
+```json
+{
+  "ok": true,
+  "data": {
+    "totals": { "games": 214, "playSeconds": 6943201, "hours": 1928.7, "trophiesEarned": 4310, "platinumEarned": 38 },
+    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "none": 112 },
+    "playing": [ { "...": "GameItem" } ],
+    "continue": [ { "...": "GameItem" } ]
+  }
+}
+```
+- `totals.games` = строки `games`; `playSeconds`/`hours` = сумма по `games.play_duration_seconds` (`hours` до 0.1); `trophiesEarned` = строки `trophies` с `earned = true`; `platinumEarned` = из них `type = 'platinum'` (как `totals` в 8.4, включает трофеи сетов-сирот, поэтому может быть больше суммы по `GameItem`).
+- `counts`: как в 9.2 без фильтров.
+- `playing`: все игры со статусом `playing`, сортировка `last_played_at desc nulls last, lower(title), id`, максимум 20. UI берёт `playing[0]` для блока «Играю сейчас» (4.3 «с самым свежим последним запуском»); пусто = блок скрыт.
+- `continue`: до 8 игр для секции «Продолжить». **Правило:** `last_played_at IS NOT NULL` и статус не `completed` и не `dropped` (то есть `playing`, `backlog`, `shelved`, без статуса), сортировка `last_played_at desc, id desc`. Игры, включённые в `playing`, **не исключаются** (дизайн 4.3: «playing + недавно запущенные»); если блок «Играю сейчас» уже показывает `playing[0]`, дубль на карточке в ряду фронтенд убирает сам. Окна по давности нет: при малом числе подходящих игр ряд короче 8 или пуст.
+- Пустая БД: нули, `playing: []`, `continue: []`.
+
+### 9.4 `PUT /api/games/{id}/status`
+Тело: `{"status": "playing"}` где `status` одно из пяти значений либо `null` (сброс в «без статуса» = `DELETE` строки `game_status`). Остальные поля тела игнорируются; `status` обязателен (отсутствующий ключ = `400`).
+- 200: `{"ok":true,"data":{"game":{ "...": "GameItem после изменения" }}}`.
+- Правила дат: 1.3 (`computeStatusChange`): `completed`/`dropped` берут `last_played_at` (нет его: `now()`), уход со статуса обнуляет дату, повтор того же статуса ничего не трогает (в том числе ручную правку даты).
+- Идемпотентен: повторный вызов с тем же телом даёт тот же `200` и то же состояние.
+- 400 `invalid_request`: `id` не положительное целое, тело не JSON, `status` не из списка. 404 `not_found`: игры нет.
+
+### 9.5 `PATCH /api/games/{id}/status-date`
+Тело: ровно одно из `{"completedAt": "2026-09-20T00:00:00.000Z"}` или `{"droppedAt": "..."}`. Значение: ISO 8601 с `Z` или смещением. Оба поля сразу, ни одного, значение `null` или не ISO = `400`.
+- 200: `{"ok":true,"data":{"game":{ "...": "GameItem" }}}`. Меняется только эта дата и `updated_at` (правило 1.3.5); `statusChangedAt` не трогается.
+- 400 `invalid_request`: невалидное тело, дата в будущем (строго больше `now()` сервера).
+- 404 `not_found`: игры нет.
+- 409 `status_conflict`: у игры нет статуса или он не соответствует (`completedAt` при статусе не `completed`, `droppedAt` при статусе не `dropped`). `details: {"status": "backlog" | null}` (текущий статус).
+- Порядок проверок: id и тело (400) -> игра (404) -> соответствие статуса (409) -> дата в будущем (400). Дата в будущем проверяется после статуса, но до записи.
+
+### 9.6 `POST /api/games/status-bulk`
+Массовая смена статуса (режим выбора в 4.6). Тело: `{"ids": [17, 18, 42], "status": "backlog"}`; `status` как в 9.4 (допустим `null`).
+- `ids`: массив положительных целых, 1..250 штук. Дубли схлопываются без ошибки. Больше 250 или пустой = `400`.
+- Атомарно: одна транзакция, все или ничего. Если хотя бы одного `id` нет в БД: `404 not_found`, `details: {"missingIds": [999]}`, ничего не изменено.
+- Правила дат те же, что в 9.4, для каждой игры отдельно (у кого статус уже такой, не трогаются). Запросов к БД фиксированное число, не N.
+- 200:
+```json
+{
+  "ok": true,
+  "data": {
+    "requested": 3,
+    "changed": 2,
+    "games": [ { "...": "GameItem после изменения, в порядке возрастания id" } ]
+  }
+}
+```
+`requested` = число уникальных id; `changed` = у скольких статус реально изменился (уже имевшие такой статус не считаются).

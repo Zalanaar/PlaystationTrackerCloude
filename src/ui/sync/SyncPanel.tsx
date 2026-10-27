@@ -1,73 +1,20 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
+import { useSync } from './SyncProvider';
 import {
   STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText,
-  startErrorText, totalsRows,
-  type SyncStatus,
+  totalsRows,
 } from './status';
-
-const POLL_MS = 3000;
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 const btnPrimary = `h-11 rounded-md bg-accent px-5 font-semibold text-accent-ink disabled:opacity-60 ${focus}`;
 const btnGhost = `h-11 rounded-md border border-border-strong px-4 text-text disabled:opacity-60 ${focus}`;
 
 export function SyncPanel() {
-  const [status, setStatus] = useState<SyncStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { status, loading, loadError, starting, notice, start } = useSync();
   const [howTo, setHowTo] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch('/api/sync/status', { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok || !json?.ok) throw new Error('bad status');
-      setStatus(json.data as SyncStatus);
-      setLoadError(false);
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
-    return () => clearTimeout(t);
-  }, [load]);
-
   const running = status?.running ?? false;
-  // Пока идёт синк, опрос каждые ~3 с (в том числе после ошибки опроса).
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(t);
-  }, [running, load]);
-
-  async function start() {
-    setStarting(true);
-    setNotice(null);
-    try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      if (res.status !== 202) {
-        const json = await res.json().catch(() => null);
-        setNotice(startErrorText(res.status, json?.error?.code));
-      }
-      await load();
-    } catch {
-      setNotice('Не удалось запустить синк.');
-    } finally {
-      setStarting(false);
-    }
-  }
 
   const run = status?.run ?? null;
   const last = formatMoscow(status?.lastSuccessAt ?? null);

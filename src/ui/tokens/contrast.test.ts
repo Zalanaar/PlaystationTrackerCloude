@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// Проверка контраста по themes.css/tokens.css. Правила: docs/design-system.md (цель контраста).
+// Проверка контраста по themes.css/tokens.css. Правила: docs/design-system.md §6.
 const themesCss = readFileSync(new URL('./themes.css', import.meta.url), 'utf8');
 const tokensCss = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
 
@@ -31,26 +31,35 @@ const get = (t: string, k: string): string => {
   const v = themes[t][k] ?? base[k];
   return v?.startsWith('var(') ? get(t, v.slice(4, -1)) : v;
 };
+/** Смешивание цвета fg с альфой a поверх bg (оба #rrggbb), результат #rrggbb. */
+const over = (fg: string, a: number, bg: string) => {
+  const f = rgb(fg), b = rgb(bg);
+  return '#' + f.map((c, i) => Math.round(c * a + b[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+};
 
-const NAMES = ['night', 'memory-card', 'crystal-towers', 'wave', 'tiles', 'activity', 'graphite'];
-// Пары по правилам design-system.md: text-3 на surface-2 только в Night/Memory/Dark.
-const TEXT3_ON_S2 = new Set(['night', 'memory-card', 'graphite']);
+const NAMES = ['night', 'graphite', 'activity'];
+const STATUSES = ['--st-completed', '--st-backlog', '--st-dropped', '--st-shelved'];
 
 describe('контраст тем', () => {
-  it('найдены все 7 тем', () => expect(Object.keys(themes).sort()).toEqual([...NAMES].sort()));
+  it('найдены ровно 3 темы', () => expect(Object.keys(themes).sort()).toEqual([...NAMES].sort()));
   for (const t of NAMES) {
     describe(t, () => {
       for (const fg of ['--text', '--text-2', '--text-3'])
-        for (const bg of ['--bg', '--surface'])
+        for (const bg of ['--bg', '--surface', '--surface-2'])
           it(`${fg} на ${bg} >= 4.5`, () => expect(ratio(get(t, fg), get(t, bg))).toBeGreaterThanOrEqual(4.5));
-      for (const fg of ['--text', '--text-2'])
-        it(`${fg} на --surface-2 >= 4.5`, () => expect(ratio(get(t, fg), get(t, '--surface-2'))).toBeGreaterThanOrEqual(4.5));
-      if (TEXT3_ON_S2.has(t))
-        it('--text-3 на --surface-2 >= 4.5', () => expect(ratio(get(t, '--text-3'), get(t, '--surface-2'))).toBeGreaterThanOrEqual(4.5));
       it('--accent-ink на --accent >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
-      it('--accent на --surface >= 4.5', () => expect(ratio(get(t, '--accent'), get(t, '--surface'))).toBeGreaterThanOrEqual(4.5));
-      for (const st of ['--st-completed', '--st-backlog', '--st-dropped', '--st-shelved'])
-        it(`${st} на --surface >= 4.5`, () => expect(ratio(get(t, st), get(t, '--surface'))).toBeGreaterThanOrEqual(4.5));
+      for (const bg of ['--bg', '--surface', '--surface-2'])
+        it(`--accent на ${bg} >= 4.5`, () => expect(ratio(get(t, '--accent'), get(t, bg))).toBeGreaterThanOrEqual(4.5));
+      for (const st of STATUSES)
+        for (const bg of ['--bg', '--surface', '--surface-2'])
+          it(`${st} на ${bg} >= 4.5`, () => expect(ratio(get(t, st), get(t, bg))).toBeGreaterThanOrEqual(4.5));
     });
   }
+  // Текст и фигуры на обложке лежат только внутри чипа --on-cover-bg (rgba(8,9,14,.78)). Худший случай: белая обложка.
+  describe('чипы на обложке', () => {
+    const chip = over('#080910', 0.78, '#ffffff');
+    it('белый текст на чипе поверх белой обложки >= 7', () => expect(ratio('#ffffff', chip)).toBeGreaterThanOrEqual(7));
+    for (const st of STATUSES)
+      it(`${st} (фигура) на чипе поверх белой обложки >= 3`, () => expect(ratio(base[st], chip)).toBeGreaterThanOrEqual(3));
+  });
 });

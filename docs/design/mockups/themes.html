@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · 3 темы на одном наборе токенов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;family=Oswald:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mockups.css">
+<style>
+  .intro { max-width: 1200px; margin: 0 auto; padding: 40px 24px 0; color: #eee; }
+  .intro h1 { font: 700 26px/32px "Unbounded", sans-serif; letter-spacing: -.02em; }
+  .intro p { color: #9a9aa4; margin-top: 8px; max-width: 760px; }
+  .tp .art { font-size: 11px; }
+  .tp .badge { width: 22px; height: 22px; } .tp .badge .sh { width: 13px; height: 13px; }
+  .tp .plat { width: 22px; height: 22px; }
+  .tp .ribbon { height: 64px; }
+  .tp .pagehead h1 { font-size: 18px; }
+  .tp .toolbar { padding: 14px 0 0; }
+  .tp .chip { height: 32px; padding: 0 9px; }
+  .tp .seg button { height: 26px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></symbol>
+  <symbol id="i-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="i-backlog" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5"/></symbol>
+  <symbol id="i-dropped" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13"/></symbol>
+  <symbol id="i-shelved" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.5"/></symbol>
+</svg>
+
+<div class="intro">
+  <h1>3 темы, один набор токенов</h1>
+  <p>Одинаковая разметка. Меняются цвета, радиусы и три декоративных правила. Night берёт акцент и свечение из обложки «Играю сейчас». Graphite не зависит от обложек. Activity использует размытый арт игры как фон страницы. Шрифт заголовков общий для всех тем (это часть бренда, не темы).</p>
+</div>
+
+<div class="themes-grid">
+
+  <!-- ===== NIGHT ===== -->
+  <section class="tp">
+    <div class="tp-label">Night <span>по умолчанию · акцент и свечение из обложки</span></div>
+    <div class="page" data-theme="night" style="--tint:#f2b27a">
+      <header class="hdr"><div class="wrap"><a class="logo" href="#">PS Tracker</a><nav class="nav"><a href="#" aria-current="page">Коллекция</a><a href="#">Бэклог</a><a href="#">Статистика</a><a href="#">Итоги</a></nav><span class="sp"></span><span class="sync"><i></i></span><span class="themepick"><i></i>Night</span></div></header>
+      <div class="wrap">
+        <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+        <section class="ribbon"><div class="lbl"><svg class="sh"><use href="#i-playing"/></svg>Играю <span>3</span></div><span class="div"></span>
+          <a class="it" href="#"><i class="th" style="--a:#f5b04a;--b:#2f5fb3"></i><div><div class="t">Trails in the Sky 2nd Chapter</div><div class="m num">28 ч 17 м</div></div></a></section>
+        <div class="toolbar"><button class="chip" aria-pressed="true">Все <small class="num">214</small></button><button class="chip st-playing"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button><button class="chip st-completed"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button><button class="chip st-backlog"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button><button class="chip st-dropped"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button></div>
+        <section class="sec">
+          <div class="yh"><h2 class="y" style="font-size:22px">2026</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span><span class="k"><b class="num">186 ч</b></span></div>
+          <div class="grid" style="margin-top:14px">
+            <a class="card" href="#" style="--a:#f4d230;--b:#c9811c"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 м</div></a>
+            <a class="card is-hover" href="#" style="--a:#b5503a;--b:#1d1a22"><div class="cover"><span class="art">Onimusha</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><div class="hov"><b>Onimusha</b><span class="num">20 ч 29 м</span><div class="bar"><i style="width:68%"></i></div></div></div><div class="ttl">Onimusha: Way of the Sword</div><div class="sub num">20 ч 29 м</div></a>
+            <a class="card dropped" href="#" style="--a:#7a8fb0;--b:#2a1e2e"><div class="cover"><span class="art">Silent Hill</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill: Townfall</div><div class="sub num">6 ч</div></a>
+            <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-playing"><svg class="sh"><use href="#i-playing"/></svg></span></div><div class="ttl">ACE COMBAT™ 7</div><div class="sub num">5 ч 43 м</div></a>
+          </div>
+        </section>
+        <section class="sec" style="padding-bottom:28px"><div class="rows">
+          <div class="row"><i class="th" style="--a:#f4d230;--b:#c9811c"></i><div><div class="t">Marvel's Wolverine</div></div><div class="stt st-completed"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</div><div class="r num">17 ч</div></div>
+          <div class="row"><i class="th" style="--a:#6a4bd6;--b:#0e1a44"></i><div><div class="t">Tetris Effect</div></div><div class="stt st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано</div><div class="r num">1 ч</div></div>
+        </div></section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GRAPHITE ===== -->
+  <section class="tp">
+    <div class="tp-label">Graphite <span><code>data-theme="graphite"</code> · без цвета и декора, острые углы</span></div>
+    <div class="page" data-theme="graphite" style="--tint:#f2b27a">
+      <header class="hdr"><div class="wrap"><a class="logo" href="#">PS Tracker</a><nav class="nav"><a href="#" aria-current="page">Коллекция</a><a href="#">Бэклог</a><a href="#">Статистика</a><a href="#">Итоги</a></nav><span class="sp"></span><span class="sync"><i></i></span><span class="themepick"><i></i>Graphite</span></div></header>
+      <div class="wrap">
+        <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+        <section class="ribbon"><div class="lbl"><svg class="sh"><use href="#i-playing"/></svg>Играю <span>3</span></div><span class="div"></span>
+          <a class="it" href="#"><i class="th" style="--a:#f5b04a;--b:#2f5fb3"></i><div><div class="t">Trails in the Sky 2nd Chapter</div><div class="m num">28 ч 17 м</div></div></a></section>
+        <div class="toolbar"><button class="chip" aria-pressed="true">Все <small class="num">214</small></button><button class="chip st-playing"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button><button class="chip st-completed"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button><button class="chip st-backlog"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button><button class="chip st-dropped"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button></div>
+        <section class="sec">
+          <div class="yh"><h2 class="y" style="font-size:22px">2026</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span><span class="k"><b class="num">186 ч</b></span></div>
+          <div class="grid" style="margin-top:14px">
+            <a class="card" href="#" style="--a:#f4d230;--b:#c9811c"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 м</div></a>
+            <a class="card is-hover" href="#" style="--a:#b5503a;--b:#1d1a22"><div class="cover"><span class="art">Onimusha</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><div class="hov"><b>Onimusha</b><span class="num">20 ч 29 м</span><div class="bar"><i style="width:68%"></i></div></div></div><div class="ttl">Onimusha: Way of the Sword</div><div class="sub num">20 ч 29 м</div></a>
+            <a class="card dropped" href="#" style="--a:#7a8fb0;--b:#2a1e2e"><div class="cover"><span class="art">Silent Hill</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill: Townfall</div><div class="sub num">6 ч</div></a>
+            <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-playing"><svg class="sh"><use href="#i-playing"/></svg></span></div><div class="ttl">ACE COMBAT™ 7</div><div class="sub num">5 ч 43 м</div></a>
+          </div>
+        </section>
+        <section class="sec" style="padding-bottom:28px"><div class="rows">
+          <div class="row"><i class="th" style="--a:#f4d230;--b:#c9811c"></i><div><div class="t">Marvel's Wolverine</div></div><div class="stt st-completed"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</div><div class="r num">17 ч</div></div>
+          <div class="row"><i class="th" style="--a:#6a4bd6;--b:#0e1a44"></i><div><div class="t">Tetris Effect</div></div><div class="stt st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано</div><div class="r num">1 ч</div></div>
+        </div></section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ACTIVITY ===== -->
+  <section class="tp">
+    <div class="tp-label">Activity <span>фон страницы = размытый арт игры «Играю сейчас»</span></div>
+    <div class="page" data-theme="activity" style="--page-art:linear-gradient(160deg,#f5b04a,#2f5fb3 70%)">
+      <header class="hdr"><div class="wrap"><a class="logo" href="#">PS Tracker</a><nav class="nav"><a href="#" aria-current="page">Коллекция</a><a href="#">Бэклог</a><a href="#">Статистика</a><a href="#">Итоги</a></nav><span class="sp"></span><span class="sync"><i></i></span><span class="themepick"><i></i>Activity</span></div></header>
+      <div class="wrap">
+        <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+        <section class="ribbon"><div class="lbl"><svg class="sh"><use href="#i-playing"/></svg>Играю <span>3</span></div><span class="div"></span>
+          <a class="it" href="#"><i class="th" style="--a:#f5b04a;--b:#2f5fb3"></i><div><div class="t">Trails in the Sky 2nd Chapter</div><div class="m num">28 ч 17 м</div></div></a></section>
+        <div class="toolbar"><button class="chip" aria-pressed="true">Все <small class="num">214</small></button><button class="chip st-playing"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button><button class="chip st-completed"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button><button class="chip st-backlog"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button><button class="chip st-dropped"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button></div>
+        <section class="sec">
+          <div class="yh"><h2 class="y" style="font-size:22px">2026</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span><span class="k"><b class="num">186 ч</b></span></div>
+          <div class="grid" style="margin-top:14px">
+            <a class="card" href="#" style="--a:#f4d230;--b:#c9811c"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 м</div></a>
+            <a class="card is-hover" href="#" style="--a:#b5503a;--b:#1d1a22"><div class="cover"><span class="art">Onimusha</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><div class="hov"><b>Onimusha</b><span class="num">20 ч 29 м</span><div class="bar"><i style="width:68%"></i></div></div></div><div class="ttl">Onimusha: Way of the Sword</div><div class="sub num">20 ч 29 м</div></a>
+            <a class="card dropped" href="#" style="--a:#7a8fb0;--b:#2a1e2e"><div class="cover"><span class="art">Silent Hill</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill: Townfall</div><div class="sub num">6 ч</div></a>
+            <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-playing"><svg class="sh"><use href="#i-playing"/></svg></span></div><div class="ttl">ACE COMBAT™ 7</div><div class="sub num">5 ч 43 м</div></a>
+          </div>
+        </section>
+        <section class="sec" style="padding-bottom:28px"><div class="rows">
+          <div class="row"><i class="th" style="--a:#f4d230;--b:#c9811c"></i><div><div class="t">Marvel's Wolverine</div></div><div class="stt st-completed"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</div><div class="r num">17 ч</div></div>
+          <div class="row"><i class="th" style="--a:#6a4bd6;--b:#0e1a44"></i><div><div class="t">Tetris Effect</div></div><div class="stt st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано</div><div class="r num">1 ч</div></div>
+        </div></section>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ===== Шрифты заголовков: 2 варианта ===== -->
+<section class="fonts">
+  <h2>Шрифт заголовков: два варианта (Google Fonts, кириллица есть у обоих). Текст везде Inter.</h2>
+  <div class="fg">
+    <div class="fc" style="--font-display:'Unbounded',sans-serif">
+      <small>Вариант 1 · Unbounded 500/600/700 · широкий геометричный, «консольный». Рекомендую.</small>
+      <div class="big">PS TRACKER</div>
+      <div class="lg">2026</div>
+      <div class="mid">Пройдено 7 · брошено 2 · 186 ч</div>
+    </div>
+    <div class="fc" style="--font-display:'Oswald',sans-serif">
+      <small>Вариант 2 · Oswald 500/600/700 · узкий плакатный, экономит ширину на мобильном.</small>
+      <div class="big" style="letter-spacing:.02em;text-transform:uppercase">PS TRACKER</div>
+      <div class="lg" style="letter-spacing:0">2026</div>
+      <div class="mid" style="letter-spacing:.01em">Пройдено 7 · брошено 2 · 186 ч</div>
+    </div>
+  </div>
+</section>
+</body>
+</html>
