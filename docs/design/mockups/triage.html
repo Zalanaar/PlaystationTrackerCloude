@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · Разбор · десктоп + мобильный · Night</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mockups.css">
+<style>
+  .stage { padding: 32px 24px 64px; display: grid; gap: 40px; justify-items: center; }
+  .frame-label { color: #8a8a94; font-size: 13px; text-align: center; margin-bottom: 12px; }
+  .desk { width: 100%; max-width: 1200px; border: 1px solid #2a2a30; border-radius: 20px; overflow: hidden; }
+  .swipehints { display: flex; justify-content: space-between; margin: 34px 8px 0; font-size: 11px; color: var(--text-3); }
+  .swipehints span { display: inline-flex; gap: 5px; align-items: center; }
+  .swipehints .sh { width: 12px; height: 12px; color: var(--st); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></symbol>
+  <symbol id="i-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="i-backlog" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5"/></symbol>
+  <symbol id="i-dropped" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13"/></symbol>
+  <symbol id="i-shelved" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.5"/></symbol>
+</svg>
+
+<div class="stage">
+
+  <!-- ===== Десктоп ===== -->
+  <div style="width:100%;max-width:1200px">
+    <p class="frame-label">Десктоп. Статус клавишами 1–5, весь экран на одной игре.</p>
+    <div class="desk">
+      <div class="page" style="--tint:#f2b27a;min-height:0">
+        <header class="hdr" style="position:relative">
+          <div class="wrap"><a class="logo" href="#">PS Tracker</a><span class="muted">Разбор</span><span class="sp"></span><a class="btn" href="collection-desktop.html">Выйти <span class="dim">Esc</span></a></div>
+        </header>
+        <div class="wrap">
+          <div class="tri-top"><span class="t num">37 / 214</span><div class="pbar" role="progressbar" aria-valuenow="37" aria-valuemax="214"><i style="width:17.3%"></i></div><span class="muted num" style="font-size:12px">осталось 177 · ~9 мин</span></div>
+          <div class="tri">
+            <div>
+              <div class="big-cover" style="--a:#e07a4f;--b:#1f5a70"><span class="art">Horizon Forbidden West</span></div>
+            </div>
+
+            <div>
+              <div class="micro" style="margin-bottom:8px">Без статуса</div>
+              <h2>Horizon Forbidden West</h2>
+              <p class="facts num"><span><b>28 ч 17 мин</b> наиграно</span><span><b>19</b> запусков</span><span>трофеи <b>54/78</b></span><span>последний запуск <b>5 окт. 2026</b></span></p>
+
+              <div class="keys" role="group" aria-label="Выбрать статус">
+                <button class="key st-playing"><kbd>1</kbd><svg class="sh"><use href="#i-playing"/></svg><span class="l">Играю</span></button>
+                <button class="key st-completed on"><kbd>2</kbd><svg class="sh"><use href="#i-completed"/></svg><span class="l">Пройдено</span><span class="h">дата: 5 окт. 2026</span></button>
+                <button class="key st-backlog"><kbd>3</kbd><svg class="sh"><use href="#i-backlog"/></svg><span class="l">Бэклог</span></button>
+                <button class="key st-dropped"><kbd>4</kbd><svg class="sh"><use href="#i-dropped"/></svg><span class="l">Брошено</span><span class="h">дата: 5 окт. 2026</span></button>
+                <button class="key st-shelved"><kbd>5</kbd><svg class="sh"><use href="#i-shelved"/></svg><span class="l">Отложено</span></button>
+              </div>
+              <p class="datebox">Дата завершения = последний запуск. <u>Изменить</u></p>
+              <p class="hints"><span><kbd>0</kbd>Пропустить</span><span><kbd>←</kbd>Назад</span><span><kbd>Z</kbd>Отменить</span><span><kbd>Esc</kbd>Выйти</span></p>
+            </div>
+
+            <aside>
+              <div class="micro" style="margin-bottom:12px">Дальше</div>
+              <div class="queue">
+                <div class="q"><i class="th" style="--a:#d9b24a;--b:#1c1810"></i><span>Elden Ring<br><span class="dim num">12 ч</span></span></div>
+                <div class="q"><i class="th" style="--a:#6a4bd6;--b:#0e1a44"></i><span>Tetris Effect<br><span class="dim num">1 ч</span></span></div>
+                <div class="q"><i class="th" style="--a:#e89a3c;--b:#3a1f4a"></i><span>Stray<br><span class="dim num">10 мин</span></span></div>
+                <div class="q"><i class="th" style="--a:#f2e233;--b:#142a3a"></i><span>Cyberpunk 2077</span></div>
+                <div class="q"><i class="th" style="--a:#d4453a;--b:#2a0f1a"></i><span>Hades</span></div>
+              </div>
+              <div class="micro" style="margin:24px 0 8px">Порядок</div>
+              <div class="seg"><button aria-pressed="true">По запуску</button><button aria-pressed="false">По часам</button></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Мобильный ===== -->
+  <div>
+    <p class="frame-label">Мобильный 390px. Свайп: вправо пройдено, влево брошено, вверх бэклог, вниз пропустить. Играю и Отложено на кнопках.</p>
+    <div class="phone">
+      <div class="page" style="--tint:#f2b27a">
+        <header class="m-hdr"><span class="muted" style="font-size:20px;width:44px">✕</span><span class="sp"></span><span class="num" style="font: 600 13px var(--font-display)">37 / 214</span><span class="sp"></span><span style="width:44px"></span></header>
+        <div class="m-tri">
+          <div class="pbar"><i style="width:17.3%"></i></div>
+          <div class="m-stack">
+            <div class="under u2"></div><div class="under"></div>
+            <div class="top" style="--a:#e07a4f;--b:#1f5a70">
+              <span class="art">Horizon Forbidden West</span>
+              <span class="stamp"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</span>
+              <div class="cap"><b>Horizon Forbidden West</b><span class="num">28 ч 17 мин · 19 запусков · 5 окт. 2026</span></div>
+            </div>
+          </div>
+          <div class="swipehints"><span class="st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>влево: брошено</span><span class="st-backlog"><svg class="sh"><use href="#i-backlog"/></svg>вверх: бэклог</span><span class="st-completed">вправо: пройдено<svg class="sh"><use href="#i-completed"/></svg></span></div>
+          <div class="m-actions">
+            <button class="st-playing" aria-label="Играю"><svg class="sh"><use href="#i-playing"/></svg>Играю</button>
+            <button class="st-completed" aria-label="Пройдено"><svg class="sh"><use href="#i-completed"/></svg>Пройд.</button>
+            <button class="st-backlog" aria-label="Бэклог"><svg class="sh"><use href="#i-backlog"/></svg>Бэклог</button>
+            <button class="st-dropped" aria-label="Брошено"><svg class="sh"><use href="#i-dropped"/></svg>Бросил</button>
+            <button class="st-shelved" aria-label="Отложено"><svg class="sh"><use href="#i-shelved"/></svg>Пауза</button>
+          </div>
+          <div class="m-actions" style="margin-top:8px"><button class="skip" style="height:44px">Пропустить</button><button class="skip" style="height:44px">Отменить</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

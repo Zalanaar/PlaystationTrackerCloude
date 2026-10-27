@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · эскиз Статистики и слайда Итогов · Night</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mockups.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></symbol>
+  <symbol id="i-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="i-backlog" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5"/></symbol>
+  <symbol id="i-dropped" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13"/></symbol>
+  <symbol id="i-shelved" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10"/></symbol>
+</svg>
+
+<div class="page" style="--tint:#f2b27a;min-height:0">
+  <header class="hdr">
+    <div class="wrap">
+      <a class="logo" href="#">PS Tracker</a>
+      <nav class="nav"><a href="#">Коллекция</a><a href="#">Бэклог</a><a href="#" aria-current="page">Статистика</a><a href="#">Итоги</a></nav>
+      <span class="sp"></span><span class="sync"><i></i>Синк: 10 ч назад</span><span class="themepick"><i></i>Night</span><span class="avatar">А</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ===== Блок статистики (Фаза 5): тот же язык, что и в Хронике ===== -->
+    <div class="pagehead" style="padding-bottom:4px"><h1>Статистика</h1>
+      <div class="seg" style="margin-left:8px"><button aria-pressed="true">Год</button><button aria-pressed="false">Месяц</button></div>
+      <span class="select">‹ 2026 ›</span></div>
+
+    <section class="sec" style="padding-top:20px">
+      <div class="yh">
+        <h2 class="y">2026</h2>
+        <span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span>
+        <span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span>
+        <span class="k"><b class="num">186 ч</b> за год</span><span class="k"><b class="num">11</b> платин</span>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <h3>Часы по месяцам</h3><p class="sub2">по ежедневным снимкам</p>
+          <div class="bars" role="img" aria-label="Часы по месяцам: янв и фев нет данных, март 8 ч, апрель 14 ч, ... октябрь 29 ч">
+            <i class="nd"></i><i class="nd"></i>
+            <i style="height:22%"></i><i style="height:38%"></i><i style="height:30%"></i><i style="height:55%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:44%"></i><i style="height:82%" class="cur"></i><i style="height:0"></i><i style="height:0"></i>
+          </div>
+          <div class="bars-x"><span>Янв</span><span>Фев</span><span>Мар</span><span>Апр</span><span>Май</span><span>Июн</span><span>Июл</span><span>Авг</span><span>Сен</span><span>Окт</span><span>Ноя</span><span>Дек</span></div>
+          <p class="note">Часы считаются с даты первого синка (14.03.2026). Январь и февраль: только трофеи.</p>
+        </div>
+        <div class="panel">
+          <h3>Жанры</h3><p class="sub2">игра делится между жанрами по 1/N</p>
+          <div class="gen"><span>Экшен</span><i><b style="width:92%"></b></i><span class="num muted">31,5</span></div>
+          <div class="gen"><span>Приключения</span><i><b style="width:64%"></b></i><span class="num muted">22</span></div>
+          <div class="gen"><span>Ролевые</span><i><b style="width:48%"></b></i><span class="num muted">16,5</span></div>
+          <div class="gen"><span>Шутеры</span><i><b style="width:30%"></b></i><span class="num muted">10</span></div>
+          <div class="gen"><span>Хоррор</span><i><b style="width:16%"></b></i><span class="num muted">5,5</span></div>
+        </div>
+      </div>
+
+      <!-- Те же ряды обложек, что в коллекции: переиспользуется GameGrid -->
+      <h3 class="mh" style="margin-top:28px">Пройдено в 2026 <small class="num"><span class="st-completed"><svg class="sh"><use href="#i-completed"/></svg>7</span></small></h3>
+      <div class="grid dense" style="--cols:9">
+        <a class="card" href="#" style="--a:#f4d230;--b:#c9811c"><div class="cover"><span class="art dk">Wolverine</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#b5503a;--b:#1d1a22"><div class="cover"><span class="art">Onimusha</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#c0572b;--b:#2a1410"><div class="cover"><span class="art">Mafia</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#d0673a;--b:#3a1a14"><div class="cover"><span class="art">Gothic</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#6f8a5b;--b:#1a2a3a"><div class="cover"><span class="art">Halo</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+        <a class="card" href="#" style="--a:#4fb6a6;--b:#12302c"><div class="cover"><span class="art">Bramble</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Слайд Итогов (Фаза 6), слайд 4 из 8: пройдено и брошено ===== -->
+  <div class="wrap">
+    <div class="slides">
+      <div>
+        <p class="caption" style="margin:0 0 12px;text-align:center">Итоги · слайд 4: «Пройдено и брошено» (9:16, 360×640)</p>
+        <div class="slide">
+          <div class="bg"></div>
+          <div class="prog"><i class="d"></i><i class="d"></i><i class="d"></i><i class="c"></i><i></i><i></i><i></i><i></i></div>
+          <div class="top"><span>PS Tracker · 2026</span><span>✕</span></div>
+          <div class="body">
+            <h4>Закончено<br>и брошено</h4>
+            <div class="big s-ok"><svg class="sh"><use href="#i-completed"/></svg><b class="num" style="color:#fff">7</b><span>пройдено</span></div>
+            <div class="covers" style="--x:0">
+              <i style="--a:#f4d230;--b:#c9811c"></i><i style="--a:#b5503a;--b:#1d1a22"></i><i style="--a:#c0572b;--b:#2a1410"></i><i style="--a:#dfe9f6;--b:#6e9ad6"></i>
+            </div>
+            <div class="big s-no"><svg class="sh"><use href="#i-dropped"/></svg><b class="num" style="color:#fff">2</b><span>брошено</span></div>
+            <div class="covers" style="filter:saturate(.5)">
+              <i style="--a:#7a8fb0;--b:#2a1e2e"></i><i style="--a:#8a6a5a;--b:#16151c"></i>
+            </div>
+          </div>
+          <div class="foot"><span>Больше всего в сентябре</span><span class="num">3 игры</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

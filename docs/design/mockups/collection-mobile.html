@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · Коллекция · мобильный 390px · Night</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mockups.css">
+<style>
+  .stage { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; padding: 32px 16px 64px; align-items: flex-start; }
+  .cap-top { width: 100%; text-align: center; color: #8a8a94; font-size: 13px; }
+  .sheetbox { margin-top: 28px; margin-inline: -16px; padding: 10px 16px 20px; background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0; border-top: 1px solid var(--border-strong); box-shadow: 0 -12px 32px rgba(0,0,0,.5); }
+  .sheetbox .handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 0 auto 10px; }
+  .sheetbox .hd { display: flex; gap: 10px; align-items: center; padding: 6px 0 10px; font-weight: 600; font-size: 13px; }
+  .sheetbox .hd i { width: 30px; height: 40px; border-radius: 5px; background: linear-gradient(155deg, var(--a), var(--b)); flex: none; }
+  .opt { display: flex; align-items: center; gap: 12px; height: 48px; color: var(--text); border-top: 1px solid var(--border); }
+  .opt .sh { width: 20px; height: 20px; color: var(--st); }
+  .opt.cur::after { content: "текущий"; margin-left: auto; font-size: 12px; color: var(--text-3); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></symbol>
+  <symbol id="i-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="i-backlog" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5"/></symbol>
+  <symbol id="i-dropped" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13"/></symbol>
+  <symbol id="i-shelved" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.5"/></symbol>
+</svg>
+
+<div class="stage">
+  <p class="cap-top">Слева: «Крупно» (2 колонки). Справа: «Плотно» (3 колонки) и bottom sheet статуса по долгому тапу. Ширина 390px.</p>
+
+  <!-- ===== Крупно ===== -->
+  <div class="phone">
+    <div class="page" style="--tint:#f2b27a">
+      <header class="m-hdr">
+        <a class="logo" href="#">PS Tracker</a><span class="sp"></span>
+        <span class="sync"><i></i></span>
+        <span class="avatar" aria-label="Меню">⋯</span>
+      </header>
+      <div class="m-pad">
+        <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+
+        <section class="ribbon" aria-label="Играю сейчас">
+          <div class="lbl"><svg class="sh"><use href="#i-playing"/></svg>Играю <span>3</span></div>
+          <span class="div"></span>
+          <a class="it" href="#"><i class="th" style="--a:#f5b04a;--b:#2f5fb3"></i><div><div class="t">Trails in the Sky 2nd Chapter</div><div class="m num">28 ч 17 мин · 3 дн. назад</div></div></a>
+          <a class="it" href="#"><i class="th" style="--a:#e07a4f;--b:#1f5a70"></i><div><div class="t">Horizon Forbidden West</div><div class="m num">41 ч · 2 нед. назад</div></div></a>
+        </section>
+
+        <div class="toolbar">
+          <div class="search"><span>Поиск игры…</span></div>
+          <div class="m-scroll" style="flex-basis:100%" role="group" aria-label="Статус">
+            <button class="chip" aria-pressed="true">Все <small class="num">214</small></button>
+            <button class="chip st-playing"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button>
+            <button class="chip st-completed"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button>
+            <button class="chip st-backlog"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button>
+            <button class="chip st-dropped"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button>
+            <button class="chip st-shelved"><svg class="sh"><use href="#i-shelved"/></svg><small class="num">2</small></button>
+            <button class="chip st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано <small class="num">177</small></button>
+          </div>
+          <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-top:4px">
+            <span class="select" style="height:40px">Фильтры</span>
+            <div class="seg"><button aria-pressed="true" style="height:34px">Крупно</button><button aria-pressed="false" style="height:34px">Плотно</button><button aria-pressed="false" style="height:34px">Список</button></div>
+          </div>
+        </div>
+
+        <section class="sec" style="padding-top:24px">
+          <div class="yh"><h2 class="y">2026</h2>
+            <span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span>
+            <span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span>
+            <span class="k"><b class="num">186 ч</b></span></div>
+          <h3 class="mh">Октябрь <small class="num"><span class="st-completed"><svg class="sh"><use href="#i-completed"/></svg>2</span><span class="st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>1</span></small></h3>
+          <div class="grid">
+            <a class="card" href="#" style="--a:#f4d230;--b:#c9811c"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="plat" title="Платина"><svg viewBox="0 0 16 16"><path d="M4 2h8v3a4 4 0 0 1-3 3.9V11h2.5v2H4.5v-2H7V8.9A4 4 0 0 1 4 5z"/></svg></span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 мин</div></a>
+            <a class="card" href="#" style="--a:#b5503a;--b:#1d1a22"><div class="cover"><span class="art">Onimusha Way of the Sword</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">9 окт.</span></div><div class="ttl">Onimusha: Way of the Sword</div><div class="sub num">20 ч 29 мин</div></a>
+            <a class="card dropped" href="#" style="--a:#7a8fb0;--b:#2a1e2e"><div class="cover"><span class="art">Silent Hill Townfall</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill: Townfall</div><div class="sub num">6 ч</div></a>
+            <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7 Skies Unknown</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">15 сен.</span></div><div class="ttl">ACE COMBAT™ 7: SKIES UNKNOWN</div><div class="sub num">5 ч 43 мин</div></a>
+          </div>
+        </section>
+        <section class="sec" style="padding-top:20px"><div class="yh collapsed"><h2 class="y">2025</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg><b class="num">9</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg><b class="num">2</b></span><span class="k"><b class="num">244 ч</b></span><span class="tg">▾</span></div></section>
+        <section class="sec" style="padding-bottom:28px"><div class="sh-head"><h2>Бэклог</h2><span class="cnt num">8</span><a class="more" href="#">Все →</a></div>
+          <div class="grid" style="--cols:2">
+            <a class="card" href="#" style="--a:#e8a33c;--b:#2c8f8f"><div class="cover"><span class="art">Grand Theft Auto V</span><span class="badge st-backlog"><svg class="sh"><use href="#i-backlog"/></svg></span></div><div class="ttl">Grand Theft Auto V</div><div class="sub num">3 ч</div></a>
+            <a class="card" href="#" style="--a:#3fd6c4;--b:#0b1d28"><div class="cover"><span class="art">Sea of Thieves</span><span class="badge st-backlog"><svg class="sh"><use href="#i-backlog"/></svg></span></div><div class="ttl">Sea of Thieves</div><div class="sub num">2 ч 38 мин</div></a>
+          </div>
+        </section>
+      </div>
+      <nav class="tabbar" aria-label="Разделы"><a href="#" aria-current="page"><span class="ic"></span>Коллекция</a><a href="#"><span class="ic"></span>Бэклог</a><a href="#"><span class="ic"></span>Статистика</a><a href="#"><span class="ic"></span>Итоги</a></nav>
+    </div>
+  </div>
+
+  <!-- ===== Плотно + bottom sheet ===== -->
+  <div class="phone">
+    <div class="page" style="--tint:#f2b27a">
+      <header class="m-hdr"><a class="logo" href="#">PS Tracker</a><span class="sp"></span><span class="sync"><i></i></span><span class="avatar">⋯</span></header>
+      <div class="m-pad">
+        <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+        <section class="sec" style="padding-top:8px">
+          <div class="yh"><h2 class="y">2026</h2>
+            <span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span>
+            <span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span>
+            <span class="k"><b class="num">186 ч</b></span></div>
+          <h3 class="mh">Сентябрь <small class="num"><span class="st-completed"><svg class="sh"><use href="#i-completed"/></svg>3</span></small></h3>
+          <div class="grid dense">
+            <a class="card" href="#" style="--a:#c0572b;--b:#2a1410"><div class="cover"><span class="art">Mafia The Old Country</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+            <a class="card" href="#" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+            <a class="card" href="#" style="--a:#d0673a;--b:#3a1a14"><div class="cover"><span class="art">Gothic 1 Remake</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+          </div>
+          <h3 class="mh">Август <small class="num"><span class="st-completed"><svg class="sh"><use href="#i-completed"/></svg>2</span><span class="st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>1</span></small></h3>
+          <div class="grid dense">
+            <a class="card" href="#" style="--a:#6f8a5b;--b:#1a2a3a"><div class="cover"><span class="art">Halo</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+            <a class="card" href="#" style="--a:#4fb6a6;--b:#12302c"><div class="cover" style="outline:2px solid var(--accent);outline-offset:2px"><span class="art">Bramble</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span></div></a>
+            <a class="card dropped" href="#" style="--a:#8a6a5a;--b:#16151c"><div class="cover"><span class="art">Directive 8020</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span></div></a>
+          </div>
+          <p class="caption">Подсвечена обложка с долгим тапом (500 мс).</p>
+        </section>
+
+        <div class="sheetbox" role="dialog" aria-label="Статус игры">
+          <div class="handle"></div>
+          <div class="hd"><i style="--a:#4fb6a6;--b:#12302c"></i><div>Bramble: The Mountain King<div class="dim" style="font-weight:400;font-size:12px">4 ч 49 мин · 4 запуска</div></div></div>
+          <div class="opt st-playing"><svg class="sh"><use href="#i-playing"/></svg>Играю</div>
+          <div class="opt st-completed cur"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</div>
+          <div class="opt st-backlog"><svg class="sh"><use href="#i-backlog"/></svg>Бэклог</div>
+          <div class="opt st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>Брошено</div>
+          <div class="opt st-shelved"><svg class="sh"><use href="#i-shelved"/></svg>Отложено</div>
+          <div class="opt st-none"><svg class="sh"><use href="#i-none"/></svg>Без статуса</div>
+        </div>
+      </div>
+      <nav class="tabbar" aria-label="Разделы"><a href="#" aria-current="page"><span class="ic"></span>Коллекция</a><a href="#"><span class="ic"></span>Бэклог</a><a href="#"><span class="ic"></span>Статистика</a><a href="#"><span class="ic"></span>Итоги</a></nav>
+    </div>
+  </div>
+</div>
+</body>
+</html>
