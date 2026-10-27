@@ -31,6 +31,9 @@ const P: Record<string, ReactNode> = {
   'arrow-down': <><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>,
   refresh: <><path d="M3 12a9 9 0 0 1 9-9 9.8 9.8 0 0 1 6.7 2.700L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.8 9.8 0 0 1-6.7-2.700L3 16" /><path d="M8 16H3v5" /></>,
+  undo: <><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" /></>,
+  'chevron-up': <path d="m18 15-6-6-6 6" />,
+  'sliders-h': <><path d="M21 4h-7" /><path d="M10 4H3" /><path d="M21 12h-9" /><path d="M8 12H3" /><path d="M21 20h-5" /><path d="M12 20H3" /><path d="M14 2v4" /><path d="M8 10v4" /><path d="M16 18v4" /></>,
   'arrow-right': <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
 };
 
@@ -60,3 +63,6 @@ export function StatusIcon({ status, size = 16, className }: { status: StatusKey
     </svg>
   );
 }
+
+/** Имя из design-system §3: фигура статуса. Размеры 12 / 16 / 20 / 40. */
+export const StatusGlyph = StatusIcon;

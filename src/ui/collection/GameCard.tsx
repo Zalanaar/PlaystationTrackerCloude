@@ -1,11 +1,15 @@
 'use client';
 
+import { useState, type ReactNode } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
-import { formatDate, formatPlayTime } from '../format';
-import { Icon } from '../icons';
-import { StatusChip, StatusMenu } from '../status';
+import { formatDayMonth, formatPlayTime, launchesText } from '../format';
+import { Icon, StatusGlyph } from '../icons';
+import { useIsMobile } from '../primitives/hooks';
+import { StatusMenu, StatusSheet, toKey } from '../status';
+import { STATUS_META } from '../tokens';
 import { Cover } from './Cover';
 import { completionInfo } from './filters';
+import { useLongPress } from './useLongPress';
 
 export type GameActions = {
   open: (g: GameItem, editDate?: boolean) => void;
@@ -13,77 +17,99 @@ export type GameActions = {
   toggle: (g: GameItem) => void;
 };
 
-const TROPHY: readonly { key: 'platinum' | 'gold' | 'silver' | 'bronze'; label: string }[] = [
-  { key: 'platinum', label: 'платиновых' }, { key: 'gold', label: 'золотых' },
-  { key: 'silver', label: 'серебряных' }, { key: 'bronze', label: 'бронзовых' },
-];
-
 /** Пункт меню «Изменить дату» только для пройденных и брошенных. */
 export function dateMenuItem(g: GameItem, actions: GameActions) {
   if (!completionInfo(g)) return undefined;
   return function DateMenuItem(close: () => void) {
     return (
-    <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall ps-menu-item--sep" onClick={() => { close(); actions.open(g, true); }}>
-      <Icon name="calendar" size={16} />
-      <span className="ps-menu-item__label">Изменить дату…</span>
-    </button>
+      <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall ps-menu-item--sep" onClick={() => { close(); actions.open(g, true); }}>
+        <Icon name="calendar" size={16} />
+        <span className="ps-menu-item__label">Изменить дату…</span>
+      </button>
     );
   };
 }
 
+function GlyphBadge({ status }: { status: GameStatusValue | null }) {
+  const key = toKey(status);
+  return (
+    <span className="ps-card__glyph" data-status={key} title={STATUS_META[key].label}>
+      <StatusGlyph status={key} size={16} />
+    </span>
+  );
+}
+
 export function GameCard({
-  game, actions, selectMode, selected, active,
-}: { game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; active?: boolean }) {
+  game, actions, selectMode, selected, active, dateWithYear, children,
+}: {
+  game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; active?: boolean;
+  /** «9 окт. 2026» вместо «9 окт.» (плоский список результатов) */
+  dateWithYear?: boolean;
+  /** быстрые действия под карточкой (Бэклог) */
+  children?: ReactNode;
+}) {
+  const mobile = useIsMobile();
+  const [sheet, setSheet] = useState(false);
+  const { handlers, wasLong } = useLongPress(() => { if (!selectMode) setSheet(true); }, mobile);
   const time = formatPlayTime(game.playSeconds);
   const done = completionInfo(game);
+  const date = done ? formatDayMonth(done.iso, dateWithYear) : null;
+  const t = game.trophies;
+  const key = toKey(game.status);
   return (
     <article
-      className="ps-card" data-status={game.status ?? 'none'} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
+      className="ps-card" data-status={key} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
     >
       <div className="ps-card__cover">
         <Cover url={game.coverUrl} title={game.title} />
-        <div className="ps-card__top">
-          <span className="ps-card__chips">
-            {time && <span className="ps-occhip"><Icon name="clock" size={11} />{time}</span>}
-            {game.playCount > 0 && <span className="ps-occhip"><Icon name="play" size={10} />{game.playCount}</span>}
-          </span>
-          <span className="ps-badge-ps" title={game.platform}>PS</span>
-        </div>
         {game.trophies?.platinumEarned && (
           <span className="ps-card__plat" title="Платина получена" role="img" aria-label="Платина получена">
             <Icon name="trophy" size={14} />
           </span>
         )}
+        {date && <span className="ps-card__date num" data-kind={done?.kind}>{date}</span>}
+        <div className="ps-card__hov" aria-hidden="true">
+          <b>{game.title}</b>
+          {time && <span>{time}{game.playCount > 0 ? ` · ${launchesText(game.playCount)}` : ''}</span>}
+          {t && (
+            <>
+              <span>Трофеи {t.earned}/{t.defined}</span>
+              <span className="ps-card__bar"><i style={{ width: `${t.progress}%` }} /></span>
+            </>
+          )}
+          {game.lastPlayedAt && <span>Последний запуск {formatDayMonth(game.lastPlayedAt)}</span>}
+        </div>
         {selectMode && (
           <span className="ps-card__check" aria-hidden="true">{selected && <Icon name="check" size={14} />}</span>
         )}
-        <div className="ps-card__trophies" aria-label={game.trophies ? 'Трофеи' : 'Трофеев нет'}>
-          {TROPHY.map((t) => {
-            const n = game.trophies?.byType[t.key].earned ?? 0;
-            return (
-              <span key={t.key} className="ps-tcell" data-zero={n === 0 || undefined} title={n ? `${n} ${t.label}` : undefined}>
-                {n > 0 ? <><Icon name="trophy" size={10} className={`ps-t-${t.key}`} />{n}</> : '—'}
-              </span>
-            );
-          })}
-        </div>
       </div>
-      <div className="ps-card__cap">
-        <StatusMenu value={game.status} onPick={(s) => actions.setStatus(game, s)} label={`Статус: ${game.title}`} extra={dateMenuItem(game, actions)} className="ps-card__status">
-          <StatusChip status={game.status} iconOnly />
+      <div className="ps-card__body">
+        <p className="ps-card__title" title={game.title}>{game.title}</p>
+        {time && <p className="ps-card__meta num">{time}</p>}
+      </div>
+      {children && <div className="ps-card__extra">{children}</div>}
+      {!selectMode && !mobile ? (
+        <StatusMenu
+          value={game.status} onPick={(s) => actions.setStatus(game, s)} label={`Статус: ${game.title}`}
+          extra={dateMenuItem(game, actions)} className="ps-card__status" align="end"
+        >
+          <GlyphBadge status={game.status} />
         </StatusMenu>
-        <h3 className="ps-card__title" title={game.title}>{game.title}</h3>
-      </div>
-      {done && (
-        <div className="ps-card__plaque" data-kind={done.kind}>
-          {done.kind === 'completed' ? 'Завершено' : 'Брошено'} · {formatDate(done.iso)}
-        </div>
+      ) : (
+        <span className="ps-card__status"><GlyphBadge status={game.status} /></span>
       )}
       <button
         type="button" className="ps-card__hit" aria-pressed={selectMode ? selected : undefined}
         aria-label={selectMode ? `Выбрать: ${game.title}` : `Открыть: ${game.title}`}
-        onClick={() => (selectMode ? actions.toggle(game) : actions.open(game))}
+        onClick={() => { if (wasLong()) return; if (selectMode) actions.toggle(game); else actions.open(game); }}
+        {...handlers}
       />
+      {mobile && (
+        <StatusSheet
+          open={sheet} onClose={() => setSheet(false)} title={game.title} value={game.status}
+          onPick={(s) => actions.setStatus(game, s)} extra={dateMenuItem(game, actions)}
+        />
+      )}
     </article>
   );
 }

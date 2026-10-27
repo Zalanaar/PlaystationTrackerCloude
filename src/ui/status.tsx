@@ -56,8 +56,10 @@ function Items({ value, onPick, extra }: { value?: GameStatusValue | null; onPic
  * `children` рисует кнопку-триггер.
  */
 export function StatusMenu({
-  value, onPick, label, extra, children, className,
+  value, onPick, label, extra, children, className, align, triggerClassName,
 }: {
+  align?: 'start' | 'end';
+  triggerClassName?: string;
   value?: GameStatusValue | null;
   onPick: (s: GameStatusValue | null) => void;
   label: string;
@@ -71,7 +73,7 @@ export function StatusMenu({
   if (mobile) {
     return (
       <>
-        <button type="button" className={`ps-trigger ${className ?? ''}`} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <button type="button" className={`ps-trigger ${className ?? ''} ${triggerClassName ?? ''}`} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
           {children}
         </button>
         <Sheet open={open} onClose={() => setOpen(false)} title="Статус">
@@ -84,12 +86,29 @@ export function StatusMenu({
   }
   return (
     <Popover
-      className={className}
+      className={className} align={align}
       trigger={(p) => (
-        <button type="button" className="ps-trigger" aria-label={label} {...p}>{children}</button>
+        <button type="button" className={`ps-trigger ${triggerClassName ?? ''}`} aria-label={label} {...p}>{children}</button>
       )}
     >
       {(close) => <Items value={value} onPick={(s) => { close(); onPick(s); }} extra={extra?.(close)} />}
     </Popover>
+  );
+}
+
+/** Управляемый bottom sheet выбора статуса (долгий тап по карточке на мобильном). */
+export function StatusSheet({
+  open, onClose, title, value, onPick, extra,
+}: {
+  open: boolean; onClose: () => void; title: string; value: GameStatusValue | null;
+  onPick: (s: GameStatusValue | null) => void; extra?: (close: () => void) => React.ReactNode;
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Статус">
+      <p className="ps-sheet__sub">{title}</p>
+      <div role="menu" className="ps-list">
+        <Items value={value} onPick={(s) => { onClose(); onPick(s); }} extra={extra?.(onClose)} />
+      </div>
+    </Sheet>
   );
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Icon, type IconName } from '../icons';
+import { Icon, StatusGlyph, type IconName } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
@@ -50,7 +50,6 @@ export function AppHeader() {
           <nav className="ps-nav" aria-label="Разделы">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="ps-nav-item" aria-current={isActiveNav(pathname, n.href) ? 'page' : undefined}>
-                <Icon name={n.icon} size={16} className="ps-nav-item__icon" />
                 {n.label}
               </Link>
             ))}
@@ -65,11 +64,17 @@ export function AppHeader() {
                   <button type="button" className="ps-avatar" aria-label="Меню профиля" {...p}>А</button>
                 )}
               >
-                {() => (
-                  <button type="button" role="menuitem" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
-                    <Icon name="logout" size={16} />
-                    <span className="ps-menu-item__label">Выйти</span>
-                  </button>
+                {(close) => (
+                  <>
+                    <Link href="/triage" role="menuitem" className="ps-menu-item" onClick={close}>
+                      <StatusGlyph status="none" size={16} />
+                      <span className="ps-menu-item__label">Разобрать игры</span>
+                    </Link>
+                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
+                      <Icon name="logout" size={16} />
+                      <span className="ps-menu-item__label">Выйти</span>
+                    </button>
+                  </>
                 )}
               </Popover>
             </div>
@@ -85,6 +90,9 @@ export function AppHeader() {
           <p className="ps-micro">Тема</p>
           <div role="menu" className="ps-list"><ThemeList onPick={() => setMore(false)} /></div>
           <p className="ps-micro">Аккаунт</p>
+          <Link href="/triage" className="ps-menu-item" onClick={() => setMore(false)}>
+            <StatusGlyph status="none" size={16} /><span className="ps-menu-item__label">Разобрать игры</span>
+          </Link>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
