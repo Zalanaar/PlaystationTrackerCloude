@@ -149,7 +149,7 @@ a.ps-btn { text-decoration: none; }
 /* ---------- Фильтры ---------- */
 .ps-filters { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-5); }
 .ps-filters__row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.ps-filters__row2 { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.ps-filters__row2 { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); }
 .ps-search { position: relative; flex: 1 1 260px; max-width: 360px; min-width: 0; }
 .ps-search__icon { position: absolute; left: var(--sp-3); top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
 .ps-search__input { width: 100%; height: var(--control-h); padding: 0 36px; background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-pill); color: var(--text); font: inherit; }

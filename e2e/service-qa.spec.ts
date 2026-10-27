@@ -31,7 +31,6 @@ async function login(context: BrowserContext, baseURL: string) {
 const longTitles = (list: G[]): G[] => list.map((g, i) => ({ ...g, title: i % 3 === 0 ? `Очень длинное название игры-сервиса без пробелов ${'W'.repeat(60)} ${i}` : g.title }));
 
 test('BUG-E2: Коллекция на 360px без горизонтального скролла документа (панель фильтров, ряд 2)', async ({ page, context, baseURL }) => {
-  test.fail(true, 'BUG-E2: ряд «сортировка / Крупно-Плотно-Список / Выбрать» шире 360px');
   await page.setViewportSize({ width: 360, height: 800 });
   await login(context, baseURL!);
   await mockApi(page, seed());
@@ -134,7 +133,6 @@ test.describe('QA: оценочные часы в Статистике на уз
 });
 
 test('BUG-E3: подсказка столбца «Ноя» не выходит за правый край на 320px', async ({ page, context, baseURL }) => {
-  test.fail(true, 'BUG-E3: подсказка последних столбцов вылезает за экран на 4-9px');
   await page.setViewportSize({ width: 320, height: 900 });
   await login(context, baseURL!);
   await mockApi(page);

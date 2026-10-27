@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
@@ -269,9 +269,21 @@ function HoursLegend() {
 
 /** Подсказка столбца (§4.11): месяц, всего, затем измеренная и оценочная части; нулевая часть не выводится. */
 function BarTip({ bar }: { bar: HoursBar }) {
-  if (bar.value === null) return <span className="ps-st-tip ps-num" role="tooltip"><b>{bar.title}</b><span>нет данных</span></span>;
+  const ref = useRef<HTMLSpanElement>(null);
+  // Прижимаем подсказку к границам вьюпорта (десктоп не затрагивается: сдвиг 0, если помещается).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.translate = '';
+    const r = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const m = 8;
+    const dx = r.right > vw - m ? vw - m - r.right : r.left < m ? m - r.left : 0;
+    if (dx) el.style.translate = `${dx}px 0`;
+  });
+  if (bar.value === null) return <span ref={ref} className="ps-st-tip ps-num" role="tooltip"><b>{bar.title}</b><span>нет данных</span></span>;
   return (
-    <span className="ps-st-tip ps-num" role="tooltip">
+    <span ref={ref} className="ps-st-tip ps-num" role="tooltip">
       <b>{bar.title}</b>
       <span><b>{formatHours(bar.value)} ч</b> всего</span>
       {bar.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {formatHours(bar.real)} ч</span>}
