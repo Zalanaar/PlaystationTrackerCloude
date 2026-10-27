@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { cssUrl, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
+import { cssUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
 
 const NOW = Date.parse('2026-10-27T09:00:00Z');
 
 describe('format', () => {
   it('время игры', () => {
-    expect(formatPlayTime(101_853)).toBe('28 ч 17 мин');
-    expect(formatPlayTime(360)).toBe('6 мин');
+    expect(formatPlayTime(101_853)).toBe('28 ч 17 м');
+    expect(formatPlayTime(64_260)).toBe('17 ч 51 м');
+    expect(formatPlayTime(2700)).toBe('45 м');
+    expect(formatPlayTime(360)).toBe('6 м');
     expect(formatPlayTime(7200)).toBe('2 ч');
+    expect(formatPlayTime(128 * 3600 + 1500)).toBe('128 ч');
+    expect(formatPlayTime(30)).toBeNull();
     expect(formatPlayTime(0)).toBeNull();
   });
   it('даты по Москве', () => {
@@ -16,6 +20,13 @@ describe('format', () => {
     expect(formatDate(null)).toBeNull();
     expect(formatShortDate('2026-10-12T10:00:00Z', NOW)).toBe('12 окт.');
     expect(formatShortDate('2025-10-12T10:00:00Z', NOW)).toBe('12.10.2025');
+  });
+  it('день и месяц, название месяца', () => {
+    expect(formatDayMonth('2026-10-09T10:00:00Z')).toBe('9 окт.');
+    expect(formatDayMonth('2026-10-09T10:00:00Z', true)).toBe('9 окт. 2026');
+    expect(formatDayMonth('2025-12-31T21:30:00Z')).toBe('1 янв.');
+    expect(formatDayMonth(null)).toBeNull();
+    expect(monthName(10)).toBe('Октябрь');
   });
   it('относительные даты', () => {
     expect(relativeAgo('2026-10-27T01:00:00Z', NOW)).toBe('сегодня');

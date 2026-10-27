@@ -32,3 +32,12 @@ export function useNow(intervalMs = 60_000): number {
     () => 0,
   );
 }
+
+/** Ширина окна (для числа колонок превью). На сервере 1440. */
+export function useViewportWidth(): number {
+  return useSyncExternalStore(
+    (cb) => { window.addEventListener('resize', cb); return () => window.removeEventListener('resize', cb); },
+    () => window.innerWidth,
+    () => 1440,
+  );
+}

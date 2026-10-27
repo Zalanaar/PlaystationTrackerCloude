@@ -1,6 +1,7 @@
 // Чистое форматирование для UI. Даты показываем по Europe/Moscow (UTC+3 без перехода на летнее время).
 const MSK_OFFSET_MS = 3 * 3600_000;
 const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const MONTHS_GEN = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
 ];
@@ -19,14 +20,15 @@ export function mskParts(ms: number): { y: number; m: number; d: number } {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** «28 ч 17 мин», «6 мин», «5 ч». null, если игра не запускалась. */
+/** «17 ч 51 м», «45 м», от 100 ч без минут «128 ч». null, если игра не запускалась (меньше минуты). */
 export function formatPlayTime(seconds: number): string | null {
   if (!Number.isFinite(seconds) || seconds < 60) return null;
   const total = Math.floor(seconds / 60);
   const h = Math.floor(total / 60);
   const m = total % 60;
-  if (h === 0) return `${m} мин`;
-  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
+  if (h === 0) return `${m} м`;
+  if (h >= 100 || m === 0) return `${formatNumber(h)} ч`;
+  return `${h} ч ${m} м`;
 }
 
 /** «56 ч» для таблицы. */
@@ -63,6 +65,19 @@ export function formatShortDate(iso: string | null | undefined, nowMs: number): 
   const p = mskParts(t);
   if (p.y === mskParts(nowMs).y) return `${p.d} ${MONTHS_SHORT[p.m - 1]}`;
   return formatDate(iso);
+}
+
+/** «9 окт.» (год показывает заголовок секции) или «9 окт. 2026» с withYear. */
+export function formatDayMonth(iso: string | null | undefined, withYear = false): string | null {
+  const t = parse(iso);
+  if (t === null) return null;
+  const p = mskParts(t);
+  return `${p.d} ${MONTHS_SHORT[p.m - 1]}${withYear ? ` ${p.y}` : ''}`;
+}
+
+/** «Октябрь» по номеру месяца 1..12. */
+export function monthName(m: number): string {
+  return MONTHS_NOM[m - 1] ?? '';
 }
 
 function dayNumber(ms: number): number {
@@ -115,7 +130,7 @@ export function launchesText(n: number): string {
   return `${n} ${plural(n, ['запуск', 'запуска', 'запусков'])}`;
 }
 
-/** Безопасный url() для inline-стиля `--hero-art`; не-http(s) отбрасывается. */
+/** Безопасный url() для inline-стиля `--page-art`; не-http(s) отбрасывается. */
 export function cssUrl(u: string | null | undefined): string | undefined {
   if (!u || !/^https?:\/\//i.test(u)) return undefined;
   return `url("${u.replace(/["\\\n\r]/g, encodeURIComponent)}")`;
