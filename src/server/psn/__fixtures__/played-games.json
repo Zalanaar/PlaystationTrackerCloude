@@ -1,0 +1,56 @@
+{
+  "titles": [
+    {
+      "titleId": "CUSA00001_00", "name": "Alpha Quest™", "localizedName": "Alpha Quest™",
+      "imageUrl": "https://img.example/alpha.png", "localizedImageUrl": "https://img.example/alpha-l.png",
+      "category": "ps4_game", "service": "none_purchased", "playCount": 14,
+      "concept": { "id": 1001, "titleIds": ["CUSA00001_00", "PPSA00002_00"], "name": "Alpha Quest", "genres": ["ACTION", "ADVENTURE"], "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2025-01-10T18:00:00Z", "lastPlayedDateTime": "2026-10-01T21:30:00.12Z", "playDuration": "PT10H30M5S"
+    },
+    {
+      "titleId": "PPSA00002_00", "name": "Alpha Quest", "localizedName": "Alpha Quest",
+      "imageUrl": "https://img.example/alpha5.png", "localizedImageUrl": "",
+      "category": "ps5_native_game", "service": "none", "playCount": 1,
+      "concept": { "id": 1001, "titleIds": ["CUSA00001_00", "PPSA00002_00"], "name": "Alpha Quest", "genres": ["ACTION", "ADVENTURE"], "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2026-03-01T10:00:00Z", "lastPlayedDateTime": "2026-03-01T11:00:00Z", "playDuration": "PT1H0M0S"
+    },
+    {
+      "titleId": "PPSA00003_00", "name": "Beta Racer", "localizedName": "Beta Racer",
+      "imageUrl": "https://img.example/beta.png", "localizedImageUrl": "",
+      "category": "ps5_native_game", "service": "ps_plus", "playCount": 30,
+      "concept": { "id": 1003, "titleIds": ["PPSA00003_00"], "name": "Beta Racer", "genres": ["RACING", "SIMULATOR"], "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2025-06-01T12:00:00Z", "lastPlayedDateTime": "2026-09-15T20:00:00Z", "playDuration": "PT100H0M30S"
+    },
+    {
+      "titleId": "CUSA00005_00", "name": "Gamma Puzzle", "localizedName": "Gamma Puzzle",
+      "imageUrl": "https://img.example/gamma.png", "localizedImageUrl": "",
+      "category": "ps4_game", "service": "none", "playCount": 3,
+      "concept": { "id": 1005, "titleIds": ["CUSA00005_00"], "name": "Gamma Puzzle", "genres": ["PUZZLE"], "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2024-01-01T00:00:00Z", "lastPlayedDateTime": "2024-01-02T00:00:00Z", "playDuration": "PT45M10S"
+    },
+    {
+      "titleId": "PPSA00006_00", "name": "Delta Souls", "localizedName": "Delta Souls",
+      "imageUrl": "https://img.example/delta.png", "localizedImageUrl": "",
+      "category": "ps5_native_game", "service": "none", "playCount": 8,
+      "concept": { "id": 1006, "titleIds": ["PPSA00006_00"], "name": "Delta Souls", "genres": ["ACTION", "ROLE_PLAYING_GAMES"], "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2026-05-01T00:00:00Z", "lastPlayedDateTime": "2026-05-20T00:00:00Z", "playDuration": "PT7H"
+    },
+    {
+      "titleId": "PCSA00007_00", "name": "Epsilon", "localizedName": "Эпсилон",
+      "imageUrl": "", "localizedImageUrl": "",
+      "category": "pspc_game", "service": "none", "playCount": 0,
+      "concept": { "id": 1007, "titleIds": ["PCSA00007_00"], "name": "Epsilon", "genres": ["UNIQUE"], "media": { "audios": [], "videos": [], "images": [{ "url": "https://img.example/eps-concept.jpg", "format": "UNKNOWN", "type": "FOUR_BY_THREE_BANNER" }] } },
+      "media": {}, "firstPlayedDateTime": "2026-02-01T00:00:00Z", "lastPlayedDateTime": "2026-02-01T00:00:00Z", "playDuration": "PT0S"
+    },
+    {
+      "titleId": "PPSA09999_00", "name": "Streaming App", "localizedName": "Streaming App",
+      "imageUrl": "https://img.example/app.png", "localizedImageUrl": "",
+      "category": "ps5_native_media_app", "service": "none", "playCount": 5,
+      "concept": { "id": 9999, "titleIds": ["PPSA09999_00"], "name": "Streaming App", "media": { "audios": [], "videos": [], "images": [] } },
+      "media": {}, "firstPlayedDateTime": "2025-01-01T00:00:00Z", "lastPlayedDateTime": "2025-01-02T00:00:00Z", "playDuration": "PT2H"
+    }
+  ],
+  "totalItemCount": 7,
+  "nextOffset": 7,
+  "previousOffset": 0
+}

@@ -1,0 +1,12 @@
+{
+  "trophyTitles": [
+    { "npServiceName": "trophy", "npCommunicationId": "NPWR00001_00", "trophySetVersion": "01.00", "trophyTitleName": "Alpha Quest Trophies", "trophyTitleIconUrl": "https://img.example/t1.png", "trophyTitlePlatform": "PS4", "hasTrophyGroups": false, "definedTrophies": { "bronze": 2, "silver": 1, "gold": 1, "platinum": 0 }, "progress": 50, "earnedTrophies": { "bronze": 1, "silver": 0, "gold": 1, "platinum": 0 }, "hiddenFlag": false, "lastUpdatedDateTime": "2026-09-30T20:00:00Z" },
+    { "npServiceName": "trophy2", "npCommunicationId": "NPWR00003_00", "trophySetVersion": "01.00", "trophyTitleName": "Beta Racer", "trophyTitleIconUrl": "https://img.example/t3.png", "trophyTitlePlatform": "PS5", "hasTrophyGroups": true, "definedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 1 }, "progress": 100, "earnedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 1 }, "hiddenFlag": false, "lastUpdatedDateTime": "2026-09-14T20:00:00Z" },
+    { "npServiceName": "trophy2", "npCommunicationId": "NPWR00004_00", "trophySetVersion": "01.00", "trophyTitleName": "Beta Racer Extra", "trophyTitleIconUrl": "https://img.example/t4.png", "trophyTitlePlatform": "PS5", "hasTrophyGroups": false, "definedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 0 }, "progress": 0, "earnedTrophies": { "bronze": 0, "silver": 0, "gold": 0, "platinum": 0 }, "hiddenFlag": false, "lastUpdatedDateTime": "2026-01-01T00:00:00Z" },
+    { "npServiceName": "trophy2", "npCommunicationId": "NPWR00006_00", "trophySetVersion": "01.00", "trophyTitleName": "Delta Souls™", "trophyTitleIconUrl": "https://img.example/t6.png", "trophyTitlePlatform": "PS5", "hasTrophyGroups": false, "definedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 0 }, "progress": 100, "earnedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 0 }, "hiddenFlag": false, "lastUpdatedDateTime": "2026-05-19T20:00:00Z" },
+    { "npServiceName": "trophy", "npCommunicationId": "NPWR00009_00", "trophySetVersion": "01.00", "trophyTitleName": "Zeta Orphan", "trophyTitleIconUrl": "https://img.example/t9.png", "trophyTitlePlatform": "PS4", "hasTrophyGroups": false, "definedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 0 }, "progress": 100, "earnedTrophies": { "bronze": 1, "silver": 0, "gold": 0, "platinum": 0 }, "hiddenFlag": false, "lastUpdatedDateTime": "2025-12-31T21:30:00Z" }
+  ],
+  "totalItemCount": 5,
+  "nextOffset": 5,
+  "previousOffset": 0
+}

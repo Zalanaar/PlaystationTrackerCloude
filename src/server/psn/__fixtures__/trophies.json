@@ -1,0 +1,38 @@
+{
+  "NPWR00001_00": {
+    "defs": [
+      { "trophyId": 0, "trophyHidden": false, "trophyType": "gold", "trophyName": "Finale", "trophyDetail": "Finish the game", "trophyIconUrl": "https://img.example/a0.png", "trophyGroupId": "default" },
+      { "trophyId": 1, "trophyHidden": false, "trophyType": "silver", "trophyName": "Collector", "trophyDetail": "Collect all", "trophyIconUrl": "https://img.example/a1.png", "trophyGroupId": "default" },
+      { "trophyId": 2, "trophyHidden": true, "trophyType": "bronze", "trophyName": "", "trophyDetail": "", "trophyIconUrl": "https://img.example/a2.png", "trophyGroupId": "default" },
+      { "trophyId": 3, "trophyHidden": false, "trophyType": "bronze", "trophyName": "First step", "trophyDetail": "Start", "trophyIconUrl": "https://img.example/a3.png", "trophyGroupId": "default" }
+    ],
+    "earned": [
+      { "trophyId": 0, "trophyHidden": false, "earned": true, "earnedDateTime": "2026-09-30T20:00:00Z", "trophyType": "gold", "trophyRare": 2, "trophyEarnedRate": "12.3" },
+      { "trophyId": 1, "trophyHidden": false, "earned": false, "trophyType": "silver", "trophyRare": 1, "trophyEarnedRate": "4.01" },
+      { "trophyId": 2, "trophyHidden": true, "earned": false, "trophyType": "bronze", "trophyRare": 0, "trophyEarnedRate": "0.8" },
+      { "trophyId": 3, "trophyHidden": false, "earned": true, "earnedDateTime": "2025-01-10T19:00:00Z", "trophyType": "bronze", "trophyRare": 3, "trophyEarnedRate": "88.5" }
+    ]
+  },
+  "NPWR00003_00": {
+    "defs": [
+      { "trophyId": 0, "trophyHidden": false, "trophyType": "platinum", "trophyName": "Champion", "trophyDetail": "All trophies", "trophyIconUrl": "https://img.example/b0.png", "trophyGroupId": "default" },
+      { "trophyId": 1, "trophyHidden": false, "trophyType": "bronze", "trophyName": "Lap", "trophyDetail": "Drive a lap", "trophyIconUrl": "https://img.example/b1.png", "trophyGroupId": "default" }
+    ],
+    "earned": [
+      { "trophyId": 0, "trophyHidden": false, "earned": true, "earnedDateTime": "2026-09-14T20:00:00Z", "trophyType": "platinum", "trophyRare": 1, "trophyEarnedRate": "3.20" },
+      { "trophyId": 1, "trophyHidden": false, "earned": true, "earnedDateTime": "2025-06-01T12:30:00Z", "trophyType": "bronze", "trophyRare": 3, "trophyEarnedRate": "70" }
+    ]
+  },
+  "NPWR00004_00": {
+    "defs": [{ "trophyId": 0, "trophyHidden": false, "trophyType": "bronze", "trophyName": "Extra", "trophyDetail": "Play extra", "trophyIconUrl": "https://img.example/c0.png", "trophyGroupId": "default" }],
+    "earned": [{ "trophyId": 0, "trophyHidden": false, "earned": false, "trophyType": "bronze", "trophyRare": 3, "trophyEarnedRate": "50" }]
+  },
+  "NPWR00006_00": {
+    "defs": [{ "trophyId": 0, "trophyHidden": false, "trophyType": "bronze", "trophyName": "Die", "trophyDetail": "Die once", "trophyIconUrl": "https://img.example/d0.png", "trophyGroupId": "default" }],
+    "earned": [{ "trophyId": 0, "trophyHidden": false, "earned": true, "earnedDateTime": "2026-05-19T20:00:00Z", "trophyType": "bronze", "trophyRare": 3, "trophyEarnedRate": "95" }]
+  },
+  "NPWR00009_00": {
+    "defs": [{ "trophyId": 0, "trophyHidden": false, "trophyType": "bronze", "trophyName": "Orphan", "trophyDetail": "Exist", "trophyIconUrl": "https://img.example/z0.png", "trophyGroupId": "default" }],
+    "earned": [{ "trophyId": 0, "trophyHidden": false, "earned": true, "earnedDateTime": "2025-12-31T21:30:00Z", "trophyType": "bronze", "trophyRare": 3, "trophyEarnedRate": "60" }]
+  }
+}

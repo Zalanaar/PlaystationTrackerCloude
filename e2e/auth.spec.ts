@@ -42,7 +42,9 @@ test.describe('закрытый сайт', () => {
     const bad = await request.get('/api/cron/sync', { headers: { authorization: 'Bearer nope' }, maxRedirects: 0 });
     expect(bad.status()).toBe(401);
     const ok = await request.get('/api/cron/sync', { headers: { authorization: `Bearer ${E2E_ENV.CRON_SECRET}` }, maxRedirects: 0 });
-    expect(ok.status()).toBe(200);
+    // авторизация пройдена; синк упирается в недоступную БД e2e (503), а не в 401
+    expect(ok.status()).toBe(503);
+    expect((await ok.json()).error.code).toBe('db_unavailable');
   });
 
   test('валидная сессия: /api/health проходит авторизацию (БД в e2e недоступна, 503)', async ({ request }) => {

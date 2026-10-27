@@ -7,6 +7,7 @@ export type ErrorCode =
   | 'invalid_credentials'
   | 'not_found'
   | 'rate_limited'
+  | 'sync_in_progress'
   | 'config_error'
   | 'internal_error'
   | 'db_unavailable';
