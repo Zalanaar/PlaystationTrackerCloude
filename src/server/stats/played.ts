@@ -125,6 +125,8 @@ export function groupPlayed(args: {
       return {
         game,
         hours: secondsToHours(v.real + v.est),
+        hoursReal: secondsToHours(v.real),
+        hoursEstimated: secondsToHours(v.est),
         estimated: v.est > 0,
         finished: e ? e.kind : null,
         finishedAt: e ? e.at.toISOString() : null,

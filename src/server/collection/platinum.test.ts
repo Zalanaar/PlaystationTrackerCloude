@@ -37,7 +37,7 @@ describe('platinumForecast (чистая)', () => {
     expect(f).toEqual({
       setId: 1, required: 200, earned: 197, progress: 98, // 98.5 -> floor
       remaining: { gold: 1, silver: 1, bronze: 1, total: 3 }, remainingHidden: 1,
-      avgEarnedRate: 5.85, minEarnedRate: 1.2, ratesKnown: 2, platinumEarnedRate: 4.3,
+      avgEarnedRate: 5.85, minEarnedRate: 1.2, ratesKnown: 2, platinumEarnedRate: 4.3, approximate: true, dlc: null,
     });
   });
   it('99.6% не округляется до 100; все получены, а платины нет: 100 и remaining 0', () => {
@@ -99,7 +99,7 @@ describe('прогноз платины на PGlite', () => {
     const d = await getGameDetails(t.db, a);
     expect(d?.platinumForecast).toEqual({
       setId: 1, required: 10, earned: 8, progress: 80, remaining: { gold: 0, silver: 0, bronze: 2, total: 2 }, remainingHidden: 1,
-      avgEarnedRate: 10, minEarnedRate: 9.5, ratesKnown: 2, platinumEarnedRate: 3,
+      avgEarnedRate: 10, minEarnedRate: 9.5, ratesKnown: 2, platinumEarnedRate: 3, approximate: true, dlc: null,
     });
     expect((await getGameDetails(t.db, noPlat))?.platinumForecast).toBeNull();
     expect((await getGameDetails(t.db, got))?.platinumForecast).toBeNull();

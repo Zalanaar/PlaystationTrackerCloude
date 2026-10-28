@@ -54,7 +54,7 @@ describe('played: игра в каждом месяце, где играли', (
     expect(oct.items[0]).toMatchObject({ hours: 4, finished: 'completed', finishedAt: '2026-10-05T18:00:00.000Z' });
     const apr = year.find((g) => g.month === '2026-04')!;
     expect(apr).toMatchObject({ completed: 0, dropped: 1 });
-    expect(apr.items).toEqual([{ game: games.get(3), hours: 0, estimated: false, finished: 'dropped', finishedAt: '2026-03-31T22:00:00.000Z' }]);
+    expect(apr.items).toEqual([{ game: games.get(3), hours: 0, hoursReal: 0, hoursEstimated: 0, estimated: false, finished: 'dropped', finishedAt: '2026-03-31T22:00:00.000Z' }]);
     // в марте игра 2 есть, но не завершена там
     expect(year.find((g) => g.month === '2026-03')!.items.find((i) => i.game.id === 2)?.finished).toBeNull();
   });

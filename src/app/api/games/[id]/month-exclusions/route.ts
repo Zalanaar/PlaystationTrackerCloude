@@ -17,8 +17,8 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   const p = parseMonthExclusionBody(read.body);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
-    const excludedMonths = await setMonthExclusion(getDb(), id, p.value.month, p.value.excluded);
-    return ok({ gameId: id, month: p.value.month, excluded: p.value.excluded, excludedMonths });
+    const r = await setMonthExclusion(getDb(), id, p.value.month, p.value.excluded);
+    return ok({ gameId: id, month: p.value.month, excluded: p.value.excluded, ...r });
   } catch (e) {
     if (e instanceof NotFoundError) return fail(404, 'not_found', 'Игра не найдена.');
     if (e instanceof MonthExclusionConflictError) {

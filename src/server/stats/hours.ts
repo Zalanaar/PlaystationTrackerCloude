@@ -98,7 +98,8 @@ export function estimateRangeMonths(i: EstimateInput): string[] {
 /**
  * Оценочные секунды игры по месяцам МСК (ключ YYYY-MM), контракт 1.6 и 15.1. Пустая карта = оценки нет.
  * S0 делится поровну по месяцам диапазона без исключённых, остаток целиком в последний оставшийся.
- * Исключены все месяцы диапазона (в БД так быть не должно): исключения игнорируются, часы не теряются.
+ * Диапазон из одного месяца и он исключён: оценка выпадает (пустая карта), перераспределять некуда.
+ * Исключены все месяцы диапазона длиннее одного (API так не допускает): исключения игнорируются, часы не теряются.
  */
 export function estimateByMonth(i: EstimateInput): Map<string, number> {
   const out = new Map<string, number>();
@@ -106,6 +107,7 @@ export function estimateByMonth(i: EstimateInput): Map<string, number> {
   if (range.length === 0) return out;
   const ex = i.excludedMonths;
   const kept = ex && ex.size > 0 ? range.filter((k) => !ex.has(k)) : range;
+  if (kept.length === 0 && range.length === 1) return out;
   const keys = kept.length > 0 ? kept : range;
   const n = keys.length;
   const share = Math.floor(i.firstSeconds / n);
