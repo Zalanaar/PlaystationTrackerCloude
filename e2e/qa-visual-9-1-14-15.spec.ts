@@ -15,7 +15,7 @@ const g = (id: number, title: string, status: string | null = 'playing') => ({
   id, title, coverUrl: null, bannerUrl: null, tint: null, hiddenAt: null, platform: 'PS5', playSeconds: 36000, hours: 10, playCount: 3,
   lastPlayedAt: `${Y}-03-10T10:00:00.000Z`, status, completedAt: null, droppedAt: null, trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }],
 });
-const item = (id: number, title: string, real: number, est: number) => ({ game: g(id, title), hours: real + est, hoursReal: real, hoursEstimated: est, estimated: est > 0, finished: null, finishedAt: null });
+const item = (id: number, title: string, real: number, est: number) => ({ gameId: id, hours: real + est, hoursReal: real, hoursEstimated: est, estimated: est > 0, finished: null, finishedAt: null });
 const rare = (n: number, o: Record<string, unknown> = {}) => ({
   setId: 1, trophyId: n, type: 'gold', name: `Редкий трофей ${n}`, detail: 'Описание', iconUrl: null, earnedAt: `${Y}-03-02T19:10:00.000Z`,
   earnedRate: 0.8 + n, rarity: 0, setName: 'Horizon', game: short(17, 'Horizon Forbidden West'), ...o,
@@ -32,7 +32,7 @@ function stats(u: URL) {
     rareTrophies: { period: [rare(0), rare(1, { type: 'platinum' }), rare(2, { type: 'bronze', game: null, setName: 'Старая игра' })], allTime: [rare(9, { earnedRate: 0.1 })] },
     trophies: { counts: { platinum: 1, gold: 4, silver: 6, bronze: 20, total: 31 }, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z, total: i < 6 ? 5 : 0, bronze: i < 6 ? 5 : 0 })) },
     finished: { groups: [] },
-    played: { groups: [{ month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 0, items: [item(21, 'Ghost of Tsushima', 0, 4), item(22, 'Hades Two', 5, 0)], excluded: [{ ...item(24, 'Single Month', 2, 0), estimated: false }] }] },
+    played: { games: Object.fromEntries([[21, 'Ghost of Tsushima'], [22, 'Hades Two'], [24, 'Single Month']].map(([i, t]) => [String(i), g(i as number, t as string)])), groups: [{ month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 0, items: [item(21, 'Ghost of Tsushima', 0, 4), item(22, 'Hades Two', 5, 0)], excluded: [{ ...item(24, 'Single Month', 2, 0), estimated: false }] }] },
   };
 }
 

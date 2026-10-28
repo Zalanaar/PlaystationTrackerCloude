@@ -44,7 +44,7 @@ function payload(o: Opts = {}) {
       },
     trophies: { counts: { platinum: 1, gold: 5, silver: 12, bronze: 20, total: 38 }, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
-    played: { groups: [] },
+    played: { games: {}, groups: [] },
   };
 }
 
