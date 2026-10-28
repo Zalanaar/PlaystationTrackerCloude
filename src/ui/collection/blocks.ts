@@ -24,8 +24,8 @@ export function visibleBlocks(tab: StatusTab): BlockId[] {
  * Блок грузится целиком (вкладка выбрана явно), а не превью одним рядом.
  * `service` грузится целиком всегда, а «один ряд + Показать ещё» рисует CollectionView (§4.3.1).
  */
-export function isFull(block: BlockId, tab: StatusTab): boolean {
-  return tab !== 'all' || block === 'chronicle' || block === 'shelved' || block === 'service';
+export function isFull(block: BlockId, tab: StatusTab, all = false): boolean {
+  return all || tab !== 'all' || block === 'chronicle' || block === 'shelved' || block === 'service';
 }
 
 export function blockStatuses(block: BlockId, tab: StatusTab): StatusFilterValue[] {
@@ -38,10 +38,13 @@ export function blockSort(block: BlockId): GameSort {
 
 export type PlanItem = { block: BlockId; query: URLSearchParams };
 
-/** Запросы для режима хроники. */
-export function buildPlan(tab: StatusTab, q: string): PlanItem[] {
+/**
+ * Запросы для режима хроники. `all` (чип «Платина», фильтр на клиенте): превью-блоки грузятся целиком,
+ * иначе игры с платиной за пределами первых 12 не попали бы в выдачу.
+ */
+export function buildPlan(tab: StatusTab, q: string, all = false): PlanItem[] {
   return visibleBlocks(tab).map((block) => {
-    const limit = block === 'playing' && tab === 'all' ? PLAYING_LIMIT : isFull(block, tab) ? FULL_LIMIT : PREVIEW_LIMIT;
+    const limit = block === 'playing' && tab === 'all' ? PLAYING_LIMIT : isFull(block, tab, all) ? FULL_LIMIT : PREVIEW_LIMIT;
     return { block, query: blockQuery(blockStatuses(block, tab), blockSort(block), q, { limit, offset: 0 }) };
   });
 }

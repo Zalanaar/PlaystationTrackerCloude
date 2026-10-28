@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StatusCounts } from '@/server/collection/types';
 import { formatNumber } from '../format';
-import { Icon, StatusGlyph } from '../icons';
+import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
@@ -123,9 +123,11 @@ function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; on
 }
 
 export function FilterBar({
-  filters, view, counts, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll,
+  filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll,
 }: {
   filters: Filters; view: ViewMode; counts: StatusCounts | null;
+  /** Игр с платиной (`summary.totals.platinumEarned`); null, пока сводка грузится */
+  platinumCount: number | null;
   onChange: (p: Partial<Filters>) => void; onView: (v: ViewMode) => void; onReset: () => void;
   selectMode: boolean; onSelect: () => void; canSelect: boolean;
   /** Раздел «Скрытые»: войти (true) / выйти (false) */
@@ -147,21 +149,34 @@ export function FilterBar({
     <div className="ps-filters">
       <div className="ps-filters__row">
         <SearchBox value={filters.q} onCommit={commit} />
-        <div className="ps-tabs" role="group" aria-label="Статус">
-          {STATUS_TABS.map((t) => {
-            const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
-            const wide = t.id === 'all' || t.id === 'none';
-            return (
-              <button
-                key={t.id} type="button" className="ps-filterchip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
-                title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
-              >
-                {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
-                <span className="ps-filterchip__t">{t.label}</span>
-                {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
-              </button>
-            );
-          })}
+        <div className="ps-tabs">
+          <div className="ps-tabs__grp" role="group" aria-label="Статус">
+            {STATUS_TABS.map((t) => {
+              const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
+              const wide = t.id === 'all' || t.id === 'none';
+              return (
+                <button
+                  key={t.id} type="button" className="ps-filterchip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
+                  title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
+                >
+                  {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
+                  <span className="ps-filterchip__t">{t.label}</span>
+                  {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <span className="ps-tabs__sep" aria-hidden="true" />
+          <button
+            type="button" className="ps-filterchip ps-filterchip--plat" aria-pressed={filters.platinum}
+            aria-label={platinumCount !== null ? `Платина: ${formatNumber(platinumCount)}` : 'Платина'}
+            disabled={platinumCount === 0 && !filters.platinum} title={platinumCount === 0 ? 'Платин пока нет' : undefined}
+            onClick={() => onChange({ platinum: !filters.platinum })}
+          >
+            <PlatinumIcon size={16} className="ps-filterchip__plat" />
+            <span className="ps-filterchip__t">Платина</span>
+            {platinumCount !== null && <span className="ps-filterchip__n num">{formatNumber(platinumCount)}</span>}
+          </button>
         </div>
         {!mobile && <SortSelect f={filters} onChange={onChange} />}
         {!mobile && <ViewSeg view={view} onView={onView} />}

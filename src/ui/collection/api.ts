@@ -2,7 +2,7 @@
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
-  BulkStatusResponse, CollectionSummaryResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
+  BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
   StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
@@ -45,6 +45,9 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 export const fetchSummary = () => call<CollectionSummaryResponse>('/api/collection/summary');
 export const fetchGames = (query: URLSearchParams, signal?: AbortSignal) =>
   call<GamesListResponse>(`/api/games?${query.toString()}`, { signal });
+
+/** Детали игры и список трофеев для окна (12.5). 404 = игра не найдена. */
+export const fetchGameDetails = (id: number, signal?: AbortSignal) => call<GameDetailsResponse>(`/api/games/${id}`, { signal });
 
 export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
   call<StatsResponse>(`/api/stats?${query.toString()}`, { signal });

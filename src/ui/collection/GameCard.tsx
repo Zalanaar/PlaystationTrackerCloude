@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
-import { Icon, StatusGlyph } from '../icons';
+import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { StatusMenu, StatusSheet, toKey } from '../status';
 import { STATUS_META } from '../tokens';
@@ -64,15 +64,16 @@ export function GameCard({
   const meta = month ? month.hoursText : time;
   const t = game.trophies;
   const key = toKey(game.status);
+  const plat = t?.platinumEarned === true;
   return (
     <article
-      className="ps-card" data-status={key} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
+      className="ps-card" data-status={key} data-platinum={plat || undefined} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
     >
       <div className="ps-card__cover">
         <Cover url={game.coverUrl} title={game.title} />
-        {game.trophies?.platinumEarned && (
-          <span className="ps-card__plat" title="Платина получена" role="img" aria-label="Платина получена">
-            <Icon name="trophy" size={14} />
+        {plat && (
+          <span className="ps-card__plat" title="Платина получена" aria-hidden="true">
+            <PlatinumIcon size={20} />
           </span>
         )}
         {date && <span className="ps-card__date num" data-kind={done?.kind}>{date}</span>}
@@ -81,7 +82,7 @@ export function GameCard({
           {time && <span>{time}{game.playCount > 0 ? ` · ${launchesText(game.playCount)}` : ''}</span>}
           {t && (
             <>
-              <span>Трофеи {t.earned}/{t.defined}</span>
+              <span className="ps-card__hovtr">{plat && <PlatinumIcon size={12} className="ps-card__hovplat" />}Трофеи {t.earned}/{t.defined}</span>
               <span className="ps-card__bar"><i style={{ width: `${t.progress}%` }} /></span>
             </>
           )}
@@ -114,7 +115,7 @@ export function GameCard({
       )}
       <button
         type="button" className="ps-card__hit" aria-pressed={selectMode ? selected : undefined}
-        aria-label={selectMode ? `Выбрать: ${game.title}` : `Открыть: ${game.title}`}
+        aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}`}
         onClick={() => { if (wasLong()) return; if (selectMode) actions.toggle(game); else actions.open(game); }}
         {...handlers}
       />

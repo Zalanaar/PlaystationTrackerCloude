@@ -23,12 +23,8 @@ export type GameItem = {
   id: number;
   title: string;
   coverUrl: string | null;
-  /**
-   * Горизонтальный арт (12.2) или null: UI рисует размытый фон из обложки. Сервер присылает поле ВСЕГДА;
-   * необязательное в типе только ради фикстур GameItem в тестах (src/ui, зона frontend).
-   * TODO(frontend): добавить `bannerUrl: null` в фикстуры и сделать поле обязательным.
-   */
-  bannerUrl?: string | null;
+  /** Горизонтальный арт (12.2) или null: UI рисует размытый фон из обложки. */
+  bannerUrl: string | null;
   platform: Platform;
   playSeconds: number;
   hours: number;

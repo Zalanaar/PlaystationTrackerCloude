@@ -4,7 +4,7 @@ import { byLastPlayed, defaultExpandedYears, finishedAt, gridCols, groupByLastPl
 
 const game = (id: number, o: Partial<GameItem> = {}): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 3600, hours: 1, playCount: 1, lastPlayedAt: null,
-  status: 'completed', completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null, ...o,
+  status: 'completed', completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null, hiddenAt: null, ...o,
 });
 const done = (id: number, iso: string, o: Partial<GameItem> = {}) => game(id, { status: 'completed', completedAt: iso, ...o });
 const drop = (id: number, iso: string, o: Partial<GameItem> = {}) => game(id, { status: 'dropped', droppedAt: iso, ...o });

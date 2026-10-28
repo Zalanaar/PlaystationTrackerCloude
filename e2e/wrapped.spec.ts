@@ -17,14 +17,15 @@ const game = (id: number, title: string, status: 'completed' | 'dropped' | null 
 const zeroC = { platinum: 0, gold: 0, silver: 0, bronze: 0, total: 0 };
 const plat = { at: '2026-01-12T20:00:00.000Z', name: 'Платина', earnedRate: 4.3, rarity: 1, setName: 'Horizon', game: game(1, 'Horizon Forbidden West') };
 
-function respond(year: number, est = false) {
+type Prof = { onlineId: string | null; avatarUrl: string | null };
+function respond(year: number, est = false, profile: Prof = { onlineId: 'Artem_PS', avatarUrl: null }) {
   const full = year === Y_FULL;
   const trophy = year === Y_TROPHY;
   const base = {
     year,
     period: { from: `${year}-01-01`, to: `${year}-12-31`, fromUtc: `${year - 1}-12-31T21:00:00.000Z`, toUtc: `${year}-12-31T21:00:00.000Z` },
     years: [{ year: Y_FULL, hasData: true }, { year: Y_TROPHY, hasData: true }, { year: Y_EMPTY, hasData: false }],
-    profile: { onlineId: 'Artem_PS' },
+    profile,
     firstSnapshotDate: FIRST,
     periodPartial: true,
   };
@@ -68,7 +69,7 @@ function respond(year: number, est = false) {
   };
 }
 
-type Ctl = { calls: URL[]; fail: number | null; est: boolean };
+type Ctl = { calls: URL[]; fail: number | null; est: boolean; profile?: Prof };
 async function open(page: Page, context: BrowserContext, baseURL: string, url = '/wrapped'): Promise<Ctl> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page);
@@ -78,7 +79,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url = 
     ctl.calls.push(u);
     if (ctl.fail) return r.fulfill({ status: ctl.fail, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) });
     const year = Number(u.searchParams.get('year') ?? NOW_YEAR);
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(year, ctl.est) }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(year, ctl.est, ctl.profile) }) });
   });
   if (url !== '/blank-never') await page.goto(url);
   return ctl;
@@ -100,6 +101,36 @@ async function tap(page: Page, side: 'left' | 'right') {
   const b = (await page.locator('.ps-story__stage').boundingBox())!;
   await page.mouse.click(b.x + (side === 'left' ? b.width * 0.1 : b.width * 0.8), b.y + b.height * 0.5);
 }
+
+test.describe('/wrapped: аватар PSN на слайде «Старт» (Фаза 9)', () => {
+  test('картинка PSN, ник, место 96x96; ошибка загрузки = инициал; без профиля нет блока', async ({ page, context, baseURL }) => {
+    await page.route('https://avatar.test/ok.svg', (r) => r.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#556"/></svg>' }));
+    await page.route('https://avatar.test/bad.svg', (r) => r.abort('failed'));
+    const ctl = await open(page, context, baseURL!, '/blank-never');
+    ctl.profile = { onlineId: 'Artem_PS', avatarUrl: 'https://avatar.test/ok.svg' };
+    await page.goto('/wrapped');
+    await watch(page);
+    const av = page.locator('.ps-story__avatar');
+    await expect(av.locator('img')).toHaveAttribute('src', 'https://avatar.test/ok.svg');
+    const b = (await av.boundingBox())!;
+    expect([Math.round(b.width), Math.round(b.height)]).toEqual([96, 96]);
+    await expect(page.locator('.ps-story__nick')).toHaveText('Artem_PS');
+
+    ctl.profile = { onlineId: 'Artem_PS', avatarUrl: 'https://avatar.test/bad.svg' };
+    await page.goto('/wrapped');
+    await watch(page);
+    await expect(page.locator('.ps-story__avatar .ps-av__ini')).toHaveText('A');
+    const b2 = (await page.locator('.ps-story__avatar').boundingBox())!;
+    expect([Math.round(b2.width), Math.round(b2.height)]).toEqual([96, 96]);
+
+    ctl.profile = { onlineId: null, avatarUrl: null };
+    await page.goto('/wrapped');
+    await watch(page);
+    await expect(page.locator('.ps-story__avatar')).toHaveCount(0);
+    await expect(page.locator('.ps-story__nick')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: `Твой ${Y_FULL} в играх` })).toBeVisible();
+  });
+});
 
 test.describe('/wrapped: выбор года', () => {
   test('карточки годов, приглушённый год, год в URL, запрос с годом', async ({ page, context, baseURL }) => {

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
-  DEFAULT_FILTERS, adjustCounts, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
+  DEFAULT_FILTERS, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
   filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, parseFilters, removeFromCounts, resetFilters,
 } from './filters';
 
 const p = (s: string) => new URLSearchParams(s);
 const game = (o: Partial<GameItem> = {}): GameItem => ({
   id: 1, title: 'X', coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: '2026-10-05T18:42:11.000Z',
-  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null, ...o,
+  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null, hiddenAt: null, ...o,
 });
 
 describe('фильтры <-> URL', () => {
@@ -19,7 +19,7 @@ describe('фильтры <-> URL', () => {
   });
   it('круг: разбор и сборка', () => {
     const f = parseFilters(p('status=completed&sort=hours&order=asc&q=halo&view=dense'));
-    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false });
+    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false, platinum: false });
     expect(filtersToUrl(f).toString()).toBe('status=completed&sort=hours&order=asc&q=halo&view=dense');
   });
   it('мусор откатывается, год из URL игнорируется', () => {
@@ -52,6 +52,23 @@ describe('фильтры <-> URL', () => {
     expect(isChronicleMode(f)).toBe(false);
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, hidden: true })).toBe(false);
     expect(resetFilters(f)).toEqual({ ...f, q: '', status: 'all' });
+  });
+  it('чип «Платина»: ?platinum=1, комбинируется по И, сброс снимает, не уходит в API', () => {
+    const f = parseFilters(p('status=completed&platinum=1'));
+    expect(f.platinum).toBe(true);
+    expect(parseFilters(p('platinum=yes')).platinum).toBe(false);
+    expect(filtersToUrl(f).toString()).toBe('status=completed&platinum=1');
+    expect(filtersToApi(f, { limit: 60, offset: 0 }).has('platinum')).toBe(false);
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, platinum: true })).toBe(true);
+    expect(resetFilters(f)).toEqual({ ...f, status: 'all', platinum: false });
+    expect(resetFilters({ ...DEFAULT_FILTERS, hidden: true, platinum: true })).toEqual({ ...DEFAULT_FILTERS, hidden: true });
+  });
+  it('applyPlatinum: только platinumEarned, без чипа список как есть', () => {
+    const t = (platinumEarned: boolean) => ({ earned: 1, defined: 2, progress: 50, platinumDefined: true, platinumEarned, byType: { platinum: { earned: 0, defined: 1 }, gold: { earned: 0, defined: 0 }, silver: { earned: 0, defined: 0 }, bronze: { earned: 0, defined: 0 } } });
+    const list = [game({ id: 1, trophies: t(true) }), game({ id: 2, trophies: t(false) }), game({ id: 3, trophies: null })];
+    expect(applyPlatinum(list, true).map((g) => g.id)).toEqual([1]);
+    expect(applyPlatinum(list, false).map((g) => g.id)).toEqual([1, 2, 3]);
+    expect(hasPlatinum(list[2])).toBe(false);
   });
   it('query блока хроники', () => {
     expect(blockQuery(['completed', 'dropped'], 'completed_at', ' ', { limit: 300, offset: 0 }).toString())

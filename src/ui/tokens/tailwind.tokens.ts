@@ -9,6 +9,8 @@ export const tokens = {
     playing: 'var(--st-playing)', completed: 'var(--st-completed)', backlog: 'var(--st-backlog)',
     dropped: 'var(--st-dropped)', shelved: 'var(--st-shelved)', service: 'var(--st-service)', unsorted: 'var(--st-none)',
     success: 'var(--success)', warning: 'var(--warning)', danger: 'var(--danger)',
+    'plat-1': 'var(--plat-1)', 'plat-2': 'var(--plat-2)', 'plat-ink': 'var(--plat-ink)',
+    'rar-0': 'var(--rar-0)', 'rar-1': 'var(--rar-1)', 'rar-2': 'var(--rar-2)', 'rar-3': 'var(--rar-3)',
     platinum: 'var(--platinum)', gold: 'var(--gold)', silver: 'var(--silver)', bronze: 'var(--bronze)',
     'on-cover': 'var(--on-cover-bg)',
   },

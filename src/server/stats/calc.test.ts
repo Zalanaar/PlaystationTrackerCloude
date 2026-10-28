@@ -289,7 +289,7 @@ describe('жанры 1/N', () => {
 
 const game = (id: number, title: string): GameItem => ({
   id, title, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: null,
-  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [],
+  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null,
 });
 
 describe('пройдено/брошено: группы по месяцам', () => {

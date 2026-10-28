@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, StatusGlyph, type IconName } from '../icons';
+import { Avatar } from '../primitives/Avatar';
 import { Popover } from '../primitives/Popover';
+import { profileLine } from '../profile/model';
+import { useProfile } from '../profile/ProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { SyncIndicator } from './SyncIndicator';
@@ -41,6 +44,8 @@ export function AppHeader() {
   const { openPanel } = useSync();
   const { busy, logout } = useLogout();
   const [more, setMore] = useState(false);
+  const { profile } = useProfile();
+  const line = profile ? profileLine(profile) : null;
 
   return (
     <>
@@ -59,18 +64,33 @@ export function AppHeader() {
             <div className="ps-desktop-only"><ThemePicker /></div>
             <div className="ps-desktop-only">
               <Popover
-                align="end"
+                align="end" className="ps-profmenu"
                 trigger={(p) => (
-                  <button type="button" className="ps-avatar" aria-label="Меню профиля" {...p}>А</button>
+                  <button type="button" className="ps-avatar" aria-label={profile ? `Профиль ${profile.onlineId}` : 'Меню профиля'} {...p}>
+                    {profile ? <Avatar url={profile.avatarUrl} name={profile.onlineId} size={32} /> : 'А'}
+                  </button>
                 )}
               >
                 {(close) => (
                   <>
+                    {profile && (
+                      <div className="ps-profmenu__head">
+                        <Avatar url={profile.avatarUrl} name={profile.onlineId} size={40} />
+                        <span className="ps-profmenu__tx">
+                          <b title={profile.onlineId}>{profile.onlineId}</b>
+                          {line && <small className="num">{line}</small>}
+                        </span>
+                      </div>
+                    )}
                     <Link href="/triage" role="menuitem" className="ps-menu-item" onClick={close}>
                       <StatusGlyph status="none" size={16} />
                       <span className="ps-menu-item__label">Разобрать игры</span>
                     </Link>
-                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
+                    <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
+                      <Icon name="eye-off" size={16} />
+                      <span className="ps-menu-item__label">Скрытые игры</span>
+                    </Link>
+                    <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => void logout()} disabled={busy}>
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти</span>
                     </button>
@@ -87,6 +107,15 @@ export function AppHeader() {
 
       <Sheet open={more} onClose={() => setMore(false)} title="Меню">
         <div className="ps-stack">
+          {profile && (
+            <div className="ps-profmenu__head ps-profmenu__head--sheet">
+              <Avatar url={profile.avatarUrl} name={profile.onlineId} size={40} />
+              <span className="ps-profmenu__tx">
+                <b title={profile.onlineId}>{profile.onlineId}</b>
+                {line && <small className="num">{line}</small>}
+              </span>
+            </div>
+          )}
           <p className="ps-micro">Тема</p>
           <div role="menu" className="ps-list"><ThemeList onPick={() => setMore(false)} /></div>
           <p className="ps-micro">Аккаунт</p>
@@ -96,6 +125,9 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
+          <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
+            <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
+          </Link>
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти</span>
           </button>

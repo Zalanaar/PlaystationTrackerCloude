@@ -533,22 +533,23 @@ for (const width of [390, 440]) {
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
     });
 
-    test('лента «Играю»: элементы 220px, scroll-snap, без перекрытий', async ({ page, context, baseURL }) => {
+    test('hero «Играю»: компактные карточки 220px в треке со scroll-snap, без перекрытий', async ({ page, context, baseURL }) => {
       const games = seed();
       games[5].status = 'playing'; games[6].status = 'playing'; // + Stray, Cyberpunk
       await open(page, context, baseURL!, '/', games);
-      const items = page.locator('.ps-strip__item');
-      await expect(items).toHaveCount(3);
+      const items = page.locator('.ps-hero__mini');
+      await expect(page.locator('.ps-hero__main')).toBeVisible();
+      await expect(items).toHaveCount(2); // первая игра = hero, остальные = компактные
       const boxes = await items.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, w: r.width }; }));
       for (const b of boxes) expect(Math.round(b.w)).toBe(220);
       for (let i = 1; i < boxes.length; i++) expect(boxes[i].l).toBeGreaterThanOrEqual(boxes[i - 1].r);
-      const track = page.locator('.ps-strip__track');
+      const track = page.locator('.ps-hero__side');
       expect(await track.evaluate((el) => getComputedStyle(el).scrollSnapType)).toContain('x');
       expect(await track.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
       // миниатюра и текст не налезают друг на друга
-      const first = await page.locator('.ps-strip__item').first().evaluate((el) => {
-        const t = el.querySelector('.ps-strip__thumb')!.getBoundingClientRect();
-        const x = el.querySelector('.ps-strip__tx')!.getBoundingClientRect();
+      const first = await page.locator('.ps-hero__mini').first().evaluate((el) => {
+        const t = el.querySelector('.ps-hero__thumb')!.getBoundingClientRect();
+        const x = el.querySelector('.ps-hero__mtx')!.getBoundingClientRect();
         return { thumbRight: t.right, textLeft: x.left, textRight: x.right, itemRight: el.getBoundingClientRect().right };
       });
       expect(first.textLeft).toBeGreaterThanOrEqual(first.thumbRight);

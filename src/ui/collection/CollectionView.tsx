@@ -9,6 +9,8 @@ import { cssUrl, formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow, useViewportWidth } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import { ProfileCard, ProfileSkeleton } from '../profile/ProfileCard';
+import { useProfile } from '../profile/ProfileProvider';
 import { StatusMenu } from '../status';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel, phaseText, progressFraction } from '../sync/status';
@@ -21,7 +23,7 @@ import { BlockHead, GamesFact, MonthHeader, YearHeader } from './Chronicle';
 import { defaultExpandedYears, emptyCounts, groupByLastPlayedYear, groupChronicle, gridCols, previewSlots } from './chronicle';
 import { FilterBar } from './FilterBar';
 import {
-  adjustCounts, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
+  adjustCounts, applyPlatinum, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
   parseFilters, removeFromCounts, resetFilters, type Filters,
 } from './filters';
 import { GameCard, type GameActions } from './GameCard';
@@ -29,7 +31,7 @@ import { GameDialog } from './GameDialog';
 import { GameGrid, GameGridItem } from './GameGrid';
 import { GameRow, RowHeader } from './GameRow';
 import { mapLimit } from './limit';
-import { PlayingStrip } from './PlayingStrip';
+import { PlayingHero } from './PlayingHero';
 import { ResetAllDialog } from './ResetAllDialog';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
@@ -80,6 +82,7 @@ export function CollectionView() {
   const now = useNow();
   const sync = useSync();
   const width = useViewportWidth();
+  const { publish: publishProfile } = useProfile();
 
   const [summary, setSummary] = useState<CollectionSummaryResponse | null>(null);
   const [pool, setPool] = useState<Pool | null>(null);
@@ -108,12 +111,14 @@ export function CollectionView() {
   // ---------- загрузка ----------
   const loadSummary = useCallback(async () => {
     try {
-      setSummary(await fetchSummary());
+      const s = await fetchSummary();
+      setSummary(s);
+      publishProfile(s.profile ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return;
       /* сводка необязательна: строка итогов просто не показывается */
     }
-  }, []);
+  }, [publishProfile]);
 
   const loadAll = useCallback(async (f: Filters, keep: number) => {
     const id = ++reqId.current;
@@ -122,7 +127,7 @@ export function CollectionView() {
     try {
       let next: Pool;
       if (isChronicleMode(f)) {
-        const plan = buildPlan(f.status, f.q);
+        const plan = buildPlan(f.status, f.q, f.platinum);
         const rs = await Promise.allSettled(plan.map((p) => fetchGames(p.query)));
         const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
         if (ok.length === 0) {
@@ -417,7 +422,9 @@ export function CollectionView() {
   const chronicleMode = isChronicleMode(filters);
   const active = hasActiveFilters(filters);
   const counts = pool?.counts ?? emptyCounts();
-  const all = useMemo(() => pool?.items ?? [], [pool]);
+  // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»), all = после чипа «Платина» (фильтр на клиенте, 12.6)
+  const raw = useMemo(() => pool?.items ?? [], [pool]);
+  const all = useMemo(() => applyPlatinum(raw, filters.platinum), [raw, filters.platinum]);
   const flat = useMemo(() => all.filter((g) => matchesStatusTab(g, filters.status)), [all, filters.status]);
   const blocks = useMemo(() => (chronicleMode ? visibleBlocks(filters.status) : []), [chronicleMode, filters.status]);
   const byBlock = useMemo(() => {
@@ -443,6 +450,9 @@ export function CollectionView() {
   ];
   // «Игры-сервисы»: вкладка «Сервис» раскрывает блок целиком, иначе один ряд (сетка) или несколько строк (список)
   const serviceAll = byBlock.service ?? [];
+  const rawLoaded = (b: BlockId) => blockGames(raw, b, filters.status).length;
+  /** С чипом «Платина» счётчики сервера не про выбранную выдачу: показываем число найденных игр */
+  const shownCount = (serverCount: number, list: GameItem[]) => (filters.platinum ? list.length : serverCount);
   const serviceFull = filters.status === 'service';
   const serviceLimit = serviceFull ? Infinity : view === 'list' ? serviceRows : serviceOpen ? Infinity : cols;
   const shownGames = chronicleMode
@@ -457,7 +467,7 @@ export function CollectionView() {
   const hiddenEmpty = hiddenView && !!pool && pool.counts.all === 0 && !active && !error;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
   const playing = byBlock.playing ?? [];
-  const openGame = open ? (all.find((g) => g.id === open.id) ?? open.snapshot) : null;
+  const openGame = open ? (raw.find((g) => g.id === open.id) ?? open.snapshot) : null;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
 
@@ -531,7 +541,7 @@ export function CollectionView() {
   );
 
   function renderChronicle(): ReactNode {
-    const loaded = byBlock.chronicle?.length ?? 0;
+    const loaded = rawLoaded('chronicle');
     const totalChron = filters.status === 'completed' ? counts.completed : filters.status === 'dropped' ? counts.dropped : counts.completed + counts.dropped;
     return (
       <>
@@ -597,7 +607,7 @@ export function CollectionView() {
 
   /** Блок «Игры-сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
   function renderService(list: GameItem[]): ReactNode {
-    const total = Math.max(counts.service, list.length);
+    const total = filters.platinum ? list.length : Math.max(counts.service, list.length);
     const isList = view === 'list';
     const card = (g: GameItem) => (
       <GameGridItem key={g.id}><GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} /></GameGridItem>
@@ -650,7 +660,7 @@ export function CollectionView() {
         <BlockHead id="h-service" title="Игры-сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
         {body}
         {toggleBtn && <div className="ps-more ps-more--service">{toggleBtn}</div>}
-        {(serviceFull || (!isList && serviceOpen)) && moreBtn('service', total - list.length)}
+        {(serviceFull || (!isList && serviceOpen)) && moreBtn('service', counts.service - rawLoaded('service'))}
       </section>
     );
   }
@@ -660,8 +670,8 @@ export function CollectionView() {
     if (b === 'playing') return null; // лента рисуется отдельно
     if (b === 'chronicle') return list.length > 0 ? <div className="ps-block" key={b}>{renderChronicle()}</div> : null;
     if (b === 'service') return list.length > 0 ? renderService(list) : null;
-    const full = isFull(b, filters.status);
-    const total = counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'];
+    const full = isFull(b, filters.status, filters.platinum);
+    const total = shownCount(counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'], list);
     if (list.length === 0) return null;
     const titles: Record<string, string> = { backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Не разобрано' };
     const id = b === 'unsorted' ? 'unsorted' : b;
@@ -676,7 +686,7 @@ export function CollectionView() {
             ? <Link href="/backlog" className="ps-more-tile"><b className="num">+{formatNumber(previewSlots(total, view === 'list' ? 5 : cols).rest)}</b><span>ещё в бэклоге</span></Link>
             : <button type="button" className="ps-more-tile" onClick={() => setFilters({ status: 'none' })}><b className="num">+{formatNumber(previewSlots(total, view === 'list' ? 5 : cols).rest)}</b><span>ещё не разобрано</span></button>
         ))}
-        {full && moreBtn(b, total - list.length)}
+        {full && moreBtn(b, counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'] - rawLoaded(b))}
       </section>
     );
   }
@@ -696,15 +706,18 @@ export function CollectionView() {
 
   return (
     <div className="ps-collection">
-      <div className="ps-pagehead">
-        <h1 id="coll-title" className="ps-h1">Коллекция</h1>
-        <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
+      <div className="ps-pagehead ps-pagehead--coll">
+        <div className="ps-pagehead__main">
+          <h1 id="coll-title" className="ps-h1">Коллекция</h1>
+          <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
+        </div>
+        {!summary ? (!pool ? <ProfileSkeleton /> : null) : <ProfileCard profile={summary.profile ?? null} />}
       </div>
 
-      {chronicleMode && blocks.includes('playing') && <PlayingStrip games={playing} count={counts.playing} now={now} actions={actions} />}
+      {chronicleMode && blocks.includes('playing') && <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} />}
 
       <FilterBar
-        filters={filters} view={view} counts={pool ? counts : null} onChange={setFilters} onView={setView}
+        filters={filters} view={view} counts={pool ? counts : null} platinumCount={summary ? summary.totals.platinumEarned : null} onChange={setFilters} onView={setView}
         onReset={() => setFilters(resetFilters(filters))} selectMode={selectMode} onSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
         canSelect={shownGames.length > 0} onHidden={(v) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }} onResetAll={() => setResetOpen(true)}
       />
@@ -782,7 +795,7 @@ export function CollectionView() {
               <BlockHead title="Результаты" count={pool?.total ?? 0} />
             )}
             {playedMode ? renderPlayed() : renderGames(flat, { dateYear: true, withHeader: true })}
-            {pool && moreBtn(null, pool.total - all.length)}
+            {pool && moreBtn(null, pool.total - raw.length)}
           </div>
         )}
         {error && pool && (
@@ -864,7 +877,7 @@ function SyncProgress() {
 export function CollectionSkeleton({ view = 'comfort' }: { view?: ViewMode }) {
   return (
     <div aria-hidden="true" className="ps-blocks">
-      <div className="ps-skeleton ps-sk-strip" />
+      <div className="ps-skeleton ps-sk-hero" />
       <div className="ps-skeleton ps-sk-year" />
       {view === 'list' ? (
         <div className="ps-row-table">{Array.from({ length: 10 }, (_, i) => <div key={i} className="ps-skeleton ps-sk-row" />)}</div>

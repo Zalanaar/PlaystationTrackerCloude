@@ -7,7 +7,7 @@ import { parseWrappedQuery } from './validation';
 const H = 3600;
 const game = (id: number, title: string, o: Partial<GameItem> = {}): GameItem => ({
   id, title, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 5, lastPlayedAt: null, status: null,
-  completedAt: null, droppedAt: null, trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }], ...o,
+  completedAt: null, droppedAt: null, trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }], bannerUrl: null, ...o,
 });
 const games = new Map([1, 2, 3, 4, 5, 6, 7].map((i) => [i, game(i, `G${i}`)]));
 

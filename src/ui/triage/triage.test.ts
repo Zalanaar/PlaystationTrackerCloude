@@ -4,7 +4,7 @@ import { applyStatus, initState, keyCommand, progress, rollback, skip, summarize
 
 const g = (id: number): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: null, status: null,
-  completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null,
+  completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null, hiddenAt: null,
 });
 const ids = (l: GameItem[]) => l.map((x) => x.id);
 

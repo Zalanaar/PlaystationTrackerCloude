@@ -4,7 +4,7 @@ import { blockGames, buildPlan, isFull, visibleBlocks } from './blocks';
 
 const g = (id: number, status: GameItem['status'], lastPlayedAt: string | null = null): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt, status,
-  completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null,
+  completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null, hiddenAt: null,
 });
 
 describe('блоки коллекции', () => {
@@ -21,6 +21,13 @@ describe('блоки коллекции', () => {
     expect(isFull('shelved', 'all')).toBe(true);
     expect(isFull('service', 'all')).toBe(true);
     expect(isFull('backlog', 'backlog')).toBe(true);
+  });
+  it('с чипом «Платина» (фильтр на клиенте) превью-блоки грузятся целиком', () => {
+    expect(isFull('backlog', 'all', true)).toBe(true);
+    const plan = buildPlan('all', '', true);
+    expect(plan.find((p) => p.block === 'backlog')!.query.get('limit')).toBe('300');
+    expect(plan.find((p) => p.block === 'unsorted')!.query.get('limit')).toBe('300');
+    expect(plan.find((p) => p.block === 'playing')!.query.get('limit')).toBe('20');
   });
   it('план запросов: хроника из completed,dropped по completed_at, лимит 300', () => {
     const plan = buildPlan('all', '');
