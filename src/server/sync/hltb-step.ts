@@ -13,8 +13,6 @@ export const HLTB_RECHECK_MS = 30 * 86400_000;
 export const HLTB_PAUSE_MS = 600;
 export const HLTB_MIN_LEFT_MS = 3000;
 export const HLTB_MAX_ERRORS_IN_ROW = 3;
-/** Столько пустых выдач подряд без единой непустой = HLTB, скорее всего, сломан: «не найдено» не пишем. */
-export const HLTB_SUSPICIOUS_EMPTY = 5;
 
 export type HltbDeps = { client: HltbClient; sleep: (ms: number) => Promise<void>; pauseMs?: number };
 
@@ -61,7 +59,8 @@ export async function hltbStep(ctx: RunContext, deps: HltbDeps): Promise<{ check
     if (deps.pauseMs) await deps.sleep(deps.pauseMs);
   }
 
-  if (outcomes.length >= HLTB_SUSPICIOUS_EMPTY && outcomes.every((o) => o.empty)) {
+  // Без единого непустого ответа в запуске «не найдено» не фиксируем при любом размере партии (16.6): иначе сломанный HLTB пометил бы игры на 30 дней.
+  if (outcomes.length > 0 && outcomes.every((o) => o.empty)) {
     ctx.warn('hltb_empty', 'HLTB вернул пустую выдачу на все запросы: формат мог измениться, результаты не сохранены.');
     return { checked: 0, found: 0, failed };
   }
