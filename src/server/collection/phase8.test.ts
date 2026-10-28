@@ -9,7 +9,7 @@ import { startRun } from '@/server/sync/runs';
 import { BulkMissingError, setGameStatus, setGamesStatusBulk } from '@/server/sync/status-rules';
 import { createTestDb, fakeApi, freshState, type TestDb } from '@/server/sync/test-helpers';
 import { getWrapped } from '@/server/wrapped/query';
-import { BACKUPS_KEEP, NotFoundError, resetAllStatuses, restoreStatuses, setGameHidden } from './mutations';
+import { BACKUPS_KEEP, getLatestResetBackup, NotFoundError, resetAllStatuses, restoreStatuses, setGameHidden } from './mutations';
 import { getCollectionSummary, getGamesByIds, listGames } from './query';
 import { parseListQuery } from './validation';
 
@@ -126,8 +126,9 @@ describe('Фаза 8 (PGlite)', () => {
       expect(r.trophies.counts).toMatchObject({ platinum: 1, gold: 1, total: 2 });
       expect(r.genres.items.map((g) => g.key)).toEqual(['ACTION']);
       expect(r.finished.groups).toEqual([]);
-      const ids = new Set(r.played.groups.flatMap((g) => g.items.map((i) => i.game.id)));
+      const ids = new Set(r.played.groups.flatMap((g) => g.items.map((i) => i.gameId)));
       expect([...ids]).toEqual([a]);
+      expect(Object.keys(r.played.games)).toEqual([String(a)]);
       expect(r.played.groups.map((g) => g.month)).toEqual(['2026-03', '2026-02', '2026-01']);
 
       const w = await getWrapped(t.db, 2026, null, NOW);
@@ -238,6 +239,35 @@ describe('Фаза 8 (PGlite)', () => {
       expect(rr).toMatchObject({ restored: 1, skipped: 4 });
       expect((await statusRows()).map((r) => [r.gameId, r.status])).toEqual([[a, 'playing']]);
       await expect(restoreStatuses(t.db, 999, NOW)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('getLatestResetBackup (9.9a): пусто -> null; последняя reset_all с count; before_restore игнорируется; после отката остаётся', async () => {
+      expect(await getLatestResetBackup(t.db)).toEqual({ latest: null });
+      const a = await game(1);
+      const b = await game(2);
+      await setGameStatus(t.db, a, 'playing', NOW);
+      expect(await resetAllStatuses(t.db, NOW)).toMatchObject({ backupId: 1 });
+      expect(await getLatestResetBackup(t.db)).toEqual({
+        latest: { id: 1, createdAt: NOW.toISOString(), reason: 'reset_all', count: 1 },
+      });
+
+      await setGameStatus(t.db, a, 'playing', NOW);
+      await setGameStatus(t.db, b, 'backlog', NOW);
+      const later = new Date('2026-10-28T10:00:00Z');
+      await resetAllStatuses(t.db, later); // id 2, count 2
+      const r = await restoreStatuses(t.db, 2, later); // before_restore (id 3) новее, но не reset_all
+      expect(r.backupId).toBe(3);
+      expect(await getLatestResetBackup(t.db)).toEqual({
+        latest: { id: 2, createdAt: later.toISOString(), reason: 'reset_all', count: 2 },
+      });
+    });
+
+    it('getLatestResetBackup: только before_restore -> null', async () => {
+      await game(1);
+      const { backupId } = await resetAllStatuses(t.db, NOW);
+      expect(backupId).toBeNull();
+      await t.db.insert(statusBackups).values({ reason: 'before_restore', payload: [] });
+      expect(await getLatestResetBackup(t.db)).toEqual({ latest: null });
     });
 
     it(`хранятся последние ${BACKUPS_KEEP} бэкапов`, async () => {

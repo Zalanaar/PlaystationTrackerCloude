@@ -55,16 +55,16 @@ function respond(u: URL, o: Opts = {}) {
       : { groups: [] },
     // «Игры месяца» (Фаза 8): мартовские завершения + «Игра Один» ещё и в феврале (играли, но не завершили)
     played: has
-      ? { groups: [
+      ? { games: { 1: game(1, 'Игра Один', 'completed'), 2: game(2, 'Игра Два', 'dropped') }, groups: [
         { month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 1, items: [
-          { game: game(2, 'Игра Два', 'dropped'), hours: 2, estimated: false, finished: 'dropped', finishedAt: '2026-03-12T10:00:00.000Z' },
-          { game: game(1, 'Игра Один', 'completed'), hours: 12.5, estimated: false, finished: 'completed', finishedAt: '2026-03-10T10:00:00.000Z' },
+          { gameId: 2, hours: 2, estimated: false, finished: 'dropped', finishedAt: '2026-03-12T10:00:00.000Z' },
+          { gameId: 1, hours: 12.5, estimated: false, finished: 'completed', finishedAt: '2026-03-10T10:00:00.000Z' },
         ] },
         { month: `${year}-02`, year, monthNumber: 2, completed: 0, dropped: 0, items: [
-          { game: game(1, 'Игра Один', 'completed'), hours: 7.5, estimated: true, finished: null, finishedAt: null },
+          { gameId: 1, hours: 7.5, estimated: true, finished: null, finishedAt: null },
         ] },
       ] }
-      : { groups: [] },
+      : { games: {}, groups: [] },
   };
 }
 
@@ -266,7 +266,7 @@ test.describe('/stats', () => {
     await open(page, context, baseURL!, '/blank-never');
     await page.route(/\/api\/stats\?/, (r) => {
       const d = respond(new URL(r.request().url()));
-      const e = { ...d, header: { completed: 0, dropped: 0, hours: 0, platinum: 0 }, genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] }, trophies: { counts: z, byMonth: d.trophies.byMonth.map((m) => ({ ...m, ...z })) }, finished: { groups: [] }, played: { groups: [] } };
+      const e = { ...d, header: { completed: 0, dropped: 0, hours: 0, platinum: 0 }, genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] }, trophies: { counts: z, byMonth: d.trophies.byMonth.map((m) => ({ ...m, ...z })) }, finished: { groups: [] }, played: { games: {}, groups: [] } };
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: e }) });
     });
     await page.goto(`/stats?period=month&year=${TODAY.year}&month=${TODAY.month}`);

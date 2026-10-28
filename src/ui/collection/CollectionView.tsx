@@ -16,7 +16,7 @@ import { forgottenCountOf, forgottenCountText } from '../triage/forgotten';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel, phaseText, progressFraction } from '../sync/status';
 import { STATUS_META, type ViewMode } from '../tokens';
-import { ApiError, errorText, fetchGames, fetchSummary, patchStatusDate, postBulk, postResetAll, postRestore, putHidden, putStatus } from './api';
+import { ApiError, errorText, fetchGames, fetchStatusBackups, fetchSummary, patchStatusDate, postBulk, postResetAll, postRestore, putHidden, putStatus } from './api';
 import {
   blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
 } from './blocks';
@@ -36,13 +36,15 @@ import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { nearItems, nearVisible } from './nearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { ResetAllDialog } from './ResetAllDialog';
+import { RestoreBackupDialog } from './RestoreBackupDialog';
+import type { BackupInfo } from './FilterBar';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 
 const PAGE = 60;
 /** Потолок дозагрузки при чипе «Платина»: 8 пакетов по 300; дальше остаётся «Показать ещё». */
 const PLATINUM_MAX_BATCHES = 8;
-const BULK_MAX = 250;
+const BULK_MAX = 1000; // контракт 9.6: один запрос на всё выделение
 const SERVICE_ROWS = 5;
 const SERVICE_ROWS_STEP = 10;
 /** Параллельных PUT /hidden при массовом скрытии */
@@ -52,7 +54,7 @@ const UNDO_TTL_MS = 12_000;
 const gamesWord = (n: number) => plural(n, ['игра', 'игры', 'игр']);
 
 type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
-type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[]; /** 14.4: забытых во всей коллекции */ forgotten?: number };
+type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[]; /** 14.4: забытых во всей коллекции */ forgotten?: number; /** порядок, с которым загружен пул: группы по годам не должны мигать до перезагрузки */ order: 'asc' | 'desc' };
 const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Игры-сервисы', shelved: 'Отложено', unsorted: 'Не разобрано' };
 
 function oldDate(g: GameItem): DateRestore | undefined {
@@ -103,6 +105,8 @@ export function CollectionView() {
   const [serviceOpen, setServiceOpen] = useState(false);
   const [serviceRows, setServiceRows] = useState(SERVICE_ROWS);
   const [resetOpen, setResetOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [backup, setBackup] = useState<BackupInfo | null>(null);
 
   const poolRef = useRef<Pool | null>(null);
   useEffect(() => { poolRef.current = pool; }, [pool]);
@@ -146,10 +150,10 @@ export function CollectionView() {
         // у упавшего блока остаются ранее загруженные игры его статусов
         const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
         const chron = ok.find((x) => x.block === 'chronicle');
-        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount) };
+        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount), order: f.order ?? 'desc' };
       } else {
         const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
-        next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount) };
+        next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount), order: f.order ?? 'desc' };
       }
       // чип «Платина» фильтрует на клиенте (12.6): дозагружаем выдачу пакетами, чтобы чип, карточки и «Показать ещё» были согласованы
       if (f.platinum) {
@@ -329,12 +333,9 @@ export function CollectionView() {
     replaceGames(prevs.map((g) => applyStatusLocally(g, status, nowIso)));
     for (const g of prevs) shiftCounts(g.status, status);
     try {
-      let changed = 0;
-      for (let i = 0; i < ids.length; i += BULK_MAX) {
-        const r = await postBulk(ids.slice(i, i + BULK_MAX), status);
-        changed += r.changed;
-        replaceGames(r.games);
-      }
+      const r = await postBulk(ids, status);
+      const changed = r.changed;
+      replaceGames(r.games);
       toast({ text: `Статус «${STATUS_META[status ?? 'none'].label}»: изменено игр ${changed} из ${ids.length}` });
       setSelected(new Set());
       setSelectMode(false);
@@ -405,13 +406,36 @@ export function CollectionView() {
   useEffect(() => { bulkHideRef.current = bulkHidden; }, [bulkHidden]);
 
   /** Откат сброса всех статусов из копии (9.9). */
+  const loadBackup = useCallback(async () => {
+    try {
+      const r = await fetchStatusBackups();
+      setBackup(r.latest ? { id: r.latest.id, createdAt: r.latest.createdAt, count: r.latest.count } : null);
+    } catch {
+      /* пункт меню необязателен: без ответа он просто скрыт */
+    }
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => void loadBackup(), 0);
+    return () => clearTimeout(t);
+  }, [loadBackup]);
+
   const restoreBackup = useCallback(async (backupId: number) => {
     try {
       const r = await postRestore(backupId);
+      setBackup(null);
       toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
     } catch (e) {
       toast({ kind: 'error', text: e instanceof ApiError && e.status === 404 ? 'Копия статусов не найдена, вернуть нельзя.' : `Не удалось вернуть статусы. ${errorText(e)}` });
     }
+    refresh();
+  }, [refresh, toast]);
+
+  /** Откат из меню: ошибку показывает окно подтверждения. */
+  const restoreFromMenu = useCallback(async (backupId: number) => {
+    const r = await postRestore(backupId);
+    setRestoreOpen(false);
+    setBackup(null); // 9.9a: копия после отката остаётся на сервере, скрываем пункт сами
+    toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
     refresh();
   }, [refresh, toast]);
 
@@ -428,8 +452,9 @@ export function CollectionView() {
       text: `Статусы сброшены: ${formatNumber(r.reset)} ${gamesWord(r.reset)}`, ttl: UNDO_TTL_MS,
       action: { label: 'Вернуть', run: () => void restoreBackup(backupId) },
     });
+    void loadBackup();
     refresh();
-  }, [refresh, restoreBackup, toast]);
+  }, [loadBackup, refresh, restoreBackup, toast]);
 
   const actions: GameActions = useMemo(() => ({
     open: (g, edit = false) => setOpen({ id: g.id, edit, snapshot: g }),
@@ -466,7 +491,7 @@ export function CollectionView() {
   const toggle = (key: string | number) => setToggled((t) => ({ ...t, [String(key)]: !isOpen(key) }));
   // «По последней игре»: плоская выдача сервера, разбитая по годам последнего запуска (МСК); все группы раскрыты по умолчанию
   const playedMode = !chronicleMode && filters.sort === 'last_played';
-  const played = useMemo(() => groupByLastPlayedYear(playedMode ? flat : [], filters.order ?? 'desc'), [flat, filters.order, playedMode]);
+  const played = useMemo(() => groupByLastPlayedYear(playedMode ? flat : [], pool?.order ?? 'desc'), [flat, pool?.order, playedMode]);
   const isPlayedOpen = (key: string) => (filters.q.trim() ? true : toggled[`lp-${key}`] ?? true);
   const togglePlayed = (key: string) => setToggled((t) => ({ ...t, [`lp-${key}`]: !isPlayedOpen(key) }));
 
@@ -758,7 +783,7 @@ export function CollectionView() {
       <FilterBar
         filters={filters} view={view} counts={pool ? counts : null} platinumCount={summary ? summary.totals.platinumEarned : null} onChange={setFilters} onView={setView}
         onReset={() => setFilters(resetFilters(filters))} selectMode={selectMode} onSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
-        canSelect={shownGames.length > 0} onHidden={(v) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }} onResetAll={() => setResetOpen(true)}
+        canSelect={shownGames.length > 0} onHidden={(v) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }} onResetAll={() => setResetOpen(true)} backup={backup} onRestoreBackup={() => setRestoreOpen(true)}
       />
 
       {playedMode && played.years.length + (played.never.length > 0 ? 1 : 0) > 1 && (
@@ -845,7 +870,7 @@ export function CollectionView() {
 
       {selectMode && (
         <SelectBar
-          count={selected.size} total={shownGames.length} onAll={() => setSelected(new Set(shownGames.map((g) => g.id)))}
+          count={selected.size} total={shownGames.length} onAll={() => setSelected(new Set(shownGames.slice(0, BULK_MAX).map((g) => g.id)))}
           onPick={(s) => void bulk(s)} onCancel={exitSelect} hiddenView={hiddenView}
           onHide={() => void bulkHidden([...selected], !hiddenView)}
         />
@@ -857,6 +882,7 @@ export function CollectionView() {
         onHidden={(g, h) => void setHidden(g, h)}
       />
 
+      <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />
       <ResetAllDialog open={resetOpen} count={withStatus} onClose={() => setResetOpen(false)} onConfirm={resetAll} />
     </div>
   );

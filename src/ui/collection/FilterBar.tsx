@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StatusCounts } from '@/server/collection/types';
-import { formatNumber } from '../format';
+import { formatDate, formatNumber } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { Popover } from '../primitives/Popover';
@@ -86,8 +86,10 @@ function ViewSeg({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => vo
   );
 }
 
+export type BackupInfo = { id: number; createdAt: string; count: number };
+
 /** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). */
-function CollectionMenuItems({ hidden, onHidden, onResetAll, close }: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void; close: () => void }) {
+function CollectionMenuItems({ hidden, onHidden, onResetAll, backup, onRestoreBackup, close }: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void; backup: BackupInfo | null; onRestoreBackup: () => void; close: () => void }) {
   return (
     <>
       <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onHidden(!hidden); }}>
@@ -97,8 +99,17 @@ function CollectionMenuItems({ hidden, onHidden, onResetAll, close }: { hidden: 
           {!hidden && <small className="ps-menu-item__hint">Убранные из коллекции, можно вернуть</small>}
         </span>
       </button>
+      {!hidden && backup && (
+        <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onRestoreBackup(); }}>
+          <Icon name="undo" size={16} />
+          <span className="ps-menu-item__label">
+            Вернуть статусы из копии…
+            <small className="ps-menu-item__hint">Копия от {formatDate(backup.createdAt) ?? 'неизвестной даты'}</small>
+          </span>
+        </button>
+      )}
       {!hidden && (
-        <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall ps-menu-item--sep ps-menu-item--danger" onClick={() => { close(); onResetAll(); }}>
+        <button type="button" role="menuitem" className={`ps-menu-item ps-menu-item--tall ps-menu-item--danger${backup ? '' : ' ps-menu-item--sep'}`} onClick={() => { close(); onResetAll(); }}>
           <Icon name="undo" size={16} />
           <span className="ps-menu-item__label">Сбросить все статусы…</span>
         </button>
@@ -107,7 +118,7 @@ function CollectionMenuItems({ hidden, onHidden, onResetAll, close }: { hidden: 
   );
 }
 
-function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void }) {
+function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void; backup: BackupInfo | null; onRestoreBackup: () => void }) {
   return (
     <Popover
       align="end" className="ps-collmenu"
@@ -123,7 +134,7 @@ function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; on
 }
 
 export function FilterBar({
-  filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll,
+  filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup,
 }: {
   filters: Filters; view: ViewMode; counts: StatusCounts | null;
   /** Игр с платиной (`summary.totals.platinumEarned`); null, пока сводка грузится */
@@ -133,6 +144,9 @@ export function FilterBar({
   /** Раздел «Скрытые»: войти (true) / выйти (false) */
   onHidden: (v: boolean) => void;
   onResetAll: () => void;
+  /** Последняя копия `reset_all` (9.9a); null = нет, пункт скрыт */
+  backup: BackupInfo | null;
+  onRestoreBackup: () => void;
 }) {
   const mobile = useIsMobile();
   const [sheet, setSheet] = useState(false);
@@ -182,7 +196,7 @@ export function FilterBar({
         {!mobile && <ViewSeg view={view} onView={onView} />}
         {!mobile && selectBtn}
         {active && !mobile && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        {!mobile && <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} />}
+        {!mobile && <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} />}
       </div>
       {mobile && (
         <div className="ps-filters__row2">
@@ -198,7 +212,7 @@ export function FilterBar({
           <SortSelect f={filters} onChange={onChange} />
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
           <div role="menu" aria-label="Коллекция" className="ps-list ps-filters__coll">
-            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} close={() => setSheet(false)} />
+            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} close={() => setSheet(false)} />
           </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>

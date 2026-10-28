@@ -1,4 +1,5 @@
 // Чистые расчёты слайдов Wrapped (контракт 11.1). Без БД и текущего времени.
+import { compareTitleId } from '@/server/common/compare';
 import type { GameItem } from '@/server/collection/types';
 import type { FinishedEvent } from '@/server/stats/finished';
 import { mskDate } from '@/server/stats/period';
@@ -6,7 +7,7 @@ import type { WrappedFinishedItem, WrappedPlatinum, WrappedTopGame } from './typ
 
 export const TOP_GAMES = 5;
 
-const byTitle = (a: GameItem, b: GameItem) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()) || a.id - b.id;
+const byTitle = (a: GameItem, b: GameItem) => compareTitleId(a, b);
 
 /** Топ игр по секундам за год: убывание, ничья по lower(title), id. Игры без карточки пропускаются. */
 export function topGamesBySeconds(

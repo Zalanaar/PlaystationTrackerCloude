@@ -4,7 +4,7 @@ import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
   BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
-  StatusResetAllResponse, StatusRestoreResponse,
+  StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
 export class ApiError extends Error {
@@ -91,5 +91,8 @@ export const postResetAll = () =>
 /** Откат из копии статусов (9.9). */
 export const postRestore = (backupId: number) =>
   call<StatusRestoreResponse>('/api/games/status-restore', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ backupId }) });
+
+/** Последняя копия статусов `reset_all` (9.9a). */
+export const fetchStatusBackups = (signal?: AbortSignal) => call<StatusBackupsResponse>('/api/games/status-backups', { signal });
 
 export type { GameItem };

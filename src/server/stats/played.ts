@@ -1,15 +1,14 @@
 // «Игры месяца» (контракт 10.1, Фаза 8): игра в каждом месяце периода, где её секунды > 0 или она завершена/брошена.
 // Чистые функции; те же слагаемые, что у hours.byMonth (gameSecondsInRange + estimateByMonth).
+import { compareTitleId as cmpTitle } from '@/server/common/compare';
 import type { GameItem } from '@/server/collection/types';
 import type { FinishedEvent } from './finished';
 import type { MonthExclusions } from './exclusions';
 import { estimateByMonth, estimateRangeMonths, gameSecondsInRange, secondsToHours, type EstimateInput } from './hours';
 import { mskDate, monthRange } from './period';
-import type { PlayedGroup, PlayedItem, StatsPeriod } from './types';
+import type { PlayedBlock, PlayedItem, StatsPeriod } from './types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const cmpTitle = (a: { title: string; id: number }, b: { title: string; id: number }): number =>
-  a.title.toLowerCase().localeCompare(b.title.toLowerCase()) || a.id - b.id;
 
 /** Месяцы периода: год = 1..12, месяц = один. */
 export function periodMonths(period: Pick<StatsPeriod, 'type' | 'year' | 'month'>): number[] {
@@ -94,8 +93,9 @@ export function groupPlayed(args: {
   gameById: ReadonlyMap<number, GameItem>;
   /** Исключения игр из месяцев (15.1). */
   exclusions?: MonthExclusions;
-}): PlayedGroup[] {
+}): PlayedBlock {
   const { period, gameById } = args;
+  const games: Record<string, GameItem> = {};
   const months = periodMonths(period);
   const secs = playedSecondsByMonth({ by: args.by, estimates: args.estimates, year: period.year, months });
 
@@ -111,7 +111,7 @@ export function groupPlayed(args: {
     finishedBy.set(key, m);
   }
 
-  const groups: PlayedGroup[] = [];
+  const groups: PlayedBlock['groups'] = [];
   for (const monthNumber of [...months].sort((a, b) => b - a)) {
     const key = `${period.year}-${pad(monthNumber)}`;
     const s = secs.get(key) ?? new Map<number, { real: number; est: number }>();
@@ -119,11 +119,11 @@ export function groupPlayed(args: {
     const out = excl.get(key) ?? new Map<number, number>();
     const ids = new Set<number>([...s.keys(), ...fin.keys()]);
     for (const id of out.keys()) ids.delete(id);
-    const rows: { item: PlayedItem; seconds: number; at: number }[] = [];
-    const item = (id: number, game: GameItem, v: { real: number; est: number }): PlayedItem => {
+    const rows: { item: PlayedItem; game: GameItem; seconds: number; at: number }[] = [];
+    const item = (id: number, v: { real: number; est: number }): PlayedItem => {
       const e = fin.get(id) ?? null;
       return {
-        game,
+        gameId: id,
         hours: secondsToHours(v.real + v.est),
         hoursReal: secondsToHours(v.real),
         hoursEstimated: secondsToHours(v.est),
@@ -137,14 +137,15 @@ export function groupPlayed(args: {
       if (!game) continue;
       const v = s.get(id) ?? { real: 0, est: 0 };
       const e = fin.get(id) ?? null;
-      rows.push({ seconds: v.real + v.est, at: e ? e.at.getTime() : 0, item: item(id, game, v) });
+      rows.push({ game, seconds: v.real + v.est, at: e ? e.at.getTime() : 0, item: item(id, v) });
     }
-    const excludedItems: PlayedItem[] = [];
+    const excludedItems: { item: PlayedItem; game: GameItem }[] = [];
     for (const [id, real] of out) {
       const game = gameById.get(id);
-      if (game) excludedItems.push(item(id, game, { real, est: 0 }));
+      if (game) excludedItems.push({ game, item: item(id, { real, est: 0 }) });
     }
     excludedItems.sort((a, b) => cmpTitle(a.game, b.game));
+    for (const x of [...rows, ...excludedItems]) games[String(x.game.id)] = x.game;
     if (!rows.length && !excludedItems.length) continue;
     rows.sort((a, b) => {
       const fa = a.item.finished !== null ? 1 : 0;
@@ -153,7 +154,7 @@ export function groupPlayed(args: {
         fb - fa ||
         b.at - a.at ||
         b.seconds - a.seconds ||
-        cmpTitle(a.item.game, b.item.game)
+        cmpTitle(a.game, b.game)
       );
     });
     groups.push({
@@ -163,10 +164,10 @@ export function groupPlayed(args: {
       completed: rows.filter((r) => r.item.finished === 'completed').length,
       dropped: rows.filter((r) => r.item.finished === 'dropped').length,
       items: rows.map((r) => r.item),
-      excluded: excludedItems,
+      excluded: excludedItems.map((x) => x.item),
     });
   }
-  return groups;
+  return { games, groups };
 }
 
 /** id игр, которые попадут в played (для загрузки карточек одним запросом). */

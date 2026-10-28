@@ -1,5 +1,6 @@
 // Пройденные/брошенные за период, группировка по месяцам МСК (контракт 10.1). Чистые функции.
 import type { GameItem } from '@/server/collection/types';
+import { compareTitleId } from '@/server/common/compare';
 import { mskDate, ymd } from './period';
 import type { FinishedGroup, FinishedItem } from './types';
 
@@ -12,8 +13,7 @@ export function groupFinished(events: readonly FinishedEvent[], gameById: Readon
     .sort(
       (a, b) =>
         b.e.at.getTime() - a.e.at.getTime() ||
-        a.game.title.toLowerCase().localeCompare(b.game.title.toLowerCase()) ||
-        a.game.id - b.game.id,
+        compareTitleId(a.game, b.game),
     );
   const groups = new Map<string, FinishedGroup>();
   for (const { e, game } of rows) {

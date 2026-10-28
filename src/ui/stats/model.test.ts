@@ -135,7 +135,7 @@ describe('«Игры месяца»', () => {
     expect(monthHoursText(Number.NaN, true)).toBeNull();
   });
   it('игра в двух месяцах считается один раз', () => {
-    const item = (id: number) => ({ game: { id } }) as never;
+    const item = (id: number) => ({ gameId: id }) as never;
     const groups = [
       { month: '2026-03', year: 2026, monthNumber: 3, completed: 0, dropped: 0, items: [item(1), item(2)] },
       { month: '2026-02', year: 2026, monthNumber: 2, completed: 0, dropped: 0, items: [item(1)] },

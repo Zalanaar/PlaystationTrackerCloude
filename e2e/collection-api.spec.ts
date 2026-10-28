@@ -46,7 +46,7 @@ test.describe('API коллекции без БД', () => {
       ['PATCH', '/api/games/1/status-date', json, '{"completedAt":null}'],
       ['PATCH', '/api/games/1/status-date', json, '{"completedAt":"2026-01-01"}'],
       ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: [], status: 'backlog' })],
-      ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: Array.from({ length: 251 }, (_, i) => i + 1), status: 'backlog' })],
+      ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: Array.from({ length: 1001 }, (_, i) => i + 1), status: 'backlog' })],
       ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: [1, 'a'], status: 'backlog' })],
       ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: [1] })],
     ];

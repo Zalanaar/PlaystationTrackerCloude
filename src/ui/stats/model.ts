@@ -279,5 +279,5 @@ export function monthHoursText(hours: number, estimated: boolean): { text: strin
 
 /** Число разных игр в «Играх месяца» (одна игра может быть в нескольких месяцах). */
 export function playedGamesCount(groups: readonly PlayedGroup[]): number {
-  return new Set(groups.flatMap((g) => g.items.map((i) => i.game.id))).size;
+  return new Set(groups.flatMap((g) => g.items.map((i) => i.gameId))).size;
 }

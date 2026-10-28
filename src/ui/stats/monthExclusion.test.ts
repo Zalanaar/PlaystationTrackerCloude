@@ -5,7 +5,7 @@ import {
 } from './monthExclusion';
 
 const item = (o: Partial<PlayedItem> = {}): PlayedItem => ({
-  game: {} as PlayedItem['game'], hours: 6, hoursReal: 5, hoursEstimated: 1, estimated: true, finished: null, finishedAt: null, ...o,
+  gameId: 1, hours: 6, hoursReal: 5, hoursEstimated: 1, estimated: true, finished: null, finishedAt: null, ...o,
 });
 
 describe('падежи месяцев', () => {

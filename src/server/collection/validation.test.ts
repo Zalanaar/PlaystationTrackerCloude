@@ -50,10 +50,10 @@ describe('тела запросов', () => {
     expect(parseStatusBody(null).ok).toBe(false);
     expect(parseStatusBody('playing').ok).toBe(false);
   });
-  it('bulk: до 250, дубли схлопываются, пусто и больше = ошибка', () => {
+  it('bulk: до 1000, дубли схлопываются, пусто и больше = ошибка', () => {
     expect(parseBulkBody({ ids: [3, 1, 3], status: 'playing' })).toEqual({ ok: true, value: { ids: [1, 3], status: 'playing' } });
-    expect(parseBulkBody({ ids: Array.from({ length: 250 }, (_, i) => i + 1), status: null }).ok).toBe(true);
-    expect(parseBulkBody({ ids: Array.from({ length: 251 }, (_, i) => i + 1), status: null }).ok).toBe(false);
+    expect(parseBulkBody({ ids: Array.from({ length: 1000 }, (_, i) => i + 1), status: null }).ok).toBe(true);
+    expect(parseBulkBody({ ids: Array.from({ length: 1001 }, (_, i) => i + 1), status: null }).ok).toBe(false);
     expect(parseBulkBody({ ids: [], status: 'playing' }).ok).toBe(false);
     expect(parseBulkBody({ ids: [0], status: 'playing' }).ok).toBe(false);
     expect(parseBulkBody({ ids: ['1'], status: 'playing' }).ok).toBe(false);

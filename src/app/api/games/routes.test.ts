@@ -38,8 +38,8 @@ describe('валидация API коллекции (без БД)', () => {
     expect((await datePatch(req('PATCH', { completedAt: '2026-01-01T00:00:00Z' }), params('0'))).status).toBe(400);
   });
 
-  it('POST status-bulk: лимит 250, пустой, статус', async () => {
-    const ids = Array.from({ length: 251 }, (_, i) => i + 1);
+  it('POST status-bulk: лимит 1000, пустой, статус', async () => {
+    const ids = Array.from({ length: 1001 }, (_, i) => i + 1);
     expect((await bulkPost(req('POST', { ids, status: 'backlog' }))).status).toBe(400);
     expect((await bulkPost(req('POST', { ids: [], status: 'backlog' }))).status).toBe(400);
     expect((await bulkPost(req('POST', { ids: [1], status: 'x' }))).status).toBe(400);

@@ -14,7 +14,7 @@ export const DEFAULT_ORDER: Record<GameSort, SortOrder> = {
 };
 export const LIMIT_DEFAULT = 60;
 export const LIMIT_MAX = 300;
-export const BULK_MAX = 250;
+export const BULK_MAX = 1000;
 export const Q_MAX = 100;
 
 export type ListQuery = {
