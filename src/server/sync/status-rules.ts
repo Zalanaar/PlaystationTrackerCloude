@@ -1,5 +1,5 @@
 // Правила статусов (docs/api-contract.md, 1.3 и 8.7). Синк сюда не пишет: вызывается из API смены статуса.
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 
@@ -119,14 +119,18 @@ export class BulkMissingError extends Error {
 
 /**
  * Массовая смена статуса (контракт 9.6): одна транзакция, фиксированное число запросов
- * (чтение игр, чтение статусов, один upsert, один delete). Нет хотя бы одной игры: BulkMissingError, ничего не записано.
+ * (чтение игр, чтение статусов, один upsert, один delete). Нет хотя бы одной игры (или она скрыта): BulkMissingError, ничего не записано.
  * Возвращает число реально изменённых игр.
  */
 export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusValue | null, now: Date = new Date()): Promise<number> {
   const unique = [...new Set(ids)];
   if (!unique.length) return 0;
   return db.transaction(async (tx) => {
-    const found = await tx.select({ id: games.id, lastPlayedAt: games.lastPlayedAt }).from(games).where(inArray(games.id, unique));
+    // Скрытые игры (9.10) считаются отсутствующими.
+    const found = await tx
+      .select({ id: games.id, lastPlayedAt: games.lastPlayedAt })
+      .from(games)
+      .where(and(inArray(games.id, unique), isNull(games.hiddenAt)));
     if (found.length !== unique.length) {
       const have = new Set(found.map((g) => g.id));
       throw new BulkMissingError(unique.filter((i) => !have.has(i)).sort((a, b) => a - b));

@@ -12,6 +12,7 @@ import type {
   StatusCounts,
 } from './types';
 import type { ListQuery } from './validation';
+import { trophySetCounted } from './visibility';
 
 const { games, gameStatus, gameTrophySets, trophySets, trophies } = schema;
 
@@ -72,6 +73,7 @@ type Row = {
   status: (typeof gameStatus.$inferSelect)['status'] | null;
   completedAt: Date | null;
   droppedAt: Date | null;
+  hiddenAt: Date | null;
   tr: { dB: number; dS: number; dG: number; dP: number; eB: number; eS: number; eG: number; eP: number } | null;
 };
 
@@ -111,6 +113,7 @@ export function toGameItem(r: Row): GameItem {
     droppedAt: r.droppedAt ? r.droppedAt.toISOString() : null,
     trophies: trophiesOut,
     genres: effectiveGenres(r.psnGenres, r.genresOverride).map((key) => ({ key, label: GENRE_LABELS_RU[key] })),
+    hiddenAt: r.hiddenAt ? r.hiddenAt.toISOString() : null,
   };
 }
 
@@ -130,6 +133,7 @@ function itemsQuery(db: AnyDb) {
       status: gameStatus.status,
       completedAt: gameStatus.completedAt,
       droppedAt: gameStatus.droppedAt,
+      hiddenAt: games.hiddenAt,
       tr: {
         dB: tr.dB, dS: tr.dS, dG: tr.dG, dP: tr.dP,
         eB: tr.eB, eS: tr.eS, eG: tr.eG, eP: tr.eP,
@@ -148,7 +152,7 @@ function normalizeRow(r: Omit<Row, 'tr'> & { tr: Row['tr']; hasTr: boolean }): R
   return { ...rest, tr: hasTr ? r.tr : null };
 }
 
-/** Игры по списку id (для ответов мутаций), порядок по id. */
+/** Игры по списку id (для ответов мутаций и карточек статистики), порядок по id. Видимость не фильтрует: вызывающий передаёт нужные id. */
 export async function getGamesByIds(db: AnyDb, ids: number[]): Promise<GameItem[]> {
   if (!ids.length) return [];
   const { q } = itemsQuery(db);
@@ -175,8 +179,13 @@ async function statusCounts(db: AnyDb, where: SQL | undefined): Promise<StatusCo
   return c;
 }
 
+/** Только видимые игры (контракт 9.10). */
+export const visibleGames = isNull(games.hiddenAt);
+
 export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListResponse> {
+  const scope = p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames;
   const textYear: (SQL | undefined)[] = [
+    scope,
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
     p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
   ];
@@ -210,7 +219,8 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
     db
       .selectDistinct({ y: yearExpr })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id)),
+      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+      .where(scope),
   ]);
 
   return {
@@ -231,18 +241,20 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
   const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
-      .from(games),
+      .from(games)
+      .where(visibleGames),
     db
       .select({
         earned: sql<number>`(count(*) filter (where ${trophies.earned}))::int`,
         plat: sql<number>`(count(*) filter (where ${trophies.earned} and ${trophies.type} = 'platinum'))::int`,
       })
-      .from(trophies),
-    statusCounts(db, undefined),
-    itemsQuery(db).q.where(eq(gameStatus.status, 'playing')).orderBy(...byRecent).limit(PLAYING_LIMIT),
-    itemsQuery(db).q.where(eq(gameStatus.status, 'service')).orderBy(...byRecent).limit(SERVICES_LIMIT),
+      .from(trophies)
+      .where(trophySetCounted(trophies.trophySetId)),
+    statusCounts(db, visibleGames),
+    itemsQuery(db).q.where(and(visibleGames, eq(gameStatus.status, 'playing'))).orderBy(...byRecent).limit(PLAYING_LIMIT),
+    itemsQuery(db).q.where(and(visibleGames, eq(gameStatus.status, 'service'))).orderBy(...byRecent).limit(SERVICES_LIMIT),
     itemsQuery(db)
-      .q.where(and(isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
+      .q.where(and(visibleGames, isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
       .orderBy(desc(games.lastPlayedAt), desc(games.id))
       .limit(CONTINUE_LIMIT),
   ]);

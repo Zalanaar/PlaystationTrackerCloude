@@ -52,6 +52,8 @@ export const games = pgTable(
     trophyCheckedAt: tz('trophy_checked_at'),
     firstSeenAt: tz('first_seen_at').notNull().defaultNow(),
     lastSeenAt: tz('last_seen_at').notNull(),
+    // Фаза 8: мягкое скрытие (9.7). Синк не трогает.
+    hiddenAt: tz('hidden_at'),
     createdAt: tz('created_at').notNull().defaultNow(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
@@ -231,3 +233,11 @@ export const loginAttempts = pgTable(
   },
   (t) => [index('login_attempts_ip_time_idx').on(t.ipHash, t.attemptedAt.desc())],
 );
+
+// Фаза 8 (контракт 1.12): копии game_status перед сбросом всей коллекции и перед откатом. Без FK намеренно.
+export const statusBackups = pgTable('status_backups', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  createdAt: tz('created_at').notNull().defaultNow(),
+  reason: text(),
+  payload: jsonb().notNull(),
+});

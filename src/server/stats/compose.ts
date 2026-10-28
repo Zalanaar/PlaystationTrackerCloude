@@ -3,6 +3,7 @@ import type { GameItem } from '@/server/collection/types';
 import { aggregateGenres, type GenreGame } from './genre-stats';
 import { groupFinished, type FinishedEvent } from './finished';
 import { calcHours, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
+import { groupPlayed } from './played';
 import type { StatsPeriod, StatsResponse } from './types';
 import { aggregateTrophies, type EarnedTrophy } from './trophies';
 
@@ -21,6 +22,7 @@ export type StatsInput = {
   trophies: EarnedTrophy[];
   /** Пройдено/брошено, уже отфильтровано по периоду. */
   finishedEvents: FinishedEvent[];
+  /** Карточки игр: завершённые и сыгранные в периоде (played). */
   gameById: ReadonlyMap<number, GameItem>;
   genreGames: ReadonlyMap<number, GenreGame>;
 };
@@ -63,5 +65,6 @@ export function composeStats(i: StatsInput): StatsResponse {
     genres: aggregateGenres(genreList),
     trophies: { counts, byMonth },
     finished: { groups },
+    played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById }) },
   };
 }

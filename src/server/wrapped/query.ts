@@ -1,8 +1,9 @@
 // Чтение данных для /api/wrapped (контракт 11). Расчёты в calc.ts/compose.ts, здесь только выборки.
-import { and, desc, eq, gte, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { getGamesByIds } from '@/server/collection/query';
+import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
 import type { FinishedEvent } from '@/server/stats/finished';
 import type { GenreGame } from '@/server/stats/genre-stats';
 import { getEstimateInputs } from '@/server/stats/estimate-query';
@@ -30,6 +31,7 @@ export async function getWrappedYears(db: AnyDb, currentYear: number, estimates:
       prev: sql<number | null>`lag(${ps.playDurationSeconds}) over (partition by ${ps.gameId} order by ${ps.snapshotDate})`.as('prev'),
     })
     .from(ps)
+    .where(gameVisible(ps.gameId))
     .as('with_prev');
   const perYear = db
     .select({
@@ -41,9 +43,18 @@ export async function getWrappedYears(db: AnyDb, currentYear: number, estimates:
     .as('per_year');
   const [hrs, tr, comp, drop] = await Promise.all([
     db.selectDistinct({ y: perYear.y }).from(perYear).where(sql`${perYear.delta} > 0`),
-    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.earned, true), isNotNull(trophies.earnedAt))),
-    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.status, 'completed'), isNotNull(gameStatus.completedAt))),
-    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.status, 'dropped'), isNotNull(gameStatus.droppedAt))),
+    db
+      .selectDistinct({ y: yearOf(trophies.earnedAt) })
+      .from(trophies)
+      .where(and(eq(trophies.earned, true), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId))),
+    db
+      .selectDistinct({ y: yearOf(gameStatus.completedAt) })
+      .from(gameStatus)
+      .where(and(eq(gameStatus.status, 'completed'), isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId))),
+    db
+      .selectDistinct({ y: yearOf(gameStatus.droppedAt) })
+      .from(gameStatus)
+      .where(and(eq(gameStatus.status, 'dropped'), isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId))),
   ]);
   const set = new Set<number>();
   for (const r of [...hrs, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
@@ -59,7 +70,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
   const yearTo = ymd(year, 12, 31);
   const fromUtc = mskMidnightUtc(year, 1, 1);
   const toUtc = mskMidnightUtc(year + 1, 1, 1);
-  const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc));
+  const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc), trophySetCounted(trophies.trophySetId));
 
   const estimates = await getEstimateInputs(db);
   const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows] = await Promise.all([
@@ -67,11 +78,11 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`)),
+      .where(and(gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(lt(ps.snapshotDate, yearFrom))
+      .where(and(lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: min(ps.snapshotDate) }).from(ps),
     db.select({ type: trophies.type, earnedAt: trophies.earnedAt }).from(trophies).where(earnedInYear),
@@ -90,21 +101,21 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.completedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc))),
+      .where(and(eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc), gameVisible(gameStatus.gameId))),
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc))),
-    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games),
+      .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
+    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
   ]);
 
-  // Игра сета платины: минимальный id из game_trophy_sets (сет может быть у нескольких версий).
+  // Игра сета платины: минимальный id видимой игры из game_trophy_sets (сет может быть у нескольких версий).
   const setIds = [...new Set(platRows.map((r) => r.setId))];
   const links = setIds.length
     ? await db
         .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId) })
         .from(gameTrophySets)
-        .where(inArray(gameTrophySets.trophySetId, setIds))
+        .where(and(inArray(gameTrophySets.trophySetId, setIds), gameVisible(gameTrophySets.gameId)))
         .groupBy(gameTrophySets.trophySetId)
     : [];
   const gameBySet = new Map(links.map((l) => [l.setId, l.gameId]));
