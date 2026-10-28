@@ -13,12 +13,12 @@ describe('фильтры бэклога <-> URL', () => {
   });
   it('круг: жанры (регистр), длительность, сортировка', () => {
     const f = parseBacklogFilters(p('genres=action,role_playing_games&duration=10_30,unknown&sort=duration&order=desc'));
-    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], sort: 'duration', order: 'desc' });
+    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc' });
     expect(backlogToUrl(f).toString()).toBe('genres=ACTION%2CROLE_PLAYING_GAMES&duration=10_30%2Cunknown&sort=duration&order=desc');
   });
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
-    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], sort: 'last_played', order: null });
+    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null });
   });
   it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
     const f = parseBacklogFilters(p('genres=NONE,horror,None'));
