@@ -110,7 +110,7 @@ describe('composeStats отдаёт played', () => {
   it('пустой год: played.groups = []', () => {
     const r = composeStats({
       period: resolvePeriod('year', 2025, null), today: '2026-10-27', years: [2026], snapshots: [], estimates: [],
-      firstSnapshotDate: null, trophies: [], finishedEvents: [], gameById: new Map(), genreGames: new Map(),
+      firstSnapshotDate: null, trophies: [], trophiesByGame: [], finishedEvents: [], gameById: new Map(), genreGames: new Map(),
     });
     expect(r.played).toEqual({ groups: [] });
   });

@@ -1,5 +1,5 @@
 // Чтение данных для /api/stats (контракт 10). Расчёты в чистых модулях, здесь только выборки.
-import { and, desc, eq, gte, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { getGamesByIds } from '@/server/collection/query';
@@ -7,15 +7,15 @@ import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
 import { composeStats } from './compose';
 import { getEstimateInputs } from './estimate-query';
 import type { FinishedEvent } from './finished';
-import type { GenreGame } from './genre-stats';
-import { estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
+import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
 import { playedGameIds } from './played';
+import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import type { EarnedTrophy } from './trophies';
 import type { StatsResponse } from './types';
 import type { StatsQuery } from './validation';
 
-const { games, gameStatus, playtimeSnapshots: ps, trophies } = schema;
+const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies } = schema;
 const TZ = 'Europe/Moscow';
 
 export async function getStatsYears(db: AnyDb, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
@@ -44,7 +44,14 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
   const toUtc = new Date(period.toUtc);
 
   const estimates = await getEstimateInputs(db);
-  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows] = await Promise.all([
+  const owner = db
+    .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId).as('owner_game_id') })
+    .from(gameTrophySets)
+    .innerJoin(games, eq(games.id, gameTrophySets.gameId))
+    .where(isNull(games.hiddenAt))
+    .groupBy(gameTrophySets.trophySetId)
+    .as('owner');
+  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows] = await Promise.all([
     getStatsYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -68,7 +75,17 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
       .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
       .from(gameStatus)
       .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
-    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
+    db
+      .select({ id: games.id, title: games.name, coverUrl: games.imageUrl, psnGenres: games.psnGenres, genresOverride: games.genresOverride })
+      .from(games)
+      .where(isNull(games.hiddenAt)),
+    // 13.2: трофеи периода по играм одним запросом. Игра сета = минимальный id видимой игры (как в Итогах); сеты-сироты и сеты скрытых игр отпадают на inner join.
+    db
+      .select({ gameId: owner.gameId, type: trophies.type, n: sql<number>`count(*)::int` })
+      .from(trophies)
+      .innerJoin(owner, eq(owner.setId, trophies.trophySetId))
+      .where(and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc)))
+      .groupBy(owner.gameId, trophies.type),
   ]);
 
   const finishedEvents: FinishedEvent[] = [
@@ -77,10 +94,18 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
   ];
   const snapshots: Snapshot[] = [...bases, ...inYear];
   // Карточки одним запросом: завершённые в периоде + все игры блока «Игры месяца» (без N+1).
-  const ids = playedGameIds({ by: groupSnapshots(snapshots), estimates, period, finishedEvents });
-  const items = await getGamesByIds(db, ids);
+  const by = groupSnapshots(snapshots);
+  const firstSnapshotDate = first[0]?.d ?? null;
+  const hours = calcHours({ by, estimates, period, year: q.year, firstSnapshotDate, today });
+  const titles = new Map(genreRows.map((g) => [g.id, g.title] as const));
+  const trophiesByGame: GameTrophyCount[] = trophyByGameRows.flatMap((r) => (r.gameId === null ? [] : [{ gameId: r.gameId, type: r.type, n: r.n }]));
+  // Топ-10 (13.2) тоже грузится этим же запросом карточек.
+  const ids = new Set<number>(playedGameIds({ by, estimates, period, finishedEvents }));
+  for (const r of rankByHours(hours.seconds, hours.estimatedSeconds, titles)) ids.add(r.gameId);
+  for (const r of rankByTrophies(trophiesByGame, titles)) ids.add(r.gameId);
+  const items = await getGamesByIds(db, [...ids]);
   const earned: EarnedTrophy[] = trophyRows;
-  const genreGames = new Map<number, GenreGame>(genreRows.map((g) => [g.id, g]));
+  const genreGames = new Map(genreRows.map((g) => [g.id, g] as const));
 
   return composeStats({
     period,
@@ -88,7 +113,9 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     years,
     snapshots,
     estimates,
-    firstSnapshotDate: first[0]?.d ?? null,
+    firstSnapshotDate,
+    hours,
+    trophiesByGame,
     trophies: earned,
     finishedEvents,
     gameById: new Map(items.map((g) => [g.id, g])),
