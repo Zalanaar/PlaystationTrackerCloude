@@ -214,6 +214,8 @@ export async function hltbRun(ctx: RunContext, deps: HltbDeps, o: { batch?: numb
       break;
     }
     sawNonEmpty = r.sawNonEmpty;
+    // heartbeat (L-1): убитая по maxDuration функция освободит слот за ~2 минуты
+    await ctx.save();
     touched.push(...r.attemptedIds);
     processed += r.checked;
     found += r.found;

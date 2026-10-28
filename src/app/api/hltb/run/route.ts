@@ -8,6 +8,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+// Допуск на разброс часов клиента и сервера (16.7).
+const SINCE_FUTURE_TOLERANCE_MS = 5000;
+
 // Массовая подгрузка длительности HLTB. Сессию проверяет src/proxy.ts. Контракт 16.7.
 export async function POST(req: Request) {
   if (!originAllowed(req)) return fail(400, 'invalid_request', 'Некорректный запрос.');
@@ -31,8 +34,11 @@ export async function POST(req: Request) {
   if (recheck === true) {
     const since = typeof b.since === 'string' ? new Date(b.since) : null;
     if (!since || Number.isNaN(since.getTime())) return fail(400, 'invalid_request', 'Для перепроверки нужен since (ISO).');
-    // момент из будущего не даёт бесконечной перепроверки: ограничиваем «сейчас»
-    recheckBefore = since.getTime() > Date.now() ? new Date() : since;
+    // будущее since (сверх допуска на разброс часов) отклоняем, а не обрезаем: граница «сейчас» росла бы и зацикливала перепроверку
+    if (since.getTime() > Date.now() + SINCE_FUTURE_TOLERANCE_MS) {
+      return fail(400, 'invalid_request', 'since не может быть в будущем.', { reason: 'since_in_future' });
+    }
+    recheckBefore = since;
   }
   try {
     const r = await runHltbMass({ db: getDb(), deps: defaultHltbDeps(), recheckBefore });

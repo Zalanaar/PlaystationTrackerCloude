@@ -66,3 +66,11 @@ describe('GET /api/games: hltb', () => {
     expect(parseListQuery(new URLSearchParams('hltb=found,zzz')).ok).toBe(false);
   });
 });
+
+describe('hltb: регистр значений не важен', () => {
+  it('FOUND, Not_Found = found, not_found', async () => {
+    const { parseListQuery } = await import('./validation');
+    const r = parseListQuery(new URLSearchParams('hltb=FOUND,Not_Found'));
+    expect(r.ok && r.value.hltb).toEqual(['found', 'not_found']);
+  });
+});

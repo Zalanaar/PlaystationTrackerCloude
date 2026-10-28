@@ -9,6 +9,8 @@ import { mskDate } from './time';
 const { syncRuns } = schema;
 
 export const STALE_RUN_MS = 15 * 60_000;
+/** Запуск kind='hltb' укладывается в ~60 с (maxDuration) и пишет heartbeat после каждой пачки: брошенный закрываем быстро. */
+export const HLTB_STALE_RUN_MS = 2 * 60_000;
 export const RESUME_WINDOW_MS = 6 * 3600_000;
 
 export type RunKind = (typeof schema.syncRunKind.enumValues)[number];
@@ -26,13 +28,14 @@ function isUniqueViolation(e: unknown): boolean {
   return false;
 }
 
-/** running без признаков жизни дольше 15 минут -> failed/timeout. Данные не трогаются. */
+/** running без признаков жизни дольше 15 минут (hltb: 2 минуты) -> failed/timeout. Данные не трогаются. */
 export async function closeStaleRuns(db: AnyDb, now: Date): Promise<number> {
   const threshold = new Date(now.getTime() - STALE_RUN_MS).toISOString();
+  const hltbThreshold = new Date(now.getTime() - HLTB_STALE_RUN_MS).toISOString();
   const closed = await db
     .update(syncRuns)
     .set({ status: 'failed', errorReason: 'timeout', errorMessage: 'Запуск завис и закрыт автоматически.', finishedAt: now })
-    .where(and(eq(syncRuns.status, 'running'), sql`coalesce((${syncRuns.cursor}->>'heartbeat')::timestamptz, ${syncRuns.startedAt}) < ${threshold}::timestamptz`))
+    .where(and(eq(syncRuns.status, 'running'), sql`coalesce((${syncRuns.cursor}->>'heartbeat')::timestamptz, ${syncRuns.startedAt}) < (case when ${syncRuns.kind} = 'hltb' then ${hltbThreshold}::timestamptz else ${threshold}::timestamptz end)`))
     .returning({ id: syncRuns.id });
   return closed.length;
 }

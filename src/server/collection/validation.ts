@@ -113,7 +113,7 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
   let hltb: HltbStatus[] | null = null;
   const hltbRaw = sp.get('hltb');
   if (hltbRaw !== null && hltbRaw.trim() !== '') {
-    const parts = hltbRaw.split(',').map((x) => x.trim());
+    const parts = hltbRaw.split(',').map((x) => x.trim().toLowerCase());
     if (parts.some((p) => !(HLTB_STATUSES as readonly string[]).includes(p))) return bad('Неизвестный статус HLTB.');
     hltb = [...new Set(parts)] as HltbStatus[];
   }

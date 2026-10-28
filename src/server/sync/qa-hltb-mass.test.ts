@@ -6,7 +6,7 @@ import type { HltbClient } from '@/server/hltb/client';
 import { pickAny, searchTerms, type HltbCandidate } from '@/server/hltb/normalize';
 import { runHltbMass } from './hltb-run';
 import type { HltbDeps } from './hltb-step';
-import { startRun, STALE_RUN_MS } from './runs';
+import { HLTB_STALE_RUN_MS, startRun, STALE_RUN_MS } from './runs';
 import { createTestDb, type TestDb } from './test-helpers';
 
 const { games, gameStatus, syncRuns } = schema;
@@ -106,21 +106,69 @@ describe('QA массовый запуск', () => {
     expect(dead).toMatchObject({ status: 'failed', errorReason: 'timeout' });
   });
 
-  // BUG-H1: роут обрезает будущее since до «сейчас» НА КАЖДОМ вызове (route.ts), поэтому при часах клиента впереди сервера
-  // recheckBefore растёт от вызова к вызову и уже перепроверенные not_found берутся снова. Тест имитирует эту логику.
-  it.fails('BUG-H1: клиентский since из будущего, обрезанный каждый раз до «сейчас», зацикливает перепроверку', async () => {
-    const id = await add('Unknown Thing', 'backlog', { hltbCheckedAt: new Date('2026-09-01T00:00:00Z') });
+  // H-1 исправлен: route отклоняет since из будущего (400 since_in_future), проверка в src/app/api/hltb/run/route.test.ts.
+  // Здесь: при фиксированной границе игра, перепроверенная в первом вызове, выходит из отбора.
+  it('H-1: фиксированная граница since: перепроверенная not_found не берётся повторно', async () => {
+    await add('Unknown Thing', 'backlog', { hltbCheckedAt: new Date('2026-09-01T00:00:00Z') });
     const deps = mkDeps(async () => [c(9, 'Totally Different')]); // непустая выдача, совпадения нет
-    const clientSince = new Date(T0.getTime() + 5 * 60_000); // часы клиента на 5 минут впереди
+    const since = new Date(T0.getTime() + 1000);
     const processed: number[] = [];
     for (let i = 0; i < 3; i++) {
-      const serverNow = new Date(T0.getTime() + i * 10_000);
-      const recheckBefore = clientSince.getTime() > serverNow.getTime() ? serverNow : clientSince; // как в route.ts
-      const r = await runHltbMass({ db: t.db, deps, now: () => serverNow, recheckBefore: new Date(recheckBefore.getTime() + 1) });
+      const serverNow = new Date(T0.getTime() + 10_000 + i * 10_000);
+      const r = await runHltbMass({ db: t.db, deps, now: () => serverNow, recheckBefore: since });
       processed.push(r.kind === 'done' ? r.result.processed : -1);
     }
-    expect(id).toBeGreaterThan(0);
-    // ожидаемо (по замыслу 16.7): после первого вызова игра выходит из отбора -> [1, 0, 0]
     expect(processed).toEqual([1, 0, 0]);
+  });
+
+  // L-1: для kind='hltb' порог 2 минуты, heartbeat после каждой пачки.
+  const hltbRow = (heartbeat: Date) =>
+    t.db.insert(syncRuns).values({ kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: heartbeat.toISOString() } });
+  const at = (ms: number) => new Date(T0.getTime() + ms);
+
+  it('L-1: hltb-запись блокирует слот в 1 минуту', async () => {
+    await hltbRow(T0);
+    const r = await startRun(t.db, { kind: 'manual', now: at(60_000) });
+    expect(r.kind).toBe('already_running');
+  });
+
+  it('L-1: hltb-запись без heartbeat старше 2 минут закрыта как failed/timeout', async () => {
+    await hltbRow(T0);
+    const r = await startRun(t.db, { kind: 'manual', now: at(HLTB_STALE_RUN_MS + 1000) });
+    expect(r.kind).toBe('started');
+    const [dead] = await t.db.select().from(syncRuns).where(eq(syncRuns.kind, 'hltb'));
+    expect(dead).toMatchObject({ status: 'failed', errorReason: 'timeout' });
+  });
+
+  it('L-1: живой heartbeat hltb-записи не закрывается', async () => {
+    await hltbRow(at(100_000));
+    const r = await startRun(t.db, { kind: 'manual', now: at(HLTB_STALE_RUN_MS + 1000) });
+    expect(r.kind).toBe('already_running');
+  });
+
+  it('L-1: порог синка не меняется (running manual живёт до 15 минут)', async () => {
+    await t.db.insert(syncRuns).values({ kind: 'manual', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'auth', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
+    expect((await startRun(t.db, { kind: 'daily', now: at(HLTB_STALE_RUN_MS + 1000) })).kind).toBe('already_running');
+    expect((await startRun(t.db, { kind: 'daily', now: at(STALE_RUN_MS + 1000) })).kind).toBe('started');
+  });
+
+  it('L-1: heartbeat двигается после каждой пачки', async () => {
+    await add('A'); await add('B'); await add('C');
+    let clock = T0.getTime();
+    const seen: string[] = [];
+    const deps: HltbDeps = {
+      client: {
+        search: async () => {
+          const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.kind, 'hltb'));
+          seen.push((row.cursor as { heartbeat: string }).heartbeat);
+          clock += 1000;
+          return [c(9, 'Totally Different')];
+        },
+      },
+      sleep: async () => undefined,
+    };
+    await runHltbMass({ db: t.db, deps, now: () => new Date(clock), batch: 1 });
+    // heartbeat перед 2-й и 3-й пачкой новее, чем перед 1-й
+    expect(new Set(seen).size).toBeGreaterThanOrEqual(3);
   });
 });
