@@ -27,6 +27,8 @@ export type ListQuery = {
   offset: number;
   /** 9.2: true = только скрытые (`hidden=only`), false = только видимые. */
   hiddenOnly: boolean;
+  /** 14.4: true = только забытые игры (`forgotten=only`). */
+  forgottenOnly: boolean;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -81,7 +83,10 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
   const hRaw = sp.get('hidden');
   if (hRaw !== null && hRaw !== '' && hRaw !== 'only') return bad('Некорректный параметр hidden.');
   const hiddenOnly = hRaw === 'only';
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly } };
+  const fRaw = sp.get('forgotten');
+  if (fRaw !== null && fRaw !== '' && fRaw !== 'only') return bad('Некорректный параметр forgotten.');
+  const forgottenOnly = fRaw === 'only';
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);

@@ -32,3 +32,11 @@ export function parseStatsQuery(sp: URLSearchParams, currentYear: number): Stats
   }
   return { ok: true, value: { type: pRaw, year, month } };
 }
+
+/** GET /api/stats/activity (14.3): только year, по умолчанию текущий год МСК; пустая строка = нет параметра. */
+export function parseActivityQuery(sp: URLSearchParams, currentYear: number): { ok: true; value: { year: number } } | { ok: false; message: string } {
+  const yRaw = sp.get('year');
+  if (yRaw === null || yRaw === '') return { ok: true, value: { year: currentYear } };
+  const y = int(yRaw, 2000, 2100);
+  return y === null ? bad('Некорректный год.') : { ok: true, value: { year: y } };
+}

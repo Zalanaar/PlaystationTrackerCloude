@@ -5,6 +5,7 @@ import { aggregateGenres, type GenreGame } from '@/server/stats/genre-stats';
 import { calcHours, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { resolvePeriod } from '@/server/stats/period';
 import { aggregateTrophies, type EarnedTrophy } from '@/server/stats/trophies';
+import type { RareTrophy } from '@/server/stats/types';
 import { peakMonth, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
 import type { WrappedPlatinum, WrappedResponse, WrappedSlideId } from './types';
 
@@ -27,6 +28,8 @@ export type WrappedInput = {
   finishedEvents: FinishedEvent[];
   gameById: ReadonlyMap<number, GameItem>;
   genreGames: ReadonlyMap<number, GenreGame>;
+  /** 14.1: редкие трофеи года (SQL с LIMIT 5); нет = []. */
+  rareTrophies?: RareTrophy[];
 };
 
 export function composeWrapped(i: WrappedInput): WrappedResponse {
@@ -89,7 +92,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
     },
     topGames: { hasData: top.length > 0, items: top },
     finished: { hasData: finHas, ...fin },
-    trophies: { hasData: trophiesHas, counts, platinum: pickPlatinums(i.platinums) },
+    trophies: { hasData: trophiesHas, counts, platinum: pickPlatinums(i.platinums), rare: empty ? [] : (i.rareTrophies ?? []) },
     genres,
     longestGame: leader
       ? { hasData: true, seconds: leader.seconds, hours: leader.hours, estimated: leader.estimated, playCount: leader.game.playCount, game: leader.game }

@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · темы PS1–PS5 (макет на выбор)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mockups.css">
+<style>
+/* =====================================================================
+   1. ТОКЕНЫ ТЕМ. Только значения. Имена = src/ui/tokens/themes.css.
+   В проде селектор [data-theme="psN"] на <html>; в макете на .page.
+   Новое: --r-chip (чипы, поиск, селект темы). PS1 дополнительно
+   переопределяет статусы, семантику, трофейные цвета и --on-cover-*.
+   ===================================================================== */
+:root { --st-service: #78b4ff; --success: #7fd1b9; --warning: #e2bf75; --danger: #e69aa6;
+        --gold: #ffd25e; --silver: #d3d8e4; --bronze: #e39a64; --on-cover-border: rgba(255,255,255,.12); }
+
+/* Производные: объявляются на элементе темы, чтобы var() брал значения своей темы */
+.page[data-theme] {
+  --st-playing: var(--accent); --st-none: var(--text-3);
+  --plat-fill: linear-gradient(135deg, var(--plat-1), var(--plat-2));
+  --plat-glow: color-mix(in srgb, var(--plat-2) var(--plat-glow-a), transparent);
+  --plat-text: var(--plat-1);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --r-chip: 999px;
+}
+.page[data-theme="night"] { --plat-1: #e6f6ff; --plat-2: #9fd3f5; --plat-ink: #0b1a2b; --plat-glow-a: 40%; }
+
+/* ---------- PS1 · Серый корпус (единственная светлая) ---------- */
+.page[data-theme="ps1"] {
+  color-scheme: light;
+  --bg: #cfccc4; --surface: #dedbd4; --surface-2: #c4c0b8; --surface-3: #b3afa6;
+  --border: #b0aca3; --border-strong: #8f8b82;
+  --text: #18181c; --text-2: #3c3b40; --text-3: #4c4b51;
+  --tint: #2b2b31; --accent: #2b2b31; --accent-ink: #e8e5de; --focus: #18181c;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --header-bg: rgba(214, 211, 204, .9);
+  --r-cover: 3px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-chip: 4px;
+  --shadow-alpha: .18;
+  --plat-1: #e6f6ff; --plat-2: #6fb0dc; --plat-ink: #0b1a2b; --plat-glow-a: 0%; --plat-text: #0e2f48;
+  /* статусы «спокойные» (по умолчанию): те же оттенки, что в тёмных темах, затемнены под светлый фон */
+  --st-playing: #5b3a99; --st-completed: #0f5446; --st-backlog: #634800; --st-dropped: #8a2b3d; --st-shelved: #4a4d57; --st-service: #24468f;
+  --success: #0f5446; --warning: #634800; --danger: #8a2b3d;
+  --gold: #7d5a00; --silver: #5f6470; --bronze: #8a4a1c;
+  /* поверх обложек: светлый чип вместо тёмного */
+  --on-cover-bg: rgba(236, 233, 226, .92); --on-cover-text: #18181c; --on-cover-border: rgba(0, 0, 0, .18);
+}
+/* вариант «цвета кнопок»: △ зелёный, ○ красный, □ розовый, ✕ синий */
+.page[data-theme="ps1"][data-variant="buttons"] {
+  --st-playing: #0f5636; --st-completed: #941a2e; --st-backlog: #84285a; --st-dropped: #24468f; --st-service: #5b3a99;
+  --success: #0f5636; --danger: #941a2e;
+}
+
+/* ---------- PS2 · Memory Card, синий туман ---------- */
+.page[data-theme="ps2"] {
+  --bg: #070b1a; --surface: #10172c; --surface-2: #172038; --surface-3: #212c4a;
+  --border: #24304f; --border-strong: #3a4a75;
+  --text: #e8eeff; --text-2: #a9b6d9; --text-3: #8593bb;
+  --tint: #cfe0ff; --accent: #cfe0ff; --accent-ink: #06102a; --focus: #ffffff;
+  --header-bg: rgba(7, 11, 26, .82);
+  --r-cover: 4px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-chip: 4px;
+  --shadow-alpha: .55;
+  --plat-1: #e6f6ff; --plat-2: #9fd3f5; --plat-ink: #0b1a2b; --plat-glow-a: 45%;
+}
+
+/* ---------- PS3 · XMB-волна ---------- */
+.page[data-theme="ps3"] {
+  --bg: #10070b; --surface: #1b0d13; --surface-2: #26121b; --surface-3: #331a25;
+  --border: #3a1e2a; --border-strong: #5c3343;
+  --text: #fbeff2; --text-2: #d3b3bd; --text-3: #a98894;
+  --tint: #f4eef0; --accent: #f4eef0; --accent-ink: #1a0a10; --focus: #ffffff;
+  --header-bg: rgba(16, 7, 11, .82);
+  --r-cover: 8px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-chip: 999px;
+  --shadow-alpha: .55;
+  --plat-1: #e6f6ff; --plat-2: #9fd3f5; --plat-ink: #0b1a2b; --plat-glow-a: 40%;
+}
+
+/* ---------- PS4 · Плитки, синий ---------- */
+.page[data-theme="ps4"] {
+  --bg: #02173d; --surface: #0a2a63; --surface-2: #0e3474; --surface-3: #164090;
+  --border: #1d4794; --border-strong: #3d6cc4;
+  --text: #ffffff; --text-2: #c6d6f2; --text-3: #9fb6e0;
+  --tint: #ffffff; --accent: #ffffff; --accent-ink: #02173d; --focus: #ffffff;
+  --accent-soft: rgba(255, 255, 255, .14);
+  --header-bg: rgba(2, 23, 61, .82);
+  --r-cover: 2px; --r-sm: 4px; --r-md: 4px; --r-lg: 6px; --r-chip: 4px;
+  --shadow-alpha: .5;
+  --plat-1: #e6f6ff; --plat-2: #9fd3f5; --plat-ink: #0b1a2b; --plat-glow-a: 30%;
+}
+
+/* ---------- PS5 · Белый/чёрный (поглощает Activity) ---------- */
+.page[data-theme="ps5"] {
+  --bg: #0a0a0c; --surface: #141417; --surface-2: #1d1d21; --surface-3: #28282d;
+  --border: #2a2a30; --border-strong: #4b4b53;
+  --text: #ffffff; --text-2: #c4c4cc; --text-3: #94949e;
+  --tint: #ffffff; --accent: #ffffff; --accent-ink: #000000; --focus: #ffffff;
+  --accent-soft: rgba(255, 255, 255, .12);
+  --header-bg: rgba(10, 10, 12, .72);
+  --r-cover: 14px; --r-sm: 10px; --r-md: 14px; --r-lg: 22px; --r-chip: 999px;
+  --shadow-alpha: .6;
+  --plat-1: #c9ecff; --plat-2: #7cc4f2; --plat-ink: #06121e; --plat-glow-a: 55%;
+}
+
+/* =====================================================================
+   2. ДЕКОР ТЕМ (в проде decor.css, хук .ps-app вместо .page, position: fixed).
+   Префикс body.ps нужен только в макете (перебить правило Night из mockups.css).
+   Анимируются только transform. Reduced motion и мобильный: декор статичный.
+   ===================================================================== */
+/* PS1: рёбра пластика корпуса, полоса цветов логотипа под шапкой, «корешок» jewel case у обложки */
+body.ps .page[data-theme="ps1"]::before { height: 100%; background: repeating-linear-gradient(0deg, rgba(0,0,0,.035) 0 1px, transparent 1px 4px); }
+body.ps .page[data-theme="ps1"] :is(.hdr, .m-hdr)::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
+  background: linear-gradient(90deg, #e2001a 0 25%, #f2b600 25% 50%, #00a05a 50% 75%, #0070d1 75%); }
+body.ps .page[data-theme="ps1"] :is(.panel, .rows, .mini, .mhero, .search, .chip[aria-pressed="true"]) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(0,0,0,.12); }
+body.ps .page[data-theme="ps1"] .cover { box-shadow: inset 6px 0 0 rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.25); }
+body.ps .page[data-theme="ps1"] :is(.plaque, .hlbl) { text-shadow: none; }
+
+/* PS2: синий туман (дрейф 60 с), силуэты башен внизу, фаска на панелях */
+body.ps .page[data-theme="ps2"]::before { inset: -10%; height: auto;
+  background: radial-gradient(40% 30% at 20% 12%, rgba(70,110,200,.16), transparent 70%),
+              radial-gradient(35% 26% at 82% 48%, rgba(70,110,200,.08), transparent 70%);
+  animation: ps2-fog 60s ease-in-out infinite alternate; }
+body.ps .page[data-theme="ps2"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 420px; z-index: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 58px, rgba(120,160,255,.06) 58px 64px, transparent 64px 92px, rgba(120,160,255,.04) 92px 96px, transparent 96px 140px);
+  -webkit-mask: linear-gradient(transparent, #000 70%); mask: linear-gradient(transparent, #000 70%); }
+body.ps .page[data-theme="ps2"] :is(.panel, .rows, .mini) { box-shadow: inset 0 1px 0 rgba(170,200,255,.10), inset 0 -1px 0 rgba(0,0,0,.5); }
+@keyframes ps2-fog { to { transform: translate3d(-5%, 4%, 0); } }
+
+/* PS3: XMB-градиент сверху + волна (полоса .05 и линии .06), сдвиг 48 с */
+body.ps .page[data-theme="ps3"]::before { height: 100%; background: linear-gradient(180deg, #3a0c1c 0, #1d0a12 260px, var(--bg) 640px); }
+body.ps .page[data-theme="ps3"]::after { content: ""; position: absolute; top: 240px; left: 0; width: 200%; height: 300px; z-index: 0; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2880 300' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.05)' stroke-width='70'/%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.06)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 178C240 98 480 98 720 178S1200 258 1440 178S1920 98 2160 178S2640 258 2880 178' stroke='rgba(255,255,255,.06)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+  animation: ps3-wave 48s linear infinite; }
+body.ps .page[data-theme="ps3"] .nav a[aria-current="page"]::after { box-shadow: 0 0 12px rgba(255,255,255,.6); }
+body.ps .page[data-theme="ps3"] .card[data-active="true"] .cover { box-shadow: 0 0 0 1px rgba(255,255,255,.55), 0 0 24px rgba(255,255,255,.22); }
+@keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
+
+/* PS4: синий градиент сверху, частицы (подъём 40 с), плитки: квадратные углы, активная плитка в белой рамке */
+body.ps .page[data-theme="ps4"]::before { height: 100%; background: radial-gradient(120% 520px at 50% 0, #0a3584, transparent 75%); }
+body.ps .page[data-theme="ps4"]::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(100% + 240px); z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle at 30px 40px, rgba(255,255,255,.45) 0 1.2px, transparent 1.8px),
+                    radial-gradient(circle at 150px 110px, rgba(255,255,255,.30) 0 1px, transparent 1.6px),
+                    radial-gradient(circle at 200px 200px, rgba(170,210,255,.40) 0 1.4px, transparent 2px),
+                    radial-gradient(circle at 90px 180px, rgba(255,255,255,.25) 0 .9px, transparent 1.5px);
+  background-size: 240px 240px; opacity: .8;
+  animation: ps4-dust 40s linear infinite; }
+body.ps .page[data-theme="ps4"] .card[data-active="true"] .cover { outline: 3px solid #fff; outline-offset: 2px; transform: scale(1.03); }
+body.ps .page[data-theme="ps4"] .mini { border-left: 3px solid var(--border-strong); }
+@keyframes ps4-dust { to { transform: translate3d(0, -240px, 0); } }
+
+/* PS5: размытый арт «Играю» (как Activity, но opacity .28 и затемнение .45), белые pill-элементы, activity-карточки */
+body.ps .page[data-theme="ps5"]::before { height: 100%; background: var(--page-art, linear-gradient(160deg, #f5b04a, #2f5fb3)); filter: blur(64px) saturate(1.15); transform: scale(1.25); opacity: .28; }
+body.ps .page[data-theme="ps5"]::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(rgba(10,10,12,.45), var(--bg) 80%); }
+body.ps .page[data-theme="ps5"] .nav a[aria-current="page"] { align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+body.ps .page[data-theme="ps5"] .nav a[aria-current="page"]::after { display: none; }
+body.ps .page[data-theme="ps5"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+body.ps .page[data-theme="ps5"] .chip[aria-pressed="true"] small { color: inherit; opacity: .65; }
+body.ps .page[data-theme="ps5"] .card[data-active="true"] .cover { outline: 2px solid #fff; outline-offset: 3px; }
+body.ps .page[data-theme="ps5"] .mini { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.10); }
+@media (min-width: 768px) { body.ps .page[data-theme="ps5"] .mini { backdrop-filter: blur(16px); } }
+
+/* Reduced motion: анимации декора выключены, слои остаются статичными. Мобильный (.phone ~ <768): тоже статично */
+@media (prefers-reduced-motion: reduce) { body.ps .page::before, body.ps .page::after { animation: none !important; } }
+html.rm body.ps .page::before, html.rm body.ps .page::after { animation: none !important; }
+body.ps .phone .page::before, body.ps .phone .page::after { animation: none !important; }
+body.ps .phone .page[data-theme="ps3"]::after { top: 260px; height: 200px; }
+body.ps .phone .page[data-theme="ps4"]::after { display: none; }
+
+/* =====================================================================
+   3. Компоненты макета, которых нет в mockups.css (hero, платина, слайд)
+   ===================================================================== */
+.chip, .search, .themepick { border-radius: var(--r-chip); }
+.sync i { background: var(--success); }
+.kpi em { color: var(--success); }
+.badge { border-color: var(--on-cover-border); }
+.plaque { color: var(--on-cover-text); }
+.pi { fill: currentColor; stroke: none; flex: none; }
+.plat { width: 28px; height: 28px; background: var(--plat-fill); color: var(--plat-ink); border: 1px solid var(--plat-ink); box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+.plat svg { width: 18px; height: 18px; }
+.card[data-platinum="true"] .cover { box-shadow: 0 2px 8px rgba(0,0,0,calc(var(--shadow-alpha) * .8)), 0 0 14px var(--plat-glow); }
+.card[data-platinum="true"] .cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(135deg, var(--plat-1), transparent 38%, var(--plat-2));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.chip .pi { width: 16px; height: 16px; color: var(--plat-text); }
+.row .t .pi { width: 14px; height: 14px; color: var(--plat-text); vertical-align: -2px; margin-left: 6px; }
+.kpi .pi { width: 22px; height: 22px; color: var(--plat-text); margin-right: 6px; vertical-align: 2px; }
+.page .grid { margin-top: 14px; }
+
+/* hero «Играю» (§4.4) */
+.hero2 { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 12px; }
+.hmain { position: relative; display: block; height: 300px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--border); color: #fff; isolation: isolate;
+  box-shadow: 0 2px 8px rgba(0,0,0,calc(var(--shadow-alpha) * .8)); }
+.hart { position: absolute; inset: 0; background: radial-gradient(70% 90% at 75% 20%, rgba(255,255,255,.28), transparent 60%), linear-gradient(120deg, var(--a), var(--b)); }
+.hmain::after { content: ""; position: absolute; inset: 0; background: var(--cover-scrim) bottom / 100% 65% no-repeat, linear-gradient(90deg, rgba(0,0,0,.45), transparent 60%); }
+.hlbl { position: absolute; z-index: 1; top: 16px; left: 16px; height: 28px; padding: 0 12px 0 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+  background: var(--on-cover-bg); border: 1px solid var(--on-cover-border); color: var(--on-cover-text); font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; backdrop-filter: blur(4px); }
+.hlbl .sh { color: var(--st); }
+.hmain .plat { left: auto; right: 16px; top: 16px; z-index: 1; }
+.hinfo { position: absolute; z-index: 1; left: 24px; right: 24px; bottom: 20px; }
+.hinfo h2 { font: 700 22px/28px var(--font-display); letter-spacing: -.01em; text-shadow: 0 1px 3px rgba(0,0,0,.6); max-width: 720px; }
+.hfacts { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.hfacts small { display: block; font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.hfacts b { font: 600 15px/20px var(--font-body); }
+.hprog { display: flex; align-items: center; gap: 10px; margin-top: 12px; max-width: 520px; }
+.hprog i { flex: 1; height: 6px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; display: block; }
+.hprog i b { display: block; height: 100%; background: #fff; border-radius: inherit; }
+.hprog span { font: 600 12px/16px var(--font-body); }
+.hside { display: flex; flex-direction: column; gap: 8px; height: 300px; }
+.mini { flex: 1 1 0; min-height: 0; display: flex; gap: 12px; padding: 8px; border: 1px solid var(--border); border-radius: var(--r-md); background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.mini:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.mini .th { height: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-sm); background: linear-gradient(155deg, var(--a), var(--b)); flex: none; }
+.mini .tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.mini .t { font: 600 13px/16px var(--font-body); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mini .m { font-size: 12px; line-height: 16px; color: var(--text-2); }
+.mini .m3 { font-size: 12px; line-height: 16px; color: var(--text-3); }
+.mbar { display: flex; align-items: center; gap: 6px; margin-top: auto; font-size: 11px; color: var(--text-2); }
+.mbar i { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; display: block; }
+.mbar i b { display: block; height: 100%; background: var(--accent); }
+/* мобильный hero: арт 160 без текста + инфо на --surface */
+.mhero { display: block; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.mart { position: relative; height: 160px; overflow: hidden; }
+.mart .hlbl { top: 12px; left: 12px; }
+.mart .plat { left: auto; right: 12px; top: 12px; width: 24px; height: 24px; }
+.mart .plat svg { width: 16px; height: 16px; }
+.minfo { padding: 14px 16px 16px; }
+.minfo .t { font: 700 17px/22px var(--font-display); letter-spacing: -.01em; }
+.mfacts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.mfacts small { display: block; font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.mfacts b { font: 600 14px/20px var(--font-body); }
+.hprog.in i { background: var(--surface-3); } .hprog.in i b { background: var(--accent); } .hprog.in span { color: var(--text-2); }
+/* статистика + слайд */
+.two { align-items: start; }
+.gen .r { text-align: right; color: var(--text-2); }
+.slide.sm { width: 100%; max-width: 320px; height: 440px; margin: 0 auto; }
+.slide.sm .body { padding: 20px 22px; }
+.slide.sm h4 { font-size: 20px; line-height: 26px; margin-bottom: 18px; }
+.slide.sm .big b { font-size: 56px; line-height: 56px; }
+.slide .big .sh { color: var(--st); }
+/* Итоги всегда тёмные: PS1 возвращает статусам «тёмную» палитру внутри слайда (в проде .ps-story) */
+.page[data-theme="ps1"] .slide { --st-playing: #c3b2ff; --st-completed: #7fd1b9; --st-backlog: #e2bf75; --st-dropped: #e69aa6; --st-shelved: #a3abc0; }
+.page[data-theme="ps1"][data-variant="buttons"] .slide { --st-playing: #5fd39a; --st-completed: #ff7a8a; --st-backlog: #f59ac8; --st-dropped: #7ea6ff; }
+@media (max-width: 900px) { .hero2 { grid-template-columns: 1fr; } .hside { display: none; } }
+
+/* =====================================================================
+   4. Оболочка страницы-макета (не часть дизайна)
+   ===================================================================== */
+.ctl { position: sticky; top: 0; z-index: 100; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 12px 24px; background: #0a0a0d; border-bottom: 1px solid #2a2a30; color: #cfcfd6; font-size: 13px; }
+.ctl b { font: 700 13px var(--font-display); letter-spacing: .1em; text-transform: uppercase; margin-right: 8px; }
+.ctl .sw { display: flex; gap: 4px; flex-wrap: wrap; }
+.ctl button { height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #2a2a30; color: #cfcfd6; background: #141418; }
+.ctl button[aria-pressed="true"] { background: #eee; color: #111; border-color: #eee; }
+.ctl label { display: inline-flex; gap: 6px; align-items: center; color: #9a9aa4; cursor: pointer; }
+.intro { max-width: 1440px; margin: 0 auto; padding: 24px 24px 0; color: #9a9aa4; }
+.intro h1 { font: 700 22px/28px var(--font-display); color: #eee; margin-bottom: 6px; }
+.intro p { max-width: 900px; margin-top: 4px; }
+.frame { max-width: 1440px; margin: 20px auto 0; border: 1px solid #2a2a30; border-radius: 20px; overflow: hidden; }
+.frame .hdr, .tp .hdr { position: relative; }
+.frame .page { min-height: 0; padding-bottom: 32px; }
+.cmpgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(640px, 1fr)); gap: 24px; padding: 24px; max-width: 1900px; margin: 0 auto; }
+.cmpgrid .page { padding-bottom: 24px; }
+.cmpgrid .grid { --cols: 3; }
+.cmpgrid .two { grid-template-columns: 1fr; }
+.sect-h { max-width: 1440px; margin: 40px auto 0; padding: 0 24px; color: #eee; font: 600 16px var(--font-body); }
+.sect-h span { color: #8a8a94; font-weight: 400; }
+.mobs { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; padding: 20px 16px 24px; align-items: flex-start; }
+.mob select { display: block; margin: 0 auto 10px; height: 32px; padding: 0 10px; border-radius: 8px; background: #141418; color: #eee; border: 1px solid #2a2a30; }
+.phone .page { padding-bottom: 0; }
+.phone .tabbar { margin-top: 20px; }
+.ct { max-width: 1440px; margin: 0 auto; padding: 8px 24px 72px; color: #cfcfd6; overflow-x: auto; }
+.ct table { border-collapse: collapse; font-size: 12px; min-width: 760px; }
+.ct th, .ct td { padding: 6px 10px; border-bottom: 1px solid #222228; text-align: right; white-space: nowrap; }
+.ct th:first-child, .ct td:first-child { text-align: left; }
+.ct th { color: #8a8a94; font-weight: 500; }
+.ct td.bad { color: #ff8a8a; font-weight: 700; } .ct td.ok { color: #cfcfd6; }
+.ct .sw-c { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid #444; }
+.ct p { color: #8a8a94; margin: 8px 0 12px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body class="ps">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></symbol>
+  <symbol id="i-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="i-backlog" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5"/></symbol>
+  <symbol id="i-dropped" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3 3 13"/></symbol>
+  <symbol id="i-shelved" viewBox="0 0 16 16"><path d="M5.5 3v10M10.5 3v10"/></symbol>
+  <symbol id="i-service" viewBox="0 0 16 16"><path d="M8 1.75 14.25 8 8 14.25 1.75 8Z"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2.5"/></symbol>
+  <symbol id="i-plat" viewBox="0 0 24 24"><path d="M6 3h12v2h3v3.5a4.5 4.5 0 0 1-4.1 4.5 6 6 0 0 1-3.9 2.9V18h3.5v2h-9v-2H11v-2.1A6 6 0 0 1 7.1 13 4.5 4.5 0 0 1 3 8.5V5h3zM5 7v1.5a2.5 2.5 0 0 0 1.4 2.2A6 6 0 0 1 6 9V7zm13 0v2c0 .6-.1 1.2-.4 1.7A2.5 2.5 0 0 0 19 8.5V7z"/><path d="M5 21h14v1.5H5z"/></symbol>
+</svg>
+
+<div class="ctl" role="toolbar" aria-label="Управление макетом">
+  <b>Темы PS</b>
+  <div class="sw" id="sw"></div>
+  <button id="mode" aria-pressed="false">Все 6 рядом</button>
+  <label><input type="checkbox" id="ps1v"> PS1: фигуры цветами кнопок</label>
+  <label><input type="checkbox" id="rm"> Эмуляция reduced motion</label>
+</div>
+
+<div class="intro">
+  <h1>Темы PS1–PS5 на текущей разметке</h1>
+  <p>Одна разметка (шаблон ниже клонируется), тема = <code>data-theme</code>. Меняются только значения токенов и 2–4 декоративных правила темы. Night для сравнения. Под макетом живая таблица контраста выбранной темы (считается из CSS по WCAG). Обоснования и риски: <code>docs/design/proposal-themes-ps.md</code>.</p>
+</div>
+
+<div id="single"><div class="frame" id="deskframe"></div></div>
+<div id="cmp" class="cmpgrid" hidden></div>
+
+<h2 class="sect-h">Мобильный 390px <span>· декор статичный, выбор темы над каждым телефоном</span></h2>
+<div class="mobs" id="mobs"></div>
+
+<h2 class="sect-h">Контраст: <span id="ct-name"></span></h2>
+<div class="ct" id="ct"></div>
+
+<!-- ===================== ШАБЛОН: десктоп ===================== -->
+<template id="tpl-desk">
+<div class="page" data-theme="night">
+  <header class="hdr"><div class="wrap">
+    <a class="logo" href="#">PS Tracker</a>
+    <nav class="nav"><a href="#" aria-current="page">Коллекция</a><a href="#">Бэклог</a><a href="#">Статистика</a><a href="#">Итоги</a></nav>
+    <span class="sp"></span>
+    <span class="sync"><i></i>Синк: 3 ч назад</span>
+    <span class="themepick"><i></i><span class="tname">Night</span></span>
+    <span class="avatar">A</span>
+  </div></header>
+  <div class="wrap">
+    <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+
+    <section class="hero2" aria-label="Играю сейчас">
+      <a class="hmain" href="#" style="--a:#f5b04a;--b:#2f5fb3">
+        <span class="hart"></span>
+        <span class="hlbl st-playing"><svg class="sh"><use href="#i-playing"/></svg>Играю 3</span>
+        <div class="hinfo">
+          <h2>Trails in the Sky 2nd Chapter</h2>
+          <div class="hfacts"><span><small>Наиграно</small><b class="num">28 ч 17 м</b></span><span><small>Трофеи</small><b class="num">54/78</b></span><span><small>Последний запуск</small><b>вчера</b></span></div>
+          <div class="hprog" role="progressbar" aria-valuenow="69" aria-label="Прогресс трофеев"><i><b style="width:69%"></b></i><span class="num">69%</span></div>
+        </div>
+      </a>
+      <div class="hside">
+        <a class="mini" href="#"><i class="th" style="--a:#e07a4f;--b:#1f5a70"></i><div class="tx"><div class="t">Horizon Forbidden West</div><div class="m num">41 ч</div><div class="m3">2 нед. назад</div><div class="mbar"><i><b style="width:42%"></b></i><span class="num">31/74</span></div></div></a>
+        <a class="mini" href="#"><i class="th" style="--a:#d9b24a;--b:#1c1810"></i><div class="tx"><div class="t">Elden Ring Nightreign</div><div class="m num">12 ч 40 м</div><div class="m3">5 нед. назад</div><div class="mbar"><i><b style="width:18%"></b></i><span class="num">8/44</span></div></div></a>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="search"><span>Поиск игры…</span><kbd>/</kbd></div>
+      <div class="chips" role="group" aria-label="Статус">
+        <button class="chip" aria-pressed="true">Все <small class="num">214</small></button>
+        <button class="chip st-playing" aria-label="Играю"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button>
+        <button class="chip st-completed" aria-label="Пройдено"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button>
+        <button class="chip st-backlog" aria-label="Бэклог"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button>
+        <button class="chip st-dropped" aria-label="Брошено"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button>
+        <button class="chip st-shelved" aria-label="Отложено"><svg class="sh"><use href="#i-shelved"/></svg><small class="num">2</small></button>
+        <button class="chip st-service" aria-label="Сервис"><svg class="sh"><use href="#i-service"/></svg><small class="num">3</small></button>
+        <button class="chip st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано <small class="num">174</small></button>
+        <button class="chip" aria-label="Платина"><svg class="pi"><use href="#i-plat"/></svg><small class="num">35</small></button>
+      </div>
+      <span class="sp"></span>
+      <div class="seg"><button aria-pressed="true">Крупно</button><button aria-pressed="false">Плотно</button><button aria-pressed="false">Список</button></div>
+    </div>
+
+    <section class="sec">
+      <div class="yh"><h2 class="y">2026</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span><span class="k"><b class="num">186 ч</b></span><span class="tg">клик по году сворачивает</span></div>
+      <div class="grid">
+        <a class="card" href="#" data-platinum="true" style="--a:#41b4ff;--b:#1b2a8f"><div class="cover"><span class="art">Astro Bot</span><span class="plat" aria-label="Платина получена"><svg class="pi"><use href="#i-plat"/></svg></span><span class="badge st-completed" aria-label="Пройдено"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">14 окт.</span></div><div class="ttl">Astro Bot</div><div class="sub num">32 ч 10 м</div></a>
+        <a class="card" href="#" style="--a:#f6f3ea;--b:#d9cba6"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="badge st-completed" aria-label="Пройдено"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 м</div></a>
+        <a class="card dropped" href="#" style="--a:#c23a4a;--b:#1d1418"><div class="cover"><span class="art">Silent Hill f</span><span class="badge st-dropped" aria-label="Брошено"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill f</div><div class="sub num">6 ч</div></a>
+        <a class="card" href="#" data-active="true" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-playing" aria-label="Играю"><svg class="sh"><use href="#i-playing"/></svg></span></div><div class="ttl">ACE COMBAT™ 7: SKIES UNKNOWN</div><div class="sub num">5 ч 43 м</div></a>
+        <a class="card" href="#" style="--a:#e3c36a;--b:#2a2214"><div class="cover"><span class="art">Ghost of Yōtei</span><span class="badge st-backlog" aria-label="Бэклог"><svg class="sh"><use href="#i-backlog"/></svg></span></div><div class="ttl">Ghost of Yōtei</div><div class="sub num">45 м</div></a>
+        <a class="card" href="#" style="--a:#9fb3c8;--b:#2a3440"><div class="cover"><span class="art">Death Stranding 2</span><span class="badge st-shelved" aria-label="Отложено"><svg class="sh"><use href="#i-shelved"/></svg></span></div><div class="ttl">DEATH STRANDING 2: ON THE BEACH</div><div class="sub num">14 ч 2 м</div></a>
+      </div>
+    </section>
+
+    <section class="sec two">
+      <div class="panel">
+        <h3>Статистика · 2026</h3>
+        <div class="sub2">часы по ежедневным снимкам с 12 мар.</div>
+        <div class="kpis">
+          <div class="kpi st-completed"><b class="num"><svg class="sh"><use href="#i-completed"/></svg>12</b><span>пройдено</span></div>
+          <div class="kpi st-dropped"><b class="num"><svg class="sh"><use href="#i-dropped"/></svg>3</b><span>брошено</span></div>
+          <div class="kpi"><b class="num">412</b><span>часов<em>+38 за окт.</em></span></div>
+          <div class="kpi"><b class="num"><svg class="pi"><use href="#i-plat"/></svg>7</b><span>платин</span></div>
+        </div>
+        <div class="bars" style="margin-top:18px;height:120px"><i class="nd"></i><i class="nd"></i><i style="height:34%"></i><i style="height:52%"></i><i style="height:40%"></i><i style="height:66%"></i><i style="height:80%"></i><i style="height:58%"></i><i style="height:44%"></i><i class="cur" style="height:72%"></i><i style="height:0"></i><i style="height:0"></i></div>
+        <div class="bars-x"><span>Я</span><span>Ф</span><span>М</span><span>А</span><span>М</span><span>И</span><span>И</span><span>А</span><span>С</span><span>О</span><span>Н</span><span>Д</span></div>
+        <div class="gen"><span>Ролевые</span><i><b style="width:72%"></b></i><span class="num r">38%</span></div>
+        <div class="gen"><span>Экшен</span><i><b style="width:48%"></b></i><span class="num r">25%</span></div>
+        <div class="gen"><span>Приключения</span><i><b style="width:30%"></b></i><span class="num r">16%</span></div>
+      </div>
+      <div class="slide sm">
+        <div class="bg"></div>
+        <div class="prog"><i class="d"></i><i class="d"></i><i class="c"></i><i></i><i></i><i></i></div>
+        <div class="top"><span>Итоги 2026</span><span>3 / 6</span></div>
+        <div class="body">
+          <h4>Ты дошёл до финала</h4>
+          <div class="big st-completed"><svg class="sh"><use href="#i-completed"/></svg><b class="num">12</b><span>игр пройдено</span></div>
+          <div class="covers"><i style="--a:#41b4ff;--b:#1b2a8f"></i><i style="--a:#f6f3ea;--b:#d9cba6"></i><i style="--a:#f5b04a;--b:#2f5fb3"></i><i style="--a:#e07a4f;--b:#1f5a70"></i></div>
+        </div>
+        <div class="foot"><span>PS TRACKER</span><span>2026</span></div>
+      </div>
+    </section>
+
+    <section class="sec"><div class="rows">
+      <div class="row"><i class="th" style="--a:#41b4ff;--b:#1b2a8f"></i><div><div class="t">Astro Bot<svg class="pi" aria-label="Платина получена"><use href="#i-plat"/></svg></div><div class="g">Платформер</div></div><div class="stt st-completed"><svg class="sh"><use href="#i-completed"/></svg>Пройдено</div><div class="r num">32 ч</div><div class="tr"><i><b style="width:100%;background:var(--plat-fill)"></b></i><span class="num">100%</span></div><div class="d num">14 окт. 2026</div></div>
+      <div class="row"><i class="th" style="--a:#e07a4f;--b:#1f5a70"></i><div><div class="t">Horizon Forbidden West</div><div class="g">Ролевые, Экшен</div></div><div class="stt st-playing"><svg class="sh"><use href="#i-playing"/></svg>Играю</div><div class="r num">41 ч</div><div class="tr"><i><b style="width:42%"></b></i><span class="num">42%</span></div><div class="d">2 нед. назад</div></div>
+      <div class="row"><i class="th" style="--a:#6a4bd6;--b:#0e1a44"></i><div><div class="t">Tetris Effect: Connected</div><div class="g">Головоломка</div></div><div class="stt st-none"><svg class="sh"><use href="#i-none"/></svg>Не разобрано</div><div class="r num">1 ч</div><div class="tr"><i><b style="width:6%"></b></i><span class="num">6%</span></div><div class="d">3 мес. назад</div></div>
+    </div></section>
+  </div>
+</div>
+</template>
+
+<!-- ===================== ШАБЛОН: мобильный 390 ===================== -->
+<template id="tpl-mob">
+<div class="page" data-theme="ps1">
+  <header class="m-hdr"><a class="logo" href="#">PS Tracker</a><span class="sp"></span><span class="sync"><i></i></span><span class="avatar" aria-label="Меню">⋯</span></header>
+  <div class="m-pad">
+    <div class="pagehead"><h1>Коллекция</h1><p class="statline num"><b>214</b> игр<span class="dot">·</span><b>1 928</b> ч<span class="dot">·</span><b>35</b> платин</p></div>
+    <a class="mhero" href="#" style="--a:#f5b04a;--b:#2f5fb3">
+      <div class="mart"><span class="hart"></span><span class="hlbl st-playing"><svg class="sh"><use href="#i-playing"/></svg>Играю 3</span></div>
+      <div class="minfo">
+        <div class="t">Trails in the Sky 2nd Chapter</div>
+        <div class="mfacts"><span><small>Наиграно</small><b class="num">28 ч 17 м</b></span><span><small>Трофеи</small><b class="num">54/78</b></span><span><small>Запуск</small><b>вчера</b></span></div>
+        <div class="hprog in"><i><b style="width:69%"></b></i><span class="num">69%</span></div>
+      </div>
+    </a>
+    <div class="toolbar">
+      <div class="search"><span>Поиск игры…</span></div>
+      <div class="m-scroll" style="flex-basis:100%" role="group" aria-label="Статус">
+        <button class="chip" aria-pressed="true">Все <small class="num">214</small></button>
+        <button class="chip st-playing" aria-label="Играю"><svg class="sh"><use href="#i-playing"/></svg><small class="num">3</small></button>
+        <button class="chip st-completed" aria-label="Пройдено"><svg class="sh"><use href="#i-completed"/></svg><small class="num">20</small></button>
+        <button class="chip st-backlog" aria-label="Бэклог"><svg class="sh"><use href="#i-backlog"/></svg><small class="num">8</small></button>
+        <button class="chip st-dropped" aria-label="Брошено"><svg class="sh"><use href="#i-dropped"/></svg><small class="num">4</small></button>
+        <button class="chip st-shelved" aria-label="Отложено"><svg class="sh"><use href="#i-shelved"/></svg><small class="num">2</small></button>
+        <button class="chip" aria-label="Платина"><svg class="pi"><use href="#i-plat"/></svg><small class="num">35</small></button>
+      </div>
+    </div>
+    <div class="yh" style="margin-top:16px"><h2 class="y">2026</h2><span class="k st-completed"><svg class="sh"><use href="#i-completed"/></svg>пройдено <b class="num">7</b></span><span class="k st-dropped"><svg class="sh"><use href="#i-dropped"/></svg>брошено <b class="num">2</b></span></div>
+    <div class="grid">
+      <a class="card" href="#" data-platinum="true" style="--a:#41b4ff;--b:#1b2a8f"><div class="cover"><span class="art">Astro Bot</span><span class="plat"><svg class="pi"><use href="#i-plat"/></svg></span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">14 окт.</span></div><div class="ttl">Astro Bot</div><div class="sub num">32 ч 10 м</div></a>
+      <a class="card" href="#" style="--a:#f6f3ea;--b:#d9cba6"><div class="cover"><span class="art dk">Marvel's Wolverine</span><span class="badge st-completed"><svg class="sh"><use href="#i-completed"/></svg></span><span class="plaque">12 окт.</span></div><div class="ttl">Marvel's Wolverine</div><div class="sub num">17 ч 51 м</div></a>
+      <a class="card dropped" href="#" style="--a:#c23a4a;--b:#1d1418"><div class="cover"><span class="art">Silent Hill f</span><span class="badge st-dropped"><svg class="sh"><use href="#i-dropped"/></svg></span><span class="plaque">3 окт.</span></div><div class="ttl">Silent Hill f</div><div class="sub num">6 ч</div></a>
+      <a class="card" href="#" data-active="true" style="--a:#dfe9f6;--b:#6e9ad6"><div class="cover"><span class="art dk">Ace Combat 7</span><span class="badge st-playing"><svg class="sh"><use href="#i-playing"/></svg></span></div><div class="ttl">ACE COMBAT™ 7</div><div class="sub num">5 ч 43 м</div></a>
+    </div>
+    <div class="panel" style="margin-top:24px;padding:16px">
+      <div class="kpis" style="gap:8px 24px">
+        <div class="kpi st-completed"><b class="num" style="font-size:26px;line-height:30px"><svg class="sh"><use href="#i-completed"/></svg>12</b><span>пройдено</span></div>
+        <div class="kpi"><b class="num" style="font-size:26px;line-height:30px">412</b><span>часов</span></div>
+        <div class="kpi"><b class="num" style="font-size:26px;line-height:30px"><svg class="pi"><use href="#i-plat"/></svg>7</b><span>платин</span></div>
+      </div>
+    </div>
+  </div>
+  <nav class="tabbar"><a href="#" aria-current="page"><span class="ic"></span>Коллекция</a><a href="#"><span class="ic"></span>Бэклог</a><a href="#"><span class="ic"></span>Статистика</a><a href="#"><span class="ic"></span>Итоги</a></nav>
+</div>
+</template>
+
+<script>
+const THEMES = { night: 'Night', ps1: 'PS1 · Серый корпус', ps2: 'PS2 · Memory Card', ps3: 'PS3 · XMB-волна', ps4: 'PS4 · Плитки', ps5: 'PS5 · Белый/чёрный' };
+const PAGE_ART = 'linear-gradient(160deg,#f5b04a,#2f5fb3 70%)'; /* PS5: в проде url(обложка hero) */
+const $ = (s) => document.querySelector(s);
+let current = (location.hash.slice(1) in THEMES) ? location.hash.slice(1) : 'ps1';
+
+function make(tplId, theme) {
+  const n = document.getElementById(tplId).content.firstElementChild.cloneNode(true);
+  n.dataset.theme = theme;
+  if (theme === 'ps1' && $('#ps1v').checked) n.dataset.variant = 'buttons';
+  if (theme === 'ps5') n.style.setProperty('--page-art', PAGE_ART);
+  n.querySelectorAll('.tname').forEach((e) => { e.textContent = THEMES[theme].split(' · ')[0]; });
+  return n;
+}
+function renderSingle() { $('#deskframe').replaceChildren(make('tpl-desk', current)); renderContrast(); }
+function renderCmp() {
+  const box = $('#cmp'); box.replaceChildren();
+  Object.keys(THEMES).forEach((t) => {
+    const s = document.createElement('section'); s.className = 'tp';
+    s.innerHTML = `<div class="tp-label">${THEMES[t]} <span>data-theme="${t}"</span></div>`;
+    s.appendChild(make('tpl-desk', t)); box.appendChild(s);
+  });
+}
+function renderMobs() {
+  const box = $('#mobs'); box.replaceChildren();
+  ['ps1', 'ps3', 'ps5'].forEach((t) => {
+    const w = document.createElement('div'); w.className = 'mob';
+    const sel = document.createElement('select');
+    sel.innerHTML = Object.entries(THEMES).map(([k, v]) => `<option value="${k}"${k === t ? ' selected' : ''}>${v}</option>`).join('');
+    const ph = document.createElement('div'); ph.className = 'phone'; ph.appendChild(make('tpl-mob', t));
+    sel.onchange = () => ph.replaceChildren(make('tpl-mob', sel.value));
+    w.append(sel, ph); box.appendChild(w);
+  });
+}
+function renderSwitch() {
+  $('#sw').innerHTML = Object.entries(THEMES).map(([k, v]) => `<button data-t="${k}" aria-pressed="${k === current}">${v}</button>`).join('');
+  $('#sw').querySelectorAll('button').forEach((b) => b.onclick = () => { current = b.dataset.t; history.replaceState(null, '', '#' + current); renderSwitch(); renderSingle(); });
+}
+
+/* ---- контраст WCAG 2.x, значения берутся из вычисленных CSS-переменных темы ---- */
+function parse(c) {
+  let m = c.match(/color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.]+))?/);
+  if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+  m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+  return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : [0, 0, 0, 1];
+}
+const lin = (x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const over = (top, under) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+const hex = (c) => '#' + c.slice(0, 3).map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+
+function renderContrast() {
+  const page = $('#deskframe .page'); const probe = document.createElement('span'); probe.hidden = true; page.appendChild(probe);
+  const get = (v) => { probe.style.color = `var(${v})`; return parse(getComputedStyle(probe).color); };
+  const BG = ['--bg', '--surface', '--surface-2'];
+  const FG = [['--text', 'Текст', 4.5, 7], ['--text-2', 'Текст 2', 4.5, 0], ['--text-3', 'Текст 3', 4.5, 0], ['--accent', 'Акцент', 4.5, 0],
+    ['--st-playing', '△ Играю', 4.5, 3], ['--st-completed', '○ Пройдено', 4.5, 3], ['--st-backlog', '□ Бэклог', 4.5, 3], ['--st-dropped', '✕ Брошено', 4.5, 3],
+    ['--st-shelved', '‖ Отложено', 4.5, 3], ['--st-service', '◇ Сервис', 4.5, 3], ['--plat-text', 'Платина (текст)', 7, 0], ['--success', 'Точка синка', 3, 0]];
+  const chip = get('--on-cover-bg'); const onc = get('--on-cover-text');
+  const chipW = over(chip, [255, 255, 255, 1]), chipB = over(chip, [0, 0, 0, 1]);
+  const cell = (r, min) => `<td class="${r < min ? 'bad' : 'ok'}">${r.toFixed(2)}</td>`;
+  let h = `<p>Порог: текст 4.5 (платина 7), фигуры статусов 4.5 на поверхностях (как в contrast.test.ts) и 3 на чипе поверх обложки. Красное = не проходит.</p><table><tr><th>Токен</th><th>цвет</th>${BG.map((b) => `<th>${b}<br><span class="sw-c" style="background:${hex(get(b))}"></span>${hex(get(b))}</th>`).join('')}<th>чип на белой обложке</th><th>чип на чёрной обложке</th></tr>`;
+  FG.forEach(([v, name, min, chipMin]) => {
+    const c = get(v);
+    h += `<tr><td>${name} <code>${v}</code></td><td><span class="sw-c" style="background:${hex(c)}"></span>${hex(c)}</td>${BG.map((b) => cell(ratio(c, get(b)), min)).join('')}`;
+    if (chipMin) { const fg = v === '--text' ? onc : c; h += cell(ratio(fg, chipW), chipMin) + cell(ratio(fg, chipB), chipMin); } else h += '<td>—</td><td>—</td>';
+    h += '</tr>';
+  });
+  h += `<tr><td>Текст на акценте <code>--accent-ink</code></td><td>${hex(get('--accent-ink'))}</td>${cell(ratio(get('--accent-ink'), get('--accent')), 7)}<td colspan="4" style="text-align:left">на --accent, порог 7</td></tr>`;
+  h += `<tr><td>Знак платины <code>--plat-ink</code></td><td>${hex(get('--plat-ink'))}</td>${cell(ratio(get('--plat-ink'), get('--plat-2')), 7)}<td colspan="4" style="text-align:left">на --plat-2 (тёмный край заливки), порог 7</td></tr></table>`;
+  probe.remove(); $('#ct').innerHTML = h; $('#ct-name').textContent = THEMES[current];
+}
+
+$('#mode').onclick = () => {
+  const on = $('#mode').getAttribute('aria-pressed') !== 'true';
+  $('#mode').setAttribute('aria-pressed', on); $('#single').hidden = on; $('#cmp').hidden = !on;
+  if (on) renderCmp();
+};
+$('#ps1v').onchange = () => { renderSingle(); renderMobs(); if (!$('#cmp').hidden) renderCmp(); };
+$('#rm').onchange = () => document.documentElement.classList.toggle('rm', $('#rm').checked);
+renderSwitch(); renderSingle(); renderMobs();
+</script>
+</body>
+</html>

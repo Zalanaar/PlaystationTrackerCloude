@@ -1,6 +1,6 @@
 // Типы ответа GET /api/wrapped (раздел 11 docs/api-contract.md). Только типы.
 import type { GameItem } from '@/server/collection/types';
-import type { StatsGenreItem, TrophyCountsByType } from '@/server/stats/types';
+import type { RareTrophy, StatsGenreItem, TrophyCountsByType } from '@/server/stats/types';
 
 export type WrappedSlideId = 'start' | 'hours' | 'topGames' | 'finished' | 'trophies' | 'genres' | 'longestGame' | 'final' | 'empty';
 
@@ -45,6 +45,8 @@ export type WrappedResponse = {
     hasData: boolean;
     counts: TrophyCountsByType;
     platinum: { first: WrappedPlatinum | null; last: WrappedPlatinum | null; rarest: WrappedPlatinum | null };
+    /** 14.1: топ-5 самых редких трофеев года; slides не меняются. */
+    rare: RareTrophy[];
   };
   genres: { hasData: boolean; items: StatsGenreItem[] };
   longestGame: { hasData: boolean; seconds: number; hours: number; estimated: boolean; playCount: number; game: GameItem | null };

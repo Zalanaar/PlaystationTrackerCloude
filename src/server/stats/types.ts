@@ -54,6 +54,25 @@ export type TopHoursItem = { game: GameItem; hours: number; /** Есть оце�
 export type TopTrophyItem = { game: GameItem; /** Очки: bronze 15, silver 30, gold 90, platinum 300. */ points: number; counts: TrophyCountsByType };
 export type StatsTop = { byHours: TopHoursItem[]; byTrophies: TopTrophyItem[] };
 
+/** «Редкий трофей» (14.1): полученный трофей с процентом получивших. Карточка игры короткая. */
+export type RareTrophy = {
+  setId: number;
+  trophyId: number;
+  type: 'platinum' | 'gold' | 'silver' | 'bronze';
+  name: string | null;
+  detail: string | null;
+  iconUrl: string | null;
+  /** ISO UTC или null (PSN не отдал дату; только в списке «за всё время»). */
+  earnedAt: string | null;
+  /** % игроков, 2 знака. */
+  earnedRate: number;
+  /** 0..3 или null. */
+  rarity: number | null;
+  setName: string;
+  /** Видимая игра сета с минимальным id или null (сет-сирота). */
+  game: StatsGenreGame | null;
+};
+
 export type StatsResponse = {
   period: StatsPeriod;
   years: number[];
@@ -76,6 +95,8 @@ export type StatsResponse = {
     games: Record<string, StatsGenreGame>;
   };
   top: StatsTop;
+  /** 14.1: топ-5 самых редких полученных трофеев за период и за всё время. */
+  rareTrophies: { period: RareTrophy[]; allTime: RareTrophy[] };
   trophies: { counts: TrophyCountsByType; byMonth: (TrophyCountsByType & { month: number })[] };
   /** Устарело для экрана Статистики с Фазы 8 (используйте played); сохраняется для совместимости. */
   finished: { groups: FinishedGroup[] };

@@ -52,6 +52,8 @@ export type GamesListResponse = {
   offset: number;
   counts: StatusCounts;
   years: number[];
+  /** 14.4: число забытых игр во всей коллекции (без учёта фильтров запроса). */
+  forgottenCount: number;
 };
 
 /** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */
@@ -66,6 +68,27 @@ export type PsnProfile = {
   trophies: { platinum: number; gold: number; silver: number; bronze: number; total: number } | null;
 };
 
+/** Прогноз платины (14.2): сколько осталось неплатиновых трофеев сета с неполученной платиной. */
+export type PlatinumForecast = {
+  setId: number;
+  /** Неплатиновых трофеев в сете (включая DLC: группы трофеев в БД нет). */
+  required: number;
+  earned: number;
+  /** floor(earned / required * 100), 0..100. */
+  progress: number;
+  remaining: { gold: number; silver: number; bronze: number; total: number };
+  /** Сколько из оставшихся скрытые. */
+  remainingHidden: number;
+  /** Среднее / минимум earned_rate оставшихся (2 знака) или null. */
+  avgEarnedRate: number | null;
+  minEarnedRate: number | null;
+  /** У скольких оставшихся известен процент. */
+  ratesKnown: number;
+  platinumEarnedRate: number | null;
+};
+
+export type NearPlatinumItem = { game: GameItem; forecast: PlatinumForecast };
+
 export type CollectionSummaryResponse = {
   totals: { games: number; playSeconds: number; hours: number; trophiesEarned: number; platinumEarned: number };
   counts: StatusCounts;
@@ -75,6 +98,8 @@ export type CollectionSummaryResponse = {
   continue: GameItem[];
   /** null, если синк профиль ещё не сохранял (12.3). */
   profile: PsnProfile | null;
+  /** 14.2: до 5 игр, ближе всего к платине (видимые, не dropped). */
+  nearPlatinum: NearPlatinumItem[];
 };
 
 export type GameMutationResponse = { game: GameItem };
@@ -115,4 +140,6 @@ export type GameDetailsResponse = {
   firstPlayedAt: string | null;
   statusChangedAt: string | null;
   trophyList: GameTrophyItem[];
+  /** 14.2: null, если платины нет, она получена или трофеи сета не загружены. */
+  platinumForecast: PlatinumForecast | null;
 };

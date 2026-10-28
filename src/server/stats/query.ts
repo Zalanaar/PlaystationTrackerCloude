@@ -10,6 +10,7 @@ import type { FinishedEvent } from './finished';
 import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
 import { playedGameIds } from './played';
+import { getRareTrophies } from './rare-query';
 import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import type { EarnedTrophy } from './trophies';
 import type { StatsResponse } from './types';
@@ -51,7 +52,7 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     .where(isNull(games.hiddenAt))
     .groupBy(gameTrophySets.trophySetId)
     .as('owner');
-  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows] = await Promise.all([
+  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows, rarePeriod, rareAllTime] = await Promise.all([
     getStatsYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -86,6 +87,9 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
       .innerJoin(owner, eq(owner.setId, trophies.trophySetId))
       .where(and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc)))
       .groupBy(owner.gameId, trophies.type),
+    // 14.1: по LIMIT 5 строк, без GameItem (вес ответа, P8-3).
+    getRareTrophies(db, { fromUtc, toUtc }),
+    getRareTrophies(db, null),
   ]);
 
   const finishedEvents: FinishedEvent[] = [
@@ -120,5 +124,6 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     finishedEvents,
     gameById: new Map(items.map((g) => [g.id, g])),
     genreGames,
+    rareTrophies: { period: rarePeriod, allTime: rareAllTime },
   });
 }

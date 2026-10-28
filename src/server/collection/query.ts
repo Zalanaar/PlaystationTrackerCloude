@@ -1,5 +1,5 @@
 // Чтение коллекции (контракт, раздел 9). Агрегация трофеев одним подзапросом, без N+1.
-import { type AnyColumn, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { GENRE_LABELS_RU, effectiveGenres } from '@/server/stats/genres';
@@ -11,6 +11,8 @@ import type {
   Platform,
   StatusCounts,
 } from './types';
+import { forgottenCutoff } from './forgotten';
+import { getNearPlatinumCandidates } from './platinum-query';
 import { getPsnProfile } from './profile';
 import type { ListQuery } from './validation';
 import { trophySetCounted } from './visibility';
@@ -186,7 +188,18 @@ async function statusCounts(db: AnyDb, where: SQL | undefined): Promise<StatusCo
 /** Только видимые игры (контракт 9.10). */
 export const visibleGames = isNull(games.hiddenAt);
 
-export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListResponse> {
+/** 14.4: забытая игра (видимая, без статуса, playtime > 0, последний запуск раньше now - 90 суток). Нужен leftJoin game_status. */
+export function forgottenSql(now: Date): SQL {
+  return and(
+    visibleGames,
+    isNull(gameStatus.status),
+    gt(games.playDurationSeconds, 0),
+    isNotNull(games.lastPlayedAt),
+    lt(games.lastPlayedAt, forgottenCutoff(now)),
+  ) as SQL;
+}
+
+export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
   const scope = p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames;
   const textYear: (SQL | undefined)[] = [
     scope,
@@ -194,7 +207,7 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
     p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
   ];
   const whereBase = and(...textYear);
-  const whereAll = and(whereBase, statusFilterSql(p.statuses));
+  const whereAll = and(whereBase, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined);
 
   const { q, tr } = itemsQuery(db);
   const dir = p.order === 'asc' ? sql`asc` : sql`desc`;
@@ -208,7 +221,7 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
     completed_at: [sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}) ${dir} nulls last`],
   };
 
-  const [rows, totalRows, counts, yearRows] = await Promise.all([
+  const [rows, totalRows, counts, yearRows, forgottenRows] = await Promise.all([
     q
       .where(whereAll)
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
@@ -225,6 +238,11 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
       .from(games)
       .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
       .where(scope),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(games)
+      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+      .where(forgottenSql(now)),
   ]);
 
   return {
@@ -237,12 +255,13 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
       .map((r) => r.y)
       .filter((y): y is number => y !== null)
       .sort((a, b) => b - a),
+    forgottenCount: forgottenRows[0]?.n ?? 0,
   };
 }
 
 export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummaryResponse> {
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
-  const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile] = await Promise.all([
+  const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile, near] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
       .from(games)
@@ -262,7 +281,11 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
       .orderBy(desc(games.lastPlayedAt), desc(games.id))
       .limit(CONTINUE_LIMIT),
     getPsnProfile(db),
+    getNearPlatinumCandidates(db),
   ]);
+  // 14.2: карточки «ближе к платине» тем же запросом GameItem (до 5 id)
+  const nearItems = await getGamesByIds(db, near.map((c) => c.gameId));
+  const nearById = new Map(nearItems.map((g) => [g.id, g]));
   const sec = Number(gameTotals[0]?.sec ?? 0);
   return {
     profile,
@@ -277,5 +300,9 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
     playing: playingRows.map((r) => toGameItem(normalizeRow(r as never))),
     services: serviceRows.map((r) => toGameItem(normalizeRow(r as never))),
     continue: continueRows.map((r) => toGameItem(normalizeRow(r as never))),
+    nearPlatinum: near.flatMap((c) => {
+      const game = nearById.get(c.gameId);
+      return game ? [{ game, forecast: c.forecast }] : [];
+    }),
   };
 }
