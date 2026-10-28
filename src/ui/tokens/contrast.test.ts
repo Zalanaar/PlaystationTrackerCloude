@@ -55,6 +55,25 @@ describe('контраст тем', () => {
           it(`${st} на ${bg} >= 4.5`, () => expect(ratio(get(t, st), get(t, bg))).toBeGreaterThanOrEqual(4.5));
     });
   }
+  // Платина и редкость трофеев (design-system §4.14, §4.15).
+  for (const t of NAMES) {
+    describe(`${t}: платина и редкость`, () => {
+      for (const bg of ['--bg', '--surface', '--surface-2'])
+        it(`--plat-1 на ${bg} >= 7`, () => expect(ratio(get(t, '--plat-1'), get(t, bg))).toBeGreaterThanOrEqual(7));
+      for (const f of ['--plat-1', '--plat-2'])
+        it(`--plat-ink на ${f} >= 7`, () => expect(ratio(get(t, '--plat-ink'), get(t, f))).toBeGreaterThanOrEqual(7));
+      // --rar-3 = var(--text-2), покрыт проверками --text-2 выше
+      for (const r of ['--rar-0', '--rar-1', '--rar-2'])
+        for (const bg of ['--surface', '--surface-2'])
+          it(`${r} на ${bg} >= 4.5`, () => expect(ratio(get(t, r), get(t, bg))).toBeGreaterThanOrEqual(4.5));
+    });
+  }
+  // Платина в чипе на обложке: §4.14 (>= 7 на чипе поверх белой обложки).
+  describe('платина на чипе обложки', () => {
+    const chip = over('#080910', 0.78, '#ffffff');
+    for (const t of NAMES)
+      it(`${t}: --plat-1 на чипе >= 7`, () => expect(ratio(get(t, '--plat-1'), chip)).toBeGreaterThanOrEqual(7));
+  });
   // Текст и фигуры на обложке лежат только внутри чипа --on-cover-bg (rgba(8,9,14,.78)). Худший случай: белая обложка.
   describe('чипы на обложке', () => {
     const chip = over('#080910', 0.78, '#ffffff');
