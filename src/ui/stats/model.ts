@@ -1,6 +1,6 @@
 // Чистая логика экрана «Статистика»: параметры URL, навигация по периодам, подготовка данных для графиков.
-import type { StatsGenreItem, StatsResponse } from '@/server/stats/types';
-import { mskParts, monthName } from '../format';
+import type { PlayedGroup, StatsGenreItem, StatsResponse } from '@/server/stats/types';
+import { formatPlayTime, mskParts, monthName } from '../format';
 
 export type PeriodType = 'year' | 'month';
 export type Selection = { period: PeriodType; year: number; month: number | null };
@@ -185,5 +185,21 @@ export function linePath(points: readonly LinePoint[]): string {
 export function isEmptyPeriod(d: StatsResponse, period: PeriodType): boolean {
   const hoursEmpty = period === 'month' || d.hours.byMonth.every((v) => v === null || v === 0);
   return d.header.completed === 0 && d.header.dropped === 0 && (d.header.hours ?? 0) === 0 && d.trophies.counts.total === 0
-    && d.finished.groups.length === 0 && !d.genres.hasData && hoursEmpty;
+    && d.played.groups.length === 0 && !d.genres.hasData && hoursEmpty;
+}
+
+/**
+ * Часы игры за месяц в «Играх месяца»: «12 ч 30 м», при оценке «≈ 12 ч 30 м».
+ * 0 часов (игра попала в месяц только по завершению) = null, строка не выводится. label для скринридера без «≈».
+ */
+export function monthHoursText(hours: number, estimated: boolean): { text: string; label: string } | null {
+  if (!Number.isFinite(hours) || hours <= 0) return null;
+  const t = formatPlayTime(Math.round(hours * 3600));
+  if (!t) return null;
+  return estimated ? { text: `≈ ${t}`, label: `примерно ${t} за месяц` } : { text: t, label: `${t} за месяц` };
+}
+
+/** Число разных игр в «Играх месяца» (одна игра может быть в нескольких месяцах). */
+export function playedGamesCount(groups: readonly PlayedGroup[]): number {
+  return new Set(groups.flatMap((g) => g.items.map((i) => i.game.id))).size;
 }

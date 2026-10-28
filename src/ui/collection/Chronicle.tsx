@@ -50,13 +50,15 @@ export function GamesFact({ n }: { n: number }) {
   return <span className="ps-year__k"><b className="num">{formatNumber(n)}</b> {plural(n, ['игра', 'игры', 'игр'])}</span>;
 }
 
-export function MonthHeader({ m }: { m: Pick<ChronicleMonth, 'month' | 'completed' | 'dropped'> }) {
+/** Заголовок месяца; `games` = «N игр» после счётчиков (Статистика, «Игры месяца»). */
+export function MonthHeader({ m, games, id }: { m: Pick<ChronicleMonth, 'month' | 'completed' | 'dropped'>; games?: number; id?: string }) {
   return (
-    <h3 className="ps-month">
+    <h3 className="ps-month" id={id}>
       {monthName(m.month)}
       <small className="num">
         {m.completed > 0 && <span title={`пройдено ${m.completed}`}><StatusGlyph status="completed" size={12} />{m.completed}</span>}
         {m.dropped > 0 && <span title={`брошено ${m.dropped}`}><StatusGlyph status="dropped" size={12} />{m.dropped}</span>}
+        {games !== undefined && <span>{formatNumber(games)} {plural(games, ['игра', 'игры', 'игр'])}</span>}
       </small>
     </h3>
   );

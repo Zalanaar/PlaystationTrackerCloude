@@ -35,6 +35,11 @@ a.ps-btn { text-decoration: none; }
 .ps-btn--ghost { background: transparent; }
 .ps-btn--outline { background: transparent; border-color: var(--accent); color: var(--accent); }
 .ps-btn--off { opacity: .6; }
+/* Опасные действия (скрыть, сбросить всё): второстепенная кнопка с текстом --danger, не первичная */
+.ps-btn--danger { color: var(--danger); }
+.ps-btn--danger:hover:not(:disabled) { border-color: var(--danger); }
+.ps-btn--icon { width: var(--control-h); padding: 0; flex: none; }
+.ps-menu-item--danger { color: var(--danger); }
 .ps-iconbtn {
   display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-sm);
   background: transparent; border: 0; color: var(--text-2); cursor: pointer;
@@ -105,6 +110,8 @@ a.ps-btn { text-decoration: none; }
 .ps-toasts { position: fixed; z-index: var(--z-toast); left: 50%; bottom: var(--sp-6); transform: translateX(-50%); display: flex; flex-direction: column; gap: var(--sp-2); width: min(360px, calc(100vw - 2 * var(--gutter))); }
 .ps-toast { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--surface-3); color: var(--text); border-radius: var(--r-md); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
 .ps-toast[data-kind="error"] { border-left: 4px solid var(--danger); }
+/* Тост с «Отменить»/«Вернуть» после действия в открытом окне игры должен быть доступен: над модалкой, а не под затемнением */
+:root:has(.ps-sheet-wrap) .ps-toasts { z-index: calc(var(--z-modal) + 1); }
 .ps-toast__action { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: var(--sp-1); }
 
 /* ---------- Баннеры ---------- */
@@ -325,6 +332,19 @@ a.ps-btn { text-decoration: none; }
 .ps-detail__meta > div { display: flex; flex-direction: column; gap: 2px; }
 .ps-detail__meta dt { font-size: var(--fs-small); color: var(--text-2); }
 .ps-detail__meta dd { margin: 0; }
+.ps-detail__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); }
+.ps-detail__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding-top: var(--sp-3); border-top: var(--border-w) solid var(--border); }
+.ps-detail__hint { flex-basis: 100%; margin: 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-card__restore { width: 100%; }
+.ps-card__restore span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ps-block__note { margin: calc(-1 * var(--sp-2)) 0 var(--sp-4); color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-filters__coll { border-top: var(--border-w) solid var(--border); padding-top: var(--sp-2); }
+.ps-reset__text p { margin: 0 0 var(--sp-2); color: var(--text-2); }
+.ps-reset__text b { color: var(--text); }
+.ps-reset__field { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-reset__field label { color: var(--text-2); }
+.ps-reset__field b { color: var(--text); letter-spacing: .04em; }
+.ps-reset__btns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); }
 .ps-inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 
 /* ---------- Пустые состояния ---------- */
@@ -475,7 +495,11 @@ a.ps-btn { text-decoration: none; }
 .ps-st-line__pts { position: absolute; inset: 0 0 auto 0; height: 120px; pointer-events: none; }
 .ps-st-line__pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; background: var(--accent); border: 2px solid var(--surface); border-radius: 50%; box-sizing: content-box; pointer-events: auto; }
 .ps-st-line__lbls { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); margin-top: var(--sp-1); color: var(--text-3); font-size: 11px; line-height: 16px; text-align: center; }
-.ps-st-finished { min-width: 0; }
+/* «Игры месяца»: плотная сетка, но под обложкой видна строка часов за месяц (название в оверлее и title) */
+.ps-st-played { min-width: 0; }
+.ps-st-played [data-density="dense"] .ps-card__body { display: block; }
+.ps-st-played [data-density="dense"] .ps-card__title { display: none; }
+.ps-st-played .ps-card__meta { margin-top: var(--sp-1); }
 @media (max-width: 767px) {
   .ps-st-panel--hours, .ps-st-panel--genres { grid-column: span 12; }
   .ps-st-panel { padding: var(--sp-4); }
@@ -523,6 +547,9 @@ a.ps-btn { text-decoration: none; }
   .ps-banner { flex-wrap: wrap; }
   .ps-detail { flex-direction: column; }
   .ps-detail__cover { width: 112px; }
+  .ps-detail__actions .ps-btn { flex: 1 1 auto; height: var(--tap-min); }
+  .ps-reset__btns .ps-btn { flex: 1 1 0; height: var(--tap-min); }
+  .ps-btn--icon { width: var(--tap-min); height: var(--tap-min); }
   .ps-card__plat { width: var(--glyph-badge); height: var(--glyph-badge); top: 6px; left: 6px; }
   .ps-card .ps-card__status { top: 6px; right: 6px; }
   .ps-card__date { left: 6px; bottom: 6px; max-width: calc(100% - 12px); height: 20px; padding: 0 6px; line-height: 20px; }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  barsHaveEstimate, estimateNote, formatHours, formatIsoDay, genreBars, highlightedMonth, hoursBars, linePath, linePoints, parseSelection,
+  barsHaveEstimate, estimateNote, monthHoursText, playedGamesCount, formatHours, formatIsoDay, genreBars, highlightedMonth, hoursBars, linePath, linePoints, parseSelection,
   periodLabel, selectionToParams, setPeriodType, shiftSelection, todayMsk,
 } from './model';
 
@@ -120,5 +120,24 @@ describe('графики', () => {
     expect(pts[0].y).toBe(90);
     expect(linePoints([0, 0], 100, 50, 5).every((p) => p.y === 45)).toBe(true);
     expect(linePath(pts)).toBe('M50.0 90.0 L150.0 50.0 L250.0 10.0 L350.0 90.0');
+  });
+});
+
+describe('«Игры месяца»', () => {
+  it('часы за месяц: формат, оценка, ноль', () => {
+    expect(monthHoursText(12.5, false)).toEqual({ text: '12 ч 30 м', label: '12 ч 30 м за месяц' });
+    expect(monthHoursText(3, true)).toEqual({ text: '≈ 3 ч', label: 'примерно 3 ч за месяц' });
+    expect(monthHoursText(0.5, false)?.text).toBe('30 м');
+    expect(monthHoursText(0, false)).toBeNull();
+    expect(monthHoursText(Number.NaN, true)).toBeNull();
+  });
+  it('игра в двух месяцах считается один раз', () => {
+    const item = (id: number) => ({ game: { id } }) as never;
+    const groups = [
+      { month: '2026-03', year: 2026, monthNumber: 3, completed: 0, dropped: 0, items: [item(1), item(2)] },
+      { month: '2026-02', year: 2026, monthNumber: 2, completed: 0, dropped: 0, items: [item(1)] },
+    ];
+    expect(playedGamesCount(groups)).toBe(2);
+    expect(playedGamesCount([])).toBe(0);
   });
 });

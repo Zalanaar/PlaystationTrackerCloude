@@ -45,6 +45,18 @@ function respond(u: URL, o: Opts = {}) {
     finished: has
       ? { groups: [{ month: `${year}-03`, year, monthNumber: 3, items: [{ kind: 'completed', at: '2026-03-10T10:00:00.000Z', game: game(1, 'Игра Один', 'completed') }, { kind: 'dropped', at: '2026-03-12T10:00:00.000Z', game: game(2, 'Игра Два', 'dropped') }] }] }
       : { groups: [] },
+    // «Игры месяца» (Фаза 8): мартовские завершения + «Игра Один» ещё и в феврале (играли, но не завершили)
+    played: has
+      ? { groups: [
+        { month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 1, items: [
+          { game: game(2, 'Игра Два', 'dropped'), hours: 2, estimated: false, finished: 'dropped', finishedAt: '2026-03-12T10:00:00.000Z' },
+          { game: game(1, 'Игра Один', 'completed'), hours: 12.5, estimated: false, finished: 'completed', finishedAt: '2026-03-10T10:00:00.000Z' },
+        ] },
+        { month: `${year}-02`, year, monthNumber: 2, completed: 0, dropped: 0, items: [
+          { game: game(1, 'Игра Один', 'completed'), hours: 7.5, estimated: true, finished: null, finishedAt: null },
+        ] },
+      ] }
+      : { groups: [] },
   };
 }
 
@@ -84,7 +96,7 @@ test.describe('/stats', () => {
     await expect(page.locator('.ps-st-bar__est')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Жанры' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Трофеи' })).toBeVisible();
-    await expect(page.locator('.ps-card__title', { hasText: 'Игра Один' })).toHaveCount(1);
+    await expect(page.locator('.ps-card__title', { hasText: 'Игра Один' })).toHaveCount(2); // март и февраль («Игры месяца»)
     await expect(page.locator('.ps-card__title', { hasText: 'Игра Два' })).toHaveCount(1);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
   });
@@ -246,7 +258,7 @@ test.describe('/stats', () => {
     await open(page, context, baseURL!, '/blank-never');
     await page.route(/\/api\/stats\?/, (r) => {
       const d = respond(new URL(r.request().url()));
-      const e = { ...d, header: { completed: 0, dropped: 0, hours: 0, platinum: 0 }, genres: { hasData: false, items: [] }, trophies: { counts: z, byMonth: d.trophies.byMonth.map((m) => ({ ...m, ...z })) }, finished: { groups: [] } };
+      const e = { ...d, header: { completed: 0, dropped: 0, hours: 0, platinum: 0 }, genres: { hasData: false, items: [] }, trophies: { counts: z, byMonth: d.trophies.byMonth.map((m) => ({ ...m, ...z })) }, finished: { groups: [] }, played: { groups: [] } };
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: e }) });
     });
     await page.goto(`/stats?period=month&year=${TODAY.year}&month=${TODAY.month}`);
