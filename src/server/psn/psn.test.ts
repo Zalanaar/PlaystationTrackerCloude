@@ -4,7 +4,7 @@ import trophyTitles from './__fixtures__/trophy-titles.json';
 import trophyData from './__fixtures__/trophies.json';
 import { decryptToken, encryptToken } from './crypto';
 import { PsnError, classifyPsnError, safeErr } from './errors';
-import { mapEarnedTrophy, mapPlayedTitle, mapPlayedTitles, mapTrophyDef, mapTrophyTitle, parseIsoDuration } from './mapping';
+import { mapEarnedTrophy, mapPlayedTitle, mapPlayedTitles, mapProfile, mapTrophyDef, pickBanner, mapTrophyTitle, parseIsoDuration } from './mapping';
 import { connectPsn } from './client';
 import { fakeApi, freshState } from '@/server/sync/test-helpers';
 
@@ -269,5 +269,74 @@ describe('connectPsn (клиент на фейковом psn-api)', () => {
     expect(e).toHaveLength(4);
     expect(d).toHaveLength(4);
     expect(state.calls.earned).toBe(2);
+  });
+});
+
+describe('pickBanner (правило выбора баннера)', () => {
+  const img = (type: string, url = `https://img.example/${type}.jpg`, extra: object = {}) => ({ url, format: 'UNKNOWN', type, ...extra });
+  it('приоритет типов: 16:9 > hub > 4:3 > фон > скриншот', () => {
+    const all = [img('SCREENSHOT'), img('BACKGROUND'), img('FOUR_BY_THREE_BANNER'), img('GAMEHUB_COVER_ART'), img('SIXTEEN_BY_NINE_BANNER')];
+    expect(pickBanner(all)).toContain('SIXTEEN_BY_NINE_BANNER');
+    expect(pickBanner(all.slice(0, 4))).toContain('GAMEHUB_COVER_ART');
+    expect(pickBanner(all.slice(0, 3))).toContain('FOUR_BY_THREE_BANNER');
+    expect(pickBanner(all.slice(0, 2))).toContain('BACKGROUND');
+  });
+  it('квадратные, логотипы и портреты не берутся', () => {
+    expect(pickBanner([img('MASTER'), img('LOGO'), img('PORTRAIT_BANNER'), img('STORE_ICON')])).toBeNull();
+  });
+  it('без типа из списка: любое с width > height', () => {
+    expect(pickBanner([img('MASTER', 'https://a/sq.jpg', { width: 100, height: 100 }), img('OTHER', 'https://a/wide.jpg', { width: 1920, height: 1080 })])).toBe('https://a/wide.jpg');
+  });
+  it('мусор и пустые url', () => {
+    expect(pickBanner(undefined)).toBeNull();
+    expect(pickBanner([null, 5, { type: 'FOUR_BY_THREE_BANNER', url: '' }, { type: 'FOUR_BY_THREE_BANNER' }])).toBeNull();
+  });
+  it('только https: http, чужие схемы и мусор отбрасываются (BUG-P9-2)', () => {
+    expect(pickBanner([img('FOUR_BY_THREE_BANNER', 'http://a/x.jpg')])).toBeNull();
+    expect(pickBanner([img('SIXTEEN_BY_NINE_BANNER', 'javascript:alert(1)'), img('BACKGROUND', 'https://a/bg.jpg')])).toBe('https://a/bg.jpg');
+    const p = mapProfile({ profile: { onlineId: 'X', avatarUrls: [{ size: 'xl', avatarUrl: 'http://a/xl.png' }, { size: 'm', avatarUrl: 'https://a/m.png' }] } });
+    expect(p?.avatarUrl).toBe('https://a/m.png');
+  });
+  it('фикстура: Epsilon берёт FOUR_BY_THREE_BANNER, у остальных null', () => {
+    expect(mapPlayedTitle(played.titles[5])?.bannerUrl).toBe('https://img.example/eps-concept.jpg');
+    expect(mapPlayedTitle(played.titles[0])?.bannerUrl).toBeNull();
+  });
+});
+
+describe('mapProfile', () => {
+  const raw = {
+    profile: {
+      onlineId: 'Artem_PS',
+      avatarUrls: [
+        { size: 'm', avatarUrl: 'https://a/m.png' },
+        { size: 'xl', avatarUrl: 'https://a/xl.png' },
+        { size: 's', avatarUrl: 'https://a/s.png' },
+      ],
+      trophySummary: { level: 312, progress: 47, tier: 7, earnedTrophies: { bronze: 2800, silver: 1100, gold: 410, platinum: 38 } },
+    },
+  };
+  it('берёт самый крупный аватар и сводку трофеев', () => {
+    expect(mapProfile(raw)).toEqual({
+      onlineId: 'Artem_PS',
+      avatarUrl: 'https://a/xl.png',
+      trophyLevel: 312,
+      trophyProgress: 47,
+      trophyTier: 7,
+      earned: { platinum: 38, gold: 410, silver: 1100, bronze: 2800 },
+    });
+  });
+  it('нет trophySummary и avatarUrls: поля null, профиль есть', () => {
+    expect(mapProfile({ profile: { onlineId: 'X' } })).toEqual({
+      onlineId: 'X', avatarUrl: null, trophyLevel: null, trophyProgress: null, trophyTier: null, earned: null,
+    });
+  });
+  it('мусор: отрицательные и нечисловые значения = null, progress режется до 100, неполные счётчики = null', () => {
+    const p = mapProfile({ profile: { onlineId: 'X', avatarUrls: 'x', trophySummary: { level: -1, progress: 500, tier: 'a', earnedTrophies: { platinum: 1 } } } });
+    expect(p).toMatchObject({ avatarUrl: null, trophyLevel: null, trophyProgress: 100, trophyTier: null, earned: null });
+  });
+  it('нет onlineId или не объект = null', () => {
+    expect(mapProfile(null)).toBeNull();
+    expect(mapProfile({ profile: {} })).toBeNull();
+    expect(mapProfile({})).toBeNull();
   });
 });

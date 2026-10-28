@@ -289,7 +289,7 @@ describe('жанры 1/N', () => {
 
 const game = (id: number, title: string): GameItem => ({
   id, title, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: null,
-  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [],
+  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null,
 });
 
 describe('пройдено/брошено: группы по месяцам', () => {
@@ -313,14 +313,15 @@ describe('пройдено/брошено: группы по месяцам', ()
 
 describe('composeStats', () => {
   const base = {
-    today: '2026-10-27', years: [2026], snapshots: [], estimates: [], firstSnapshotDate: null, trophies: [], finishedEvents: [],
+    today: '2026-10-27', years: [2026], snapshots: [], estimates: [], firstSnapshotDate: null, trophies: [], finishedEvents: [], trophiesByGame: [],
     gameById: new Map<number, GameItem>(), genreGames: new Map(),
   };
   it('год без данных: 200-форма с пустыми блоками', () => {
     const r = composeStats({ ...base, period: resolvePeriod('year', 2020, null) });
     expect(r.header).toEqual({ completed: 0, dropped: 0, hours: null, platinum: 0 });
     expect(r.hours).toEqual({ byMonth: Array(12).fill(null), estimatedByMonth: Array(12).fill(0), estimatedHours: 0, hasEstimate: false, firstSnapshotDate: null, periodPartial: true });
-    expect(r.genres).toEqual({ hasData: false, items: [] });
+    expect(r.genres).toEqual({ hasData: false, items: [], games: {} });
+    expect(r.top).toEqual({ byHours: [], byTrophies: [] });
     expect(r.trophies.counts.total).toBe(0);
     expect(r.trophies.byMonth).toHaveLength(12);
     expect(r.finished.groups).toEqual([]);
@@ -341,9 +342,9 @@ describe('composeStats', () => {
       finishedEvents: [{ gameId: 3, kind: 'completed', at: new Date('2026-10-12T10:00:00Z') }],
       gameById: new Map([[3, game(3, 'Z')]]),
       genreGames: new Map([
-        [1, { psnGenres: ['ACTION'], genresOverride: null }],
-        [2, { psnGenres: ['PUZZLE'], genresOverride: null }],
-        [3, { psnGenres: ['ACTION', 'ADVENTURE'], genresOverride: null }],
+        [1, { psnGenres: ['ACTION'], genresOverride: null, title: 'A', coverUrl: null }],
+        [2, { psnGenres: ['PUZZLE'], genresOverride: null, title: 'P', coverUrl: null }],
+        [3, { psnGenres: ['ACTION', 'ADVENTURE'], genresOverride: null, title: 'Z', coverUrl: 'https://c/3' }],
       ]),
     });
     expect(r.header).toEqual({ completed: 1, dropped: 0, hours: 4, platinum: 1 });

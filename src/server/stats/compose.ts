@@ -1,10 +1,11 @@
 // Сборка ответа /api/stats из сырых данных. Без БД и без текущего времени (today передаётся).
 import type { GameItem } from '@/server/collection/types';
-import { aggregateGenres, type GenreGame } from './genre-stats';
+import { aggregateGenresWithGames, type GenreGame, type GenreGameInfo } from './genre-stats';
 import { groupFinished, type FinishedEvent } from './finished';
-import { calcHours, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
+import { calcHours, groupSnapshots, type EstimateInput, type HoursCalc, type Snapshot } from './hours';
 import { groupPlayed } from './played';
-import type { StatsPeriod, StatsResponse } from './types';
+import type { StatsPeriod, StatsResponse, StatsTop } from './types';
+import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import { aggregateTrophies, type EarnedTrophy } from './trophies';
 
 export type StatsInput = {
@@ -24,13 +25,18 @@ export type StatsInput = {
   finishedEvents: FinishedEvent[];
   /** Карточки игр: завершённые и сыгранные в периоде (played). */
   gameById: ReadonlyMap<number, GameItem>;
-  genreGames: ReadonlyMap<number, GenreGame>;
+  /** Все видимые игры с жанрами и данными карточки жанра (название, обложка). */
+  genreGames: ReadonlyMap<number, GenreGame & { title: string; coverUrl: string | null }>;
+  /** Трофеи, полученные в периоде, по (игра, тип): игра сета = минимальный id видимой игры; сироты не входят (13.2). */
+  trophiesByGame: readonly GameTrophyCount[];
+  /** Уже посчитанные часы (query.ts считает их раньше, чтобы собрать id карточек); иначе считаются здесь. */
+  hours?: HoursCalc;
 };
 
 export function composeStats(i: StatsInput): StatsResponse {
   const { period } = i;
   const by = groupSnapshots(i.snapshots);
-  const h = calcHours({ by, estimates: i.estimates, period, year: period.year, firstSnapshotDate: i.firstSnapshotDate, today: i.today });
+  const h = i.hours ?? calcHours({ by, estimates: i.estimates, period, year: period.year, firstSnapshotDate: i.firstSnapshotDate, today: i.today });
 
   const { counts, byMonth } = aggregateTrophies(i.trophies, new Date(period.fromUtc), new Date(period.toUtc), period.year);
 
@@ -39,11 +45,24 @@ export function composeStats(i: StatsInput): StatsResponse {
 
   const genreIds = new Set<number>(h.seconds.keys());
   for (const e of i.finishedEvents) genreIds.add(e.gameId);
-  const genreList: GenreGame[] = [];
+  const genreList: GenreGameInfo[] = [];
   for (const id of genreIds) {
     const g = i.genreGames.get(id);
-    if (g) genreList.push(g);
+    if (g) genreList.push({ ...g, id, seconds: h.seconds.get(id) ?? 0 });
   }
+
+  const titles = new Map<number, string>();
+  for (const [id, g] of i.genreGames) titles.set(id, g.title);
+  const top: StatsTop = {
+    byHours: rankByHours(h.seconds, h.estimatedSeconds, titles).flatMap((r) => {
+      const game = i.gameById.get(r.gameId);
+      return game ? [{ game, hours: r.hours, estimated: r.estimated }] : [];
+    }),
+    byTrophies: rankByTrophies(i.trophiesByGame, titles).flatMap((r) => {
+      const game = i.gameById.get(r.gameId);
+      return game ? [{ game, points: r.points, counts: r.counts }] : [];
+    }),
+  };
 
   return {
     period,
@@ -62,7 +81,8 @@ export function composeStats(i: StatsInput): StatsResponse {
       firstSnapshotDate: i.firstSnapshotDate,
       periodPartial: i.firstSnapshotDate === null || period.from < i.firstSnapshotDate,
     },
-    genres: aggregateGenres(genreList),
+    genres: aggregateGenresWithGames(genreList),
+    top,
     trophies: { counts, byMonth },
     finished: { groups },
     played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById }) },

@@ -94,7 +94,7 @@ function statsPayload() {
     years: [2026, 2025],
     header: { completed: 0, dropped: 0, hours: 1933.8, platinum: 0 },
     hours: { byMonth, estimatedByMonth: est, estimatedHours: 908.7, hasEstimate: true, firstSnapshotDate: '2026-03-04', periodPartial: true },
-    genres: { hasData: false, items: [] },
+    genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] },
     trophies: { counts: z, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
     played: { groups: [] },

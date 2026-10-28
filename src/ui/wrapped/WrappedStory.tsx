@@ -7,9 +7,10 @@ import type { WrappedResponse, WrappedSlideId } from '@/server/wrapped/types';
 import { Cover } from '../collection/Cover';
 import { cssUrl, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
+import { Avatar } from '../primitives/Avatar';
 import { useMediaQuery } from '../primitives/hooks';
 import {
-  estimateBadge, approxHours, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, initialOf, inMonth, isAutoAdvance,
+  estimateBadge, approxHours, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
   keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, slideCover, stepIndex,
   syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type TimerState,
 } from './model';
@@ -209,10 +210,12 @@ function SlideView({
     case 'start':
       return (
         <div className="ps-story__center">
-          <Rise n={0} rm={rm}><div className="ps-story__avatar" aria-hidden="true">{initialOf(data.profile.onlineId)}</div></Rise>
+          {(data.profile.onlineId || data.profile.avatarUrl) && (
+            <Rise n={0} rm={rm}><Avatar url={data.profile.avatarUrl} name={data.profile.onlineId} size={96} className="ps-story__avatar" /></Rise>
+          )}
           <Rise n={1} rm={rm}><p className="ps-story__label">Итоги года</p></Rise>
           <Rise n={2} rm={rm}><h2 className="ps-story__title">Твой {year} в играх</h2></Rise>
-          {data.profile.onlineId && <Rise n={3} rm={rm}><p className="ps-story__label">{data.profile.onlineId}</p></Rise>}
+          {data.profile.onlineId && <Rise n={3} rm={rm}><p className="ps-story__nick">{data.profile.onlineId}</p></Rise>}
         </div>
       );
     case 'hours': {

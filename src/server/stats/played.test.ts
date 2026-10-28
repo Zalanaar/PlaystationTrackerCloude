@@ -9,7 +9,7 @@ import { groupPlayed, playedGameIds } from './played';
 const H = 3600;
 const game = (id: number, title: string): GameItem => ({
   id, title, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: null,
-  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null,
+  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], bannerUrl: null, hiddenAt: null,
 });
 const snap = (gameId: number, date: string, hours: number): Snapshot => ({ gameId, date, seconds: Math.round(hours * H) });
 const est = (gameId: number, o: Partial<EstimateInput>): EstimateInput => ({
@@ -110,7 +110,7 @@ describe('composeStats отдаёт played', () => {
   it('пустой год: played.groups = []', () => {
     const r = composeStats({
       period: resolvePeriod('year', 2025, null), today: '2026-10-27', years: [2026], snapshots: [], estimates: [],
-      firstSnapshotDate: null, trophies: [], finishedEvents: [], gameById: new Map(), genreGames: new Map(),
+      firstSnapshotDate: null, trophies: [], trophiesByGame: [], finishedEvents: [], gameById: new Map(), genreGames: new Map(),
     });
     expect(r.played).toEqual({ groups: [] });
   });

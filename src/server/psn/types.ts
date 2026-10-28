@@ -12,6 +12,8 @@ export type PsnGame = {
   name: string;
   category: GameCategory;
   imageUrl: string | null;
+  /** горизонтальный арт из concept.media.images (правило: mapping.ts pickBanner) */
+  bannerUrl: string | null;
   genres: string[];
   playDurationSeconds: number;
   playCount: number;
@@ -52,6 +54,18 @@ export type PsnTrophyDef = {
   iconUrl: string | null;
 };
 
+/** Профиль аккаунта (контракт 12.1). Любое поле, которого PSN не дал, null. */
+export type PsnProfile = {
+  onlineId: string;
+  /** самый крупный из avatarUrls */
+  avatarUrl: string | null;
+  trophyLevel: number | null;
+  /** 0..100 до следующего уровня */
+  trophyProgress: number | null;
+  trophyTier: number | null;
+  earned: { platinum: number; gold: number; silver: number; bronze: number } | null;
+};
+
 export type PlayedGamesResult = {
   games: PsnGame[];
   /** сколько тайтлов отброшено фильтром category (не игры) */
@@ -60,6 +74,8 @@ export type PlayedGamesResult = {
 
 /** Единственный интерфейс PSN для синка. Реализация: client.ts; в тестах подменяется. */
 export interface PsnClient {
+  /** Профиль, полученный при подключении (getProfileFromUserName). null, если разобрать не удалось. */
+  readonly profile: PsnProfile | null;
   getPlayedGames(): Promise<PlayedGamesResult>;
   getTrophySets(): Promise<PsnTrophySet[]>;
   /** Трофейные сеты по titleId (до 5 за вызов). Ключ карты = titleId; нет ключа или пусто = сета нет. */

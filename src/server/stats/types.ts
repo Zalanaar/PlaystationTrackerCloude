@@ -44,6 +44,16 @@ export type PlayedGroup = {
 
 export type StatsGenreItem = { key: string; label: string; value: number };
 
+/** Игра в словаре `genres.games` (13.1). */
+export type StatsGenreGame = { id: number; title: string; coverUrl: string | null };
+/** Жанр в ответе /api/stats (13.1): вес + игры, давшие вес. */
+export type StatsGenreEntry = StatsGenreItem & { gameIds: number[] };
+
+/** Топ игр периода (13.2). */
+export type TopHoursItem = { game: GameItem; hours: number; /** Есть оценочная доля (1.6). */ estimated: boolean };
+export type TopTrophyItem = { game: GameItem; /** Очки: bronze 15, silver 30, gold 90, platinum 300. */ points: number; counts: TrophyCountsByType };
+export type StatsTop = { byHours: TopHoursItem[]; byTrophies: TopTrophyItem[] };
+
 export type StatsResponse = {
   period: StatsPeriod;
   years: number[];
@@ -59,7 +69,13 @@ export type StatsResponse = {
     firstSnapshotDate: string | null;
     periodPartial: boolean;
   };
-  genres: { hasData: boolean; items: StatsGenreItem[] };
+  genres: {
+    hasData: boolean;
+    items: StatsGenreEntry[];
+    /** Все игры из `items[].gameIds`, ключ = строка id (13.1). */
+    games: Record<string, StatsGenreGame>;
+  };
+  top: StatsTop;
   trophies: { counts: TrophyCountsByType; byMonth: (TrophyCountsByType & { month: number })[] };
   /** Устарело для экрана Статистики с Фазы 8 (используйте played); сохраняется для совместимости. */
   finished: { groups: FinishedGroup[] };

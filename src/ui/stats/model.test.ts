@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   barsHaveEstimate, estimateNote, monthHoursText, playedGamesCount, formatHours, formatIsoDay, genreBars, highlightedMonth, hoursBars, linePath, linePoints, parseSelection,
   periodLabel, selectionToParams, setPeriodType, shiftSelection, todayMsk,
+  genreGames, genreSubtitle, pointsLabel, pointsText, topHoursRows, topTrophyRows, TOP_SUBTITLE,
 } from './model';
+import type { GameItem } from '@/server/collection/types';
+import type { TopHoursItem, TopTrophyItem } from '@/server/stats/types';
 
 const today = { year: 2026, month: 10 };
 const sp = (q: string) => new URLSearchParams(q);
@@ -139,5 +142,66 @@ describe('«Игры месяца»', () => {
     ];
     expect(playedGamesCount(groups)).toBe(2);
     expect(playedGamesCount([])).toBe(0);
+  });
+});
+
+const topGame = (id: number): GameItem => ({
+  id, title: `G${id}`, coverUrl: null, bannerUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: null, status: null,
+  completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null,
+});
+
+describe('жанры: поповер', () => {
+  it('genreBars несёт gameIds и значение', () => {
+    const g = genreBars([{ key: 'A', label: 'Экшен', value: 14.5, gameIds: [3, 1] }, { key: 'B', label: 'Гонки', value: 2 }]);
+    expect(g[0]).toMatchObject({ gameIds: [3, 1], value: 14.5 });
+    expect(g[1].gameIds).toEqual([]);
+  });
+  it('миниатюры: порядок gameIds, лимит, остаток «+N», id без записи пропускаются', () => {
+    const games = Object.fromEntries([1, 2, 3, 4, 5].map((id) => [String(id), { id, title: `G${id}`, coverUrl: null }]));
+    const r = genreGames([5, 4, 99, 3, 2, 1], games, 3);
+    expect(r.shown.map((g) => g.id)).toEqual([5, 4, 3]);
+    expect(r).toMatchObject({ rest: 2, total: 5 });
+    expect(genreGames([1], games, 12)).toMatchObject({ rest: 0, total: 1 });
+    expect(genreGames([], games, 12)).toEqual({ shown: [], rest: 0, total: 0 });
+  });
+  it('подзаголовок: часы и игры, без часов только игры', () => {
+    expect(genreSubtitle(12.4, 8)).toBe('12,4 ч · 8 игр');
+    expect(genreSubtitle(3, 1)).toBe('3 ч · 1 игра');
+    expect(genreSubtitle(0, 2)).toBe('2 игры');
+  });
+});
+
+describe('топ игр', () => {
+  const hours: TopHoursItem[] = [{ game: topGame(1), hours: 85.4, estimated: false }, { game: topGame(2), hours: 42.7, estimated: true }];
+  it('часы: ранги, бар от лидера, оценка с «≈»', () => {
+    const r = topHoursRows(hours);
+    expect(r.map((x) => x.rank)).toEqual([1, 2]);
+    expect(r[0]).toMatchObject({ widthPct: 100, valueText: '85 ч 24 м', approx: false, valueLabel: '85 ч 24 м' });
+    expect(r[1].widthPct).toBeCloseTo(50);
+    expect(r[1]).toMatchObject({ approx: true, valueLabel: 'Примерно 42 ч 42 м. Часть часов оценена' });
+    expect(topHoursRows([])).toEqual([]);
+  });
+  it('часы: крошечное значение не даёт нулевой бар', () => {
+    const r = topHoursRows([{ game: topGame(1), hours: 100, estimated: false }, { game: topGame(2), hours: 0.01, estimated: false }]);
+    expect(r[1].widthPct).toBe(2);
+    expect(r[1].valueText).toBe('меньше минуты');
+  });
+  const tr: TopTrophyItem[] = [
+    { game: topGame(1), points: 840, counts: { platinum: 1, gold: 5, silver: 12, bronze: 20, total: 38 } },
+    { game: topGame(2), points: 15, counts: { platinum: 0, gold: 0, silver: 0, bronze: 1, total: 1 } },
+  ];
+  it('трофеи: очки, подсказка, нулевые типы не выводятся', () => {
+    const r = topTrophyRows(tr);
+    expect(r[0].valueText).toBe('840 очк.');
+    expect(r[0].valueLabel).toBe('840 очков: платина 1, золото 5, серебро 12, бронза 20');
+    expect(r[0].counts.map((c) => c.kind)).toEqual(['platinum', 'gold', 'silver', 'bronze']);
+    expect(r[1].counts).toEqual([{ kind: 'bronze', count: 1 }]);
+    expect(r[1].valueLabel).toBe('15 очков: бронза 1');
+  });
+  it('склонение очков и подпись режима', () => {
+    expect(pointsText(1)).toBe('1 очко');
+    expect(pointsText(30)).toBe('30 очков');
+    expect(pointsLabel(0, { platinum: 0, gold: 0, silver: 0, bronze: 0, total: 0 })).toBe('0 очков');
+    expect(TOP_SUBTITLE.trophies).toBe('Очки за трофеи периода: платина 300, золото 90, серебро 30, бронза 15');
   });
 });

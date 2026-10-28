@@ -15,11 +15,13 @@ export type Filters = {
   view: ViewMode | null;
   /** Раздел «Скрытые» (9.2 `hidden=only`): только убранные из коллекции игры */
   hidden: boolean;
+  /** Чип «Платина»: только игры с полученной платиной, считается на клиенте (12.6), в URL `?platinum=1` */
+  platinum: boolean;
 };
 
 /** Сортировка по умолчанию = дата завершения: включает хронику (design-system §4.3). */
 export const DEFAULT_SORT: GameSort = 'completed_at';
-export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null, hidden: false };
+export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null, hidden: false, platinum: false };
 
 export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -69,6 +71,7 @@ export function parseFilters(params: ParamsLike): Filters {
     q: (params.get('q') ?? '').slice(0, MAX_QUERY_LENGTH),
     view: isViewMode(viewRaw) ? viewRaw : null,
     hidden: params.get('hidden') === '1',
+    platinum: params.get('platinum') === '1',
   };
 }
 
@@ -86,6 +89,7 @@ export function filtersToUrl(f: Filters): URLSearchParams {
   if (f.q.trim()) p.set('q', f.q);
   if (f.view) p.set('view', f.view);
   if (f.hidden) p.set('hidden', '1');
+  if (f.platinum) p.set('platinum', '1');
   return p;
 }
 
@@ -127,12 +131,22 @@ export function matchesStatusTab(g: Pick<GameItem, 'status'>, tab: StatusTab): b
 
 /** Фильтры, которые сбрасывает «Сбросить» (сортировка, вид и раздел «Скрытые» не считаются). */
 export function hasActiveFilters(f: Filters): boolean {
-  return f.status !== 'all' || f.q.trim() !== '';
+  return f.status !== 'all' || f.q.trim() !== '' || f.platinum;
 }
 
-/** Сброс статуса и поиска; раздел («Скрытые» или вся коллекция) остаётся. */
+/** Сброс статуса, поиска и чипа «Платина»; раздел («Скрытые» или вся коллекция) остаётся. */
 export function resetFilters(f: Filters): Filters {
-  return { ...f, status: 'all', q: '' };
+  return { ...f, status: 'all', q: '', platinum: false };
+}
+
+/** Платина получена (12.6): единственный признак для чипа «Платина». */
+export function hasPlatinum(g: Pick<GameItem, 'trophies'>): boolean {
+  return g.trophies?.platinumEarned === true;
+}
+
+/** Применить чип «Платина» к списку (без него список возвращается как есть). */
+export function applyPlatinum<T extends Pick<GameItem, 'trophies'>>(list: readonly T[], on: boolean): T[] {
+  return on ? list.filter(hasPlatinum) : [...list];
 }
 
 /** Дата завершения для карточки/строки: у пройденной completedAt, у брошенной droppedAt. */

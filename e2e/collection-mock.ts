@@ -9,7 +9,36 @@ export type G = {
   platform?: 'PS4' | 'PS5'; coverUrl?: string | null; trophies?: { earned: number; defined: number; plat?: boolean } | null;
   /** Фаза 8 (9.7): скрыта из коллекции */
   hiddenAt?: string | null;
+  /** Фаза 9 (12.2): горизонтальный арт */
+  bannerUrl?: string | null;
 };
+
+/** Трофей в ответе GET /api/games/{id} (12.5) */
+export type MockTrophy = {
+  setId: number; trophyId: number; type: 'platinum' | 'gold' | 'silver' | 'bronze'; name: string | null; detail: string | null; iconUrl: string | null;
+  hidden: boolean; earned: boolean; earnedAt: string | null; rarity: number | null; earnedRate: number | null;
+};
+/** PsnProfile (12.3) */
+export type MockProfile = {
+  onlineId: string; avatarUrl: string | null; level: number | null; levelProgress: number | null; tier: number | null;
+  trophies: { platinum: number; gold: number; silver: number; bronze: number; total: number } | null;
+};
+
+/** Типовой набор трофеев: платина получена, редкие, скрытый не полученный, скрытый полученный, без редкости. */
+export function trophyList(): MockTrophy[] {
+  const t = (trophyId: number, o: Partial<MockTrophy> = {}): MockTrophy => ({
+    setId: 1, trophyId, type: 'bronze', name: `Трофей ${trophyId}`, detail: `Описание ${trophyId}`, iconUrl: null, hidden: false, earned: false, earnedAt: null,
+    rarity: 3, earnedRate: 50, ...o,
+  });
+  return [
+    t(0, { type: 'platinum', name: 'Легенда', detail: 'Получите все трофеи', earned: true, earnedAt: '2026-10-05T18:42:11.000Z', rarity: 0, earnedRate: 2.4 }),
+    t(1, { type: 'gold', earned: true, earnedAt: '2026-09-01T10:00:00.000Z', rarity: 2, earnedRate: 12.5 }),
+    t(2, { type: 'silver', earned: true, earnedAt: null, rarity: 1, earnedRate: 0.05 }),
+    t(3, { type: 'bronze', hidden: true, name: null, detail: null, rarity: 1, earnedRate: 4.1 }),
+    t(4, { type: 'bronze', hidden: true, earned: true, earnedAt: '2026-08-01T10:00:00.000Z', rarity: null, earnedRate: null }),
+    t(5, { type: 'bronze' }),
+  ];
+}
 
 const NOT_FOUND = Symbol('not_found');
 const ALL: Status[] = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'];
@@ -57,6 +86,7 @@ function item(g: G) {
       byType: { platinum: { earned: t.plat ? 1 : 0, defined: 1 }, gold: { earned: 2, defined: 4 }, silver: { earned: 5, defined: 9 }, bronze: { earned: t.earned - 8, defined: t.defined - 14 } },
     } : null,
     genres: [{ key: 'ACTION', label: 'Экшен' }],
+    bannerUrl: g.bannerUrl ?? null,
     hiddenAt: g.hiddenAt ?? null,
   };
 }
@@ -82,11 +112,22 @@ export type Mock = {
   syncStatus: Record<string, unknown>;
   /** status_backups (9.8, 9.9): снимки статусов видимых игр */
   backups: { id: number; rows: Pick<G, 'id' | 'status' | 'completedAt' | 'droppedAt'>[] }[];
+  /** `summary.profile` (12.3); null = профиля нет */
+  profile: MockProfile | null;
+  /** Трофеи GET /api/games/{id} по id игры; нет записи = trophyList() */
+  trophies: Record<number, MockTrophy[]>;
+  /** GET /api/games/{id} отвечает этим статусом, пока не сброшен в null */
+  failDetails: number | null;
+  /** задержка ответа деталей, мс */
+  detailsDelay: number;
+  /** id запросов деталей в порядке отправки */
+  detailCalls: number[];
 };
 
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
+    profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [],
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
@@ -100,11 +141,12 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const sec = games.reduce((s, g) => s + g.playSeconds, 0);
     const byRecent = (a: G, b: G) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? '');
     return json(r, {
-      totals: { games: games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: 1 },
+      totals: { games: games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: games.filter((g) => g.trophies?.plat).length },
       counts: counts(games),
       playing: games.filter((g) => g.status === 'playing').sort(byRecent).map(item),
       services: games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
       continue: games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
+      profile: m.profile,
     });
   });
 
@@ -134,6 +176,24 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, { items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years });
+  });
+
+  await page.route(/\/api\/games\/\d+(\?|$)/, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const id = Number(route.request().url().match(/games\/(\d+)/)?.[1]);
+    m.detailCalls.push(id);
+    if (m.detailsDelay) await new Promise((res) => setTimeout(res, m.detailsDelay));
+    if (m.failDetails) {
+      const st = m.failDetails;
+      return json(route, { code: st === 404 ? 'not_found' : 'db_unavailable', message: 'x' }, st);
+    }
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return json(route, { code: 'not_found', message: 'x' }, 404);
+    return json(route, {
+      game: item(g), firstPlayedAt: g.lastPlayedAt ? '2024-03-01T10:00:00.000Z' : null,
+      statusChangedAt: g.status ? '2026-10-06T08:00:00.000Z' : null,
+      trophyList: g.trophies ? (m.trophies[id] ?? trophyList()) : [],
+    });
   });
 
   const mutate = async (route: Route, apply: (body: Record<string, unknown>) => unknown) => {

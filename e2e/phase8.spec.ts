@@ -44,7 +44,7 @@ function statsPayload() {
     years: [2026],
     header: { completed: 1, dropped: 1, hours: 40, platinum: 0 },
     hours: { byMonth: [null, 10, 30, ...Array(9).fill(null)], estimatedByMonth: [0, 7.5, ...Array(10).fill(0)], estimatedHours: 7.5, hasEstimate: true, firstSnapshotDate: '2026-03-01', periodPartial: true },
-    genres: { hasData: false, items: [] },
+    genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] },
     trophies: { counts: z, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
     played: { groups: [

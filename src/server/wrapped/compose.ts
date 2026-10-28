@@ -15,6 +15,8 @@ export type WrappedInput = {
   today: string;
   years: { year: number; hasData: boolean }[];
   onlineId: string | null;
+  /** Аватар из psn_profile (12.4) или null. */
+  avatarUrl: string | null;
   snapshots: Snapshot[];
   estimates: EstimateInput[];
   firstSnapshotDate: string | null;
@@ -71,7 +73,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
     mode: empty ? 'empty' : 'story',
     period: { from: p.from, to: p.to, fromUtc: p.fromUtc, toUtc: p.toUtc },
     years: i.years,
-    profile: { onlineId: i.onlineId },
+    profile: { onlineId: i.onlineId, avatarUrl: i.avatarUrl },
     firstSnapshotDate: i.firstSnapshotDate,
     periodPartial: i.firstSnapshotDate === null || p.from < i.firstSnapshotDate,
     slides,

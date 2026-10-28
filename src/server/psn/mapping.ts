@@ -1,11 +1,21 @@
 // Маппинг сырых ответов PSN в доменные типы. Читает защитно: библиотека неофициальная, поля могут
 // отсутствовать или менять тип. Ничего не бросает на плохих полях, плохие записи отбрасываются.
 import { GAME_CATEGORIES } from './types';
-import type { GameCategory, PsnGame, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophyCounts, TrophyKind } from './types';
+import type { GameCategory, PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophyCounts, TrophyKind } from './types';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
+/** Только валидный https URL (иначе null): mixed content и чужие схемы в БД не пишем (BUG-P9-2). */
+export function httpsUrl(v: unknown): string | null {
+  const s = str(v);
+  if (!s) return null;
+  try {
+    return new URL(s.trim()).protocol === 'https:' ? s.trim() : null;
+  } catch {
+    return null;
+  }
+}
 const INT32_MAX = 2_147_483_647;
 
 /** ISO 8601 `PT228H56M33S` (допускает дни и дробные секунды) -> секунды. Мусор = 0. */
@@ -32,6 +42,68 @@ export function isGameCategory(v: unknown): v is GameCategory {
   return typeof v === 'string' && (GAME_CATEGORIES as readonly string[]).includes(v);
 }
 
+/**
+ * Приоритет типов изображений concept.media.images для баннера (api-notes.md, «Баннер игры»).
+ * Ширины/высоты PSN в этом ответе не отдаёт, поэтому выбор по `type`.
+ */
+export const BANNER_TYPE_PRIORITY = ['SIXTEEN_BY_NINE_BANNER', 'GAMEHUB_COVER_ART', 'FOUR_BY_THREE_BANNER', 'BACKGROUND', 'SCREENSHOT'] as const;
+
+/**
+ * Баннер: первое изображение по приоритету типов; иначе любое с числовыми width > height (если PSN их вдруг отдаст);
+ * иначе null (UI рисует размытую обложку). Квадратные/вертикальные и логотипы (MASTER, LOGO, PORTRAIT_BANNER, иконки) не берутся.
+ */
+export function pickBanner(images: unknown): string | null {
+  if (!Array.isArray(images)) return null;
+  const list = images.filter(isObj).filter((im) => httpsUrl(im.url));
+  for (const type of BANNER_TYPE_PRIORITY) {
+    const hit = list.find((im) => im.type === type);
+    if (hit) return httpsUrl(hit.url);
+  }
+  const wide = list.find((im) => typeof im.width === 'number' && typeof im.height === 'number' && im.width > im.height);
+  return wide ? httpsUrl(wide.url) : null;
+}
+
+/** Профиль из getProfileFromUserName (защитно). null, если нет onlineId. avatarUrls: берём самый крупный по size. */
+export function mapProfile(raw: unknown): PsnProfile | null {
+  const p = isObj(raw) && isObj(raw.profile) ? raw.profile : null;
+  if (!p) return null;
+  const onlineId = str(p.onlineId);
+  if (!onlineId) return null;
+
+  let avatarUrl: string | null = null;
+  if (Array.isArray(p.avatarUrls)) {
+    // size: 'xl' | 'l' | 'm' | 's' | 'xs'
+    const rank: Record<string, number> = { xl: 5, l: 4, m: 3, s: 2, xs: 1 };
+    let best = -1;
+    for (const a of p.avatarUrls) {
+      if (!isObj(a)) continue;
+      const url = httpsUrl(a.avatarUrl);
+      if (!url) continue;
+      const r = typeof a.size === 'string' ? (rank[a.size.toLowerCase()] ?? 0) : 0;
+      if (r > best) {
+        best = r;
+        avatarUrl = url;
+      }
+    }
+  }
+
+  const ts = isObj(p.trophySummary) ? p.trophySummary : null;
+  const optInt = (v: unknown, max: number): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(Math.trunc(v), max) : null;
+  const et = ts && isObj(ts.earnedTrophies) ? ts.earnedTrophies : null;
+  const cnt = et
+    ? { platinum: optInt(et.platinum, INT32_MAX), gold: optInt(et.gold, INT32_MAX), silver: optInt(et.silver, INT32_MAX), bronze: optInt(et.bronze, INT32_MAX) }
+    : null;
+  return {
+    onlineId,
+    avatarUrl,
+    trophyLevel: optInt(ts?.level, 32767),
+    trophyProgress: optInt(ts?.progress, 100),
+    trophyTier: optInt(ts?.tier, 32767),
+    earned: cnt && cnt.platinum !== null && cnt.gold !== null && cnt.silver !== null && cnt.bronze !== null ? { platinum: cnt.platinum, gold: cnt.gold, silver: cnt.silver, bronze: cnt.bronze } : null,
+  };
+}
+
 /** Сырой тайтл из getUserPlayedGames -> игра. null, если это не игра (category) или нет titleId. */
 export function mapPlayedTitle(raw: unknown): PsnGame | null {
   if (!isObj(raw)) return null;
@@ -52,6 +124,8 @@ export function mapPlayedTitle(raw: unknown): PsnGame | null {
     }
   }
 
+  const bannerUrl = concept && isObj(concept.media) ? pickBanner(concept.media.images) : null;
+
   const conceptIdRaw = concept?.id;
   const conceptId =
     typeof conceptIdRaw === 'number' || (typeof conceptIdRaw === 'string' && conceptIdRaw !== '') ? String(conceptIdRaw) : null;
@@ -63,6 +137,7 @@ export function mapPlayedTitle(raw: unknown): PsnGame | null {
     name,
     category: raw.category,
     imageUrl: image,
+    bannerUrl,
     genres,
     playDurationSeconds: parseIsoDuration(raw.playDuration),
     playCount: intOr0(raw.playCount),

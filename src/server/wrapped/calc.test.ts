@@ -7,12 +7,12 @@ import { parseWrappedQuery } from './validation';
 const H = 3600;
 const game = (id: number, title: string, o: Partial<GameItem> = {}): GameItem => ({
   id, title, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 5, lastPlayedAt: null, status: null,
-  completedAt: null, droppedAt: null, trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }], ...o,
+  completedAt: null, droppedAt: null, trophies: null, genres: [{ key: 'ACTION', label: 'Экшен' }], bannerUrl: null, ...o,
 });
 const games = new Map([1, 2, 3, 4, 5, 6, 7].map((i) => [i, game(i, `G${i}`)]));
 
 const base = (o: Partial<WrappedInput> = {}): WrappedInput => ({
-  year: 2026, today: '2026-10-27', years: [{ year: 2026, hasData: true }], onlineId: 'me',
+  year: 2026, today: '2026-10-27', years: [{ year: 2026, hasData: true }], onlineId: 'me', avatarUrl: null,
   snapshots: [], estimates: [], firstSnapshotDate: null, trophies: [], platinums: [], finishedEvents: [],
   gameById: games, genreGames: new Map(), ...o,
 });
