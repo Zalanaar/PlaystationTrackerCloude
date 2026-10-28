@@ -15,6 +15,7 @@ export const HLTB_TIMEOUT_MS = 8000;
 export const HLTB_MAX_BYTES = 2 * 1024 * 1024;
 /** Известные варианты пути (HLTB их периодически меняет): init выдаёт токен, search принимает запрос. */
 export const HLTB_ENDPOINTS = [
+  { init: '/api/search/site/init', search: '/api/search/site' }, // из JS-бандла, 2026-10
   { init: '/api/find/init', search: '/api/find' },
   { init: '/api/bleed/init', search: '/api/bleed' },
   { init: '/api/search/init', search: '/api/search' },
@@ -111,10 +112,10 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
   const headers = { 'user-agent': UA, referer: `${HLTB_ORIGIN}/`, origin: HLTB_ORIGIN };
 
   /** Один пробный init. Возвращает Init либо безопасный тег сбоя (без тел ответов): HTTP-статус, network, timeout, not_json, too_large, "200 no_token". */
-  async function tryInit(path: string): Promise<{ init: Init } | { fail: string; block?: boolean }> {
+  async function tryInit(path: string, searchPath = `/api/${path}`): Promise<{ init: Init } | { fail: string; block?: boolean }> {
     let res: Response;
     try {
-      res = await call(`${HLTB_ORIGIN}/api/${path}/init?t=${Date.now()}`, { headers });
+      res = await call(`${HLTB_ORIGIN}${path.startsWith('/') ? path : `/api/${path}/init`}?t=${Date.now()}`, { headers });
     } catch (e) {
       return { fail: e instanceof HltbError && e.code === 'timeout' ? 'timeout' : 'network' };
     }
@@ -130,7 +131,7 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
     }
     const r = rec(j);
     if (r && typeof r.token === 'string') {
-      return { init: { search: `/api/${path}`, token: r.token, hpKey: typeof r.hpKey === 'string' ? r.hpKey : '', hpVal: typeof r.hpVal === 'string' ? r.hpVal : '' } };
+      return { init: { search: searchPath, token: r.token, hpKey: typeof r.hpKey === 'string' ? r.hpKey : '', hpVal: typeof r.hpVal === 'string' ? r.hpVal : '' } };
     }
     return { fail: `${res.status} no_token` };
   }
@@ -179,9 +180,9 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
     let fails = 0;
     let timeouts = 0;
     const tried = new Set<string>();
-    const attempt = async (path: string): Promise<Init | null> => {
+    const attempt = async (path: string, searchPath?: string): Promise<Init | null> => {
       tried.add(path);
-      const r = await tryInit(path);
+      const r = await tryInit(path, searchPath);
       if ('init' in r) return r.init;
       if (r.block) sawBlock = true;
       fails++;
@@ -189,7 +190,7 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
         sawTimeout = true;
         timeouts++;
       }
-      parts.push(`init /api/${path}/init: ${r.fail}`);
+      parts.push(`init ${path.startsWith('/') ? path : `/api/${path}/init`}: ${r.fail}`);
       return null;
     };
     const finish = (): never => {
@@ -199,8 +200,7 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
       throw discoverFailure;
     };
     for (const ep of HLTB_ENDPOINTS) {
-      const path = ep.init.split('/')[2];
-      const got = await attempt(path);
+      const got = await attempt(ep.init, ep.search);
       if (got) return got;
     }
     if (Date.now() - started < HLTB_DISCOVER_BUDGET_MS && !sawTimeout) {

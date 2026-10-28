@@ -210,4 +210,40 @@ describe('клиент (фейковый fetch)', () => {
     const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
     expect(e.message).toContain('_app: путь не найден');
   });
+
+  it('основной путь /api/search/site: init и поиск идут по нему', async () => {
+    const urls: string[] = [];
+    const f = (async (url: string) => {
+      urls.push(url);
+      if (url.includes('/api/search/site/init')) return json({ token: 'T' });
+      if (url.includes('/api/search/site')) return json({ data: [{ game_id: 3, game_name: 'Hades', comp_main: 3600 }] });
+      return new Response('<html>', { status: 404 });
+    }) as unknown as typeof fetch;
+    expect((await createHltbClient({ fetchImpl: f }).search('hades'))[0].id).toBe(3);
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toBe('https://howlongtobeat.com/api/search/site');
+  });
+
+  it('все пути 404: диагностика содержит /api/search/site/init: 404', async () => {
+    const f = (async () => new Response('<html>SECRET', { status: 404 })) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.message).toContain('init /api/search/site/init: 404; init /api/find/init: 404');
+    expect(e.message).not.toMatch(/SECRET/);
+  });
+
+  it('реальная форма init {"token"} без hp-полей: токен в x-auth-token, UA одинаковый у init и search, hp в теле нет', async () => {
+    const seen: { url: string; init?: RequestInit }[] = [];
+    const f = (async (url: string, init?: RequestInit) => {
+      seen.push({ url, init });
+      if (url.includes('/init')) return json({ token: 'dGltZXxpcHx1YQ==' });
+      return json({ data: [] });
+    }) as unknown as typeof fetch;
+    await createHltbClient({ fetchImpl: f }).search('x');
+    const [a, b] = seen.map((x) => x.init?.headers as Record<string, string>);
+    expect(a['user-agent']).toBeTruthy();
+    expect(b['user-agent']).toBe(a['user-agent']);
+    expect(b['x-auth-token']).toBe('dGltZXxpcHx1YQ==');
+    expect(b['x-hp-key']).toBeUndefined();
+    expect(Object.keys(JSON.parse(String(seen[1].init?.body)))).not.toContain('');
+  });
 });
