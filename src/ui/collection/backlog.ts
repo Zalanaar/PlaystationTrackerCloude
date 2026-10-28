@@ -1,6 +1,6 @@
 // Чистая логика бэклога (Фаза 11): фильтры жанр/длительность <-> URL <-> query API (контракт 16.4), показ длительности, ручной ввод.
 import type { DurationBucket, DurationCounts, GameDuration, ListSort, SortOrder } from '@/server/collection/types';
-import { GENRE_LABELS_RU } from '@/server/stats/genres';
+import { GENRE_LABELS_RU } from '@/shared/genres';
 
 export const BACKLOG_PAGE = 300;
 
