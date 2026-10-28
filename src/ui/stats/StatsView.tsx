@@ -4,21 +4,19 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsGenreGame, StatsResponse } from '@/server/stats/types';
-import { BlockHead, MonthHeader } from '../collection/Chronicle';
 import { ApiError, errorText, fetchStats, patchStatusDate, putHidden, putStatus } from '../collection/api';
-import { GameCard, type GameActions } from '../collection/GameCard';
+import { type GameActions } from '../collection/GameCard';
 import { GameDialog, type GameStub } from '../collection/GameDialog';
-import { GameGrid, GameGridItem } from '../collection/GameGrid';
 import { EmptyState } from '../EmptyState';
-import { formatNumber, monthName, plural } from '../format';
+import { formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { GenreRow } from './GenrePopover';
+import { PlayedBlock } from './PlayedBlock';
 import { TopGames, TopSkeleton } from './TopGames';
 import {
-  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, monthHoursText, parseSelection, periodLabel,
-  playedGamesCount,
+  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
 } from './model';
 
@@ -156,7 +154,7 @@ export function StatsView() {
         <StatsSkeleton />
       ) : (
         <div className="ps-st" aria-busy={loading || undefined} data-stale={loading || undefined}>
-          <Content data={data} sel={sel} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} />
+          <Content data={data} sel={sel} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onChanged={reload} />
         </div>
       )}
       <GameDialog
@@ -189,10 +187,10 @@ function PeriodSwitch({
 }
 
 function Content({
-  data, sel, today, actions, onOpenGame, onOpenStub,
+  data, sel, today, actions, onOpenGame, onOpenStub, onChanged,
 }: {
   data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions;
-  onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void;
+  onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void; onChanged: () => void;
 }) {
   const empty = isEmptyPeriod(data, sel.period);
   return (
@@ -211,7 +209,7 @@ function Content({
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />
           <TrophiesPanel data={data} sel={sel} />
-          <PlayedBlock data={data} sel={sel} actions={actions} />
+          <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
         </>
       )}
     </>
@@ -388,35 +386,6 @@ function TrophiesPanel({ data, sel }: { data: StatsResponse; sel: Selection }) {
         </div>
       )}
     </Panel>
-  );
-}
-
-/** «Игры месяца» (контракт 10.1 `played`): игра в каждом месяце, где в неё играли; фигура только у события месяца. */
-function PlayedBlock({ data, sel, actions }: { data: StatsResponse; sel: Selection; actions: GameActions }) {
-  const groups = data.played.groups;
-  if (groups.length === 0) return null;
-  return (
-    <section className="ps-st-played" aria-labelledby="st-played">
-      <BlockHead id="st-played" title="Игры месяца" count={playedGamesCount(groups)} />
-      {groups.map((g) => (
-        <div key={g.month} className="ps-st-played__month">
-          <MonthHeader id={`st-m-${g.month}`} m={{ month: g.monthNumber, completed: g.completed, dropped: g.dropped }} games={g.items.length} />
-          <GameGrid density="dense" label={`Игры: ${monthName(g.monthNumber)}${sel.period === 'year' ? ` ${g.year}` : ''}`}>
-            {g.items.map((i) => {
-              const h = monthHoursText(i.hours, i.estimated);
-              return (
-                <GameGridItem key={`${g.month}-${i.game.id}`}>
-                  <GameCard
-                    game={i.game} actions={actions} selectMode={false} selected={false}
-                    month={{ finished: i.finished, finishedAt: i.finishedAt, hoursText: h?.text ?? null, hoursLabel: h?.label ?? null }}
-                  />
-                </GameGridItem>
-              );
-            })}
-          </GameGrid>
-        </div>
-      ))}
-    </section>
   );
 }
 

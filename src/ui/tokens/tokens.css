@@ -55,7 +55,7 @@
   --success: #7fd1b9;
   --warning: #e2bf75;
   --danger:  #e69aa6;
-  --platinum: #bfe6ff;
+  --platinum: var(--plat-text);   /* алиас: цвет платины как текста/иконки на поверхностях темы (PS1 светлая: тёмный; внутри Итогов PS1 задан отдельно). Не фон и не заливка: для них --plat-fill */
   --gold: #ffd25e; --silver: #d3d8e4; --bronze: #e39a64;
 
   /* Платина (design-system §4.14). Значения --plat-1/2, --plat-ink, --plat-glow-a задаёт тема (themes.css) */
@@ -83,9 +83,39 @@
   --on-cover-text: #ffffff;
   --on-cover-border: rgba(255, 255, 255, 0.12);
   --cover-scrim: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 55%, rgba(0,0,0,0) 100%);
+  /* Текст прямо на затемнённом арте/скриме (hero, оверлеи, шапка окна игры, Итоги): всегда белый, в светлой PS1 тоже */
+  --on-scrim: #ffffff;
+  --scrim-text: var(--on-scrim);          /* прежнее имя из components.css, значение то же */
+  --scrim-edge: rgba(8, 9, 14, .5);       /* боковое затемнение hero поверх арта */
   --dropped-filter: saturate(.45) brightness(.9);   /* обложка брошенной игры */
   --locked-filter: grayscale(1) brightness(.8);     /* иконка не полученного трофея (§4.15) */
   --locked-opacity: .6;
+
+  /* Платиновая подложка карточки/строки (спека 15-9-1 п.6). Сила --plat-wash-a задаётся темой: ограничена контрастом
+     --text-3 >= 4.5 в худшей точке (0% градиента на --bg и --surface), проверяет contrast.test.ts. Текст в подложке не усиливать */
+  --plat-wash-a: 10%;
+  --plat-wash: linear-gradient(160deg, color-mix(in srgb, var(--plat-2) var(--plat-wash-a), transparent) 0%, color-mix(in srgb, var(--plat-1) calc(var(--plat-wash-a) * .35), transparent) 55%, transparent 100%);
+  --plat-wash-row: linear-gradient(90deg, color-mix(in srgb, var(--plat-2) var(--plat-wash-a), transparent) 0%, color-mix(in srgb, var(--plat-1) calc(var(--plat-wash-a) * .3), transparent) 45%, transparent 90%);
+  --plat-corner: 44px;        /* катет платинового уголка на обложке (моб. 38, плотно 30) */
+  --plat-corner-icon: 16px;   /* кубок в уголке (моб. 14, плотно 12) */
+
+  /* Арт-шапка окна игры (спека 15-9-1 п.2) */
+  --gd-art-h: 208px;          /* с баннером (моб. 176) */
+  --gd-art-h-compact: 144px;  /* без баннера (моб. 120) */
+  --gd-cover-w: 104px;        /* обложка в шапке, высота = w * 4/3 (моб. 80) */
+  --gd-cover-over: 32px;      /* выступ обложки за низ арта (моб. 24) */
+
+  /* Карта активности (п.9): 5 уровней от --surface-3 к --accent, пороги минут фиксированные. Значения производные, тема их не переопределяет */
+  --heat-cell: 18px; --heat-gap: 4px;   /* моб. 12 / 3 */
+  --heat-0: var(--surface-3);
+  --heat-1: color-mix(in srgb, var(--accent) 28%, var(--surface-3));
+  --heat-2: color-mix(in srgb, var(--accent) 50%, var(--surface-3));
+  --heat-3: color-mix(in srgb, var(--accent) 75%, var(--surface-3));
+  --heat-4: var(--accent);
+  --heat-unknown: repeating-linear-gradient(45deg, var(--border-strong) 0 1px, transparent 1px 4px);
+
+  /* Свечение hero «Играю» цветом обложки. Работает только в Night (там --tint = обложка); в остальных темах --tint = акцент темы */
+  --tint-glow: 0 0 0 1px color-mix(in srgb, var(--tint) 35%, transparent), 0 14px 44px color-mix(in srgb, var(--tint) 24%, transparent);
 
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
@@ -126,9 +156,14 @@
     --hero-h: 240px;
     --art-h: 168px;
     --plat-badge: 24px;
+    --plat-corner: 38px; --plat-corner-icon: 14px;
+    --gd-art-h: 176px; --gd-art-h-compact: 120px; --gd-cover-w: 80px; --gd-cover-over: 24px;
+    --heat-cell: 12px; --heat-gap: 3px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }
+/* После медиа-блока, чтобы плотный режим выигрывал и на мобильном (одинаковая специфичность) */
+[data-density="dense"] { --plat-corner: 30px; --plat-corner-icon: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --hover-lift: 0px; }

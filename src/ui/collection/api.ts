@@ -66,6 +66,15 @@ export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: 
 export const postBulk = (ids: number[], status: GameStatusValue | null) =>
   call<BulkStatusResponse>('/api/games/status-bulk', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids, status }) });
 
+/** Ответ PUT /api/games/{id}/month-exclusions (контракт 15.1). */
+export type MonthExclusionResponse = {
+  gameId: number; month: string; excluded: boolean; excludedMonths: string[]; redistributed: boolean; estimateDropped: boolean;
+};
+
+/** «Убрать из этого месяца» / «Вернуть в месяц». 409 `month_exclusion_conflict`: нельзя убрать последний месяц оценки. */
+export const putMonthExclusion = (id: number, month: string, excluded: boolean) =>
+  call<MonthExclusionResponse>(`/api/games/${id}/month-exclusions`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ month, excluded }) });
+
 /** Мягкое удаление из коллекции и возврат (9.7). */
 export const putHidden = (id: number, hidden: boolean) =>
   call<GameMutationResponse>(`/api/games/${id}/hidden`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ hidden }) });

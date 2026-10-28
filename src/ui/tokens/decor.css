@@ -33,6 +33,18 @@
   box-shadow: var(--shadow-hover), 0 0 24px color-mix(in srgb, var(--tint) 22%, transparent);
 }
 
+/* Night: цвет обложки игры (--cover-tint, inline, safeTint) действует только внутри hero «Играю», его мини-карточек и окна игры.
+   Токены с var() считаются там, где объявлены, поэтому зависимые значения пересчитываются здесь. Запасное значение = themes.css (Night).
+   Не добавлять сюда шапку, навигацию, сетку карточек, Статистику и Итоги. */
+:root:not([data-theme]) :is(.ps-hero__main, .ps-hero__mini, .ps-gd),
+[data-theme="night"] :is(.ps-hero__main, .ps-hero__mini, .ps-gd) {
+  --tint: var(--cover-tint, #b99cff);
+  --accent: var(--tint);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --st-playing: var(--accent);
+  --tint-glow: 0 0 0 1px color-mix(in srgb, var(--tint) 35%, transparent), 0 14px 44px color-mix(in srgb, var(--tint) 24%, transparent);
+}
+
 /* ---------- Graphite: без декора ---------- */
 
 /* ---------- PS1: рёбра пластика, полоса цветов логотипа, фаска, «корешок» jewel case. Анимации нет ---------- */
@@ -116,8 +128,11 @@
   align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
 }
 [data-theme="ps5"] .ps-nav-item[aria-current="page"]::after { display: none; }
-[data-theme="ps5"] .ps-chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-[data-theme="ps5"] .ps-chip[aria-pressed="true"] small { color: inherit; opacity: .65; }
+[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) small { color: inherit; opacity: .65; }
+/* Чип «Платина» в PS5: pill тоже заливается, но платиновым льдом (не белым), знак тёмный: остаётся узнаваемым и отличается от остальных чипов */
+[data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] { background: var(--plat-fill); color: var(--plat-ink); border-color: transparent; }
+[data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] :is(.ps-filterchip__plat, small, .ps-filterchip__n) { color: inherit; }
 [data-theme="ps5"] .ps-card[data-active="true"] .ps-card__cover,
 [data-theme="ps5"] .ps-row[data-active="true"] { outline: 2px solid #fff; outline-offset: 3px; }
 [data-theme="ps5"] .ps-hero__mini { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .10); }

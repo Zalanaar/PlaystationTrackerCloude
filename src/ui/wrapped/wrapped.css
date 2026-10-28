@@ -27,8 +27,6 @@
   position: fixed; inset: 0; z-index: var(--z-story); display: grid; place-items: center; background: var(--story-backdrop);
   color: var(--story-fg);
 }
-/* PS1 светлая: фон истории всегда тёмный, поэтому затемнение сильнее, а акцент белый (тёмный акцент PS1 на тёмном невидим) */
-[data-theme="ps1"] .ps-story { --story-shade: rgba(0, 0, 0, .82); --story-accent: var(--story-fg); }
 .ps-story__stage {
   position: relative; overflow: hidden; outline: none; user-select: none; -webkit-user-select: none; touch-action: none;
   width: min(420px, calc((100dvh - 2 * var(--sp-4)) * 9 / 16)); min-width: 360px;

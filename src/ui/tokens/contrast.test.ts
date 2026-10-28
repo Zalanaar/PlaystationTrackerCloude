@@ -55,11 +55,19 @@ const parseColor = (v: string): { hex: string; a: number } => {
   return { hex: '#' + hex2(+m[1]) + hex2(+m[2]) + hex2(+m[3]), a: m[4] === undefined ? 1 : +m[4] };
 };
 
+// var(--x) и var(--x, запасное): запасное берётся, если --x нигде не задан (например --cover-tint у Night)
+const resolveValue = (vars: Vars, v: string): string => {
+  const ref = v.match(/^var\((--[\w-]+)\s*(?:,\s*(.+))?\)$/);
+  if (!ref) return v;
+  const next = vars[ref[1]] ?? base[ref[1]];
+  if (next !== undefined) return resolveValue(vars, next);
+  if (ref[2] !== undefined) return resolveValue(vars, ref[2].trim());
+  throw new Error(`нет токена ${ref[1]}`);
+};
 const resolve = (vars: Vars, k: string): string => {
   const v = vars[k] ?? base[k];
   if (v === undefined) throw new Error(`нет токена ${k}`);
-  const ref = v.match(/^var\((--[\w-]+)\)$/);
-  return ref ? resolve(vars, ref[1]) : v;
+  return resolveValue(vars, v);
 };
 const merged = (t: string): Vars => ({ ...base, ...themes[t] });
 const get = (t: string, k: string): string => parseColor(resolve(merged(t), k)).hex;
@@ -149,9 +157,95 @@ describe('контраст тем', () => {
     const dark = get('night', '--bg');
     const sv = (k: string) => parseColor(story[k]).hex;
     it('палитра истории задана', () => expect(Object.keys(story).length).toBeGreaterThan(15));
-    for (const k of [...STATUSES.filter((s) => s !== '--st-playing'), ...SEMANTIC, '--text', '--text-2', '--text-3', '--rar-0', '--rar-1', '--rar-2', '--plat-text'])
+    for (const k of [...STATUSES.filter((s) => s !== '--st-playing'), ...SEMANTIC, '--text', '--text-2', '--text-3', '--rar-0', '--rar-1', '--rar-2', '--plat-text', '--platinum', '--accent'])
       it(`${k} на тёмном фоне >= 4.5`, () => expect(ratio(sv(k), dark)).toBeGreaterThanOrEqual(4.5));
     it('--st-playing берёт акцент светлой палитры', () => expect(ratio(sv('--st-playing'), dark)).toBeGreaterThanOrEqual(4.5));
+    it('--accent-ink на --accent >= 7', () => expect(ratio(sv('--accent-ink'), sv('--accent'))).toBeGreaterThanOrEqual(7));
+    // Сцена Итогов не зависит от светлых базовых токенов PS1: фон и поверхности тёмные
+    for (const k of ['--bg', '--surface', '--surface-2', '--surface-3'])
+      it(`сцена: ${k} тёмный (яркость <= 0.06)`, () => expect(L(sv(k))).toBeLessThanOrEqual(0.06));
+    it('сцена: текст --text на --surface-3 >= 4.5', () => expect(ratio(sv('--text'), sv('--surface-3'))).toBeGreaterThanOrEqual(4.5));
+  });
+
+  // ---- Фаза 9.1 / 15 ----
+  // --on-scrim: текст на затемнённом арте. Тёмный скрим во всех темах (в том числе светлой PS1), белая обложка арта = худший случай
+  describe('--on-scrim на --cover-scrim', () => {
+    const alphas = [...base['--cover-scrim'].matchAll(/rgba\(0,\s*0,\s*0,\s*([\d.]+)\)/g)].map((m) => +m[1]);
+    const white = '#ffffff';
+    it('скрим: три остановки .88 / .6 / 0', () => expect(alphas).toEqual([0.88, 0.6, 0]));
+    it('--on-scrim = белый и не переопределяется темами', () => {
+      expect(base['--on-scrim']).toBe('#ffffff');
+      for (const t of IDS) expect(themes[t]['--on-scrim']).toBeUndefined();
+    });
+    it('--scrim-text = --on-scrim, --scrim-edge задан', () => {
+      expect(base['--scrim-text']).toBe('var(--on-scrim)');
+      expect(base['--scrim-edge']).toMatch(/^rgba\(/);
+    });
+    // Нижняя остановка (.88): там лежит основной текст. Средняя (.6): верхний предел текста по спеке, порог 5.5 (7 при .6 недостижим на белом арте)
+    it('низ скрима (.88) над белым артом: >= 7', () =>
+      expect(ratio(white, over('#000000', alphas[0], white))).toBeGreaterThanOrEqual(7));
+    it('середина скрима (.6) над белым артом: >= 5.5', () =>
+      expect(ratio(white, over('#000000', alphas[1], white))).toBeGreaterThanOrEqual(5.5));
+  });
+
+  for (const t of IDS)
+    describe(`${t}: токены фаз 9.1 и 15`, () => {
+      const bgs = ['--bg', '--surface', '--surface-2'];
+      // Карта активности: пять ступеней от --surface-3 (0) к --accent (4); color-mix(srgb) = смешивание accent a% с surface-3
+      const s3 = get(t, '--surface-3');
+      const ac = get(t, '--accent');
+      const heat = [s3, over(ac, 0.28, s3), over(ac, 0.5, s3), over(ac, 0.75, s3), ac];
+      it('--heat-*: формулы в tokens.css', () => {
+        expect(base['--heat-0']).toBe('var(--surface-3)');
+        expect(base['--heat-1']).toContain('var(--accent) 28%, var(--surface-3)');
+        expect(base['--heat-2']).toContain('var(--accent) 50%, var(--surface-3)');
+        expect(base['--heat-3']).toContain('var(--accent) 75%, var(--surface-3)');
+        expect(base['--heat-4']).toBe('var(--accent)');
+        for (const n of [0, 1, 2, 3, 4]) expect(themes[t][`--heat-${n}`]).toBeUndefined();
+      });
+      for (let n = 0; n < 4; n++)
+        it(`--heat-${n} и --heat-${n + 1} различимы >= 1.3`, () => expect(ratio(heat[n], heat[n + 1])).toBeGreaterThanOrEqual(1.3));
+      it('--heat-0 и --heat-4 >= 3', () => expect(ratio(heat[0], heat[4])).toBeGreaterThanOrEqual(3));
+      for (const bg of ['--bg', '--surface'])
+        it(`--heat-4 на ${bg} >= 3`, () => expect(ratio(heat[4], get(t, bg))).toBeGreaterThanOrEqual(3));
+
+      // Платиновая подложка: худшая точка = 0% градиента (plat-2 с силой --plat-wash-a) и вторая остановка (plat-1 с .35 силы)
+      // Карточка лежит на --bg, строка на --surface (hover строки не меняет фон под подложкой, см. docs)
+      const a = parseFloat(resolve(merged(t), '--plat-wash-a')) / 100;
+      for (const bg of ['--bg', '--surface']) {
+        const stops = [over(get(t, '--plat-2'), a, get(t, bg)), over(get(t, '--plat-1'), a * 0.35, get(t, bg))];
+        stops.forEach((wash, i) => {
+          it(`подложка (остановка ${i + 1}) на ${bg}: --text >= 7`, () => expect(ratio(get(t, '--text'), wash)).toBeGreaterThanOrEqual(7));
+          it(`подложка (остановка ${i + 1}) на ${bg}: --text-3 >= 4.5`, () => expect(ratio(get(t, '--text-3'), wash)).toBeGreaterThanOrEqual(4.5));
+        });
+      }
+      it('--plat-wash-a задан темой и не больше 16%', () => {
+        expect(themes[t]['--plat-wash-a']).toMatch(/^\d+%$/);
+        expect(a).toBeLessThanOrEqual(0.16);
+      });
+
+      for (const bg of bgs)
+        it(`--platinum на ${bg} >= 3`, () => expect(ratio(get(t, '--platinum'), get(t, bg))).toBeGreaterThanOrEqual(3));
+      it('--platinum = --plat-text', () => expect(get(t, '--platinum')).toBe(get(t, '--plat-text')));
+
+      // --tint: цвет обложки только у Night
+      it(t === 'night' ? '--tint учитывает --cover-tint' : '--tint игнорирует --cover-tint', () => {
+        if (t === 'night') expect(themes.night['--tint']).toBe('var(--cover-tint, #b99cff)');
+        else expect(themes[t]['--tint']).not.toContain('cover-tint');
+      });
+    });
+
+  it('Night: запасное значение --tint в decor.css совпадает с themes.css', () => {
+    expect(decorCss).toContain('--tint: var(--cover-tint, #b99cff);');
+    expect(decorCss).toContain(`--tint-glow: ${base['--tint-glow']};`);
+  });
+  it('--cover-tint встречается только в Night и в его области в decor.css', () => {
+    expect(Object.keys(themes).filter((t) => (themes[t]['--tint'] ?? '').includes('cover-tint'))).toEqual(['night']);
+    expect(themesCss.match(/cover-tint/g)?.length).toBe(1);
+  });
+  it('PS5: чип «Платина» не перекрыт белой заливкой общего чипа', () => {
+    expect(decorCss).toContain('[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat)');
+    expect(decorCss).toMatch(/\[data-theme="ps5"\] \.ps-filterchip--plat\[aria-pressed="true"\] \{[^}]*var\(--plat-fill\)/);
   });
 
   // PS3: 12 пар градиента. Текст --text-3 на верхнем цвете и на среднем цвете под волной (волна + линии, худший случай белый .11)
