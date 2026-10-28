@@ -19,6 +19,8 @@
   --header-bg: rgba(14, 15, 22, 0.86);
   --r-cover: 10px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
   --shadow-alpha: 0.45;
+  /* Платина: холодный лёд, заметное свечение */
+  --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 40%;
 }
 
 [data-theme="graphite"] {
@@ -35,6 +37,8 @@
   --header-bg: rgba(17, 17, 19, 0.92);
   --r-cover: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
   --shadow-alpha: 0.5;
+  /* Платина: сталь, без свечения (в духе темы без декора) */
+  --plat-1: #dcefff;       --plat-2: #a9cbe6;      --plat-ink: #101418;    --plat-glow-a: 0%;
 }
 
 [data-theme="activity"] {
@@ -52,4 +56,6 @@
   --header-bg: rgba(7, 6, 10, 0.72);
   --r-cover: 12px; --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-pill: 999px;
   --shadow-alpha: 0.6;
+  /* Платина: насыщеннее, чтобы не сливаться с белым акцентом Activity */
+  --plat-1: #c9ecff;       --plat-2: #7cc4f2;      --plat-ink: #06121e;    --plat-glow-a: 55%;
 }

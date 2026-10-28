@@ -66,5 +66,29 @@ export function StatusIcon({ status, size = 16, className }: { status: StatusKey
   );
 }
 
+/**
+ * Платиновый кубок как в PS (design-system §4.14): заливка, viewBox 24, цвет = currentColor.
+ * Не фигура статуса: только трофей. Цвет задаёт контекст (`var(--plat-1)` на тёмном, `var(--plat-ink)` на заливке бейджа).
+ * Размеры: 14 (строка списка), 16 (чип фильтра), 20 (бейдж карточки), 24 (плитка окна), 40 (пустые состояния).
+ * Декоративный по умолчанию (`aria-hidden`); передай `title`, если рядом нет текста.
+ */
+export function PlatinumIcon({ size = 20, className, title }: { size?: number; className?: string; title?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24" width={size} height={size} fill="currentColor" stroke="none"
+      aria-hidden={title ? undefined : true} role={title ? 'img' : undefined} aria-label={title} focusable="false" className={className}
+    >
+      {/* чаша с прорезью-бликом */}
+      <path fillRule="evenodd" d="M6.5 3h11v5.5a5.5 5.5 0 0 1-11 0V3ZM9.2 5.2v3.6h1.6V5.2H9.2Z" />
+      {/* ручки */}
+      <path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+        d="M6.5 5H4v1.5A3.5 3.5 0 0 0 7.2 10M17.5 5H20v1.5a3.5 3.5 0 0 1-3.2 3.5" />
+      {/* ножка и основание */}
+      <path d="M10.5 13.6h3V17h-3Z" />
+      <path d="M7.5 21v-1.8A2.2 2.2 0 0 1 9.7 17h4.6a2.2 2.2 0 0 1 2.2 2.2V21h-9Z" />
+    </svg>
+  );
+}
+
 /** Имя из design-system §3: фигура статуса. Размеры 12 / 16 / 20 / 40. */
 export const StatusGlyph = StatusIcon;

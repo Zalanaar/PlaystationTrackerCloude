@@ -57,12 +57,34 @@
   --platinum: #bfe6ff;
   --gold: #ffd25e; --silver: #d3d8e4; --bronze: #e39a64;
 
+  /* Платина (design-system §4.14). Значения --plat-1/2, --plat-ink, --plat-glow-a задаёт тема (themes.css) */
+  --plat-fill: linear-gradient(135deg, var(--plat-1), var(--plat-2));
+  --plat-glow: color-mix(in srgb, var(--plat-2) var(--plat-glow-a), transparent);
+  --plat-text: var(--plat-1);          /* платина как цвет текста/иконки на тёмных поверхностях */
+  --plat-ring-w: 1px;                  /* обводка обложки платиновой игры (на hover 2px) */
+  --plat-badge: 28px;                  /* бейдж на карточке, comfort (моб. 24, dense 20 без текста) */
+
+  /* Редкость трофея PSN 0..3 (design-system §4.15). Цвет не единственный признак: подпись + сегменты */
+  --rar-0: #ff9ec7;   /* ультра-редкий */
+  --rar-1: #c7a8ff;   /* очень редкий */
+  --rar-2: #86d3e8;   /* редкий */
+  --rar-3: var(--text-2); /* обычный */
+
+  /* Hero «Играю» и арт-шапка окна игры (§4.4, §4.15) */
+  --hero-h: 320px;            /* моб. 240 */
+  --hero-side-w: 232px;       /* компактные карточки рядом, десктоп */
+  --art-h: 240px;             /* шапка окна игры, моб. 168 */
+  --art-scrim: linear-gradient(to top, var(--surface) 0%, color-mix(in srgb, var(--surface) 70%, transparent) 35%, rgba(0,0,0,.25) 100%);
+  --art-blur: 32px;           /* размытый фолбэк из обложки */
+
   /* Поверхности поверх обложек (всегда тёмные, независимо от темы) */
   --on-cover-bg: rgba(8, 9, 14, 0.78);
   --on-cover-text: #ffffff;
   --on-cover-border: rgba(255, 255, 255, 0.12);
   --cover-scrim: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.6) 55%, rgba(0,0,0,0) 100%);
   --dropped-filter: saturate(.45) brightness(.9);   /* обложка брошенной игры */
+  --locked-filter: grayscale(1) brightness(.8);     /* иконка не полученного трофея (§4.15) */
+  --locked-opacity: .6;
 
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
@@ -100,6 +122,9 @@
     --control-h: 40px;
     --ribbon-h: auto;
     --glyph-badge: 22px;
+    --hero-h: 240px;
+    --art-h: 168px;
+    --plat-badge: 24px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }
