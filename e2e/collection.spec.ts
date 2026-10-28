@@ -249,10 +249,18 @@ test.describe('коллекция (desktop)', () => {
     await page.getByRole('button', { name: 'Список' }).click();
     await expect(coll(page).locator('#y2026').getByRole('table', { name: 'Игры' })).toBeVisible();
     await expect(coll(page).locator('#y2026 .ps-row:not(.ps-row--head)')).toHaveCount(6);
+    // Смена порядка перезагружает первую страницу (60). Ждём ответ, иначе ловим кадр со старыми 70 играми в новом порядке (флак).
+    const ascLoaded = page.waitForResponse((r) => r.url().includes('/api/games?') && new URL(r.url()).searchParams.get('order') === 'asc');
     await coll(page).locator('#y2026').getByRole('button', { name: /Посл\. запуск/ }).click();
+    await ascLoaded;
     await expect(page).toHaveURL(/order=asc/);
-    await expect(coll(page).locator('section.ps-chron .ps-year__y').first()).toHaveText('2024');
-    await expect(coll(page).locator('section.ps-chron .ps-year__y').last()).toHaveText('Не запускались');
+    // asc, nulls last: 1 игра 2024 + 59 игр 2025; «Не запускались» придут последней страницей
+    const rows = coll(page).locator('.ps-row:not(.ps-row--head)');
+    await expect(rows).toHaveCount(60);
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024', '2025']);
+    await coll(page).getByRole('button', { name: /Показать ещё \(10\)/ }).click();
+    await expect(rows).toHaveCount(70);
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024', '2025', '2026', 'Не запускались']);
   });
 
   test('вид «Плотно»/«Список»: URL, localStorage, восстановление без параметра', async ({ page, context, baseURL }) => {
