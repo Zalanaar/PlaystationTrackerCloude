@@ -1,13 +1,13 @@
 // Фазы синка (контракт 8.1). Каждая единица работы = транзакция; курсор и счётчики пишутся в ней же.
 // Только апсерты и вставки ON CONFLICT: повторный прогон даёт те же данные. Удалений нет.
-import { and, asc, count, eq, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { type AnyColumn, and, asc, count, eq, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
-import type { PsnGame, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet } from '@/server/psn/types';
+import type { PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet } from '@/server/psn/types';
 import type { PhaseFn, RunContext } from './context';
 import { matchOrphansByName } from './link';
 
-const { games, playtimeSnapshots, trophySets, gameTrophySets, trophies } = schema;
+const { games, psnProfile, playtimeSnapshots, trophySets, gameTrophySets, trophies } = schema;
 
 const GAMES_CHUNK = 100;
 const LINK_BATCH = 5;
@@ -28,6 +28,8 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
   const now = ctx.now();
   if (list.length === 0) ctx.warn('empty_games_list', 'PSN вернул пустой список игр, снимки не записаны.');
 
+  await saveProfile(ctx, psn.profile, now);
+
   await ctx.db.transaction(async (tx) => {
     const before = new Map(
       (await tx.select({ titleId: games.titleId, d: games.playDurationSeconds }).from(games)).map((r) => [r.titleId, r.d] as const),
@@ -45,6 +47,7 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
             name: ex('name'),
             category: ex('category'),
             imageUrl: sql`coalesce(${ex('image_url')}, ${games.imageUrl})`,
+            bannerUrl: sql`coalesce(${ex('banner_url')}, ${games.bannerUrl})`,
             psnGenres: ex('psn_genres'),
             playDurationSeconds: ex('play_duration_seconds'),
             playCount: ex('play_count'),
@@ -107,6 +110,53 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
   return 'done';
 };
 
+/**
+ * Профиль (контракт 12.1): апсёрт строки id = 1 вне транзакции игр. Ошибка не роняет синк, только предупреждение.
+ * Поля, которых PSN не дал сейчас, остаются прежними (coalesce).
+ */
+export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Date): Promise<void> {
+  if (!p) {
+    ctx.warn('profile_missing', 'PSN не отдал профиль (аватар и сводка трофеев не обновлены).');
+    return;
+  }
+  const values = {
+    id: 1,
+    onlineId: p.onlineId,
+    avatarUrl: p.avatarUrl,
+    trophyLevel: p.trophyLevel,
+    trophyProgress: p.trophyProgress,
+    trophyTier: p.trophyTier,
+    earnedPlatinum: p.earned?.platinum ?? null,
+    earnedGold: p.earned?.gold ?? null,
+    earnedSilver: p.earned?.silver ?? null,
+    earnedBronze: p.earned?.bronze ?? null,
+    updatedAt: now,
+  };
+  const keep = (col: string, table: AnyColumn) => sql`coalesce(${ex(col)}, ${table})`;
+  try {
+    await ctx.db
+      .insert(psnProfile)
+      .values(values)
+      .onConflictDoUpdate({
+        target: psnProfile.id,
+        set: {
+          onlineId: ex('online_id'),
+          avatarUrl: keep('avatar_url', psnProfile.avatarUrl),
+          trophyLevel: keep('trophy_level', psnProfile.trophyLevel),
+          trophyProgress: keep('trophy_progress', psnProfile.trophyProgress),
+          trophyTier: keep('trophy_tier', psnProfile.trophyTier),
+          earnedPlatinum: keep('earned_platinum', psnProfile.earnedPlatinum),
+          earnedGold: keep('earned_gold', psnProfile.earnedGold),
+          earnedSilver: keep('earned_silver', psnProfile.earnedSilver),
+          earnedBronze: keep('earned_bronze', psnProfile.earnedBronze),
+          updatedAt: ex('updated_at'),
+        },
+      });
+  } catch {
+    ctx.warn('profile_save_failed', 'Не удалось сохранить профиль PSN (синк продолжается).');
+  }
+}
+
 function gameRow(g: PsnGame, now: Date): typeof games.$inferInsert {
   return {
     titleId: g.titleId,
@@ -114,6 +164,7 @@ function gameRow(g: PsnGame, now: Date): typeof games.$inferInsert {
     name: g.name,
     category: g.category,
     imageUrl: g.imageUrl,
+    bannerUrl: g.bannerUrl,
     psnGenres: g.genres,
     playDurationSeconds: g.playDurationSeconds,
     playCount: g.playCount,

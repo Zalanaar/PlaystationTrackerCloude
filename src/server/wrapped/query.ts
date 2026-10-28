@@ -2,6 +2,7 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { getPsnProfile } from '@/server/collection/profile';
 import { getGamesByIds } from '@/server/collection/query';
 import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
 import type { FinishedEvent } from '@/server/stats/finished';
@@ -73,7 +74,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
   const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc), trophySetCounted(trophies.trophySetId));
 
   const estimates = await getEstimateInputs(db);
-  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows] = await Promise.all([
+  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows, psnProf] = await Promise.all([
     getWrappedYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -107,6 +108,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
       .from(gameStatus)
       .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
     db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
+    getPsnProfile(db),
   ]);
 
   // Игра сета платины: минимальный id видимой игры из game_trophy_sets (сет может быть у нескольких версий).
@@ -156,7 +158,9 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
     year,
     today,
     years,
-    onlineId,
+    // ник: env важнее, иначе из сохранённого профиля PSN (12.4)
+    onlineId: onlineId ?? psnProf?.onlineId ?? null,
+    avatarUrl: psnProf?.avatarUrl ?? null,
     snapshots,
     estimates,
     firstSnapshotDate: first[0]?.d ?? null,

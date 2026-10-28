@@ -11,6 +11,7 @@ import type {
   Platform,
   StatusCounts,
 } from './types';
+import { getPsnProfile } from './profile';
 import type { ListQuery } from './validation';
 import { trophySetCounted } from './visibility';
 
@@ -64,6 +65,7 @@ type Row = {
   id: number;
   name: string;
   imageUrl: string | null;
+  bannerUrl: string | null;
   category: string;
   psnGenres: string[];
   genresOverride: string[] | null;
@@ -103,6 +105,7 @@ export function toGameItem(r: Row): GameItem {
     id: r.id,
     title: r.name,
     coverUrl: r.imageUrl,
+    bannerUrl: r.bannerUrl,
     platform: PLATFORM[r.category] ?? 'PS4',
     playSeconds: r.playSeconds,
     hours: Math.round(r.playSeconds / 360) / 10,
@@ -124,6 +127,7 @@ function itemsQuery(db: AnyDb) {
       id: games.id,
       name: games.name,
       imageUrl: games.imageUrl,
+      bannerUrl: games.bannerUrl,
       category: games.category,
       psnGenres: games.psnGenres,
       genresOverride: games.genresOverride,
@@ -238,7 +242,7 @@ export async function listGames(db: AnyDb, p: ListQuery): Promise<GamesListRespo
 
 export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummaryResponse> {
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
-  const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows] = await Promise.all([
+  const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
       .from(games)
@@ -257,9 +261,11 @@ export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummary
       .q.where(and(visibleGames, isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
       .orderBy(desc(games.lastPlayedAt), desc(games.id))
       .limit(CONTINUE_LIMIT),
+    getPsnProfile(db),
   ]);
   const sec = Number(gameTotals[0]?.sec ?? 0);
   return {
+    profile,
     totals: {
       games: gameTotals[0]?.n ?? 0,
       playSeconds: sec,

@@ -946,7 +946,7 @@ Query-параметры (все необязательные; неизвест�
 ## 12. Коллекция v2 (Фаза 9)
 
 ### 12.1 Схема (миграция `0003`, только добавляет)
-- `games.banner_url` text null: горизонтальный арт игры для hero «Играю» и шапки окна игры. Берётся при синке из `concept.media.images` (приоритет: ролей широкого арта, затем любое изображение с `width > height`; если нет, `null`, UI рисует размытый фон из обложки). Синк не затирает непустое значение пустым (как `image_url`, `coalesce`). Backend сначала проверяет по фикстурам `src/server/psn/__fixtures__`, какие `imageType`/размеры реально приходят, и фиксирует правило выбора в `docs/api-notes.md`.
+- `games.banner_url` text null: горизонтальный арт игры для hero «Играю» и шапки окна игры. Берётся при синке из `concept.media.images` (по `type` изображения: `SIXTEEN_BY_NINE_BANNER`, `GAMEHUB_COVER_ART`, `FOUR_BY_THREE_BANNER`, `BACKGROUND`, `SCREENSHOT`; затем любое с числовыми `width > height`, если PSN их отдаст (в реальном ответе размеров нет); если нет, `null`, UI рисует размытый фон из обложки). Синк не затирает непустое значение пустым (как `image_url`, `coalesce`). Backend сначала проверяет по фикстурам `src/server/psn/__fixtures__`, какие `imageType`/размеры реально приходят, и фиксирует правило выбора в `docs/api-notes.md`.
 - Таблица `psn_profile` (ровно одна строка, `id = 1` CHECK):
 
 | Колонка | Тип | Null | Описание |
@@ -975,7 +975,7 @@ Query-параметры (все необязательные; неизвест�
 `null`, если синк профиль ещё не сохранял. Любое поле, которого PSN не дал, `null`. `trophies` целиком `null`, если счётчиков нет. Это счётчики PSN-аккаунта, они могут отличаться от `totals` (включают скрытые игры и игры вне библиотеки).
 
 ### 12.4 `GET /api/wrapped` (11.1)
-`profile` расширяется: `{ "onlineId": string | null, "avatarUrl": string | null }`. Слайд «Старт» показывает аватар, при `null` или ошибке загрузки инициал.
+`profile` расширяется: `{ "onlineId": string | null, "avatarUrl": string | null }`. `onlineId`: `PSN_TARGET_ONLINE_ID` из env, а если его нет, ник из `psn_profile`; `avatarUrl` из `psn_profile`. Слайд «Старт» показывает аватар, при `null` или ошибке загрузки инициал.
 
 ### 12.5 `GET /api/games/{id}`
 Детали игры для окна. Сессия, конверт 4.1. `id` не число = `400 invalid_request`, нет игры = `404 not_found`. Скрытая игра отдаётся (`hiddenAt` не `null`).

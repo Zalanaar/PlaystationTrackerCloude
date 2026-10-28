@@ -22,6 +22,13 @@
       "when": 1793174157236,
       "tag": "0002_status_backups_hidden",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793179023631,
+      "tag": "0003_profile_banner",
+      "breakpoints": true
     }
   ]
 }

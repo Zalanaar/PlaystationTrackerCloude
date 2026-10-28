@@ -103,3 +103,11 @@
 
 ### Итог: GO
 Критерии Фазы 0 выполнены: токены, часы чужого аккаунта, даты запусков, трофеи с earned_at, жанры PSN, лимиты не мешают. Открыто: 49 игр без трофейного сета, нормализация жанров, режим продления refresh token.
+
+### Баннер игры и профиль (Фаза 9)
+Проверено по фикстурам `src/server/psn/__fixtures__/played-games.json` и типам psn-api 2.18.1. Живых ответов с NPSSO в этой сессии не было, поэтому реальное распределение типов не измерено (см. риск ниже).
+- Элемент `concept.media.images[]` содержит только `url`, `format` (в примерах `UNKNOWN`) и `type`. **Ширины и высоты нет**, поэтому условие контракта 12.1 «`width > height`» применимо только как запасное, если PSN их когда-нибудь добавит.
+- В фикстурах и в доке библиотеки встречается один тип: `FOUR_BY_THREE_BANNER`. В 6 из 7 фикстурных тайтлов `images` пуст; у `ps5_native_media_app` тоже. Из знания публичных PS Store-типов добавлены остальные (не подтверждены живыми данными): `SIXTEEN_BY_NINE_BANNER`, `GAMEHUB_COVER_ART`, `BACKGROUND`, `SCREENSHOT`; квадрат и вертикаль (`MASTER`, `LOGO`, `PORTRAIT_BANNER`, иконки) не годятся.
+- Правило (`pickBanner` в `src/server/psn/mapping.ts`): первое изображение по приоритету типов `SIXTEEN_BY_NINE_BANNER`, `GAMEHUB_COVER_ART`, `FOUR_BY_THREE_BANNER`, `BACKGROUND`, `SCREENSHOT`; иначе любое с числовыми `width > height`; иначе `null`. Синк пишет `coalesce(новое, старое)`.
+- Профиль: `getProfileFromUserName` отдаёт `avatarUrls[{size, avatarUrl}]` (размеры `xs..xl`; берём самый крупный по `size`) и `trophySummary {level, progress, earnedTrophies}`. Поле `tier` в типах библиотеки не объявлено; читается защитно, при отсутствии `null`. Любое отсутствующее поле даёт `null`, прежнее значение в БД не затирается.
+- Риск: если у реальных игр `images` пуст или типы отличаются, баннер будет `null` у большинства игр (UI рисует размытую обложку). После первого синка проверить `select count(banner_url), count(*) from games`.

@@ -23,6 +23,12 @@ export type GameItem = {
   id: number;
   title: string;
   coverUrl: string | null;
+  /**
+   * Горизонтальный арт (12.2) или null: UI рисует размытый фон из обложки. Сервер присылает поле ВСЕГДА;
+   * необязательное в типе только ради фикстур GameItem в тестах (src/ui, зона frontend).
+   * TODO(frontend): добавить `bannerUrl: null` в фикстуры и сделать поле обязательным.
+   */
+  bannerUrl?: string | null;
   platform: Platform;
   playSeconds: number;
   hours: number;
@@ -52,6 +58,18 @@ export type GamesListResponse = {
   years: number[];
 };
 
+/** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */
+export type PsnProfile = {
+  onlineId: string;
+  avatarUrl: string | null;
+  level: number | null;
+  /** 0..100 до следующего уровня */
+  levelProgress: number | null;
+  tier: number | null;
+  /** null, если счётчиков нет */
+  trophies: { platinum: number; gold: number; silver: number; bronze: number; total: number } | null;
+};
+
 export type CollectionSummaryResponse = {
   totals: { games: number; playSeconds: number; hours: number; trophiesEarned: number; platinumEarned: number };
   counts: StatusCounts;
@@ -59,6 +77,8 @@ export type CollectionSummaryResponse = {
   /** Игры со статусом `service`, last_played_at desc; всего их `counts.service`. */
   services: GameItem[];
   continue: GameItem[];
+  /** null, если синк профиль ещё не сохранял (12.3). */
+  profile: PsnProfile | null;
 };
 
 export type GameMutationResponse = { game: GameItem };
@@ -74,4 +94,29 @@ export type StatusBackupRow = {
   completedAt: string | null;
   droppedAt: string | null;
   statusChangedAt: string;
+};
+
+/** Трофей в окне игры (12.5). Скрытый и не полученный: name/detail = null. */
+export type GameTrophyItem = {
+  setId: number;
+  trophyId: number;
+  type: 'platinum' | 'gold' | 'silver' | 'bronze';
+  name: string | null;
+  detail: string | null;
+  iconUrl: string | null;
+  hidden: boolean;
+  earned: boolean;
+  earnedAt: string | null;
+  /** 0..3 (0 ультра-редкий) или null */
+  rarity: number | null;
+  /** % игроков, 2 знака, или null */
+  earnedRate: number | null;
+};
+
+/** GET /api/games/{id} (12.5). */
+export type GameDetailsResponse = {
+  game: GameItem;
+  firstPlayedAt: string | null;
+  statusChangedAt: string | null;
+  trophyList: GameTrophyItem[];
 };

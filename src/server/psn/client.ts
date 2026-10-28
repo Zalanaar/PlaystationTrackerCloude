@@ -2,8 +2,8 @@
 // Единственное место, откуда синк обращается к psn-api.
 import * as psnLib from 'psn-api';
 import { PsnError, classifyPsnError } from './errors';
-import { mapEarnedTrophy, mapPlayedTitles, mapTrophyDef, mapTrophyTitle } from './mapping';
-import type { PlayedGamesResult, PsnClient, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophySetRef } from './types';
+import { mapEarnedTrophy, mapPlayedTitles, mapProfile, mapTrophyDef, mapTrophyTitle } from './mapping';
+import type { PlayedGamesResult, PsnClient, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophySetRef } from './types';
 
 /** Подмножество psn-api, которое нам нужно (подменяется в тестах JSON-образцами). */
 export type PsnApi = Pick<
@@ -86,7 +86,15 @@ export async function connectPsn(deps: ClientDeps): Promise<PsnClient> {
     return all;
   }
 
+  let mappedProfile: PsnProfile | null = null;
+  try {
+    mappedProfile = mapProfile(profile);
+  } catch {
+    // профиль необязателен: ошибка маппинга не должна ронять синк
+  }
+
   return {
+    profile: mappedProfile,
     async getPlayedGames(): Promise<PlayedGamesResult> {
       const raw = await paginate(
         (offset) => call((auth) => api.getUserPlayedGames(auth, accountId, { limit: PAGE.played, offset })),

@@ -43,6 +43,8 @@ export const games = pgTable(
     name: text().notNull(),
     category: text().notNull(),
     imageUrl: text('image_url'),
+    // Фаза 9 (12.1): горизонтальный арт из concept.media.images. Синк не затирает пустым.
+    bannerUrl: text('banner_url'),
     psnGenres: text('psn_genres').array().notNull().default(sql`'{}'::text[]`),
     genresOverride: text('genres_override').array(),
     playDurationSeconds: integer('play_duration_seconds').notNull().default(0),
@@ -241,3 +243,22 @@ export const statusBackups = pgTable('status_backups', {
   reason: text(),
   payload: jsonb().notNull(),
 });
+
+// Фаза 9 (контракт 12.1): профиль PSN-аккаунта, ровно одна строка (id = 1). Токенов здесь нет.
+export const psnProfile = pgTable(
+  'psn_profile',
+  {
+    id: smallint().primaryKey(),
+    onlineId: text('online_id').notNull(),
+    avatarUrl: text('avatar_url'),
+    trophyLevel: smallint('trophy_level'),
+    trophyProgress: smallint('trophy_progress'),
+    trophyTier: smallint('trophy_tier'),
+    earnedPlatinum: integer('earned_platinum'),
+    earnedGold: integer('earned_gold'),
+    earnedSilver: integer('earned_silver'),
+    earnedBronze: integer('earned_bronze'),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [check('psn_profile_singleton_check', sql`${t.id} = 1`)],
+);

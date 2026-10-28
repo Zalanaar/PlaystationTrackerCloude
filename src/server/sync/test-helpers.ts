@@ -22,7 +22,7 @@ export async function createTestDb(): Promise<TestDb> {
     pg,
     reset: async () => {
       await client.exec(
-        'TRUNCATE status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth RESTART IDENTITY CASCADE',
+        'TRUNCATE status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth, psn_profile RESTART IDENTITY CASCADE',
       );
     },
     close: () => client.close(),
@@ -72,7 +72,18 @@ export function fakeApi(state: FakeState): PsnApi {
   const api = {
     getProfileFromUserName: async () => {
       hit('profile');
-      return { profile: { accountId: '1234567890', onlineId: 'Target' } };
+      return {
+        profile: {
+          accountId: '1234567890',
+          onlineId: 'Target',
+          avatarUrls: [
+            { size: 's', avatarUrl: 'https://img.example/av-s.png' },
+            { size: 'xl', avatarUrl: 'https://img.example/av-xl.png' },
+            { size: 'm', avatarUrl: 'https://img.example/av-m.png' },
+          ],
+          trophySummary: { level: 312, progress: 47, tier: 7, earnedTrophies: { platinum: 38, gold: 410, silver: 1100, bronze: 2800 } },
+        },
+      };
     },
     getUserPlayedGames: async (_a: unknown, _id: string, o: { limit?: number; offset?: number } = {}) => {
       hit('played');

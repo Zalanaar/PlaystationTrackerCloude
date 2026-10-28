@@ -20,7 +20,7 @@ export type WrappedResponse = {
   mode: 'story' | 'empty';
   period: { from: string; to: string; fromUtc: string; toUtc: string };
   years: { year: number; hasData: boolean }[];
-  profile: { onlineId: string | null };
+  profile: { onlineId: string | null; avatarUrl: string | null };
   firstSnapshotDate: string | null;
   periodPartial: boolean;
   slides: WrappedSlideId[];
