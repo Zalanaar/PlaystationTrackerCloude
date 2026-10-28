@@ -38,7 +38,7 @@ function HeroMain({ game, total, now, actions }: { game: GameItem; total: number
   return (
     <article className="ps-hero__main" data-nobanner={noBanner || undefined} data-platinum={plat || undefined} data-status="playing">
       <HeroArt game={game} banner={banner} onBannerError={setFailed} />
-      <span className="ps-hero__tag"><StatusGlyph status="playing" size={16} /><span>{heroLabel(total)}</span></span>
+      <span className="ps-hero__tag ps-hero__label"><StatusGlyph status="playing" size={16} /><span>{heroLabel(total)}</span></span>
       {plat && <span className="ps-hero__plat" title="Платина получена"><PlatinumIcon size={20} /></span>}
       <div className="ps-hero__info">
         <h2 className="ps-hero__title" title={game.title}>{game.title}</h2>

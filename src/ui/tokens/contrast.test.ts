@@ -96,7 +96,7 @@ describe('состав тем', () => {
     for (const m of Object.values(months)) expect(Object.keys(m).sort()).toEqual(['--xmb-a', '--xmb-b']);
   });
   it('PS5: арт opacity не больше .28 и затемнение не меньше .45', () => {
-    expect(decorCss).toMatch(/blur\(64px\)[^;]*;[^;]*opacity: \.28/);
+    expect(decorCss).toMatch(/\[data-theme="ps5"\] \.ps-app::before \{[^}]*blur\(64px\)[^}]*opacity: \.28\s*;/);
     expect(decorCss).toMatch(/rgba\(10, 10, 12, \.45\)/);
   });
 });

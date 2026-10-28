@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cssUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
+import { cssUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
 
 const NOW = Date.parse('2026-10-27T09:00:00Z');
 
@@ -52,5 +52,15 @@ describe('format', () => {
   it('cssUrl отбрасывает чужие схемы и кавычки', () => {
     expect(cssUrl('javascript:alert(1)')).toBeUndefined();
     expect(cssUrl('https://a.b/c"d.png')).toBe('url("https://a.b/c%22d.png")');
+  });
+});
+
+describe('smallCoverUrl', () => {
+  it('для хоста PSN добавляет w и thumb, остальное не трогает', () => {
+    expect(smallCoverUrl('https://image.api.playstation.com/a/b.png')).toBe('https://image.api.playstation.com/a/b.png?w=240&thumb=true');
+    expect(smallCoverUrl('https://image.api.playstation.com/a.png?x=1', 100)).toBe('https://image.api.playstation.com/a.png?x=1&w=100&thumb=true');
+    expect(smallCoverUrl('https://cdn.example.com/a.png')).toBe('https://cdn.example.com/a.png');
+    expect(smallCoverUrl('not a url')).toBe('not a url');
+    expect(smallCoverUrl(null)).toBeNull();
   });
 });

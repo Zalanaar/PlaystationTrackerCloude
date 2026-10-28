@@ -6,6 +6,7 @@ import { getAccessToken } from '@/server/psn/auth';
 import { connectPsn } from '@/server/psn/client';
 import { PsnError, safeErr } from '@/server/psn/errors';
 import { getCronSecret, getPsnEnv, getSyncOrigin, type PsnEnv } from '@/server/env';
+import { notifyAfterSync } from '@/server/notify/telegram';
 import { failRun, runChunk, type SyncDeps } from './engine';
 import type { RunRow } from './context';
 import { defaultTintDeps } from './tint';
@@ -35,7 +36,16 @@ export type LaunchResult = StartResult | { kind: 'config_error' };
 /** Создаёт/возобновляет запуск и планирует работу в after(). Возвращает сразу. */
 export async function launchSync(o: { kind: RunKind; continueRunId?: number; hop?: number }): Promise<LaunchResult> {
   const env = getPsnEnv();
-  if (!env) return { kind: 'config_error' };
+  if (!env) {
+    // 15.4: синк не стартует вообще: сработает триггер sync_stale, если так уже давно
+    try {
+      const db = getDb();
+      after(() => notifyAfterSync(db));
+    } catch {
+      // нет DATABASE_URL: уведомлять нечем
+    }
+    return { kind: 'config_error' };
+  }
   const db = getDb();
   const started = await startRun(db, { kind: o.kind, now: new Date(), continueRunId: o.continueRunId, hop: o.hop });
   if (started.kind !== 'started') return started;
@@ -49,10 +59,13 @@ async function work(db: AnyDb, env: PsnEnv, run: RunRow): Promise<void> {
   try {
     const res = await runChunk(buildDeps(db, env), run);
     if (res.continueNext && res.hops !== undefined) await continueChain(run.id, res.hops);
+    // 15.4: итог звена не success и не остановка по бюджету -> проверка предупреждений
+    else if (res.status !== 'success') await notifyAfterSync(db, { errorReason: res.reason });
   } catch (e) {
     // сюда попадает только то, что не поймал runChunk (сборка зависимостей)
     const reason = e instanceof PsnError ? e.reason : 'internal';
     await failRun(db, run.id, reason, safeErr(e, [env.npsso, env.encryptionKey]), new Date()).catch(() => undefined);
+    await notifyAfterSync(db, { errorReason: reason });
   }
 }
 

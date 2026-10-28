@@ -246,7 +246,7 @@ function PeriodHeader({ data, sel }: { data: StatsResponse; sel: Selection }) {
 
 function Panel({ title, sub, className, labelId, aside, children }: { title: string; sub?: string; className?: string; labelId: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className={`ps-st-panel ${className ?? ''}`} aria-labelledby={labelId}>
+    <section className={`ps-panel ps-st-panel ${className ?? ''}`} aria-labelledby={labelId}>
       <h3 className="ps-st-panel__t" id={labelId}>{title}</h3>
       {sub && <p className="ps-st-panel__s">{sub}</p>}
       {aside}

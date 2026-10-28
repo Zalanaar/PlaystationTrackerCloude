@@ -25,7 +25,7 @@ export function ProfileCard({ profile }: { profile: PsnProfile | null }) {
   const bar = levelBarPercent(p);
   const cells = trophyCells(p);
   return (
-    <section className="ps-profile" aria-label={`Профиль PSN ${p.onlineId}`}>
+    <section className="ps-panel ps-profile" aria-label={`Профиль PSN ${p.onlineId}`}>
       <Avatar url={p.avatarUrl} name={p.onlineId} size={56} />
       <div className="ps-profile__main">
         <p className="ps-profile__nick" title={p.onlineId}>{p.onlineId}</p>

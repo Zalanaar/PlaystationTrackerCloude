@@ -156,7 +156,7 @@ export function FilterBar({
               const wide = t.id === 'all' || t.id === 'none';
               return (
                 <button
-                  key={t.id} type="button" className="ps-filterchip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
+                  key={t.id} type="button" className="ps-filterchip ps-chip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
                   title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
                 >
                   {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
@@ -168,7 +168,7 @@ export function FilterBar({
           </div>
           <span className="ps-tabs__sep" aria-hidden="true" />
           <button
-            type="button" className="ps-filterchip ps-filterchip--plat" aria-pressed={filters.platinum}
+            type="button" className="ps-filterchip ps-chip ps-filterchip--plat" aria-pressed={filters.platinum}
             aria-label={platinumCount !== null ? `Платина: ${formatNumber(platinumCount)}` : 'Платина'}
             disabled={platinumCount === 0 && !filters.platinum} title={platinumCount === 0 ? 'Платин пока нет' : undefined}
             onClick={() => onChange({ platinum: !filters.platinum })}

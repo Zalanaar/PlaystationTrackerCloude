@@ -5,9 +5,9 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CollectionSummaryResponse, GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
-import { cssUrl, formatNumber, plural } from '../format';
+import { cssUrl, formatNumber, plural, smallCoverUrl } from '../format';
 import { Icon, StatusGlyph } from '../icons';
-import { useNow, useViewportWidth } from '../primitives/hooks';
+import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { ProfileCard, ProfileSkeleton } from '../profile/ProfileCard';
 import { useProfile } from '../profile/ProfileProvider';
@@ -494,8 +494,10 @@ export function CollectionView() {
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
 
-  // Activity: арт страницы = обложка первой игры из ленты «Играю»
-  const art = cssUrl(chronicleMode ? playing[0]?.coverUrl : null);
+  // PS5: арт страницы (--page-art) = обложка первой игры из ленты «Играю»; на мобильном маленькая версия
+  const isMobile = useIsMobile();
+  const artSrc = chronicleMode ? playing[0]?.coverUrl : null;
+  const art = cssUrl(isMobile ? smallCoverUrl(artSrc) : artSrc);
   useEffect(() => {
     const root = document.querySelector<HTMLElement>('.ps-app');
     if (!root) return;

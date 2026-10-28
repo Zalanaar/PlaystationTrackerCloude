@@ -5,7 +5,10 @@ import '@/ui/tokens/themes.css';
 import '@/ui/tokens/decor.css';
 import '@/ui/components.css';
 import './globals.css';
+import { cookies } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';
+import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
+import { THEME_STORAGE_KEY } from '@/ui/tokens';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'], display: 'swap', variable: '--f-inter' });
 const unbounded = Unbounded({ subsets: ['latin', 'cyrillic'], weight: ['500', '600', '700'], display: 'swap', variable: '--f-unbounded' });
@@ -18,9 +21,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Тема из cookie уже в серверной разметке (без мигания); inline-скрипт добирает localStorage и чинит alias.
+  const theme = normalizeTheme((await cookies()).get(THEME_STORAGE_KEY)?.value);
   return (
-    <html lang="ru" suppressHydrationWarning className={`${inter.variable} ${unbounded.variable}`}>
+    <html lang="ru" suppressHydrationWarning data-theme={attrForTheme(theme) ?? undefined} data-xmb-month={xmbMonth()} className={`${inter.variable} ${unbounded.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
