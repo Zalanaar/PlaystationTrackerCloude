@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HltbCallError, hltbEndMessage, hltbProgressText, runHltbLoop, type HltbRunBody, type HltbRunResponse } from './hltbRun';
+import { HltbCallError, HLTB_SINCE_MARGIN_MS, hltbSince, hltbEndMessage, hltbProgressText, runHltbLoop, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 
 const resp = (o: Partial<HltbRunResponse>): HltbRunResponse => ({
   processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: false, stopReason: 'budget', warnings: [], ...o,
@@ -102,5 +102,44 @@ describe('runHltbLoop', () => {
   it('complete с failed > 0 даёт предупреждение', async () => {
     const r = await runHltbLoop({ ...base, run: script(resp({ processed: 2, found: 1, notFound: 1, failed: 1, done: true, stopReason: 'complete' })).run });
     expect(hltbEndMessage(r)).toEqual({ tone: 'warn', text: 'Готово. Проверено 2: найдено 1, не найдено 1, ошибок 1.' });
+  });
+
+  it('hltbSince: now минус 60 секунд', () => {
+    const now = Date.parse('2026-10-28T10:00:00.000Z');
+    expect(HLTB_SINCE_MARGIN_MS).toBe(60_000);
+    expect(hltbSince(now)).toBe('2026-10-28T09:59:00.000Z');
+  });
+
+  it('400 since_in_future: понятное сообщение, один вызов, без повтора', async () => {
+    const s = script(new HltbCallError(400, 'invalid_request', 'since_in_future'));
+    const r = await runHltbLoop({ ...base, recheckNotFound: true, run: s.run });
+    expect(s.run).toHaveBeenCalledTimes(1);
+    expect(r.end).toEqual({ kind: 'error', status: 400, code: 'invalid_request', reason: 'since_in_future' });
+    expect(hltbEndMessage(r)).toEqual({ tone: 'error', text: 'Часы устройства не совпадают с сервером, перепроверка не запущена.' });
+    const other = await runHltbLoop({ ...base, run: script(new HltbCallError(400, 'invalid_request')).run });
+    expect(hltbEndMessage(other).text).toBe('Сервер отклонил запрос.');
+  });
+
+  it('abort в полёте: остановка без ошибки, накопленный итог сохраняется, signal передан в run', async () => {
+    const ac = new AbortController();
+    const seen: (AbortSignal | undefined)[] = [];
+    let n = 0;
+    const run = vi.fn(async (_b: HltbRunBody, signal?: AbortSignal) => {
+      seen.push(signal);
+      if (++n === 1) return resp({ processed: 4, found: 3, notFound: 1, remaining: 9 });
+      ac.abort();
+      throw new DOMException('aborted', 'AbortError');
+    });
+    const r = await runHltbLoop({ ...base, run, signal: ac.signal });
+    expect(seen.every((x) => x === ac.signal)).toBe(true);
+    expect(r.end).toEqual({ kind: 'stopped' });
+    expect(r.totals.processed).toBe(4);
+    expect(hltbEndMessage(r).tone).toBe('warn');
+    expect(hltbEndMessage(r).text).toContain('Проверено 4');
+  });
+
+  it('AbortError без флага signal тоже не сбой', async () => {
+    const r = await runHltbLoop({ ...base, run: script(new DOMException('a', 'AbortError')).run });
+    expect(r.end).toEqual({ kind: 'stopped' });
   });
 });

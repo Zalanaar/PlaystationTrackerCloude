@@ -16,18 +16,28 @@ export type HltbLoopEnd =
   | { kind: 'stopped' }
   | { kind: 'limit' }
   | { kind: 'halted'; reason: HltbStopReason }
-  | { kind: 'error'; status: number; code: string };
+  | { kind: 'error'; status: number; code: string; reason?: string };
 export type HltbLoopResult = { end: HltbLoopEnd; totals: HltbRunTotals; warnings: HltbRunWarning[] };
 
 /** Ошибка вызова с кодом HTTP; бросается вызывающей стороной (fetchHltbRun) и разбирается циклом. */
 export class HltbCallError extends Error {
-  constructor(public status: number, public code: string) {
+  constructor(public status: number, public code: string, public reason?: string) {
     super(code);
   }
 }
 
+/** Запас на разброс часов устройства и сервера: сервер отвергает since из будущего больше чем на 5 секунд. */
+export const HLTB_SINCE_MARGIN_MS = 60_000;
+
+/** Граница перепроверки: «сейчас» устройства минус запас. Вызывается один раз в начале цикла. */
+export function hltbSince(nowMs: number): string {
+  return new Date(nowMs - HLTB_SINCE_MARGIN_MS).toISOString();
+}
+
 export type HltbLoopOptions = {
-  run: (body: HltbRunBody) => Promise<HltbRunResponse>;
+  run: (body: HltbRunBody, signal?: AbortSignal) => Promise<HltbRunResponse>;
+  /** Прерывает запрос в полёте; отмена считается остановкой пользователем, а не сбоем. */
+  signal?: AbortSignal;
   recheckNotFound: boolean;
   /** Момент начала цикла (ISO): фиксируется один раз и уходит во все вызовы. */
   since: string;
@@ -46,9 +56,10 @@ export async function runHltbLoop(o: HltbLoopOptions): Promise<HltbLoopResult> {
     if (o.shouldStop()) return result({ kind: 'stopped' });
     let r: HltbRunResponse;
     try {
-      r = await o.run(body);
+      r = await o.run(body, o.signal);
     } catch (e) {
-      if (e instanceof HltbCallError) return result({ kind: 'error', status: e.status, code: e.code });
+      if (o.signal?.aborted || (e instanceof Error && e.name === 'AbortError')) return result({ kind: 'stopped' });
+      if (e instanceof HltbCallError) return result({ kind: 'error', status: e.status, code: e.code, reason: e.reason });
       return result({ kind: 'error', status: 0, code: 'network' });
     }
     totals.calls++;
@@ -96,6 +107,7 @@ export function hltbEndMessage(r: HltbLoopResult): { tone: 'ok' | 'warn' | 'erro
     case 'error':
       if (r.end.status === 409) return { tone: 'warn', text: `Синк уже идёт, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
       if (r.end.status === 503) return { tone: 'error', text: `База данных недоступна, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
+      if (r.end.status === 400 && r.end.reason === 'since_in_future') return { tone: 'error', text: 'Часы устройства не совпадают с сервером, перепроверка не запущена.' };
       if (r.end.status === 400) return { tone: 'error', text: 'Сервер отклонил запрос.' };
       return { tone: 'error', text: `Нет связи с сервером. ${r.totals.processed > 0 ? sum : ''}`.trim() };
   }

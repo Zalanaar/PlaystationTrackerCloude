@@ -174,7 +174,7 @@ export type Mock = {
   /** Фаза 11 (16.7): тела POST /api/hltb/run в порядке отправки */
   hltbCalls: Record<string, unknown>[];
   /** очередь ответов POST /api/hltb/run: объект = 200 data, { status, code } = ошибка; пустая очередь = complete без работы */
-  hltbRuns: ({ data: Record<string, unknown> } | { status: number; code: string })[];
+  hltbRuns: ({ data: Record<string, unknown> } | { status: number; code: string; reason?: string })[];
   /** задержка ответа POST /api/hltb/run, мс */
   hltbDelay: number;
   /** что делать с игрой при ответе с `apply`: ключи games, у которых после вызова появляется совпадение */
@@ -310,7 +310,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     m.hltbCalls.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
     if (m.hltbDelay) await new Promise((res) => setTimeout(res, m.hltbDelay));
     const next = m.hltbRuns.shift();
-    if (next && 'status' in next) return json(route, { code: next.code, message: 'x' }, next.status);
+    if (next && 'status' in next) return json(route, { code: next.code, message: 'x', ...(next.reason ? { details: { reason: next.reason } } : {}) }, next.status);
     m.hltbApply(m.games, m.hltbCalls.length);
     return json(route, next?.data ?? { processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: true, stopReason: 'complete', warnings: [] });
   });
@@ -321,7 +321,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     m.hltbCalls.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
     if (m.hltbDelay) await new Promise((res) => setTimeout(res, m.hltbDelay));
     const next = m.hltbRuns.shift();
-    if (next && 'status' in next) return json(route, { code: next.code, message: 'x' }, next.status);
+    if (next && 'status' in next) return json(route, { code: next.code, message: 'x', ...(next.reason ? { details: { reason: next.reason } } : {}) }, next.status);
     m.hltbApply(m.games, m.hltbCalls.length);
     return json(route, next?.data ?? { processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: true, stopReason: 'complete', warnings: [] });
   });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { fetchHltbRun } from './api';
-import { hltbEndMessage, hltbProgressText, runHltbLoop, type HltbLoopResult, type HltbRunTotals } from './hltbRun';
+import { hltbEndMessage, hltbProgressText, hltbSince, runHltbLoop, type HltbLoopResult, type HltbRunTotals } from './hltbRun';
 
 /** Массовая подгрузка длительности с HLTB (16.7): цикл вызовов с прогрессом, остановкой и итогом. Закрытие страницы прерывает цикл. */
 export function HltbRunner({ onFinished }: { onFinished: () => void }) {
@@ -12,9 +12,10 @@ export function HltbRunner({ onFinished }: { onFinished: () => void }) {
   const [result, setResult] = useState<HltbLoopResult | null>(null);
   const stopRef = useRef(false);
   const aliveRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     aliveRef.current = true;
-    return () => { aliveRef.current = false; stopRef.current = true; };
+    return () => { aliveRef.current = false; stopRef.current = true; abortRef.current?.abort(); };
   }, []);
 
   async function start() {
@@ -23,12 +24,15 @@ export function HltbRunner({ onFinished }: { onFinished: () => void }) {
     setRunning(true);
     setResult(null);
     setProgress(null);
+    const ac = new AbortController();
+    abortRef.current = ac;
     // since фиксируется один раз на весь цикл (иначе перепроверка не закончится)
     const r = await runHltbLoop({
-      run: fetchHltbRun, recheckNotFound: recheck, since: new Date().toISOString(),
+      run: fetchHltbRun, recheckNotFound: recheck, since: hltbSince(Date.now()), signal: ac.signal,
       shouldStop: () => stopRef.current || !aliveRef.current,
       onProgress: (t) => { if (aliveRef.current) setProgress(t); },
     });
+    abortRef.current = null;
     if (!aliveRef.current) return;
     setRunning(false);
     setResult(r);
@@ -45,7 +49,7 @@ export function HltbRunner({ onFinished }: { onFinished: () => void }) {
           Подтянуть длительность с HLTB
         </button>
         {running && (
-          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { stopRef.current = true; }} aria-label="Остановить подгрузку с HLTB" data-testid="hltb-stop">
+          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { stopRef.current = true; abortRef.current?.abort(); }} aria-label="Остановить подгрузку с HLTB" data-testid="hltb-stop">
             Остановить
           </button>
         )}

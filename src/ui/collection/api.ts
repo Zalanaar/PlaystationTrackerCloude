@@ -9,7 +9,7 @@ import type {
 } from '@/server/collection/types';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(public status: number, public code: string, message: string, public reason?: string) {
     super(message);
   }
 }
@@ -38,7 +38,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
-  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error');
+  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error', json?.error?.details?.reason);
   return json.data as T;
 }
 
@@ -102,12 +102,16 @@ export const fetchStatusBackups = (signal?: AbortSignal) => call<StatusBackupsRe
 
 export type { GameItem };
 
-/** Один вызов массовой подгрузки HLTB (16.7). Ошибки отдаются как HltbCallError (код HTTP и код ошибки). */
-export async function fetchHltbRun(body: HltbRunBody): Promise<HltbRunResponse> {
+/**
+ * Один вызов массовой подгрузки HLTB (16.7). Ошибки отдаются как HltbCallError (код HTTP, код и причина).
+ * Отмена через signal даёт AbortError (не сбой).
+ */
+export async function fetchHltbRun(body: HltbRunBody, signal?: AbortSignal): Promise<HltbRunResponse> {
   try {
-    return await call<HltbRunResponse>('/api/hltb/run', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) });
+    return await call<HltbRunResponse>('/api/hltb/run', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body), signal });
   } catch (e) {
-    if (e instanceof ApiError) throw new HltbCallError(e.status, e.code);
+    if (signal?.aborted) throw new DOMException('Запрос отменён', 'AbortError');
+    if (e instanceof ApiError) throw new HltbCallError(e.status, e.code, e.reason);
     throw e;
   }
 }
