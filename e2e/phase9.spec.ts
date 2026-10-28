@@ -25,7 +25,7 @@ const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]
 const card = (page: Page, title: string) =>
   coll(page).locator('article.ps-card').filter({ has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) });
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-const theme = (page: Page, t: 'night' | 'graphite' | 'activity') =>
+const theme = (page: Page, t: 'night' | 'graphite' | 'ps5') =>
   page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 const isMobile = (name: string) => name === 'mobile';
 
@@ -108,10 +108,10 @@ test.describe('Фаза 9: платина', () => {
     await expect(chip).toHaveAttribute('title', 'Платин пока нет');
   });
 
-  test('токены платины по темам: Night, Graphite, Activity', async ({ page, context, baseURL }) => {
+  test('токены платины по темам: Night, Graphite, PS5', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
-    const exp = { night: ['#9fd3f5', '40%'], graphite: ['#a9cbe6', '0%'], activity: ['#7cc4f2', '55%'] } as const;
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    const exp = { night: ['#9fd3f5', '40%'], graphite: ['#a9cbe6', '0%'], ps5: ['#7cc4f2', '55%'] } as const;
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       const v = await page.evaluate(() => { const c = getComputedStyle(document.documentElement); return [c.getPropertyValue('--plat-2').trim(), c.getPropertyValue('--plat-glow-a').trim()]; });
       expect(v).toEqual([...exp[t]]);
@@ -213,7 +213,7 @@ test.describe('Фаза 9: hero «Играю»', () => {
     const games = seed();
     games[2].trophies = { earned: 78, defined: 78, plat: true };
     await open(page, context, baseURL!, { games, url: '/' });
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       await expect(page.locator('.ps-hero__plat')).toBeVisible();
       await expect(page.locator('.ps-hero__main')).toHaveAttribute('data-platinum', 'true');
@@ -438,7 +438,7 @@ test.describe('Фаза 9: окно игры', () => {
 
   test('три темы: окно без переполнения, закрытие кнопкой', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       await card(page, 'The Witcher 3: Wild Hunt').locator('.ps-card__hit').click();
       const dlg = dlgOf(page, 'The Witcher 3: Wild Hunt');

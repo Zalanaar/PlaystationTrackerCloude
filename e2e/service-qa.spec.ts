@@ -5,7 +5,7 @@ import { signedSession } from './session';
 
 const SHOTS = process.env.SHOTS_DIR;
 const WIDTHS = [320, 360, 390];
-const THEMES = ['night', 'graphite', 'activity'] as const;
+const THEMES = ['night', 'graphite', 'ps5'] as const;
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 /** Элементы внутри селектора, выходящие за край вьюпорта (вне прокручиваемых контейнеров). */
 const blockOverflow = (page: Page, sel: string) =>

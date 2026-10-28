@@ -9,7 +9,7 @@ import { startRun } from './runs';
 import type { TintDeps } from './tint';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
 
-const { games, trophies, trophySets, syncRuns } = schema;
+const { games, trophies, syncRuns } = schema;
 const DAY1 = new Date('2026-10-27T17:00:00Z');
 const DAY2 = new Date('2026-10-28T17:00:00Z');
 
@@ -76,7 +76,6 @@ describe('Этап 2: синк', () => {
       clock.t = DAY2.getTime() + 2 * 3600_000;
       const { res } = await sync();
       expect(res.status).toBe('success');
-      console.log(JSON.stringify(state.calls), JSON.stringify((await t.db.select().from(syncRuns)).map((r) => [r.id, r.status, r.errorReason, r.trophySetsSynced])));
       expect(await t.db.select().from(trophies).where(isNull(trophies.groupId)).then((r) => r.length)).toBe(0);
       expect((await t.db.select().from(trophies)).length).toBe(count);
       // и ещё один синк: ничего не перезагружается

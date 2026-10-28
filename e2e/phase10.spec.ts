@@ -58,7 +58,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, o: Opt
 }
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const genreRow = (page: Page, label: string) => page.locator('.ps-st-genres__row').filter({ hasText: label });
-const theme = (page: Page, t: 'night' | 'graphite' | 'activity') =>
+const theme = (page: Page, t: 'night' | 'graphite' | 'ps5') =>
   page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 
 test.describe('Фаза 10: поповер жанров', () => {
@@ -153,7 +153,7 @@ test.describe('Фаза 10: поповер жанров', () => {
 
   test('три темы: поповер без переполнения', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       await genreRow(page, 'Экшен').hover();
       await expect(page.getByRole('dialog', { name: 'Игры жанра Экшен' })).toBeVisible();
@@ -237,7 +237,7 @@ test.describe('Фаза 10: топ-10 игр', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Топ-10 игр' })).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Часы', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/p10-top-${t}-${info.project.name}.png` });

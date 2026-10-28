@@ -367,9 +367,11 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
         np: trophySets.npCommunicationId,
         service: trophySets.npServiceName,
         defined: sql<number>`${definedSum}::int`,
-        have: sql<number>`${localRows}::int`,
+        // ВАЖНО: в списке выбора drizzle рендерит ${trophySets.id} без префикса таблицы, внутри подзапроса это trophies.id.
+        // Поэтому здесь явная ссылка "trophy_sets"."id".
+        have: sql<number>`(select count(*) from trophies t where t.trophy_set_id = "trophy_sets"."id")::int`,
         // 15.3: group_id приходит только из определений трофеев
-        noGroup: sql<number>`(select count(*) from trophies t where t.trophy_set_id = ${trophySets.id} and t.group_id is null)::int`,
+        noGroup: sql<number>`(select count(*) from trophies t where t.trophy_set_id = "trophy_sets"."id" and t.group_id is null)::int`,
       })
       .from(trophySets)
       .where(staleSetsWhere(ctx, processed))

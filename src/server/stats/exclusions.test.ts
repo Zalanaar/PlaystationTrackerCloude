@@ -166,3 +166,13 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
     expect(after.played.groups[0].excluded).toHaveLength(1);
   });
 });
+
+import { parseMonthExclusionBody } from '@/server/collection/validation';
+describe('parseMonthExclusionBody', () => {
+  it('валидные и мусорные тела', () => {
+    expect(parseMonthExclusionBody({ month: '2026-03', excluded: true })).toEqual({ ok: true, value: { month: '2026-03', excluded: true } });
+    for (const bad of [null, {}, { month: '2026-13', excluded: true }, { month: '2026-3', excluded: true }, { month: '1999-01', excluded: true }, { month: '2026-03' }, { month: '2026-03', excluded: 'yes' }, { month: 5, excluded: true }]) {
+      expect(parseMonthExclusionBody(bad).ok).toBe(false);
+    }
+  });
+});

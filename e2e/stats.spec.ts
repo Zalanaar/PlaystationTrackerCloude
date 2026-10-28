@@ -82,7 +82,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url = 
   await page.goto(url);
   return ctl;
 }
-async function theme(page: Page, t: 'night' | 'graphite' | 'activity') {
+async function theme(page: Page, t: 'night' | 'graphite' | 'ps5') {
   await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 }
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -279,7 +279,7 @@ test.describe('/stats', () => {
   test('3 темы: нет горизонтального скролла, текст читаем (снимки при SHOTS_DIR)', async ({ page, context, baseURL }, info) => {
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-st-bar')).toHaveCount(12);
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       expect(await overflow(page), `overflow ${t} ${info.project.name}`).toBeLessThanOrEqual(0);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/stats-${info.project.name}-${t}.png`, fullPage: true });

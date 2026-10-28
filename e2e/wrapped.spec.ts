@@ -84,7 +84,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url = 
   if (url !== '/blank-never') await page.goto(url);
   return ctl;
 }
-async function theme(page: Page, t: 'night' | 'graphite' | 'activity') {
+async function theme(page: Page, t: 'night' | 'graphite' | 'ps5') {
   await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 }
 /** Короткий автопереход вместо 7 с. */
@@ -333,7 +333,7 @@ test.describe('/wrapped: истории', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await watch(page);
     const vp = page.viewportSize()!;
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       for (let i = 0; i < 8; i++) {
         const b = (await page.locator('.ps-story__stage').boundingBox())!;
