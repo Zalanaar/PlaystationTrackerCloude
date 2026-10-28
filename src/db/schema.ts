@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -48,6 +49,13 @@ export const games = pgTable(
     // Этап 2 (контракт 15.2): акцент из обложки, #rrggbb или NULL. tint_checked_at: когда последний раз пытались посчитать.
     tint: text(),
     tintCheckedAt: tz('tint_checked_at'),
+    // Фаза 11 (контракт 16.1): длительность прохождения. Ручная (duration_override_hours) приоритетнее HLTB.
+    hltbId: integer('hltb_id'),
+    hltbName: text('hltb_name'),
+    hltbMainHours: doublePrecision('hltb_main_hours'),
+    hltbExtraHours: doublePrecision('hltb_extra_hours'),
+    hltbCheckedAt: tz('hltb_checked_at'),
+    durationOverrideHours: doublePrecision('duration_override_hours'),
     psnGenres: text('psn_genres').array().notNull().default(sql`'{}'::text[]`),
     genresOverride: text('genres_override').array(),
     playDurationSeconds: integer('play_duration_seconds').notNull().default(0),
@@ -68,6 +76,9 @@ export const games = pgTable(
     index('games_last_played_at_idx').on(t.lastPlayedAt.desc().nullsLast()),
     check('games_category_check', sql`${t.category} in ('ps4_game','ps5_native_game','pspc_game')`),
     check('games_tint_check', sql`${t.tint} is null or ${t.tint} ~ '^#[0-9a-f]{6}$'`),
+    check('games_hltb_main_check', sql`${t.hltbMainHours} is null or ${t.hltbMainHours} > 0`),
+    check('games_hltb_extra_check', sql`${t.hltbExtraHours} is null or ${t.hltbExtraHours} > 0`),
+    check('games_duration_override_check', sql`${t.durationOverrideHours} is null or ${t.durationOverrideHours} > 0`),
   ],
 );
 

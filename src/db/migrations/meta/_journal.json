@@ -43,6 +43,13 @@
       "when": 1793188850139,
       "tag": "0005_tint_trophy_groups_notify",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793211799430,
+      "tag": "0006_hltb_duration",
+      "breakpoints": true
     }
   ]
 }
