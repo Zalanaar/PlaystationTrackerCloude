@@ -6,6 +6,7 @@ import { PsnError, safeErr, type SyncErrorReason } from '@/server/psn/errors';
 import type { PsnClient } from '@/server/psn/types';
 import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
+import { hltbStep, type HltbDeps } from './hltb-step';
 import { tintStep, type TintDeps } from './tint';
 
 const { syncRuns } = schema;
@@ -22,6 +23,8 @@ export type SyncDeps = {
   secrets?: ReadonlyArray<string | null | undefined>;
   /** Шаг «цвет акцента» (15.2) в конце успешного звена. Нет = шаг отключён (тесты). */
   tint?: TintDeps;
+  /** Шаг «длительность по HLTB» (16.6) после цвета акцента. Нет = шаг отключён (тесты). */
+  hltb?: HltbDeps;
 };
 
 export type ChunkResult = {
@@ -84,6 +87,14 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
       } catch {
         // цвет акцента необязателен: ошибка шага не влияет на итог синка
         ctx.warn('tint_failed', 'Шаг расчёта цвета акцента завершился ошибкой.');
+      }
+    }
+    if (deps.hltb) {
+      try {
+        await hltbStep(ctx, deps.hltb);
+      } catch {
+        // длительность необязательна (есть ручной ввод): ошибка шага не влияет на итог синка
+        ctx.warn('hltb_failed', 'Шаг длительности по HLTB завершился ошибкой.');
       }
     }
     return await close({ status: 'success', reason: null, continueNext: false }, null, true);

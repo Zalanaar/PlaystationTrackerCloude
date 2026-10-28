@@ -9,6 +9,7 @@ import { getCronSecret, getPsnEnv, getSyncOrigin, type PsnEnv } from '@/server/e
 import { notifyAfterSync } from '@/server/notify/telegram';
 import { failRun, runChunk, type SyncDeps } from './engine';
 import type { RunRow } from './context';
+import { defaultHltbDeps } from './hltb-step';
 import { defaultTintDeps } from './tint';
 import { startRun, type RunKind, type StartResult } from './runs';
 
@@ -21,6 +22,7 @@ export function buildDeps(db: AnyDb, env: PsnEnv): SyncDeps {
     budgetMs: env.timeBudgetMs,
     secrets,
     tint: defaultTintDeps,
+    hltb: defaultHltbDeps(),
     connect: () =>
       connectPsn({
         getAccessToken: (force) => getAccessToken(db, cfg, { force }),
