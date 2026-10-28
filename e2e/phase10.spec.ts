@@ -77,7 +77,8 @@ test.describe('Фаза 10: поповер жанров', () => {
     await expect(pop.locator('.ps-gp__head')).toContainText('14,5 ч · 14 игр');
     await expect(pop.locator('.ps-gp__thumb')).toHaveCount(12);
     await expect(pop.locator('.ps-gp__more')).toHaveText('+2');
-    expect(Math.round((await pop.boundingBox())!.width)).toBe(304);
+    // boundingBox снимается во время анимации ps-pop-in: допуск ±1 px (BUG-Q1)
+    expect(Math.abs((await pop.boundingBox())!.width - 304)).toBeLessThanOrEqual(1.5);
     expect(await pop.getAttribute('role')).toBe('dialog'); // не меню
     await expect(pop.locator('.ps-gp__thumb').first()).toHaveAttribute('title', 'Игра 1');
     await page.mouse.move(5, 5);
