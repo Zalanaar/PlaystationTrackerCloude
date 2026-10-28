@@ -70,3 +70,23 @@ describe('валидация API коллекции (без БД)', () => {
     }
   });
 });
+
+describe('Фаза 11: валидация длительности и фильтров (без БД)', () => {
+  it('GET /api/games: мусорные genres/duration = 400', async () => {
+    for (const q of ['genres=nope', 'duration=1_2', 'duration=lt10,zzz']) {
+      const r = await listGet(new Request(`http://x/api/games?${q}`));
+      expect(r.status, q).toBe(400);
+    }
+  });
+
+  it('PATCH duration: id, Content-Type, Origin, тело', async () => {
+    const { PATCH } = await import('./[id]/duration/route');
+    expect((await PATCH(req('PATCH', { hours: 5 }), params('abc'))).status).toBe(400);
+    expect((await PATCH(req('PATCH', { hours: 5 }, {}), params('1'))).status).toBe(400);
+    expect((await PATCH(req('PATCH', { hours: 5 }, { ...json, origin: 'http://evil.example', host: 'x' }), params('1'))).status).toBe(400);
+    expect((await PATCH(req('PATCH', '{bad'), params('1'))).status).toBe(400);
+    for (const body of [{}, { hours: 0 }, { hours: -3 }, { hours: '5' }, { hours: 1001 }, { hours: true }]) {
+      expect((await PATCH(req('PATCH', body), params('1'))).status, JSON.stringify(body)).toBe(400);
+    }
+  });
+});

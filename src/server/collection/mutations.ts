@@ -24,6 +24,12 @@ export async function setGameHidden(db: AnyDb, gameId: number, hidden: boolean, 
   if (!rows.length) throw new NotFoundError('Игра не найдена.');
 }
 
+/** 16.5: ручная длительность (hours) или сброс (null). Статус и остальные поля не трогаются. */
+export async function setDurationOverride(db: AnyDb, gameId: number, hours: number | null): Promise<void> {
+  const rows = await db.update(games).set({ durationOverrideHours: hours }).where(eq(games.id, gameId)).returning({ id: games.id });
+  if (!rows.length) throw new NotFoundError('Игра не найдена.');
+}
+
 type Tx = Parameters<Parameters<AnyDb['transaction']>[0]>[0];
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);

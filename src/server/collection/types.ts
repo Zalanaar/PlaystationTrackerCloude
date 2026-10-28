@@ -4,6 +4,29 @@ export type StatusFilterValue = GameStatusValue | 'none';
 export type Platform = 'PS4' | 'PS5' | 'PC';
 export type GameSort = 'last_played' | 'hours' | 'title' | 'trophies_progress' | 'completed_at';
 export type SortOrder = 'asc' | 'desc';
+/** Сортировки GET /api/games: GameSort + длительность (16.4). Отдельный тип, чтобы не ломать Record<GameSort, ...> в src/ui. */
+export type ListSort = GameSort | 'duration';
+
+export type DurationBucket = 'lt10' | '10_30' | '30_60' | '60plus' | 'unknown';
+export type HltbStatus = 'found' | 'not_found' | 'unchecked';
+export type DurationCounts = Record<DurationBucket, number>;
+
+/** Длительность прохождения (16.3). */
+export type GameDuration = {
+  /** Эффективные часы: ручные, иначе HLTB main; null = неизвестно. */
+  hours: number | null;
+  source: 'manual' | 'hltb' | null;
+  bucket: DurationBucket;
+  overrideHours: number | null;
+  hltb: {
+    status: HltbStatus;
+    id: number | null;
+    name: string | null;
+    mainHours: number | null;
+    extraHours: number | null;
+    checkedAt: string | null;
+  };
+};
 
 export type TrophyCounts = { earned: number; defined: number };
 
@@ -46,6 +69,8 @@ export type GameItem = {
    * TODO(frontend): добавить `hiddenAt: null` в фикстуры, затем сделать поле обязательным.
    */
   hiddenAt?: string | null;
+  /** 16.3. Сервер присылает всегда; необязательное в типе из-за фикстур src/ui. */
+  duration?: GameDuration;
 };
 
 export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };
@@ -59,6 +84,8 @@ export type GamesListResponse = {
   years: number[];
   /** 14.4: число забытых игр во всей коллекции (без учёта фильтров запроса). */
   forgottenCount: number;
+  /** 16.4: бакеты длительности в области запроса без фильтра `duration`. */
+  durationCounts: DurationCounts;
 };
 
 /** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */

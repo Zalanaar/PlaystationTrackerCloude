@@ -1279,7 +1279,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 | `duration` | список бакетов 16.2 через запятую (ИЛИ), например `lt10,unknown`. Неизвестный = `400` | без фильтра |
 | `sort=duration` | по эффективным часам; `order` по умолчанию `asc`; игры без длительности всегда в конце (NULL last), как в 9.2 | |
 
-Фильтры комбинируются с `status`/`q`/`year` через И. Типичный запрос бэклога: `status=backlog&genres=ACTION&duration=10_30&sort=duration`.
+Фильтры комбинируются с `status`/`q`/`year` через И. `counts` (9.2) теперь учитывает также `genres` и `duration` (табы статуса показывают, сколько игр осталось при выбранных чипах). В типах `sort=duration` это `ListSort`, `GameSort` не менялся. Типичный запрос бэклога: `status=backlog&genres=ACTION&duration=10_30&sort=duration`.
 
 В ответ добавляется `durationCounts`: `{"lt10":3,"10_30":8,"30_60":5,"60plus":2,"unknown":7}`. Считается по тем же `q`/`status`/`year`/`genres`/`hidden`, но БЕЗ фильтра `duration` (для счётчиков на чипах). Сумма = число игр в этой области.
 
