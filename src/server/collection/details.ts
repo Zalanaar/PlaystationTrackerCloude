@@ -11,6 +11,7 @@ const { games, gameStatus, gameTrophySets, trophies } = schema;
 export type TrophyRow = {
   setId: number;
   trophyId: number;
+  groupId?: string | null;
   type: GameTrophyItem['type'];
   name: string | null;
   detail: string | null;
@@ -30,6 +31,7 @@ export function toTrophyItem(r: TrophyRow): GameTrophyItem {
   return {
     setId: r.setId,
     trophyId: r.trophyId,
+    groupId: r.groupId ?? null,
     type: r.type,
     name: mask ? null : r.name,
     detail: mask ? null : r.detail,
@@ -57,6 +59,7 @@ export async function getGameDetails(db: AnyDb, id: number): Promise<GameDetails
       .select({
         setId: trophies.trophySetId,
         trophyId: trophies.trophyId,
+        groupId: trophies.groupId,
         type: trophies.type,
         name: trophies.name,
         detail: trophies.detail,

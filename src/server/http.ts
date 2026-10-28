@@ -9,6 +9,7 @@ export type ErrorCode =
   | 'rate_limited'
   | 'sync_in_progress'
   | 'status_conflict'
+  | 'month_exclusion_conflict'
   | 'config_error'
   | 'internal_error'
   | 'db_unavailable';

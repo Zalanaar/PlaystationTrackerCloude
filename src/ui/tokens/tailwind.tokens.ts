@@ -14,7 +14,7 @@ export const tokens = {
     platinum: 'var(--platinum)', gold: 'var(--gold)', silver: 'var(--silver)', bronze: 'var(--bronze)',
     'on-cover': 'var(--on-cover-bg)',
   },
-  borderRadius: { sm: 'var(--r-sm)', md: 'var(--r-md)', lg: 'var(--r-lg)', cover: 'var(--r-cover)', pill: 'var(--r-pill)' },
+  borderRadius: { sm: 'var(--r-sm)', md: 'var(--r-md)', lg: 'var(--r-lg)', cover: 'var(--r-cover)', pill: 'var(--r-pill)', chip: 'var(--r-chip)' },
   fontFamily: { body: 'var(--font-body)', display: 'var(--font-display)', num: 'var(--font-num)' },
   boxShadow: { card: 'var(--shadow-card)', hover: 'var(--shadow-hover)', pop: 'var(--shadow-pop)' },
   spacing: {

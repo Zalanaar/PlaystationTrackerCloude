@@ -29,6 +29,20 @@
       "when": 1793179023631,
       "tag": "0003_profile_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793188842489,
+      "tag": "0004_month_exclusions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793188850139,
+      "tag": "0005_tint_trophy_groups_notify",
+      "breakpoints": true
     }
   ]
 }

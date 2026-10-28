@@ -68,6 +68,7 @@ type Row = {
   name: string;
   imageUrl: string | null;
   bannerUrl: string | null;
+  tint: string | null;
   category: string;
   psnGenres: string[];
   genresOverride: string[] | null;
@@ -108,6 +109,7 @@ export function toGameItem(r: Row): GameItem {
     title: r.name,
     coverUrl: r.imageUrl,
     bannerUrl: r.bannerUrl,
+    tint: r.tint,
     platform: PLATFORM[r.category] ?? 'PS4',
     playSeconds: r.playSeconds,
     hours: Math.round(r.playSeconds / 360) / 10,
@@ -130,6 +132,7 @@ function itemsQuery(db: AnyDb) {
       name: games.name,
       imageUrl: games.imageUrl,
       bannerUrl: games.bannerUrl,
+      tint: games.tint,
       category: games.category,
       psnGenres: games.psnGenres,
       genresOverride: games.genresOverride,

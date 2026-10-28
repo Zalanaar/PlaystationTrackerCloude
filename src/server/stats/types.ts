@@ -40,6 +40,11 @@ export type PlayedGroup = {
   completed: number;
   dropped: number;
   items: PlayedItem[];
+  /**
+   * Игры, убранные из этого месяца (15.1); не входят в items и счётчики. hours = только реальные часы месяца.
+   * Необязательно в типе (фикстуры src/ui), сервер присылает всегда.
+   */
+  excluded?: PlayedItem[];
 };
 
 export type StatsGenreItem = { key: string; label: string; value: number };

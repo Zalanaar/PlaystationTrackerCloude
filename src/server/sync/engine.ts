@@ -6,6 +6,7 @@ import { PsnError, safeErr, type SyncErrorReason } from '@/server/psn/errors';
 import type { PsnClient } from '@/server/psn/types';
 import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
+import { tintStep, type TintDeps } from './tint';
 
 const { syncRuns } = schema;
 
@@ -19,6 +20,8 @@ export type SyncDeps = {
   budgetMs: number;
   /** значения, которые нельзя оставлять в error_message */
   secrets?: ReadonlyArray<string | null | undefined>;
+  /** Шаг «цвет акцента» (15.2) в конце успешного звена. Нет = шаг отключён (тесты). */
+  tint?: TintDeps;
 };
 
 export type ChunkResult = {
@@ -73,6 +76,14 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
       if (res === 'timeout') {
         ctx.cursor = { ...ctx.cursor, hops: ctx.cursor.hops + 1 };
         return await close({ status: 'partial', reason: 'timeout', continueNext: ctx.cursor.hops <= MAX_HOPS, hops: ctx.cursor.hops }, null);
+      }
+    }
+    if (deps.tint) {
+      try {
+        await tintStep(ctx, deps.tint);
+      } catch {
+        // цвет акцента необязателен: ошибка шага не влияет на итог синка
+        ctx.warn('tint_failed', 'Шаг расчёта цвета акцента завершился ошибкой.');
       }
     }
     return await close({ status: 'success', reason: null, continueNext: false }, null, true);

@@ -1,10 +1,20 @@
 export const THEMES = [
   { id: 'night', label: 'Night', attr: null },
   { id: 'graphite', label: 'Graphite', attr: 'graphite' },
-  { id: 'activity', label: 'Activity', attr: 'activity' },
+  { id: 'ps1', label: 'PS1', attr: 'ps1' },
+  { id: 'ps2', label: 'PS2', attr: 'ps2' },
+  { id: 'ps3', label: 'PS3', attr: 'ps3' },
+  { id: 'ps4', label: 'PS4', attr: 'ps4' },
+  { id: 'ps5', label: 'PS5', attr: 'ps5' },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]['id'];
+
+/** Старые id тем -> актуальные. Применяется к сохранённому выбору (localStorage, cookie) до проверки по THEMES. Activity слита в PS5. */
+export const LEGACY_THEME_ALIASES: Readonly<Record<string, ThemeId>> = { activity: 'ps5' };
+
+/** PS3: месяц (1..12) для атрибута data-xmb-month на html; значения градиента в themes.css. */
+export const XMB_MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export const DEFAULT_THEME: ThemeId = 'night';
 export const THEME_STORAGE_KEY = 'ps-theme';
 

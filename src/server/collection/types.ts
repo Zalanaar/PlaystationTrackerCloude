@@ -25,6 +25,11 @@ export type GameItem = {
   coverUrl: string | null;
   /** Горизонтальный арт (12.2) или null: UI рисует размытый фон из обложки. */
   bannerUrl: string | null;
+  /**
+   * Цвет акцента из обложки `#rrggbb` (15.2) или null: UI берёт акцент темы. Сервер присылает всегда;
+   * необязательное в типе, чтобы не ломать фикстуры GameItem в src/ui (зона frontend).
+   */
+  tint?: string | null;
   platform: Platform;
   playSeconds: number;
   hours: number;
@@ -71,7 +76,7 @@ export type PsnProfile = {
 /** Прогноз платины (14.2): сколько осталось неплатиновых трофеев сета с неполученной платиной. */
 export type PlatinumForecast = {
   setId: number;
-  /** Неплатиновых трофеев в сете (включая DLC: группы трофеев в БД нет). */
+  /** Неплатиновых трофеев базовой группы сета (15.3: DLC отдельно в `dlc`; пока group_id неизвестен, считается как база, см. `approximate`). */
   required: number;
   earned: number;
   /** floor(earned / required * 100), 0..100. */
@@ -85,6 +90,13 @@ export type PlatinumForecast = {
   /** У скольких оставшихся известен процент. */
   ratesKnown: number;
   platinumEarnedRate: number | null;
+  /**
+   * 15.3: true, если в сете есть трофеи без group_id (DLC ещё не отделены от базы): прогноз приблизительный.
+   * Необязательное в типе (фикстуры src/ui), сервер присылает всегда.
+   */
+  approximate?: boolean;
+  /** 15.3: неплатиновые трофеи DLC того же сета (в required/remaining не входят) или null, если DLC нет. */
+  dlc?: { required: number; earned: number; remaining: number } | null;
 };
 
 export type NearPlatinumItem = { game: GameItem; forecast: PlatinumForecast };
@@ -121,6 +133,8 @@ export type StatusBackupRow = {
 export type GameTrophyItem = {
   setId: number;
   trophyId: number;
+  /** 15.3: PSN trophyGroupId (`default` база, `001`... DLC) или null (ещё не загружено). */
+  groupId?: string | null;
   type: 'platinum' | 'gold' | 'silver' | 'bronze';
   name: string | null;
   detail: string | null;

@@ -45,6 +45,9 @@ export const games = pgTable(
     imageUrl: text('image_url'),
     // Фаза 9 (12.1): горизонтальный арт из concept.media.images. Синк не затирает пустым.
     bannerUrl: text('banner_url'),
+    // Этап 2 (контракт 15.2): акцент из обложки, #rrggbb или NULL. tint_checked_at: когда последний раз пытались посчитать.
+    tint: text(),
+    tintCheckedAt: tz('tint_checked_at'),
     psnGenres: text('psn_genres').array().notNull().default(sql`'{}'::text[]`),
     genresOverride: text('genres_override').array(),
     playDurationSeconds: integer('play_duration_seconds').notNull().default(0),
@@ -64,6 +67,7 @@ export const games = pgTable(
     index('games_concept_id_idx').on(t.conceptId),
     index('games_last_played_at_idx').on(t.lastPlayedAt.desc().nullsLast()),
     check('games_category_check', sql`${t.category} in ('ps4_game','ps5_native_game','pspc_game')`),
+    check('games_tint_check', sql`${t.tint} is null or ${t.tint} ~ '^#[0-9a-f]{6}$'`),
   ],
 );
 
@@ -144,6 +148,8 @@ export const trophies = pgTable(
       .notNull()
       .references(() => trophySets.id, { onDelete: 'cascade' }),
     trophyId: integer('trophy_id').notNull(),
+    // Этап 2 (контракт 15.3): PSN trophyGroupId, 'default' = база, '001'... = DLC, NULL = ещё не загружено.
+    groupId: text('group_id'),
     type: trophyType().notNull(),
     name: text(),
     detail: text(),
@@ -262,3 +268,26 @@ export const psnProfile = pgTable(
   },
   (t) => [check('psn_profile_singleton_check', sql`${t.id} = 1`)],
 );
+
+// Этап 2 (контракт 15.1): исключение игры из месяца статистики. month = 'YYYY-MM' (МСК). Синк не трогает.
+export const gameMonthExclusions = pgTable(
+  'game_month_exclusions',
+  {
+    gameId: integer('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    month: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.gameId, t.month] }),
+    check('game_month_exclusions_month_check', sql`${t.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+  ],
+);
+
+// Этап 2 (контракт 15.4): когда последний раз слали уведомление каждого типа (дедуп: раз в сутки МСК).
+export const notifyLog = pgTable('notify_log', {
+  kind: text().primaryKey(),
+  lastSentAt: tz('last_sent_at').notNull(),
+  sentOn: date('sent_on', { mode: 'string' }).notNull(),
+});

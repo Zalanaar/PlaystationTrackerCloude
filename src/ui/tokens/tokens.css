@@ -31,13 +31,14 @@
   --strip-item-w: 220px;     /* элемент ленты «Играю» (мобильный) */
   --glyph-badge: 26px;       /* кружок фигуры статуса на обложке */
   --border-w: 1px;
+  --r-chip: 999px;           /* радиус чипов, поиска, селекта темы; темы PS1/PS2/PS4 ставят 4px */
 
   /* Сетка обложек: число колонок по режиму плотности (GameGrid ставит data-density) */
   --cols-comfort: 6;
   --cols-dense: 10;
   --cols: var(--cols-comfort);
 
-  /* Статусы: приглушённые, одинаковы во всех темах; playing = акцент. Цвет только у фигуры, подпись text-2/text */
+  /* Статусы: приглушённые, для тёмных тем одинаковы; PS1 (светлая) переопределяет их в themes.css; playing = акцент. Цвет только у фигуры, подпись text-2/text */
   --st-playing:   var(--accent);
   --st-completed: #7fd1b9;
   --st-backlog:   #e2bf75;
@@ -60,7 +61,7 @@
   /* Платина (design-system §4.14). Значения --plat-1/2, --plat-ink, --plat-glow-a задаёт тема (themes.css) */
   --plat-fill: linear-gradient(135deg, var(--plat-1), var(--plat-2));
   --plat-glow: color-mix(in srgb, var(--plat-2) var(--plat-glow-a), transparent);
-  --plat-text: var(--plat-1);          /* платина как цвет текста/иконки на тёмных поверхностях */
+  --plat-text: var(--plat-1);          /* платина как цвет текста/иконки на поверхностях темы (PS1 светлая: свой тёмный) */
   --plat-ring-w: 1px;                  /* обводка обложки платиновой игры (на hover 2px) */
   --plat-badge: 28px;                  /* бейдж на карточке, comfort (моб. 24, dense 20 без текста) */
 

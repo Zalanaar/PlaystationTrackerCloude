@@ -37,6 +37,8 @@ export type TrophySetRef = Pick<PsnTrophySet, 'npCommunicationId' | 'npServiceNa
 
 export type PsnTrophyEarned = {
   trophyId: number;
+  /** В списке полученных трофеев psn-api поля нет (UserThinTrophy): обычно null; группа приходит из определений. */
+  groupId: string | null;
   type: TrophyKind;
   hidden: boolean;
   earned: boolean;
@@ -47,6 +49,8 @@ export type PsnTrophyEarned = {
 
 export type PsnTrophyDef = {
   trophyId: number;
+  /** trophyGroupId: `default` база, `001`... DLC (контракт 15.3); null, если PSN не отдал. */
+  groupId: string | null;
   type: TrophyKind;
   hidden: boolean;
   name: string | null;

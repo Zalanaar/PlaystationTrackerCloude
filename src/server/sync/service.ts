@@ -8,6 +8,7 @@ import { PsnError, safeErr } from '@/server/psn/errors';
 import { getCronSecret, getPsnEnv, getSyncOrigin, type PsnEnv } from '@/server/env';
 import { failRun, runChunk, type SyncDeps } from './engine';
 import type { RunRow } from './context';
+import { defaultTintDeps } from './tint';
 import { startRun, type RunKind, type StartResult } from './runs';
 
 export function buildDeps(db: AnyDb, env: PsnEnv): SyncDeps {
@@ -18,6 +19,7 @@ export function buildDeps(db: AnyDb, env: PsnEnv): SyncDeps {
     now: () => new Date(),
     budgetMs: env.timeBudgetMs,
     secrets,
+    tint: defaultTintDeps,
     connect: () =>
       connectPsn({
         getAccessToken: (force) => getAccessToken(db, cfg, { force }),

@@ -1,4 +1,4 @@
-// Выборка для «ближе всего к платине» (контракт 14.2): одна сгруппированная выборка по (игра, сет), расчёт в platinum.ts.
+// Выборка для «ближе всего к платине» (контракт 14.2, базовая группа: 15.3): одна сгруппированная выборка по (игра, сет), расчёт в platinum.ts.
 import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
@@ -9,7 +9,10 @@ const { games, gameStatus, gameTrophySets, trophies } = schema;
 /** Видимые игры со статусом не dropped (без статуса тоже), топ по прогрессу к платине. Только id и прогнозы. */
 export async function getNearPlatinumCandidates(db: AnyDb, limit?: number): Promise<NearPlatinumCandidate[]> {
   const cnt = (cond: ReturnType<typeof sql>) => sql<number>`(count(*) filter (where ${cond}))::int`;
-  const remaining = sql`not ${trophies.earned} and ${trophies.type} <> 'platinum'`;
+  // 15.3: прогноз по базовой группе (default или ещё неизвестная); DLC считается отдельно
+  const base = sql`(${trophies.groupId} is null or ${trophies.groupId} = 'default')`;
+  const dlc = sql`${trophies.groupId} is not null and ${trophies.groupId} <> 'default' and ${trophies.type} <> 'platinum'`;
+  const remaining = sql`${base} and not ${trophies.earned} and ${trophies.type} <> 'platinum'`;
   const rows = await db
     .select({
       gameId: gameTrophySets.gameId,
@@ -18,12 +21,15 @@ export async function getNearPlatinumCandidates(db: AnyDb, limit?: number): Prom
       pD: cnt(sql`${trophies.type} = 'platinum'`),
       pE: cnt(sql`${trophies.type} = 'platinum' and ${trophies.earned}`),
       pRate: sql<string | null>`max(${trophies.earnedRate}) filter (where ${trophies.type} = 'platinum')`,
-      gD: cnt(sql`${trophies.type} = 'gold'`),
-      sD: cnt(sql`${trophies.type} = 'silver'`),
-      bD: cnt(sql`${trophies.type} = 'bronze'`),
-      gE: cnt(sql`${trophies.type} = 'gold' and ${trophies.earned}`),
-      sE: cnt(sql`${trophies.type} = 'silver' and ${trophies.earned}`),
-      bE: cnt(sql`${trophies.type} = 'bronze' and ${trophies.earned}`),
+      gD: cnt(sql`${base} and ${trophies.type} = 'gold'`),
+      sD: cnt(sql`${base} and ${trophies.type} = 'silver'`),
+      bD: cnt(sql`${base} and ${trophies.type} = 'bronze'`),
+      gE: cnt(sql`${base} and ${trophies.type} = 'gold' and ${trophies.earned}`),
+      sE: cnt(sql`${base} and ${trophies.type} = 'silver' and ${trophies.earned}`),
+      bE: cnt(sql`${base} and ${trophies.type} = 'bronze' and ${trophies.earned}`),
+      unknown: cnt(sql`${trophies.groupId} is null and ${trophies.type} <> 'platinum'`),
+      dlcD: cnt(dlc),
+      dlcE: cnt(sql`${dlc} and ${trophies.earned}`),
       hidden: cnt(sql`${remaining} and ${trophies.hidden}`),
       rateSum: sql<string | null>`sum(${trophies.earnedRate}) filter (where ${remaining})`,
       rateCount: sql<number>`(count(${trophies.earnedRate}) filter (where ${remaining}))::int`,
@@ -52,6 +58,9 @@ export async function getNearPlatinumCandidates(db: AnyDb, limit?: number): Prom
       rateSum: num(r.rateSum) ?? 0,
       rateCount: r.rateCount,
       rateMin: num(r.rateMin),
+      groupUnknown: r.unknown,
+      dlcDefined: r.dlcD,
+      dlcEarned: r.dlcE,
     });
   }
   const candidates: NearPlatinumCandidate[] = [];

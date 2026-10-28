@@ -1,14 +1,23 @@
-/* Значения тем. Набор имён токенов одинаков во всех блоках. Тем три: Night, Graphite, Activity.
-   Night = :root (по умолчанию, без атрибута). Остальные: <html data-theme="...">.
+/* Значения тем. Набор имён токенов одинаков во всех блоках. Тем семь: Night, Graphite, PS1, PS2, PS3, PS4, PS5.
+   Night = корневой блок (по умолчанию, без атрибута). Остальные выбираются атрибутом на html.
+   Атрибут темы всегда на корневом элементе, поэтому var() в tokens.css (например --plat-text) берёт значения своей темы.
    Шрифты подключает frontend через next/font (subsets: latin, cyrillic): --f-inter (текст), --f-unbounded (заголовки).
-   Шрифты общие для всех тем (это бренд, не тема). */
+   Шрифты общие для всех тем (это бренд, не тема).
+   Правила для contrast.test.ts: в этом файле в комментариях не писать селекторы тем и фигурные скобки. */
 
-:root,
-[data-theme="night"] {
+:root {
   --font-body: var(--f-inter), system-ui, sans-serif;
   --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
   --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #0e0f16;           --bg-image: none;       --page-art: none;
+  --bg-image: none;
+  --page-art: none;   /* только PS5: frontend задаёт inline на .ps-app как url(обложка первой игры «Играю») */
+}
+
+/* ---------- Night (по умолчанию) ---------- */
+:root,
+[data-theme="night"] {
+  color-scheme: dark;
+  --bg: #0e0f16;
   --surface: #171925;      --surface-2: #202333;   --surface-3: #2a2e44;
   --border: #2a2e42;       --border-strong: #424868;
   --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #868cab;
@@ -17,17 +26,16 @@
   --accent: var(--tint);   --accent-ink: #14101f;  --focus: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --header-bg: rgba(14, 15, 22, 0.86);
-  --r-cover: 10px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
+  --r-cover: 10px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px; --r-chip: 999px;
   --shadow-alpha: 0.45;
   /* Платина: холодный лёд, заметное свечение */
   --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 40%;
 }
 
+/* ---------- Graphite ---------- */
 [data-theme="graphite"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #111113;           --bg-image: none;       --page-art: none;
+  color-scheme: dark;
+  --bg: #111113;
   --surface: #1a1a1d;      --surface-2: #232327;   --surface-3: #2d2d32;
   --border: #2c2c31;       --border-strong: #46464d;
   --text: #ececee;         --text-2: #b0b0b8;      --text-3: #8e8e98;
@@ -35,27 +43,133 @@
   --accent: #d0d0d8;       --accent-ink: #121214;  --focus: #ffffff;
   --accent-soft: rgba(208, 208, 216, 0.14);
   --header-bg: rgba(17, 17, 19, 0.92);
-  --r-cover: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
+  --r-cover: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px; --r-chip: 999px;
   --shadow-alpha: 0.5;
   /* Платина: сталь, без свечения (в духе темы без декора) */
   --plat-1: #dcefff;       --plat-2: #a9cbe6;      --plat-ink: #101418;    --plat-glow-a: 0%;
 }
 
-[data-theme="activity"] {
-  --font-body: var(--f-inter), system-ui, sans-serif;
-  --font-display: var(--f-unbounded), var(--f-inter), system-ui, sans-serif;
-  --font-num: var(--f-inter), system-ui, sans-serif;
-  --bg: #07060a;           --bg-image: none;
-  --page-art: none;        /* frontend задаёт inline на .ps-app: url(обложка «Играю сейчас») */
-  --surface: #131118;      --surface-2: #1c1a23;   --surface-3: #26232f;
-  --border: #2a2733;       --border-strong: #4a4658;
-  --text: #f6f4fa;         --text-2: #bdb8cc;      --text-3: #8f8aa2;
+/* ---------- PS1 · Серый корпус (единственная светлая) ----------
+   Сверх общего набора тема переопределяет статусы, семантику, трофейные цвета, платину-текст, редкость и поверхности поверх обложек.
+   Статусы «спокойные» (вариант «цвета кнопок» не делаем). */
+[data-theme="ps1"] {
+  color-scheme: light;
+  --bg: #cfccc4;
+  --surface: #dedbd4;      --surface-2: #c4c0b8;   --surface-3: #b3afa6;
+  --border: #b0aca3;       --border-strong: #8f8b82;
+  --text: #18181c;         --text-2: #3c3b40;      --text-3: #4c4b51;
+  --tint: #2b2b31;
+  --accent: #2b2b31;       --accent-ink: #e8e5de;  --focus: #18181c;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --header-bg: rgba(214, 211, 204, 0.9);
+  --r-cover: 3px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px; --r-chip: 4px;
+  --shadow-alpha: 0.18;
+  --plat-1: #e6f6ff;       --plat-2: #6fb0dc;      --plat-ink: #0b1a2b;    --plat-glow-a: 0%;
+  --plat-text: #0e2f48;    /* платина-текст на светлом фоне: тёмный (на тёмных темах = --plat-1) */
+  --st-playing: #5b3a99;   --st-completed: #0f5446; --st-backlog: #634800;  --st-dropped: #8a2b3d;
+  --st-shelved: #4a4d57;   --st-service: #24468f;
+  --success: #0f5446;      --warning: #634800;     --danger: #8a2b3d;
+  --rar-0: #8f1d55;        --rar-1: #5a2f94;       --rar-2: #0f4f61;
+  --gold: #7d5a00;         --silver: #5f6470;      --bronze: #8a4a1c;
+  /* Чипы поверх обложек: светлые вместо тёмных */
+  --on-cover-bg: rgba(236, 233, 226, 0.92);
+  --on-cover-text: #18181c;
+  --on-cover-border: rgba(0, 0, 0, 0.18);
+}
+/* Итоги (Wrapped) в PS1 всегда тёмные: внутри истории возвращается тёмная палитра, статусы светлые.
+   Фон истории не зависит от темы, поэтому и текст, и чипы берут тёмные значения. */
+[data-theme="ps1"] .ps-story {
+  --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #868cab;
+  --st-playing: #c3b2ff;   --st-completed: #7fd1b9; --st-backlog: #e2bf75;  --st-dropped: #e69aa6;
+  --st-shelved: #a3abc0;   --st-service: #78b4ff;
+  --success: #7fd1b9;      --warning: #e2bf75;     --danger: #e69aa6;
+  --rar-0: #ff9ec7;        --rar-1: #c7a8ff;       --rar-2: #86d3e8;
+  --gold: #ffd25e;         --silver: #d3d8e4;      --bronze: #e39a64;
+  --plat-text: #e6f6ff;
+  --on-cover-bg: rgba(8, 9, 14, 0.78);
+  --on-cover-text: #ffffff;
+  --on-cover-border: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- PS2 · Memory Card, синий туман ---------- */
+[data-theme="ps2"] {
+  color-scheme: dark;
+  --bg: #070b1a;
+  --surface: #10172c;      --surface-2: #172038;   --surface-3: #212c4a;
+  --border: #24304f;       --border-strong: #3a4a75;
+  --text: #e8eeff;         --text-2: #a9b6d9;      --text-3: #8593bb;
+  --tint: #cfe0ff;
+  --accent: #cfe0ff;       --accent-ink: #06102a;  --focus: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --header-bg: rgba(7, 11, 26, 0.82);
+  --r-cover: 4px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px; --r-chip: 4px;
+  --shadow-alpha: 0.55;
+  --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 45%;
+}
+
+/* ---------- PS3 · XMB-волна ----------
+   Цвет фона XMB зависит от месяца. Контракт для frontend: на html рядом с атрибутом темы ставится data-xmb-month="1".."12"
+   (текущий месяц по Europe/Moscow). Либо вместо атрибута inline-переменные --xmb-a и --xmb-b на html (они перебивают таблицу).
+   Без атрибута и без inline действуют значения декабря (исходный бордовый). --xmb-a: цвет у верха страницы, --xmb-b: цвет на высоте 260px.
+   Поверхности, границы и текст от месяца не зависят (остаются бордовыми): меняется только градиент в decor.css.
+   Ограничение контраста: --xmb-a не светлее относительной яркости 0.0125, --xmb-b не светлее 0.0052 (проверяет contrast.test.ts). */
+[data-theme="ps3"] {
+  color-scheme: dark;
+  --bg: #10070b;
+  --surface: #1b0d13;      --surface-2: #26121b;   --surface-3: #331a25;
+  --border: #3a1e2a;       --border-strong: #5c3343;
+  --text: #fbeff2;         --text-2: #d3b3bd;      --text-3: #a98894;
+  --tint: #f4eef0;
+  --accent: #f4eef0;       --accent-ink: #1a0a10;  --focus: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --header-bg: rgba(16, 7, 11, 0.82);
+  --r-cover: 8px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px; --r-chip: 999px;
+  --shadow-alpha: 0.55;
+  --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 40%;
+  --xmb-a: #3a0c1c;        --xmb-b: #1d0a12;
+}
+[data-theme="ps3"][data-xmb-month="1"]  { --xmb-a: #0a1a3e; --xmb-b: #060d20; }  /* янв: синий */
+[data-theme="ps3"][data-xmb-month="2"]  { --xmb-a: #1a1248; --xmb-b: #0c0924; }  /* фев: индиго */
+[data-theme="ps3"][data-xmb-month="3"]  { --xmb-a: #2c0e3e; --xmb-b: #160820; }  /* мар: фиолетовый */
+[data-theme="ps3"][data-xmb-month="4"]  { --xmb-a: #340c24; --xmb-b: #1a0612; }  /* апр: розовый */
+[data-theme="ps3"][data-xmb-month="5"]  { --xmb-a: #0a2018; --xmb-b: #05100c; }  /* май: зелёный */
+[data-theme="ps3"][data-xmb-month="6"]  { --xmb-a: #081c2c; --xmb-b: #040d16; }  /* июн: морской */
+[data-theme="ps3"][data-xmb-month="7"]  { --xmb-a: #1a1e06; --xmb-b: #0d1003; }  /* июл: оливковый */
+[data-theme="ps3"][data-xmb-month="8"]  { --xmb-a: #34100a; --xmb-b: #1a0805; }  /* авг: оранжевый */
+[data-theme="ps3"][data-xmb-month="9"]  { --xmb-a: #261806; --xmb-b: #130c03; }  /* сен: янтарный */
+[data-theme="ps3"][data-xmb-month="10"] { --xmb-a: #360c0c; --xmb-b: #1b0606; }  /* окт: ржавый красный */
+[data-theme="ps3"][data-xmb-month="11"] { --xmb-a: #181a28; --xmb-b: #0c0d14; }  /* ноя: сланец */
+[data-theme="ps3"][data-xmb-month="12"] { --xmb-a: #3a0c1c; --xmb-b: #1d0a12; }  /* дек: бордовый */
+
+/* ---------- PS4 · Плитки, синий ---------- */
+[data-theme="ps4"] {
+  color-scheme: dark;
+  --bg: #02173d;
+  --surface: #0a2a63;      --surface-2: #0e3474;   --surface-3: #164090;
+  --border: #1d4794;       --border-strong: #3d6cc4;
+  --text: #ffffff;         --text-2: #c6d6f2;      --text-3: #9fb6e0;
   --tint: #ffffff;
-  --accent: #ffffff;       --accent-ink: #0b0a0f;  --focus: #ffffff;
+  --accent: #ffffff;       --accent-ink: #02173d;  --focus: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.14);
+  --header-bg: rgba(2, 23, 61, 0.82);
+  --r-cover: 2px; --r-sm: 4px; --r-md: 4px; --r-lg: 6px; --r-pill: 999px; --r-chip: 4px;
+  --shadow-alpha: 0.5;
+  --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 30%;
+}
+
+/* ---------- PS5 · Белый/чёрный (бывшая Activity слита сюда) ---------- */
+[data-theme="ps5"] {
+  color-scheme: dark;
+  --bg: #0a0a0c;
+  --surface: #141417;      --surface-2: #1d1d21;   --surface-3: #28282d;
+  --border: #2a2a30;       --border-strong: #4b4b53;
+  --text: #ffffff;         --text-2: #c4c4cc;      --text-3: #94949e;
+  --tint: #ffffff;
+  --accent: #ffffff;       --accent-ink: #000000;  --focus: #ffffff;
   --accent-soft: rgba(255, 255, 255, 0.12);
-  --header-bg: rgba(7, 6, 10, 0.72);
-  --r-cover: 12px; --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-pill: 999px;
+  --header-bg: rgba(10, 10, 12, 0.72);
+  --r-cover: 14px; --r-sm: 10px; --r-md: 14px; --r-lg: 22px; --r-pill: 999px; --r-chip: 999px;
   --shadow-alpha: 0.6;
-  /* Платина: насыщеннее, чтобы не сливаться с белым акцентом Activity */
+  /* Платина: насыщеннее, чтобы не сливаться с белым акцентом */
   --plat-1: #c9ecff;       --plat-2: #7cc4f2;      --plat-ink: #06121e;    --plat-glow-a: 55%;
 }

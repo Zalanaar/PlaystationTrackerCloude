@@ -69,6 +69,8 @@ export type EstimateInput = {
   firstPlayedAt: Date | null;
   /** L0: last_played_at первого снимка игры (fallback games.last_played_at), НЕ текущий games.last_played_at. */
   lastPlayedAt: Date | null;
+  /** Исключённые месяцы игры YYYY-MM (контракт 15.1): оценка перераспределяется по остальным месяцам диапазона. */
+  excludedMonths?: ReadonlySet<string>;
 };
 
 const monthKey = (date: string) => date.slice(0, 7);
@@ -79,20 +81,32 @@ const nextMonth = (key: string): string => {
 };
 
 /**
- * Оценочные секунды игры по месяцам МСК (ключ YYYY-MM), контракт 1.6. Пустая карта = оценки нет.
- * S0 делится поровну по месяцам [месяц firstPlayedAt .. месяц min(L0, D0)], остаток целиком в последний.
+ * Диапазон месяцев оценки игры (YYYY-MM по возрастанию), без учёта исключений (контракт 1.6). Пусто = оценки нет.
+ */
+export function estimateRangeMonths(i: EstimateInput): string[] {
+  if (i.firstPlayedAt === null || i.firstSeconds <= 0) return [];
+  const first = mskDateString(i.firstPlayedAt);
+  if (first > i.firstSnapshotDate) return [];
+  const last = i.lastPlayedAt === null ? null : mskDateString(i.lastPlayedAt);
+  const endDate = last === null || last < first ? first : last < i.firstSnapshotDate ? last : i.firstSnapshotDate;
+  const endKey = monthKey(endDate);
+  const keys: string[] = [];
+  for (let k = monthKey(first); k <= endKey; k = nextMonth(k)) keys.push(k);
+  return keys;
+}
+
+/**
+ * Оценочные секунды игры по месяцам МСК (ключ YYYY-MM), контракт 1.6 и 15.1. Пустая карта = оценки нет.
+ * S0 делится поровну по месяцам диапазона без исключённых, остаток целиком в последний оставшийся.
+ * Исключены все месяцы диапазона (в БД так быть не должно): исключения игнорируются, часы не теряются.
  */
 export function estimateByMonth(i: EstimateInput): Map<string, number> {
   const out = new Map<string, number>();
-  if (i.firstPlayedAt === null || i.firstSeconds <= 0) return out;
-  const first = mskDateString(i.firstPlayedAt);
-  if (first > i.firstSnapshotDate) return out;
-  const last = i.lastPlayedAt === null ? null : mskDateString(i.lastPlayedAt);
-  const endDate = last === null || last < first ? first : last < i.firstSnapshotDate ? last : i.firstSnapshotDate;
-  const startKey = monthKey(first);
-  const endKey = monthKey(endDate);
-  const keys: string[] = [];
-  for (let k = startKey; k <= endKey; k = nextMonth(k)) keys.push(k);
+  const range = estimateRangeMonths(i);
+  if (range.length === 0) return out;
+  const ex = i.excludedMonths;
+  const kept = ex && ex.size > 0 ? range.filter((k) => !ex.has(k)) : range;
+  const keys = kept.length > 0 ? kept : range;
   const n = keys.length;
   const share = Math.floor(i.firstSeconds / n);
   keys.forEach((k, idx) => out.set(k, idx === n - 1 ? share + (i.firstSeconds - share * n) : share));

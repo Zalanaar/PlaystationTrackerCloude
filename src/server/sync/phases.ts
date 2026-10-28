@@ -47,6 +47,9 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
             name: ex('name'),
             category: ex('category'),
             imageUrl: sql`coalesce(${ex('image_url')}, ${games.imageUrl})`,
+            // 15.2: сменилась обложка -> цвет акцента считается заново
+            tint: sql`case when ${ex('image_url')} is not null and ${ex('image_url')} is distinct from ${games.imageUrl} then null else ${games.tint} end`,
+            tintCheckedAt: sql`case when ${ex('image_url')} is not null and ${ex('image_url')} is distinct from ${games.imageUrl} then null else ${games.tintCheckedAt} end`,
             bannerUrl: sql`coalesce(${ex('banner_url')}, ${games.bannerUrl})`,
             psnGenres: ex('psn_genres'),
             playDurationSeconds: ex('play_duration_seconds'),
@@ -342,6 +345,8 @@ function staleSetsWhere(ctx: RunContext, skipIds: number[]) {
       isNull(trophySets.trophiesSyncedAt),
       sql`${trophySets.lastUpdatedAt} > ${trophySets.trophiesSyncedAt}`,
       and(lt(trophySets.trophiesSyncedAt, dayAgo), or(sql`${localRows} <> ${definedSum}`, sql`${localEarned} <> ${earnedSum}`)),
+      // 15.3: трофеи, загруженные до миграции 0005, без group_id: перезагрузка не чаще раза в сутки на сет
+      and(lt(trophySets.trophiesSyncedAt, dayAgo), sql`exists (select 1 from trophies t where t.trophy_set_id = ${trophySets.id} and t.group_id is null)`),
     ),
     skipIds.length ? notInArray(trophySets.id, skipIds) : undefined,
   );
@@ -363,6 +368,8 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
         service: trophySets.npServiceName,
         defined: sql<number>`${definedSum}::int`,
         have: sql<number>`${localRows}::int`,
+        // 15.3: group_id приходит только из определений трофеев
+        noGroup: sql<number>`(select count(*) from trophies t where t.trophy_set_id = ${trophySets.id} and t.group_id is null)::int`,
       })
       .from(trophySets)
       .where(staleSetsWhere(ctx, processed))
@@ -374,7 +381,7 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
 
     const ref = { npCommunicationId: set.np, npServiceName: set.service === 'trophy2' ? ('trophy2' as const) : ('trophy' as const) };
     const earned = await psn.getEarnedTrophies(ref);
-    const defs = set.have < set.defined || set.have === 0 ? await psn.getTrophyDefinitions(ref) : [];
+    const defs = set.have < set.defined || set.have === 0 || set.noGroup > 0 ? await psn.getTrophyDefinitions(ref) : [];
     const rows = mergeTrophies(set.id, earned, defs, ctx.now());
 
     if (rows.length === 0 && set.defined > 0) {
@@ -391,6 +398,7 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
             target: [trophies.trophySetId, trophies.trophyId],
             set: {
               type: ex('type'),
+              groupId: sql`coalesce(${ex('group_id')}, ${trophies.groupId})`,
               hidden: ex('hidden'),
               name: sql`coalesce(${ex('name')}, ${trophies.name})`,
               detail: sql`coalesce(${ex('detail')}, ${trophies.detail})`,
@@ -426,6 +434,7 @@ export function mergeTrophies(setId: number, earned: PsnTrophyEarned[], defs: Ps
     out.set(e.trophyId, {
       trophySetId: setId,
       trophyId: e.trophyId,
+      groupId: d?.groupId ?? e.groupId,
       type: e.type,
       name: d?.name ?? null,
       detail: d?.detail ?? null,
@@ -443,6 +452,7 @@ export function mergeTrophies(setId: number, earned: PsnTrophyEarned[], defs: Ps
     out.set(d.trophyId, {
       trophySetId: setId,
       trophyId: d.trophyId,
+      groupId: d.groupId,
       type: d.type,
       name: d.name,
       detail: d.detail,

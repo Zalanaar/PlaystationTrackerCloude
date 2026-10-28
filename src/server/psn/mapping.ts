@@ -188,6 +188,9 @@ export function mapTrophyTitle(raw: unknown): PsnTrophySet | null {
 const TROPHY_KINDS: readonly string[] = ['bronze', 'silver', 'gold', 'platinum'];
 const kind = (v: unknown): TrophyKind | null => (typeof v === 'string' && TROPHY_KINDS.includes(v) ? (v as TrophyKind) : null);
 
+/** trophyGroupId как есть (`default`, `001`...); нет поля -> null (контракт 15.3). */
+const groupId = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v.trim().slice(0, 16) : null);
+
 export function mapEarnedTrophy(raw: unknown): PsnTrophyEarned | null {
   if (!isObj(raw)) return null;
   const type = kind(raw.trophyType);
@@ -197,6 +200,7 @@ export function mapEarnedTrophy(raw: unknown): PsnTrophyEarned | null {
   const rateNum = typeof raw.trophyEarnedRate === 'string' || typeof raw.trophyEarnedRate === 'number' ? Number(raw.trophyEarnedRate) : NaN;
   return {
     trophyId: raw.trophyId,
+    groupId: groupId(raw.trophyGroupId),
     type,
     hidden: raw.trophyHidden === true,
     earned,
@@ -212,6 +216,7 @@ export function mapTrophyDef(raw: unknown): PsnTrophyDef | null {
   if (typeof raw.trophyId !== 'number' || !Number.isInteger(raw.trophyId) || !type) return null;
   return {
     trophyId: raw.trophyId,
+    groupId: groupId(raw.trophyGroupId),
     type,
     hidden: raw.trophyHidden === true,
     name: str(raw.trophyName),
