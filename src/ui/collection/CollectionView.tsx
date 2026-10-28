@@ -879,7 +879,7 @@ export function CollectionView() {
       <GameDialog
         game={openGame} startEditing={open?.edit ?? false} now={now} onClose={() => setOpen(null)}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
-        onHidden={(g, h) => void setHidden(g, h)}
+        onHidden={(g, h) => void setHidden(g, h)} onGameChanged={(g) => replaceGames([g])}
       />
 
       <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />
