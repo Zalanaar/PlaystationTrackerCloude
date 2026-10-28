@@ -148,4 +148,111 @@ describe('клиент (фейковый fetch)', () => {
     expect(await createHltbClient({ fetchImpl: f }).search('x')).toEqual([]);
     expect([inits, posts]).toEqual([2, 2]);
   });
+
+  it('диагностика: статусы и типы сбоев по каждому init, без тел и токенов', async () => {
+    const f = (async (url: string) => {
+      if (url.includes('/api/find/init')) return new Response('SECRET-BODY', { status: 404 });
+      if (url.includes('/api/bleed/init')) return json({ nope: 'SECRET-TOKEN' });
+      if (url.includes('/api/search/init')) return new Response('<html>SECRET', { status: 200 });
+      return new Response('', { status: 500 }); // главная недоступна
+    }) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.code).toBe('unavailable');
+    expect(e.message).toContain('init /api/find/init: 404; init /api/bleed/init: 200 no_token; init /api/search/init: not_json');
+    expect(e.message).toContain('главная: недоступна');
+    expect(e.message).not.toMatch(/SECRET/);
+    expect(e.message.length).toBeLessThan(400);
+  });
+
+  it('диагностика: network и timeout различаются; при timeout разбор страницы пропускается', async () => {
+    const down = (async () => {
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    const e1 = (await createHltbClient({ fetchImpl: down }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e1.message).toContain('init /api/find/init: network; init /api/bleed/init: network');
+    const slow = (async () => {
+      throw Object.assign(new Error('t'), { name: 'TimeoutError' });
+    }) as unknown as typeof fetch;
+    const e2 = (await createHltbClient({ fetchImpl: slow }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e2.message).toContain('find/init: timeout');
+    expect(e2.message).toContain('поиск пути пропущен');
+  });
+
+  it('после неудачи discovery повторных сетевых запросов в этом клиенте нет', async () => {
+    let n = 0;
+    const f = (async () => (n++, new Response('', { status: 404 }))) as unknown as typeof fetch;
+    const c = createHltbClient({ fetchImpl: f });
+    await c.search('x').catch(() => undefined);
+    const after = n;
+    await c.search('y').catch(() => undefined);
+    expect(n).toBe(after);
+  });
+
+  it('новый путь из _app-скрипта главной: берётся, только если init вернул token', async () => {
+    const f = (async (url: string) => {
+      if (url.endsWith('/')) return new Response('<script src="/_next/static/chunks/pages/_app-abc123.js"></script>', { status: 200 });
+      if (url.includes('_app-abc123.js')) return new Response('x=fetch("/api/ember/search".concat(a),{method:"POST"});y=fetch("/api/zzz/q")', { status: 200 });
+      if (url.includes('/api/ember/init')) return json({ token: 'T' });
+      if (url.includes('/init')) return new Response('', { status: 404 });
+      if (url.includes('/api/ember')) return json({ data: [{ game_id: 7, game_name: 'Hades', comp_main: 3600 }] });
+      return new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    const r = await createHltbClient({ fetchImpl: f }).search('hades');
+    expect(r[0].id).toBe(7);
+  });
+
+  it('скрипт без пути или чужой формат: ошибка с пометкой, без выдуманных запросов', async () => {
+    const f = (async (url: string) => {
+      if (url.endsWith('/')) return new Response('<script src="/_next/static/chunks/pages/_app-1.js"></script>', { status: 200 });
+      if (url.includes('_app-1.js')) return new Response('nothing here', { status: 200 });
+      return new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.message).toContain('_app: путь не найден');
+  });
+
+  it('основной путь /api/search/site: init и поиск идут по нему', async () => {
+    const urls: string[] = [];
+    const f = (async (url: string) => {
+      urls.push(url);
+      if (url.includes('/api/search/site/init')) return json({ token: 'T' });
+      if (url.includes('/api/search/site')) return json({ data: [{ game_id: 3, game_name: 'Hades', comp_main: 3600 }] });
+      return new Response('<html>', { status: 404 });
+    }) as unknown as typeof fetch;
+    expect((await createHltbClient({ fetchImpl: f }).search('hades'))[0].id).toBe(3);
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toBe('https://howlongtobeat.com/api/search/site');
+  });
+
+  it('все пути 404: диагностика содержит /api/search/site/init: 404', async () => {
+    const f = (async () => new Response('<html>SECRET', { status: 404 })) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.message).toContain('init /api/search/site/init: 404; init /api/find/init: 404');
+    expect(e.message).not.toMatch(/SECRET/);
+  });
+
+  it('реальная форма init {"token"} без hp-полей: токен в x-auth-token, UA одинаковый у init и search, hp в теле нет', async () => {
+    const seen: { url: string; init?: RequestInit }[] = [];
+    const f = (async (url: string, init?: RequestInit) => {
+      seen.push({ url, init });
+      if (url.includes('/init')) return json({ token: 'dGltZXxpcHx1YQ==' });
+      return json({ data: [] });
+    }) as unknown as typeof fetch;
+    await createHltbClient({ fetchImpl: f }).search('x');
+    const [a, b] = seen.map((x) => x.init?.headers as Record<string, string>);
+    expect(a['user-agent']).toBeTruthy();
+    expect(b['user-agent']).toBe(a['user-agent']);
+    expect(b['x-auth-token']).toBe('dGltZXxpcHx1YQ==');
+    expect(b['x-hp-key']).toBeUndefined();
+    expect(Object.keys(JSON.parse(String(seen[1].init?.body)))).not.toContain('');
+  });
+
+  it('фикстура: реальный ответ POST /api/search/site разбирается (84944 с = 23.6 ч)', async () => {
+    const real = { count: 20, pageCurrent: 1, pageTotal: 4, pageSize: 5, data: [{ game_id: 62941, game_name: 'Hades', comp_main: 84944, comp_plus: 175076, comp_100: 343228 }] };
+    const f = (async (url: string) => (url.includes('/init') ? json({ token: 'dGVzdA==' }) : json(real))) as unknown as typeof fetch;
+    const r = await createHltbClient({ fetchImpl: f }).search('hades');
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ id: 62941, name: 'Hades', mainHours: 23.6 });
+    expect(r[0].extraHours).toBeCloseTo(48.6, 1);
+  });
 });

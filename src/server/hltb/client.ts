@@ -15,10 +15,19 @@ export const HLTB_TIMEOUT_MS = 8000;
 export const HLTB_MAX_BYTES = 2 * 1024 * 1024;
 /** Известные варианты пути (HLTB их периодически меняет): init выдаёт токен, search принимает запрос. */
 export const HLTB_ENDPOINTS = [
+  { init: '/api/search/site/init', search: '/api/search/site' }, // из JS-бандла, 2026-10
   { init: '/api/find/init', search: '/api/find' },
   { init: '/api/bleed/init', search: '/api/bleed' },
   { init: '/api/search/init', search: '/api/search' },
 ] as const;
+export const HLTB_SCRIPT_MAX_BYTES = 6 * 1024 * 1024;
+/** Общий бюджет поиска рабочего пути (известные пути + разбор страницы). */
+export const HLTB_DISCOVER_BUDGET_MS = 20000;
+export const HLTB_DETAIL_MAX = 300;
+/** Ограничивает безопасную диагностику по длине (в sync_runs.warnings). */
+export function capDetail(s: string, max = HLTB_DETAIL_MAX): string {
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
 export type HltbClient = { search: (term: string) => Promise<HltbCandidate[]> };
@@ -102,31 +111,113 @@ export function createHltbClient(o: { fetchImpl?: typeof fetch; timeoutMs?: numb
   };
   const headers = { 'user-agent': UA, referer: `${HLTB_ORIGIN}/`, origin: HLTB_ORIGIN };
 
-  async function discover(): Promise<Init> {
-    let sawBlock = false;
-    for (const ep of HLTB_ENDPOINTS) {
-      const res = await call(`${HLTB_ORIGIN}${ep.init}?t=${Date.now()}`, { headers });
-      if (res.status === 403 || res.status === 429) {
-        await res.body?.cancel();
-        sawBlock = true;
-        continue;
-      }
+  /** Один пробный init. Возвращает Init либо безопасный тег сбоя (без тел ответов): HTTP-статус, network, timeout, not_json, too_large, "200 no_token". */
+  async function tryInit(path: string, searchPath = `/api/${path}`): Promise<{ init: Init } | { fail: string; block?: boolean }> {
+    let res: Response;
+    try {
+      res = await call(`${HLTB_ORIGIN}${path.startsWith('/') ? path : `/api/${path}/init`}?t=${Date.now()}`, { headers });
+    } catch (e) {
+      return { fail: e instanceof HltbError && e.code === 'timeout' ? 'timeout' : 'network' };
+    }
+    if (!res.ok) {
+      await res.body?.cancel();
+      return { fail: String(res.status), block: res.status === 403 || res.status === 429 };
+    }
+    let j: unknown;
+    try {
+      j = await readJson(res);
+    } catch (e) {
+      return { fail: e instanceof Error && e.message.includes('JSON') ? 'not_json' : 'too_large' };
+    }
+    const r = rec(j);
+    if (r && typeof r.token === 'string') {
+      return { init: { search: searchPath, token: r.token, hpKey: typeof r.hpKey === 'string' ? r.hpKey : '', hpVal: typeof r.hpVal === 'string' ? r.hpVal : '' } };
+    }
+    return { fail: `${res.status} no_token` };
+  }
+
+  /** Текст страницы/скрипта HLTB (только свой origin) с лимитом размера; null при любом сбое. */
+  async function getText(path: string, maxBytes: number): Promise<string | null> {
+    try {
+      const res = await call(`${HLTB_ORIGIN}${path}`, { headers });
       if (!res.ok) {
         await res.body?.cancel();
-        continue;
+        return null;
       }
-      let j: unknown;
-      try {
-        j = await readJson(res);
-      } catch {
-        continue;
-      }
-      const r = rec(j);
-      if (r && typeof r.token === 'string') {
-        return { search: ep.search, token: r.token, hpKey: typeof r.hpKey === 'string' ? r.hpKey : '', hpVal: typeof r.hpVal === 'string' ? r.hpVal : '' };
-      }
+      const text = await res.text();
+      return text.length > maxBytes ? null : text;
+    } catch {
+      return null;
     }
-    throw new HltbError(sawBlock ? 'blocked' : 'unavailable', sawBlock ? 'HLTB: доступ запрещён' : 'HLTB: не найден рабочий эндпоинт');
+  }
+
+  /**
+   * Запасной поиск пути: главная страница -> скрипт _app-*.js -> `fetch("/api/<имя>...")`. Формат неофициальный и не проверен вживую:
+   * найденное имя принимается только если его init реально вернул token (см. tryInit), иначе это просто ещё одна строка диагностики.
+   */
+  async function scrapePaths(skip: Set<string>): Promise<{ paths: string[]; note: string }> {
+    const home = await getText('/', HLTB_MAX_BYTES);
+    if (home === null) return { paths: [], note: 'главная: недоступна' };
+    const src = /<script[^>]+src="(\/_next\/static\/[^"]*_app-[^"]*\.js)"/.exec(home)?.[1];
+    if (!src) return { paths: [], note: 'главная: нет _app-скрипта' };
+    const js = await getText(src, HLTB_SCRIPT_MAX_BYTES);
+    if (js === null) return { paths: [], note: '_app: недоступен' };
+    const found = new Set<string>();
+    for (const m of js.matchAll(/fetch\(\s*["'`]\/api\/([a-zA-Z0-9_]{1,32})[/"'`?]/g)) {
+      if (!skip.has(m[1])) found.add(m[1]);
+    }
+    return { paths: [...found].slice(0, 3), note: found.size === 0 ? '_app: путь не найден' : '' };
+  }
+
+  let discoverFailure: HltbError | null = null;
+  async function discover(): Promise<Init> {
+    // после неудачи в рамках жизни клиента (один запуск синка) сеть не дёргаем повторно
+    if (discoverFailure) throw discoverFailure;
+    const started = Date.now();
+    const parts: string[] = [];
+    let sawBlock = false;
+    let sawTimeout = false;
+    let fails = 0;
+    let timeouts = 0;
+    const tried = new Set<string>();
+    const attempt = async (path: string, searchPath?: string): Promise<Init | null> => {
+      tried.add(path);
+      const r = await tryInit(path, searchPath);
+      if ('init' in r) return r.init;
+      if (r.block) sawBlock = true;
+      fails++;
+      if (r.fail === 'timeout') {
+        sawTimeout = true;
+        timeouts++;
+      }
+      parts.push(`init ${path.startsWith('/') ? path : `/api/${path}/init`}: ${r.fail}`);
+      return null;
+    };
+    const finish = (): never => {
+      const detail = capDetail(parts.join('; '));
+      const code: HltbErrorCode = sawBlock ? 'blocked' : fails > 0 && timeouts === fails ? 'timeout' : 'unavailable';
+      discoverFailure = new HltbError(code, `${sawBlock ? 'HLTB: доступ запрещён' : 'HLTB: не найден рабочий эндпоинт'}: ${detail}`);
+      throw discoverFailure;
+    };
+    for (const ep of HLTB_ENDPOINTS) {
+      const got = await attempt(ep.init, ep.search);
+      if (got) return got;
+    }
+    if (Date.now() - started < HLTB_DISCOVER_BUDGET_MS && !sawTimeout) {
+      const { paths, note } = await scrapePaths(tried);
+      if (note) parts.push(note);
+      for (const path of paths) {
+        if (Date.now() - started >= HLTB_DISCOVER_BUDGET_MS) {
+          parts.push('бюджет времени');
+          break;
+        }
+        const got = await attempt(path);
+        if (got) return got;
+      }
+    } else {
+      parts.push('поиск пути пропущен');
+    }
+    return finish();
   }
 
   return {

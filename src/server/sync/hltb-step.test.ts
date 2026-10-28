@@ -169,12 +169,14 @@ describe('синк с HLTB-шагом', () => {
 
   it('HLTB недоступен: синк success, данные игр на месте, предупреждение в sync_runs', async () => {
     const { res, runId } = await run(deps(async () => {
-      throw new HltbError('unavailable', 'HLTB: сеть недоступна');
+      throw new HltbError('unavailable', `HLTB: не найден рабочий эндпоинт: init /api/find/init: 404; ${'x'.repeat(500)}`);
     }));
     expect(res.status).toBe('success');
     const [r] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, runId));
     expect(r.status).toBe('success');
-    expect((r.warnings as { code: string }[]).map((w) => w.code)).toContain('hltb_failed');
+    const w = (r.warnings as { code: string; message: string }[]).find((x) => x.code === 'hltb_failed');
+    expect(w?.message).toContain('init /api/find/init: 404');
+    expect(w?.message.length).toBeLessThan(450);
     expect((await t.db.select().from(games)).length).toBeGreaterThan(0);
   });
 
