@@ -1,6 +1,6 @@
 // Чистая логика экрана «Статистика»: параметры URL, навигация по периодам, подготовка данных для графиков.
-import type { PlayedGroup, StatsGenreItem, StatsResponse } from '@/server/stats/types';
-import { formatPlayTime, mskParts, monthName } from '../format';
+import type { PlayedGroup, StatsGenreGame, StatsGenreItem, StatsResponse, TopHoursItem, TopTrophyItem, TrophyCountsByType } from '@/server/stats/types';
+import { formatNumber, formatPlayTime, mskParts, monthName, plural } from '../format';
 
 export type PeriodType = 'year' | 'month';
 export type Selection = { period: PeriodType; year: number; month: number | null };
@@ -148,15 +148,93 @@ export function highlightedMonth(s: Selection, today: Today): number | null {
   return s.year === today.year ? today.month : null;
 }
 
-export type GenreBar = { key: string; label: string; widthPct: number; text: string };
+export type GenreBar = { key: string; label: string; widthPct: number; text: string; value: number; gameIds: number[] };
 
-export function genreBars(items: readonly StatsGenreItem[]): GenreBar[] {
+export function genreBars(items: readonly (StatsGenreItem & { gameIds?: readonly number[] })[]): GenreBar[] {
   const max = Math.max(0, ...items.map((i) => i.value));
   return items.slice(0, 8).map((i) => ({
     key: i.key,
     label: i.label,
     widthPct: max > 0 ? Math.max(2, (i.value / max) * 100) : 0,
     text: formatHours(i.value),
+    value: i.value,
+    gameIds: [...(i.gameIds ?? [])],
+  }));
+}
+
+/** Миниатюры в поповере жанра: десктоп до 12, мобильный sheet до 16 (design-system §4.17.1). */
+export const GENRE_POP_THUMBS = 12;
+export const GENRE_SHEET_THUMBS = 16;
+
+/**
+ * Игры жанра для поповера: порядок как в `gameIds`, id без записи в словаре пропускаются.
+ * `rest` = сколько игр не поместилось (плитка «+N»), `total` = игр с известными данными.
+ */
+export function genreGames(gameIds: readonly number[], games: Readonly<Record<string, StatsGenreGame>>, limit: number): { shown: StatsGenreGame[]; rest: number; total: number } {
+  const known = gameIds.flatMap((id) => { const g = games[String(id)]; return g ? [g] : []; });
+  return { shown: known.slice(0, limit), rest: Math.max(0, known.length - limit), total: known.length };
+}
+
+/** «12,4 ч · 8 игр»; нет часов за период (value = 0) = только «8 игр». */
+export function genreSubtitle(value: number, gamesCount: number): string {
+  const g = `${gamesCount} ${plural(gamesCount, ['игра', 'игры', 'игр'])}`;
+  return value > 0 ? `${formatHours(value)} ч · ${g}` : g;
+}
+
+export type TopMode = 'hours' | 'trophies';
+export const TOP_MODES: readonly { id: TopMode; label: string }[] = [{ id: 'hours', label: 'Часы' }, { id: 'trophies', label: 'Трофеи' }];
+export const TROPHY_POINTS = { platinum: 300, gold: 90, silver: 30, bronze: 15 } as const;
+export const TOP_SUBTITLE: Record<TopMode, string> = {
+  hours: 'за выбранный период',
+  trophies: `Очки за трофеи периода: платина ${TROPHY_POINTS.platinum}, золото ${TROPHY_POINTS.gold}, серебро ${TROPHY_POINTS.silver}, бронза ${TROPHY_POINTS.bronze}`,
+};
+export const TOP_EMPTY: Record<TopMode, string> = { hours: 'Нет данных за период', trophies: 'В этом периоде трофеев не получено' };
+
+export type TopRow = {
+  id: number;
+  game: TopHoursItem['game'];
+  rank: number;
+  /** режим «Часы»: ширина бара относительно лидера, % */
+  widthPct: number;
+  valueText: string;
+  /** «≈» перед значением: часть часов оценена */
+  approx: boolean;
+  /** title/aria-label значения */
+  valueLabel: string;
+  /** режим «Трофеи»: ненулевые счётчики */
+  counts: { kind: 'platinum' | 'gold' | 'silver' | 'bronze'; count: number }[];
+};
+
+const KINDS = ['platinum', 'gold', 'silver', 'bronze'] as const;
+const KIND_WORD: Record<(typeof KINDS)[number], string> = { platinum: 'платина', gold: 'золото', silver: 'серебро', bronze: 'бронза' };
+
+/** Топ по часам: значение «85 ч 24 м», оценка «≈ 85 ч 24 м» (знак отдельно для приглушённого цвета). */
+export function topHoursRows(items: readonly TopHoursItem[]): TopRow[] {
+  const max = Math.max(0, ...items.map((i) => i.hours));
+  return items.map((i, n) => {
+    const t = formatPlayTime(Math.round(i.hours * 3600)) ?? 'меньше минуты';
+    return {
+      id: i.game.id, game: i.game, rank: n + 1, widthPct: max > 0 ? Math.max(2, (i.hours / max) * 100) : 0,
+      valueText: t, approx: i.estimated, valueLabel: i.estimated ? `Примерно ${t}. Часть часов оценена` : t, counts: [],
+    };
+  });
+}
+
+export function pointsText(points: number): string {
+  return `${formatNumber(points)} ${plural(points, ['очко', 'очка', 'очков'])}`;
+}
+
+/** Подсказка очков: «840 очков: платина 1, золото 5, серебро 12, бронза 20» (нулевые типы опускаются). */
+export function pointsLabel(points: number, counts: TrophyCountsByType): string {
+  const parts = KINDS.filter((k) => counts[k] > 0).map((k) => `${KIND_WORD[k]} ${counts[k]}`);
+  return parts.length ? `${pointsText(points)}: ${parts.join(', ')}` : pointsText(points);
+}
+
+/** Топ по трофеям: значение «840 очк.», счётчики типов без нулевых. */
+export function topTrophyRows(items: readonly TopTrophyItem[]): TopRow[] {
+  return items.map((i, n) => ({
+    id: i.game.id, game: i.game, rank: n + 1, widthPct: 0, valueText: `${formatNumber(i.points)} очк.`, approx: false,
+    valueLabel: pointsLabel(i.points, i.counts), counts: KINDS.filter((k) => i.counts[k] > 0).map((kind) => ({ kind, count: i.counts[kind] })),
   }));
 }
 

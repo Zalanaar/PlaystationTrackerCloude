@@ -3,17 +3,19 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
-import type { StatsResponse } from '@/server/stats/types';
+import type { StatsGenreGame, StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
 import { ApiError, errorText, fetchStats, patchStatusDate, putHidden, putStatus } from '../collection/api';
 import { GameCard, type GameActions } from '../collection/GameCard';
-import { GameDialog } from '../collection/GameDialog';
+import { GameDialog, type GameStub } from '../collection/GameDialog';
 import { GameGrid, GameGridItem } from '../collection/GameGrid';
 import { EmptyState } from '../EmptyState';
 import { formatNumber, monthName, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import { GenreRow } from './GenrePopover';
+import { TopGames, TopSkeleton } from './TopGames';
 import {
   type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, monthHoursText, parseSelection, periodLabel,
   playedGamesCount,
@@ -34,7 +36,8 @@ export function StatsView() {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<number[]>([]);
-  const [open, setOpen] = useState<GameItem | null>(null);
+  /** Окно игры: полный GameItem, если он известен, иначе заглушка (открытие из поповера жанров) */
+  const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null } | null>(null);
   const reqId = useRef(0);
 
   const load = useCallback(async (s: Selection, k: string) => {
@@ -85,7 +88,8 @@ export function StatsView() {
   const setStatus = useCallback(async (g: GameItem, status: GameStatusValue | null) => {
     if (g.status === status) return;
     try {
-      await putStatus(g.id, status);
+      const r = await putStatus(g.id, status);
+      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
       toast({ text: status === null ? 'Статус сброшен' : 'Статус изменён', action: { label: 'Отменить', run: () => void revert(g) } });
       reload();
     } catch (e) {
@@ -94,7 +98,8 @@ export function StatsView() {
   }, [reload, revert, toast]);
   const unhide = useCallback(async (g: GameItem) => {
     try {
-      await putHidden(g.id, false);
+      const r = await putHidden(g.id, false);
+      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
       toast({ text: `«${g.title}» возвращена в коллекцию` });
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось вернуть игру. ${errorText(e)}` });
@@ -114,7 +119,8 @@ export function StatsView() {
   }, [reload, toast, unhide]);
   const setDate = useCallback(async (g: GameItem, kind: 'completed' | 'dropped', iso: string) => {
     try {
-      await patchStatusDate(g.id, kind, iso);
+      const r = await patchStatusDate(g.id, kind, iso);
+      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
       toast({ text: 'Дата завершения сохранена' });
       reload();
     } catch (e) {
@@ -122,13 +128,15 @@ export function StatsView() {
     }
   }, [reload, toast]);
   const actions: GameActions = useMemo(() => ({
-    open: (g) => setOpen(g),
+    open: (g) => setOpen({ id: g.id, game: g, stub: null }),
     setStatus: (g, s) => void setStatus(g, s),
     toggle: () => {},
   }), [setStatus]);
 
-  const dialogGame = open && data
-    ? (data.played.groups.flatMap((g) => g.items).find((i) => i.game.id === open.id)?.game ?? open)
+  const openGame = useCallback((g: GameItem) => setOpen({ id: g.id, game: g, stub: null }), []);
+  const openStub = useCallback((g: StatsGenreGame) => setOpen({ id: g.id, game: null, stub: { id: g.id, title: g.title, coverUrl: g.coverUrl } }), []);
+  const dialogGame = open
+    ? (data?.played.groups.flatMap((g) => g.items).find((i) => i.game.id === open.id)?.game ?? open.game)
     : null;
 
   return (
@@ -148,11 +156,12 @@ export function StatsView() {
         <StatsSkeleton />
       ) : (
         <div className="ps-st" aria-busy={loading || undefined} data-stale={loading || undefined}>
-          <Content data={data} sel={sel} today={today} actions={actions} />
+          <Content data={data} sel={sel} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} />
         </div>
       )}
       <GameDialog
-        game={dialogGame} startEditing={false} now={now} onClose={() => setOpen(null)}
+        game={dialogGame} stub={open?.stub ?? null} startEditing={false} now={now} onClose={() => setOpen(null)}
+        onLoaded={(g) => setOpen((o) => (o && o.id === g.id && !o.game ? { ...o, game: g } : o))}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
         onHidden={(g, h) => void setHidden(g, h)}
       />
@@ -179,7 +188,12 @@ function PeriodSwitch({
   );
 }
 
-function Content({ data, sel, today, actions }: { data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions }) {
+function Content({
+  data, sel, today, actions, onOpenGame, onOpenStub,
+}: {
+  data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions;
+  onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void;
+}) {
   const empty = isEmptyPeriod(data, sel.period);
   return (
     <>
@@ -193,8 +207,9 @@ function Content({ data, sel, today, actions }: { data: StatsResponse; sel: Sele
         <>
           <div className="ps-st-grid">
             <HoursPanel data={data} sel={sel} today={today} wide={!data.genres.hasData} />
-            {data.genres.hasData && <GenresPanel data={data} />}
+            {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} />}
           </div>
+          <TopGames top={data.top} onOpen={onOpenGame} />
           <TrophiesPanel data={data} sel={sel} />
           <PlayedBlock data={data} sel={sel} actions={actions} />
         </>
@@ -326,18 +341,12 @@ function BarTip({ bar }: { bar: HoursBar }) {
   );
 }
 
-function GenresPanel({ data }: { data: StatsResponse }) {
+function GenresPanel({ data, onOpenGame }: { data: StatsResponse; onOpenGame: (g: StatsGenreGame) => void }) {
   const bars = genreBars(data.genres.items);
   return (
     <Panel title="Жанры" sub="Игра делится между своими жанрами поровну" labelId="st-genres" className="ps-st-panel--genres">
       <ul className="ps-st-genres">
-        {bars.map((g) => (
-          <li key={g.key} aria-label={`${g.label}: ${g.text}`}>
-            <span className="ps-st-genres__n">{g.label}</span>
-            <span className="ps-st-genres__bar" aria-hidden="true"><i style={{ width: `${g.widthPct}%` }} /></span>
-            <span className="ps-st-genres__v ps-num">{g.text}</span>
-          </li>
-        ))}
+        {bars.map((g) => <GenreRow key={g.key} bar={g} games={data.genres.games} onOpenGame={onOpenGame} />)}
       </ul>
     </Panel>
   );
@@ -419,6 +428,7 @@ function StatsSkeleton() {
         <div className="ps-st-panel ps-st-panel--hours"><div className="ps-skeleton ps-st-sk" /></div>
         <div className="ps-st-panel ps-st-panel--genres"><div className="ps-skeleton ps-st-sk" /></div>
       </div>
+      <TopSkeleton />
       <div className="ps-st-panel ps-st-panel--wide" aria-hidden="true"><div className="ps-skeleton ps-st-sk ps-st-sk--short" /></div>
     </div>
   );
