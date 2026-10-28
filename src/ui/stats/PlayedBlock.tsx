@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { PlayedGroup, PlayedItem, StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
 import { ApiError, errorText, putMonthExclusion } from '../collection/api';
@@ -30,6 +30,8 @@ export function PlayedBlock({
   /** Ручное раскрытие строки «Убрано из месяца»; нет записи = по умолчанию (раскрыта, если в месяце не осталось игр) */
   const [expanded, setExpanded] = useState<Readonly<Record<string, boolean>>>({});
 
+  // «Отменить» и «Повторить» вызывают тот же запрос; через ref, чтобы колбэк не ссылался на себя до объявления
+  const again = useRef<(g: PlayedGroup, it: PlayedItem, excluded: boolean, undo?: boolean) => Promise<void>>(async () => {});
   const run = useCallback(async (g: PlayedGroup, it: PlayedItem, excluded: boolean, undo = false): Promise<void> => {
     const k = keyOf(g, it);
     setBusy((b) => new Set(b).add(k));
@@ -38,12 +40,12 @@ export function PlayedBlock({
       if (excluded) {
         toast({
           text: excludedToast(r, g.monthNumber, splitHours(it).real > 0), ttl: EXCLUDE_TOAST_TTL,
-          action: undo ? undefined : { label: 'Отменить', run: () => void run(g, it, false, true) },
+          action: undo ? undefined : { label: 'Отменить', run: () => void again.current(g, it, false, true) },
         });
       } else {
         toast({
           text: restoredToast(g.monthNumber), ttl: EXCLUDE_TOAST_TTL,
-          action: undo ? undefined : { label: 'Отменить', run: () => void run(g, it, true, true) },
+          action: undo ? undefined : { label: 'Отменить', run: () => void again.current(g, it, true, true) },
         });
       }
       onChanged();
@@ -55,7 +57,7 @@ export function PlayedBlock({
         const base = excluded ? EXCLUDE_FAIL_TEXT : RESTORE_FAIL_TEXT;
         toast({
           kind: 'error', text: e instanceof ApiError && e.status !== 0 && e.status !== 503 ? `${base}. ${errorText(e)}` : base, ttl: EXCLUDE_TOAST_TTL,
-          action: { label: 'Повторить', run: () => void run(g, it, excluded, undo) },
+          action: { label: 'Повторить', run: () => void again.current(g, it, excluded, undo) },
         });
       }
     } finally {
@@ -66,6 +68,7 @@ export function PlayedBlock({
       });
     }
   }, [onChanged, toast]);
+  useEffect(() => { again.current = run; }, [run]);
 
   if (groups.length === 0) return null;
   return (

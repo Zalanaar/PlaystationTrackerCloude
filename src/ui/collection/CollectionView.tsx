@@ -12,6 +12,7 @@ import { useToast } from '../primitives/Toast';
 import { ProfileCard, ProfileSkeleton } from '../profile/ProfileCard';
 import { useProfile } from '../profile/ProfileProvider';
 import { StatusMenu } from '../status';
+import { forgottenCountOf, forgottenCountText } from '../triage/forgotten';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel, phaseText, progressFraction } from '../sync/status';
 import { STATUS_META, type ViewMode } from '../tokens';
@@ -31,6 +32,8 @@ import { GameDialog } from './GameDialog';
 import { GameGrid, GameGridItem } from './GameGrid';
 import { GameRow, RowHeader } from './GameRow';
 import { mapLimit } from './limit';
+import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
+import { nearItems, nearVisible } from './nearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { ResetAllDialog } from './ResetAllDialog';
 import { StatLine } from './StatLine';
@@ -49,7 +52,7 @@ const UNDO_TTL_MS = 12_000;
 const gamesWord = (n: number) => plural(n, ['игра', 'игры', 'игр']);
 
 type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
-type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[] };
+type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[]; /** 14.4: забытых во всей коллекции */ forgotten?: number };
 const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Игры-сервисы', shelved: 'Отложено', unsorted: 'Не разобрано' };
 
 function oldDate(g: GameItem): DateRestore | undefined {
@@ -88,6 +91,7 @@ export function CollectionView() {
 
   const [summary, setSummary] = useState<CollectionSummaryResponse | null>(null);
   const [pool, setPool] = useState<Pool | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [more, setMore] = useState(false);
@@ -118,6 +122,7 @@ export function CollectionView() {
       publishProfile(s.profile ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return;
+      setSummaryFailed(true);
       /* сводка необязательна: строка итогов просто не показывается */
     }
   }, [publishProfile]);
@@ -141,10 +146,10 @@ export function CollectionView() {
         // у упавшего блока остаются ранее загруженные игры его статусов
         const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
         const chron = ok.find((x) => x.block === 'chronicle');
-        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed };
+        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount) };
       } else {
         const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
-        next = { items: r.items, counts: r.counts, total: r.total, failed: [] };
+        next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount) };
       }
       // чип «Платина» фильтрует на клиенте (12.6): дозагружаем выдачу пакетами, чтобы чип, карточки и «Показать ещё» были согласованы
       if (f.platinum) {
@@ -490,6 +495,10 @@ export function CollectionView() {
   const hiddenEmpty = hiddenView && !!pool && pool.counts.all === 0 && !active && !error;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
   const playing = byBlock.playing ?? [];
+  const near = useMemo(() => nearItems(summary?.nearPlatinum), [summary]);
+  // «Ближе всего к платине» (п.8.2): только на чистой коллекции; пока сводка грузится, вместо блока скелет
+  const nearShown = nearVisible({ count: summary ? near.length : 1, chronicle: chronicleMode, status: filters.status, q: filters.q, platinum: filters.platinum, selectMode, hidden: filters.hidden });
+  const openGameCard = useCallback((g: GameItem) => setOpen({ id: g.id, edit: false, snapshot: g }), []);
   const openGame = open ? (raw.find((g) => g.id === open.id) ?? open.snapshot) : null;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
@@ -702,7 +711,12 @@ export function CollectionView() {
     const id = b === 'unsorted' ? 'unsorted' : b;
     return (
       <section key={b} className="ps-block" id={id} aria-labelledby={`h-${id}`}>
-        <BlockHead id={`h-${id}`} title={titles[b]} count={total}>
+        <BlockHead
+          id={`h-${id}`} title={titles[b]} count={total}
+          extra={b === 'unsorted' && (pool?.forgotten ?? 0) > 0 ? (
+            <Link href="/triage?forgotten=1" className="ps-chipbtn"><Icon name="clock" size={12} />{forgottenCountText(pool?.forgotten ?? 0)}</Link>
+          ) : undefined}
+        >
           {b === 'backlog' && <Link href="/backlog" className="ps-link ps-link--plain">Все <Icon name="arrow-right" size={14} /></Link>}
           {b === 'unsorted' && <Link href="/triage" className="ps-btn ps-btn--primary">Разобрать по одной</Link>}
         </BlockHead>
@@ -792,6 +806,7 @@ export function CollectionView() {
           </EmptyState>
         ) : chronicleMode ? (
           <div className="ps-blocks">
+            {nearShown && (summary ? <NearPlatinum items={near} onOpen={openGameCard} /> : !summaryFailed && <NearPlatinumSkeleton />)}
             {blocks.map((b) => (
               <Fragment key={b}>
                 {failedBlocks.includes(b) && (

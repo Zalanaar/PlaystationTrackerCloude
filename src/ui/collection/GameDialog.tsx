@@ -17,6 +17,7 @@ import {
   filterTrophies, formatRate, HIDDEN_DETAIL, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
   TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from './trophies';
+import { tintStyle } from './tint';
 import { useGameDetails, type DetailsState } from './useGameDetails';
 
 /** Минимум данных об игре, пока полный `GameItem` ещё не получен (открытие из поповера жанров). */
@@ -47,7 +48,7 @@ export function GameDialog({
   const target = game ?? stub ?? null;
   if (!target || typeof document === 'undefined') return null;
   return createPortal(
-    <Frame key={target.id} onClose={onClose}>
+    <Frame key={target.id} onClose={onClose} tint={game?.tint}>
       {(titleId) => (
         <Body
           key={`${target.id}:${startEditing}`} id={target.id} titleId={titleId} game={game} stub={stub ?? null} startEditing={startEditing} now={now}
@@ -60,7 +61,7 @@ export function GameDialog({
 }
 
 /** Оболочка: role=dialog, блокировка прокрутки, focus trap, Esc, возврат фокуса. */
-function Frame({ onClose, children }: { onClose: () => void; children: (titleId: string) => React.ReactNode }) {
+function Frame({ onClose, tint, children }: { onClose: () => void; tint?: string | null; children: (titleId: string) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -112,7 +113,7 @@ function Frame({ onClose, children }: { onClose: () => void; children: (titleId:
   }, []);
 
   return (
-    <div ref={ref} className="ps-gd" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+    <div ref={ref} className="ps-gd" style={tintStyle(tint)} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
       <div className="ps-gd__scroll">{children(titleId)}</div>
     </div>
   );

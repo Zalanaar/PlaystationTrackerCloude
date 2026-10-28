@@ -11,6 +11,7 @@ export const RARE_EMPTY: Record<RareScope, string> = {
   allTime: 'Трофеев с известной редкостью пока нет',
 };
 export const TROPHY_TYPE_WORD: Record<RareTrophy['type'], string> = { platinum: 'Платина', gold: 'Золото', silver: 'Серебро', bronze: 'Бронза' };
+export const RARE_SLIDE_TITLE = 'Твои самые редкие трофеи';
 export const UNKNOWN_RARITY = 'Редкость неизвестна';
 
 /** Список по выбранной области. Старый ответ без блока даёт пустой список. */

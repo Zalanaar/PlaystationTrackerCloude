@@ -1,18 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
 import { Cover } from '../collection/Cover';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
-import { StatusGlyph } from '../icons';
-import { useMediaQuery } from '../primitives/hooks';
+import { Icon, StatusGlyph } from '../icons';
+import { useMediaQuery, useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import '../phase15.css';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
+import { FORGOTTEN_HINT, forgottenChipText, forgottenCountOf, forgottenSpan, isForgotten, triageSegments } from './forgotten';
 import {
   applyStatus, initState, keyCommand, progress, rollback, skip, summarize, swipeTarget, SWIPE_STAMP, undo, type SwipeTarget, type TriageState,
 } from './triage';
@@ -32,6 +34,10 @@ export function TriageView() {
   const router = useRouter();
   const toast = useToast();
   const wide = useMediaQuery('(min-width: 1000px)');
+  const params = useSearchParams();
+  const forgotten = params.get('forgotten') === '1';
+  const now = useNow();
+  const [forgottenCount, setForgottenCount] = useState(0);
   const [order, setOrder] = useState<Order>('last_played');
   const [state, setState] = useState<TriageState | null>(null);
   const [counts, setCounts] = useState<StatusCounts | null>(null);
@@ -42,14 +48,17 @@ export function TriageView() {
   const chain = useRef<Promise<void>>(Promise.resolve());
   const reqId = useRef(0);
 
-  const load = useCallback(async (o: Order) => {
+  const load = useCallback(async (o: Order, onlyForgotten: boolean) => {
     const id = ++reqId.current;
     setError(false);
     try {
-      const r = await fetchGames(new URLSearchParams({ status: 'none', sort: o, limit: String(LIMIT), offset: '0' }));
+      const q = new URLSearchParams({ status: 'none', sort: o, limit: String(LIMIT), offset: '0' });
+      if (onlyForgotten) q.set('forgotten', 'only');
+      const r = await fetchGames(q);
       if (id !== reqId.current) return;
       setState((prev) => initState(prev && prev.history.length ? r.items.filter((g) => !prev.history.some((a) => a.kind === 'status' && a.game.id === g.id)) : r.items));
       setCounts(r.counts);
+      setForgottenCount(forgottenCountOf(r.forgottenCount));
     } catch (e) {
       if (id !== reqId.current) return;
       if (e instanceof ApiError && e.status === 401) return;
@@ -57,22 +66,31 @@ export function TriageView() {
     }
   }, []);
 
+  // смена «Все / Забытые» перезапускает очередь с начала
+  const modeRef = useRef(forgotten);
   useEffect(() => {
-    const t = setTimeout(() => void load(order), 0);
+    const t = setTimeout(() => {
+      if (modeRef.current !== forgotten) { modeRef.current = forgotten; setState(null); }
+      void load(order, forgotten);
+    }, 0);
     return () => clearTimeout(t);
-  }, [order, load]);
+  }, [order, forgotten, load]);
 
   // очередь кончилась, а на сервере ещё есть игры (было больше LIMIT): догружаем
   const queueLen = state?.queue.length ?? 0;
-  const noneLeft = counts?.none ?? 0;
+  const noneLeft = forgotten ? forgottenCount : (counts?.none ?? 0);
   useEffect(() => {
     if (state && queueLen === 0 && noneLeft > 0) {
-      const t = setTimeout(() => void load(order), 300);
+      const t = setTimeout(() => void load(order, forgotten), 300);
       return () => clearTimeout(t);
     }
-  }, [state, queueLen, noneLeft, order, load]);
+  }, [state, queueLen, noneLeft, order, forgotten, load]);
 
-  const adjust = (delta: number) => setCounts((c) => (c ? { ...c, none: Math.max(0, c.none + delta) } : c));
+  const adjust = (delta: number, game?: GameItem) => {
+    setCounts((c) => (c ? { ...c, none: Math.max(0, c.none + delta) } : c));
+    if (game && isForgotten(game, Date.now())) setForgottenCount((n) => Math.max(0, n + delta));
+  };
+  const setMode = (only: boolean) => router.replace(only ? '/triage?forgotten=1' : '/triage');
 
   const send = useCallback((game: GameItem, status: GameStatusValue | null, onFail: () => void) => {
     const run = async () => {
@@ -98,10 +116,10 @@ export function TriageView() {
     if (!s || !head) return;
     animate(head, status);
     setState(applyStatus(s, status));
-    adjust(-1);
+    adjust(-1, head);
     send(head, status, () => {
       setState((cur) => (cur ? rollback(cur, head) : cur));
-      adjust(1);
+      adjust(1, head);
     });
   }, [send]);
 
@@ -119,11 +137,11 @@ export function TriageView() {
     if (!r.undone) return;
     setState(r.state);
     if (r.undone.kind === 'status') {
-      adjust(1);
       const game = r.undone.game;
+      adjust(1, game);
       send(game, null, () => {
         setState((cur) => (cur ? applyStatus({ ...cur, queue: cur.queue.filter((x) => x.id !== game.id) }, (r.undone as { status: GameStatusValue }).status) : cur));
-        adjust(-1);
+        adjust(-1, game);
       });
       toast({ text: 'Действие отменено' });
     }
@@ -152,7 +170,7 @@ export function TriageView() {
   if (error && !state) {
     return (
       <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить очередь. Попробуй ещё раз.">
-        <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load(order)}>Обновить</button>
+        <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load(order, forgotten)}>Обновить</button>
       </EmptyState>
     );
   }
@@ -180,6 +198,16 @@ export function TriageView() {
       </div>
     );
   }
+  if (!head && forgotten && forgottenCount === 0) {
+    return (
+      <div className="ps-tri ps-tri--done">
+        <EmptyState icon="check-circle" title="Забытых игр больше нет">
+          <button type="button" className="ps-btn ps-btn--primary" onClick={() => setMode(false)}>Показать все</button>
+          <Link href="/" className="ps-link">К коллекции</Link>
+        </EmptyState>
+      </div>
+    );
+  }
   if (!head) return <TriageSkeleton />;
 
   return (
@@ -190,10 +218,16 @@ export function TriageView() {
         <span className="ps-tri__left num">осталось {p.left}</span>
         <Link href="/" className="ps-btn ps-btn--ghost ps-tri__exit">Выйти <kbd>Esc</kbd></Link>
       </div>
+      {(forgottenCount > 0 || forgotten) && (
+        <div className="ps-seg ps-tri__mode" role="group" aria-label="Какие игры разбирать">
+          <button type="button" aria-pressed={!forgotten} onClick={() => setMode(false)}>{triageSegments(counts.none, forgottenCount).all}</button>
+          <button type="button" aria-pressed={forgotten} onClick={() => setMode(true)}>{triageSegments(counts.none, forgottenCount).forgotten}</button>
+        </div>
+      )}
       {wide ? (
-        <Desktop game={head} queue={state.queue.slice(1, 6)} order={order} onOrder={setOrder} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
+        <Desktop now={now} game={head} queue={state.queue.slice(1, 6)} order={order} onOrder={setOrder} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
       ) : (
-        <Mobile game={head} next={state.queue[1]} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
+        <Mobile now={now} game={head} next={state.queue[1]} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
       )}
     </div>
   );
@@ -221,9 +255,9 @@ function Facts({ game }: { game: GameItem }) {
   );
 }
 
-type Common = { game: GameItem; onAct: (s: GameStatusValue) => void; onSkip: () => void; onUndo: () => void; canUndo: boolean; exiting: { game: GameItem; dir: SwipeTarget } | null };
+type Common = { now: number; game: GameItem; onAct: (s: GameStatusValue) => void; onSkip: () => void; onUndo: () => void; canUndo: boolean; exiting: { game: GameItem; dir: SwipeTarget } | null };
 
-function Desktop({ game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, exiting }: Common & { queue: GameItem[]; order: Order; onOrder: (o: Order) => void }) {
+function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, exiting }: Common & { queue: GameItem[]; order: Order; onOrder: (o: Order) => void }) {
   return (
     <div className="ps-tri__grid">
       <div className="ps-tri__coverwrap">
@@ -231,9 +265,11 @@ function Desktop({ game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, 
         {exiting && <Cover key={`x${exiting.game.id}`} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-tri__cover ps-tri__ghost" />}
       </div>
       <div className="ps-tri__center">
+        {isForgotten(game, now) && <span className="ps-fchip"><Icon name="clock" size={12} />{forgottenChipText(game.lastPlayedAt, now)}</span>}
         <p className="ps-micro">Не разобрано</p>
         <h2 className="ps-tri__title" title={game.title}>{game.title}</h2>
         <Facts game={game} />
+        {isForgotten(game, now) && <p className="ps-tri__fhint">{FORGOTTEN_HINT}</p>}
         <div className="ps-keys" role="group" aria-label="Статус игры">
           {STATUS_KEYS.map(([k, s]) => (
             <button key={s} type="button" className="ps-key" data-status={s} onClick={() => onAct(s)} aria-keyshortcuts={k} title={s === 'service' ? 'Игра-сервис: вне хроники и бэклога' : undefined}>
@@ -261,7 +297,10 @@ function Desktop({ game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, 
         <ul>
           {queue.map((g) => (
             <li key={g.id} className="ps-queue__q">
-              <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" />
+              <span className="ps-queue__thw">
+                <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" />
+                {isForgotten(g, now) && <span className="ps-queue__dot" title="Забытая" role="img" aria-label="Забытая"><Icon name="clock" size={9} /></span>}
+              </span>
               <span><span className="ps-queue__t">{g.title}</span><span className="ps-queue__m num">{formatPlayTime(g.playSeconds) ?? 'не запускалась'}</span></span>
             </li>
           ))}
@@ -271,7 +310,7 @@ function Desktop({ game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, 
   );
 }
 
-function Mobile({ game, next, onAct, onSkip, onUndo, canUndo, exiting }: Common & { next?: GameItem }) {
+function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Common & { next?: GameItem }) {
   const [drag, setDrag] = useState<{ dx: number; dy: number; w: number } | null>(null);
   const start = useRef<{ x: number; y: number; w: number } | null>(null);
   const time = formatPlayTime(game.playSeconds);
@@ -307,9 +346,10 @@ function Mobile({ game, next, onAct, onSkip, onUndo, canUndo, exiting }: Common 
           aria-label={game.title}
         >
           <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" />
+          {isForgotten(game, now) && <span className="ps-stack3__fg"><Icon name="clock" size={12} />Забытая</span>}
           <div className="ps-stack3__cap">
             <h2>{game.title}</h2>
-            <span className="num">{time ?? 'не запускалась'}{game.playCount > 0 ? ` · ${launchesText(game.playCount)}` : ''}</span>
+            <span className="num">{time ?? 'не запускалась'}{game.playCount > 0 ? ` · ${launchesText(game.playCount)}` : ''}{isForgotten(game, now) && forgottenSpan(game.lastPlayedAt, now) ? ` · не запускалась ${forgottenSpan(game.lastPlayedAt, now)}` : ''}</span>
           </div>
           {cand && cand !== 'skip' && (
             <span className="ps-stamp" data-status={cand}><StatusGlyph status={cand} size={16} />{STATUS_META[cand].label}</span>

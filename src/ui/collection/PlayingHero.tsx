@@ -6,6 +6,7 @@ import { cssUrl } from '../format';
 import { PlatinumIcon, StatusGlyph } from '../icons';
 import { Cover } from './Cover';
 import type { GameActions } from './GameCard';
+import { tintStyle } from './tint';
 import { hasTrophyData, heroAriaLabel, heroFacts, heroLabel, heroLayout, heroProgress, miniMeta } from './hero';
 
 /** Арт hero: `bannerUrl`, а если его нет или он не загрузился, размытая обложка (§4.4). */
@@ -36,7 +37,7 @@ function HeroMain({ game, total, now, actions }: { game: GameItem; total: number
   const banner = game.bannerUrl && failed !== game.bannerUrl ? game.bannerUrl : null;
   const noBanner = !banner;
   return (
-    <article className="ps-hero__main" data-nobanner={noBanner || undefined} data-platinum={plat || undefined} data-status="playing">
+    <article className="ps-hero__main" style={tintStyle(game.tint)} data-nobanner={noBanner || undefined} data-platinum={plat || undefined} data-status="playing">
       <HeroArt game={game} banner={banner} onBannerError={setFailed} />
       <span className="ps-hero__tag ps-hero__label"><StatusGlyph status="playing" size={16} /><span>{heroLabel(total)}</span></span>
       {plat && <span className="ps-hero__plat" title="Платина получена"><PlatinumIcon size={20} /></span>}
@@ -70,7 +71,7 @@ function Mini({ game, now, actions }: { game: GameItem; now: number; actions: Ga
   const show = hasTrophyData(game) && t;
   return (
     <button
-      type="button" className="ps-hero__mini" data-platinum={t?.platinumEarned || undefined} onClick={() => actions.open(game)}
+      type="button" className="ps-hero__mini" style={tintStyle(game.tint)} data-platinum={t?.platinumEarned || undefined} onClick={() => actions.open(game)}
       aria-label={`Открыть: ${game.title}${t?.platinumEarned ? ', платина получена' : ''}`}
     >
       <Cover url={game.coverUrl} title={game.title} className="ps-hero__thumb" />

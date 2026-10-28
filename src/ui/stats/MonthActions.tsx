@@ -110,20 +110,33 @@ function Floating({
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
-    const a = anchor.current?.getBoundingClientRect();
-    const p = ref.current;
-    if (!a || !p) return;
-    const w = p.offsetWidth;
-    const h = p.offsetHeight;
-    const vw = document.documentElement.clientWidth;
-    const below = window.innerHeight - a.bottom - GAP - MARGIN;
-    const above = a.top - GAP - MARGIN;
-    const flip = h > below && above > below;
-    setPos({ left: Math.max(MARGIN, Math.min(a.right - w, vw - w - MARGIN)), top: flip ? a.top - GAP - h : a.bottom + GAP });
-  }, [anchor, layoutKey]);
+    const place = () => {
+      const a = anchor.current?.getBoundingClientRect();
+      const p = ref.current;
+      if (!a || !p) return;
+      if (a.bottom < 0 || a.top > window.innerHeight) {
+        onClose(false);
+        return;
+      }
+      const w = p.offsetWidth;
+      const h = p.offsetHeight;
+      const vw = document.documentElement.clientWidth;
+      const below = window.innerHeight - a.bottom - GAP - MARGIN;
+      const above = a.top - GAP - MARGIN;
+      const flip = h > below && above > below;
+      setPos({ left: Math.max(MARGIN, Math.min(a.right - w, vw - w - MARGIN)), top: flip ? a.top - GAP - h : a.bottom + GAP });
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    return () => window.removeEventListener('scroll', place, true);
+  }, [anchor, onClose, layoutKey]);
+
+  const placed = pos !== null;
+  useEffect(() => {
+    if (placed) ref.current?.querySelector<HTMLElement>('button')?.focus();
+  }, [placed, layoutKey]);
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('button')?.focus();
     const onDown = (e: MouseEvent) => {
       const t = e.target;
       if (t instanceof Node && !ref.current?.contains(t) && !anchor.current?.contains(t)) onClose(false);
@@ -137,12 +150,10 @@ function Floating({
     const away = () => onClose(false);
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey, true);
-    window.addEventListener('scroll', away, true);
     window.addEventListener('resize', away);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('scroll', away, true);
       window.removeEventListener('resize', away);
     };
   }, [anchor, onClose]);

@@ -176,6 +176,8 @@ export function streakRange(from: string | null, to: string | null, withYear: bo
 export type StreakTile = {
   id: 'current' | 'best' | 'bestInYear';
   label: string;
+  /** подпись на мобильном: «Текущая», «Лучшая», «В 2026» */
+  labelShort: string;
   /** «3 дня» */
   value: string;
   /** «3 дн.» на мобильном */
@@ -187,11 +189,11 @@ export type StreakTile = {
   aria: string;
 };
 
-function tile(id: StreakTile['id'], label: string, s: StreakInfo, withYear: boolean, zero: string): StreakTile {
+function tile(id: StreakTile['id'], label: string, labelShort: string, s: StreakInfo, withYear: boolean, zero: string): StreakTile {
   const value = streakDaysText(s.days);
   const range = s.days > 0 ? streakRange(s.from, s.to, withYear) : null;
   return {
-    id, label, value, valueShort: streakDaysText(s.days, true), caption: range ?? zero, hasGaps: s.hasGaps && s.days > 0,
+    id, label, labelShort, value, valueShort: streakDaysText(s.days, true), caption: range ?? zero, hasGaps: s.hasGaps && s.days > 0,
     aria: s.hasGaps && s.days > 0 ? `${value}, в серии есть дни без данных` : value,
   };
 }
@@ -199,9 +201,9 @@ function tile(id: StreakTile['id'], label: string, s: StreakInfo, withYear: bool
 /** Три плитки стрика. «Лучшая в {год}» без данных за год: значение «0 дней», подпись «нет данных». */
 export function streakTiles(d: Pick<ActivityData, 'streak' | 'totals' | 'year'>): StreakTile[] {
   return [
-    tile('current', 'Текущая серия', d.streak.current, false, 'серия не идёт'),
-    tile('best', 'Лучшая серия', d.streak.best, true, 'серий ещё нет'),
-    tile('bestInYear', `Лучшая в ${d.year}`, d.streak.bestInYear, false, d.totals.knownDays === 0 ? 'нет данных' : 'серий не было'),
+    tile('current', 'Текущая серия', 'Текущая', d.streak.current, false, 'серия не идёт'),
+    tile('best', 'Лучшая серия', 'Лучшая', d.streak.best, true, 'серий ещё нет'),
+    tile('bestInYear', `Лучшая в ${d.year}`, `В ${d.year}`, d.streak.bestInYear, false, d.totals.knownDays === 0 ? 'нет данных' : 'серий не было'),
   ];
 }
 

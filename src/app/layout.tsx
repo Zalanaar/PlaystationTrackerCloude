@@ -4,6 +4,7 @@ import '@/ui/tokens/tokens.css';
 import '@/ui/tokens/themes.css';
 import '@/ui/tokens/decor.css';
 import '@/ui/components.css';
+import '@/ui/game91.css';
 import './globals.css';
 import { cookies } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';

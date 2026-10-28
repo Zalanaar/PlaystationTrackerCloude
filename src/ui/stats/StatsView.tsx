@@ -12,7 +12,9 @@ import { formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import { ActivityPanel } from './ActivityPanel';
 import { GenreRow } from './GenrePopover';
+import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
 import { TopGames, TopSkeleton } from './TopGames';
 import {
@@ -209,6 +211,8 @@ function Content({
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />
           <TrophiesPanel data={data} sel={sel} />
+          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenStub} />
+          <ActivityPanel key={sel.year} defaultYear={sel.year} />
           <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
         </>
       )}

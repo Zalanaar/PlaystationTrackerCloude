@@ -11,6 +11,8 @@ export type G = {
   hiddenAt?: string | null;
   /** Фаза 9 (12.2): горизонтальный арт */
   bannerUrl?: string | null;
+  /** Фаза 9.1 (15.2): цвет акцента */
+  tint?: string | null;
 };
 
 /** Трофей в ответе GET /api/games/{id} (12.5) */
@@ -87,8 +89,14 @@ function item(g: G) {
     } : null,
     genres: [{ key: 'ACTION', label: 'Экшен' }],
     bannerUrl: g.bannerUrl ?? null,
+    tint: g.tint ?? null,
     hiddenAt: g.hiddenAt ?? null,
   };
+}
+
+/** Забытая (14.4): без статуса, играл, не запускалась больше 90 суток. */
+export function isForgotten(g: G): boolean {
+  return g.status === null && g.playSeconds > 0 && !!g.lastPlayedAt && Date.now() - new Date(g.lastPlayedAt).getTime() > 90 * 86_400_000;
 }
 
 function counts(list: G[]) {
@@ -122,18 +130,75 @@ export type Mock = {
   detailsDelay: number;
   /** id запросов деталей в порядке отправки */
   detailCalls: number[];
+  /** `platinumForecast` деталей по id игры (14.2, 15.3); нет записи = null */
+  forecasts: Record<number, Record<string, unknown> | null>;
+  /** Фаза 15 (14.3): GET /api/stats/activity */
+  activityCalls: URL[];
+  activityFails: number | null;
+  /** задержка ответа активности, мс */
+  activityDelay: number;
+  /** активность: «снимков нет» (firstSnapshotDate = null) */
+  activityEmpty: boolean;
+  /** дата первого снимка (YYYY-MM-DD) вместо 15 января текущего года */
+  activityFirst: string | null;
+  /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
+  nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
+  /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
+  legacySummary: boolean;
 };
+
+const DAY = 86_400_000;
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** Ответ GET /api/stats/activity по контракту 14.3: первый снимок 15 января текущего года МСК, дальше детерминированный узор. */
+export function activityFor(year: number, empty = false, firstDay?: string) {
+  const today = isoDay(Date.now() + 3 * 3600_000);
+  const thisYear = Number(today.slice(0, 4));
+  const first = empty ? null : (firstDay ?? `${thisYear}-01-15`);
+  const pattern = [0, 20, 45, 120, 200, 0, 95];
+  const days: { date: string; minutes: number | null }[] = [];
+  let i = 0;
+  for (let t = Date.UTC(year, 0, 1); new Date(t).getUTCFullYear() === year; t += DAY, i++) {
+    const date = isoDay(t);
+    days.push({ date, minutes: first && date > first && date <= today ? pattern[i % pattern.length] : null });
+  }
+  const known = days.filter((d) => d.minutes !== null);
+  const none = { days: 0, from: null, to: null, hasGaps: false };
+  const best = first ? { days: 4, from: isoDay(Date.parse(first) + 10 * DAY), to: isoDay(Date.parse(first) + 13 * DAY), hasGaps: true } : none;
+  return {
+    year, today, firstSnapshotDate: first, days,
+    totals: {
+      playedDays: known.filter((d) => (d.minutes as number) > 0).length, knownDays: known.length,
+      minutes: known.reduce((a, d) => a + (d.minutes as number), 0), maxMinutes: Math.max(0, ...known.map((d) => d.minutes as number)),
+    },
+    streak: {
+      current: first ? { days: 2, from: isoDay(Date.parse(today) - 2 * DAY), to: isoDay(Date.parse(today) - DAY), hasGaps: false } : none,
+      best,
+      bestInYear: year === thisYear ? best : none,
+    },
+  };
+}
 
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
-    profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [],
+    profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {},
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(status === 200 ? { ok: true, data } : { ok: false, error: data }) });
 
   await page.route('**/api/sync/status', (r) => json(r, m.syncStatus));
+
+  await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
+    const u = new URL(r.request().url());
+    m.activityCalls.push(u);
+    if (m.activityDelay) await new Promise((res) => setTimeout(res, m.activityDelay));
+    if (m.activityFails) return json(r, { code: 'db_unavailable', message: 'x' }, m.activityFails);
+    const year = Number(u.searchParams.get('year') ?? new Date(Date.now() + 3 * 3600_000).getUTCFullYear());
+    return json(r, activityFor(year, m.activityEmpty, m.activityFirst ?? undefined));
+  });
 
   const visible = () => m.games.filter((g) => !g.hiddenAt);
   await page.route('**/api/collection/summary', (r) => {
@@ -147,6 +212,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       services: games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
       continue: games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
       profile: m.profile,
+      ...(m.legacySummary ? {} : { nearPlatinum: m.nearPlatinum.flatMap((n) => { const g = m.games.find((x) => x.id === n.id); return g ? [{ game: item(g), forecast: n.forecast }] : []; }) }),
     });
   });
 
@@ -166,7 +232,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const scope = u.searchParams.get('hidden') === 'only' ? m.games.filter((g) => g.hiddenAt) : visible();
     const base = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
     const wanted = st ? st.split(',') : null;
-    const filtered = base.filter((g) => !wanted || wanted.includes(g.status ?? 'none'));
+    const filtered = base.filter((g) => (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
     const nl = (a: string | null, b: string | null, dir: 1 | -1) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : dir * a.localeCompare(b));
     const sorted = [...filtered].sort((a, b) =>
       (sort === 'title' ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
@@ -175,7 +241,10 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
-    return json(route, { items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years });
+    return json(route, {
+      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years,
+      ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
+    });
   });
 
   await page.route(/\/api\/games\/\d+(\?|$)/, async (route) => {
@@ -193,6 +262,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       game: item(g), firstPlayedAt: g.lastPlayedAt ? '2024-03-01T10:00:00.000Z' : null,
       statusChangedAt: g.status ? '2026-10-06T08:00:00.000Z' : null,
       trophyList: g.trophies ? (m.trophies[id] ?? trophyList()) : [],
+      platinumForecast: m.forecasts[id] ?? null,
     });
   });
 
