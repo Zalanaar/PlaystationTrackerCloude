@@ -1,5 +1,5 @@
 // Типы ответов раздела 9 docs/api-contract.md. Только типы: frontend импортирует через `import type`.
-export type GameStatusValue = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved';
+export type GameStatusValue = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type StatusFilterValue = GameStatusValue | 'none';
 export type Platform = 'PS4' | 'PS5' | 'PC';
 export type GameSort = 'last_played' | 'hours' | 'title' | 'trophies_progress' | 'completed_at';
@@ -35,7 +35,7 @@ export type GameItem = {
   genres: GameGenre[];
 };
 
-export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; none: number };
+export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };
 
 export type GamesListResponse = {
   items: GameItem[];
@@ -50,6 +50,8 @@ export type CollectionSummaryResponse = {
   totals: { games: number; playSeconds: number; hours: number; trophiesEarned: number; platinumEarned: number };
   counts: StatusCounts;
   playing: GameItem[];
+  /** Игры со статусом `service`, last_played_at desc; всего их `counts.service`. */
+  services: GameItem[];
   continue: GameItem[];
 };
 

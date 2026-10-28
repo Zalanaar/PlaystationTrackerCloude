@@ -1,0 +1,1 @@
+ALTER TYPE "public"."game_status_value" ADD VALUE 'service';

@@ -51,12 +51,12 @@ describe('коллекция (PGlite)', () => {
     const r = await listGames(t.db, lq());
     expect(r).toEqual({
       items: [], total: 0, limit: 60, offset: 0, years: [],
-      counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 0 },
+      counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 },
     });
     const s = await getCollectionSummary(t.db);
     expect(s).toEqual({
       totals: { games: 0, playSeconds: 0, hours: 0, trophiesEarned: 0, platinumEarned: 0 },
-      counts: r.counts, playing: [], continue: [],
+      counts: r.counts, playing: [], services: [], continue: [],
     });
   });
 
@@ -117,7 +117,7 @@ describe('коллекция (PGlite)', () => {
     expect((await names('status=none,backlog&sort=title'))).toEqual(['A2', 'B2']);
     const r = await listGames(t.db, lq('status=backlog&q=a'));
     expect(r.total).toBe(1);
-    expect(r.counts).toEqual({ all: 2, playing: 1, completed: 0, dropped: 0, backlog: 1, shelved: 0, none: 0 });
+    expect(r.counts).toEqual({ all: 2, playing: 1, completed: 0, dropped: 0, backlog: 1, shelved: 0, service: 0, none: 0 });
   });
 
   it('год: только completed_at > dropped_at, по Москве; без дат завершения не попадает', async () => {
@@ -202,6 +202,34 @@ describe('коллекция (PGlite)', () => {
     expect(far.total).toBe(5);
   });
 
+  it('service: фильтр, счётчик, секция главной, даты, статистика', async () => {
+    const s1 = await game('svc-old', { playDurationSeconds: 3600, lastPlayedAt: d('2026-10-01T00:00:00Z') });
+    const s2 = await game('svc-new', { playDurationSeconds: 7200, lastPlayedAt: d('2026-10-20T00:00:00Z') });
+    const done = await game('done', { lastPlayedAt: d('2026-10-25T00:00:00Z') });
+    await game('plain');
+    await setGameStatus(t.db, s1, 'service', NOW);
+    await setGameStatus(t.db, done, 'completed', NOW);
+    await setGamesStatusBulk(t.db, [s2], 'completed', NOW);
+    // completed -> service обнуляет дату; повтор ничего не трогает
+    await setGamesStatusBulk(t.db, [s2], 'service', NOW);
+    expect(await setGamesStatusBulk(t.db, [s2], 'service', NOW)).toBe(0);
+    expect((await getGamesByIds(t.db, [s2]))[0]).toMatchObject({ status: 'service', completedAt: null, droppedAt: null });
+    expect(await names('status=service&sort=last_played')).toEqual(['svc-new', 'svc-old']);
+    expect((await listGames(t.db, lq('status=service'))).counts).toMatchObject({ service: 2, completed: 1, none: 1, all: 4 });
+    const sum = await getCollectionSummary(t.db);
+    expect(sum.services.map((g) => g.title)).toEqual(['svc-new', 'svc-old']);
+    expect(sum.counts.service).toBe(2);
+    expect(sum.playing).toEqual([]);
+    // service -> dropped берёт дату запуска, -> null удаляет строку
+    await setGameStatus(t.db, s1, 'dropped', NOW);
+    expect((await getGamesByIds(t.db, [s1]))[0]).toMatchObject({ status: 'dropped', droppedAt: '2026-10-01T00:00:00.000Z' });
+    await setGameStatus(t.db, s2, null, NOW);
+    expect((await getGamesByIds(t.db, [s2]))[0].status).toBeNull();
+    // дата у service править нельзя
+    await setGameStatus(t.db, s2, 'service', NOW);
+    await expect(setStatusDate(t.db, s2, d('2026-10-02T00:00:00Z'), NOW)).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: 'service' });
+  });
+
   it('summary: итоги, playing, continue (правило)', async () => {
     const pl1 = await game('pl-old', { playDurationSeconds: 3600, lastPlayedAt: d('2026-10-01T00:00:00Z') });
     const pl2 = await game('pl-new', { playDurationSeconds: 7200, lastPlayedAt: d('2026-10-20T00:00:00Z') });
@@ -227,7 +255,7 @@ describe('коллекция (PGlite)', () => {
     ]);
     const s = await getCollectionSummary(t.db);
     expect(s.totals).toEqual({ games: 7, playSeconds: 10800, hours: 3, trophiesEarned: 3, platinumEarned: 1 });
-    expect(s.counts).toEqual({ all: 7, playing: 2, completed: 1, dropped: 1, backlog: 1, shelved: 0, none: 2 });
+    expect(s.counts).toEqual({ all: 7, playing: 2, completed: 1, dropped: 1, backlog: 1, shelved: 0, service: 0, none: 2 });
     expect(s.playing.map((g) => g.title)).toEqual(['pl-new', 'pl-old']);
     expect(s.playing[1].trophies?.platinumEarned).toBe(true);
     // continue: нет completed/dropped и нет игр без last_played_at; по убыванию запуска

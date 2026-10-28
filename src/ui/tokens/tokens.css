@@ -43,7 +43,12 @@
   --st-backlog:   #e2bf75;
   --st-dropped:   #e69aa6;
   --st-shelved:   #a3abc0;
+  --st-service:   #78b4ff;   /* игра-сервис, одинаков во всех темах */
   --st-none:      var(--text-3);
+
+  /* Оценочные часы в столбцах Статистики (design-system §4.11) */
+  --est-opacity: .45;
+  --est-stripe: color-mix(in srgb, var(--bg) 70%, transparent);
 
   /* Семантика (баннеры, индикатор синка) */
   --success: #7fd1b9;

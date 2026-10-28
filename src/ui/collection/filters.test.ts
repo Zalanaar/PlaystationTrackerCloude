@@ -74,9 +74,10 @@ describe('даты завершения и оптимистичные правк
     expect(applyStatusLocally(game({ lastPlayedAt: null }), 'dropped', '2026-10-27T00:00:00Z').droppedAt).toBe('2026-10-27T00:00:00Z');
   });
   it('счётчики', () => {
-    const c = { all: 3, playing: 1, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 2 };
+    const c = { all: 3, playing: 1, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 2 };
     expect(adjustCounts(c, null, 'completed')).toEqual({ ...c, completed: 1, none: 1 });
     expect(adjustCounts(c, 'playing', null)).toEqual({ ...c, playing: 0, none: 3 });
+    expect(adjustCounts({ ...c, none: 2 }, null, 'service')).toEqual({ ...c, service: 1, none: 1 });
   });
   it('dateInputToIso: день по Москве, не позже now, мусор = null', () => {
     const now = Date.parse('2026-10-27T09:00:00Z');

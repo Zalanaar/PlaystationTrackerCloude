@@ -1,4 +1,6 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
+import type { StatsResponse } from '@/server/stats/types';
+import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
   BulkStatusResponse, CollectionSummaryResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
 } from '@/server/collection/types';
@@ -42,6 +44,12 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 export const fetchSummary = () => call<CollectionSummaryResponse>('/api/collection/summary');
 export const fetchGames = (query: URLSearchParams, signal?: AbortSignal) =>
   call<GamesListResponse>(`/api/games?${query.toString()}`, { signal });
+
+export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
+  call<StatsResponse>(`/api/stats?${query.toString()}`, { signal });
+
+export const fetchWrapped = (year: number | null, signal?: AbortSignal) =>
+  call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
 
 export const putStatus = (id: number, status: GameStatusValue | null) =>
   call<GameMutationResponse>(`/api/games/${id}/status`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ status }) });

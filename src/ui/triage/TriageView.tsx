@@ -11,6 +11,7 @@ import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { StatusGlyph } from '../icons';
 import { useMediaQuery } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
 import {
   applyStatus, initState, keyCommand, progress, rollback, skip, summarize, swipeTarget, SWIPE_STAMP, undo, type SwipeTarget, type TriageState,
@@ -19,6 +20,8 @@ import {
 type Order = 'last_played' | 'hours';
 const LIMIT = 300;
 const STATUS_KEYS = Object.entries(TRIAGE_KEYS) as [string, GameStatusValue][];
+/** На мобильном 5 кнопок (§4.9), «Сервис» выбирается через меню статуса. */
+const MOBILE_KEYS = STATUS_KEYS.filter(([, s]) => s !== 'service');
 
 function hint(status: GameStatusValue, g: GameItem): string | null {
   if (status !== 'completed' && status !== 'dropped') return null;
@@ -233,7 +236,7 @@ function Desktop({ game, queue, order, onOrder, onAct, onSkip, onUndo, canUndo, 
         <Facts game={game} />
         <div className="ps-keys" role="group" aria-label="Статус игры">
           {STATUS_KEYS.map(([k, s]) => (
-            <button key={s} type="button" className="ps-key" data-status={s} onClick={() => onAct(s)} aria-keyshortcuts={k}>
+            <button key={s} type="button" className="ps-key" data-status={s} onClick={() => onAct(s)} aria-keyshortcuts={k} title={s === 'service' ? 'Игра-сервис: вне хроники и бэклога' : undefined}>
               <kbd>{k}</kbd>
               <StatusGlyph status={s} size={20} />
               <span className="ps-key__l">{STATUS_META[s].label}</span>
@@ -322,7 +325,7 @@ function Mobile({ game, next, onAct, onSkip, onUndo, canUndo, exiting }: Common 
         <span>вправо<StatusGlyph status="completed" size={12} /></span>
       </p>
       <div className="ps-tri__actions" role="group" aria-label="Статус игры">
-        {STATUS_KEYS.map(([, s]) => (
+        {MOBILE_KEYS.map(([, s]) => (
           <button key={s} type="button" data-status={s} onClick={() => onAct(s)} aria-label={STATUS_META[s as StatusKey].label}>
             <StatusGlyph status={s} size={20} />
             <span>{SHORT[s]}</span>
@@ -332,9 +335,15 @@ function Mobile({ game, next, onAct, onSkip, onUndo, canUndo, exiting }: Common 
       <div className="ps-tri__row2">
         <button type="button" className="ps-btn" onClick={onSkip}>Пропустить</button>
         <button type="button" className="ps-btn" onClick={onUndo} disabled={!canUndo}>Отменить</button>
+        <StatusMenu
+          onPick={(s) => { if (s) onAct(s); }} label="Другой статус" hide={['none']} className="ps-tri__more"
+          triggerClassName="ps-btn"
+        >
+          Статус…
+        </StatusMenu>
       </div>
     </div>
   );
 }
 
-const SHORT: Record<GameStatusValue, string> = { playing: 'Играю', completed: 'Пройд.', backlog: 'Бэклог', dropped: 'Бросил', shelved: 'Пауза' };
+const SHORT: Record<GameStatusValue, string> = { playing: 'Играю', completed: 'Пройд.', backlog: 'Бэклог', dropped: 'Бросил', shelved: 'Пауза', service: 'Сервис' };

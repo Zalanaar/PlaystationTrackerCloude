@@ -97,5 +97,5 @@ export function byLastPlayed(a: GameItem, b: GameItem): number {
 }
 
 export function emptyCounts(): StatusCounts {
-  return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, none: 0 };
+  return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 };
 }

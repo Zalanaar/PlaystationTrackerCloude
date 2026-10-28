@@ -12,6 +12,11 @@ describe('parseListQuery', () => {
     expect(q('sort=title&order=desc')).toMatchObject({ value: { order: 'desc' } });
     expect(q('sort=hours')).toMatchObject({ value: { order: 'desc' } });
   });
+  it('status: service принимается в фильтре и в теле', () => {
+    expect(q('status=service,none')).toMatchObject({ value: { statuses: ['service', 'none'] } });
+    expect(parseStatusBody({ status: 'service' })).toEqual({ ok: true, value: { status: 'service' } });
+    expect(parseBulkBody({ ids: [2], status: 'service' }).ok).toBe(true);
+  });
   it('status: список, none, дубли; мусор = ошибка', () => {
     expect(q('status=playing,none,playing')).toMatchObject({ value: { statuses: ['playing', 'none'] } });
     expect(q('status=')).toMatchObject({ value: { statuses: null } });

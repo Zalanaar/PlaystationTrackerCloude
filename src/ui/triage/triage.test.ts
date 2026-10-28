@@ -53,6 +53,7 @@ describe('клавиши и свайп', () => {
     expect(keyCommand('3')).toEqual({ type: 'status', status: 'backlog' });
     expect(keyCommand('4')).toEqual({ type: 'status', status: 'dropped' });
     expect(keyCommand('5')).toEqual({ type: 'status', status: 'shelved' });
+    expect(keyCommand('6')).toEqual({ type: 'status', status: 'service' });
     for (const k of [' ', 'ArrowRight', '0']) expect(keyCommand(k)).toEqual({ type: 'skip' });
     for (const k of ['z', 'Z', 'ArrowLeft']) expect(keyCommand(k)).toEqual({ type: 'undo' });
     expect(keyCommand('Escape')).toEqual({ type: 'exit' });

@@ -6,7 +6,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import type { CollectionSummaryResponse, GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { cssUrl, formatNumber } from '../format';
-import { Icon } from '../icons';
+import { Icon, StatusGlyph } from '../icons';
 import { useNow, useViewportWidth } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { StatusMenu } from '../status';
@@ -34,10 +34,12 @@ import { storeView, useStoredView } from './view';
 
 const PAGE = 60;
 const BULK_MAX = 250;
+const SERVICE_ROWS = 5;
+const SERVICE_ROWS_STEP = 10;
 
 type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
 type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[] };
-const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Не разобрано' };
+const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Игры-сервисы', shelved: 'Отложено', unsorted: 'Не разобрано' };
 
 function oldDate(g: GameItem): DateRestore | undefined {
   if (g.status === 'completed' && g.completedAt) return { kind: 'completed', iso: g.completedAt };
@@ -81,6 +83,9 @@ export function CollectionView() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [open, setOpen] = useState<{ id: number; edit: boolean; snapshot: GameItem } | null>(null);
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  // блок «Игры-сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
+  const [serviceOpen, setServiceOpen] = useState(false);
+  const [serviceRows, setServiceRows] = useState(SERVICE_ROWS);
 
   const poolRef = useRef<Pool | null>(null);
   useEffect(() => { poolRef.current = pool; }, [pool]);
@@ -336,7 +341,13 @@ export function CollectionView() {
     ...chron.years.filter((y) => isOpen(y.year)).flatMap((y) => y.months.flatMap((m) => m.games)),
     ...(isOpen('undated') ? chron.undated : []),
   ];
-  const shownGames = chronicleMode ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : byBlock[b])) : flat;
+  // «Игры-сервисы»: вкладка «Сервис» раскрывает блок целиком, иначе один ряд (сетка) или несколько строк (список)
+  const serviceAll = byBlock.service ?? [];
+  const serviceFull = filters.status === 'service';
+  const serviceLimit = serviceFull ? Infinity : view === 'list' ? serviceRows : serviceOpen ? Infinity : cols;
+  const shownGames = chronicleMode
+    ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : b === 'service' ? serviceAll.slice(0, serviceLimit) : byBlock[b]))
+    : flat;
   const failedBlocks = pool?.failed ?? [];
   const empty = !!pool && failedBlocks.length === 0 && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
   const noData = !!pool && pool.counts.all === 0 && !active && !error;
@@ -446,10 +457,71 @@ export function CollectionView() {
     );
   }
 
+  /** Блок «Игры-сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
+  function renderService(list: GameItem[]): ReactNode {
+    const total = Math.max(counts.service, list.length);
+    const isList = view === 'list';
+    const card = (g: GameItem) => (
+      <GameGridItem key={g.id}><GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} /></GameGridItem>
+    );
+    let body: ReactNode;
+    let toggleBtn: ReactNode = null;
+    if (isList) {
+      const shown = serviceFull ? list : list.slice(0, serviceRows);
+      body = renderGames(shown);
+      if (!serviceFull) {
+        const rest = total - shown.length;
+        if (rest > 0) {
+          toggleBtn = (
+            <button type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" onClick={() => setServiceRows((n) => n + SERVICE_ROWS_STEP)}>
+              Показать ещё {formatNumber(rest)}
+            </button>
+          );
+        } else if (list.length > SERVICE_ROWS) {
+          toggleBtn = <button type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" onClick={() => setServiceRows(SERVICE_ROWS)}>Свернуть</button>;
+        }
+      }
+    } else {
+      const expanded = serviceFull || serviceOpen;
+      const rest = total - cols;
+      body = (
+        <>
+          <GameGrid density={density}>{list.slice(0, cols).map(card)}</GameGrid>
+          {list.length > cols && (
+            <div className="ps-collapse" data-open={expanded || undefined} id="service-more">
+              <div className="ps-collapse__in">
+                <div className="ps-collapse__pad"><GameGrid density={density}>{list.slice(cols).map(card)}</GameGrid></div>
+              </div>
+            </div>
+          )}
+        </>
+      );
+      if (!serviceFull && rest > 0) {
+        toggleBtn = (
+          <button
+            type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" aria-expanded={serviceOpen} aria-controls="service-more"
+            onClick={() => setServiceOpen((o) => !o)}
+          >
+            {serviceOpen ? 'Свернуть' : `Показать ещё ${formatNumber(rest)}`}
+          </button>
+        );
+      }
+    }
+    return (
+      <section key="service" className="ps-block" id="service" aria-labelledby="h-service">
+        <BlockHead id="h-service" title="Игры-сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
+        {body}
+        {toggleBtn && <div className="ps-more ps-more--service">{toggleBtn}</div>}
+        {(serviceFull || (!isList && serviceOpen)) && moreBtn('service', total - list.length)}
+      </section>
+    );
+  }
+
   function renderBlock(b: BlockId): ReactNode {
     const list = byBlock[b] ?? [];
     if (b === 'playing') return null; // лента рисуется отдельно
     if (b === 'chronicle') return list.length > 0 ? <div className="ps-block" key={b}>{renderChronicle()}</div> : null;
+    if (b === 'service') return list.length > 0 ? renderService(list) : null;
     const full = isFull(b, filters.status);
     const total = counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'];
     if (list.length === 0) return null;
@@ -472,7 +544,7 @@ export function CollectionView() {
   }
 
   const years = chron.years.map((y) => y.year);
-  const showAnchors = chronicleMode && filters.status === 'all' && (years.length > 0 || (byBlock.backlog?.length ?? 0) > 0 || (byBlock.unsorted?.length ?? 0) > 0);
+  const showAnchors = chronicleMode && filters.status === 'all' && (years.length > 0 || (byBlock.backlog?.length ?? 0) > 0 || (byBlock.service?.length ?? 0) > 0 || (byBlock.unsorted?.length ?? 0) > 0);
   function jump(e: React.MouseEvent, target: string, year?: number) {
     e.preventDefault();
     if (year !== undefined) setToggled((t) => ({ ...t, [String(year)]: true }));
@@ -499,6 +571,7 @@ export function CollectionView() {
           <span>Перейти:</span>
           {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
           {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
+          {(byBlock.service?.length ?? 0) > 0 && <a href="#service" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
           {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
         </nav>
       )}

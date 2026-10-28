@@ -3,12 +3,12 @@ import type { GameItem, GameSort, StatusFilterValue } from '@/server/collection/
 import { byLastPlayed } from './chronicle';
 import { blockQuery, type StatusTab } from './filters';
 
-export type BlockId = 'playing' | 'chronicle' | 'backlog' | 'shelved' | 'unsorted';
+export type BlockId = 'playing' | 'chronicle' | 'backlog' | 'service' | 'shelved' | 'unsorted';
 
 export const BLOCK_STATUSES: Record<BlockId, readonly StatusFilterValue[]> = {
-  playing: ['playing'], chronicle: ['completed', 'dropped'], backlog: ['backlog'], shelved: ['shelved'], unsorted: ['none'],
+  playing: ['playing'], chronicle: ['completed', 'dropped'], backlog: ['backlog'], service: ['service'], shelved: ['shelved'], unsorted: ['none'],
 };
-const ORDER: readonly BlockId[] = ['playing', 'chronicle', 'backlog', 'shelved', 'unsorted'];
+const ORDER: readonly BlockId[] = ['playing', 'chronicle', 'backlog', 'service', 'shelved', 'unsorted'];
 
 export const PREVIEW_LIMIT = 12;
 export const FULL_LIMIT = 300;
@@ -20,9 +20,12 @@ export function visibleBlocks(tab: StatusTab): BlockId[] {
   return ORDER.filter((b) => (BLOCK_STATUSES[b] as readonly string[]).includes(tab));
 }
 
-/** Блок показан целиком (вкладка выбрана явно), а не превью одним рядом. */
+/**
+ * Блок грузится целиком (вкладка выбрана явно), а не превью одним рядом.
+ * `service` грузится целиком всегда, а «один ряд + Показать ещё» рисует CollectionView (§4.3.1).
+ */
 export function isFull(block: BlockId, tab: StatusTab): boolean {
-  return tab !== 'all' || block === 'chronicle' || block === 'shelved';
+  return tab !== 'all' || block === 'chronicle' || block === 'shelved' || block === 'service';
 }
 
 export function blockStatuses(block: BlockId, tab: StatusTab): StatusFilterValue[] {

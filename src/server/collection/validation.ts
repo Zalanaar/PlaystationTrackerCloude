@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import type { GameSort, GameStatusValue, SortOrder, StatusFilterValue } from './types';
 
-export const STATUS_VALUES = ['playing', 'completed', 'dropped', 'backlog', 'shelved'] as const satisfies readonly GameStatusValue[];
+export const STATUS_VALUES = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'] as const satisfies readonly GameStatusValue[];
 const FILTER_VALUES: readonly string[] = [...STATUS_VALUES, 'none'];
 export const SORTS = ['last_played', 'hours', 'title', 'trophies_progress', 'completed_at'] as const satisfies readonly GameSort[];
 export const DEFAULT_ORDER: Record<GameSort, SortOrder> = {

@@ -38,7 +38,7 @@ const over = (fg: string, a: number, bg: string) => {
 };
 
 const NAMES = ['night', 'graphite', 'activity'];
-const STATUSES = ['--st-completed', '--st-backlog', '--st-dropped', '--st-shelved'];
+const STATUSES = ['--st-completed', '--st-backlog', '--st-dropped', '--st-shelved', '--st-service'];
 
 describe('контраст тем', () => {
   it('найдены ровно 3 темы', () => expect(Object.keys(themes).sort()).toEqual([...NAMES].sort()));

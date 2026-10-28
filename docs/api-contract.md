@@ -1,6 +1,6 @@
 # API-контракт PS Tracker
 
-Версия: 1.2 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2; раздел 9 «Коллекция» в Фазе 3). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
+Версия: 1.2 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2; раздел 9 «Коллекция» в Фазе 3; раздел 10 «Статистика» в Фазе 5). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
 
 Источник фактов о PSN: `docs/api-notes.md` (результаты Фазы 0).
 
@@ -19,7 +19,7 @@
 ### 1.1 Перечисления (pgEnum)
 | Имя | Значения |
 |---|---|
-| `game_status_value` | `playing`, `completed`, `dropped`, `backlog`, `shelved` |
+| `game_status_value` | `playing`, `completed`, `dropped`, `backlog`, `shelved`, `service` («игра-сервис»: пройти нельзя, к ней возвращаются; даты завершения не имеет) |
 | `trophy_type` | `bronze`, `silver`, `gold`, `platinum` |
 | `trophy_set_link_source` | `title_id`, `concept`, `name`, `manual` |
 | `sync_run_kind` | `daily` (cron), `manual` (кнопка/ручной запуск), `trophy_backfill` (дозагрузка трофеев) |
@@ -74,6 +74,7 @@ CHECK-ограничения:
 1. Нет строки = «без статуса». Сброс в «без статуса» = `DELETE` строки.
 2. Смена на `completed`: `completed_at = games.last_played_at`; если `last_played_at` NULL, то `now()`. Аналогично `dropped` -> `dropped_at`.
 3. Смена с `completed`/`dropped` на другой статус: соответствующая дата обнуляется.
+   `service` ведёт себя как `playing`/`backlog`/`shelved`: даты не ставятся, при смене на `service` обе даты обнуляются; ручная правка даты для `service` запрещена (правило 5, `409 status_conflict`). `service` не входит в «пройдено/брошено» Статистики и Итогов (они считают только `completed`/`dropped`), часы `service`-игр учитываются как обычно (по снимкам).
 4. Повторная установка того же статуса не трогает даты.
 5. Ручная правка `completed_at`/`dropped_at` допустима только пока статус соответствует; меняет только эту колонку и `updated_at`.
 6. Синк никогда не пишет в `game_status`. Исключение: нет. Автосмены статусов в MVP нет.
@@ -173,7 +174,18 @@ UNIQUE `playtime_snapshots_game_date_key (game_id, snapshot_date)`. Индекс
 - Идемпотентность: `INSERT ... ON CONFLICT (game_id, snapshot_date) DO UPDATE` (позднейший запуск того же дня перезаписывает значение, `captured_at` обновляется).
 - Снимок пишется для **каждой игры, присутствующей в ответе PSN**, даже если время не изменилось (иначе нельзя отличить «не играл» от «не снимали»). Игры, которых нет в ответе, снимок не получают.
 - Ошибка PSN: снимки не пишутся, данные не стираются. Дни без снимков это пропуски; дельта считается между ближайшими снимками.
-- Формула часов за период `[from, to]` (даты МСК, включительно) для игры: `S_end - S_base`, где `S_end` = последний снимок с `snapshot_date <= to`, `S_base` = последний снимок с `snapshot_date < from`. Если базового снимка нет (до первого синка истории нет), берётся первый снимок внутри периода, и часы до него не учитываются (дельта от первого снимка). Отрицательные дельты обнуляются. Реализация в `src/server/stats/` с Vitest.
+- Формула часов за период `[from, to]` (даты МСК, включительно) для игры: `S_end - S_base`, где `S_end` = последний снимок с `snapshot_date <= to`, `S_base` = последний снимок с `snapshot_date < from`. Если базового снимка нет (до первого синка истории нет), берётся первый снимок внутри периода, и часы до него не учитываются (дельта от первого снимка). Отрицательные дельты обнуляются. Реализация в `src/server/stats/` с Vitest. Это **реальные** часы; часы до первого снимка игры добавляет оценка (ниже).
+
+**Оценка часов до первого снимка игры (решение Артёма).** Снимков до первого синка нет, но у игры есть `games.first_played_at`, `games.last_played_at` и суммарное время в первом снимке. Это время распределяется равномерно по календарным месяцам (МСК), реальные снимки остаются приоритетом. Для каждой игры:
+- `D0` = `min(snapshot_date)` игры (дата МСК), `S0` = `play_duration_seconds` в этом снимке. Игра, добавленная после первого синка, имеет свой `D0`.
+- Реальные часы после `D0` считаются как раньше (`S_end - S_base`, при отсутствии базы дельта от первого снимка = `S0`). Часы «до D0» это ровно `S0`, поэтому двойного счёта нет: месяц `D0` получает долю оценки плюс реальную дельту после `D0`.
+- Оценочная часть равна `S0`, делится поровну **по месяцам** (не по дням) от месяца `first_played_at` до месяца `min(last_played_at, D0)`, оба включительно (МСК). Один месяц: всё в него.
+- Оценки нет (только реальные часы), если: `first_played_at IS NULL`; дата `first_played_at` (МСК) позже `D0`; у игры нет снимков; `S0 = 0`.
+- `last_played_at IS NULL` при заданном `first_played_at`: диапазон из одного месяца `first_played_at`. `last_played_at` раньше `first_played_at` (мусор PSN): тоже один месяц `first_played_at`.
+- Округление: доля месяца `floor(S0 / n)` секунд, остаток `S0 mod n` целиком в последний месяц; сумма долей равна `S0` точно.
+- Оценка относится только к целым месяцам, поэтому для периода `[from, to]` (месяц или год) она равна сумме долей месяцев внутри периода. Часы игры за период = реальные (формула выше) + оценочные.
+- `play_count` в снимках не хранится, по периодам не распределяется и в ответах не участвует.
+- Оценка не пишется в БД, считается при каждом запросе из `playtime_snapshots` и `games`. Схема не меняется.
 - Хранение: ~214 игр x 365 = ~78 тыс. строк в год, объём незначителен; сжатие/очистка не нужны.
 
 ### 1.7 `sync_runs`
@@ -560,7 +572,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | `hours` | `playSeconds / 3600`, округлено до 0.1. 0 если игра не запускалась |
 | `playCount` | `play_count` |
 | `lastPlayedAt` | ISO UTC или `null` (игра ни разу не запускалась / PSN не отдал дату) |
-| `status` | `playing \| completed \| dropped \| backlog \| shelved` или `null` («без статуса») |
+| `status` | `playing \| completed \| dropped \| backlog \| shelved \| service` или `null` («без статуса») |
 | `completedAt` / `droppedAt` | ISO UTC; не `null` только при соответствующем статусе (1.3) |
 | `trophies` | `null`, если у игры нет трофейного сета (нет строк в `game_trophy_sets`) или в сетах `defined = 0`. UI показывает «нет данных». Иначе объект |
 | `trophies.earned` / `defined` | сумма `earned_*` / `defined_*` по всем сетам игры (правило 1.4; значения из `trophy_sets`, кэш `getUserTitles`) |
@@ -574,7 +586,7 @@ Query-параметры (все необязательные; неизвест�
 | Параметр | Значение | По умолчанию |
 |---|---|---|
 | `q` | поиск по названию, подстрока, регистронезависимо (`ILIKE`, спецсимволы `%` `_` `\` экранируются). Пробелы по краям обрезаются, пустая строка = без поиска. Максимум 100 символов, больше = `400` | нет |
-| `status` | список через запятую из `playing, completed, dropped, backlog, shelved, none` (`none` = без статуса). Несколько = объединение (ИЛИ). Дубли допустимы. Неизвестное значение = `400` | все |
+| `status` | список через запятую из `playing, completed, dropped, backlog, shelved, service, none` (`none` = без статуса). Несколько = объединение (ИЛИ). Дубли допустимы. Неизвестное значение = `400` | все |
 | `year` | целое 2000..2100, см. правило года ниже. Иначе `400` | все годы |
 | `sort` | `last_played \| hours \| title \| trophies_progress \| completed_at` | `last_played` |
 | `order` | `asc \| desc` | зависит от `sort` (ниже) |
@@ -601,7 +613,7 @@ Query-параметры (все необязательные; неизвест�
     "total": 63,
     "limit": 60,
     "offset": 0,
-    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "none": 112 },
+    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "service": 6, "none": 112 },
     "years": [2026, 2025, 2024]
   }
 }
@@ -619,8 +631,9 @@ Query-параметры (все необязательные; неизвест�
   "ok": true,
   "data": {
     "totals": { "games": 214, "playSeconds": 6943201, "hours": 1928.7, "trophiesEarned": 4310, "platinumEarned": 38 },
-    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "none": 112 },
+    "counts": { "all": 214, "playing": 3, "completed": 61, "dropped": 9, "backlog": 25, "shelved": 4, "service": 6, "none": 112 },
     "playing": [ { "...": "GameItem" } ],
+    "services": [ { "...": "GameItem" } ],
     "continue": [ { "...": "GameItem" } ]
   }
 }
@@ -628,11 +641,12 @@ Query-параметры (все необязательные; неизвест�
 - `totals.games` = строки `games`; `playSeconds`/`hours` = сумма по `games.play_duration_seconds` (`hours` до 0.1); `trophiesEarned` = строки `trophies` с `earned = true`; `platinumEarned` = из них `type = 'platinum'` (как `totals` в 8.4, включает трофеи сетов-сирот, поэтому может быть больше суммы по `GameItem`).
 - `counts`: как в 9.2 без фильтров.
 - `playing`: все игры со статусом `playing`, сортировка `last_played_at desc nulls last, lower(title), id`, максимум 20. UI берёт `playing[0]` для блока «Играю сейчас» (4.3 «с самым свежим последним запуском»); пусто = блок скрыт.
-- `continue`: до 8 игр для секции «Продолжить». **Правило:** `last_played_at IS NOT NULL` и статус не `completed` и не `dropped` (то есть `playing`, `backlog`, `shelved`, без статуса), сортировка `last_played_at desc, id desc`. Игры, включённые в `playing`, **не исключаются** (дизайн 4.3: «playing + недавно запущенные»); если блок «Играю сейчас» уже показывает `playing[0]`, дубль на карточке в ряду фронтенд убирает сам. Окна по давности нет: при малом числе подходящих игр ряд короче 8 или пуст.
-- Пустая БД: нули, `playing: []`, `continue: []`.
+- `services`: игры со статусом `service` («игры-сервисы», отдельный блок главной), сортировка `last_played_at desc nulls last, lower(title), id`, максимум 50; общее число = `counts.service`. Пусто = блок скрыт. Игра в `services` может быть и в `continue` (дубль на главной убирает фронтенд).
+- `continue`: до 8 игр для секции «Продолжить». **Правило:** `last_played_at IS NOT NULL` и статус не `completed` и не `dropped` (то есть `playing`, `backlog`, `shelved`, `service`, без статуса), сортировка `last_played_at desc, id desc`. Игры, включённые в `playing`, **не исключаются** (дизайн 4.3: «playing + недавно запущенные»); если блок «Играю сейчас» уже показывает `playing[0]`, дубль на карточке в ряду фронтенд убирает сам. Окна по давности нет: при малом числе подходящих игр ряд короче 8 или пуст.
+- Пустая БД: нули, `playing: []`, `services: []`, `continue: []`.
 
 ### 9.4 `PUT /api/games/{id}/status`
-Тело: `{"status": "playing"}` где `status` одно из пяти значений либо `null` (сброс в «без статуса» = `DELETE` строки `game_status`). Остальные поля тела игнорируются; `status` обязателен (отсутствующий ключ = `400`).
+Тело: `{"status": "playing"}` где `status` одно из шести значений либо `null` (сброс в «без статуса» = `DELETE` строки `game_status`). Остальные поля тела игнорируются; `status` обязателен (отсутствующий ключ = `400`).
 - 200: `{"ok":true,"data":{"game":{ "...": "GameItem после изменения" }}}`.
 - Правила дат: 1.3 (`computeStatusChange`): `completed`/`dropped` берут `last_played_at` (нет его: `now()`), уход со статуса обнуляет дату, повтор того же статуса ничего не трогает (в том числе ручную правку даты).
 - Идемпотентен: повторный вызов с тем же телом даёт тот же `200` и то же состояние.
@@ -663,3 +677,180 @@ Query-параметры (все необязательные; неизвест�
 }
 ```
 `requested` = число уникальных id; `changed` = у скольких статус реально изменился (уже имевшие такой статус не считаются).
+
+## 10. Статистика (Фаза 5)
+
+Эндпоинт под сессией (proxy, 3.4), конверт по разделу 4, только БД. БД недоступна: `503 db_unavailable`. Типы: `src/server/stats/types.ts` (только типы, во frontend через `import type`). Экран: design-system 4.11.
+
+### 10.1 `GET /api/stats`
+| Параметр | Значение | По умолчанию |
+|---|---|---|
+| `period` | `year \| month` | `year` |
+| `year` | целое 2000..2100 | текущий год по Москве |
+| `month` | целое 1..12. Обязателен при `period=month` (нет = `400`); при `period=year` игнорируется | нет |
+
+Мусор (не число, вне диапазона, неизвестный `period`) = `400 invalid_request`. Будущие и пустые периоды допустимы (`200`, пустые блоки).
+
+**Время.** В БД всё в UTC. Границы периода это календарные границы **Europe/Moscow** (UTC+3, без перехода на летнее время). Период `[fromUtc, toUtc)`: полночь МСК первого дня включительно, полночь МСК следующего дня после последнего исключая; например `2026-10` это `2026-09-30T21:00:00.000Z .. 2026-10-31T21:00:00.000Z`. Следствие: событие в 01:00 МСК 1 ноября (22:00 UTC 31 октября) относится к ноябрю. Даты снимков (`snapshot_date`) уже в МСК и сравниваются как строки `YYYY-MM-DD` по `from..to` включительно (1.6). Группировка по месяцам везде по МСК.
+
+Ответ 200:
+```json
+{
+  "ok": true,
+  "data": {
+    "period": {
+      "type": "year", "year": 2026, "month": null,
+      "from": "2026-01-01", "to": "2026-12-31",
+      "fromUtc": "2025-12-31T21:00:00.000Z", "toUtc": "2026-12-31T21:00:00.000Z"
+    },
+    "years": [2026, 2025],
+    "header": { "completed": 12, "dropped": 3, "hours": 412.4, "platinum": 7 },
+    "hours": {
+      "byMonth": [12.0, 10.0, 31.5, 40.2, 55.0, 38.9, 61.3, 47.7, 52.8, 85.0, null, null],
+      "estimatedByMonth": [12.0, 10.0, 4.0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "estimatedHours": 26.0,
+      "hasEstimate": true,
+      "firstSnapshotDate": "2026-03-04",
+      "periodPartial": true
+    },
+    "genres": {
+      "hasData": true,
+      "items": [ { "key": "ACTION", "label": "Экшен", "value": 14.5 } ]
+    },
+    "trophies": {
+      "counts": { "platinum": 7, "gold": 31, "silver": 88, "bronze": 240, "total": 366 },
+      "byMonth": [ { "month": 1, "platinum": 0, "gold": 2, "silver": 5, "bronze": 11, "total": 18 } ]
+    },
+    "finished": {
+      "groups": [
+        {
+          "month": "2026-10", "year": 2026, "monthNumber": 10,
+          "items": [ { "kind": "completed", "at": "2026-10-05T18:42:11.000Z", "game": { "...": "GameItem по 9.1" } } ]
+        }
+      ]
+    }
+  }
+}
+```
+
+| Поле | Правило |
+|---|---|
+| `period` | эхо разобранных параметров. `month` = `null` при `type=year`. `from`/`to` даты МСК включительно, `fromUtc`/`toUtc` ISO UTC, `toUtc` исключается |
+| `years` | годы, для которых есть хоть какие-то данные (снимки, трофеи с `earned_at`, `completed_at`/`dropped_at`), по убыванию. **Текущий год МСК присутствует всегда**, даже без данных. Для переключателя `‹ 2026 ›` |
+| `header.completed` / `dropped` | число игр с `status = completed` / `dropped` и `completed_at` / `dropped_at` внутри периода. Игры без даты не учитываются |
+| `header.hours` | часы игр за период: реальные по формуле 1.6 **плюс оценка** до первого снимка игры (1.6; сумма по играм, до 0.1). `null`, если по периоду нет охвата снимками (см. ниже) **и** оценочных часов в периоде нет; иначе число (в том числе `0`) |
+| `header.platinum` | число платиновых трофеев с `earned_at` в периоде (включая сеты-сироты), равно `trophies.counts.platinum` |
+| `hours.byMonth` | всегда 12 элементов (янв..дек) **выбранного года**, даже при `period=month` (график показывает год, текущий месяц подсвечивает UI). Элемент: **полные** часы месяца (реальные + оценочные, до 0.1) или `null`. `null` только если в месяце нет ни реальных, ни оценочных часов **и** нет охвата (месяц целиком раньше `firstSnapshotDate`, целиком в будущем или снимков нет вообще). Месяц с охватом без часов это `0`. Месяц, в котором снимки начались посреди месяца, это число (реальные от первого снимка, 1.6, плюс доля оценки) |
+| `hours.estimatedByMonth` | всегда 12 чисел (до 0.1): оценочная часть каждого месяца `byMonth`, `0`, если оценки в месяце нет. Реальные часы месяца = `byMonth[i] - estimatedByMonth[i]` (при `byMonth[i] = null` оценка `0`). Столбец, у которого `estimatedByMonth > 0`, UI помечает как оценочный (целиком или в части) |
+| `hours.estimatedHours` | оценочная часть `header.hours` за **период** (до 0.1), `0`, если оценки в периоде нет |
+| `hours.hasEstimate` | `true`, если оценочные секунды в периоде `> 0` (`header.hours` содержит оценку). Оценка по графику года определяется по `estimatedByMonth` |
+| `hours.firstSnapshotDate` | `min(snapshot_date)` по всей БД (`YYYY-MM-DD`, МСК) или `null`, если снимков нет. Для плашки «Часы считаются с даты первого синка (ДД.ММ.ГГГГ)» |
+| `hours.periodPartial` | `true`, если `firstSnapshotDate = null` или начало периода (`from`) раньше `firstSnapshotDate`: UI показывает плашку |
+| `genres.items` | топ-8 по убыванию `value` (при равенстве по `key`). `value` = сумма весов 1/N по играм, округлена до 0.1. Ключи и RU-подписи: 9.1 (нормализация и `genres_override ?? psn_genres`, 1.9); `OTHER` («Другое») это обычный жанр и участвует в топе наравне с остальными. Остальные жанры за пределами топ-8 не возвращаются |
+| `genres.hasData` | `false` и `items: []`, если в периоде нет подходящих игр; UI скрывает блок |
+| `trophies.counts` | трофеи с `earned = true` и `earned_at` внутри периода по типам; `total` их сумма |
+| `trophies.byMonth` | всегда 12 элементов (`month` 1..12) выбранного года, нули без данных (трофеи за год полные, поэтому здесь нет `null`). Линия по месяцам; при `period=month` тоже весь год |
+| `finished.groups` | игры, завершённые (`kind: "completed"`, `at = completed_at`) и брошенные (`kind: "dropped"`, `at = dropped_at`) в периоде. Группы по месяцу МСК, месяцы по убыванию, внутри группы по `at` по убыванию, затем `lower(title)`, `id`. `month` = `"YYYY-MM"`. Пустой период: `groups: []`. `game` это `GameItem` 9.1 (для карточки как в коллекции) |
+
+**Какие игры идут в жанры.** Игры, в которые играли в периоде (часы по 1.6 **с учётом оценки** > 0: игра с оценочными часами в периоде считается сыгранной) плюс игры, пройденные/брошенные в периоде (`completed_at`/`dropped_at` в периоде). Каждая игра считается один раз, вес её жанров суммарно 1. Для периодов до первого синка в жанрах будут игры с оценочными часами в этих месяцах и пройденные/брошенные игры.
+
+**Охват часов периода.** Период «имеет охват», если `firstSnapshotDate` не `null`, `to >= firstSnapshotDate` и `from <=` сегодня (МСК). Без охвата и без оценочных часов в периоде `header.hours = null`; оценочные часы без охвата дают число (оценка не требует снимков в периоде).
+
+**Оценка (1.6) и признаки.** `firstSnapshotDate` и `periodPartial` сохраняются как были: плашка «часы считаются с даты первого синка» относится к реальным часам. При `hasEstimate` или `estimatedByMonth` с ненулевыми значениями UI дополнительно помечает часы как оценку. `years` включает годы, в которые попадает хотя бы одна доля оценки.
+
+**Период без данных.** Не ошибка: `200`, `header` с нулями и `hours: null` (если нет охвата и оценки), `genres: { hasData: false, items: [] }`, `trophies.counts` нули и 12 нулевых месяцев, `finished.groups: []`, `hours.byMonth` из `null` (кроме месяцев с оценкой), `estimatedByMonth` из нулей, `estimatedHours: 0`, `hasEstimate: false`.
+
+**Что не учитывается.** Трофеи с `earned = true`, но `earned_at = NULL` (PSN не отдал дату) не попадают ни в какой период (ни в счётчики, ни в линию). Жанры по трофеям не считаются.
+
+
+## 11. Итоги года (Фаза 6)
+
+Эндпоинт под сессией (proxy, 3.4), конверт по разделу 4, только БД. БД недоступна: `503 db_unavailable`. Типы: `src/server/wrapped/types.ts` (только типы, во frontend через `import type`). Экран: design-system 4.12. Все расчёты переиспользуют модули `src/server/stats/` (формула часов 1.6, трофеи по `earned_at`, жанры 1.9), расхождений со Статистикой за тот же год быть не должно.
+
+### 11.1 `GET /api/wrapped`
+| Параметр | Значение | По умолчанию |
+|---|---|---|
+| `year` | целое 2000..2100 | текущий год по Москве |
+
+Мусор (не число, вне диапазона, пустая строка трактуется как отсутствие) = `400 invalid_request`. Будущие и пустые годы допустимы (`200`, `mode: "empty"`). Границы года: календарный год **Europe/Moscow** (как в 10.1): `[fromUtc, toUtc)`, даты снимков сравниваются строками `from..to`.
+
+Ответ 200 (`mode: "story"`):
+```json
+{
+  "ok": true,
+  "data": {
+    "year": 2026,
+    "mode": "story",
+    "period": { "from": "2026-01-01", "to": "2026-12-31", "fromUtc": "2025-12-31T21:00:00.000Z", "toUtc": "2026-12-31T21:00:00.000Z" },
+    "years": [ { "year": 2026, "hasData": true }, { "year": 2025, "hasData": false } ],
+    "profile": { "onlineId": "Artem_PS" },
+    "firstSnapshotDate": "2026-03-04",
+    "periodPartial": true,
+    "slides": ["start", "hours", "topGames", "finished", "trophies", "genres", "longestGame", "final"],
+    "hours": {
+      "hasData": true, "total": 412.4, "days": 17.2,
+      "byMonth": [12.0, 10.0, 31.5, 40.2, 55.0, 38.9, 61.3, 47.7, 52.8, 85.0, null, null],
+      "estimatedByMonth": [12.0, 10.0, 4.0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "estimatedHours": 26.0,
+      "hasEstimate": true,
+      "topMonth": { "month": 10, "hours": 85.0 }
+    },
+    "topGames": {
+      "hasData": true,
+      "items": [ { "rank": 1, "seconds": 101853, "hours": 28.3, "estimated": false, "game": { "...": "GameItem по 9.1" } } ]
+    },
+    "finished": {
+      "hasData": true,
+      "completed": { "count": 12, "items": [ { "at": "2026-10-05T18:42:11.000Z", "game": { "...": "GameItem" } } ] },
+      "dropped":   { "count": 3,  "items": [ { "at": "2026-08-01T10:00:00.000Z", "game": { "...": "GameItem" } } ] },
+      "busiestMonth": { "month": 10, "count": 4 }
+    },
+    "trophies": {
+      "hasData": true,
+      "counts": { "platinum": 7, "gold": 31, "silver": 88, "bronze": 240, "total": 366 },
+      "platinum": {
+        "first":  { "at": "2026-01-12T20:00:00.000Z", "name": "Платина", "earnedRate": 4.3, "rarity": 1, "setName": "Horizon", "game": { "...": "GameItem" } },
+        "last":   { "...": "тот же формат" },
+        "rarest": { "...": "тот же формат" }
+      }
+    },
+    "genres": { "hasData": true, "items": [ { "key": "ACTION", "label": "Экшен", "value": 14.5 } ] },
+    "longestGame": { "hasData": true, "seconds": 101853, "hours": 28.3, "estimated": false, "playCount": 19, "game": { "...": "GameItem" } },
+    "emptyState": null
+  }
+}
+```
+
+Ответ 200 для года без данных (`mode: "empty"`):
+```json
+{ "year": 2025, "mode": "empty", "slides": ["empty"], "emptyState": { "syncStartedOn": "2026-03-04" },
+  "hours": { "hasData": false, "total": null, "days": null, "byMonth": [null x12], "estimatedByMonth": [0 x12], "estimatedHours": 0, "hasEstimate": false, "topMonth": null },
+  "topGames": { "hasData": false, "items": [] },
+  "finished": { "hasData": false, "completed": { "count": 0, "items": [] }, "dropped": { "count": 0, "items": [] }, "busiestMonth": null },
+  "trophies": { "hasData": false, "counts": { "platinum": 0, "gold": 0, "silver": 0, "bronze": 0, "total": 0 }, "platinum": { "first": null, "last": null, "rarest": null } },
+  "genres": { "hasData": false, "items": [] },
+  "longestGame": { "hasData": false, "seconds": 0, "hours": 0, "estimated": false, "playCount": 0, "game": null } }
+```
+Блоки в `empty` присутствуют всегда и пустые (форма ответа не меняется, UI не проверяет на undefined). `period`, `years`, `profile`, `firstSnapshotDate`, `periodPartial` тоже присутствуют.
+
+| Поле | Правило |
+|---|---|
+| `mode` | `empty`, если одновременно: нет часов (`hours.hasData = false`), нет трофеев (`trophies.counts.total = 0`), нет пройденных/брошенных (`finished.completed.count + dropped.count = 0`). Иначе `story` |
+| `slides` | упорядоченный список слайдов, которые UI должен показать, сегментов прогресса ровно столько. Идентификаторы в порядке 4.12: `start`, `hours`, `topGames`, `finished`, `trophies`, `genres`, `longestGame`, `final`. `start` и `final` всегда в `story`; остальные только при `hasData = true` своего блока. В `empty` ровно `["empty"]` (без автоперехода, кнопка «Закрыть»). Случай «нет часов, но есть трофеи» даёт `["start","trophies","final"]` (+`finished`/`genres`, если есть данные): `hours`, `topGames`, `longestGame` выпадают сами, потому что у них `hasData = false` |
+| `years` | `{year, hasData}[]` по убыванию, для карточек выбора года. Текущий год МСК присутствует всегда. `hasData = false` приглушает карточку («нет данных»). Признак приближённый: год имеет прирост часов между соседними снимками, долю оценочных часов (1.6), трофеи с `earned_at`, `completed_at` или `dropped_at` в этом году. Окончательное решение показывает `mode` ответа за выбранный год |
+| `profile.onlineId` | `PSN_TARGET_ONLINE_ID` из env или `null`. Аватара в БД нет (синк его не сохраняет), поэтому слайд «Старт» рисует инициал/плейсхолдер. Токены и NPSSO в ответ не попадают |
+| `firstSnapshotDate` / `periodPartial` | как в 10.1: `min(snapshot_date)` по БД или `null`; `periodPartial = true`, если `firstSnapshotDate = null` или `from` года раньше него. Плашка слайда «Часы»: «часы с даты первого синка (ДД.ММ.ГГГГ)» показывается при `hours.hasData && periodPartial` |
+| `emptyState.syncStartedOn` | в `empty`: `firstSnapshotDate` (дата МСК `YYYY-MM-DD`; UI формат ДД.ММ.ГГГГ); `null`, если синка не было, тогда UI убирает строку «Синк начался…». В `story` всегда `null` |
+| `hours.hasData` | `total > 0`, где `total` включает оценку (1.6) |
+| `hours.total` | часы за год: реальные по 1.6 плюс оценка (сумма по играм, до 0.1), `null`, если нет охвата снимками и нет оценочных часов в году. `days = round(total / 24, 1)` для «≈ N дней», `null` вместе с `total` |
+| `hours.byMonth` | 12 элементов, правила как в 10.1 (полные часы месяца с оценкой; `null` нет ни охвата, ни оценки). `topMonth` = месяц (1..12) с максимумом часов (с оценкой); при равенстве более ранний; `null`, если `hasData = false` |
+| `hours.estimatedByMonth` / `estimatedHours` / `hasEstimate` | как `hours.estimatedByMonth` / `estimatedHours` / `hasEstimate` в 10.1 (период = год). UI помечает оценку на слайде «Часы» |
+| `topGames.items` | до 5 игр с положительными часами за год (реальные + оценка, 1.6), по убыванию `seconds`; при равенстве по `lower(title)`, затем `id`. `rank` 1..5, `seconds` и `hours` это часы **за год** (не суммарные `game.hours`), `estimated` = `true`, если в этих часах есть оценочная часть (UI пишет «≈»), `game` это `GameItem` 9.1 (обложка, название) |
+| `finished.completed` / `dropped` | `count` = число игр со `status = completed` / `dropped` и датой в году (как `header` в 10.1); `items` = все такие игры по `at` по убыванию, затем `lower(title)`, `id` (UI берёт первые 4 и 3 обложки). `at` это `completed_at`/`dropped_at` |
+| `finished.busiestMonth` | месяц (1..12) с наибольшим числом завершённых и брошенных вместе и это число; при равенстве более ранний; `null`, если `hasData = false`. `hasData = completed.count + dropped.count > 0` |
+| `trophies.counts` | как `trophies.counts` в 10.1 за год. `hasData = total > 0` |
+| `trophies.platinum` | `first` и `last` это самая ранняя и самая поздняя платина года по `earned_at` (при одной платине совпадают), `rarest` это платина с минимальным `earnedRate` (ничья: более ранняя; платины без `earnedRate` не участвуют). Любое из трёх `null`, если подходящих нет. Объект: `at` (ISO), `name` (`trophies.name` или `null`), `earnedRate` (число % или `null`), `rarity` (0..3 или `null`), `setName` (`trophy_sets.name`), `game`: `GameItem` игры сета (при нескольких играх на сет минимальный `id`) или `null` для сета-сироты |
+| `genres` | топ-3 (10.1: те же правила выбора игр, в том числе игры с оценочными часами, и веса 1/N, меняется только размер топа). `hasData = items.length > 0` |
+| `longestGame` | игра №1 из `topGames` (тот же порядок, та же ничья, `estimated` как у неё). `seconds`/`hours` за год, `playCount` = `game.playCount` (общее число запусков игры за всё время, PSN не отдаёт запуски по периодам). `hasData = false`, `game = null`, нули, если `topGames` пуст |
+
+**Что не учитывается.** Трофеи без `earned_at` не попадают в год (как в 10.1). Годы до первого синка не имеют реальных часов, но имеют оценочные (1.6), если у игр с `first_played_at` в этом году есть доля оценки: слайды `hours`, `topGames`, `longestGame` строятся по ней и помечаются как оценка (`hasEstimate`, `estimated`). Если оценки нет, эти слайды пропускаются, остальное строится по трофеям и датам статусов.
