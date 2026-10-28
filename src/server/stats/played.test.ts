@@ -35,18 +35,19 @@ describe('played: игра в каждом месяце, где играли', (
     { gameId: 3, kind: 'dropped' as const, at: new Date('2026-03-31T22:00:00Z') }, // 01:00 МСК 1 апреля
   ];
   const by = groupSnapshots(snapshots);
-  const year = groupPlayed({ by, estimates, period: resolvePeriod('year', 2026, null), finishedEvents, gameById: games });
+  const yearBlock = groupPlayed({ by, estimates, period: resolvePeriod('year', 2026, null), finishedEvents, gameById: games });
+  const year = yearBlock.groups;
 
   it('месяцы по убыванию, только непустые', () => {
     expect(year.map((g) => g.month)).toEqual(['2026-10', '2026-05', '2026-04', '2026-03', '2026-02', '2026-01']);
   });
   it('игра повторяется по месяцам; часы за месяц, оценка помечена', () => {
     const at = (m: string) => year.find((g) => g.month === m)!;
-    expect(at('2026-01').items.map((i) => [i.game.id, i.hours, i.estimated])).toEqual([[1, 10, true]]);
-    expect(at('2026-02').items.map((i) => [i.game.id, i.hours, i.estimated])).toEqual([[1, 10, true]]);
-    expect(at('2026-03').items.map((i) => [i.game.id, i.hours, i.estimated])).toEqual([[1, 3, false], [2, 1, false]]);
-    expect(at('2026-05').items.map((i) => [i.game.id, i.hours])).toEqual([[1, 2]]);
-    expect(year.some((g) => g.items.some((i) => i.game.id === 4)), 'нулевой прирост не попадает').toBe(false);
+    expect(at('2026-01').items.map((i) => [i.gameId, i.hours, i.estimated])).toEqual([[1, 10, true]]);
+    expect(at('2026-02').items.map((i) => [i.gameId, i.hours, i.estimated])).toEqual([[1, 10, true]]);
+    expect(at('2026-03').items.map((i) => [i.gameId, i.hours, i.estimated])).toEqual([[1, 3, false], [2, 1, false]]);
+    expect(at('2026-05').items.map((i) => [i.gameId, i.hours])).toEqual([[1, 2]]);
+    expect(year.some((g) => g.items.some((i) => i.gameId === 4)), 'нулевой прирост не попадает').toBe(false);
   });
   it('завершение/бросок: в своём месяце, первыми, счётчики ○/✕; брошенная без часов = 0 ч', () => {
     const oct = year[0];
@@ -54,9 +55,9 @@ describe('played: игра в каждом месяце, где играли', (
     expect(oct.items[0]).toMatchObject({ hours: 4, finished: 'completed', finishedAt: '2026-10-05T18:00:00.000Z' });
     const apr = year.find((g) => g.month === '2026-04')!;
     expect(apr).toMatchObject({ completed: 0, dropped: 1 });
-    expect(apr.items).toEqual([{ game: games.get(3), hours: 0, hoursReal: 0, hoursEstimated: 0, estimated: false, finished: 'dropped', finishedAt: '2026-03-31T22:00:00.000Z' }]);
+    expect(apr.items).toEqual([{ gameId: 3, hours: 0, hoursReal: 0, hoursEstimated: 0, estimated: false, finished: 'dropped', finishedAt: '2026-03-31T22:00:00.000Z' }]);
     // в марте игра 2 есть, но не завершена там
-    expect(year.find((g) => g.month === '2026-03')!.items.find((i) => i.game.id === 2)?.finished).toBeNull();
+    expect(year.find((g) => g.month === '2026-03')!.items.find((i) => i.gameId === 2)?.finished).toBeNull();
   });
   it('сумма секунд месяца совпадает с hours.byMonth (те же слагаемые)', () => {
     const h = calcHours({ by, estimates, period: resolvePeriod('year', 2026, null), year: 2026, firstSnapshotDate: '2026-03-04', today: '2026-10-27' });
@@ -66,16 +67,23 @@ describe('played: игра в каждом месяце, где играли', (
     }
   });
   it('period=month: одна группа или пусто', () => {
-    const m = groupPlayed({ by, estimates, period: resolvePeriod('month', 2026, 3), finishedEvents, gameById: games });
+    const m = groupPlayed({ by, estimates, period: resolvePeriod('month', 2026, 3), finishedEvents, gameById: games }).groups;
     expect(m.map((g) => g.month)).toEqual(['2026-03']);
-    expect(groupPlayed({ by, estimates, period: resolvePeriod('month', 2026, 7), finishedEvents, gameById: games })).toEqual([]);
+    expect(groupPlayed({ by, estimates, period: resolvePeriod('month', 2026, 7), finishedEvents, gameById: games }).groups).toEqual([]);
+  });
+  it('словарь games: каждая игра один раз, ровно игры блока', () => {
+    expect(Object.keys(yearBlock.games).sort()).toEqual(['1', '2', '3']);
+    expect(yearBlock.games['1']).toBe(games.get(1));
+    const ids = new Set(year.flatMap((g) => [...g.items, ...(g.excluded ?? [])].map((i) => i.gameId)));
+    expect([...ids].sort()).toEqual([1, 2, 3]);
+    expect(year.every((g) => g.items.every((i) => !('game' in i)))).toBe(true);
   });
   it('playedGameIds: все игры блока одним списком', () => {
     expect(playedGameIds({ by, estimates, period: resolvePeriod('year', 2026, null), finishedEvents }).sort()).toEqual([1, 2, 3]);
   });
   it('январь: база = последний снимок прошлого года (граница года)', () => {
     const b = groupSnapshots([snap(1, '2025-12-30', 10), snap(1, '2026-01-02', 12)]);
-    const jan = groupPlayed({ by: b, estimates: [], period: resolvePeriod('year', 2026, null), finishedEvents: [], gameById: games });
+    const jan = groupPlayed({ by: b, estimates: [], period: resolvePeriod('year', 2026, null), finishedEvents: [], gameById: games }).groups;
     expect(jan).toHaveLength(1);
     expect(jan[0]).toMatchObject({ month: '2026-01', items: [{ hours: 2 }] });
   });
@@ -100,8 +108,8 @@ describe('played: порядок внутри месяца', () => {
         { gameId: 1, kind: 'dropped', at: new Date('2026-10-10T10:00:00Z') },
       ],
       gameById: games,
-    });
-    expect(g[0].items.map((i) => i.game.id)).toEqual([1, 5, 3, 2, 4]);
+    }).groups;
+    expect(g[0].items.map((i) => i.gameId)).toEqual([1, 5, 3, 2, 4]);
     expect(g[0]).toMatchObject({ completed: 1, dropped: 1 });
   });
 });
@@ -112,6 +120,6 @@ describe('composeStats отдаёт played', () => {
       period: resolvePeriod('year', 2025, null), today: '2026-10-27', years: [2026], snapshots: [], estimates: [],
       firstSnapshotDate: null, trophies: [], trophiesByGame: [], finishedEvents: [], gameById: new Map(), genreGames: new Map(),
     });
-    expect(r.played).toEqual({ groups: [] });
+    expect(r.played).toEqual({ games: {}, groups: [] });
   });
 });

@@ -136,7 +136,7 @@ export function StatsView() {
   const openGame = useCallback((g: GameItem) => setOpen({ id: g.id, game: g, stub: null }), []);
   const openStub = useCallback((g: StatsGenreGame) => setOpen({ id: g.id, game: null, stub: { id: g.id, title: g.title, coverUrl: g.coverUrl } }), []);
   const dialogGame = open
-    ? (data?.played.groups.flatMap((g) => g.items).find((i) => i.game.id === open.id)?.game ?? open.game)
+    ? (data?.played.games[String(open.id)] ?? open.game)
     : null;
 
   return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import type { PlayedGroup, PlayedItem, StatsResponse } from '@/server/stats/types';
+import type { PlayedBlock as PlayedBlockData, PlayedGroup, PlayedItem, StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
 import { ApiError, errorText, putMonthExclusion } from '../collection/api';
 import { GameCard, type GameActions } from '../collection/GameCard';
@@ -15,7 +15,7 @@ import {
 } from './monthExclusion';
 import { monthHoursText, playedGamesCount, type Selection } from './model';
 
-const keyOf = (g: PlayedGroup, i: PlayedItem) => `${g.month}:${i.game.id}`;
+const keyOf = (g: PlayedGroup, i: PlayedItem) => `${g.month}:${i.gameId}`;
 
 /**
  * «Игры месяца» (контракт 10.1 `played`, 15.1): игра в каждом месяце, где в неё играли; фигура только у события месяца.
@@ -26,6 +26,7 @@ export function PlayedBlock({
 }: { data: StatsResponse; sel: Selection; actions: GameActions; onChanged: () => void }) {
   const toast = useToast();
   const groups = data.played.groups;
+  const games = data.played.games;
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   /** Ручное раскрытие строки «Убрано из месяца»; нет записи = по умолчанию (раскрыта, если в месяце не осталось игр) */
   const [expanded, setExpanded] = useState<Readonly<Record<string, boolean>>>({});
@@ -36,7 +37,7 @@ export function PlayedBlock({
     const k = keyOf(g, it);
     setBusy((b) => new Set(b).add(k));
     try {
-      const r = await putMonthExclusion(it.game.id, g.month, excluded);
+      const r = await putMonthExclusion(it.gameId, g.month, excluded);
       if (excluded) {
         toast({
           text: excludedToast(r, g.monthNumber, splitHours(it).real > 0), ttl: EXCLUDE_TOAST_TTL,
@@ -84,16 +85,18 @@ export function PlayedBlock({
             {g.items.length > 0 ? (
               <GameGrid density="dense" label={label}>
                 {g.items.map((i) => {
+                  const game = games[String(i.gameId)];
+                  if (!game) return null;
                   const h = monthHoursText(i.hours, i.estimated);
                   const k = keyOf(g, i);
                   return (
                     <GameGridItem key={k}>
                       <GameCard
-                        game={i.game} actions={actions} selectMode={false} selected={false} busy={busy.has(k)}
+                        game={game} actions={actions} selectMode={false} selected={false} busy={busy.has(k)}
                         month={{ finished: i.finished, finishedAt: i.finishedAt, hoursText: h?.text ?? null, hoursLabel: h?.label ?? null }}
                         monthMenu={(
                           <MonthActions
-                            label={monthActionLabel(i.game.title, g.monthNumber)} excluded={false} busy={busy.has(k)} plan={excludePlan(i, g.monthNumber)}
+                            label={monthActionLabel(game.title, g.monthNumber)} excluded={false} busy={busy.has(k)} plan={excludePlan(i, g.monthNumber)}
                             onExclude={() => void run(g, i, true)} onRestore={() => {}}
                           />
                         )}
@@ -107,7 +110,7 @@ export function PlayedBlock({
             )}
             {excluded.length > 0 && (
               <ExcludedList
-                group={g} items={excluded} open={open} busy={busy} actions={actions}
+                group={g} items={excluded} games={games} open={open} busy={busy} actions={actions}
                 onToggle={() => setExpanded((e) => ({ ...e, [g.month]: !open }))} onRestore={(i) => void run(g, i, false)}
               />
             )}
@@ -120,9 +123,9 @@ export function PlayedBlock({
 
 /** Строка «Убрано из месяца: N» и свёрнутая сетка убранных игр с «Вернуть в месяц» (спека п.5.3). */
 function ExcludedList({
-  group, items, open, busy, actions, onToggle, onRestore,
+  group, items, games, open, busy, actions, onToggle, onRestore,
 }: {
-  group: PlayedGroup; items: PlayedItem[]; open: boolean; busy: ReadonlySet<string>; actions: GameActions;
+  group: PlayedGroup; games: PlayedBlockData['games']; items: PlayedItem[]; open: boolean; busy: ReadonlySet<string>; actions: GameActions;
   onToggle: () => void; onRestore: (i: PlayedItem) => void;
 }) {
   const id = useId();
@@ -137,16 +140,18 @@ function ExcludedList({
         <div className="ps-st-excl__in">
           <GameGrid density="dense" label={`Убрано из месяца: ${monthName(group.monthNumber)}`}>
             {items.map((i) => {
+              const game = games[String(i.gameId)];
+              if (!game) return null;
               const h = monthHoursText(i.hours, false);
               const k = keyOf(group, i);
               return (
                 <GameGridItem key={k}>
                   <GameCard
-                    game={i.game} actions={actions} selectMode={false} selected={false} busy={busy.has(k)}
+                    game={game} actions={actions} selectMode={false} selected={false} busy={busy.has(k)}
                     month={{ finished: i.finished, finishedAt: i.finishedAt, hoursText: h?.text ?? null, hoursLabel: h?.label ?? null, excluded: true }}
                     monthMenu={(
                       <MonthActions
-                        label={monthActionLabel(i.game.title, group.monthNumber)} excluded busy={busy.has(k)} plan={{ kind: 'silent' }}
+                        label={monthActionLabel(game.title, group.monthNumber)} excluded busy={busy.has(k)} plan={{ kind: 'silent' }}
                         onExclude={() => {}} onRestore={() => onRestore(i)}
                       />
                     )}

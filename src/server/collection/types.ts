@@ -120,6 +120,8 @@ export type BulkStatusResponse = { requested: number; changed: number; games: Ga
 export type StatusResetAllResponse = { backupId: number | null; reset: number };
 /** POST /api/games/status-restore (9.9). backupId = бэкап состояния до отката. */
 export type StatusRestoreResponse = { restored: number; skipped: number; backupId: number };
+/** GET /api/games/status-backups (9.9a). */
+export type StatusBackupsResponse = { latest: { id: number; createdAt: string; reason: 'reset_all'; count: number } | null };
 /** Строка payload в status_backups (1.12). Даты ISO UTC. */
 export type StatusBackupRow = {
   gameId: number;

@@ -26,10 +26,20 @@ function ms(iso: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+/**
+ * Детерминированное сравнение строк без ICU/локали: по toLowerCase через < / >.
+ * Тот же алгоритм, что на сервере (src/server/common/compare.ts); UI сервер не импортирует.
+ */
+export function compareText(a: string, b: string): number {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
 /** Новые первыми; при равенстве по названию, затем id (стабильно). */
 function byFinishedDesc(a: GameItem, b: GameItem): number {
   const d = ms(finishedAt(b) ?? '') - ms(finishedAt(a) ?? '');
-  return d || a.title.localeCompare(b.title, 'ru') || a.id - b.id;
+  return d || compareText(a.title, b.title) || a.id - b.id;
 }
 
 export function groupChronicle(games: readonly GameItem[]): Chronicle {
@@ -63,7 +73,7 @@ export function groupChronicle(games: readonly GameItem[]): Chronicle {
       const all = months.flatMap((m) => m.games);
       return { year, months, completed: count(all, 'completed'), dropped: count(all, 'dropped'), seconds: sum(all), total: all.length };
     });
-  undated.sort((a, b) => a.title.localeCompare(b.title, 'ru') || a.id - b.id);
+  undated.sort((a, b) => compareText(a.title, b.title) || a.id - b.id);
   return { years: outYears, undated, undatedCompleted: count(undated, 'completed'), undatedDropped: count(undated, 'dropped'), undatedSeconds: sum(undated) };
 }
 
@@ -126,7 +136,7 @@ export function byLastPlayed(a: GameItem, b: GameItem): number {
     if (!b.lastPlayedAt) return -1;
     return ms(b.lastPlayedAt) - ms(a.lastPlayedAt);
   }
-  return a.title.localeCompare(b.title, 'ru') || a.id - b.id;
+  return compareText(a.title, b.title) || a.id - b.id;
 }
 
 export function emptyCounts(): StatusCounts {

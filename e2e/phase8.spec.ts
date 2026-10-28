@@ -47,14 +47,14 @@ function statsPayload() {
     genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] },
     trophies: { counts: z, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
-    played: { groups: [
+    played: { games: { 1: one, 2: statsGame(2, 'Игра Два', 'dropped'), 3: statsGame(3, 'Игра Три', 'playing') }, groups: [
       { month: '2026-03', year: 2026, monthNumber: 3, completed: 1, dropped: 1, items: [
-        { game: statsGame(2, 'Игра Два', 'dropped'), hours: 2, estimated: false, finished: 'dropped', finishedAt: '2026-03-12T10:00:00.000Z' },
-        { game: one, hours: 12.5, estimated: false, finished: 'completed', finishedAt: '2026-03-10T10:00:00.000Z' },
-        { game: statsGame(3, 'Игра Три', 'playing'), hours: 0.5, estimated: false, finished: null, finishedAt: null },
+        { gameId: 2, hours: 2, estimated: false, finished: 'dropped', finishedAt: '2026-03-12T10:00:00.000Z' },
+        { gameId: one.id, hours: 12.5, estimated: false, finished: 'completed', finishedAt: '2026-03-10T10:00:00.000Z' },
+        { gameId: 3, hours: 0.5, estimated: false, finished: null, finishedAt: null },
       ] },
       { month: '2026-02', year: 2026, monthNumber: 2, completed: 0, dropped: 0, items: [
-        { game: one, hours: 7.5, estimated: true, finished: null, finishedAt: null },
+        { gameId: one.id, hours: 7.5, estimated: true, finished: null, finishedAt: null },
       ] },
     ] },
   };
@@ -104,7 +104,7 @@ test.describe('Фаза 8: «Игры месяца» на /stats', () => {
   test('пустой период: блока нет', async ({ page, context, baseURL }) => {
     await login(context, baseURL!);
     await mockApi(page);
-    const empty = { ...statsPayload(), played: { groups: [] } };
+    const empty = { ...statsPayload(), played: { games: {}, groups: [] } };
     await page.route(/\/api\/stats\?/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: empty }) }));
     await page.goto('/stats?period=year&year=2026');
     await expect(page.getByRole('heading', { name: 'Часы по месяцам' })).toBeVisible();
@@ -144,6 +144,34 @@ test.describe('Фаза 8: сброс статуса', () => {
     expect(ids.sort()).toEqual([2, 4]);
     expect(mock.games.find((g) => g.id === 4)?.status).toBeNull();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test('BUG-P8-4: «Вернуть статусы из копии» в меню после перезагрузки; без копии пункта нет; после отката скрыт', async ({ page, context, baseURL }, info) => {
+    const mock = await openCollection(page, context, baseURL!);
+    const mobile = isMobile(info.project.name);
+    const before = mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
+    // копии нет: пункта в меню нет
+    if (!mobile) {
+      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+      await expect(page.getByRole('menuitem', { name: /Сбросить все статусы/ })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /Вернуть статусы из копии/ })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
+    mock.backups.push({ id: 1, reason: 'reset_all', rows: before.filter((g) => g.status) as never });
+    for (const g of mock.games) { g.status = null; g.completedAt = null; g.droppedAt = null; }
+    await page.reload();
+    await collectionMenu(page, mobile, /Вернуть статусы из копии/);
+    const dlg = page.getByRole('dialog', { name: 'Вернуть статусы из копии' });
+    await expect(dlg).toContainText('Копия от 27.10.2026');
+    await dlg.getByRole('button', { name: 'Вернуть статусы' }).click();
+    await expect(dlg).toHaveCount(0);
+    expect(mock.mutations.at(-1)?.body).toEqual({ backupId: 1 });
+    await expect(page.getByRole('status').filter({ hasText: 'Статусы возвращены: 8 игр' })).toBeVisible();
+    expect(mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }))).toEqual(before);
+    if (!mobile) {
+      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+      await expect(page.getByRole('menuitem', { name: /Вернуть статусы из копии/ })).toHaveCount(0);
+    }
   });
 
   test('вся коллекция: подтверждение словом «СБРОС», {"confirm":"RESET"}, «Вернуть» восстанавливает из копии', async ({ page, context, baseURL }, info) => {

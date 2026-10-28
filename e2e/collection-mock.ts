@@ -119,7 +119,7 @@ export type Mock = {
   listFails: boolean;
   syncStatus: Record<string, unknown>;
   /** status_backups (9.8, 9.9): снимки статусов видимых игр */
-  backups: { id: number; rows: Pick<G, 'id' | 'status' | 'completedAt' | 'droppedAt'>[] }[];
+  backups: { id: number; reason?: 'reset_all' | 'before_restore'; rows: Pick<G, 'id' | 'status' | 'completedAt' | 'droppedAt'>[] }[];
   /** `summary.profile` (12.3); null = профиля нет */
   profile: MockProfile | null;
   /** Трофеи GET /api/games/{id} по id игры; нет записи = trophyList() */
@@ -312,15 +312,20 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const rows = snapshot();
     if (!rows.length) return { backupId: null, reset: 0 };
     const id = m.backups.length + 1;
-    m.backups.push({ id, rows });
+    m.backups.push({ id, rows, reason: 'reset_all' });
     for (const g of visible()) { g.status = null; g.completedAt = null; g.droppedAt = null; }
     return { backupId: id, reset: rows.length };
   }));
+  await page.route('**/api/games/status-backups', (route) => {
+    const last = [...m.backups].reverse().find((x) => x.reason !== 'before_restore');
+    const body = { ok: true, data: { latest: last ? { id: last.id, createdAt: '2026-10-27T10:00:00.000Z', reason: 'reset_all', count: last.rows.length } : null } };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
   await page.route('**/api/games/status-restore', (route) => mutate(route, (b) => {
     const src = m.backups.find((x) => x.id === b.backupId);
     if (!src) return NOT_FOUND;
     const id = m.backups.length + 1;
-    m.backups.push({ id, rows: snapshot() });
+    m.backups.push({ id, rows: snapshot(), reason: 'before_restore' });
     for (const g of visible()) { g.status = null; g.completedAt = null; g.droppedAt = null; }
     let restored = 0;
     let skipped = 0;

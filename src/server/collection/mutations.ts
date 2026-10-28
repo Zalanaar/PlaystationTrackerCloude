@@ -4,7 +4,7 @@ import { and, desc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
-import type { StatusBackupRow, StatusResetAllResponse, StatusRestoreResponse } from './types';
+import type { StatusBackupRow, StatusBackupsResponse,StatusResetAllResponse, StatusRestoreResponse } from './types';
 import { STATUS_VALUES } from './validation';
 import { gameVisible } from './visibility';
 
@@ -62,6 +62,20 @@ export async function resetAllStatuses(db: AnyDb, now: Date = new Date()): Promi
     await tx.delete(gameStatus).where(inArray(gameStatus.gameId, rows.map((r) => r.gameId)));
     return { backupId, reset: rows.length };
   });
+}
+
+/** 9.9a: последняя копия reset_all (count = длина payload). Откат её не удаляет. */
+export async function getLatestResetBackup(db: AnyDb): Promise<StatusBackupsResponse> {
+  const [b] = await db
+    .select({ id: statusBackups.id, createdAt: statusBackups.createdAt, payload: statusBackups.payload })
+    .from(statusBackups)
+    .where(eq(statusBackups.reason, 'reset_all'))
+    .orderBy(desc(statusBackups.id))
+    .limit(1);
+  if (!b) return { latest: null };
+  return {
+    latest: { id: b.id, createdAt: b.createdAt.toISOString(), reason: 'reset_all', count: Array.isArray(b.payload) ? b.payload.length : 0 },
+  };
 }
 
 const isoDate = z.iso.datetime({ offset: true }).nullable();

@@ -69,7 +69,7 @@ describe('QA Фаза 8 (PGlite)', () => {
       expect(y26.hours.byMonth.slice(1, 9)).toEqual([null, null, null, null, null, null, null, null]);
       expect(y26.hours.byMonth[9]).toBe(2);
       expect(y26.header.hours).toBe(12);
-      expect(y26.played.groups.map((g) => [g.month, g.items[0].game.id, g.items[0].hours, g.items[0].estimated])).toEqual([
+      expect(y26.played.groups.map((g) => [g.month, g.items[0].gameId, g.items[0].hours, g.items[0].estimated])).toEqual([
         ['2026-10', id, 2, false],
         ['2026-01', id, 10, true],
       ]);
@@ -118,21 +118,21 @@ describe('QA Фаза 8 (PGlite)', () => {
       const apr = r.played.groups.find((g) => g.month === '2026-04');
       const mar = r.played.groups.find((g) => g.month === '2026-03');
       expect(apr).toMatchObject({ completed: 1, dropped: 1 });
-      expect(apr?.items.map((i) => [i.game.id, i.finished])).toEqual([
+      expect(apr?.items.map((i) => [i.gameId, i.finished])).toEqual([
         [a, 'completed'],
         [c, 'dropped'],
         [b, null],
       ]);
-      expect(apr?.items.find((i) => i.game.id === c)?.hours).toBe(0);
+      expect(apr?.items.find((i) => i.gameId === c)?.hours).toBe(0);
       expect(mar?.items.every((i) => i.finished === null)).toBe(true);
-      expect(mar?.items.map((i) => i.game.id)).not.toContain(c);
-      expect(r.played.groups.find((g) => g.month === '2026-02')?.items.map((i) => [i.game.id, i.estimated])).toEqual(
+      expect(mar?.items.map((i) => i.gameId)).not.toContain(c);
+      expect(r.played.groups.find((g) => g.month === '2026-02')?.items.map((i) => [i.gameId, i.estimated])).toEqual(
         expect.arrayContaining([[a, true], [b, true]]),
       );
 
       const m = await getStats(t.db, { type: 'month', year: 2026, month: 4 }, NOW);
       expect(m.played.groups).toHaveLength(1);
-      expect(m.played.groups[0].items.map((i) => i.game.id)).toEqual(apr?.items.map((i) => i.game.id));
+      expect(m.played.groups[0].items.map((i) => i.gameId)).toEqual(apr?.items.map((i) => i.gameId));
       const empty = await getStats(t.db, { type: 'month', year: 2026, month: 8 }, NOW);
       expect(empty.played.groups).toEqual([]);
     });

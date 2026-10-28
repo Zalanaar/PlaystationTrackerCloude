@@ -1,4 +1,5 @@
 // Жанры периода: вес игры делится по 1/N между эффективными жанрами (контракт 1.9, 10.1). Чистые функции.
+import { compareTitleId } from '@/server/common/compare';
 import { GENRE_LABELS_RU, effectiveGenres } from './genres';
 import type { StatsGenreEntry, StatsGenreGame, StatsGenreItem } from './types';
 
@@ -36,7 +37,7 @@ export function aggregateGenresWithGames(
   perGenre = GENRE_GAMES_LIMIT,
 ): { hasData: boolean; items: StatsGenreEntry[]; games: Record<string, StatsGenreGame> } {
   const base = aggregateGenres(list, top);
-  const sorted = [...list].sort((a, b) => b.seconds - a.seconds || a.title.toLowerCase().localeCompare(b.title.toLowerCase()) || a.id - b.id);
+  const sorted = [...list].sort((a, b) => b.seconds - a.seconds || compareTitleId(a, b));
   const byGenre = new Map<string, GenreGameInfo[]>();
   for (const g of sorted) {
     for (const k of effectiveGenres(g.psnGenres, g.genresOverride)) {

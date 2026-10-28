@@ -80,7 +80,7 @@ describe('groupPlayed: excluded[]', () => {
   const estimates = [inp({ excludedMonths: new Set(['2026-02']) })];
   const by = new Map([[1, [{ date: '2026-10-27', seconds: 100 * H }]]]);
   const run = (exclusions: Map<number, Set<string>>) =>
-    groupPlayed({ by, estimates, period: resolvePeriod('year', 2026, null), finishedEvents: [], gameById: new Map([[1, game(1)]]), exclusions });
+    groupPlayed({ by, estimates, period: resolvePeriod('year', 2026, null), finishedEvents: [], gameById: new Map([[1, game(1)]]), exclusions }).groups;
 
   it('исключённый месяц: игры нет в items, есть в excluded; остальные месяцы содержат перераспределённую оценку', () => {
     const g = run(new Map([[1, new Set(['2026-02'])]]));
@@ -101,7 +101,7 @@ describe('groupPlayed: excluded[]', () => {
     const g = groupPlayed({
       by: by2, estimates: [], period: resolvePeriod('month', 2026, 5), finishedEvents: [], gameById: new Map([[1, game(1)]]),
       exclusions: new Map([[1, new Set(['2026-05'])]]),
-    });
+    }).groups;
     expect(g).toHaveLength(1);
     expect(g[0].items).toEqual([]);
     expect(g[0].excluded![0]).toMatchObject({ hours: 4, hoursReal: 4, hoursEstimated: 0 });
@@ -148,7 +148,7 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
     expect(await setMonthExclusion(t.db, id, '2026-03', true)).toEqual({ excludedMonths: ['2026-03'], redistributed: false, estimateDropped: true });
     const stats = await getStats(t.db, { type: 'year', year: 2026, month: null }, new Date('2026-10-28T10:00:00Z'));
     expect(stats.hours.estimatedHours).toBe(0);
-    expect(stats.played.groups.find((g) => g.month === '2026-03')?.excluded?.[0].game.id).toBe(id);
+    expect(stats.played.groups.find((g) => g.month === '2026-03')?.excluded?.[0].gameId).toBe(id);
   });
 
   it('реальные часы не двигаются: byMonth тот же, игра уходит из items месяца в excluded', async () => {

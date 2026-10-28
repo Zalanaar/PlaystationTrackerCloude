@@ -323,12 +323,13 @@ describe('коллекция (PGlite)', () => {
       expect((await getGamesByIds(t.db, [a]))[0].status).toBeNull();
     });
 
-    it('250 id за один вызов', async () => {
+    it('1000 id за один вызов, одна транзакция', async () => {
       const ids: number[] = [];
-      await t.db.insert(games).values(Array.from({ length: 250 }, (_, i) => ({ titleId: `BULK${i}`, name: `g${i}`, category: 'ps4_game', lastSeenAt: NOW })));
+      await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ titleId: `BULK${i}`, name: `g${i}`, category: 'ps4_game', lastSeenAt: NOW })));
       for (const r of await t.db.select({ id: games.id }).from(games)) ids.push(r.id);
-      expect(await setGamesStatusBulk(t.db, ids, 'shelved', NOW)).toBe(250);
-      expect((await listGames(t.db, lq('status=shelved&limit=300'))).total).toBe(250);
+      expect(await setGamesStatusBulk(t.db, ids, 'shelved', NOW)).toBe(1000);
+      expect((await listGames(t.db, lq('status=shelved&limit=300'))).total).toBe(1000);
+      expect(await getGamesByIds(t.db, ids)).toHaveLength(1000);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
-import { byLastPlayed, defaultExpandedYears, finishedAt, gridCols, groupByLastPlayedYear, groupChronicle, previewSlots } from './chronicle';
+import { byLastPlayed, compareText, defaultExpandedYears, finishedAt, gridCols, groupByLastPlayedYear, groupChronicle, previewSlots } from './chronicle';
 
 const game = (id: number, o: Partial<GameItem> = {}): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 3600, hours: 1, playCount: 1, lastPlayedAt: null,
@@ -116,5 +116,17 @@ describe('группы «По последней игре»', () => {
     const page2 = [lp(3, '2025-03-01T10:00:00Z'), lp(4, null)];
     const r = groupByLastPlayedYear([...page1, ...page2]);
     expect(r.years.map((y) => [y.year, y.games.map((g) => g.id)])).toEqual([[2026, [1]], [2025, [2, 3]]]);
+  });
+});
+
+describe('compareText (без ICU)', () => {
+  it('регистронезависимо, детерминированно, ru и en', () => {
+    expect(compareText('abc', 'ABD')).toBe(-1);
+    expect(compareText('Ведьмак', 'ведьмак')).toBe(0);
+    expect(compareText('б', 'а')).toBe(1);
+  });
+  it('тай-брейк по названию, затем id', () => {
+    const c = groupChronicle([done(2, '2026-10-12T10:00:00Z', { title: 'b' }), done(1, '2026-10-12T10:00:00Z', { title: 'B' }), done(3, '2026-10-12T10:00:00Z', { title: 'a' })]);
+    expect(c.years[0].months[0].games.map((g) => g.id)).toEqual([3, 1, 2]);
   });
 });

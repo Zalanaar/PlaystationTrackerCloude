@@ -91,6 +91,6 @@ export function composeStats(i: StatsInput): StatsResponse {
     rareTrophies: i.rareTrophies ?? { period: [], allTime: [] },
     trophies: { counts, byMonth },
     finished: { groups },
-    played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById, exclusions: i.exclusions }) },
+    played: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById, exclusions: i.exclusions }),
   };
 }

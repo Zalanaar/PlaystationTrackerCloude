@@ -22,7 +22,8 @@ export type FinishedGroup = { month: string; year: number; monthNumber: number; 
 
 /** Игра в блоке «Игры месяца» (контракт 10.1, Фаза 8). */
 export type PlayedItem = {
-  game: GameItem;
+  /** Ключ в `played.games` (этап 3, BUG-P8-3). */
+  gameId: number;
   /** Часы игры за этот месяц (реальные + оценка), до 0.1. 0, если попала только по завершению. */
   hours: number;
   /** Измеренная часть hours (по снимкам), до 0.1 (15.1). hoursReal > 0 = у игры в месяце есть измеренные часы. Необязательно в типе (фикстуры UI). */
@@ -36,6 +37,8 @@ export type PlayedItem = {
   /** ISO UTC completed_at/dropped_at; null вместе с finished. */
   finishedAt: string | null;
 };
+/** `played` ответа /api/stats: карточки один раз в словаре, группы ссылаются по gameId. */
+export type PlayedBlock = { games: Record<string, GameItem>; groups: PlayedGroup[] };
 export type PlayedGroup = {
   /** YYYY-MM (МСК). */
   month: string;
@@ -110,5 +113,5 @@ export type StatsResponse = {
   /** Устарело для экрана Статистики с Фазы 8 (используйте played); сохраняется для совместимости. */
   finished: { groups: FinishedGroup[] };
   /** «Игры месяца»: игра в каждом месяце, где в неё играли или её завершили/бросили. */
-  played: { groups: PlayedGroup[] };
+  played: PlayedBlock;
 };

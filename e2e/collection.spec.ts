@@ -226,6 +226,19 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.getByRole('navigation', { name: 'Годы' })).toHaveCount(0);
   });
 
+  test('BUG-P8-2: смена asc/desc не мигает, группы остаются в прежнем порядке до прихода новой выдачи', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!, '/?sort=last_played&view=list');
+    const years = coll(page).locator('section.ps-chron .ps-year__y');
+    await expect(years).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    mock.delayList = (u) => (u.searchParams.get('order') === 'asc' ? 1200 : 0);
+    // в сгруппированном виде кнопки порядка нет: меняем order клиентской навигацией (как это делает setFilters)
+    await page.evaluate(() => window.history.pushState(null, '', '/?sort=last_played&view=list&order=asc'));
+    await expect.poll(() => mock.listCalls.at(-1)?.searchParams.get('order')).toBe('asc');
+    // пока ответ asc в пути, пул и группировка прежние (desc)
+    await expect(years).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    await expect(years).toHaveText(['2024', '2025', '2026', 'Не запускались']);
+  });
+
   test('«По последней игре» во всех видах и с «Показать ещё»: заголовок года не дублируется', async ({ page, context, baseURL }) => {
     const extra = Array.from({ length: 60 }, (_, i) => ({
       id: 200 + i, title: `Игра ${i + 1}`, lastPlayedAt: new Date(Date.UTC(2025, 6, 28 - (i % 28), 10, i)).toISOString(), status: 'backlog' as const,
