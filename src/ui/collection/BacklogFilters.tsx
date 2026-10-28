@@ -1,18 +1,18 @@
 'use client';
 
 import { useId, useState } from 'react';
-import type { DurationCounts, GenreCounts } from '@/server/collection/types';
+import type { DurationCounts, GenreCounts, HltbCounts } from '@/server/collection/types';
 import { formatNumber } from '../format';
 import { Icon } from '../icons';
 import {
-  BACKLOG_SORTS, backlogSortId, DURATION_BUCKETS, GENRE_NONE_OPTION, GENRE_OPTIONS, genreCount, hasBacklogFilters, toggleValue, type BacklogFilters as Filters,
+  BACKLOG_SORTS, HLTB_CHIPS, backlogSortId, DURATION_BUCKETS, GENRE_NONE_OPTION, GENRE_OPTIONS, genreCount, hasBacklogFilters, toggleValue, type BacklogFilters as Filters,
 } from './backlog';
 
 /** Фильтры бэклога: «Длительность» (чипы со счётчиками), «Жанр» (раскрывающийся список чипов), сортировка. Всё переносится по строкам, без горизонтальной прокрутки. */
 export function BacklogFilters({
-  filters, counts, genreCounts, onChange, onReset,
+  filters, counts, genreCounts, hltbCounts, onChange, onReset,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; onChange: (p: Partial<Filters>) => void; onReset: () => void;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; onChange: (p: Partial<Filters>) => void; onReset: () => void;
 }) {
   const [open, setOpen] = useState(filters.genres.length > 0);
   const panelId = useId();
@@ -57,6 +57,21 @@ export function BacklogFilters({
           Жанр{filters.genres.length > 0 && <span className="ps-filterchip__n num">{filters.genres.length}</span>}
           <Icon name="chevron-down" size={14} />
         </button>
+        {HLTB_CHIPS.map((c) => {
+          const n = hltbCounts ? hltbCounts[c.id] : 0;
+          const on = filters.hltb.includes(c.id);
+          // чип показываем, если есть такие игры или он уже выбран (иначе его не снять)
+          if (n <= 0 && !on) return null;
+          return (
+            <button
+              key={c.id} type="button" className="ps-filterchip ps-chip" data-hltb={c.id} aria-pressed={on} aria-label={`${c.label}: ${formatNumber(n)}`}
+              onClick={() => onChange({ hltb: toggleValue(filters.hltb, c.id) })}
+            >
+              <span className="ps-filterchip__t">{c.label}</span>
+              <span className="ps-filterchip__n num">{formatNumber(n)}</span>
+            </button>
+          );
+        })}
         {hasBacklogFilters(filters) && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
       </div>
       {open && (

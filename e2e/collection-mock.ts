@@ -85,6 +85,7 @@ const done = (g: G) => g.completedAt ?? g.droppedAt;
 
 const GENRE_RU: Record<string, string> = { ACTION: 'Экшен', ADVENTURE: 'Приключения', ROLE_PLAYING_GAMES: 'Ролевые', HORROR: 'Хоррор', RACING: 'Гонки', OTHER: 'Другое' };
 export type Bucket = 'lt10' | '10_30' | '30_60' | '60plus' | 'unknown';
+export const hltbStatusOf = (g: G): 'found' | 'not_found' | 'unchecked' => (g.hltbName != null ? 'found' : g.hltbChecked ? 'not_found' : 'unchecked');
 const hoursOf = (g: G): number | null => g.override ?? g.hltbHours ?? null;
 export const bucketOf = (h: number | null): Bucket => (h === null ? 'unknown' : h < 10 ? 'lt10' : h < 30 ? '10_30' : h < 60 ? '30_60' : '60plus');
 
@@ -170,6 +171,14 @@ export type Mock = {
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
   legacySummary: boolean;
+  /** Фаза 11 (16.7): тела POST /api/hltb/run в порядке отправки */
+  hltbCalls: Record<string, unknown>[];
+  /** очередь ответов POST /api/hltb/run: объект = 200 data, { status, code } = ошибка; пустая очередь = complete без работы */
+  hltbRuns: ({ data: Record<string, unknown> } | { status: number; code: string })[];
+  /** задержка ответа POST /api/hltb/run, мс */
+  hltbDelay: number;
+  /** что делать с игрой при ответе с `apply`: ключи games, у которых после вызова появляется совпадение */
+  hltbApply: (games: G[], call: number) => void;
 };
 
 const DAY = 86_400_000;
@@ -209,6 +218,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
+    hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
@@ -259,6 +269,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const wanted = st ? st.split(',') : null;
     const genresQ = u.searchParams.get('genres')?.split(',').map((x) => x.toUpperCase()) ?? null;
     const durQ = u.searchParams.get('duration')?.split(',') ?? null;
+    const hltbQ = u.searchParams.get('hltb')?.split(',') ?? null;
     // контракт 16.4: `none` = у игры нет жанров (genres: []), такая игра по 1.9 ещё и OTHER
     const keysOf = (g: G) => { const k = g.genres ?? ['ACTION']; return k.length ? k : ['OTHER']; };
     const inScope = base.filter((g) => (!genresQ || keysOf(g).some((k) => genresQ.includes(k)) || (genresQ.includes('NONE') && (g.genres ?? ['ACTION']).length === 0)));
@@ -267,7 +278,9 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       for (const k of keysOf(g)) genreCounts[k] = (genreCounts[k] ?? 0) + 1;
       if ((g.genres ?? ['ACTION']).length === 0) genreCounts.none = (genreCounts.none ?? 0) + 1;
     }
-    const filtered = inScope.filter((g) => (!durQ || durQ.includes(bucketOf(hoursOf(g)))) && (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
+    const hltbCounts = { found: 0, not_found: 0, unchecked: 0 };
+    for (const g of inScope.filter((x) => (!durQ || durQ.includes(bucketOf(hoursOf(x)))) && (!wanted || wanted.includes(x.status ?? 'none')))) hltbCounts[hltbStatusOf(g)]++;
+    const filtered = inScope.filter((g) => (!hltbQ || hltbQ.includes(hltbStatusOf(g))) && (!durQ || durQ.includes(bucketOf(hoursOf(g)))) && (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
     const durCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
     for (const g of inScope.filter((x) => !wanted || wanted.includes(x.status ?? 'none'))) durCounts[bucketOf(hoursOf(g))]++;
     const nl = (a: string | null, b: string | null, dir: 1 | -1) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : dir * a.localeCompare(b));
@@ -286,9 +299,31 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, {
-      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts, genreCounts,
+      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts, genreCounts, hltbCounts,
       ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
     });
+  });
+
+  await page.route('**/api/hltb/run', async (route) => {
+    const req = route.request();
+    if (req.method() !== 'POST') return route.fallback();
+    m.hltbCalls.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
+    if (m.hltbDelay) await new Promise((res) => setTimeout(res, m.hltbDelay));
+    const next = m.hltbRuns.shift();
+    if (next && 'status' in next) return json(route, { code: next.code, message: 'x' }, next.status);
+    m.hltbApply(m.games, m.hltbCalls.length);
+    return json(route, next?.data ?? { processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: true, stopReason: 'complete', warnings: [] });
+  });
+
+  await page.route('**/api/hltb/run', async (route) => {
+    const req = route.request();
+    if (req.method() !== 'POST') return route.fallback();
+    m.hltbCalls.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
+    if (m.hltbDelay) await new Promise((res) => setTimeout(res, m.hltbDelay));
+    const next = m.hltbRuns.shift();
+    if (next && 'status' in next) return json(route, { code: next.code, message: 'x' }, next.status);
+    m.hltbApply(m.games, m.hltbCalls.length);
+    return json(route, next?.data ?? { processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: true, stopReason: 'complete', warnings: [] });
   });
 
   await page.route(/\/api\/games\/\d+(\?|$)/, async (route) => {

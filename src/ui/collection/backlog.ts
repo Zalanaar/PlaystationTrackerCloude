@@ -1,5 +1,5 @@
 // Чистая логика бэклога (Фаза 11): фильтры жанр/длительность <-> URL <-> query API (контракт 16.4), показ длительности, ручной ввод.
-import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, ListSort, SortOrder } from '@/server/collection/types';
+import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, HltbStatus, ListSort, SortOrder } from '@/server/collection/types';
 import { GENRE_LABELS_RU, GENRE_NONE } from '@/shared/genres';
 
 export const BACKLOG_PAGE = 300;
@@ -14,6 +14,12 @@ export const DURATION_BUCKETS: readonly { id: DurationBucket; label: string }[] 
 const BUCKET_IDS: readonly string[] = DURATION_BUCKETS.map((b) => b.id);
 
 export const GENRE_OPTIONS: readonly { key: string; label: string }[] = Object.entries(GENRE_LABELS_RU).map(([key, label]) => ({ key, label }));
+/** Чипы статуса HLTB (16.4). «Найдено» отдельным чипом не нужно: интересны проблемные случаи. */
+export const HLTB_CHIPS: readonly { id: HltbStatus; label: string }[] = [
+  { id: 'not_found', label: 'Не найдено на HLTB' },
+  { id: 'unchecked', label: 'Не проверено' },
+];
+export const HLTB_IDS: readonly string[] = ['found', 'not_found', 'unchecked'];
 const GENRE_KEYS: readonly string[] = GENRE_OPTIONS.map((g) => g.key);
 
 /** Служебный чип «Без жанра» (16.4): ключ `none`, подписи в GENRE_LABELS_RU нет. */
@@ -25,9 +31,9 @@ export function genreCount(c: GenreCounts | null, key: string): number | null {
 }
 
 export type BacklogSort = Extract<ListSort, 'last_played' | 'title' | 'duration'>;
-export type BacklogFilters = { genres: string[]; duration: DurationBucket[]; sort: BacklogSort; order: SortOrder | null };
+export type BacklogFilters = { genres: string[]; duration: DurationBucket[]; hltb: HltbStatus[]; sort: BacklogSort; order: SortOrder | null };
 
-export const DEFAULT_BACKLOG: BacklogFilters = { genres: [], duration: [], sort: 'last_played', order: null };
+export const DEFAULT_BACKLOG: BacklogFilters = { genres: [], duration: [], hltb: [], sort: 'last_played', order: null };
 export const BACKLOG_DEFAULT_ORDER: Record<BacklogSort, SortOrder> = { last_played: 'desc', title: 'asc', duration: 'asc' };
 
 /** Варианты селекта: направление длительности выбирается отдельным пунктом. */
@@ -52,11 +58,12 @@ function list(raw: string | null): string[] {
 export function parseBacklogFilters(params: ParamsLike): BacklogFilters {
   const genres = [...new Set(list(params.get('genres')).map((g) => (g.toLowerCase() === GENRE_NONE ? GENRE_NONE : g.toUpperCase())).filter((g) => g === GENRE_NONE || GENRE_KEYS.includes(g)))];
   const duration = [...new Set(list(params.get('duration')).filter((d) => BUCKET_IDS.includes(d)))] as DurationBucket[];
+  const hltb = [...new Set(list(params.get('hltb')).filter((h) => HLTB_IDS.includes(h)))] as HltbStatus[];
   const s = params.get('sort');
   const sort: BacklogSort = s === 'title' || s === 'duration' ? s : 'last_played';
   const o = params.get('order');
   const order = (o === 'asc' || o === 'desc') && o !== BACKLOG_DEFAULT_ORDER[sort] ? o : null;
-  return { genres, duration, sort, order };
+  return { genres, duration, hltb, sort, order };
 }
 
 /** Адресная строка: только отличия от умолчаний. */
@@ -64,6 +71,7 @@ export function backlogToUrl(f: BacklogFilters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.genres.length) p.set('genres', f.genres.join(','));
   if (f.duration.length) p.set('duration', f.duration.join(','));
+  if (f.hltb.length) p.set('hltb', f.hltb.join(','));
   if (f.sort !== DEFAULT_BACKLOG.sort) p.set('sort', f.sort);
   if (f.order && f.order !== BACKLOG_DEFAULT_ORDER[f.sort]) p.set('order', f.order);
   return p;
@@ -75,6 +83,7 @@ export function backlogToApi(f: BacklogFilters, page: { limit: number; offset: n
   if (f.order) p.set('order', f.order);
   if (f.genres.length) p.set('genres', f.genres.join(','));
   if (f.duration.length) p.set('duration', f.duration.join(','));
+  if (f.hltb.length) p.set('hltb', f.hltb.join(','));
   p.set('limit', String(page.limit));
   p.set('offset', String(page.offset));
   return p;
@@ -85,11 +94,11 @@ export function toggleValue<T>(list: readonly T[], v: T): T[] {
 }
 
 export function hasBacklogFilters(f: BacklogFilters): boolean {
-  return f.genres.length > 0 || f.duration.length > 0;
+  return f.genres.length > 0 || f.duration.length > 0 || f.hltb.length > 0;
 }
 
 export function resetBacklogFilters(f: BacklogFilters): BacklogFilters {
-  return { ...f, genres: [], duration: [] };
+  return { ...f, genres: [], duration: [], hltb: [] };
 }
 
 /** Часы для людей: «12», «7,5». */
@@ -130,4 +139,9 @@ export function parseHoursInput(text: string): number | null {
 
 export function hoursInputValue(h: number | null | undefined): string {
   return h === null || h === undefined ? '' : String(h).replace('.', ',');
+}
+
+/** Пометка «нет на HLTB»: игра проверена, совпадения нет (в том числе при ручной длительности, контракт 16.4). */
+export function isNotOnHltb(d: Pick<GameDuration, 'hltb'> | undefined): boolean {
+  return d?.hltb.status === 'not_found';
 }

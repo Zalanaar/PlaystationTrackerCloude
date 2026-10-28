@@ -1,4 +1,5 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
+import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
@@ -100,3 +101,13 @@ export const postRestore = (backupId: number) =>
 export const fetchStatusBackups = (signal?: AbortSignal) => call<StatusBackupsResponse>('/api/games/status-backups', { signal });
 
 export type { GameItem };
+
+/** Один вызов массовой подгрузки HLTB (16.7). Ошибки отдаются как HltbCallError (код HTTP и код ошибки). */
+export async function fetchHltbRun(body: HltbRunBody): Promise<HltbRunResponse> {
+  try {
+    return await call<HltbRunResponse>('/api/hltb/run', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) });
+  } catch (e) {
+    if (e instanceof ApiError) throw new HltbCallError(e.status, e.code);
+    throw e;
+  }
+}
