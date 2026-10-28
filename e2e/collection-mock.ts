@@ -122,7 +122,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : sort === 'hours' ? b.playSeconds - a.playSeconds
         : sort === 'completed_at' ? nl(done(a), done(b), -1)
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
-        : nl(a.lastPlayedAt, b.lastPlayedAt, -1)) || a.id - b.id);
+        : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(m.games.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, { items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years });
   });

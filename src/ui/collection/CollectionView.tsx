@@ -17,8 +17,8 @@ import { ApiError, errorText, fetchGames, fetchSummary, patchStatusDate, postBul
 import {
   blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
 } from './blocks';
-import { BlockHead, MonthHeader, YearHeader } from './Chronicle';
-import { defaultExpandedYears, emptyCounts, groupChronicle, gridCols, previewSlots } from './chronicle';
+import { BlockHead, GamesFact, MonthHeader, YearHeader } from './Chronicle';
+import { defaultExpandedYears, emptyCounts, groupByLastPlayedYear, groupChronicle, gridCols, previewSlots } from './chronicle';
 import { FilterBar } from './FilterBar';
 import {
   adjustCounts, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
@@ -334,6 +334,11 @@ export function CollectionView() {
   const defaultOpen = useMemo(() => defaultExpandedYears(chron.years.map((y) => y.year), now), [chron.years, now]);
   const isOpen = (key: string | number) => (filters.q.trim() ? true : toggled[String(key)] ?? (typeof key === 'number' && defaultOpen.has(key)));
   const toggle = (key: string | number) => setToggled((t) => ({ ...t, [String(key)]: !isOpen(key) }));
+  // «По последней игре»: плоская выдача сервера, разбитая по годам последнего запуска (МСК); все группы раскрыты по умолчанию
+  const playedMode = !chronicleMode && filters.sort === 'last_played';
+  const played = useMemo(() => groupByLastPlayedYear(playedMode ? flat : [], filters.order ?? 'desc'), [flat, filters.order, playedMode]);
+  const isPlayedOpen = (key: string) => (filters.q.trim() ? true : toggled[`lp-${key}`] ?? true);
+  const togglePlayed = (key: string) => setToggled((t) => ({ ...t, [`lp-${key}`]: !isPlayedOpen(key) }));
 
   const density = view === 'dense' ? 'dense' : 'comfort';
   const cols = gridCols(width, density);
@@ -347,7 +352,9 @@ export function CollectionView() {
   const serviceLimit = serviceFull ? Infinity : view === 'list' ? serviceRows : serviceOpen ? Infinity : cols;
   const shownGames = chronicleMode
     ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : b === 'service' ? serviceAll.slice(0, serviceLimit) : byBlock[b]))
-    : flat;
+    : playedMode
+      ? [...played.years.filter((y) => isPlayedOpen(String(y.year))).flatMap((y) => y.games), ...(isPlayedOpen('never') ? played.never : [])]
+      : flat;
   const failedBlocks = pool?.failed ?? [];
   const empty = !!pool && failedBlocks.length === 0 && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
   const noData = !!pool && pool.counts.all === 0 && !active && !error;
@@ -428,7 +435,7 @@ export function CollectionView() {
             <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
               <YearHeader
                 id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
-                expanded={open} onToggle={() => toggle(y.year)} hint sectionId={`y${y.year}-body`}
+                expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения, МСК" sectionId={`y${y.year}-body`}
               />
               <div id={`y${y.year}-body`} hidden={!open}>
                 {open && y.months.map((m) => (
@@ -453,6 +460,31 @@ export function CollectionView() {
           </section>
         )}
         {moreBtn('chronicle', totalChron - loaded)}
+      </>
+    );
+  }
+
+  /** «По последней игре»: группы по году последнего запуска, затем «Не запускались». Подгрузка дописывает игры в последнюю группу. */
+  function renderPlayed(): ReactNode {
+    const group = (key: string, label: string, games: GameItem[], hours: number | null) => {
+      const open = isPlayedOpen(key);
+      const sid = key === 'never' ? 'never' : `y${key}`;
+      return (
+        <section key={key} className="ps-chron" id={sid} aria-labelledby={`h-${sid}`}>
+          <YearHeader
+            id={`h-${sid}`} label={label} facts={<GamesFact n={games.length} />} hours={hours}
+            expanded={open} onToggle={() => togglePlayed(key)} hint={key === 'never' ? undefined : 'последний запуск, МСК'} sectionId={`${sid}-body`}
+          />
+          <div id={`${sid}-body`} className="ps-chron__flat" hidden={!open}>
+            {open && renderGames(games, { dateYear: true, withHeader: true })}
+          </div>
+        </section>
+      );
+    };
+    return (
+      <>
+        {played.years.map((y) => group(String(y.year), String(y.year), y.games, Math.round(y.seconds / 3600)))}
+        {played.never.length > 0 && group('never', 'Не запускались', played.never, null)}
       </>
     );
   }
@@ -550,6 +582,11 @@ export function CollectionView() {
     if (year !== undefined) setToggled((t) => ({ ...t, [String(year)]: true }));
     setTimeout(() => scrollToId(target), 30);
   }
+  function jumpPlayed(e: React.MouseEvent, key: string) {
+    e.preventDefault();
+    setToggled((t) => ({ ...t, [`lp-${key}`]: true }));
+    setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
+  }
 
   return (
     <div className="ps-collection">
@@ -565,6 +602,14 @@ export function CollectionView() {
         onReset={() => setFilters(resetFilters(filters))} selectMode={selectMode} onSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
         canSelect={shownGames.length > 0}
       />
+
+      {playedMode && played.years.length + (played.never.length > 0 ? 1 : 0) > 1 && (
+        <nav className="ps-anchors" aria-label="Годы">
+          <span>Перейти:</span>
+          {played.years.map((y) => <a key={y.year} href={`#y${y.year}`} onClick={(e) => jumpPlayed(e, String(y.year))}>{y.year}</a>)}
+          {played.never.length > 0 && <a href="#never" onClick={(e) => jumpPlayed(e, 'never')}>Не запускались</a>}
+        </nav>
+      )}
 
       {showAnchors && (
         <nav className="ps-anchors" aria-label="Годы и блоки">
@@ -615,7 +660,7 @@ export function CollectionView() {
         ) : (
           <div className="ps-block">
             <BlockHead title="Результаты" count={pool?.total ?? 0} />
-            {renderGames(flat, { dateYear: true, withHeader: true })}
+            {playedMode ? renderPlayed() : renderGames(flat, { dateYear: true, withHeader: true })}
             {pool && moreBtn(null, pool.total - all.length)}
           </div>
         )}

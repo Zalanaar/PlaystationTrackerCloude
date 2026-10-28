@@ -188,6 +188,7 @@ a.ps-btn { text-decoration: none; }
 .ps-block__act { margin-left: auto; display: inline-flex; align-items: center; font-size: 13px; }
 .ps-chron { scroll-margin-top: calc(var(--header-h) + var(--sp-3)); }
 .ps-chron + .ps-chron { margin-top: var(--sp-5); }
+.ps-chron__flat { padding-top: var(--sp-4); }
 .ps-year { margin: 0; font: inherit; }
 .ps-year__btn { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 16px; width: 100%; padding: 0 0 10px; background: none; border: 0; border-bottom: var(--border-w) solid var(--border); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .ps-year__btn[data-expanded="false"] { border-bottom-color: transparent; opacity: .85; }
