@@ -942,3 +942,91 @@ Query-параметры (все необязательные; неизвест�
 | `longestGame` | игра №1 из `topGames` (тот же порядок, та же ничья, `estimated` как у неё). `seconds`/`hours` за год, `playCount` = `game.playCount` (общее число запусков игры за всё время, PSN не отдаёт запуски по периодам). `hasData = false`, `game = null`, нули, если `topGames` пуст |
 
 **Что не учитывается.** Трофеи без `earned_at` не попадают в год (как в 10.1). Годы до первого синка не имеют реальных часов, но имеют оценочные (1.6), если у игр с `first_played_at` в этом году есть доля оценки: слайды `hours`, `topGames`, `longestGame` строятся по ней и помечаются как оценка (`hasEstimate`, `estimated`). Если оценки нет, эти слайды пропускаются, остальное строится по трофеям и датам статусов.
+
+## 12. Коллекция v2 (Фаза 9)
+
+### 12.1 Схема (миграция `0003`, только добавляет)
+- `games.banner_url` text null: горизонтальный арт игры для hero «Играю» и шапки окна игры. Берётся при синке из `concept.media.images` (приоритет: ролей широкого арта, затем любое изображение с `width > height`; если нет, `null`, UI рисует размытый фон из обложки). Синк не затирает непустое значение пустым (как `image_url`, `coalesce`). Backend сначала проверяет по фикстурам `src/server/psn/__fixtures__`, какие `imageType`/размеры реально приходят, и фиксирует правило выбора в `docs/api-notes.md`.
+- Таблица `psn_profile` (ровно одна строка, `id = 1` CHECK):
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | smallint PK, CHECK `id = 1` | нет | |
+| `online_id` | text | нет | |
+| `avatar_url` | text | да | самый крупный из `avatarUrls` |
+| `trophy_level` | smallint | да | `trophySummary.level` |
+| `trophy_progress` | smallint | да | `trophySummary.progress`, 0..100 до следующего уровня |
+| `trophy_tier` | smallint | да | `trophySummary.tier` |
+| `earned_platinum` / `earned_gold` / `earned_silver` / `earned_bronze` | integer | да | `trophySummary.earnedTrophies` |
+| `updated_at` | timestamptz | нет | |
+
+- Синк пишет профиль апсёртом после `getProfileFromUserName` (уже вызывается при старте клиента). Ошибка/отсутствие `trophySummary` или `avatarUrls` не роняет синк: поля остаются `null`/прежними. Токены в профиль не пишутся.
+- Данные PSN-профиля (`avatar_url`) это внешняя ссылка на CDN PSN; UI показывает `<img>` с fallback на инициал.
+
+### 12.2 Расширение `GameItem` (9.1)
+Добавляется `"bannerUrl": string | null` (`games.banner_url`). Остальное без изменений.
+
+### 12.3 `GET /api/collection/summary` (9.3)
+Добавляется `"profile": PsnProfile | null`:
+```json
+{ "onlineId": "Artem_PS", "avatarUrl": "https://...", "level": 312, "levelProgress": 47, "tier": 7,
+  "trophies": { "platinum": 38, "gold": 410, "silver": 1100, "bronze": 2800, "total": 4348 } }
+```
+`null`, если синк профиль ещё не сохранял. Любое поле, которого PSN не дал, `null`. `trophies` целиком `null`, если счётчиков нет. Это счётчики PSN-аккаунта, они могут отличаться от `totals` (включают скрытые игры и игры вне библиотеки).
+
+### 12.4 `GET /api/wrapped` (11.1)
+`profile` расширяется: `{ "onlineId": string | null, "avatarUrl": string | null }`. Слайд «Старт» показывает аватар, при `null` или ошибке загрузки инициал.
+
+### 12.5 `GET /api/games/{id}`
+Детали игры для окна. Сессия, конверт 4.1. `id` не число = `400 invalid_request`, нет игры = `404 not_found`. Скрытая игра отдаётся (`hiddenAt` не `null`).
+
+```json
+{
+  "ok": true,
+  "data": {
+    "game": { "...": "GameItem по 9.1 с bannerUrl" },
+    "firstPlayedAt": "2024-03-01T10:00:00.000Z",
+    "statusChangedAt": "2026-10-06T08:00:00.000Z",
+    "trophyList": [
+      { "setId": 41, "trophyId": 0, "type": "platinum", "name": "Легенда", "detail": "Получите все трофеи",
+        "iconUrl": "https://...", "hidden": false, "earned": true, "earnedAt": "2026-10-05T18:42:11.000Z",
+        "rarity": 0, "earnedRate": 2.4 }
+    ]
+  }
+}
+```
+| Поле | Правило |
+|---|---|
+| `firstPlayedAt` | `games.first_played_at` ISO UTC или `null` |
+| `statusChangedAt` | `game_status.status_changed_at` или `null` (нет статуса) |
+| `trophyList` | трофеи всех сетов игры (1.4). `[]`, если сетов нет. Порядок по умолчанию: `setId`, `trophyId`; клиентский сорт/фильтр |
+| `name` / `detail` / `iconUrl` | как в БД. Для скрытого и не полученного (`hidden && !earned`) трофея `name` и `detail` отдаются `null` (UI рисует «Скрытый трофей»); для полученного значения как есть |
+| `rarity` | `0..3` (PSN: 0 ультра-редкий, 1 очень редкий, 2 редкий, 3 обычный) или `null` |
+| `earnedRate` | число с 2 знаками, % игроков, или `null` |
+| `earnedAt` | `null`, если не получен или PSN не отдал дату |
+
+### 12.6 Платина как фильтр
+Чип «Платина» работает на клиенте по `GameItem.trophies.platinumEarned` (серверных параметров не добавляем). Пересчёт `counts` в сводке не меняется.
+
+## 13. Статистика v2 (Фаза 10)
+
+Изменения `GET /api/stats` (10.1), только добавления полей.
+
+### 13.1 Жанры с играми
+`genres.items[]` получает `gameIds: number[]` (id игр, давших вес жанру; порядок: секунды игры в периоде по убыванию, затем `lower(title)`, `id`; не более 50). Верхнеуровневое `genres.games: Record<string, { id, title, coverUrl }>` содержит все `gameIds` (ключ строка id). Игра с несколькими жанрами присутствует в каждом из них. Выбор игр и вес как в «Какие игры идут в жанры» (10.1).
+
+### 13.2 Топ игр
+Новый блок `top`:
+```json
+"top": {
+  "byHours": [ { "game": { "...": "GameItem" }, "hours": 85.4, "estimated": false } ],
+  "byTrophies": [ { "game": { "...": "GameItem" }, "points": 840,
+                    "counts": { "platinum": 1, "gold": 5, "silver": 12, "bronze": 20, "total": 38 } } ]
+}
+```
+| Поле | Правило |
+|---|---|
+| `byHours` | топ-10 игр за период по секундам (реальные по снимкам плюс оценка, те же `secondsByGame` + оценка, что в `hours`; `hours` до 0.1; `estimated = true`, если есть оценочная доля). Порядок: секунды по убыванию, `lower(title)`, `id`. Игры с 0 секунд не входят |
+| `byTrophies` | топ-10 по очкам трофеев, полученным в периоде (`earned_at` внутри `[fromUtc, toUtc)`). Очки по типам: bronze 15, silver 30, gold 90, platinum 300 (очки уровня PSN). Редкость без бонуса. Порядок: очки по убыванию, `lower(title)`, `id`. Игры без трофеев в периоде не входят |
+| Исключения | скрытые игры (9.10); трофеи сетов-сирот (нет игры) в `byTrophies` не учитываются (в `header`/`trophies` остаются). Трофеи без `earned_at` не считаются |
+| Пустой период | `{ "byHours": [], "byTrophies": [] }` |
