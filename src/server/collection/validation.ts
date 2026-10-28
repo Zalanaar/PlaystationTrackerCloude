@@ -1,11 +1,14 @@
 // Разбор и проверка входных данных раздела 9 (чистые функции, без БД).
 import { z } from 'zod';
-import type { GameSort, GameStatusValue, SortOrder, StatusFilterValue } from './types';
+import { GENRE_LABELS_RU, normalizeGenre, type GenreKey } from '@/server/stats/genres';
+import { DURATION_BUCKETS, DURATION_MAX_HOURS, normalizeOverrideHours } from './duration';
+import type { DurationBucket, GameStatusValue, ListSort, SortOrder, StatusFilterValue } from './types';
 
 export const STATUS_VALUES = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'] as const satisfies readonly GameStatusValue[];
 const FILTER_VALUES: readonly string[] = [...STATUS_VALUES, 'none'];
-export const SORTS = ['last_played', 'hours', 'title', 'trophies_progress', 'completed_at'] as const satisfies readonly GameSort[];
-export const DEFAULT_ORDER: Record<GameSort, SortOrder> = {
+export const SORTS = ['last_played', 'hours', 'title', 'trophies_progress', 'completed_at', 'duration'] as const satisfies readonly ListSort[];
+export const DEFAULT_ORDER: Record<ListSort, SortOrder> = {
+  duration: 'asc',
   last_played: 'desc',
   hours: 'desc',
   title: 'asc',
@@ -21,7 +24,7 @@ export type ListQuery = {
   q: string | null;
   statuses: StatusFilterValue[] | null;
   year: number | null;
-  sort: GameSort;
+  sort: ListSort;
   order: SortOrder;
   limit: number;
   offset: number;
@@ -29,6 +32,10 @@ export type ListQuery = {
   hiddenOnly: boolean;
   /** 14.4: true = только забытые игры (`forgotten=only`). */
   forgottenOnly: boolean;
+  /** 16.4: ключи жанров (ИЛИ) или null. */
+  genres: GenreKey[] | null;
+  /** 16.4: бакеты длительности (ИЛИ) или null. */
+  durations: DurationBucket[] | null;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -61,7 +68,7 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
 
   const sortRaw = sp.get('sort') ?? 'last_played';
   if (!(SORTS as readonly string[]).includes(sortRaw)) return bad('Неизвестная сортировка.');
-  const sort = sortRaw as GameSort;
+  const sort = sortRaw as ListSort;
   const orderRaw = sp.get('order');
   if (orderRaw !== null && orderRaw !== 'asc' && orderRaw !== 'desc') return bad('Некорректное направление сортировки.');
   const order = (orderRaw as SortOrder | null) ?? DEFAULT_ORDER[sort];
@@ -86,7 +93,23 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
   const fRaw = sp.get('forgotten');
   if (fRaw !== null && fRaw !== '' && fRaw !== 'only') return bad('Некорректный параметр forgotten.');
   const forgottenOnly = fRaw === 'only';
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly } };
+
+  let genres: GenreKey[] | null = null;
+  const gRaw = sp.get('genres');
+  if (gRaw !== null && gRaw.trim() !== '') {
+    const parts = gRaw.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
+    const keys = parts.map((p) => (p in GENRE_LABELS_RU ? (p as GenreKey) : p === 'SIMULATOR' || p === 'UNIQUE' ? normalizeGenre(p) : null));
+    if (parts.length === 0 || keys.some((k) => k === null)) return bad('Неизвестный жанр в фильтре.');
+    genres = [...new Set(keys as GenreKey[])];
+  }
+  let durations: DurationBucket[] | null = null;
+  const dRaw = sp.get('duration');
+  if (dRaw !== null && dRaw.trim() !== '') {
+    const parts = dRaw.split(',').map((x) => x.trim());
+    if (parts.some((p) => !(DURATION_BUCKETS as readonly string[]).includes(p))) return bad('Неизвестный бакет длительности.');
+    durations = [...new Set(parts)] as DurationBucket[];
+  }
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);
@@ -157,4 +180,13 @@ export function parseRestoreBody(body: unknown): Parsed<{ backupId: number }> {
   if (typeof body !== 'object' || body === null) return bad('Некорректное тело запроса.');
   const r = idSchema.safeParse((body as { backupId?: unknown }).backupId);
   return r.success ? { ok: true, value: { backupId: r.data } } : bad('backupId: положительное целое.');
+}
+
+/** 16.5: {"hours": number 0.1..1000 | null}. null = сбросить ручное значение. */
+export function parseDurationBody(body: unknown): Parsed<{ hours: number | null }> {
+  if (typeof body !== 'object' || body === null || !('hours' in body)) return bad('Нужно поле hours.');
+  const h = (body as { hours: unknown }).hours;
+  if (h === null) return { ok: true, value: { hours: null } };
+  const n = normalizeOverrideHours(h);
+  return n === null ? bad(`hours: число от 0.1 до ${DURATION_MAX_HOURS} или null.`) : { ok: true, value: { hours: n } };
 }

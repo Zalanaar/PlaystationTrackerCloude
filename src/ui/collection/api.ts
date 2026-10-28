@@ -71,6 +71,10 @@ export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: 
 export const postBulk = (ids: number[], status: GameStatusValue | null) =>
   call<BulkStatusResponse>('/api/games/status-bulk', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids, status }) });
 
+/** Ручная длительность (16.5): hours 0,1..1000 или null (сброс к HLTB). */
+export const patchDuration = (id: number, hours: number | null) =>
+  call<GameMutationResponse>(`/api/games/${id}/duration`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ hours }) });
+
 /** Ответ PUT /api/games/{id}/month-exclusions (контракт 15.1). */
 export type MonthExclusionResponse = {
   gameId: number; month: string; excluded: boolean; excludedMonths: string[]; redistributed: boolean; estimateDropped: boolean;

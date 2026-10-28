@@ -2,9 +2,11 @@
 import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
-import { GENRE_LABELS_RU, effectiveGenres } from '@/server/stats/genres';
+import { GENRE_LABELS_RU, effectiveGenres, type GenreKey } from '@/server/stats/genres';
+import { bucketSql, buildDuration, durationFilterSql, effectiveHoursSql, type DurationRow } from './duration';
 import type {
   CollectionSummaryResponse,
+  DurationCounts,
   GameItem,
   GameTrophies,
   GamesListResponse,
@@ -63,7 +65,7 @@ export function statusFilterSql(statuses: ListQuery['statuses']): SQL | undefine
   return or(...parts);
 }
 
-type Row = {
+type Row = DurationRow & {
   id: number;
   name: string;
   imageUrl: string | null;
@@ -121,6 +123,7 @@ export function toGameItem(r: Row): GameItem {
     trophies: trophiesOut,
     genres: effectiveGenres(r.psnGenres, r.genresOverride).map((key) => ({ key, label: GENRE_LABELS_RU[key] })),
     hiddenAt: r.hiddenAt ? r.hiddenAt.toISOString() : null,
+    duration: buildDuration(r),
   };
 }
 
@@ -143,6 +146,12 @@ function itemsQuery(db: AnyDb) {
       completedAt: gameStatus.completedAt,
       droppedAt: gameStatus.droppedAt,
       hiddenAt: games.hiddenAt,
+      durationOverrideHours: games.durationOverrideHours,
+      hltbId: games.hltbId,
+      hltbName: games.hltbName,
+      hltbMainHours: games.hltbMainHours,
+      hltbExtraHours: games.hltbExtraHours,
+      hltbCheckedAt: games.hltbCheckedAt,
       tr: {
         dB: tr.dB, dS: tr.dS, dG: tr.dG, dP: tr.dP,
         eB: tr.eB, eS: tr.eS, eG: tr.eG, eP: tr.eP,
@@ -202,6 +211,33 @@ export function forgottenSql(now: Date): SQL {
   ) as SQL;
 }
 
+/** 16.4: id игр в области, у которых эффективные жанры (1.9) пересекаются с выбранными. Нормализация в коде, поэтому фильтр по id. */
+export async function genreFilterSql(db: AnyDb, keys: readonly GenreKey[] | null, scope: SQL | undefined): Promise<SQL | undefined> {
+  if (!keys || keys.length === 0) return undefined;
+  const rows = await db.select({ id: games.id, psn: games.psnGenres, ov: games.genresOverride }).from(games).where(scope);
+  const want = new Set<string>(keys);
+  const ids = rows.filter((r) => effectiveGenres(r.psn, r.ov).some((g) => want.has(g))).map((r) => r.id);
+  return ids.length ? inArray(games.id, ids) : sql`false`;
+}
+
+async function durationCounts(db: AnyDb, where: SQL | undefined): Promise<DurationCounts> {
+  const out: DurationCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
+  const rows = await db
+    .select({
+      lt10: sql<number>`(count(*) filter (where ${bucketSql('lt10')}))::int`,
+      b1030: sql<number>`(count(*) filter (where ${bucketSql('10_30')}))::int`,
+      b3060: sql<number>`(count(*) filter (where ${bucketSql('30_60')}))::int`,
+      b60: sql<number>`(count(*) filter (where ${bucketSql('60plus')}))::int`,
+      unknown: sql<number>`(count(*) filter (where ${bucketSql('unknown')}))::int`,
+    })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .where(where);
+  const r = rows[0];
+  if (r) Object.assign(out, { lt10: r.lt10, '10_30': r.b1030, '30_60': r.b3060, '60plus': r.b60, unknown: r.unknown });
+  return out;
+}
+
 export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
   const scope = p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames;
   const textYear: (SQL | undefined)[] = [
@@ -209,8 +245,13 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
     p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
   ];
-  const whereBase = and(...textYear);
-  const whereAll = and(whereBase, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined);
+  const whereText = and(...textYear);
+  const genreSql = await genreFilterSql(db, p.genres, whereText);
+  const durationSql = durationFilterSql(p.durations);
+  // 16.4: счётчики статусов и бакетов учитывают жанры; счётчики статусов ещё и длительность, бакеты нет
+  const whereBase = and(whereText, genreSql, durationSql);
+  const whereNoDuration = and(whereText, genreSql, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined);
+  const whereAll = and(whereNoDuration, durationSql);
 
   const { q, tr } = itemsQuery(db);
   const dir = p.order === 'asc' ? sql`asc` : sql`desc`;
@@ -222,9 +263,10 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
     title: [sql`lower(${games.name}) ${dir}`],
     trophies_progress: [sql`${progress} ${dir} nulls last`, sql`${earnedAll} ${dir} nulls last`],
     completed_at: [sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}) ${dir} nulls last`],
+    duration: [sql`${effectiveHoursSql} ${dir} nulls last`],
   };
 
-  const [rows, totalRows, counts, yearRows, forgottenRows] = await Promise.all([
+  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts] = await Promise.all([
     q
       .where(whereAll)
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
@@ -246,6 +288,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
       .from(games)
       .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
       .where(forgottenSql(now)),
+    durationCounts(db, whereNoDuration),
   ]);
 
   return {
@@ -259,6 +302,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
       .filter((y): y is number => y !== null)
       .sort((a, b) => b - a),
     forgottenCount: forgottenRows[0]?.n ?? 0,
+    durationCounts: dCounts,
   };
 }
 

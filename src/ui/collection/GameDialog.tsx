@@ -8,6 +8,7 @@ import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { StatusChip, StatusMenu, toKey } from '../status';
 import { STATUS_META } from '../tokens';
 import { Cover } from './Cover';
+import { DurationEditor } from './DurationEditor';
 import {
   artMode, DETAIL_TABS, detailSubtitle, detailTiles, doneLabel, lastPlayedText, nextTab, type ArtMode, type DetailTab, type Tile,
 } from './details';
@@ -30,7 +31,7 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
  * Данные шапки и плиток берутся из `game`; список трофеев и даты приходят из GET /api/games/{id}.
  */
 export function GameDialog({
-  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded,
+  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged,
 }: {
   game: GameItem | null;
   /** Игра известна только по id и названию: шапка рисуется из stub, плитки появятся после загрузки */
@@ -44,6 +45,8 @@ export function GameDialog({
   onHidden?: (g: GameItem, hidden: boolean) => void;
   /** Полный GameItem из деталей (для stub): родитель подставит его в `game` */
   onLoaded?: (g: GameItem) => void;
+  /** Игра изменена внутри окна (ручная длительность, 16.5): родитель подставит её в список. Нет обработчика = блока длительности нет. */
+  onGameChanged?: (g: GameItem) => void;
 }) {
   const target = game ?? stub ?? null;
   if (!target || typeof document === 'undefined') return null;
@@ -52,7 +55,7 @@ export function GameDialog({
       {(titleId) => (
         <Body
           key={`${target.id}:${startEditing}`} id={target.id} titleId={titleId} game={game} stub={stub ?? null} startEditing={startEditing} now={now}
-          onClose={onClose} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onLoaded={onLoaded}
+          onClose={onClose} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onLoaded={onLoaded} onGameChanged={onGameChanged}
         />
       )}
     </Frame>,
@@ -144,7 +147,7 @@ function Art({ mode, bannerUrl, coverUrl, loading, onBannerError }: {
 }
 
 function Body({
-  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded,
+  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged,
 }: {
   id: number; titleId: string; game: GameItem | null; stub: GameStub | null; startEditing: boolean; now: number;
   onClose: () => void;
@@ -152,6 +155,7 @@ function Body({
   onDate: (g: GameItem, kind: 'completed' | 'dropped', iso: string) => void;
   onHidden?: (g: GameItem, hidden: boolean) => void;
   onLoaded?: (g: GameItem) => void;
+  onGameChanged?: (g: GameItem) => void;
 }) {
   // перечитываем детали при смене статуса или даты (statusChangedAt)
   const refreshKey = `${gameProp?.status ?? ''}|${gameProp?.completedAt ?? ''}|${gameProp?.droppedAt ?? ''}`;
@@ -250,7 +254,7 @@ function Body({
 
       <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" data-tab={tab} tabIndex={0}>
         {tab === 'overview'
-          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} />
+          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} />
           : <TrophiesTab state={state} onRetry={retry} />}
       </div>
     </div>
@@ -343,12 +347,13 @@ function PlatinumPath({ f }: { f: PlatinumForecast }) {
 }
 
 function Overview({
-  game, details, loading, startEditing, now, onStatus, onDate, onHidden,
+  game, details, loading, startEditing, now, onStatus, onDate, onHidden, onGameChanged,
 }: {
   game: GameItem; details: GameDetailsResponse | null; loading: boolean; startEditing: boolean; now: number;
   onStatus: (g: GameItem, s: GameStatusValue | null) => void;
   onDate: (g: GameItem, kind: 'completed' | 'dropped', iso: string) => void;
   onHidden?: (g: GameItem, hidden: boolean) => void;
+  onGameChanged?: (g: GameItem) => void;
 }) {
   const hintId = useId();
   const hidden = !!game.hiddenAt;
@@ -415,6 +420,8 @@ function Overview({
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
       )}
+
+      {onGameChanged && game.duration && <DurationEditor key={game.id} game={game} onChanged={onGameChanged} />}
 
       {(game.status !== null || onHidden || hidden) && (
         <section className="ps-gd__sec ps-gd__manage" aria-labelledby="gd-s4">

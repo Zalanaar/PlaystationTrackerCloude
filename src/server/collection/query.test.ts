@@ -50,7 +50,7 @@ describe('коллекция (PGlite)', () => {
   it('пустая БД', async () => {
     const r = await listGames(t.db, lq());
     expect(r).toEqual({
-      items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0,
+      items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0, durationCounts: { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 },
       counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 },
     });
     const s = await getCollectionSummary(t.db);
@@ -72,6 +72,7 @@ describe('коллекция (PGlite)', () => {
       lastPlayedAt: null, status: null, completedAt: null, droppedAt: null, trophies: null,
       genres: [{ key: 'SIMULATION', label: 'Симуляторы' }, { key: 'OTHER', label: 'Другое' }, { key: 'ACTION', label: 'Экшен' }],
       hiddenAt: null,
+      duration: { hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { status: 'unchecked', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } },
     });
     const beta = (await listGames(t.db, lq('q=beta'))).items[0];
     expect(beta.platform).toBe('PC');

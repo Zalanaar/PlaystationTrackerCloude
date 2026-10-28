@@ -39,7 +39,7 @@ function statsRespond(u: URL, rareTrophies: unknown) {
     ...(rareTrophies === undefined ? {} : { rareTrophies }),
     trophies: { counts: { platinum: 1, gold: 1, silver: 1, bronze: 1, total: 4 }, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
-    played: { groups: [{ month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 0, items: [{ game: g, hours: 12.5, estimated: false, finished: 'completed', finishedAt: `${THIS_YEAR}-03-10T10:00:00.000Z` }] }] },
+    played: { games: { [String(g.id)]: g }, groups: [{ month: `${year}-03`, year, monthNumber: 3, completed: 1, dropped: 0, items: [{ gameId: g.id, hours: 12.5, estimated: false, finished: 'completed', finishedAt: `${THIS_YEAR}-03-10T10:00:00.000Z` }] }] },
   };
 }
 

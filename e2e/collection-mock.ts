@@ -13,6 +13,13 @@ export type G = {
   bannerUrl?: string | null;
   /** Фаза 9.1 (15.2): цвет акцента */
   tint?: string | null;
+  /** Фаза 11 (16): ключи жанров (по умолчанию ACTION) */
+  genres?: string[];
+  /** Фаза 11 (16.1): HLTB main, ручное значение, имя и статус поиска */
+  hltbHours?: number | null;
+  override?: number | null;
+  hltbName?: string | null;
+  hltbChecked?: boolean;
 };
 
 /** Трофей в ответе GET /api/games/{id} (12.5) */
@@ -76,6 +83,23 @@ export function serviceGames(n: number): G[] {
 const mskYear = (iso: string) => new Date(new Date(iso).getTime() + 3 * 3600_000).getUTCFullYear();
 const done = (g: G) => g.completedAt ?? g.droppedAt;
 
+const GENRE_RU: Record<string, string> = { ACTION: 'Экшен', ADVENTURE: 'Приключения', ROLE_PLAYING_GAMES: 'Ролевые', HORROR: 'Хоррор', RACING: 'Гонки', OTHER: 'Другое' };
+export type Bucket = 'lt10' | '10_30' | '30_60' | '60plus' | 'unknown';
+const hoursOf = (g: G): number | null => g.override ?? g.hltbHours ?? null;
+export const bucketOf = (h: number | null): Bucket => (h === null ? 'unknown' : h < 10 ? 'lt10' : h < 30 ? '10_30' : h < 60 ? '30_60' : '60plus');
+
+function duration(g: G) {
+  const h = hoursOf(g);
+  const found = g.hltbName != null;
+  return {
+    hours: h, source: g.override != null ? 'manual' : g.hltbHours != null ? 'hltb' : null, bucket: bucketOf(h), overrideHours: g.override ?? null,
+    hltb: {
+      status: found ? 'found' : g.hltbChecked ? 'not_found' : 'unchecked', id: found ? 1 : null, name: found ? g.hltbName : null,
+      mainHours: found ? g.hltbHours ?? null : null, extraHours: null, checkedAt: g.hltbChecked || found ? '2026-10-20T10:00:00.000Z' : null,
+    },
+  };
+}
+
 function item(g: G) {
   const t = g.trophies;
   return {
@@ -87,7 +111,8 @@ function item(g: G) {
       platinumDefined: !!t.plat, platinumEarned: !!t.plat,
       byType: { platinum: { earned: t.plat ? 1 : 0, defined: 1 }, gold: { earned: 2, defined: 4 }, silver: { earned: 5, defined: 9 }, bronze: { earned: t.earned - 8, defined: t.defined - 14 } },
     } : null,
-    genres: [{ key: 'ACTION', label: 'Экшен' }],
+    genres: (g.genres ?? ['ACTION']).map((key) => ({ key, label: GENRE_RU[key] ?? key })),
+    duration: duration(g),
     bannerUrl: g.bannerUrl ?? null,
     tint: g.tint ?? null,
     hiddenAt: g.hiddenAt ?? null,
@@ -232,17 +257,29 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const scope = u.searchParams.get('hidden') === 'only' ? m.games.filter((g) => g.hiddenAt) : visible();
     const base = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
     const wanted = st ? st.split(',') : null;
-    const filtered = base.filter((g) => (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
+    const genresQ = u.searchParams.get('genres')?.split(',').map((x) => x.toUpperCase()) ?? null;
+    const durQ = u.searchParams.get('duration')?.split(',') ?? null;
+    const inScope = base.filter((g) => (!genresQ || (g.genres ?? ['ACTION']).some((k) => genresQ.includes(k))));
+    const filtered = inScope.filter((g) => (!durQ || durQ.includes(bucketOf(hoursOf(g)))) && (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
+    const durCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
+    for (const g of inScope.filter((x) => !wanted || wanted.includes(x.status ?? 'none'))) durCounts[bucketOf(hoursOf(g))]++;
     const nl = (a: string | null, b: string | null, dir: 1 | -1) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : dir * a.localeCompare(b));
     const sorted = [...filtered].sort((a, b) =>
       (sort === 'title' ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
         : sort === 'hours' ? b.playSeconds - a.playSeconds
         : sort === 'completed_at' ? nl(done(a), done(b), -1)
+        : sort === 'duration' ? (() => {
+          const x = hoursOf(a); const y = hoursOf(b);
+          if (x === y) return 0;
+          if (x === null) return 1;
+          if (y === null) return -1;
+          return u.searchParams.get('order') === 'desc' ? y - x : x - y;
+        })()
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, {
-      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years,
+      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts,
       ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
     });
   });
@@ -298,6 +335,13 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const g = m.games.find((x) => x.id === id) as G;
     if (typeof b.completedAt === 'string') g.completedAt = b.completedAt;
     if (typeof b.droppedAt === 'string') g.droppedAt = b.droppedAt;
+    return { game: item(g) };
+  }));
+  await page.route(/\/api\/games\/\d+\/duration$/, (route) => mutate(route, (b) => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/duration/)?.[1]);
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return NOT_FOUND;
+    g.override = b.hours === null ? null : Math.round((b.hours as number) * 10) / 10;
     return { game: item(g) };
   }));
   await page.route(/\/api\/games\/\d+\/hidden$/, (route) => mutate(route, (b) => {

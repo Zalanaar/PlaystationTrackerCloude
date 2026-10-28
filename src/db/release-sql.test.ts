@@ -36,7 +36,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 describe('docs/release-neon-0004-0005.sql', () => {
   it('поверх 0000–0003 дважды: схема как у drizzle 0000–0005, журнал верный, данные целы', async () => {
     const full = new PGlite();
-    await migrate(drizzle(full), { migrationsFolder: root });
+    await migrate(drizzle(full), { migrationsFolder: folderUpTo(6) });
 
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(4) });
@@ -55,7 +55,7 @@ describe('docs/release-neon-0004-0005.sql', () => {
 
     const j = await c.query<{ hash: string; created_at: string }>('select hash, created_at from drizzle.__drizzle_migrations order by created_at');
     expect(j.rows).toHaveLength(6);
-    for (const e of journal.entries.slice(4)) {
+    for (const e of journal.entries.slice(4, 6)) {
       const hash = createHash('sha256').update(readFileSync(join(root, `${e.tag}.sql`), 'utf8')).digest('hex');
       const row = j.rows.find((r) => Number(r.created_at) === e.when);
       expect(row?.hash, e.tag).toBe(hash);
@@ -69,7 +69,7 @@ describe('docs/release-neon-0004-0005.sql', () => {
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(4) });
     await c.exec(releaseSql);
-    await migrate(drizzle(c), { migrationsFolder: root });
+    await migrate(drizzle(c), { migrationsFolder: folderUpTo(6) });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
     expect(n.rows[0].n).toBe(6);
   });

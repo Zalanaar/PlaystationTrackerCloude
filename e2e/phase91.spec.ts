@@ -53,7 +53,7 @@ async function openStats(page: Page, context: BrowserContext, baseURL: string): 
   await page.route(/\/api\/stats\?/, (r) => {
     const u = new URL(r.request().url());
     const year = Number(u.searchParams.get('year') ?? Y);
-    const item = (i: PItem) => ({ game: game(i), hours: i.real + i.est, hoursReal: i.real, hoursEstimated: i.est, estimated: i.est > 0, finished: i.plat ? 'completed' : null, finishedAt: i.plat ? '2026-03-10T10:00:00.000Z' : null });
+    const item = (i: PItem) => ({ gameId: i.id, hours: i.real + i.est, hoursReal: i.real, hoursEstimated: i.est, estimated: i.est > 0, finished: i.plat ? 'completed' : null, finishedAt: i.plat ? '2026-03-10T10:00:00.000Z' : null });
     const keep = ITEMS.filter((i) => !st.excluded.has(i.id));
     const out = ITEMS.filter((i) => st.excluded.has(i.id)).map((i) => ({ ...item(i), hours: i.real, hoursEstimated: 0, estimated: false }));
     const body = {
@@ -63,7 +63,7 @@ async function openStats(page: Page, context: BrowserContext, baseURL: string): 
       genres: { hasData: false, items: [], games: {} }, top: { byHours: [], byTrophies: [] },
       trophies: { counts: z, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
       finished: { groups: [] }, rareTrophies: { period: [], allTime: [] },
-      played: { groups: [{ month: MONTH, year, monthNumber: 3, completed: 1, dropped: 0, items: keep.map(item), excluded: out }] },
+      played: { games: Object.fromEntries(ITEMS.map((i) => [String(i.id), game(i)])), groups: [{ month: MONTH, year, monthNumber: 3, completed: 1, dropped: 0, items: keep.map(item), excluded: out }] },
     };
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: body }) });
   });
