@@ -148,4 +148,66 @@ describe('клиент (фейковый fetch)', () => {
     expect(await createHltbClient({ fetchImpl: f }).search('x')).toEqual([]);
     expect([inits, posts]).toEqual([2, 2]);
   });
+
+  it('диагностика: статусы и типы сбоев по каждому init, без тел и токенов', async () => {
+    const f = (async (url: string) => {
+      if (url.includes('/api/find/init')) return new Response('SECRET-BODY', { status: 404 });
+      if (url.includes('/api/bleed/init')) return json({ nope: 'SECRET-TOKEN' });
+      if (url.includes('/api/search/init')) return new Response('<html>SECRET', { status: 200 });
+      return new Response('', { status: 500 }); // главная недоступна
+    }) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.code).toBe('unavailable');
+    expect(e.message).toContain('init /api/find/init: 404; init /api/bleed/init: 200 no_token; init /api/search/init: not_json');
+    expect(e.message).toContain('главная: недоступна');
+    expect(e.message).not.toMatch(/SECRET/);
+    expect(e.message.length).toBeLessThan(400);
+  });
+
+  it('диагностика: network и timeout различаются; при timeout разбор страницы пропускается', async () => {
+    const down = (async () => {
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    const e1 = (await createHltbClient({ fetchImpl: down }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e1.message).toContain('init /api/find/init: network; init /api/bleed/init: network');
+    const slow = (async () => {
+      throw Object.assign(new Error('t'), { name: 'TimeoutError' });
+    }) as unknown as typeof fetch;
+    const e2 = (await createHltbClient({ fetchImpl: slow }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e2.message).toContain('find/init: timeout');
+    expect(e2.message).toContain('поиск пути пропущен');
+  });
+
+  it('после неудачи discovery повторных сетевых запросов в этом клиенте нет', async () => {
+    let n = 0;
+    const f = (async () => (n++, new Response('', { status: 404 }))) as unknown as typeof fetch;
+    const c = createHltbClient({ fetchImpl: f });
+    await c.search('x').catch(() => undefined);
+    const after = n;
+    await c.search('y').catch(() => undefined);
+    expect(n).toBe(after);
+  });
+
+  it('новый путь из _app-скрипта главной: берётся, только если init вернул token', async () => {
+    const f = (async (url: string) => {
+      if (url.endsWith('/')) return new Response('<script src="/_next/static/chunks/pages/_app-abc123.js"></script>', { status: 200 });
+      if (url.includes('_app-abc123.js')) return new Response('x=fetch("/api/ember/search".concat(a),{method:"POST"});y=fetch("/api/zzz/q")', { status: 200 });
+      if (url.includes('/api/ember/init')) return json({ token: 'T' });
+      if (url.includes('/init')) return new Response('', { status: 404 });
+      if (url.includes('/api/ember')) return json({ data: [{ game_id: 7, game_name: 'Hades', comp_main: 3600 }] });
+      return new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    const r = await createHltbClient({ fetchImpl: f }).search('hades');
+    expect(r[0].id).toBe(7);
+  });
+
+  it('скрипт без пути или чужой формат: ошибка с пометкой, без выдуманных запросов', async () => {
+    const f = (async (url: string) => {
+      if (url.endsWith('/')) return new Response('<script src="/_next/static/chunks/pages/_app-1.js"></script>', { status: 200 });
+      if (url.includes('_app-1.js')) return new Response('nothing here', { status: 200 });
+      return new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    const e = (await createHltbClient({ fetchImpl: f }).search('x').catch((x: unknown) => x)) as HltbError;
+    expect(e.message).toContain('_app: путь не найден');
+  });
 });

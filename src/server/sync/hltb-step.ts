@@ -2,7 +2,7 @@
 // Любая ошибка HLTB = предупреждение в sync_runs.warnings, итог запуска не меняется.
 import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
-import { HltbError, createHltbClient, type HltbClient } from '@/server/hltb/client';
+import { HltbError, capDetail, createHltbClient, type HltbClient } from '@/server/hltb/client';
 import { pickBest, searchTerm } from '@/server/hltb/normalize';
 import type { RunContext } from './context';
 
@@ -44,6 +44,7 @@ export async function hltbStep(ctx: RunContext, deps: HltbDeps): Promise<{ check
   let failed = 0;
   let inRow = 0;
   let lastCode = '';
+  let lastDetail = '';
   for (const g of due) {
     if (ctx.timeLeft() < HLTB_MIN_LEFT_MS) break;
     try {
@@ -54,6 +55,8 @@ export async function hltbStep(ctx: RunContext, deps: HltbDeps): Promise<{ check
       failed++;
       inRow++;
       lastCode = e instanceof HltbError ? e.code : 'internal';
+      // message HltbError формируется клиентом без тел ответов и токенов; чужие ошибки не раскрываем
+      lastDetail = e instanceof HltbError ? capDetail(e.message) : '';
       if (inRow >= HLTB_MAX_ERRORS_IN_ROW) break;
     }
     if (deps.pauseMs) await deps.sleep(deps.pauseMs);
@@ -90,6 +93,6 @@ export async function hltbStep(ctx: RunContext, deps: HltbDeps): Promise<{ check
         .where(eq(games.id, g.id));
     }
   }
-  if (failed > 0) ctx.warn('hltb_failed', `HLTB: ошибок ${failed} (${lastCode}), эти игры будут проверены в следующем синке.`);
+  if (failed > 0) ctx.warn('hltb_failed', `HLTB: ошибок ${failed} (${lastCode}${lastDetail ? `: ${lastDetail}` : ''}), эти игры будут проверены в следующем синке.`);
   return { checked: outcomes.length, found, failed };
 }
