@@ -1,5 +1,5 @@
 // QA Фаз 9-10: краевые случаи чипа «Платина» на большой коллекции. API эмулируется (collection-mock.ts).
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { signedSession } from './session';
 
@@ -11,7 +11,6 @@ const bigSet = (): G[] =>
     status: null, completedAt: null, droppedAt: null, playSeconds: 3600, playCount: 1,
     trophies: { earned: 20, defined: 30, plat: i % 10 === 9 },
   }));
-const cards = (page: Page) => page.locator('section[aria-labelledby="coll-title"] article.ps-card, section[aria-labelledby="coll-title"] [data-game-row]');
 
 test.describe('Чип «Платина» при >300 игр', () => {
   // BUG-P9-1 (frontend): открыт. Сейчас на экране 6 из 35, кнопка «Показать ещё (290)» считает игры сервера. Убрать test.fail после исправления.
