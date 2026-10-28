@@ -84,6 +84,21 @@ export function durationFilterSql(buckets: readonly DurationBucket[] | null): SQ
   return sql`(${sql.join(buckets.map(bucketSql), sql` or `)})`;
 }
 
+export const HLTB_STATUSES = ['found', 'not_found', 'unchecked'] as const satisfies readonly HltbStatus[];
+
+/** Статус HLTB в SQL: только по hltb_id / hltb_checked_at, ручное значение (override) на него не влияет (16.4). */
+export function hltbStatusSql(s: HltbStatus): SQL {
+  if (s === 'found') return sql`${games.hltbId} is not null`;
+  if (s === 'not_found') return sql`(${games.hltbId} is null and ${games.hltbCheckedAt} is not null)`;
+  return sql`(${games.hltbId} is null and ${games.hltbCheckedAt} is null)`;
+}
+
+/** Фильтр по нескольким статусам HLTB (ИЛИ). */
+export function hltbFilterSql(list: readonly HltbStatus[] | null): SQL | undefined {
+  if (!list || list.length === 0) return undefined;
+  return sql`(${sql.join(list.map(hltbStatusSql), sql` or `)})`;
+}
+
 /** Ручной ввод: число 0.1..1000 -> округлено до 0.1; иначе null. */
 export function normalizeOverrideHours(v: unknown): number | null {
   if (typeof v !== 'number' || !Number.isFinite(v)) return null;

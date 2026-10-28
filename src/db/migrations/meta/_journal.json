@@ -50,6 +50,13 @@
       "when": 1793211799430,
       "tag": "0006_hltb_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793218001382,
+      "tag": "0007_sync_run_kind_hltb",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,8 @@
 // Разбор и проверка входных данных раздела 9 (чистые функции, без БД).
 import { z } from 'zod';
 import { GENRE_LABELS_RU, GENRE_NONE, normalizeGenre, type GenreFilterKey, type GenreKey } from '@/shared/genres';
-import { DURATION_BUCKETS, DURATION_MAX_HOURS, normalizeOverrideHours } from './duration';
-import type { DurationBucket, GameStatusValue, ListSort, SortOrder, StatusFilterValue } from './types';
+import { DURATION_BUCKETS, HLTB_STATUSES, DURATION_MAX_HOURS, normalizeOverrideHours } from './duration';
+import type { DurationBucket, HltbStatus, GameStatusValue, ListSort, SortOrder, StatusFilterValue } from './types';
 
 export const STATUS_VALUES = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'] as const satisfies readonly GameStatusValue[];
 const FILTER_VALUES: readonly string[] = [...STATUS_VALUES, 'none'];
@@ -36,6 +36,7 @@ export type ListQuery = {
   genres: GenreFilterKey[] | null;
   /** 16.4: бакеты длительности (ИЛИ) или null. */
   durations: DurationBucket[] | null;
+  hltb: HltbStatus[] | null;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -109,7 +110,14 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
     if (parts.some((p) => !(DURATION_BUCKETS as readonly string[]).includes(p))) return bad('Неизвестный бакет длительности.');
     durations = [...new Set(parts)] as DurationBucket[];
   }
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations } };
+  let hltb: HltbStatus[] | null = null;
+  const hltbRaw = sp.get('hltb');
+  if (hltbRaw !== null && hltbRaw.trim() !== '') {
+    const parts = hltbRaw.split(',').map((x) => x.trim());
+    if (parts.some((p) => !(HLTB_STATUSES as readonly string[]).includes(p))) return bad('Неизвестный статус HLTB.');
+    hltb = [...new Set(parts)] as HltbStatus[];
+  }
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations, hltb } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);

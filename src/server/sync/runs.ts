@@ -1,5 +1,5 @@
 // Жизненный цикл запуска: старт, возобновление, закрытие брошенных. Контракт: 1.7, 8.2.
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { parseCursor, type RunRow } from './context';
@@ -66,7 +66,7 @@ export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continu
       const run = await resume(db, row, now, true);
       return run ? { kind: 'started', run, resumed: true } : { kind: 'not_resumable' };
     }
-    const [last] = await db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+    const [last] = await db.select().from(syncRuns).where(ne(syncRuns.kind, 'hltb')).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
     if (last && last.status === 'partial' && now.getTime() - last.startedAt.getTime() < RESUME_WINDOW_MS) {
       const run = await resume(db, last, now, false);
       if (run) return { kind: 'started', run, resumed: true };
@@ -83,6 +83,22 @@ export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continu
       })
       .returning();
     return { kind: 'started', run, resumed: false };
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);
+    return { kind: 'already_running', runId: running?.id ?? null };
+  }
+}
+
+/** Запуск массовой подгрузки HLTB (контракт 16.7). Занимает тот же единственный слот running, что и синк. Никогда не возобновляет partial. */
+export async function startHltbRun(db: AnyDb, now: Date): Promise<{ kind: 'started'; run: RunRow } | { kind: 'already_running'; runId: number | null }> {
+  await closeStaleRuns(db, now);
+  try {
+    const [run] = await db
+      .insert(syncRuns)
+      .values({ kind: 'hltb', status: 'running', snapshotDate: mskDate(now), startedAt: now, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() } })
+      .returning();
+    return { kind: 'started', run };
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
     const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);

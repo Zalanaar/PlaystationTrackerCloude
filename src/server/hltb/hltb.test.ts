@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HltbError, createHltbClient, parseSearchResponse } from './client';
-import { MATCH_THRESHOLD, dice, normalizeTitle, pickBest, searchTerm, secondsToHours, similarity, type HltbCandidate } from './normalize';
+import { MATCH_THRESHOLD, dice, normalizeTitle, pickAny, pickBest, pickLoose, searchTerm, searchTerms, secondsToHours, similarity, type HltbCandidate } from './normalize';
 
 const c = (id: number, name: string, main: number | null = 10): HltbCandidate => ({ id, name, mainHours: main, extraHours: null });
 
@@ -254,5 +254,35 @@ describe('клиент (фейковый fetch)', () => {
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ id: 62941, name: 'Hades', mainHours: 23.6 });
     expect(r[0].extraHours).toBeCloseTo(48.6, 1);
+  });
+});
+
+describe('матчер: римские цифры и хвосты (прод 2026-10)', () => {
+  const c = (id: number, name: string): HltbCandidate => ({ id, name, mainHours: 10, extraHours: null });
+
+  it('searchTerms: первым идёт запрос с римскими цифрами, не больше 3 запросов', () => {
+    const t = searchTerms('Diablo® II: Resurrected™');
+    expect(t[0]).toBe('diablo ii resurrected');
+    expect(t).toContain('diablo 2 resurrected');
+    expect(t.length).toBeLessThanOrEqual(3);
+    expect(new Set(t).size).toBe(t.length);
+  });
+  it('Diablo II Resurrected находится по выдаче HLTB', () => {
+    const hit = pickAny('Diablo® II: Resurrected™', [c(1, 'Diablo II: Resurrected'), c(2, 'Diablo III')]);
+    expect(hit?.id).toBe(1);
+  });
+  it('Gothic Classic = Gothic (мягкое совпадение)', () => {
+    expect(pickBest('Gothic Classic', [c(1, 'Gothic')])).toBeNull();
+    expect(pickAny('Gothic Classic', [c(2, 'Gothic II'), c(1, 'Gothic')])?.id).toBe(1);
+  });
+  it('негативные: Gothic II не к Gothic, Diablo III не к Diablo II, подзаголовок не режется', () => {
+    expect(pickAny('Gothic II', [c(1, 'Gothic')])).toBeNull();
+    expect(pickAny('Diablo III', [c(1, 'Diablo II: Resurrected'), c(2, 'Diablo II')])).toBeNull();
+    expect(pickLoose('Gothic II Classic', [c(1, 'Gothic')])).toBeNull();
+    expect(pickAny('Batman: Arkham Knight', [c(1, 'Batman')])).toBeNull();
+    expect(pickLoose('Gothic', [c(1, 'Gothic')])).toBeNull();
+  });
+  it('укороченный запрос для Gothic Classic содержит «gothic»', () => {
+    expect(searchTerms('Gothic Classic')).toContain('gothic');
   });
 });

@@ -1,18 +1,21 @@
 // GET /api/sync/status (контракт 8.4). Только БД.
-import { desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { PHASES, parseCursor } from './context';
 
 const { syncRuns, psnAuth } = schema;
 
+// Запуски kind='hltb' (контракт 16.7) в индикации синка не участвуют.
+const notHltb = ne(syncRuns.kind, 'hltb');
+
 export async function getSyncStatus(db: AnyDb) {
-  const [last] = await db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
-  const [lastDone] = await db.select().from(syncRuns).where(ne(syncRuns.status, 'running')).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+  const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+  const [lastDone] = await db.select().from(syncRuns).where(and(notHltb, ne(syncRuns.status, 'running'))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastSuccess] = await db
     .select({ finishedAt: syncRuns.finishedAt })
     .from(syncRuns)
-    .where(eq(syncRuns.status, 'success'))
+    .where(and(notHltb, eq(syncRuns.status, 'success')))
     .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
     .limit(1);
   const [auth] = await db.select({ refreshExpiresAt: psnAuth.refreshExpiresAt }).from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);

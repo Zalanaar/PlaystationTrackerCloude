@@ -9,6 +9,7 @@ export type ListSort = GameSort | 'duration';
 
 export type DurationBucket = 'lt10' | '10_30' | '30_60' | '60plus' | 'unknown';
 export type HltbStatus = 'found' | 'not_found' | 'unchecked';
+export type HltbCounts = Record<HltbStatus, number>;
 export type DurationCounts = Record<DurationBucket, number>;
 
 /** Длительность прохождения (16.3). */
@@ -90,6 +91,8 @@ export type GamesListResponse = {
   durationCounts: DurationCounts;
   /** 16.4: счётчики жанровых чипов (ключи GenreKey и `none`) без фильтра `genres`; только ненулевые ключи. */
   genreCounts: GenreCounts;
+  /** 16.4: счётчики статусов HLTB в области запроса без фильтра `hltb`. */
+  hltbCounts: HltbCounts;
 };
 
 /** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */

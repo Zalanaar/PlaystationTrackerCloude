@@ -23,7 +23,7 @@ const tz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' 
 export const gameStatusValue = pgEnum('game_status_value', ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service']);
 export const trophyType = pgEnum('trophy_type', ['bronze', 'silver', 'gold', 'platinum']);
 export const trophySetLinkSource = pgEnum('trophy_set_link_source', ['title_id', 'concept', 'name', 'manual']);
-export const syncRunKind = pgEnum('sync_run_kind', ['daily', 'manual', 'trophy_backfill']);
+export const syncRunKind = pgEnum('sync_run_kind', ['daily', 'manual', 'trophy_backfill', 'hltb']);
 export const syncRunStatus = pgEnum('sync_run_status', ['running', 'success', 'partial', 'failed']);
 export const syncErrorReason = pgEnum('sync_error_reason', [
   'auth_expired',
