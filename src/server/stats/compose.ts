@@ -4,7 +4,7 @@ import { aggregateGenresWithGames, type GenreGame, type GenreGameInfo } from './
 import { groupFinished, type FinishedEvent } from './finished';
 import { calcHours, groupSnapshots, type EstimateInput, type HoursCalc, type Snapshot } from './hours';
 import { groupPlayed } from './played';
-import type { StatsPeriod, StatsResponse, StatsTop } from './types';
+import type { RareTrophy, StatsPeriod, StatsResponse, StatsTop } from './types';
 import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import { aggregateTrophies, type EarnedTrophy } from './trophies';
 
@@ -31,6 +31,8 @@ export type StatsInput = {
   trophiesByGame: readonly GameTrophyCount[];
   /** Уже посчитанные часы (query.ts считает их раньше, чтобы собрать id карточек); иначе считаются здесь. */
   hours?: HoursCalc;
+  /** 14.1: уже отобранные редкие трофеи (SQL с LIMIT 5); нет = пустые списки. */
+  rareTrophies?: { period: RareTrophy[]; allTime: RareTrophy[] };
 };
 
 export function composeStats(i: StatsInput): StatsResponse {
@@ -83,6 +85,7 @@ export function composeStats(i: StatsInput): StatsResponse {
     },
     genres: aggregateGenresWithGames(genreList),
     top,
+    rareTrophies: i.rareTrophies ?? { period: [], allTime: [] },
     trophies: { counts, byMonth },
     finished: { groups },
     played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById }) },

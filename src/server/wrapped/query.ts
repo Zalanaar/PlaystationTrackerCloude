@@ -10,6 +10,7 @@ import type { GenreGame } from '@/server/stats/genre-stats';
 import { getEstimateInputs } from '@/server/stats/estimate-query';
 import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { mskDateString, mskMidnightUtc, ymd } from '@/server/stats/period';
+import { getRareTrophies } from '@/server/stats/rare-query';
 import type { EarnedTrophy } from '@/server/stats/trophies';
 import { TOP_GAMES } from './calc';
 import { composeWrapped } from './compose';
@@ -74,7 +75,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
   const earnedInYear = and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc), trophySetCounted(trophies.trophySetId));
 
   const estimates = await getEstimateInputs(db);
-  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows, psnProf] = await Promise.all([
+  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows, psnProf, rare] = await Promise.all([
     getWrappedYears(db, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -109,6 +110,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
       .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
     db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
     getPsnProfile(db),
+    getRareTrophies(db, { fromUtc, toUtc }),
   ]);
 
   // Игра сета платины: минимальный id видимой игры из game_trophy_sets (сет может быть у нескольких версий).
@@ -169,5 +171,6 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
     finishedEvents,
     gameById,
     genreGames: new Map<number, GenreGame>(genreRows.map((g) => [g.id, g])),
+    rareTrophies: rare,
   });
 }

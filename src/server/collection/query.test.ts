@@ -50,13 +50,13 @@ describe('коллекция (PGlite)', () => {
   it('пустая БД', async () => {
     const r = await listGames(t.db, lq());
     expect(r).toEqual({
-      items: [], total: 0, limit: 60, offset: 0, years: [],
+      items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0,
       counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 },
     });
     const s = await getCollectionSummary(t.db);
     expect(s).toEqual({
       totals: { games: 0, playSeconds: 0, hours: 0, trophiesEarned: 0, platinumEarned: 0 },
-      counts: r.counts, playing: [], services: [], continue: [], profile: null,
+      counts: r.counts, playing: [], services: [], continue: [], profile: null, nearPlatinum: [],
     });
   });
 

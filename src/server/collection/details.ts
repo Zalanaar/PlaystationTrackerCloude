@@ -2,6 +2,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
 import type { GameDetailsResponse, GameTrophyItem } from './types';
 
@@ -72,10 +73,13 @@ export async function getGameDetails(db: AnyDb, id: number): Promise<GameDetails
       .orderBy(asc(trophies.trophySetId), asc(trophies.trophyId)),
   ]);
   if (!game || !meta) return null;
+  const trophyList = rows.map(toTrophyItem);
   return {
     game,
     firstPlayedAt: meta.firstPlayedAt ? meta.firstPlayedAt.toISOString() : null,
     statusChangedAt: meta.statusChangedAt ? meta.statusChangedAt.toISOString() : null,
-    trophyList: rows.map(toTrophyItem),
+    trophyList,
+    // 14.2: из уже загруженного списка, без нового запроса
+    platinumForecast: platinumForecast(setAggsFromTrophies(trophyList)),
   };
 }
