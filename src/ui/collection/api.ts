@@ -1,4 +1,5 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
+import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
@@ -52,6 +53,10 @@ export const fetchGameDetails = (id: number, signal?: AbortSignal) => call<GameD
 export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
   call<StatsResponse>(`/api/stats?${query.toString()}`, { signal });
 
+/** Стрик и карта активности года (14.3). Грузится лениво, отдельно от /api/stats. */
+export const fetchActivity = (year: number, signal?: AbortSignal) =>
+  call<ActivityResponse>(`/api/stats/activity?year=${year}`, { signal });
+
 export const fetchWrapped = (year: number | null, signal?: AbortSignal) =>
   call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
 
@@ -65,6 +70,15 @@ export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: 
 
 export const postBulk = (ids: number[], status: GameStatusValue | null) =>
   call<BulkStatusResponse>('/api/games/status-bulk', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids, status }) });
+
+/** Ответ PUT /api/games/{id}/month-exclusions (контракт 15.1). */
+export type MonthExclusionResponse = {
+  gameId: number; month: string; excluded: boolean; excludedMonths: string[]; redistributed: boolean; estimateDropped: boolean;
+};
+
+/** «Убрать из этого месяца» / «Вернуть в месяц». 409 `month_exclusion_conflict`: нельзя убрать последний месяц оценки. */
+export const putMonthExclusion = (id: number, month: string, excluded: boolean) =>
+  call<MonthExclusionResponse>(`/api/games/${id}/month-exclusions`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ month, excluded }) });
 
 /** Мягкое удаление из коллекции и возврат (9.7). */
 export const putHidden = (id: number, hidden: boolean) =>

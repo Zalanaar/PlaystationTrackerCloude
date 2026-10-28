@@ -3,16 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameItem } from '@/server/collection/types';
-import type { WrappedResponse, WrappedSlideId } from '@/server/wrapped/types';
+import type { WrappedResponse } from '@/server/wrapped/types';
 import { Cover } from '../collection/Cover';
 import { cssUrl, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { Avatar } from '../primitives/Avatar';
 import { useMediaQuery } from '../primitives/hooks';
+import { RareIcon } from '../stats/RareTrophies';
+import { RARE_SLIDE_TITLE, rareRows } from '../stats/rare';
 import {
   estimateBadge, approxHours, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
   keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, slideCover, stepIndex,
-  syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type TimerState,
+  syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type StorySlideId, type TimerState,
 } from './model';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
@@ -153,7 +155,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
   );
 }
 
-function Backdrop({ data, id }: { data: WrappedResponse; id: WrappedSlideId }) {
+function Backdrop({ data, id }: { data: WrappedResponse; id: StorySlideId }) {
   const c = slideCover(id, data);
   const url = cssUrl(c?.url);
   return (
@@ -204,7 +206,7 @@ function Thumb({ g, w, dropped }: { g: GameItem; w: number; dropped?: boolean })
 
 function SlideView({
   id, data, rm, index, count, onClose, onRestart,
-}: { id: WrappedSlideId; data: WrappedResponse; rm: boolean; index: number; count: number; onClose: () => void; onRestart: () => void }) {
+}: { id: StorySlideId; data: WrappedResponse; rm: boolean; index: number; count: number; onClose: () => void; onRestart: () => void }) {
   const year = data.year;
   switch (id) {
     case 'start':
@@ -306,6 +308,36 @@ function SlideView({
         </div>
       );
     }
+    case 'rareTrophies': {
+      const rows = rareRows(data.trophies.rare ?? []);
+      const [first, ...rest] = rows;
+      if (!first) return null;
+      return (
+        <div className="ps-story__col ps-rares">
+          <Rise n={0} rm={rm}><p className="ps-story__label">Самое редкое</p></Rise>
+          <Rise n={1} rm={rm}><h2 className="ps-story__title">{RARE_SLIDE_TITLE}</h2></Rise>
+          <Rise n={2} rm={rm} className="ps-rares__first">
+            <RareIcon url={first.iconUrl} className="ps-rares__ic1" />
+            <span className="ps-rares__pct ps-num" aria-label={`${first.rate} игроков получили этот трофей`}>{first.rate}</span>
+            <span className="ps-rares__cap">игроков получили этот трофей</span>
+            <b className="ps-rares__nm1">{first.name}</b>
+            <span className="ps-rares__gm1">{first.gameName}</span>
+            <StoryRarity row={first} />
+          </Rise>
+          <ol className="ps-rares__list">
+            {rest.map((r, i) => (
+              <li key={r.key}>
+                <Rise n={i + 3} rm={rm} className="ps-rares__row">
+                  <RareIcon url={r.iconUrl} />
+                  <span className="ps-rares__tx"><b>{r.name}</b><small>{r.gameName}</small><StoryRarity row={r} /></span>
+                  <span className="ps-rares__pct2 ps-num">{r.rate}</span>
+                </Rise>
+              </li>
+            ))}
+          </ol>
+        </div>
+      );
+    }
     case 'genres': {
       const items = data.genres.items.slice(0, 3);
       const max = Math.max(0, ...items.map((g) => g.value));
@@ -362,4 +394,14 @@ function SlideView({
     default:
       return null;
   }
+}
+
+/** Редкость на слайде: слово и сегменты цвета текста истории (цвета редкости на тёмном скриме не используем). */
+function StoryRarity({ row }: { row: ReturnType<typeof rareRows>[number] }) {
+  return (
+    <span className="ps-rares__rar">
+      <span>{row.rarity}</span>
+      {row.rarityKnown && <span className="ps-rares__seg" aria-hidden="true">{[0, 1, 2, 3].map((i) => <i key={i} data-on={i < row.segments || undefined} />)}</span>}
+    </span>
+  );
 }

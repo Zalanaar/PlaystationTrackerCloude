@@ -1,30 +1,37 @@
 // Чистая логика окна игры (design-system §4.15): плитки цифр и строки «Обзора». Без DOM и React.
 import type { GameItem } from '@/server/collection/types';
-import { formatDate, formatDateLong, formatDayMonth, formatPlayTime, launchesText, relativeAgo } from '../format';
+import { formatDate, formatDayMonth, formatPlayTime, relativeAgo } from '../format';
 
 export type Tile =
   | { id: 'hours'; label: string; value: string; sub: string; muted: boolean }
   | { id: 'launches'; label: string; value: string; sub: string; muted: boolean }
   | { id: 'trophies'; label: string; value: string; sub: string; muted: boolean; progress: number | null }
-  | { id: 'platinum'; label: string; value: string; sub: string; muted: boolean; state: 'earned' | 'locked' | 'unknown' };
+  | { id: 'platinum'; label: string; value: string; sub: string; muted: boolean; state: 'earned' | 'locked' | 'unknown'; aria: string };
 
 /**
- * Четыре плитки окна. `platinumAt` = дата платины из списка трофеев (ещё не загружен или нет даты = null).
- * Нулевые часы и запуски: «нет данных».
+ * Четыре плитки окна (спека 9.1 п.3). `platinumAt` = дата платины из списка трофеев (ещё не загружен или нет даты = null).
+ * Нулевые часы и запуски: «нет данных». Значения короткие и не переносятся: «Да/Нет», число запусков без слова.
  */
 export function detailTiles(g: GameItem, now: number, platinumAt: string | null): Tile[] {
   const time = formatPlayTime(g.playSeconds);
   const t = g.trophies;
+  const platDate = formatDayMonth(platinumAt, true);
   const plat: Tile = !t
-    ? { id: 'platinum', label: 'Платина', value: 'нет данных', sub: '', muted: true, state: 'unknown' }
+    ? { id: 'platinum', label: 'Платина', value: 'нет данных', sub: 'нет данных о трофеях', muted: true, state: 'unknown', aria: 'Платина: нет данных о трофеях' }
     : t.platinumEarned
-      ? { id: 'platinum', label: 'Платина', value: 'Получена', sub: formatDayMonth(platinumAt, true) ?? '', muted: false, state: 'earned' }
-      : { id: 'platinum', label: 'Платина', value: 'Нет', sub: t.platinumDefined ? 'не получена' : 'в игре нет платины', muted: true, state: 'locked' };
+      ? {
+        id: 'platinum', label: 'Платина', value: 'Да', sub: platDate ?? '', muted: false, state: 'earned',
+        aria: platDate ? `Платина: получена ${platDate}` : 'Платина: получена',
+      }
+      : {
+        id: 'platinum', label: 'Платина', value: 'Нет', sub: t.platinumDefined ? 'не получена' : 'в игре нет платины', muted: true, state: 'locked',
+        aria: t.platinumDefined ? 'Платина: не получена' : 'Платина: в игре нет платины',
+      };
   return [
     { id: 'hours', label: 'Часы', value: time ?? 'нет данных', sub: time ? 'наиграно' : '', muted: !time },
     {
-      id: 'launches', label: 'Запуски', value: g.playCount > 0 ? launchesText(g.playCount) : 'нет данных',
-      sub: g.playCount > 0 && g.lastPlayedAt ? `последний ${relativeAgo(g.lastPlayedAt, now)}` : '', muted: g.playCount <= 0,
+      id: 'launches', label: 'Запуски', value: g.playCount > 0 ? String(g.playCount) : 'нет данных',
+      sub: g.playCount <= 0 ? '' : g.lastPlayedAt ? `посл. ${relativeAgo(g.lastPlayedAt, now)}` : 'посл. запуск неизвестен', muted: g.playCount <= 0,
     },
     t && t.defined > 0
       ? { id: 'trophies', label: 'Трофеи', value: `${t.earned}/${t.defined}`, sub: `${t.progress}%`, muted: false, progress: Math.min(100, Math.max(0, t.progress)) }
@@ -38,10 +45,16 @@ export function detailSubtitle(g: Pick<GameItem, 'platform' | 'genres'>): string
   return ['PlayStation · ' + g.platform, ...(g.genres.length ? [g.genres.map((x) => x.label).join(', ')] : [])].join(' · ');
 }
 
-/** Значение «Последнего запуска»: «5 октября 2026 г. (3 дн. назад)» или «нет данных». */
+/** Значение «Последнего запуска»: «5 окт. 2026 · 3 дн. назад» или «нет данных». */
 export function lastPlayedText(iso: string | null, now: number): string {
-  const long = formatDateLong(iso);
-  return long ? `${long} (${relativeAgo(iso, now)})` : 'нет данных';
+  const d = formatDayMonth(iso, true);
+  return d ? `${d} · ${relativeAgo(iso, now)}` : 'нет данных';
+}
+
+/** Режим арта шапки окна (спека 9.1 п.2.2): баннер, размытая обложка (компактная лента) или ничего. */
+export type ArtMode = 'banner' | 'blur' | 'none';
+export function artMode(bannerOk: boolean, hasCover: boolean): ArtMode {
+  return bannerOk ? 'banner' : hasCover ? 'blur' : 'none';
 }
 
 /** Дата для строки Обзора: «05.10.2026» или «нет данных». */

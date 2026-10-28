@@ -23,6 +23,7 @@
   --story-backdrop: rgba(0, 0, 0, .85);
   --story-shade: rgba(0, 0, 0, .55);
   --story-plate: rgba(0, 0, 0, .45);
+  --story-accent: var(--accent);
   position: fixed; inset: 0; z-index: var(--z-story); display: grid; place-items: center; background: var(--story-backdrop);
   color: var(--story-fg);
 }
@@ -96,7 +97,7 @@
 .ps-story__tri b { color: var(--story-fg); font-size: var(--fs-h3); }
 
 .ps-story__genre { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); height: 36px; padding: 0 var(--sp-3); border-radius: var(--r-sm); overflow: hidden; background: var(--story-track); }
-.ps-story__genre-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); opacity: .7; }
+.ps-story__genre-fill { position: absolute; inset: 0 auto 0 0; background: var(--story-accent); opacity: .7; }
 .ps-story__genre-l, .ps-story__genre-v { position: relative; font-size: var(--fs-body); font-weight: 600; }
 .ps-story__genre-v { font-weight: 400; color: var(--story-fg); }
 
@@ -106,7 +107,7 @@
 .ps-story__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-4); }
 .ps-story__btn { min-height: var(--tap-min); gap: var(--sp-2); background: transparent; border-color: var(--story-track); color: var(--story-fg); }
 .ps-story__btn:hover:not(:disabled) { border-color: var(--story-fg); }
-.ps-story__btn--solid { background: var(--story-fg); border-color: var(--story-fg); color: var(--bg); font-weight: 600; }
+.ps-story__btn--solid { background: var(--story-fg); border-color: var(--story-fg); color: var(--story-backdrop); font-weight: 600; }
 
 @media (max-width: 767px) {
   .ps-story { display: block; }
@@ -118,3 +119,27 @@
   .ps-story__body { gap: var(--sp-2); }
   .ps-story__col { gap: var(--sp-3); }
 }
+
+/* ---------- Слайд «Самые редкие трофеи» (спека Фазы 15 п.10.2) ---------- */
+.ps-rares { gap: var(--sp-2); }
+.ps-rares .ps-story__title { font-size: 26px; line-height: 32px; }
+.ps-rares__first { display: grid; grid-template-columns: 88px minmax(0, 1fr); column-gap: var(--sp-4); align-items: end; }
+.ps-story .ps-rares__ic1 { grid-row: 1 / span 2; width: 88px; height: 88px; border-radius: var(--r-md); }
+.ps-rares__pct { font: var(--fw-display) 64px/64px var(--font-display); letter-spacing: -.04em; align-self: end; }
+.ps-rares__cap { font-size: 13px; line-height: 18px; color: var(--story-fg-dim); align-self: start; }
+.ps-rares__nm1 { grid-column: 1 / -1; margin-top: var(--sp-3); font: 600 18px/24px var(--font-body); overflow-wrap: anywhere; }
+.ps-rares__gm1 { grid-column: 1 / -1; font-size: 13px; line-height: 18px; color: var(--story-fg-dim); }
+.ps-rares__first .ps-rares__rar { grid-column: 1 / -1; margin-top: var(--sp-1); }
+.ps-rares__rar { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--story-fg); }
+.ps-rares__seg { display: inline-flex; gap: 2px; }
+.ps-rares__seg i { width: 10px; height: 4px; border-radius: 1px; background: color-mix(in srgb, var(--story-fg) 25%, transparent); }
+.ps-rares__seg i[data-on] { background: var(--story-fg); }
+.ps-rares__list { display: flex; flex-direction: column; gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.ps-rares__row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; min-height: 56px; }
+.ps-story .ps-rares__row .ps-rare__ic { width: 48px; height: 48px; }
+.ps-story .ps-rare__ic { background: var(--story-plate); color: var(--story-fg); }
+.ps-rares__tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ps-rares__tx b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font: 600 14px/20px var(--font-body); }
+.ps-rares__tx small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--story-fg-dim); }
+.ps-rares__pct2 { font: var(--fw-display) 20px/24px var(--font-display); }
+@media (max-width: 767px) { .ps-rares__pct { font-size: 56px; line-height: 56px; } }

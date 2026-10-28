@@ -72,7 +72,7 @@ const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.
 async function shot(page: Page, name: string, full = true) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: full });
 }
-async function theme(page: Page, t: 'night' | 'graphite' | 'activity') {
+async function theme(page: Page, t: 'night' | 'graphite' | 'ps5') {
   await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 }
 async function expandAll(page: Page) {
@@ -149,7 +149,7 @@ for (const vp of VIEWPORTS) {
       await shot(page, `${vp.name}-night-list`);
       await page.getByRole('button', { name: 'Крупно' }).click();
 
-      for (const t of ['graphite', 'activity'] as const) {
+      for (const t of ['graphite', 'ps5'] as const) {
         await theme(page, t);
         await page.waitForTimeout(300);
         await page.evaluate(() => window.scrollTo(0, 0));

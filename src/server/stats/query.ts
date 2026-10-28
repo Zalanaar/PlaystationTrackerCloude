@@ -6,6 +6,7 @@ import { getGamesByIds } from '@/server/collection/query';
 import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
 import { composeStats } from './compose';
 import { getEstimateInputs } from './estimate-query';
+import { applyExclusions, getMonthExclusions } from './exclusions';
 import type { FinishedEvent } from './finished';
 import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
@@ -44,7 +45,9 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
   const fromUtc = new Date(period.fromUtc);
   const toUtc = new Date(period.toUtc);
 
-  const estimates = await getEstimateInputs(db);
+  // 15.1: исключения грузятся параллельно со входами оценки и накладываются чистой функцией
+  const [exclusions, rawEstimates] = await Promise.all([getMonthExclusions(db), getEstimateInputs(db, new Map())]);
+  const estimates = applyExclusions(rawEstimates, exclusions);
   const owner = db
     .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId).as('owner_game_id') })
     .from(gameTrophySets)
@@ -104,7 +107,7 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
   const titles = new Map(genreRows.map((g) => [g.id, g.title] as const));
   const trophiesByGame: GameTrophyCount[] = trophyByGameRows.flatMap((r) => (r.gameId === null ? [] : [{ gameId: r.gameId, type: r.type, n: r.n }]));
   // Топ-10 (13.2) тоже грузится этим же запросом карточек.
-  const ids = new Set<number>(playedGameIds({ by, estimates, period, finishedEvents }));
+  const ids = new Set<number>(playedGameIds({ by, estimates, period, finishedEvents, exclusions }));
   for (const r of rankByHours(hours.seconds, hours.estimatedSeconds, titles)) ids.add(r.gameId);
   for (const r of rankByTrophies(trophiesByGame, titles)) ids.add(r.gameId);
   const items = await getGamesByIds(db, [...ids]);
@@ -125,5 +128,6 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     gameById: new Map(items.map((g) => [g.id, g])),
     genreGames,
     rareTrophies: { period: rarePeriod, allTime: rareAllTime },
+    exclusions,
   });
 }

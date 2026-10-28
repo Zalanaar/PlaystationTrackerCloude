@@ -42,7 +42,7 @@ export function TopGames({ top, onOpen }: { top: StatsTop; onOpen: (g: GameItem)
   const titleId = useId();
   const rows = useMemo(() => (mode === 'hours' ? topHoursRows(top.byHours) : topTrophyRows(top.byTrophies)), [mode, top]);
   return (
-    <section className="ps-st-panel ps-st-panel--top" aria-labelledby={titleId}>
+    <section className="ps-panel ps-st-panel ps-st-panel--top" aria-labelledby={titleId}>
       <div className="ps-top__head">
         <h3 className="ps-st-panel__t" id={titleId}>Топ-10 игр</h3>
         <div className="ps-seg" role="group" aria-label="Что считать в топе">

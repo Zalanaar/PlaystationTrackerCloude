@@ -2,20 +2,22 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameDetailsResponse, GameItem, GameStatusValue, GameTrophyItem } from '@/server/collection/types';
-import { cssUrl, formatDate, formatDateLong, formatDayMonth } from '../format';
+import type { GameDetailsResponse, GameItem, GameStatusValue, GameTrophyItem, PlatinumForecast } from '@/server/collection/types';
+import { cssUrl, formatDate, formatDayMonth } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { StatusChip, StatusMenu, toKey } from '../status';
 import { STATUS_META } from '../tokens';
 import { Cover } from './Cover';
 import {
-  DETAIL_TABS, detailSubtitle, detailTiles, doneLabel, lastPlayedText, nextTab, type DetailTab, type Tile,
+  artMode, DETAIL_TABS, detailSubtitle, detailTiles, doneLabel, lastPlayedText, nextTab, type ArtMode, type DetailTab, type Tile,
 } from './details';
+import { APPROX_NOTE, APPROX_TITLE, forecastView } from './forecast';
 import { completionInfo, dateInputToIso, isoToDateInput } from './filters';
 import {
   filterTrophies, formatRate, HIDDEN_DETAIL, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
   TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from './trophies';
+import { tintStyle } from './tint';
 import { useGameDetails, type DetailsState } from './useGameDetails';
 
 /** Минимум данных об игре, пока полный `GameItem` ещё не получен (открытие из поповера жанров). */
@@ -46,7 +48,7 @@ export function GameDialog({
   const target = game ?? stub ?? null;
   if (!target || typeof document === 'undefined') return null;
   return createPortal(
-    <Frame key={target.id} onClose={onClose}>
+    <Frame key={target.id} onClose={onClose} tint={game?.tint}>
       {(titleId) => (
         <Body
           key={`${target.id}:${startEditing}`} id={target.id} titleId={titleId} game={game} stub={stub ?? null} startEditing={startEditing} now={now}
@@ -59,7 +61,7 @@ export function GameDialog({
 }
 
 /** Оболочка: role=dialog, блокировка прокрутки, focus trap, Esc, возврат фокуса. */
-function Frame({ onClose, children }: { onClose: () => void; children: (titleId: string) => React.ReactNode }) {
+function Frame({ onClose, tint, children }: { onClose: () => void; tint?: string | null; children: (titleId: string) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -111,28 +113,32 @@ function Frame({ onClose, children }: { onClose: () => void; children: (titleId:
   }, []);
 
   return (
-    <div ref={ref} className="ps-gd" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+    <div ref={ref} className="ps-gd" style={tintStyle(tint)} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
       <div className="ps-gd__scroll">{children(titleId)}</div>
     </div>
   );
 }
 
-function Art({ game, stub }: { game: GameItem | null; stub: GameStub | null }) {
-  const [failed, setFailed] = useState<string | null>(null);
-  const banner = game?.bannerUrl && failed !== game.bannerUrl ? game.bannerUrl : null;
-  const coverUrl = game?.coverUrl ?? stub?.coverUrl ?? null;
-  const cover = cssUrl(coverUrl) ? coverUrl : null;
+/**
+ * Арт шапки (спека 9.1 п.2.2): баннер; нет баннера или он не загрузился, есть обложка: размытая компактная лента; нет ничего: заливка темы.
+ * Скрим и высота зависят от `data-art` родителя `.ps-gd__hero`.
+ */
+function Art({ mode, bannerUrl, coverUrl, loading, onBannerError }: {
+  mode: ArtMode; bannerUrl: string | null; coverUrl: string | null; loading: boolean; onBannerError: () => void;
+}) {
+  const [shown, setShown] = useState<string | null>(null);
+  const src = mode === 'banner' ? bannerUrl : mode === 'blur' ? coverUrl : null;
+  // уже закэшированная картинка может не прислать onLoad после гидратации
+  const imgRef = (el: HTMLImageElement | null) => { if (el?.complete && el.naturalWidth > 0 && shown !== src) setShown(src); };
   return (
-    <div className="ps-gd__art" aria-hidden="true">
-      <span className="ps-artbg" data-blur={!banner || undefined}>
-        {banner ? (
-          // eslint-disable-next-line @next/next/no-img-element -- внешний арт PSN
-          <img src={banner} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(banner)} />
-        ) : cover ? (
-          // eslint-disable-next-line @next/next/no-img-element -- внешняя обложка PSN
-          <img src={cover} alt="" decoding="async" referrerPolicy="no-referrer" />
-        ) : null}
-      </span>
+    <div className="ps-gd__art" aria-hidden="true" data-loading={loading || undefined}>
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element -- внешний арт и обложки PSN
+        <img
+          ref={imgRef} src={src} alt="" decoding="async" referrerPolicy="no-referrer" data-shown={shown === src || undefined}
+          onLoad={() => setShown(src)} onError={() => { if (mode === 'banner') onBannerError(); }}
+        />
+      )}
     </div>
   );
 }
@@ -153,6 +159,7 @@ function Body({
   const details = state.kind === 'ok' ? state.data : null;
   const game = gameProp ?? details?.game ?? null;
   const [tab, setTab] = useState<DetailTab>('overview');
+  const [bannerFailed, setBannerFailed] = useState<string | null>(null);
   const tabId = useId();
   const loadedCb = useRef(onLoaded);
   useEffect(() => { loadedCb.current = onLoaded; }, [onLoaded]);
@@ -176,6 +183,10 @@ function Body({
   const tiles = game ? detailTiles(game, now, details ? platinumEarnedAt(details.trophyList) : null) : null;
   const plat = game?.trophies?.platinumEarned === true;
   const t = game?.trophies;
+  const coverUrl = game?.coverUrl ?? stub?.coverUrl ?? null;
+  const hasCover = !!cssUrl(coverUrl);
+  const bannerOk = !!game?.bannerUrl && !!cssUrl(game.bannerUrl) && bannerFailed !== game.bannerUrl;
+  const mode = artMode(bannerOk, hasCover);
 
   function onTabKey(e: KeyboardEvent) {
     const n = nextTab(tab, e.key);
@@ -192,26 +203,33 @@ function Body({
           <Icon name="x" size={18} />
         </button>
       </div>
-      <Art game={game} stub={stub} />
-      <div className="ps-gd__head" aria-busy={!game || undefined}>
-        <Cover url={game?.coverUrl ?? stub?.coverUrl ?? null} title={title} className="ps-gd__cover" />
-        <div className="ps-gd__titles">
-          <div className="ps-gd__titlerow">
-            <h2 id={titleId} className="ps-gd__title">{title}</h2>
-            {plat && <PlatinumIcon size={24} className="ps-gd__plat" title="Платина получена" />}
+      <div className="ps-gd__hero" data-art={mode} aria-busy={!game || undefined}>
+        <div className="ps-gd__stage">
+          <Art
+            mode={mode} bannerUrl={game?.bannerUrl ?? null} coverUrl={hasCover ? coverUrl : null} loading={!game}
+            onBannerError={() => setBannerFailed(game?.bannerUrl ?? null)}
+          />
+          <Cover url={coverUrl} title={title} className="ps-gd__cover" />
+          <div className="ps-gd__tt">
+            <div className="ps-gd__titlerow">
+              <h2 id={titleId} className="ps-gd__title">{title}</h2>
+              {plat && <PlatinumIcon size={24} className="ps-gd__plat" title="Платина получена" />}
+            </div>
+            {game ? (
+              <p className="ps-gd__sub" title={detailSubtitle(game)}>{detailSubtitle(game)}</p>
+            ) : (
+              <div className="ps-skeleton ps-gd__sk-sub" aria-hidden="true" />
+            )}
           </div>
-          {game ? (
+        </div>
+        <div className="ps-gd__chips">
+          {game && (
             <>
-              <p className="ps-gd__sub">{detailSubtitle(game)}</p>
-              <div className="ps-gd__chips">
-                <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label="Изменить статус">
-                  <StatusChip status={game.status} /><Icon name="chevron-down" size={14} />
-                </StatusMenu>
-                {game.hiddenAt && <span className="ps-gd__hiddenmark"><Icon name="eye-off" size={14} />Убрана из коллекции</span>}
-              </div>
+              <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label="Изменить статус">
+                <StatusChip status={game.status} /><Icon name="chevron-down" size={14} />
+              </StatusMenu>
+              {game.hiddenAt && <span className="ps-gd__hiddenmark"><Icon name="eye-off" size={14} />Убрана из коллекции</span>}
             </>
-          ) : (
-            <div className="ps-skeleton ps-gd__sk-sub" aria-hidden="true" />
           )}
         </div>
       </div>
@@ -230,7 +248,7 @@ function Body({
         ))}
       </div>
 
-      <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" tabIndex={0}>
+      <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" data-tab={tab} tabIndex={0}>
         {tab === 'overview'
           ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} />
           : <TrophiesTab state={state} onRetry={retry} />}
@@ -243,7 +261,10 @@ function TileGrid({ tiles }: { tiles: Tile[] }) {
   return (
     <dl className="ps-gd__tiles">
       {tiles.map((x) => (
-        <div key={x.id} className="ps-gd__tile" data-tile={x.id} data-state={x.id === 'platinum' ? x.state : undefined} data-muted={x.muted || undefined}>
+        <div
+          key={x.id} className="ps-gd__tile" data-tile={x.id} data-state={x.id === 'platinum' ? x.state : undefined} data-muted={x.muted || undefined}
+          role={x.id === 'platinum' ? 'group' : undefined} aria-label={x.id === 'platinum' ? x.aria : undefined}
+        >
           <dt>{x.label}</dt>
           <dd className="ps-gd__tv num">
             {x.id === 'platinum' && x.state !== 'unknown' && <PlatinumIcon size={24} className="ps-gd__tplat" />}
@@ -252,10 +273,72 @@ function TileGrid({ tiles }: { tiles: Tile[] }) {
           {x.id === 'trophies' && x.progress !== null && (
             <span className="ps-gd__tbar" aria-hidden="true"><i style={{ width: `${x.progress}%` }} /></span>
           )}
-          {x.sub && <span className="ps-gd__ts">{x.sub}</span>}
+          {x.sub && <span className="ps-gd__ts" title={x.sub}>{x.sub}</span>}
         </div>
       ))}
     </dl>
+  );
+}
+
+function Kv({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`ps-gd__kv ${className ?? ''}`}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+/** «Путь к платине» (спека п.8.1): прогресс, остаток по грейдам, редкость, DLC. Приблизительность по `approximate`. */
+function PlatinumPath({ f }: { f: PlatinumForecast }) {
+  const v = forecastView(f);
+  const approx = v.approximate;
+  return (
+    <section className="ps-gd__sec ps-gd__fc" aria-labelledby="gd-fc-t" data-almost={v.almost || undefined}>
+      <div className="ps-gd__fch">
+        <PlatinumIcon size={20} className="ps-gd__fcicon" />
+        <h3 id="gd-fc-t">Путь к платине</h3>
+        <span className="ps-gd__fcpct num" aria-label={v.pctAria}>
+          {approx && <span className="ps-approx" title={APPROX_TITLE} aria-hidden="true">≈ </span>}{v.pct}
+        </span>
+      </div>
+      <div className="ps-gd__prog" role="progressbar" aria-label="Прогресс к платине" aria-valuemin={0} aria-valuemax={100} aria-valuenow={v.progress}>
+        <i style={{ width: `${v.progress}%` }} />
+      </div>
+      <p className="ps-gd__fcs">{v.requiredText}</p>
+      <div className="ps-gd__rem">
+        <div>
+          <span className="ps-gd__lbl">Осталось</span>
+          <b className="ps-gd__remv">{v.remainingText}</b>
+        </div>
+        {v.grades.length > 0 && (
+          <ul className="ps-gd__grades" aria-label="Осталось по типам">
+            {v.grades.map((g) => (
+              <li key={g.type} data-type={g.type} aria-label={g.label} title={g.label}><Icon name="trophy" size={14} /><span className="num">{g.count}</span></li>
+            ))}
+          </ul>
+        )}
+        {v.hiddenText && <span className="ps-gd__hid"><Icon name="eye-off" size={12} />{v.hiddenText}</span>}
+        {v.almost && <span className="ps-gd__almost">Почти готово</span>}
+      </div>
+      <dl className="ps-gd__metrics">
+        {v.metrics.map((m) => (
+          <div key={m.id}>
+            <dt>{m.label}</dt>
+            <dd className="num" data-empty={m.empty || undefined}>
+              {m.value}
+              {m.segments !== null && (
+                <span className="ps-rar__seg" aria-hidden="true">{[0, 1, 2, 3].map((i) => <i key={i} data-on={i < (m.segments ?? 0) || undefined} />)}</span>
+              )}
+            </dd>
+            <small>{m.sub || '\u00a0'}</small>
+          </div>
+        ))}
+      </dl>
+      {v.ratesNote && <p className="ps-gd__note">{v.ratesNote}</p>}
+      {v.dlcText && <p className="ps-gd__note ps-gd__dlc">{v.dlcText}</p>}
+      {approx && <p className="ps-gd__note ps-gd__approx"><Icon name="info" size={12} />{APPROX_NOTE}</p>}
+    </section>
   );
 }
 
@@ -287,56 +370,74 @@ function Overview({
   }
 
   const skeleton = <span className="ps-skeleton ps-gd__sk-val" aria-hidden="true" />;
+  const forecast = details?.platinumForecast ?? null;
+  // пока детали грузятся, место под прогноз резервируем, если платина в игре есть и не получена
+  const forecastPending = loading && !details && game.trophies?.platinumDefined === true && !game.trophies.platinumEarned;
+  const dateOr = (iso: string | null | undefined) => (details ? (formatDayMonth(iso ?? null, true) ?? 'нет данных') : loading ? skeleton : 'нет данных');
   return (
     <>
-      <dl className="ps-gd__dl">
-        <div><dt>Статус</dt><dd><span className="ps-gd__st"><StatusGlyph status={toKey(game.status)} size={16} />{STATUS_META[toKey(game.status)].label}</span></dd></div>
-        {done && (
-          <div><dt>{doneLabel(done.kind)}</dt>
-            <dd>
-              {editing ? (
-                <form className="ps-inline-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
-                  <input type="date" className="ps-input" value={value} max={today} aria-label="Дата завершения" onChange={(e) => { setValue(e.target.value); setErr(null); }} />
-                  <button type="submit" className="ps-btn ps-btn--primary">Сохранить</button>
-                  <button type="button" className="ps-btn" onClick={() => setEditing(false)}>Отмена</button>
-                  {err && <span role="alert" className="ps-field-error">{err}</span>}
-                </form>
-              ) : (
-                <>
-                  {formatDate(done.iso)}{' '}
-                  <button type="button" className="ps-link" onClick={() => setEditing(true)}>Изменить</button>
-                </>
-              )}
-            </dd>
-          </div>
-        )}
-        <div><dt>Первый запуск</dt><dd>{details ? (formatDateLong(details.firstPlayedAt) ?? 'нет данных') : loading ? skeleton : 'нет данных'}</dd></div>
-        <div><dt>Последний запуск</dt><dd>{lastPlayedText(game.lastPlayedAt, now)}</dd></div>
-        <div><dt>Статус изменён</dt><dd>{details ? (formatDateLong(details.statusChangedAt) ?? 'нет данных') : loading ? skeleton : 'нет данных'}</dd></div>
-        <div><dt>Платформа</dt><dd>PlayStation · {game.platform}</dd></div>
-        {game.genres.length > 0 && <div><dt>Жанры</dt><dd>{game.genres.map((g) => g.label).join(', ')}</dd></div>}
-        {hidden && <div><dt>Убрана из коллекции</dt><dd>{formatDateLong(game.hiddenAt ?? null)}</dd></div>}
-      </dl>
-      {(game.status !== null || onHidden) && (
-        <div className="ps-detail__actions">
-          {game.status !== null && (
-            <button type="button" className="ps-btn ps-btn--ghost" onClick={() => onStatus(game, null)}>
-              <Icon name="undo" size={16} />Сбросить статус
-            </button>
-          )}
-          {onHidden && (hidden ? (
-            <button type="button" className="ps-btn" onClick={() => onHidden(game, false)}>
-              <Icon name="undo" size={16} />Вернуть в коллекцию
-            </button>
-          ) : (
-            <>
+      <div className="ps-gd__cols">
+        <section className="ps-gd__sec" aria-labelledby="gd-s1">
+          <h3 id="gd-s1">Статус и даты</h3>
+          <dl>
+            <Kv label="Статус"><span className="ps-gd__st"><StatusGlyph status={toKey(game.status)} size={16} />{STATUS_META[toKey(game.status)].label}</span></Kv>
+            {done && (
+              <Kv label={doneLabel(done.kind)} className={editing ? 'ps-gd__kv--edit' : undefined}>
+                {editing ? (
+                  <form className="ps-inline-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+                    <input type="date" className="ps-input" value={value} max={today} aria-label="Дата завершения" onChange={(e) => { setValue(e.target.value); setErr(null); }} />
+                    <button type="submit" className="ps-btn ps-btn--primary">Сохранить</button>
+                    <button type="button" className="ps-btn" onClick={() => setEditing(false)}>Отмена</button>
+                    {err && <span role="alert" className="ps-field-error">{err}</span>}
+                  </form>
+                ) : (
+                  <>
+                    {formatDate(done.iso)}{' '}
+                    <button type="button" className="ps-link" onClick={() => setEditing(true)}>Изменить</button>
+                  </>
+                )}
+              </Kv>
+            )}
+            <Kv label="Статус изменён">{dateOr(details?.statusChangedAt)}</Kv>
+          </dl>
+        </section>
+        <section className="ps-gd__sec" aria-labelledby="gd-s2">
+          <h3 id="gd-s2">Запуски</h3>
+          <dl>
+            <Kv label="Первый запуск">{dateOr(details?.firstPlayedAt)}</Kv>
+            <Kv label="Последний запуск">{lastPlayedText(game.lastPlayedAt, now)}</Kv>
+            <Kv label="Платформа">PlayStation · {game.platform}</Kv>
+            {game.genres.length > 0 && <Kv label="Жанры" className="ps-gd__kv--long">{game.genres.map((g) => g.label).join(', ')}</Kv>}
+          </dl>
+        </section>
+      </div>
+
+      {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
+        <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
+      )}
+
+      {(game.status !== null || onHidden || hidden) && (
+        <section className="ps-gd__sec ps-gd__manage" aria-labelledby="gd-s4">
+          <h3 id="gd-s4">Управление</h3>
+          {hidden && <dl><Kv label="Убрана из коллекции">{formatDayMonth(game.hiddenAt ?? null, true)}</Kv></dl>}
+          <div className="ps-gd__actions">
+            {game.status !== null && (
+              <button type="button" className="ps-btn ps-btn--ghost" onClick={() => onStatus(game, null)}>
+                <Icon name="undo" size={16} />Сбросить статус
+              </button>
+            )}
+            {onHidden && (hidden ? (
+              <button type="button" className="ps-btn" onClick={() => onHidden(game, false)}>
+                <Icon name="undo" size={16} />Вернуть в коллекцию
+              </button>
+            ) : (
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--danger" aria-describedby={hintId} onClick={() => onHidden(game, true)}>
                 <Icon name="eye-off" size={16} />Убрать из коллекции
               </button>
-              <p className="ps-detail__hint" id={hintId}>Игра не будет показываться нигде, синк её не вернёт.</p>
-            </>
-          ))}
-        </div>
+            ))}
+          </div>
+          {onHidden && !hidden && <p className="ps-detail__hint" id={hintId}>Игра не будет показываться нигде, синк её не вернёт.</p>}
+        </section>
       )}
     </>
   );

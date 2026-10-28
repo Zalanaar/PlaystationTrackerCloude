@@ -43,15 +43,23 @@ function GlyphBadge({ status, title }: { status: GameStatusValue | null; title?:
  * Карточка в «Играх месяца» (Статистика): фигура в углу только у события месяца (пройдено/брошено), без меню статуса;
  * плашка даты = дата события; под обложкой часы за месяц вместо общих.
  */
-export type CardMonth = { finished: 'completed' | 'dropped' | null; finishedAt: string | null; hoursText: string | null; hoursLabel: string | null };
+export type CardMonth = {
+  finished: 'completed' | 'dropped' | null; finishedAt: string | null; hoursText: string | null; hoursLabel: string | null;
+  /** Игра убрана из этого месяца (раскрытый список «Убрано из месяца»): вместо даты метка «Убрана» */
+  excluded?: boolean;
+};
 
 export function GameCard({
-  game, actions, selectMode, selected, active, dateWithYear, month, children,
+  game, actions, selectMode, selected, active, dateWithYear, month, children, monthMenu, busy,
 }: {
   game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; active?: boolean;
   /** «9 окт. 2026» вместо «9 окт.» (плоский список результатов) */
   dateWithYear?: boolean;
   month?: CardMonth;
+  /** Кнопка «⋯» месяца (правый низ обложки), только в «Играх месяца» */
+  monthMenu?: ReactNode;
+  /** Запрос по карточке в процессе */
+  busy?: boolean;
   /** быстрые действия под карточкой (Бэклог) */
   children?: ReactNode;
 }) {
@@ -68,15 +76,18 @@ export function GameCard({
   return (
     <article
       className="ps-card" data-status={key} data-platinum={plat || undefined} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
+      data-excluded={month?.excluded || undefined} data-busy={busy || undefined}
     >
       <div className="ps-card__cover">
         <Cover url={game.coverUrl} title={game.title} />
         {plat && (
-          <span className="ps-card__plat" title="Платина получена" aria-hidden="true">
-            <PlatinumIcon size={20} />
+          <span className="ps-card__plat" role="img" aria-label="Платина получена" title="Платина получена">
+            <span className="ps-card__plat-in"><PlatinumIcon size={16} /></span>
           </span>
         )}
-        {date && <span className="ps-card__date num" data-kind={done?.kind}>{date}</span>}
+        {month?.excluded
+          ? <span className="ps-card__tag"><Icon name="calendar-x" size={12} />Убрана</span>
+          : date && <span className="ps-card__date num" data-kind={done?.kind}>{date}</span>}
         <div className="ps-card__hov" aria-hidden="true">
           <b>{game.title}</b>
           {time && <span>{time}{game.playCount > 0 ? ` · ${launchesText(game.playCount)}` : ''}</span>}
@@ -96,6 +107,8 @@ export function GameCard({
         <p className="ps-card__title" title={game.title}>{game.title}</p>
         {meta && <p className="ps-card__meta num" aria-label={month?.hoursLabel ?? undefined}>{meta}</p>}
       </div>
+      {/* слой точно над обложкой: кнопка «⋯» выше невидимой кнопки открытия, как фигура статуса */}
+      {monthMenu && <div className="ps-card__over">{monthMenu}</div>}
       {children && <div className="ps-card__extra">{children}</div>}
       {month ? (
         month.finished && (

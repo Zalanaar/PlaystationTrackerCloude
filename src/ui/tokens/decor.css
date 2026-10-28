@@ -1,9 +1,26 @@
 /* Декоративные правила тем. Только внешний вид; разметка и размеры не меняются.
-   Хуки (классы обязательны в разметке): .ps-app .ps-header .ps-nav-item .ps-card .ps-card__cover .ps-row .ps-skeleton
+   Хуки (классы обязательны в разметке):
+     .ps-app .ps-header .ps-nav-item .ps-card .ps-card__cover .ps-card__date .ps-row .ps-skeleton
+     .ps-panel (панели статистики, профиля, таблица списка) .ps-search .ps-chip (aria-pressed) .ps-hero__mini .ps-hero__label
    Функциональные вещи (статусы, баннеры, контраст) сюда не выносятся.
-   .ps-app: position relative, isolation isolate; контент выше декора (z-index 1). */
+   .ps-app: position relative, isolation isolate; контент выше декора (z-index 1), декор на z-index -1/-2.
 
-.ps-app { position: relative; isolation: isolate; }
+   ОБЩИЕ ОГРАНИЧЕНИЯ
+   - Декор только на псевдоэлементах .ps-app (pointer-events none), анимируется только transform (и opacity), без filter/width/top в анимации.
+   - prefers-reduced-motion: все анимации декора выключены, слои остаются статичными.
+   - Мобильный (меньше 768px): тяжёлое отключено или упрощено (см. блок в конце).
+   - Печать: декор скрыт.
+   - Фигуры из статусов (треугольник, круг, квадрат, крест, пауза, ромб) в декоре не используются.
+
+   ОГРАНИЧЕНИЯ КОНТРАСТА (при них верна таблица в docs/design-system.md; не усиливать без пересчёта)
+   | PS2 | суммарная плотность тумана не больше .24 (пятна .16 и .08 разнесены), башни не больше .06 и только в нижних 420px |
+   | PS3 | волна не выше top 240px (ниже уже фон не светлее --xmb-b), полоса не больше .05, линии не больше .06; градиент --xmb-a не светлее яркости .0125 |
+   | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются |
+   | PS5 | арт opacity не больше .28, затемнение сверху не меньше .45 |
+   Производительность: PS5 самая дорогая (blur 64 на полноэкранном слое, backdrop-filter на карточках), PS4 держит слой 100vh+240px,
+   поэтому position fixed (не на всю длину страницы: на 214 играх слой был бы огромным). */
+
+.ps-app { position: relative; isolation: isolate; overflow-x: clip; }
 
 /* ---------- Night: мягкое свечение сверху цветом акцента (позже цветом обложки), свечение на hover ---------- */
 :root:not([data-theme]) .ps-app::before,
@@ -16,22 +33,129 @@
   box-shadow: var(--shadow-hover), 0 0 24px color-mix(in srgb, var(--tint) 22%, transparent);
 }
 
+/* Night: цвет обложки игры (--cover-tint, inline, safeTint) действует только внутри hero «Играю», его мини-карточек и окна игры.
+   Токены с var() считаются там, где объявлены, поэтому зависимые значения пересчитываются здесь. Запасное значение = themes.css (Night).
+   Не добавлять сюда шапку, навигацию, сетку карточек, Статистику и Итоги. */
+:root:not([data-theme]) :is(.ps-hero__main, .ps-hero__mini, .ps-gd),
+[data-theme="night"] :is(.ps-hero__main, .ps-hero__mini, .ps-gd) {
+  --tint: var(--cover-tint, #b99cff);
+  --accent: var(--tint);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --st-playing: var(--accent);
+  --tint-glow: 0 0 0 1px color-mix(in srgb, var(--tint) 35%, transparent), 0 14px 44px color-mix(in srgb, var(--tint) 24%, transparent);
+}
+
 /* ---------- Graphite: без декора ---------- */
 
-/* ---------- Activity: размытый арт игры «Играю сейчас» фоном страницы ---------- */
-[data-theme="activity"] .ps-app::before {
+/* ---------- PS1: рёбра пластика, полоса цветов логотипа, фаска, «корешок» jewel case. Анимации нет ---------- */
+[data-theme="ps1"] .ps-app::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .035) 0 1px, transparent 1px 4px);
+}
+[data-theme="ps1"] .ps-header { position: sticky; }
+[data-theme="ps1"] .ps-header::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; pointer-events: none;
+  background: linear-gradient(90deg, #e2001a 0 25%, #f2b600 25% 50%, #00a05a 50% 75%, #0070d1 75%);
+}
+[data-theme="ps1"] :is(.ps-panel, .ps-row-table, .ps-hero__mini, .ps-search, .ps-chip[aria-pressed="true"]) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -1px 0 rgba(0, 0, 0, .12);
+}
+[data-theme="ps1"] .ps-card__cover { box-shadow: inset 6px 0 0 rgba(0, 0, 0, .18), var(--shadow-card); }
+[data-theme="ps1"] .ps-card:hover .ps-card__cover { box-shadow: inset 6px 0 0 rgba(0, 0, 0, .18), var(--shadow-hover); }
+/* тёмный текст на светлом чипе поверх обложки: тень от белого текста не нужна */
+[data-theme="ps1"] :is(.ps-card__date, .ps-hero__label) { text-shadow: none; }
+
+/* ---------- PS2: синий туман (дрейф 60 с), силуэты башен внизу, фаска ---------- */
+[data-theme="ps2"] .ps-app::before {
+  content: ""; position: fixed; inset: -10%; pointer-events: none; z-index: -2;
+  background: radial-gradient(40% 30% at 20% 12%, rgba(70, 110, 200, .16), transparent 70%),
+              radial-gradient(35% 26% at 82% 48%, rgba(70, 110, 200, .08), transparent 70%);
+  animation: ps2-fog 60s ease-in-out infinite alternate; will-change: transform;
+}
+[data-theme="ps2"] .ps-app::after {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 420px; pointer-events: none; z-index: -1;
+  background: repeating-linear-gradient(90deg, transparent 0 58px, rgba(120, 160, 255, .06) 58px 64px, transparent 64px 92px, rgba(120, 160, 255, .04) 92px 96px, transparent 96px 140px);
+  -webkit-mask: linear-gradient(transparent, #000 70%); mask: linear-gradient(transparent, #000 70%);
+}
+[data-theme="ps2"] :is(.ps-panel, .ps-row-table, .ps-hero__mini) {
+  box-shadow: inset 0 1px 0 rgba(170, 200, 255, .10), inset 0 -1px 0 rgba(0, 0, 0, .5);
+}
+@keyframes ps2-fog { to { transform: translate3d(-5%, 4%, 0); } }
+
+/* ---------- PS3: градиент XMB сверху (цвета по месяцу: --xmb-a, --xmb-b), волна, свечение выделения ---------- */
+[data-theme="ps3"] .ps-app::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 640px; pointer-events: none; z-index: -2;
+  background: linear-gradient(180deg, var(--xmb-a) 0, var(--xmb-b) 260px, var(--bg) 640px);
+}
+[data-theme="ps3"] .ps-app::after {
+  content: ""; position: absolute; top: 240px; left: 0; width: 200%; height: 300px; pointer-events: none; z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2880 300' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.05)' stroke-width='70'/%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.06)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 178C240 98 480 98 720 178S1200 258 1440 178S1920 98 2160 178S2640 258 2880 178' stroke='rgba(255,255,255,.06)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+  animation: ps3-wave 48s linear infinite; will-change: transform;
+}
+[data-theme="ps3"] .ps-nav-item[aria-current="page"]::after { box-shadow: 0 0 12px rgba(255, 255, 255, .6); }
+[data-theme="ps3"] .ps-card[data-active="true"] .ps-card__cover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55), 0 0 24px rgba(255, 255, 255, .22); }
+@keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
+
+/* ---------- PS4: свет сверху, частицы (подъём 40 с), активная плитка в белой рамке ---------- */
+[data-theme="ps4"] .ps-app::before {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: 520px; pointer-events: none; z-index: -2;
+  background: radial-gradient(120% 520px at 50% 0, #0a3584, transparent 75%);
+}
+[data-theme="ps4"] .ps-app::after {
+  content: ""; position: fixed; left: 0; right: 0; top: 0; height: calc(100vh + 240px); pointer-events: none; z-index: -1;
+  background-image: radial-gradient(circle at 30px 40px, rgba(255, 255, 255, .45) 0 1.2px, transparent 1.8px),
+                    radial-gradient(circle at 150px 110px, rgba(255, 255, 255, .30) 0 1px, transparent 1.6px),
+                    radial-gradient(circle at 200px 200px, rgba(170, 210, 255, .40) 0 1.4px, transparent 2px),
+                    radial-gradient(circle at 90px 180px, rgba(255, 255, 255, .25) 0 .9px, transparent 1.5px);
+  background-size: 240px 240px; opacity: .8;
+  animation: ps4-dust 40s linear infinite; will-change: transform;
+}
+[data-theme="ps4"] .ps-card[data-active="true"] .ps-card__cover { outline: 3px solid #fff; outline-offset: 2px; transform: scale(1.03); }
+[data-theme="ps4"] .ps-hero__mini { border-left: 3px solid var(--border-strong); }
+@keyframes ps4-dust { to { transform: translate3d(0, -240px, 0); } }
+
+/* ---------- PS5: размытый арт «Играю сейчас» (--page-art), pill-выделение, стеклянные карточки (только от 768px) ---------- */
+[data-theme="ps5"] .ps-app::before {
   content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -2;
   background: var(--page-art) center / cover no-repeat;
-  filter: blur(64px) saturate(1.15); transform: scale(1.25); opacity: .34;
+  filter: blur(64px) saturate(1.15); transform: scale(1.25); opacity: .28;
 }
-[data-theme="activity"] .ps-app::after {
+[data-theme="ps5"] .ps-app::after {
   content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
-  background: linear-gradient(rgba(7,6,10,.35), var(--bg) 85%);
+  background: linear-gradient(rgba(10, 10, 12, .45), var(--bg) 80%);
 }
-[data-theme="activity"] .ps-card[data-active="true"] .ps-card__cover,
-[data-theme="activity"] .ps-row[data-active="true"] { outline: 2px solid #fff; outline-offset: 2px; }
+[data-theme="ps5"] .ps-nav-item[aria-current="page"] {
+  align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+}
+[data-theme="ps5"] .ps-nav-item[aria-current="page"]::after { display: none; }
+[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) small { color: inherit; opacity: .65; }
+/* Чип «Платина» в PS5: pill тоже заливается, но платиновым льдом (не белым), знак тёмный: остаётся узнаваемым и отличается от остальных чипов */
+[data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] { background: var(--plat-fill); color: var(--plat-ink); border-color: transparent; }
+[data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] :is(.ps-filterchip__plat, small, .ps-filterchip__n) { color: inherit; }
+[data-theme="ps5"] .ps-card[data-active="true"] .ps-card__cover,
+[data-theme="ps5"] .ps-row[data-active="true"] { outline: 2px solid #fff; outline-offset: 3px; }
+[data-theme="ps5"] .ps-hero__mini { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .10); }
+@media (min-width: 768px) {
+  [data-theme="ps5"] .ps-hero__mini { backdrop-filter: blur(16px); }
+}
+
+/* ---------- Мобильный (меньше 768px): декор упрощён ---------- */
+@media (max-width: 767px) {
+  [data-theme="ps2"] .ps-app::before { animation: none; }                 /* туман статичный */
+  [data-theme="ps3"] .ps-app::after { animation: none; top: 260px; height: 200px; } /* волна статичная и короче */
+  [data-theme="ps4"] .ps-app::after { display: none; }                    /* частицы скрыты */
+  [data-theme="ps5"] .ps-app::before { filter: blur(32px) saturate(1.15); } /* дешевле; backdrop-filter выше 768 */
+}
 
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .ps-skeleton { animation: none !important; }
+  .ps-app::before, .ps-app::after { animation: none !important; }
+  [data-theme="ps4"] .ps-card[data-active="true"] .ps-card__cover { transform: none; }
+}
+
+/* ---------- Печать ---------- */
+@media print {
+  .ps-app::before, .ps-app::after, .ps-header::after { display: none !important; }
 }

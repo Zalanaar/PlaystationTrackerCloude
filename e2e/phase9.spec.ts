@@ -25,7 +25,7 @@ const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]
 const card = (page: Page, title: string) =>
   coll(page).locator('article.ps-card').filter({ has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) });
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-const theme = (page: Page, t: 'night' | 'graphite' | 'activity') =>
+const theme = (page: Page, t: 'night' | 'graphite' | 'ps5') =>
   page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 const isMobile = (name: string) => name === 'mobile';
 
@@ -47,10 +47,10 @@ test.describe('Фаза 9: платина', () => {
     expect(pseudo).toEqual({ a: '""', b: '""' });
   });
 
-  test('карточка в плотном режиме: бейдж 20, без пересечения', async ({ page, context, baseURL }) => {
+  test('карточка в плотном режиме: уголок 30, без пересечения', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { url: '/?sort=last_played&view=dense' });
     const b = await card(page, 'The Witcher 3: Wild Hunt').locator('.ps-card__plat').boundingBox();
-    expect(Math.round(b!.width)).toBe(20);
+    expect(Math.round(b!.width)).toBe(30);
   });
 
   test('строка списка: иконка платины после названия и заливка бара', async ({ page, context, baseURL }, info) => {
@@ -108,10 +108,10 @@ test.describe('Фаза 9: платина', () => {
     await expect(chip).toHaveAttribute('title', 'Платин пока нет');
   });
 
-  test('токены платины по темам: Night, Graphite, Activity', async ({ page, context, baseURL }) => {
+  test('токены платины по темам: Night, Graphite, PS5', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
-    const exp = { night: ['#9fd3f5', '40%'], graphite: ['#a9cbe6', '0%'], activity: ['#7cc4f2', '55%'] } as const;
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    const exp = { night: ['#9fd3f5', '40%'], graphite: ['#a9cbe6', '0%'], ps5: ['#7cc4f2', '55%'] } as const;
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       const v = await page.evaluate(() => { const c = getComputedStyle(document.documentElement); return [c.getPropertyValue('--plat-2').trim(), c.getPropertyValue('--plat-glow-a').trim()]; });
       expect(v).toEqual([...exp[t]]);
@@ -213,7 +213,7 @@ test.describe('Фаза 9: hero «Играю»', () => {
     const games = seed();
     games[2].trophies = { earned: 78, defined: 78, plat: true };
     await open(page, context, baseURL!, { games, url: '/' });
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       await expect(page.locator('.ps-hero__plat')).toBeVisible();
       await expect(page.locator('.ps-hero__main')).toHaveAttribute('data-platinum', 'true');
@@ -237,7 +237,7 @@ test.describe('Фаза 9: окно игры', () => {
     const tiles = dlg.locator('.ps-gd__tile');
     await expect(tiles).toHaveCount(4);
     await expect(tiles.nth(0)).toContainText('28 ч 17 м');
-    await expect(tiles.nth(1)).toContainText('19 запусков');
+    await expect(tiles.nth(1)).toContainText('посл.');
     await expect(tiles.nth(2)).toContainText('54/78');
     await expect(tiles.nth(2)).toContainText('69%');
     await expect(tiles.nth(3)).toContainText('Нет');
@@ -248,7 +248,7 @@ test.describe('Фаза 9: окно игры', () => {
     const cols = await dlg.locator('.ps-gd__tiles').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
     expect(cols).toBe(isMobile(info.project.name) ? 2 : 4);
     const art = await dlg.locator('.ps-gd__art').boundingBox();
-    expect(Math.round(art!.height)).toBe(isMobile(info.project.name) ? 168 : 240);
+    expect(Math.round(art!.height)).toBe(isMobile(info.project.name) ? 120 : 144) // нет баннера и обложки: компактная шапка;
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     await page.keyboard.press('Escape');
     await expect(dlg).toHaveCount(0);
@@ -291,8 +291,8 @@ test.describe('Фаза 9: окно игры', () => {
     const m = await open(page, context, baseURL!);
     await card(page, 'Horizon Forbidden West').locator('.ps-card__hit').click();
     const dlg = dlgOf(page);
-    await expect(dlg.getByText('1 марта 2024 г.')).toBeVisible(); // firstPlayedAt
-    await expect(dlg.getByText('6 октября 2026 г.')).toBeVisible(); // statusChangedAt
+    await expect(dlg.getByText('1 мар. 2024')).toBeVisible(); // firstPlayedAt
+    await expect(dlg.getByText('6 окт. 2026')).toBeVisible(); // statusChangedAt
     expect([...new Set(m.detailCalls)]).toEqual([3]); // dev-сервер (StrictMode) может продублировать запрос
     await dlg.getByRole('tab', { name: /Трофеи/ }).click();
     const rows = dlg.locator('li.ps-trophy');
@@ -403,14 +403,14 @@ test.describe('Фаза 9: окно игры', () => {
     await expect(dlg.locator('li.ps-trophy')).toHaveCount(250);
   });
 
-  test('платина получена: иконка у названия и плитка «Получена» с датой', async ({ page, context, baseURL }) => {
+  test('платина получена: иконка у названия и плитка «Да» с датой', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await card(page, 'The Witcher 3: Wild Hunt').locator('.ps-card__hit').click();
     const dlg = dlgOf(page, 'The Witcher 3: Wild Hunt');
     await expect(dlg.locator('.ps-gd__plat')).toBeVisible();
     const tile = dlg.locator('.ps-gd__tile[data-tile="platinum"]');
     await expect(tile).toHaveAttribute('data-state', 'earned');
-    await expect(tile).toContainText('Получена');
+    await expect(tile).toContainText('Да');
     await expect(tile).toContainText('5 окт. 2026');
   });
 
@@ -418,7 +418,7 @@ test.describe('Фаза 9: окно игры', () => {
     const m = await open(page, context, baseURL!);
     await card(page, 'Stray').locator('.ps-card__hit').click();
     const dlg = dlgOf(page, 'Stray');
-    await expect(dlg.getByText('6 октября 2026 г.')).toBeVisible(); // детали загружены
+    await expect(dlg.getByText('6 окт. 2026')).toBeVisible(); // детали загружены
     const before = m.detailCalls.length;
     await expect(dlg.getByRole('button', { name: 'Изменить статус' })).toHaveCount(1);
     await dlg.getByRole('button', { name: 'Изменить статус' }).click();
@@ -438,7 +438,7 @@ test.describe('Фаза 9: окно игры', () => {
 
   test('три темы: окно без переполнения, закрытие кнопкой', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await theme(page, t);
       await card(page, 'The Witcher 3: Wild Hunt').locator('.ps-card__hit').click();
       const dlg = dlgOf(page, 'The Witcher 3: Wild Hunt');

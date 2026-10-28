@@ -135,3 +135,20 @@ export function cssUrl(u: string | null | undefined): string | undefined {
   if (!u || !/^https?:\/\//i.test(u)) return undefined;
   return `url("${u.replace(/["\\\n\r]/g, encodeURIComponent)}")`;
 }
+
+/**
+ * Уменьшенная обложка для размытого фона (PS5 --page-art на мобильном).
+ * Image API PSN принимает `w` и `thumb=true`; чужие хосты и не-http значения возвращаются как есть.
+ */
+export function smallCoverUrl(u: string | null | undefined, width = 240): string | null {
+  if (!u) return null;
+  try {
+    const url = new URL(u);
+    if (url.hostname !== 'image.api.playstation.com') return u;
+    url.searchParams.set('w', String(width));
+    url.searchParams.set('thumb', 'true');
+    return url.toString();
+  } catch {
+    return u;
+  }
+}

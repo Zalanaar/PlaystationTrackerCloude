@@ -1,5 +1,6 @@
 // Сборка ответа /api/stats из сырых данных. Без БД и без текущего времени (today передаётся).
 import type { GameItem } from '@/server/collection/types';
+import type { MonthExclusions } from './exclusions';
 import { aggregateGenresWithGames, type GenreGame, type GenreGameInfo } from './genre-stats';
 import { groupFinished, type FinishedEvent } from './finished';
 import { calcHours, groupSnapshots, type EstimateInput, type HoursCalc, type Snapshot } from './hours';
@@ -33,6 +34,8 @@ export type StatsInput = {
   hours?: HoursCalc;
   /** 14.1: уже отобранные редкие трофеи (SQL с LIMIT 5); нет = пустые списки. */
   rareTrophies?: { period: RareTrophy[]; allTime: RareTrophy[] };
+  /** 15.1: игры, убранные из месяцев (estimates уже содержат excludedMonths). */
+  exclusions?: MonthExclusions;
 };
 
 export function composeStats(i: StatsInput): StatsResponse {
@@ -88,6 +91,6 @@ export function composeStats(i: StatsInput): StatsResponse {
     rareTrophies: i.rareTrophies ?? { period: [], allTime: [] },
     trophies: { counts, byMonth },
     finished: { groups },
-    played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById }) },
+    played: { groups: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById, exclusions: i.exclusions }) },
   };
 }

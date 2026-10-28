@@ -99,7 +99,7 @@ test.describe('блок «Игры-сервисы»', () => {
 
   test('3 темы: блок помещается по ширине', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
-    for (const t of ['night', 'graphite', 'activity'] as const) {
+    for (const t of ['night', 'graphite', 'ps5'] as const) {
       await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
       expect(await overflow(page), t).toBeLessThanOrEqual(0);
       const c = await block(page).locator('.ps-block__head svg').evaluate((el) => getComputedStyle(el).color);

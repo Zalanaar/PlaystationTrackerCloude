@@ -1,6 +1,11 @@
-import { THEMES, THEME_STORAGE_KEY } from './tokens';
+import { LEGACY_THEME_ALIASES, THEMES, THEME_STORAGE_KEY } from './tokens';
 
-/** Inline-скрипт для <head>: ставит data-theme до первой отрисовки. Для night атрибут не ставится. */
+/**
+ * Inline-скрипт для <head>: ставит data-theme и data-xmb-month до первой отрисовки. Для night атрибута темы нет.
+ * Источник: localStorage, затем cookie. Старый id (activity) заменяется по LEGACY_THEME_ALIASES и записывается обратно
+ * (localStorage + cookie); неизвестное значение -> Night. Месяц по Europe/Moscow.
+ */
 const attrs = THEMES.filter((t) => t.attr).map((t) => t.attr);
+const K = JSON.stringify(THEME_STORAGE_KEY);
 
-export const themeInitScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var a=${JSON.stringify(attrs)};var e=document.documentElement;if(t==='night'||a.indexOf(t)<0){e.removeAttribute('data-theme');}else{e.setAttribute('data-theme',t);}}catch(e){}})();`;
+export const themeInitScript = `(function(){var e=document.documentElement;try{var k=${K};var al=${JSON.stringify(LEGACY_THEME_ALIASES)};var a=${JSON.stringify(attrs)};var t=null;try{t=localStorage.getItem(k);}catch(x){}if(t===null){var m=(document.cookie||'').match(new RegExp('(?:^|; )'+k+'=([^;]*)'));if(m)t=decodeURIComponent(m[1]);}var n=t;if(t!==null&&Object.prototype.hasOwnProperty.call(al,t))n=al[t];if(n===null||n==='night'||a.indexOf(n)<0)e.removeAttribute('data-theme');else e.setAttribute('data-theme',n);if(t!==null&&n!==t&&a.indexOf(n)>=0){try{localStorage.setItem(k,n);}catch(x){}document.cookie=k+'='+n+'; path=/; max-age=31536000; samesite=lax';}var mo=+new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Moscow',month:'numeric'}).format(new Date());if(mo>=1&&mo<=12)e.setAttribute('data-xmb-month',String(mo));}catch(x){}})();`;

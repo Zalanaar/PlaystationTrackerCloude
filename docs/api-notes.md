@@ -111,3 +111,7 @@
 - Правило (`pickBanner` в `src/server/psn/mapping.ts`): первое изображение по приоритету типов `SIXTEEN_BY_NINE_BANNER`, `GAMEHUB_COVER_ART`, `FOUR_BY_THREE_BANNER`, `BACKGROUND`, `SCREENSHOT`; иначе любое с числовыми `width > height`; иначе `null`. Синк пишет `coalesce(новое, старое)`.
 - Профиль: `getProfileFromUserName` отдаёт `avatarUrls[{size, avatarUrl}]` (размеры `xs..xl`; берём самый крупный по `size`) и `trophySummary {level, progress, earnedTrophies}`. Поле `tier` в типах библиотеки не объявлено; читается защитно, при отсутствии `null`. Любое отсутствующее поле даёт `null`, прежнее значение в БД не затирается.
 - Риск: если у реальных игр `images` пуст или типы отличаются, баннер будет `null` у большинства игр (UI рисует размытую обложку). После первого синка проверить `select count(banner_url), count(*) from games`.
+
+## Этап 2: trophyGroupId и обложки (проверено по типам psn-api 2.18)
+- `trophyGroupId` (`default` база, `001`... DLC) есть только в определениях трофеев (`getTitleTrophies`, `TitleThinTrophy`). В списке полученных (`getUserTrophiesEarnedForTitle`, `UserThinTrophy`) поля нет. Группу берём из определений, поэтому перезагрузка сета для заполнения `trophies.group_id` делает оба запроса. На реальных ответах не проверялось (проверит первый синк после миграции `0005`).
+- Цвет акцента считается по `image_url` (обложка), при неудаче по `banner_url`; CDN отдаёт картинки без авторизации. Реальная работа `sharp` на Vercel не проверена до деплоя.

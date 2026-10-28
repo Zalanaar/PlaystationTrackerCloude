@@ -136,6 +136,16 @@ export function parseHiddenBody(body: unknown): Parsed<{ hidden: boolean }> {
   return typeof h === 'boolean' ? { ok: true, value: { hidden: h } } : bad('hidden должно быть true или false.');
 }
 
+/** 15.1: {"month":"YYYY-MM","excluded":boolean}, год 2000..2100. */
+export function parseMonthExclusionBody(body: unknown): Parsed<{ month: string; excluded: boolean }> {
+  if (typeof body !== 'object' || body === null) return bad('Некорректное тело запроса.');
+  const { month, excluded } = body as { month?: unknown; excluded?: unknown };
+  const m = typeof month === 'string' ? /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month) : null;
+  if (!m || Number(m[1]) < 2000 || Number(m[1]) > 2100) return bad('month должен быть в формате YYYY-MM (год 2000..2100).');
+  if (typeof excluded !== 'boolean') return bad('excluded должно быть true или false.');
+  return { ok: true, value: { month: month as string, excluded } };
+}
+
 export function parseResetAllBody(body: unknown): Parsed<true> {
   if (typeof body !== 'object' || body === null || (body as { confirm?: unknown }).confirm !== 'RESET') {
     return bad('Нужно подтверждение: {"confirm":"RESET"}.');

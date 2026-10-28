@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ru" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS Tracker · макет Фаз 9.1 и 15</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Unbounded:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<!-- базовые токены проекта (общие для тем); значения тем ниже скопированы из themes-ps.html -->
+<link rel="stylesheet" href="../../../src/ui/tokens/tokens.css">
+<style>
+/* ===== Значения тем (копия themes-ps.html + Night/Graphite). В проде: src/ui/tokens/themes.css ===== */
+:root { --font-body: "Inter", system-ui, sans-serif; --font-num: var(--font-body); --font-display: "Unbounded", "Inter", sans-serif; --bg-image: none; --r-pill: 999px;
+  --on-scrim: #ffffff; --plat-wash-a: 22%;
+  --plat-wash: linear-gradient(160deg, color-mix(in srgb, var(--plat-2) var(--plat-wash-a), transparent) 0%, color-mix(in srgb, var(--plat-1) calc(var(--plat-wash-a) * .35), transparent) 55%, transparent 100%);
+  --plat-wash-row: linear-gradient(90deg, color-mix(in srgb, var(--plat-2) var(--plat-wash-a), transparent) 0%, color-mix(in srgb, var(--plat-1) calc(var(--plat-wash-a) * .3), transparent) 45%, transparent 90%);
+  --plat-corner: 44px; --plat-corner-icon: 16px;
+  --gd-art-h: 208px; --gd-art-h-compact: 144px; --gd-cover-w: 104px; --gd-cover-over: 32px;
+  --heat-cell: 18px; --heat-gap: 4px;
+  --heat-0: var(--surface-3);
+  --heat-1: color-mix(in srgb, var(--accent) 28%, var(--surface-3));
+  --heat-2: color-mix(in srgb, var(--accent) 50%, var(--surface-3));
+  --heat-3: color-mix(in srgb, var(--accent) 75%, var(--surface-3));
+  --heat-4: var(--accent);
+  --heat-unknown: repeating-linear-gradient(45deg, var(--border-strong) 0 1px, transparent 1px 4px);
+  --tint-glow: 0 0 0 1px color-mix(in srgb, var(--tint) 35%, transparent), 0 14px 44px color-mix(in srgb, var(--tint) 24%, transparent);
+  --r-chip: 999px; }
+[data-theme="night"] { --bg:#0e0f16; --surface:#171925; --surface-2:#202333; --surface-3:#2a2e44; --border:#2a2e42; --border-strong:#424868; --text:#eef0fa; --text-2:#aeb3cc; --text-3:#868cab;
+  --tint:#b99cff; --accent:var(--tint); --accent-ink:#14101f; --focus:#fff; --accent-soft:color-mix(in srgb,var(--accent) 16%,transparent); --header-bg:rgba(14,15,22,.86);
+  --r-cover:10px; --r-sm:8px; --r-md:12px; --r-lg:16px; --shadow-alpha:.45; --plat-1:#e6f6ff; --plat-2:#9fd3f5; --plat-ink:#0b1a2b; --plat-glow-a:40%; }
+[data-theme="graphite"] { --bg:#111113; --surface:#1a1a1d; --surface-2:#232327; --surface-3:#2d2d32; --border:#2c2c31; --border-strong:#46464d; --text:#ececee; --text-2:#b0b0b8; --text-3:#8e8e98;
+  --tint:#d0d0d8; --accent:#d0d0d8; --accent-ink:#121214; --focus:#fff; --accent-soft:rgba(208,208,216,.14); --header-bg:rgba(17,17,19,.92);
+  --r-cover:4px; --r-sm:6px; --r-md:8px; --r-lg:12px; --shadow-alpha:.5; --plat-1:#dcefff; --plat-2:#a9cbe6; --plat-ink:#101418; --plat-glow-a:0%; --plat-wash-a:14%; }
+[data-theme="ps1"] { color-scheme: light; --bg:#cfccc4; --surface:#dedbd4; --surface-2:#c4c0b8; --surface-3:#b3afa6; --border:#b0aca3; --border-strong:#8f8b82; --text:#18181c; --text-2:#3c3b40; --text-3:#4c4b51;
+  --tint:#2b2b31; --accent:#2b2b31; --accent-ink:#e8e5de; --focus:#18181c; --accent-soft:color-mix(in srgb,var(--accent) 10%,transparent); --header-bg:rgba(214,211,204,.9);
+  --r-cover:3px; --r-sm:4px; --r-md:6px; --r-lg:8px; --shadow-alpha:.18; --plat-1:#e6f6ff; --plat-2:#6fb0dc; --plat-ink:#0b1a2b; --plat-glow-a:0%; --plat-wash-a:16%;
+  --st-playing:#5b3a99; --st-completed:#0f5446; --st-backlog:#634800; --st-dropped:#8a2b3d; --st-shelved:#4a4d57; --st-service:#24468f; --success:#0f5446; --warning:#634800; --danger:#8a2b3d;
+  --gold:#7d5a00; --silver:#5f6470; --bronze:#8a4a1c; --on-cover-bg:rgba(236,233,226,.92); --on-cover-text:#18181c; --on-cover-border:rgba(0,0,0,.18); }
+[data-theme="ps2"] { --bg:#070b1a; --surface:#10172c; --surface-2:#172038; --surface-3:#212c4a; --border:#24304f; --border-strong:#3a4a75; --text:#e8eeff; --text-2:#a9b6d9; --text-3:#8593bb;
+  --tint:#cfe0ff; --accent:#cfe0ff; --accent-ink:#06102a; --focus:#fff; --accent-soft:color-mix(in srgb,var(--accent) 16%,transparent); --header-bg:rgba(7,11,26,.82);
+  --r-cover:4px; --r-sm:4px; --r-md:6px; --r-lg:8px; --shadow-alpha:.55; --plat-1:#e6f6ff; --plat-2:#9fd3f5; --plat-ink:#0b1a2b; --plat-glow-a:45%; }
+[data-theme="ps3"] { --bg:#10070b; --surface:#1b0d13; --surface-2:#26121b; --surface-3:#331a25; --border:#3a1e2a; --border-strong:#5c3343; --text:#fbeff2; --text-2:#d3b3bd; --text-3:#a98894;
+  --tint:#f4eef0; --accent:#f4eef0; --accent-ink:#1a0a10; --focus:#fff; --accent-soft:color-mix(in srgb,var(--accent) 16%,transparent); --header-bg:rgba(16,7,11,.82);
+  --r-cover:8px; --r-sm:8px; --r-md:12px; --r-lg:16px; --shadow-alpha:.55; --plat-1:#e6f6ff; --plat-2:#9fd3f5; --plat-ink:#0b1a2b; --plat-glow-a:40%; }
+[data-theme="ps4"] { --bg:#02173d; --surface:#0a2a63; --surface-2:#0e3474; --surface-3:#164090; --border:#1d4794; --border-strong:#3d6cc4; --text:#fff; --text-2:#c6d6f2; --text-3:#9fb6e0;
+  --tint:#fff; --accent:#fff; --accent-ink:#02173d; --focus:#fff; --accent-soft:rgba(255,255,255,.14); --header-bg:rgba(2,23,61,.82);
+  --r-cover:2px; --r-sm:4px; --r-md:4px; --r-lg:6px; --shadow-alpha:.5; --plat-1:#e6f6ff; --plat-2:#9fd3f5; --plat-ink:#0b1a2b; --plat-glow-a:30%; }
+[data-theme="ps5"] { --bg:#0a0a0c; --surface:#141417; --surface-2:#1d1d21; --surface-3:#28282d; --border:#2a2a30; --border-strong:#4b4b53; --text:#fff; --text-2:#c4c4cc; --text-3:#94949e;
+  --tint:#fff; --accent:#fff; --accent-ink:#000; --focus:#fff; --accent-soft:rgba(255,255,255,.12); --header-bg:rgba(10,10,12,.72);
+  --r-cover:14px; --r-sm:10px; --r-md:14px; --r-lg:22px; --shadow-alpha:.6; --plat-1:#c9ecff; --plat-2:#7cc4f2; --plat-ink:#06121e; --plat-glow-a:55%; }
+@media (max-width: 767px) { :root { --plat-corner: 38px; --plat-corner-icon: 14px; --gd-art-h: 176px; --gd-art-h-compact: 120px; --gd-cover-w: 80px; --gd-cover-over: 24px; --heat-cell: 12px; --heat-gap: 3px; } }
+
+/* ===== Каркас макета ===== */
+* { box-sizing: border-box; margin: 0; }
+body { font: 400 14px/20px var(--font-body); background: var(--bg); color: var(--text); padding-bottom: 80px; }
+.bar { position: sticky; top: 0; z-index: 100; display: flex; gap: 12px; align-items: center; padding: 10px 24px; background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+.bar b { font: 700 13px var(--font-display); letter-spacing: .14em; text-transform: uppercase; }
+select, button { font: inherit; color: inherit; }
+select { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+h1 { font: 700 22px/28px var(--font-display); margin: 32px 0 4px; }
+h2.sec { font: 600 15px/20px var(--font-display); margin: 40px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); }
+p.note { color: var(--text-2); font-size: 12px; line-height: 16px; margin: 4px 0 12px; max-width: 880px; }
+.row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.cap { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 12px 0 6px; }
+.sh { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.pl { width: 20px; height: 20px; fill: currentColor; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+.mob { width: 390px; max-width: 100%; border: 1px solid var(--border-strong); border-radius: 24px; overflow: hidden; background: var(--surface); }
+.mob-body { --heat-cell: 12px; --heat-gap: 3px; --plat-corner: 38px; --plat-corner-icon: 14px; --gd-art-h: 176px; --gd-art-h-compact: 120px; --gd-cover-w: 80px; --gd-cover-over: 24px; }
+.cov { background: linear-gradient(160deg, hsl(var(--h) 55% 38%), hsl(calc(var(--h) + 40) 50% 14%)); display: grid; place-items: end start; padding: 8px; font: 600 10px/12px var(--font-body); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.art { background: radial-gradient(80% 120% at 20% 20%, hsl(var(--h) 60% 55%), transparent 60%), linear-gradient(120deg, hsl(calc(var(--h) + 30) 50% 30%), hsl(var(--h) 40% 12%)); }
+.art.white { background: linear-gradient(120deg, #f4f4f4, #cfd8e8); }
+
+/* ===== 2. Шапка окна игры ===== */
+.gd { background: var(--surface); border-radius: var(--r-lg); overflow: hidden; width: 880px; max-width: 100%; }
+.mob .gd { width: 100%; border-radius: 0; }
+.gd__hero { position: relative; }
+.gd__art { position: relative; height: var(--gd-art-h); overflow: hidden; background: var(--surface-3); }
+.gd__hero[data-art="blur"] .gd__art, .gd__hero[data-art="none"] .gd__art { height: var(--gd-art-h-compact); }
+.gd__art > .img { position: absolute; inset: 0; }
+.gd__hero[data-art="blur"] .img { filter: blur(var(--art-blur)) brightness(.7) saturate(1.2); transform: scale(1.5); }
+.gd__hero[data-art="none"] .img { background: linear-gradient(135deg, color-mix(in srgb, var(--tint) 30%, transparent), transparent), var(--surface-3); }
+.gd__art::after { content: ""; position: absolute; inset: 25% 0 0 0; background: var(--cover-scrim); pointer-events: none; }
+.gd__cover { position: absolute; z-index: 2; left: 24px; bottom: calc(var(--gd-cover-over) * -1); width: var(--gd-cover-w); aspect-ratio: 3/4; border-radius: var(--r-cover); box-shadow: var(--shadow-card); }
+.gd__tt { position: absolute; z-index: 2; left: calc(24px + var(--gd-cover-w) + 16px); right: 72px; bottom: 16px; color: var(--on-scrim); }
+.gd__title { font: 700 24px/30px var(--font-display); letter-spacing: -.01em; text-shadow: 0 1px 3px rgba(0,0,0,.6); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gd__sub { font-size: 12px; line-height: 16px; margin-top: 4px; color: color-mix(in srgb, var(--on-scrim) 82%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd__close { position: absolute; z-index: 3; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--on-cover-border); background: var(--on-cover-bg); color: var(--on-cover-text); display: grid; place-items: center; }
+.gd__chips { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 24px 0 calc(24px + var(--gd-cover-w) + 16px); min-height: calc(var(--gd-cover-over) + 12px); }
+.mob .gd__tt { left: calc(16px + var(--gd-cover-w) + 12px); right: 56px; bottom: 12px; }
+.mob .gd__title { font-size: 18px; line-height: 24px; }
+.mob .gd__cover { left: 16px; }
+.mob .gd__close { top: 8px; right: 8px; width: 44px; height: 44px; }
+.mob .gd__chips { padding: 10px 16px 0 calc(16px + var(--gd-cover-w) + 12px); }
+.plat-t { color: var(--plat-1); margin-left: 6px; vertical-align: -3px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 8px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; font-weight: 600; }
+.st-playing { color: var(--st-playing); } .st-completed { color: var(--st-completed); }
+
+/* плитки */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; padding: 12px 24px 0; }
+.mob .tiles { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 12px 16px 0; }
+.tile { container-type: inline-size; min-height: 88px; display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); min-width: 0; }
+.mob .tile { min-height: 80px; padding: 12px 14px; }
+.tile dt { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tile dd { margin: 0; }
+.tile .v { display: flex; align-items: center; gap: 8px; font: 700 22px/28px var(--font-display); white-space: nowrap; word-break: keep-all; overflow: hidden; }
+@container (max-width: 150px) { .tile .v { font-size: 18px; line-height: 24px; } }
+.tile .s { font-size: 12px; line-height: 16px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.plat { border-color: var(--plat-2); background: color-mix(in srgb, var(--plat-2) 10%, var(--surface-2)); }
+.tile.plat .pl { color: var(--plat-1); }
+[data-theme="ps1"] .tile.plat .pl { color: #0e2f48; }
+.tile .bar4 { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin: 4px 0; } .tile .bar4 i { display: block; height: 100%; background: var(--accent); }
+.tabs { display: flex; border-bottom: 1px solid var(--border); margin-top: 16px; padding: 0 24px; }
+.tabs button { height: 44px; padding: 0 16px; background: none; border: 0; color: var(--text-2); font-weight: 500; position: relative; }
+.tabs button[aria-selected="true"] { color: var(--text); } .tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+.mob .tabs { padding: 0; } .mob .tabs button { flex: 1; height: 48px; }
+
+/* секции обзора */
+.panel { padding: 20px 24px 32px; display: grid; gap: 12px; }
+.mob .panel { padding: 16px; }
+.cols2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; } .mob .cols2 { grid-template-columns: 1fr; }
+.sec-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; }
+.sec-card h3 { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.kv { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; border-top: 1px solid var(--border); }
+.kv:first-of-type { border-top: 0; } .kv span:first-child { font-size: 12px; color: var(--text-3); flex: none; } .kv span:last-child { text-align: right; }
+.mob .kv { min-height: 44px; }
+.btn { height: var(--control-h); padding: 0 14px; border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface-2); display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; } .btn.ghost { background: transparent; } .btn.danger { color: var(--danger); }
+.mob .btn { height: 44px; width: 100%; justify-content: center; }
+.hint { font-size: 12px; line-height: 16px; color: var(--text-3); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .actions .hint { flex-basis: 100%; }
+
+/* прогноз платины */
+.fc { background: color-mix(in srgb, var(--plat-2) 8%, var(--surface-2)); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; }
+.fc__h { display: flex; align-items: center; gap: 8px; } .fc__h h3 { font: 600 14px/20px var(--font-body); flex: 1; } .fc__h .pl { color: var(--plat-1); } [data-theme="ps1"] .fc__h .pl { color: #0e2f48; }
+.fc__pct { font: 700 20px/24px var(--font-display); } .approx { color: var(--text-3); }
+.prog { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin: 10px 0 6px; } .prog i { display: block; height: 100%; background: var(--plat-fill); }
+.fc__rem { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0; }
+.fc__rem b { font: 700 18px/24px var(--font-display); }
+.tc { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; } .tc.g { color: var(--gold); } .tc.s { color: var(--silver); } .tc.b { color: var(--bronze); } .tc span { color: var(--text); }
+.metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; } .mob .metrics { grid-template-columns: 1fr; }
+.metrics dt { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); } .metrics dd { margin: 0; font: 700 16px/24px var(--font-display); } .metrics small { display: block; font: 400 12px/16px var(--font-body); color: var(--text-3); }
+
+/* ===== 3. Карточки: платина ===== */
+.grid { display: grid; gap: 20px 16px; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+.card { position: relative; isolation: isolate; min-width: 0; }
+.card__cover { position: relative; aspect-ratio: 3/4; border-radius: var(--r-cover); overflow: hidden; box-shadow: var(--shadow-card); }
+.card__cover .cov { position: absolute; inset: 0; }
+.card__title { margin-top: 8px; font-size: 13px; line-height: 16px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card__meta { font-size: 12px; line-height: 16px; color: var(--text-3); }
+.card__glyph { position: absolute; z-index: 3; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--on-cover-bg); border: 1px solid var(--on-cover-border); backdrop-filter: blur(4px); }
+.card__date { position: absolute; z-index: 3; left: 8px; bottom: 8px; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: calc(var(--r-cover) - 4px); background: var(--on-cover-bg); color: var(--on-cover-text); font: 600 11px/14px var(--font-body); }
+.card[data-platinum="true"] .card__cover { box-shadow: var(--shadow-card), 0 0 14px var(--plat-glow); }
+.card[data-platinum="true"] .card__cover::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; padding: 1px; pointer-events: none; background: linear-gradient(135deg, var(--plat-1), transparent 38%, var(--plat-2)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.card[data-platinum="true"]::before { content: ""; position: absolute; z-index: -1; inset: -6px -6px -4px; border-radius: calc(var(--r-cover) + 6px); background: var(--plat-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--plat-2) 30%, transparent); }
+.dense .card[data-platinum="true"]::before { inset: -4px; }
+.corner { position: absolute; z-index: 2; top: 0; left: 0; width: var(--plat-corner); height: var(--plat-corner); background: var(--plat-fill); clip-path: polygon(0 0, 100% 0, 0 100%); color: var(--plat-ink); }
+.corner-wrap { position: absolute; z-index: 2; top: 0; left: 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.45)); }
+.corner svg { position: absolute; width: var(--plat-corner-icon); height: var(--plat-corner-icon); fill: currentColor; top: max(4px, calc(var(--plat-corner) / 3 - var(--plat-corner-icon) / 2)); left: max(4px, calc(var(--plat-corner) / 3 - var(--plat-corner-icon) / 2)); }
+.card[data-platinum="true"] .card__cover .corner-wrap { }
+.dense { --plat-corner: 30px; --plat-corner-icon: 12px; gap: 10px; }
+.dense .card__glyph { width: 20px; height: 20px; top: 5px; right: 5px; }
+.dense .card__title, .dense .card__date { display: none; }
+.more { position: absolute; z-index: 3; right: 6px; bottom: 6px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--on-cover-border); background: var(--on-cover-bg); color: var(--on-cover-text); display: grid; place-items: center; opacity: 0; transition: opacity var(--dur-fast); }
+.card:hover .more, .card:focus-within .more, .more[aria-expanded="true"] { opacity: 1; }
+.mob-body .more { opacity: 1; }
+.dense .more { width: 24px; height: 24px; right: 4px; bottom: 4px; }
+.excl .card__cover > .cov { opacity: .55; filter: grayscale(.5); }
+.excl .tag { position: absolute; z-index: 3; left: 6px; bottom: 6px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: var(--r-pill); background: var(--on-cover-bg); color: var(--on-cover-text); border: 1px dashed var(--on-cover-border); font: 600 11px/14px var(--font-body); }
+.exbtn { display: flex; align-items: center; gap: 8px; height: 36px; width: 100%; margin-top: 12px; background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12px; } .exbtn .sh:last-child { margin-left: auto; transition: transform var(--dur-base); } .exbtn[aria-expanded="true"] .sh:last-child { transform: rotate(180deg); }
+.pop { position: absolute; z-index: 10; width: 320px; padding: 16px; background: var(--surface-3); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
+.pop h4 { font: 600 14px/20px var(--font-body); margin-bottom: 4px; } .pop p { font-size: 12px; line-height: 16px; color: var(--text-2); margin-bottom: 12px; }
+.menu { position: absolute; z-index: 10; min-width: 240px; padding: 4px; background: var(--surface-3); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
+.menu button { display: flex; width: 100%; align-items: center; gap: 8px; height: 40px; padding: 0 12px; background: none; border: 0; border-radius: var(--r-sm); text-align: left; } .menu button:hover { background: var(--surface-2); } .menu small { display: block; padding: 4px 12px 8px; color: var(--text-3); font-size: 12px; line-height: 16px; }
+.toast { display: inline-flex; align-items: center; gap: 12px; max-width: 420px; padding: 12px 16px; background: var(--surface-3); border-radius: var(--r-md); box-shadow: var(--shadow-pop); font-size: 13px; line-height: 18px; } .toast button { background: none; border: 0; color: var(--accent); font-weight: 600; }
+
+/* список */
+.rows { background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.lrow { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-top: 1px solid var(--border); background-color: transparent; } .lrow:first-child { border-top: 0; } .lrow:hover { background-color: var(--surface-2); }
+.lrow[data-platinum="true"] { background-image: var(--plat-wash-row); box-shadow: inset 3px 0 0 var(--plat-2); }
+.lrow .th { width: 32px; height: 42px; border-radius: 4px; flex: none; } .lrow .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .nm .pl { width: 14px; height: 14px; color: var(--plat-1); vertical-align: -2px; margin-left: 6px; } [data-theme="ps1"] .lrow .nm .pl { color: #0e2f48; }
+.lrow .meter { width: 64px; height: 4px; background: var(--surface-3); border-radius: 99px; overflow: hidden; } .lrow .meter i { display: block; height: 100%; background: var(--accent); } .lrow[data-platinum="true"] .meter i { background: var(--plat-fill); }
+.mhead { display: flex; align-items: baseline; gap: 4px 10px; margin: 20px 0 10px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+
+/* near platinum */
+.bhead { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; } .bhead h2 { font: 600 15px/20px var(--font-display); } .bhead small { color: var(--text-3); font-size: 12px; } .bhead .r { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; }
+.bhead .pl { width: 16px; height: 16px; color: var(--plat-1); } [data-theme="ps1"] .bhead .pl { color: #0e2f48; }
+.near-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); gap: 12px; }
+.near-track { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; } .near-track .near { flex: 0 0 264px; scroll-snap-align: start; }
+.near { display: flex; gap: 12px; height: 112px; padding: 10px; background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--border); border-radius: var(--r-md); }
+.near:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.near .c { width: 64px; height: 85px; border-radius: var(--r-cover); flex: none; align-self: center; }
+.near .t { min-width: 0; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+.near b { font-size: 13px; line-height: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.near .p { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; } .near .p .prog { flex: 1; height: 6px; margin: 0; }
+.near .s { font-size: 12px; line-height: 16px; color: var(--text-2); display: flex; gap: 8px; align-items: center; } .near .s2 { font-size: 12px; line-height: 16px; color: var(--text-3); }
+
+/* панели статистики */
+.panel-st { background: color-mix(in srgb, var(--surface) 82%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; }
+.mob .panel-st { padding: 16px; }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; } .ph h3 { font: 600 14px/20px var(--font-display); } .ph + p { font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+.seg { display: inline-flex; padding: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-pill); } .seg button { height: 26px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: none; color: var(--text-2); font-size: 12px; font-weight: 500; } .seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
+.rare { display: grid; grid-template-columns: 24px 48px minmax(0,1fr) 112px; gap: 12px; align-items: center; min-height: 64px; border-top: 1px solid var(--border); padding: 8px 4px; }
+.rare:hover { background: var(--surface-2); }
+.rare .rk { font-size: 13px; font-weight: 600; color: var(--text-3); } .rare:first-child .rk { color: var(--text); }
+.rare .ic { position: relative; width: 48px; height: 48px; border-radius: var(--r-sm); } .rare .ic .ty { position: absolute; right: -4px; bottom: -4px; width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--surface) 90%, transparent); display: grid; place-items: center; }
+.rare .ic .ty .pl { width: 14px; height: 14px; color: var(--plat-1); } [data-theme="ps1"] .rare .ic .ty .pl { color: #0e2f48; }
+.rare .nm { font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rare .g { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--text-2); } .rare .g i { width: 28px; height: 37px; border-radius: var(--r-sm); flex: none; } .rare .g em { font-style: normal; color: var(--text-3); white-space: nowrap; }
+.rare .rr { text-align: right; } .rare .rr b { display: block; font: 700 18px/24px var(--font-display); }
+.rar { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; } .rar[data-r="0"] { color: var(--rar-0); } .rar[data-r="1"] { color: var(--rar-1); } .rar[data-r="2"] { color: var(--rar-2); }
+.rar .sg { display: inline-flex; gap: 2px; } .rar .sg i { width: 10px; height: 4px; border-radius: 1px; background: var(--surface-3); } .rar .sg i.on { background: currentColor; }
+.mob .rare { grid-template-columns: 20px 44px minmax(0,1fr) 64px; min-height: 76px; } .mob .rare .nm { white-space: normal; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; } .mob .rare .rar { display: none; } .mob .rare .rr b { font-size: 16px; line-height: 20px; }
+
+/* ===== Карта активности ===== */
+.streak { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 8px 0 16px; } .mob .streak { gap: 8px; }
+.st-tile { min-height: 88px; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); min-width: 0; } .mob .st-tile { padding: 10px; min-height: 84px; }
+.st-tile dt { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); display: flex; gap: 4px; align-items: center; }
+.st-tile dd { margin: 0; } .st-tile .v { font: 700 22px/28px var(--font-display); white-space: nowrap; display: flex; align-items: center; gap: 6px; } .mob .st-tile .v { font-size: 18px; line-height: 24px; }
+.st-tile .s { font-size: 12px; line-height: 16px; color: var(--text-2); } .mob .st-tile .s { font-size: 11px; line-height: 14px; }
+.st-tile .gaps { font-size: 11px; line-height: 14px; color: var(--text-3); display: flex; gap: 4px; align-items: center; }
+.heatwrap { overflow-x: auto; scrollbar-width: none; position: relative; } .heatwrap::-webkit-scrollbar { display: none; }
+.heat { display: grid; grid-template-columns: 28px max-content; align-items: start; }
+.heat .wd { display: grid; grid-template-rows: repeat(7, var(--heat-cell)); gap: var(--heat-gap); margin-top: calc(14px + 4px); font-size: 11px; line-height: var(--heat-cell); color: var(--text-3); position: sticky; left: 0; background: var(--surface); z-index: 2; }
+.heat .months { position: relative; height: 14px; margin-bottom: 4px; font-size: 11px; line-height: 14px; color: var(--text-3); }
+.heat .months span { position: absolute; }
+.heat .cells { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--heat-cell)); grid-auto-columns: var(--heat-cell); gap: var(--heat-gap); }
+.hc { border-radius: min(4px, var(--r-sm)); background: var(--heat-0); } .mob .hc { border-radius: 3px; }
+.hc[data-l="1"] { background: var(--heat-1); } .hc[data-l="2"] { background: var(--heat-2); } .hc[data-l="3"] { background: var(--heat-3); } .hc[data-l="4"] { background: var(--heat-4); }
+.hc[data-l="u"] { background: var(--heat-unknown); box-shadow: inset 0 0 0 1px var(--border); } .hc[data-l="f"] { background: var(--heat-unknown); box-shadow: inset 0 0 0 1px var(--border); opacity: .4; } .hc[data-l="x"] { visibility: hidden; }
+.hc.today { outline: 1.5px solid var(--text-2); outline-offset: -1px; }
+.hc:hover { outline: 1.5px solid var(--text); outline-offset: -1px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12px; color: var(--text-3); }
+.legend .l { display: inline-flex; gap: 4px; align-items: center; } .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.tip { position: fixed; z-index: 200; pointer-events: none; padding: 8px 12px; background: var(--surface-3); border-radius: var(--r-sm); box-shadow: var(--shadow-pop); font-size: 12px; line-height: 16px; display: none; } .tip b { display: block; font-size: 13px; }
+
+/* ===== Разбор ===== */
+.tri { display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: center; max-width: 720px; }
+.tri .big { aspect-ratio: 3/4; border-radius: var(--r-lg); box-shadow: 0 24px 56px rgba(0,0,0,.4); }
+.tri h3 { font: 700 30px/36px var(--font-display); margin: 8px 0 12px; } .tri .lab { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.fchip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--text); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.cchip { display: inline-flex; gap: 6px; align-items: center; height: 28px; padding: 0 10px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
+.stack { position: relative; margin: 16px; aspect-ratio: 3/4; border-radius: var(--r-lg); overflow: hidden; }
+.stack .scr { position: absolute; inset: 0; background: var(--cover-scrim); } .stack .txt { position: absolute; left: 16px; right: 16px; bottom: 16px; color: var(--on-scrim); } .stack .txt b { display: block; font: 700 22px/28px var(--font-display); }
+.stack .oc { position: absolute; top: 12px; left: 12px; display: inline-flex; gap: 6px; align-items: center; height: 26px; padding: 0 10px; border-radius: var(--r-pill); background: var(--on-cover-bg); color: var(--on-cover-text); border: 1px solid var(--on-cover-border); font: 600 11px/14px var(--font-body); }
+
+/* ===== Hero / tint ===== */
+.hero { position: relative; height: 200px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-card), var(--tint-glow); margin-bottom: 8px; }
+.hero .scr { position: absolute; inset: 0; background: var(--cover-scrim), linear-gradient(90deg, rgba(0,0,0,.45), transparent 60%); }
+.hero .tx { position: absolute; left: 20px; bottom: 16px; right: 20px; color: var(--on-scrim); }
+.hero .lb { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 8px; border-radius: var(--r-pill); background: var(--on-cover-bg); color: var(--on-cover-text); border: 1px solid var(--on-cover-border); font: 600 11px/14px var(--font-body); letter-spacing: .06em; position: absolute; top: 16px; left: 16px; }
+.hero .lb .sh { color: var(--st-playing); }
+.hero h4 { font: 700 20px/26px var(--font-display); }
+.hero .bar { position: static; display: block; height: 6px; background: color-mix(in srgb, var(--on-scrim) 25%, transparent); border-radius: 99px; margin-top: 8px; max-width: 360px; padding: 0; border: 0; backdrop-filter: none; } .hero .bar i { display: block; height: 100%; width: 71%; background: var(--on-scrim); border-radius: inherit; }
+.hero-m { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); padding: 12px; margin-top: 8px; } .hero-m .bar2 { height: 6px; background: var(--surface-3); border-radius: 99px; overflow: hidden; margin-top: 8px; } .hero-m .bar2 i { display: block; height: 100%; width: 71%; background: var(--accent); }
+table.tt { border-collapse: collapse; font-size: 12px; } table.tt th, table.tt td { padding: 6px 12px; border-bottom: 1px solid var(--border); text-align: left; } .sw2 { display: inline-block; width: 28px; height: 14px; border-radius: 3px; vertical-align: -3px; margin-right: 6px; }
+.ok { color: var(--success); } .bad { color: var(--danger); }
+
+/* ===== Слайд Итогов ===== */
+.slide { position: relative; width: 360px; height: 640px; border-radius: var(--r-lg); overflow: hidden; background: linear-gradient(160deg, var(--surface-3), var(--bg)); color: var(--on-scrim); box-shadow: var(--shadow-pop); }
+.slide::before { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, hsl(300 50% 30%), hsl(220 50% 12%)); opacity: .5; filter: blur(40px); transform: scale(1.3); } .slide::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.slide > div { position: absolute; z-index: 2; inset: 72px 24px 32px; display: flex; flex-direction: column; gap: 10px; }
+.slide .mi { font: 600 11px/14px var(--font-body); letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+.slide h3 { font: 700 26px/32px var(--font-display); }
+.slide .r1 { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; } .slide .r1 .ic { width: 88px; height: 88px; border-radius: var(--r-md); } .slide .r1 .p { font: 700 56px/56px var(--font-display); letter-spacing: -.04em; }
+.slide .ri { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; min-height: 56px; } .slide .ri .ic { width: 48px; height: 48px; border-radius: var(--r-sm); } .slide .ri b { font-size: 14px; line-height: 20px; display: block; } .slide .ri small { font-size: 12px; opacity: .7; } .slide .ri .p { font: 700 20px/24px var(--font-display); }
+.slide .sg2 { display: inline-flex; gap: 2px; } .slide .sg2 i { width: 10px; height: 4px; background: color-mix(in srgb, var(--on-scrim) 25%, transparent); } .slide .sg2 i.on { background: var(--on-scrim); }
+.slide .prog4 { position: absolute; z-index: 2; top: 12px; left: 12px; right: 12px; display: flex; gap: 4px; } .slide .prog4 i { flex: 1; height: 3px; border-radius: 9px; background: rgba(255,255,255,.3); } .slide .prog4 i.on { background: #fff; }
+</style>
+</head>
+<body>
+<div class="bar"><b>PS Tracker</b><span style="color:var(--text-3)">макет Фаз 9.1 и 15</span>
+  <label style="margin-left:auto">Тема: <select id="theme">
+    <option value="night">Night</option><option value="graphite">Graphite</option><option value="ps1">PS1 (светлая)</option><option value="ps2">PS2</option><option value="ps3">PS3</option><option value="ps4">PS4</option><option value="ps5">PS5</option>
+  </select></label></div>
+
+<div class="wrap">
+<h1>Спеки Фаз 9.1 и 15: макет</h1>
+<p class="note">Текст спеки: <code>docs/design/spec-phase-15-9-1.md</code>. Макет собран на токенах из <code>src/ui/tokens/tokens.css</code>; значения тем скопированы локально, переключатель сверху. Если расходится с md, прав md.</p>
+
+<!-- ========== 2. ШАПКА ОКНА ========== -->
+<h2 class="sec">2–4. Окно игры: шапка, плитки, Обзор</h2>
+<p class="note">Слева три варианта арта (баннер / нет баннера, размытая обложка / нет ничего). Белый арт проверяет читаемость названия.</p>
+<div class="row">
+  <div>
+    <div class="cap">A. Баннер (высота 208 + чипы)</div>
+    <div class="gd">
+      <div class="gd__hero" data-art="banner">
+        <div class="gd__art"><div class="img art" style="--h:210"></div></div>
+        <button class="gd__close" aria-label="Закрыть"><svg class="sh" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <div class="gd__cover cov" style="--h:210">Marvel's Wolverine</div>
+        <div class="gd__tt"><h2 class="gd__title">Marvel's Wolverine<svg class="pl plat-t" viewBox="0 0 24 24" style="width:24px;height:24px"><use href="#plat"/></svg></h2><p class="gd__sub">PlayStation · PS5 · Экшен, Приключения</p></div>
+        <div class="gd__chips"><span class="chip"><svg class="sh st-playing" viewBox="0 0 16 16"><path d="M8 2.5 14 13H2z"/></svg>Играю</span></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="cap">B. Нет баннера: компактная лента (144)</div>
+    <div class="gd" style="width:560px">
+      <div class="gd__hero" data-art="blur">
+        <div class="gd__art"><div class="img art" style="--h:20"></div></div>
+        <button class="gd__close" aria-label="Закрыть"><svg class="sh" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <div class="gd__cover cov" style="--h:20">Trails in the Sky 2nd Chapter</div>
+        <div class="gd__tt" style="right:56px"><h2 class="gd__title">The Legend of Heroes: Trails in the Sky the 3rd</h2><p class="gd__sub">PlayStation · PS4 · Ролевые</p></div>
+        <div class="gd__chips"><span class="chip"><svg class="sh st-completed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg>Пройдено</span></div>
+      </div>
+    </div>
+    <div class="cap">C. Нет ни баннера, ни обложки</div>
+    <div class="gd" style="width:560px">
+      <div class="gd__hero" data-art="none">
+        <div class="gd__art"><div class="img"></div></div>
+        <div class="gd__cover" style="background:var(--surface-3);display:grid;place-items:center;font-size:10px;color:var(--text-2);padding:6px;text-align:center">Название игры</div>
+        <div class="gd__tt" style="right:56px"><h2 class="gd__title">Игра без арта</h2><p class="gd__sub">PlayStation · PS4</p></div>
+        <div class="gd__chips"><span class="chip">Без статуса</span></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="cap">D. Светлый баннер (проверка читаемости)</div>
+    <div class="gd" style="width:560px">
+      <div class="gd__hero" data-art="banner">
+        <div class="gd__art"><div class="img art white"></div></div>
+        <div class="gd__cover cov" style="--h:200">ACE COMBAT 7</div>
+        <div class="gd__tt" style="right:56px"><h2 class="gd__title">ACE COMBAT 7: SKIES UNKNOWN</h2><p class="gd__sub">PlayStation · PS4 · Симуляторы</p></div>
+        <div class="gd__chips"><span class="chip">Бэклог</span></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="cap">Мобильный (390)</div>
+    <div class="mob mob-body"><div class="gd">
+      <div class="gd__hero" data-art="banner">
+        <div class="gd__art"><div class="img art" style="--h:150"></div></div>
+        <button class="gd__close" aria-label="Закрыть"><svg class="sh" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <div class="gd__cover cov" style="--h:150">Horizon</div>
+        <div class="gd__tt"><h2 class="gd__title">Horizon Forbidden West</h2><p class="gd__sub">PlayStation · PS5</p></div>
+        <div class="gd__chips"><span class="chip">Играю</span></div>
+      </div>
+      <dl class="tiles" id="mt"></dl>
+    </div></div>
+  </div>
+</div>
+
+<div class="cap" style="margin-top:24px">Плитки (десктоп, 4 колонки) и «Обзор» с секциями. Лист по содержимому: под «Управлением» сразу край листа</div>
+<div class="gd">
+  <dl class="tiles" id="dt"></dl>
+  <div class="tabs" role="tablist"><button role="tab" aria-selected="true">Обзор</button><button role="tab" aria-selected="false">Трофеи <small class="num" style="color:var(--text-3)">54/78</small></button></div>
+  <div class="panel" id="ov"></div>
+</div>
+
+<!-- ========== 5-6. ПЛАТИНА ========== -->
+<h2 class="sec">5–6. Платина: уголок + подложка</h2>
+<p class="note">Сверху вниз: карточки comfort (обычная / платина / платина+брошено), dense (3 платины подряд, чтобы проверить склейку подложек), строка списка. Круглый бейдж убран, статус справа сверху.</p>
+<div class="row">
+  <div style="width:720px;max-width:100%"><div class="grid" id="g1" style="--n:4"></div></div>
+  <div style="width:520px;max-width:100%"><div class="cap">Dense (10 колонок на 1280: здесь 6)</div><div class="grid dense" id="g2" style="--n:6"></div></div>
+</div>
+<div class="cap">Строка списка</div>
+<div class="rows" id="rows" style="max-width:880px"></div>
+<div class="cap">Мобильная: 2 колонки (comfort), 3 колонки (dense)</div>
+<div class="row">
+  <div class="mob mob-body" style="padding:16px"><div class="grid" id="g3" style="--n:2;gap:20px 12px"></div></div>
+  <div class="mob mob-body" style="padding:16px"><div class="grid dense" id="g4" style="--n:3;gap:8px"></div></div>
+</div>
+
+<!-- ========== 4. ИСКЛЮЧЕНИЕ ИЗ МЕСЯЦА ========== -->
+<h2 class="sec">4. «Игры месяца»: убрать из этого месяца</h2>
+<p class="note">Кнопка «⋯» появляется по hover/focus (здесь первая карточка показана «нажатой»). Ниже: диалог для игры с измеренными часами, тост для оценочной, свёрнутая и раскрытая строка «Убрано из месяца».</p>
+<div class="panel-st" style="position:relative;max-width:960px">
+  <div class="mhead">Октябрь <span style="font-weight:500;color:var(--text-3);font-size:12px">○ 1 · ✕ 0 · 5 игр</span></div>
+  <div class="grid dense" id="mg" style="--n:6"></div>
+  <div class="menu" style="left:24px;top:150px"><button><svg class="sh" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/></svg>Убрать из этого месяца</button><small>Игра останется в коллекции и в других месяцах</small></div>
+  <div class="pop" style="left:200px;top:120px"><h4>Убрать из списка октября?</h4><p>Измеренные часы (5 ч) останутся в статистике месяца: они привязаны к датам снимков и не двигаются. Игра пропадёт только из списка «Игры месяца».</p><div class="actions"><button class="btn primary">Убрать из списка</button><button class="btn ghost">Отмена</button></div></div>
+  <div style="height:150px"></div>
+  <button class="exbtn" aria-expanded="true"><svg class="sh" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/></svg>Убрано из месяца: 2<svg class="sh" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+  <div class="grid dense excl" id="eg" style="--n:6;margin-top:8px"></div>
+  <p class="hint" style="margin-top:8px;display:flex;gap:6px;align-items:center"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Измеренные часы этих игр остаются в статистике месяца. Убрано только из списка и оценочных часов.</p>
+  <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+    <div class="toast">Игра убрана из октября. Оценочные часы перераспределены по другим месяцам <button>Отменить</button></div>
+    <div class="toast">Игра убрана из списка октября. Измеренные часы остаются <button>Отменить</button></div>
+  </div>
+</div>
+
+<!-- ========== 8. ПРОГНОЗ ПЛАТИНЫ ========== -->
+<h2 class="sec">8. Прогноз платины</h2>
+<div class="row">
+  <div style="width:560px;max-width:100%">
+    <div class="cap">Секция в «Обзоре» окна игры</div>
+    <div class="fc" id="fc"></div>
+  </div>
+  <div class="mob mob-body" style="padding:16px"><div class="cap" style="margin-top:0">Мобильная</div><div class="fc" id="fc2"></div></div>
+</div>
+<div class="cap">Блок «Ближе всего к платине» на Коллекции (десктоп)</div>
+<div class="bhead"><svg class="pl" viewBox="0 0 24 24"><use href="#plat"/></svg><h2>Ближе всего к платине</h2><small class="num">5</small><span class="r"><small><span class="approx">≈</span> Приблизительно: учитываются и трофеи DLC</small></span></div>
+<div class="near-grid" id="near"></div>
+<div class="cap">Мобильный трек</div>
+<div class="mob mob-body" style="padding:16px"><div class="near-track" id="near2"></div></div>
+
+<!-- ========== 7. РЕДКИЕ ТРОФЕИ ========== -->
+<h2 class="sec">7. Редкие трофеи (Статистика)</h2>
+<div class="row">
+  <div class="panel-st" style="width:760px;max-width:100%">
+    <div class="ph"><h3>Редкие трофеи</h3><div class="seg" role="group"><button aria-pressed="true">Октябрь 2026</button><button aria-pressed="false">За всё время</button></div></div>
+    <p>5 самых редких из выбитых: чем меньше процент игроков, тем реже</p>
+    <ol style="list-style:none;padding:0" id="rare"></ol>
+  </div>
+  <div class="mob mob-body" style="padding:16px"><div class="panel-st" style="padding:12px"><div class="ph"><h3>Редкие трофеи</h3></div><ol style="list-style:none;padding:0" id="rare2"></ol></div></div>
+</div>
+<div class="cap">Слайд Итогов (после «Трофеи»)</div>
+<div class="slide"><div class="prog4"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div>
+  <div><span class="mi">Самое редкое</span><h3>Твои самые редкие трофеи</h3>
+    <div class="r1"><div class="ic cov" style="--h:330"></div><div class="p num">0,8%</div><div style="font-size:13px;line-height:18px;opacity:.7">игроков получили этот трофей</div><b style="font-size:18px;line-height:24px">Без единой царапины</b><small style="opacity:.7;font-size:13px">Horizon Forbidden West</small></div>
+    <div id="srare" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div>
+  </div></div>
+
+<!-- ========== 9. АКТИВНОСТЬ ========== -->
+<h2 class="sec">9. Стрик и тепловая карта года</h2>
+<p class="note">Данные случайные. Первый синк 20 окт 2026, до него «неизвестно» (штриховка). Серия «Лучшая» с пропусками помечена. Мобильная карта: клетка 12, горизонтальная прокрутка, прокручена к концу.</p>
+<div class="panel-st" style="max-width:1280px">
+  <div class="ph"><h3>Активность</h3><div class="actions"><button class="btn" style="height:32px" aria-label="Предыдущий год" disabled>‹</button><b class="num">2026</b><button class="btn" style="height:32px" disabled>›</button></div></div>
+  <p>Игровые дни по ежедневным снимкам</p>
+  <dl class="streak">
+    <div class="st-tile"><dt><svg class="sh" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.900 4 6.500 2 1.600 3 3.500 3 5.500a7 7 0 1 1-14 0c0-1.200.4-2.400 1-3 .5.500.800 1.500 2.500 2.500z"/></svg>Текущая серия</dt><dd><div class="v num">3 дня</div><div class="s">25–27 окт.</div></dd></div>
+    <div class="st-tile"><dt>Лучшая серия</dt><dd><div class="v num">4 дня <svg class="sh" style="width:14px;height:14px;color:var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.800 1c0 2-3 3-3 3M12 17h.01"/></svg></div><div class="s">21–24 окт. 2026</div><div class="gaps">есть дни без данных</div></dd></div>
+    <div class="st-tile"><dt>Лучшая в 2026</dt><dd><div class="v num">4 дня</div><div class="s">21–24 окт.</div></dd></div>
+  </dl>
+  <div class="heatwrap" id="hw"><div class="heat" id="heat"></div></div>
+  <div class="legend"><span style="display:flex;gap:6px;align-items:center;max-width:620px"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Дни до 20.10.2026 (первый синк) неизвестны: PSN отдаёт только суммарное время. Игра после ночного снимка попадает в следующий день.</span>
+    <span class="l">Меньше <i class="sw" style="background:var(--heat-0)"></i><i class="sw" style="background:var(--heat-1)"></i><i class="sw" style="background:var(--heat-2)"></i><i class="sw" style="background:var(--heat-3)"></i><i class="sw" style="background:var(--heat-4)"></i> Больше
+      <span style="width:12px"></span><i class="sw" style="background:var(--heat-unknown);box-shadow:inset 0 0 0 1px var(--border)"></i> Нет данных</span></div>
+</div>
+<div class="cap">Мобильная</div>
+<div class="mob mob-body" style="padding:16px"><div class="panel-st" style="padding:12px;border:0;background:none">
+  <dl class="streak" id="mstreak"></dl>
+  <div class="heatwrap" id="hw2"><div class="heat" id="heat2"></div></div>
+</div></div>
+<div class="tip" id="tip"></div>
+
+<!-- ========== 10. ЗАБЫТЫЕ ========== -->
+<h2 class="sec">10. Забытые игры (Разбор и Коллекция)</h2>
+<div class="row">
+  <div>
+    <div class="cap">Коллекция: блок «Не разобрано»</div>
+    <div class="bhead"><h2>Не разобрано</h2><small class="num">177</small><span class="cchip"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Забытых: 23</span><span class="r"><button class="btn primary">Разобрать по одной</button></span></div>
+    <div class="cap">Разбор, десктоп</div>
+    <div class="seg" style="margin-bottom:16px"><button aria-pressed="false">Все 177</button><button aria-pressed="true">Забытые 23</button></div>
+    <div class="tri"><div class="big cov" style="--h:280"></div><div>
+      <span class="fchip"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Забытая · не запускалась 5 мес.</span>
+      <div class="lab">Не разобрано</div><h3>Mafia: Definitive Edition</h3>
+      <p style="color:var(--text-2)"><b style="color:var(--text)">3 ч 10 м</b> наиграно · <b style="color:var(--text)">4</b> запуска · последний запуск <b style="color:var(--text)">5 мая 2026</b></p>
+      <p class="hint" style="margin-top:8px">Начата, но давно не запускалась. Хороший кандидат на «Отложено» или «Брошено».</p></div></div>
+  </div>
+  <div class="mob mob-body"><div class="cap" style="padding:0 16px">Мобильный</div>
+    <div class="seg" style="margin:0 16px;display:flex"><button aria-pressed="false" style="flex:1;height:36px">Все 177</button><button aria-pressed="true" style="flex:1;height:36px">Забытые 23</button></div>
+    <div class="stack cov" style="--h:280"><div class="scr"></div><span class="oc"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Забытая</span><div class="txt"><b>Mafia: Definitive Edition</b><small>3 ч 10 м · не запускалась 5 мес.</small></div></div></div>
+</div>
+
+<!-- ========== 11. TINT ========== -->
+<h2 class="sec">11. Цвет акцента из обложки (--tint)</h2>
+<p class="note">Только Night использует tint; в других темах поле игнорируется, hero и прогресс остаются на акценте темы. Здесь tint ставится inline на hero независимо от темы, чтобы видно было механику. Таблица ниже: работа <code>safeTint()</code> (расчёт на значениях Night: ink #14101f, поверхность #202333).</p>
+<div class="row">
+  <div style="width:560px;max-width:100%" id="tint-demo"></div>
+  <div><table class="tt" id="tt"><thead><tr><th>Исходный</th><th>Нормализованный</th><th>Контраст с ink</th><th>на --surface-2</th><th>Итог</th></tr></thead><tbody></tbody></table></div>
+</div>
+</div>
+
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="plat" viewBox="0 0 24 24"><path d="M6 3h12v5a6 6 0 0 1-3.500 5.450V16h2.500v2H7v-2h2.500v-2.550A6 6 0 0 1 6 8zM4 5h2v3H4zM18 5h2v3h-2zM8 21h8v-2H8z"/></symbol></defs></svg>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const sel = $('#theme');
+const saved = new URLSearchParams(location.search).get('theme');
+if (saved) { document.documentElement.dataset.theme = saved; sel.value = saved; }
+sel.onchange = () => { document.documentElement.dataset.theme = sel.value; };
+const plat = (cls = 'pl', s = '') => `<svg class="${cls}" viewBox="0 0 24 24" ${s}><use href="#plat"/></svg>`;
+const tcup = '<svg class="sh" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M6 9H4.500a2.500 2.500 0 0 1 0-5H6M18 9h1.500a2.500 2.500 0 0 0 0-5H18M4 22h16M10 14.700V17c0 .6-.5 1-1 1.200C7.900 18.800 7 20.200 7 22M14 14.700V17c0 .6.5 1 1 1.200 1.100.6 2 2 2 3.800M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
+const glyph = (t) => ({ playing: '<path d="M8 2.500 14 13H2z"/>', completed: '<circle cx="8" cy="8" r="6"/>', backlog: '<rect x="2.500" y="2.500" width="11" height="11"/>', dropped: '<path d="m3 3 10 10M13 3 3 13"/>' }[t]);
+const g16 = (t, c = '') => `<svg class="sh ${c}" viewBox="0 0 16 16">${glyph(t)}</svg>`;
+const stc = { playing: 'var(--st-playing)', completed: 'var(--st-completed)', backlog: 'var(--st-backlog)', dropped: 'var(--st-dropped)' };
+
+/* плитки */
+const tile = (l, v, s, extra = '', cls = '') => `<div class="tile ${cls}"><dt>${l}</dt><dd class="v num">${v}</dd>${extra}<dd class="s" title="${s}">${s}</dd></div>`;
+const tiles = (plat_) => tile('Часы', '128 ч 17 м', 'наиграно') + tile('Запуски', '19', 'посл. 3 дн. назад') +
+  tile('Трофеи', '54/78', '71%', '<span class="bar4"><i style="width:71%"></i></span>') +
+  (plat_ ? tile('Платина', plat('pl', 'style="width:24px;height:24px"') + '<span>Да</span>', '5 окт. 2026', '', 'plat')
+         : tile('Платина', plat('pl', 'style="width:24px;height:24px;color:var(--text-3)"') + '<span>Нет</span>', 'не получена'));
+$('#dt').innerHTML = tiles(true); $('#mt').innerHTML = tiles(false);
+
+/* обзор */
+const kv = (a, b) => `<div class="kv"><span>${a}</span><span>${b}</span></div>`;
+const fcHtml = (mob) => `<div class="fc__h">${plat()}<h3>Путь к платине</h3><span class="fc__pct num"><span class="approx" title="Приблизительно: учитываются и трофеи DLC">≈</span> 91%</span></div>
+  <div class="prog" role="progressbar" aria-valuenow="91"><i style="width:91%"></i></div><div class="hint">49 из 54 трофеев (кроме платины)</div>
+  <div class="fc__rem"><div><div class="hint" style="text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:11px">Осталось</div><b>5 трофеев</b></div>
+  <span class="tc g">${tcup}<span>1</span></span><span class="tc s">${tcup}<span>1</span></span><span class="tc b">${tcup}<span>3</span></span>
+  <span class="hint" style="display:inline-flex;gap:4px;align-items:center"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M2 2l20 20M10.700 5.100A10.700 10.700 0 0 1 22 12"/></svg>из них скрытых: 1</span></div>
+  <dl class="metrics"><div><dt>Средняя редкость</dt><dd class="num">12,4%<small>у оставшихся трофеев</small></dd></div><div><dt>Самый редкий</dt><dd class="num">1,2%<small>Ультра-редкий</small></dd></div><div><dt>Платина у игроков</dt><dd class="num">4,3%<small>&nbsp;</small></dd></div></dl>
+  <p class="hint" style="margin-top:10px">Процент известен у 4 из 5 оставшихся</p>
+  <p class="hint" style="display:flex;gap:6px;align-items:flex-start;margin-top:4px"><svg class="sh" style="width:12px;height:12px;margin-top:2px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Приблизительно: считаем все трофеи набора, включая DLC. Если у игры есть дополнения, осталось меньше.</p>`;
+$('#ov').innerHTML = `<div class="cols2"><div class="sec-card"><h3>Статус и даты</h3>${kv('Статус', '<span class="chip" style="height:28px">' + g16('playing', 'st-playing') + 'Играю ⌄</span>')}${kv('Статус изменён', '6 окт. 2026')}${kv('Дата прохождения', '5 окт. 2026 <a style="color:var(--accent);text-decoration:underline">Изменить</a>')}</div>
+  <div class="sec-card"><h3>Запуски</h3>${kv('Первый запуск', '1 мар. 2024')}${kv('Последний запуск', '25 окт. 2026 · 3 дн. назад')}${kv('Платформа', 'PlayStation · PS5')}${kv('Жанры', 'Экшен, Приключения')}</div></div>
+  <div class="fc">${fcHtml()}</div>
+  <div class="sec-card"><h3>Управление</h3><div class="actions"><button class="btn ghost">↺ Сбросить статус</button><button class="btn ghost danger">Убрать из коллекции</button><p class="hint">Игра не будет показываться нигде, синк её не вернёт.</p></div></div>`;
+$('#fc').innerHTML = fcHtml(); $('#fc2').innerHTML = fcHtml();
+
+/* карточки */
+const card = (o) => `<div class="card" ${o.plat ? 'data-platinum="true"' : ''} ${o.cls || ''}>
+  <div class="card__cover">${o.dropped ? `<div class="cov" style="--h:${o.h};filter:var(--dropped-filter)">${o.t}</div>` : `<div class="cov" style="--h:${o.h}">${o.t}</div>`}
+    ${o.plat ? `<div class="corner-wrap"><div class="corner" role="img" aria-label="Платина получена" title="Платина получена"><svg viewBox="0 0 24 24"><use href="#plat"/></svg></div></div>` : ''}
+    <span class="card__glyph" style="color:${stc[o.st]}">${g16(o.st)}</span>
+    ${o.date ? `<span class="card__date">${o.date}</span>` : ''}${o.more ? `<button class="more" ${o.open ? 'aria-expanded="true"' : ''} aria-label="Действия"><svg class="sh" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>` : ''}${o.tag ? `<span class="tag"><svg class="sh" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/></svg>Убрана</span>` : ''}</div>
+  <div class="card__title">${o.t}</div><div class="card__meta">${o.m || '12 ч 5 м'}</div></div>`;
+$('#g1').innerHTML = card({ t: 'Ghost of Tsushima', h: 20, st: 'completed', date: '9 окт.' }) + card({ t: 'Horizon Forbidden West', h: 200, st: 'completed', plat: 1, date: '2 окт.' }) +
+  card({ t: 'Bloodborne', h: 350, st: 'dropped', plat: 1, dropped: 1, date: '14 сент.' }) + card({ t: 'ACE COMBAT 7', h: 205, st: 'playing', plat: 1 });
+$('#g2').innerHTML = [['A', 20, 0], ['B', 200, 1], ['C', 90, 1], ['D', 140, 1], ['E', 300, 0], ['F', 40, 1]].map(([t, h, p]) => card({ t, h, st: ['completed', 'dropped', 'backlog', 'playing'][h % 4], plat: p })).join('');
+$('#g3').innerHTML = card({ t: 'Horizon Forbidden West', h: 200, st: 'completed', plat: 1, date: '2 окт.' }) + card({ t: 'Ghost of Tsushima', h: 20, st: 'completed', date: '9 окт.' });
+$('#g4').innerHTML = [['A', 20, 0], ['B', 200, 1], ['C', 90, 1], ['D', 140, 1], ['E', 300, 0], ['F', 40, 1]].map(([t, h, p]) => card({ t, h, st: 'completed', plat: p, more: 1 })).join('');
+$('#rows').innerHTML = [['Horizon Forbidden West', 200, 1, 100], ['Ghost of Tsushima', 20, 0, 61], ['Bloodborne', 350, 1, 100], ['Trails in the Sky', 90, 0, 8]].map(([t, h, p, pc]) =>
+  `<div class="lrow" ${p ? 'data-platinum="true"' : ''}><div class="th cov" style="--h:${h}"></div><div class="nm">${t}${p ? plat('pl') : ''}</div><span style="width:100px;font-size:12px;color:var(--text-2)">${g16('completed', 'st-completed')} Пройдено</span><span class="num" style="width:60px;text-align:right">17 ч</span><span style="width:130px;display:flex;gap:8px;align-items:center"><span class="meter"><i style="width:${pc}%"></i></span><span class="num" style="font-size:12px">${pc}%</span></span></div>`).join('');
+
+/* месяц */
+$('#mg').innerHTML = card({ t: 'Horizon Forbidden West', h: 200, st: 'completed', plat: 1, more: 1, open: 1 }) + [['B', 20], ['C', 90], ['D', 140], ['E', 300], ['F', 40]].map(([t, h]) => card({ t, h, st: 'playing', more: 1 })).join('');
+$('#eg').innerHTML = card({ t: 'X', h: 250, st: 'playing', more: 1, tag: 1 }) + card({ t: 'Y', h: 100, st: 'completed', plat: 1, more: 1, tag: 1 });
+document.querySelectorAll('.exbtn').forEach(b => b.onclick = () => { const e = b.getAttribute('aria-expanded') === 'true'; b.setAttribute('aria-expanded', String(!e)); $('#eg').style.display = e ? 'none' : ''; });
+
+/* near */
+const nearItem = (t, h, p, s, avg) => `<div class="near"><div class="c cov" style="--h:${h}"></div><div class="t"><b>${t}</b><div class="p"><span class="prog"><i style="width:${p}%"></i></span><span class="num"><span class="approx">≈</span> ${p}%</span></div><div class="s">Осталось ${s[0] + s[1] + s[2]}: <span class="tc g">${tcup}<span>${s[0]}</span></span><span class="tc s">${tcup}<span>${s[1]}</span></span><span class="tc b">${tcup}<span>${s[2]}</span></span></div><div class="s2">ср. редкость ${avg}</div></div></div>`;
+const nears = [['Horizon Forbidden West', 200, 91, [1, 1, 3], '12,4%'], ['Ghost of Tsushima', 20, 88, [0, 2, 4], '24,1%'], ['Returnal', 330, 84, [3, 2, 5], '5,2%'], ['Control', 150, 77, [2, 2, 6], 'неизвестна'], ['Sekiro', 0, 70, [4, 3, 8], '3,8%']];
+$('#near').innerHTML = nears.map(n => nearItem(...n)).join(''); $('#near2').innerHTML = nears.map(n => nearItem(...n)).join('');
+
+/* редкие */
+const rareRow = (i, n, g, d, p, r, ty, h) => `<li class="rare"><span class="rk num">${i}</span><div class="ic cov" style="--h:${h}"><span class="ty">${ty === 'p' ? plat('pl') : `<span style="color:var(--${ty === 'g' ? 'gold' : ty === 's' ? 'silver' : 'bronze'})">${tcup}</span>`}</span></div>
+  <div style="min-width:0"><div class="nm" title="">${n}</div><div class="g"><i class="cov" style="--h:${h}"></i><span>${g}</span><em>${d}</em></div></div>
+  <div class="rr"><b class="num">${p}</b><span class="rar" data-r="${r}">${['Ультра-редкий', 'Очень редкий', 'Редкий'][r]}<span class="sg">${[0, 1, 2, 3].map(k => `<i class="${k < 4 - r ? 'on' : ''}"></i>`).join('')}</span></span></div></li>`;
+const rr = [[1, 'Без единой царапины', 'Horizon Forbidden West', '2 мар. 2026', '0,8%', 0, 'g', 200], [2, 'Легенда Цусимы', 'Ghost of Tsushima', '9 окт. 2026', '2,4%', 0, 'p', 20], [3, 'Мастер охоты', 'Horizon Forbidden West', '14 сент. 2026', '3,9%', 1, 's', 200], [4, 'Идеальный бой', 'Bloodborne', 'дата неизвестна', '4,6%', 1, 'b', 350], [5, 'Золотой ветер', 'Ghost of Tsushima', '12 июн. 2026', '7,1%', 2, 'g', 20]];
+$('#rare').innerHTML = rr.map(r => rareRow(...r)).join(''); $('#rare2').innerHTML = rr.slice(0, 3).map(r => rareRow(...r)).join('');
+$('#srare').innerHTML = rr.slice(1).map(r => `<div class="ri"><div class="ic cov" style="--h:${r[7]}"></div><div><b>${r[1]}</b><small>${r[2]} · ${['Ультра-редкий', 'Очень редкий', 'Редкий'][r[5]]} <span class="sg2">${[0, 1, 2, 3].map(k => `<i class="${k < 4 - r[5] ? 'on' : ''}"></i>`).join('')}</span></small></div><div class="p num">${r[4]}</div></div>`).join('');
+
+/* тепловая карта */
+const MSK = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function build(el, tipOn) {
+  const year = 2026, today = new Date(Date.UTC(2026, 9, 28)), first = new Date(Date.UTC(2026, 9, 20));
+  const start = new Date(Date.UTC(year, 0, 1)); const off = (start.getUTCDay() + 6) % 7; // понедельник = 0
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let cells = '', months = '', day = new Date(start); const cols = Math.ceil((off + 365) / 7);
+  for (let i = 0; i < off; i++) cells += '<div class="hc" data-l="x"></div>';
+  let idx = off;
+  while (day.getUTCFullYear() === year) {
+    let l, m = null;
+    if (day > today) l = 'f'; else if (day <= first) l = 'u';
+    else { m = [0, 0, 20, 45, 75, 110, 200, 0][Math.floor(rnd() * 8)]; l = m === 0 ? '0' : m < 30 ? '1' : m < 90 ? '2' : m < 180 ? '3' : '4'; }
+    const label = `${day.getUTCDate()} ${MSK[day.getUTCMonth()]} ${year}: ` + (l === 'u' ? 'нет данных' : l === 'f' ? 'ещё не наступил' : m === 0 ? 'не играл' : `${Math.floor(m / 60) ? Math.floor(m / 60) + ' ч ' : ''}${m % 60 ? m % 60 + ' м' : ''}`);
+    cells += `<div class="hc ${day.getTime() === today.getTime() ? 'today' : ''}" data-l="${l}" data-t="${label}" role="gridcell" aria-label="${label}"></div>`;
+    if (day.getUTCDate() === 1) months += `<span style="left:calc(${Math.floor(idx / 7)} * (var(--heat-cell) + var(--heat-gap)))">${MSK[day.getUTCMonth()]}</span>`;
+    day = new Date(day.getTime() + 864e5); idx++;
+  }
+  el.innerHTML = `<div class="wd"><span>Пн</span><span></span><span>Ср</span><span></span><span>Пт</span><span></span><span></span></div><div><div class="months" style="width:calc(${cols} * (var(--heat-cell) + var(--heat-gap)))">${months}</div><div class="cells" role="grid" aria-label="Активность 2026">${cells}</div></div>`;
+  if (tipOn) el.querySelectorAll('.hc[data-t]').forEach(c => { c.onmousemove = (e) => { const t = $('#tip'); t.style.display = 'block'; t.style.left = e.clientX + 12 + 'px'; t.style.top = e.clientY + 12 + 'px'; t.innerHTML = '<b>' + c.dataset.t.split(': ')[0] + '</b>' + c.dataset.t.split(': ')[1]; }; c.onmouseleave = () => { $('#tip').style.display = 'none'; }; });
+}
+build($('#heat'), true); build($('#heat2'), true); $('#hw2').scrollLeft = 1e4;
+$('#mstreak').innerHTML = `<div class="st-tile"><dt>Текущая</dt><dd><div class="v num">3 дн.</div><div class="s">25–27 окт.</div></dd></div><div class="st-tile"><dt>Лучшая</dt><dd><div class="v num">4 дн. <svg class="sh" style="width:14px;height:14px;color:var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.800 1c0 2-3 3-3 3M12 17h.01"/></svg></div><div class="s">21–24 окт. 2026</div></dd></div><div class="st-tile"><dt>В 2026</dt><dd><div class="v num">4 дн.</div><div class="s">21–24 окт.</div></dd></div>`;
+
+/* tint */
+function hex2hsl(h) { const r = parseInt(h.slice(1, 3), 16) / 255, g = parseInt(h.slice(3, 5), 16) / 255, b = parseInt(h.slice(5, 7), 16) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let H = 0, S = 0, L = (mx + mn) / 2; const d = mx - mn; if (d) { S = d / (1 - Math.abs(2 * L - 1)); H = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; H = (H * 60 + 360) % 360; } return [H, S, L]; }
+function hsl2hex(H, S, L) { const c = (1 - Math.abs(2 * L - 1)) * S, x = c * (1 - Math.abs((H / 60) % 2 - 1)), m = L - c / 2; const [r, g, b] = H < 60 ? [c, x, 0] : H < 120 ? [x, c, 0] : H < 180 ? [0, c, x] : H < 240 ? [0, x, c] : H < 300 ? [x, 0, c] : [c, 0, x]; return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join(''); }
+const lum = (h) => { const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(parseInt(h.slice(1, 3), 16)) + .7152 * f(parseInt(h.slice(3, 5), 16)) + .0722 * f(parseInt(h.slice(5, 7), 16)); };
+const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+function safeTint(hex, ink = '#14101f', surf = '#202333') {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+  let [H, S, L] = hex2hsl(hex); if (S < .15) return null;
+  S = Math.min(.85, Math.max(.45, S)); L = Math.min(.82, Math.max(.70, L));
+  for (; L <= .88; L += .02) { const c = hsl2hex(H, S, L); if (cr(c, ink) >= 7 && cr(c, surf) >= 4.5) return c; }
+  return null;
+}
+const samples = ['#d6342f', '#2b5fd9', '#f2c230', '#808080', '#000000', '#ffffff', '#1e8a4c', 'oops', '#7a3fd0'];
+$('#tt tbody').innerHTML = samples.map(s => { const r = safeTint(s); return `<tr><td><i class="sw2" style="background:${/^#/.test(s) ? s : 'transparent'}"></i>${s}</td><td>${r ? `<i class="sw2" style="background:${r}"></i>${r}` : 'фолбэк (акцент темы)'}</td><td class="num">${r ? cr(r, '#14101f').toFixed(1) : '—'}</td><td class="num">${r ? cr(r, '#202333').toFixed(1) : '—'}</td><td class="${r ? 'ok' : ''}">${r ? 'применён' : 'не применён'}</td></tr>`; }).join('');
+$('#tint-demo').innerHTML = ['#d6342f', '#2b5fd9', '#808080'].map((s, i) => { const t = safeTint(s); return `<div class="cap">Исходный ${s} → ${t || 'фолбэк'}</div><div style="${t ? `--tint:${t};--accent:${t}` : ''}"><div class="hero"><div class="img art" style="position:absolute;inset:0;--h:${[0, 220, 0][i]}"></div><div class="scr"></div><span class="lb">${g16('playing')}ИГРАЮ</span><div class="tx"><h4>Marvel's Wolverine</h4><span class="bar"><i></i></span></div></div>${i === 0 ? `<div class="hero-m"><b style="font-size:14px">Мобильный hero: прогресс --accent на --surface-3</b><div class="bar2"><i></i></div><div style="margin-top:8px"><button class="btn primary" style="width:auto;height:36px">Кнопка primary</button></div></div>` : ''}</div>`; }).join('');
+</script>
+</body>
+</html>

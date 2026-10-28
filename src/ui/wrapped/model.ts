@@ -17,6 +17,10 @@ export const CASCADE_STEP_MS = 80;
 /** Запасное значение, если токен --dur-slide не прочитался. */
 export const DEFAULT_SLIDE_MS = 7000;
 
+/** Слайд только на клиенте (контракт 14.1: сервер id не вводит): самые редкие трофеи года, сразу после «Трофеи». */
+export const RARE_SLIDE = 'rareTrophies' as const;
+export type StorySlideId = WrappedSlideId | typeof RARE_SLIDE;
+
 const KNOWN: readonly WrappedSlideId[] = ['start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final', 'empty'];
 
 /** Год из URL: целое 2000..2100, иначе null (тогда API берёт текущий год по Москве). */
@@ -31,10 +35,14 @@ export function parseYearParam(raw: string | null): number | null {
  * «Год без данных» (один слайд empty) определяется только `mode: 'empty'` (контракт §11.1), а не по содержимому `slides`.
  * Контракт гарантирует `start` и `final` в `story`; пустой список (сбой контракта) не оставляет экран без слайдов.
  */
-export function resolveSlides(data: Pick<WrappedResponse, 'slides' | 'mode'>): WrappedSlideId[] {
+export function resolveSlides(data: Pick<WrappedResponse, 'slides' | 'mode'> & { trophies?: { rare?: readonly unknown[] } }): StorySlideId[] {
   if (data.mode === 'empty') return ['empty'];
-  const list = data.slides.filter((s, i, a) => KNOWN.includes(s) && s !== 'empty' && a.indexOf(s) === i);
-  return list.length ? list : ['start', 'final'];
+  const list: StorySlideId[] = data.slides.filter((s, i, a) => KNOWN.includes(s) && s !== 'empty' && a.indexOf(s) === i);
+  if (!list.length) return ['start', 'final'];
+  // редкие трофеи: после «Трофеи», только если есть что показать (старый ответ без поля слайд не добавляет)
+  const at = list.indexOf('trophies');
+  if (at >= 0 && (data.trophies?.rare?.length ?? 0) > 0) list.splice(at + 1, 0, RARE_SLIDE);
+  return list;
 }
 
 // ---------- навигация ----------
@@ -118,7 +126,7 @@ export function segmentFill(i: number, current: number, fraction: number, auto: 
 }
 
 /** Автопереход нужен, если нет reduced-motion, слайд не последний и не empty. */
-export function isAutoAdvance(o: { reducedMotion: boolean; index: number; count: number; slide: WrappedSlideId | undefined }): boolean {
+export function isAutoAdvance(o: { reducedMotion: boolean; index: number; count: number; slide: StorySlideId | undefined }): boolean {
   return !o.reducedMotion && o.slide !== 'empty' && o.slide !== 'final' && !isLastIndex(o.index, o.count);
 }
 
@@ -199,12 +207,13 @@ export function genreShare(value: number, max: number): number {
 }
 
 /** Фоновая обложка слайда: игра, о которой слайд. */
-export function slideCover(id: WrappedSlideId, d: WrappedResponse): { url: string | null; title: string } | null {
+export function slideCover(id: StorySlideId, d: WrappedResponse): { url: string | null; title: string } | null {
   const g =
     id === 'hours' || id === 'topGames' ? d.topGames.items[0]?.game
     : id === 'finished' ? (d.finished.completed.items[0] ?? d.finished.dropped.items[0])?.game
     : id === 'trophies' ? (d.trophies.platinum.rarest ?? d.trophies.platinum.last)?.game
     : id === 'longestGame' ? d.longestGame.game
+    : id === RARE_SLIDE ? d.trophies.rare?.[0]?.game
     : null;
   return g ? { url: g.coverUrl, title: g.title } : null;
 }

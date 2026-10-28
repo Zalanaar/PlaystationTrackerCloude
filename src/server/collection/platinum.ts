@@ -1,4 +1,4 @@
-// Прогноз платины (контракт 14.2). Чистые функции: агрегат по сету -> прогноз игры -> топ «ближе всего к платине».
+// Прогноз платины (контракт 14.2, DLC отдельно: 15.3). Чистые функции: агрегат по сету -> прогноз игры -> топ «ближе всего к платине».
 import type { GameTrophyItem, PlatinumForecast } from './types';
 
 export const NEAR_PLATINUM_LIMIT = 5;
@@ -19,6 +19,11 @@ export type SetAgg = {
   rateSum: number;
   rateCount: number;
   rateMin: number | null;
+  /** 15.3: неплатиновых трофеев сета без group_id (DLC ещё не отделены, посчитаны как база). */
+  groupUnknown: number;
+  /** 15.3: неплатиновые трофеи DLC (group_id не default и не NULL): всего / получено. */
+  dlcDefined: number;
+  dlcEarned: number;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -35,11 +40,17 @@ export function emptySetAgg(setId: number): SetAgg {
     rateSum: 0,
     rateCount: 0,
     rateMin: null,
+    groupUnknown: 0,
+    dlcDefined: 0,
+    dlcEarned: 0,
   };
 }
 
+/** Трофей базовой группы (15.3): `default` или группа ещё неизвестна (NULL). */
+export const isBaseGroup = (groupId: string | null | undefined): boolean => groupId == null || groupId === 'default';
+
 /** Сводки сетов из списка трофеев окна игры (12.5), порядок по setId. */
-export function setAggsFromTrophies(list: readonly Pick<GameTrophyItem, 'setId' | 'type' | 'earned' | 'hidden' | 'earnedRate'>[]): SetAgg[] {
+export function setAggsFromTrophies(list: readonly (Pick<GameTrophyItem, 'setId' | 'type' | 'earned' | 'hidden' | 'earnedRate'> & { groupId?: string | null })[]): SetAgg[] {
   const by = new Map<number, SetAgg>();
   for (const t of list) {
     const a = by.get(t.setId) ?? emptySetAgg(t.setId);
@@ -50,6 +61,12 @@ export function setAggsFromTrophies(list: readonly Pick<GameTrophyItem, 'setId' 
       if (t.earnedRate !== null) a.platinumEarnedRate = t.earnedRate;
       continue;
     }
+    if (!isBaseGroup(t.groupId)) {
+      a.dlcDefined++;
+      if (t.earned) a.dlcEarned++;
+      continue;
+    }
+    if (t.groupId == null) a.groupUnknown++;
     a.defined[t.type]++;
     if (t.earned) {
       a.earned[t.type]++;
@@ -100,6 +117,8 @@ export function platinumForecast(sets: readonly SetAgg[]): PlatinumForecast | nu
     minEarnedRate: best.rateMin === null ? null : round2(best.rateMin),
     ratesKnown: best.rateCount,
     platinumEarnedRate: best.platinumEarnedRate === null ? null : round2(best.platinumEarnedRate),
+    approximate: best.groupUnknown > 0,
+    dlc: best.dlcDefined > 0 ? { required: best.dlcDefined, earned: best.dlcEarned, remaining: best.dlcDefined - best.dlcEarned } : null,
   };
 }
 
