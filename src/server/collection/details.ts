@@ -22,7 +22,7 @@ export type TrophyRow = {
   earnedRate: string | null;
 };
 
-/** Строка БД -> трофей API. Скрытый и не полученный: name/detail = null (12.5). */
+/** Строка БД -> трофей API. Скрытый и не полученный: name/detail/iconUrl = null (12.5). */
 export function toTrophyItem(r: TrophyRow): GameTrophyItem {
   const mask = r.hidden && !r.earned;
   const rate = r.earnedRate === null ? null : Number(r.earnedRate);
@@ -32,7 +32,7 @@ export function toTrophyItem(r: TrophyRow): GameTrophyItem {
     type: r.type,
     name: mask ? null : r.name,
     detail: mask ? null : r.detail,
-    iconUrl: r.iconUrl,
+    iconUrl: mask ? null : r.iconUrl,
     hidden: r.hidden,
     earned: r.earned,
     earnedAt: r.earned && r.earnedAt ? r.earnedAt.toISOString() : null,

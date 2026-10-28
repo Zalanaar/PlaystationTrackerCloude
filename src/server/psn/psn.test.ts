@@ -291,6 +291,12 @@ describe('pickBanner (правило выбора баннера)', () => {
     expect(pickBanner(undefined)).toBeNull();
     expect(pickBanner([null, 5, { type: 'FOUR_BY_THREE_BANNER', url: '' }, { type: 'FOUR_BY_THREE_BANNER' }])).toBeNull();
   });
+  it('только https: http, чужие схемы и мусор отбрасываются (BUG-P9-2)', () => {
+    expect(pickBanner([img('FOUR_BY_THREE_BANNER', 'http://a/x.jpg')])).toBeNull();
+    expect(pickBanner([img('SIXTEEN_BY_NINE_BANNER', 'javascript:alert(1)'), img('BACKGROUND', 'https://a/bg.jpg')])).toBe('https://a/bg.jpg');
+    const p = mapProfile({ profile: { onlineId: 'X', avatarUrls: [{ size: 'xl', avatarUrl: 'http://a/xl.png' }, { size: 'm', avatarUrl: 'https://a/m.png' }] } });
+    expect(p?.avatarUrl).toBe('https://a/m.png');
+  });
   it('фикстура: Epsilon берёт FOUR_BY_THREE_BANNER, у остальных null', () => {
     expect(mapPlayedTitle(played.titles[5])?.bannerUrl).toBe('https://img.example/eps-concept.jpg');
     expect(mapPlayedTitle(played.titles[0])?.bannerUrl).toBeNull();

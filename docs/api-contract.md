@@ -1000,7 +1000,7 @@ Query-параметры (все необязательные; неизвест�
 | `firstPlayedAt` | `games.first_played_at` ISO UTC или `null` |
 | `statusChangedAt` | `game_status.status_changed_at` или `null` (нет статуса) |
 | `trophyList` | трофеи всех сетов игры (1.4). `[]`, если сетов нет. Порядок по умолчанию: `setId`, `trophyId`; клиентский сорт/фильтр |
-| `name` / `detail` / `iconUrl` | как в БД. Для скрытого и не полученного (`hidden && !earned`) трофея `name` и `detail` отдаются `null` (UI рисует «Скрытый трофей»); для полученного значения как есть |
+| `name` / `detail` / `iconUrl` | как в БД. Для скрытого и не полученного (`hidden && !earned`) трофея `name`, `detail` и `iconUrl` отдаются `null` (UI рисует «Скрытый трофей» и замок); для полученного значения как есть |
 | `rarity` | `0..3` (PSN: 0 ультра-редкий, 1 очень редкий, 2 редкий, 3 обычный) или `null` |
 | `earnedRate` | число с 2 знаками, % игроков, или `null` |
 | `earnedAt` | `null`, если не получен или PSN не отдал дату |

@@ -13,8 +13,8 @@ const bigSet = (): G[] =>
   }));
 
 test.describe('Чип «Платина» при >300 игр', () => {
-  // BUG-P9-1 (frontend): открыт. Сейчас на экране 6 из 35, кнопка «Показать ещё (290)» считает игры сервера. Убрать test.fail после исправления.
-  test.fail('плоский вид (sort=title): все 35 платин должны быть найдены, а не только из первых 60', async ({ page, context, baseURL }) => {
+  // BUG-P9-1: исправлен (при чипе «Платина» выдача дозагружается пакетами по 300).
+  test('плоский вид (sort=title): все 35 платин должны быть найдены, а не только из первых 60', async ({ page, context, baseURL }) => {
     await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
     await mockApi(page, bigSet());
     await page.goto('/?sort=title&platinum=1');

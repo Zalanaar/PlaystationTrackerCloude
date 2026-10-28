@@ -37,6 +37,8 @@ import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 
 const PAGE = 60;
+/** Потолок дозагрузки при чипе «Платина»: 8 пакетов по 300; дальше остаётся «Показать ещё». */
+const PLATINUM_MAX_BATCHES = 8;
 const BULK_MAX = 250;
 const SERVICE_ROWS = 5;
 const SERVICE_ROWS_STEP = 10;
@@ -143,6 +145,27 @@ export function CollectionView() {
       } else {
         const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
         next = { items: r.items, counts: r.counts, total: r.total, failed: [] };
+      }
+      // чип «Платина» фильтрует на клиенте (12.6): дозагружаем выдачу пакетами, чтобы чип, карточки и «Показать ещё» были согласованы
+      if (f.platinum) {
+        const chronTotal = f.status === 'completed' ? next.counts.completed : f.status === 'dropped' ? next.counts.dropped : next.counts.completed + next.counts.dropped;
+        for (let i = 0; i < PLATINUM_MAX_BATCHES; i++) {
+          if (id !== reqId.current) return;
+          let q: URLSearchParams;
+          if (isChronicleMode(f)) {
+            if (!visibleBlocks(f.status).includes('chronicle')) break;
+            const have = blockGames(next.items, 'chronicle', f.status).length;
+            if (have >= chronTotal) break;
+            q = blockQuery(blockStatuses('chronicle', f.status), blockSort('chronicle'), f.q, { limit: FULL_LIMIT, offset: have });
+          } else {
+            if (next.items.length >= next.total) break;
+            q = filtersToApi(f, { limit: FULL_LIMIT, offset: next.items.length });
+          }
+          let r;
+          try { r = await fetchGames(q); } catch { break; }
+          if (r.items.length === 0) break;
+          next = { ...next, counts: r.counts, total: isChronicleMode(f) ? r.total : next.total, items: union([next.items, r.items]) };
+        }
       }
       if (id !== reqId.current) return;
       setPool(next);

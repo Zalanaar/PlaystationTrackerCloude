@@ -6,6 +6,16 @@ import type { GameCategory, PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
+/** Только валидный https URL (иначе null): mixed content и чужие схемы в БД не пишем (BUG-P9-2). */
+export function httpsUrl(v: unknown): string | null {
+  const s = str(v);
+  if (!s) return null;
+  try {
+    return new URL(s.trim()).protocol === 'https:' ? s.trim() : null;
+  } catch {
+    return null;
+  }
+}
 const INT32_MAX = 2_147_483_647;
 
 /** ISO 8601 `PT228H56M33S` (допускает дни и дробные секунды) -> секунды. Мусор = 0. */
@@ -44,13 +54,13 @@ export const BANNER_TYPE_PRIORITY = ['SIXTEEN_BY_NINE_BANNER', 'GAMEHUB_COVER_AR
  */
 export function pickBanner(images: unknown): string | null {
   if (!Array.isArray(images)) return null;
-  const list = images.filter(isObj).filter((im) => str(im.url));
+  const list = images.filter(isObj).filter((im) => httpsUrl(im.url));
   for (const type of BANNER_TYPE_PRIORITY) {
     const hit = list.find((im) => im.type === type);
-    if (hit) return str(hit.url);
+    if (hit) return httpsUrl(hit.url);
   }
   const wide = list.find((im) => typeof im.width === 'number' && typeof im.height === 'number' && im.width > im.height);
-  return wide ? str(wide.url) : null;
+  return wide ? httpsUrl(wide.url) : null;
 }
 
 /** Профиль из getProfileFromUserName (защитно). null, если нет onlineId. avatarUrls: берём самый крупный по size. */
@@ -67,7 +77,7 @@ export function mapProfile(raw: unknown): PsnProfile | null {
     let best = -1;
     for (const a of p.avatarUrls) {
       if (!isObj(a)) continue;
-      const url = str(a.avatarUrl);
+      const url = httpsUrl(a.avatarUrl);
       if (!url) continue;
       const r = typeof a.size === 'string' ? (rank[a.size.toLowerCase()] ?? 0) : 0;
       if (r > best) {

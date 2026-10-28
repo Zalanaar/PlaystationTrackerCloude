@@ -10,6 +10,11 @@ describe('rankByHours', () => {
     expect(r.map((x) => x.gameId)).toEqual([2, 3, 1]);
     expect(r[0]).toMatchObject({ seconds: 7200, hours: 2, estimated: false });
   });
+  it('ничья: порядок по кодовым точкам lower(title), как SQL (латиница раньше кириллицы), затем id (BUG-P10-2)', () => {
+    const t = new Map([[1, 'Ёжик'], [2, 'zed'], [3, 'Яр'], [4, 'zed']]);
+    const r = rankByHours(new Map([[1, 100], [2, 100], [3, 100], [4, 100]]), new Map(), t);
+    expect(r.map((x) => x.gameId)).toEqual([2, 4, 3, 1]);
+  });
   it('estimated = есть оценочная доля; часы до 0.1', () => {
     const r = rankByHours(new Map([[1, 5400 + 100]]), new Map([[1, 100]]), titles);
     expect(r[0]).toMatchObject({ hours: 1.5, estimated: true });

@@ -37,12 +37,12 @@ describe('toTrophyItem (чистая)', () => {
   it('обычный трофей', () => {
     expect(toTrophyItem(base)).toMatchObject({ name: 'Имя', detail: 'Описание', earnedAt: '2026-10-05T18:42:11.000Z', earnedRate: 2.4, rarity: 2 });
   });
-  it('скрытый не полученный: name/detail = null, иконка остаётся', () => {
+  it('скрытый не полученный: name/detail/iconUrl = null', () => {
     const t = toTrophyItem({ ...base, hidden: true, earned: false, earnedAt: null });
-    expect(t).toMatchObject({ name: null, detail: null, hidden: true, earned: false, earnedAt: null, iconUrl: 'https://i' });
+    expect(t).toMatchObject({ name: null, detail: null, hidden: true, earned: false, earnedAt: null, iconUrl: null });
   });
   it('скрытый полученный: значения как есть', () => {
-    expect(toTrophyItem({ ...base, hidden: true })).toMatchObject({ name: 'Имя', detail: 'Описание' });
+    expect(toTrophyItem({ ...base, hidden: true })).toMatchObject({ name: 'Имя', detail: 'Описание', iconUrl: 'https://i' });
   });
   it('нет earnedRate/даты', () => {
     expect(toTrophyItem({ ...base, earnedRate: null, earnedAt: null })).toMatchObject({ earnedRate: null, earnedAt: null });

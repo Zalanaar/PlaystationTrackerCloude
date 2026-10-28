@@ -970,7 +970,10 @@ svg.ps-trophy__type { color: var(--plat-text); }
 .ps-top__row:hover { background: var(--surface-2); }
 .ps-top__rank { font: 600 13px/16px var(--font-body); color: var(--text-3); text-align: right; }
 .ps-top__row[data-top] .ps-top__rank { color: var(--text); }
-.ps-top .ps-top__cover { width: 32px; height: 42px; aspect-ratio: auto; border-radius: var(--r-sm); }
+.ps-top .ps-top__cover { width: 32px; height: 42px; aspect-ratio: auto; border-radius: var(--r-sm); flex: none; }
+.ps-top .ps-top__cover.ps-cover--empty { padding: 0; display: grid; place-items: center; overflow: hidden; }
+.ps-top .ps-top__cover span { display: block; font-size: 0; }
+.ps-top .ps-top__cover span::first-letter { font-size: 16px; text-transform: uppercase; }
 .ps-top__tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ps-top__name { font: 600 13px/16px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ps-top__bar { display: block; height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }

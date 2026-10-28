@@ -13,8 +13,12 @@ export type TrophyRank = { gameId: number; points: number; counts: TrophyCountsB
 /** Строка группировки: сколько трофеев типа `type` игра получила в периоде. */
 export type GameTrophyCount = { gameId: number; type: TrophyType; n: number };
 
-const byTitle = (titles: ReadonlyMap<number, string>, a: number, b: number): number =>
-  (titles.get(a) ?? '').toLowerCase().localeCompare((titles.get(b) ?? '').toLowerCase()) || a - b;
+/** lower(title) по кодовым точкам (как в контракте, без локали), затем id. */
+const byTitle = (titles: ReadonlyMap<number, string>, a: number, b: number): number => {
+  const ta = (titles.get(a) ?? '').toLowerCase();
+  const tb = (titles.get(b) ?? '').toLowerCase();
+  return ta < tb ? -1 : ta > tb ? 1 : a - b;
+};
 
 /**
  * Топ по секундам периода (реальные + оценка, как у `hours`). Игры с 0 секунд не входят.
