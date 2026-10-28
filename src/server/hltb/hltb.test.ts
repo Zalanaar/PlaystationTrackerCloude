@@ -246,4 +246,13 @@ describe('клиент (фейковый fetch)', () => {
     expect(b['x-hp-key']).toBeUndefined();
     expect(Object.keys(JSON.parse(String(seen[1].init?.body)))).not.toContain('');
   });
+
+  it('фикстура: реальный ответ POST /api/search/site разбирается (84944 с = 23.6 ч)', async () => {
+    const real = { count: 20, pageCurrent: 1, pageTotal: 4, pageSize: 5, data: [{ game_id: 62941, game_name: 'Hades', comp_main: 84944, comp_plus: 175076, comp_100: 343228 }] };
+    const f = (async (url: string) => (url.includes('/init') ? json({ token: 'dGVzdA==' }) : json(real))) as unknown as typeof fetch;
+    const r = await createHltbClient({ fetchImpl: f }).search('hades');
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ id: 62941, name: 'Hades', mainHours: 23.6 });
+    expect(r[0].extraHours).toBeCloseTo(48.6, 1);
+  });
 });
