@@ -71,6 +71,7 @@ describe('коллекция (PGlite)', () => {
       id, title: 'Alpha', coverUrl: 'http://img', platform: 'PS5', playSeconds: 5400, hours: 1.5, playCount: 3,
       lastPlayedAt: null, status: null, completedAt: null, droppedAt: null, trophies: null,
       genres: [{ key: 'SIMULATION', label: 'Симуляторы' }, { key: 'OTHER', label: 'Другое' }, { key: 'ACTION', label: 'Экшен' }],
+      hiddenAt: null,
     });
     const beta = (await listGames(t.db, lq('q=beta'))).items[0];
     expect(beta.platform).toBe('PC');

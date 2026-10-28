@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
   DEFAULT_FILTERS, adjustCounts, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
-  filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, matchesStatusTab, parseFilters,
+  filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, parseFilters, removeFromCounts, resetFilters,
 } from './filters';
 
 const p = (s: string) => new URLSearchParams(s);
 const game = (o: Partial<GameItem> = {}): GameItem => ({
   id: 1, title: 'X', coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt: '2026-10-05T18:42:11.000Z',
-  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], ...o,
+  status: null, completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null, ...o,
 });
 
 describe('фильтры <-> URL', () => {
@@ -19,7 +19,7 @@ describe('фильтры <-> URL', () => {
   });
   it('круг: разбор и сборка', () => {
     const f = parseFilters(p('status=completed&sort=hours&order=asc&q=halo&view=dense'));
-    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense' });
+    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false });
     expect(filtersToUrl(f).toString()).toBe('status=completed&sort=hours&order=asc&q=halo&view=dense');
   });
   it('мусор откатывается, год из URL игнорируется', () => {
@@ -41,6 +41,17 @@ describe('фильтры <-> URL', () => {
     const api = filtersToApi({ ...DEFAULT_FILTERS, q: '  halo ' }, { limit: 60, offset: 60 });
     expect(api.toString()).toBe('q=halo&sort=completed_at&limit=60&offset=60');
     expect(filtersToApi({ ...DEFAULT_FILTERS, status: 'none' }, { limit: 10, offset: 0 }).get('status')).toBe('none');
+  });
+  it('раздел «Скрытые»: hidden=1 в URL, hidden=only в API, без хроники, «Сбросить» его не снимает', () => {
+    const f = parseFilters(p('hidden=1&q=halo'));
+    expect(f.hidden).toBe(true);
+    expect(parseFilters(p('hidden=yes')).hidden).toBe(false);
+    expect(filtersToUrl(f).toString()).toBe('q=halo&hidden=1');
+    expect(filtersToApi(f, { limit: 60, offset: 0 }).get('hidden')).toBe('only');
+    expect(filtersToApi(DEFAULT_FILTERS, { limit: 60, offset: 0 }).has('hidden')).toBe(false);
+    expect(isChronicleMode(f)).toBe(false);
+    expect(hasActiveFilters({ ...DEFAULT_FILTERS, hidden: true })).toBe(false);
+    expect(resetFilters(f)).toEqual({ ...f, q: '', status: 'all' });
   });
   it('query блока хроники', () => {
     expect(blockQuery(['completed', 'dropped'], 'completed_at', ' ', { limit: 300, offset: 0 }).toString())
@@ -87,5 +98,24 @@ describe('даты завершения и оптимистичные правк
     expect(dateInputToIso('2026-12-31', now)).toBe(new Date(now).toISOString());
     expect(dateInputToIso('2026-02-31', now)).toBeNull();
     expect(dateInputToIso('', now)).toBeNull();
+  });
+});
+
+describe('счётчики при скрытии', () => {
+  const c = { all: 3, playing: 1, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 2 };
+  it('минус один в статусе и во «Все», не ниже нуля', () => {
+    expect(removeFromCounts(c, null)).toEqual({ ...c, all: 2, none: 1 });
+    expect(removeFromCounts(c, 'playing')).toEqual({ ...c, all: 2, playing: 0 });
+    expect(removeFromCounts(c, 'completed').completed).toBe(0);
+  });
+});
+
+describe('подтверждение сброса всех статусов', () => {
+  it('слово СБРОС без учёта регистра и пробелов, остальное нет', () => {
+    expect(isResetWord('СБРОС')).toBe(true);
+    expect(isResetWord('  сброс ')).toBe(true);
+    expect(isResetWord('RESET')).toBe(false);
+    expect(isResetWord('СБРО')).toBe(false);
+    expect(isResetWord('')).toBe(false);
   });
 });

@@ -67,6 +67,39 @@ export function groupChronicle(games: readonly GameItem[]): Chronicle {
   return { years: outYears, undated, undatedCompleted: count(undated, 'completed'), undatedDropped: count(undated, 'dropped'), undatedSeconds: sum(undated) };
 }
 
+export type PlayedYear = { year: number; games: GameItem[]; seconds: number; total: number };
+export type PlayedGroups = { years: PlayedYear[]; never: GameItem[]; neverSeconds: number };
+
+/**
+ * Сортировка «По последней игре» (§4.3): группы по году `lastPlayedAt` (МСК).
+ * Годы по `order` (desc: свежие сверху), игры без запуска (нет даты или битая) — группа «Не запускались» в конце.
+ * Внутри группы порядок входа сохраняется (порядок сервера), поэтому подгрузка следующей страницы продолжает группу.
+ */
+export function groupByLastPlayedYear(games: readonly GameItem[], order: 'asc' | 'desc' = 'desc'): PlayedGroups {
+  const years = new Map<number, GameItem[]>();
+  const never: GameItem[] = [];
+  for (const g of games) {
+    const t = g.lastPlayedAt ? new Date(g.lastPlayedAt).getTime() : NaN;
+    if (Number.isNaN(t)) {
+      never.push(g);
+      continue;
+    }
+    const { y } = mskParts(t);
+    const list = years.get(y) ?? [];
+    list.push(g);
+    years.set(y, list);
+  }
+  const sum = (list: GameItem[]) => list.reduce((a, g) => a + g.playSeconds, 0);
+  const dir = order === 'asc' ? 1 : -1;
+  return {
+    years: [...years.entries()]
+      .sort((a, b) => dir * (a[0] - b[0]))
+      .map(([year, list]) => ({ year, games: list, seconds: sum(list), total: list.length })),
+    never,
+    neverSeconds: sum(never),
+  };
+}
+
 /** Какие годы раскрыты по умолчанию: текущий (МСК), а если его нет в хронике, самый свежий. */
 export function defaultExpandedYears(years: readonly number[], nowMs: number): Set<number> {
   if (!years.length) return new Set();

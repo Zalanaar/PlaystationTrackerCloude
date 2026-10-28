@@ -131,6 +131,26 @@ describe('оценка часов до первого снимка (1.6)', () =>
     expect([...estimateByMonth(est({ lastPlayedAt: null })).keys()]).toEqual(['2026-01']);
     expect([...estimateByMonth(est({ lastPlayedAt: D('2025-12-01T00:00:00Z') })).keys()]).toEqual(['2026-01']);
   });
+  it('Фаза 8.1: конец оценки = L0 первого снимка, а не свежий games.last_played_at (дек 2025 -> янв 2026, граница года)', () => {
+    // первый запуск 10.12.2025, играл в январе 2026, первый снимок 27.10.2026, потом играл в октябре 2026
+    const S0 = 20 * H + 1;
+    const base = { firstSnapshotDate: '2026-10-27', firstSeconds: S0, firstPlayedAt: D('2025-12-10T18:00:00Z') };
+    const fixed = estimateByMonth(est({ ...base, lastPlayedAt: D('2026-01-15T18:00:00Z') })); // L0 из первого снимка
+    expect([...fixed.keys()]).toEqual(['2025-12', '2026-01']);
+    expect(fixed.get('2025-12')).toBe(Math.floor(S0 / 2));
+    expect(fixed.get('2026-01')).toBe(Math.floor(S0 / 2) + 1);
+    expect(estimateSecondsByGame([est({ ...base, lastPlayedAt: D('2026-01-15T18:00:00Z') })], '2025-01-01', '2025-12-31').get(1)).toBe(Math.floor(S0 / 2));
+    // так было с багом (games.last_played_at = 28.10.2026): 11 месяцев, декабрь почти пустой
+    const buggy = estimateByMonth(est({ ...base, lastPlayedAt: D('2026-10-28T18:00:00Z') }));
+    expect(buggy.size).toBe(11);
+    expect(buggy.get('2025-12')).toBe(Math.floor(S0 / 11));
+  });
+  it('Фаза 8.1: L0 в 01:00 МСК 1 января относится к январю (граница года по МСК)', () => {
+    const m = estimateByMonth(est({ firstSnapshotDate: '2026-10-27', firstPlayedAt: D('2025-12-10T18:00:00Z'), lastPlayedAt: D('2025-12-31T22:00:00Z') }));
+    expect([...m.keys()]).toEqual(['2025-12', '2026-01']);
+    const m2 = estimateByMonth(est({ firstSnapshotDate: '2026-10-27', firstPlayedAt: D('2025-12-10T18:00:00Z'), lastPlayedAt: D('2025-12-31T20:59:59Z') }));
+    expect([...m2.keys()]).toEqual(['2025-12']);
+  });
   it('S0 = 0: оценки нет', () => {
     expect(estimateByMonth(est({ firstSeconds: 0 })).size).toBe(0);
   });

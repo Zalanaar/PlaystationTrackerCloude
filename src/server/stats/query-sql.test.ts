@@ -41,15 +41,17 @@ describe('getStats против прямого SQL (PGlite)', () => {
     return Math.round(Number(r[0]?.s ?? 0) / 360) / 10;
   }
   /**
-   * Независимая оценка (1.6) в SQL: S0 делится поровну по месяцам МСК [месяц first_played_at .. месяц min(last_played_at, D0)],
+   * Независимая оценка (1.6) в SQL: S0 делится поровну по месяцам МСК [месяц first_played_at .. месяц min(L0, D0)],
+   * L0 = last_played_at первого снимка, иначе games.last_played_at (Фаза 8.1);
    * остаток в последний месяц. Возвращает секунды оценки по (game_id, месяц).
    */
   async function sqlEstimateRows() {
     return rows<{ game_id: number; m: string; sec: string }>(sql`
       with f as (
         select distinct on (p.game_id) p.game_id, p.snapshot_date d0, p.play_duration_seconds s0,
-               (g.first_played_at at time zone ${TZ})::date fp, (g.last_played_at at time zone ${TZ})::date lp
+               (g.first_played_at at time zone ${TZ})::date fp, (coalesce(p.last_played_at, g.last_played_at) at time zone ${TZ})::date lp
         from playtime_snapshots p join games g on g.id = p.game_id
+        where g.hidden_at is null
         order by p.game_id, p.snapshot_date
       ), r as (
         select game_id, s0, date_trunc('month', fp)::date m1,
@@ -358,5 +360,29 @@ describe('getStats против прямого SQL (PGlite)', () => {
     const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
     expect(y25.header.hours).toBeNull();
     expect(y25.hours.hasEstimate).toBe(false);
+  });
+
+  it('Фаза 8.1 через БД: конец оценки из last_played_at первого снимка; fallback на games, если в снимке NULL', async () => {
+    const now = new Date('2026-10-28T19:00:00Z');
+    // A: первый запуск дек 2025, игра в янв 2026, первый снимок 27.10.2026, потом игра в окт 2026 (games.last_played_at перезаписан)
+    const a = await game(1, { firstPlayedAt: new Date('2025-12-10T18:00:00Z'), lastPlayedAt: new Date('2026-10-28T18:00:00Z') });
+    // B: в первом снимке last_played_at NULL -> fallback на games.last_played_at (февраль 2026)
+    const b = await game(2, { firstPlayedAt: new Date('2025-12-20T18:00:00Z'), lastPlayedAt: new Date('2026-02-10T18:00:00Z') });
+    await t.db.insert(playtimeSnapshots).values([
+      { gameId: a, snapshotDate: '2026-10-27', playDurationSeconds: 20 * 3600, lastPlayedAt: new Date('2026-01-15T18:00:00Z') },
+      { gameId: a, snapshotDate: '2026-10-28', playDurationSeconds: 22 * 3600, lastPlayedAt: new Date('2026-10-28T18:00:00Z') },
+      { gameId: b, snapshotDate: '2026-10-27', playDurationSeconds: 3 * 3600, lastPlayedAt: null },
+    ]);
+    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, now);
+    // A: 20 ч на дек+янв = 10 ч в декабре; B: 3 ч на дек..фев = 1 ч в декабре
+    expect(y25.hours.byMonth[11]).toBe(11);
+    expect(y25.header.hours).toBe(11);
+    const y26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, now);
+    expect(y26.hours.estimatedByMonth.slice(0, 3)).toEqual([11, 1, 0]);
+    expect(y26.hours.byMonth[9]).toBe(2); // реальные после D0, оценки в октябре нет
+    expect(y26.hours.estimatedByMonth[9]).toBe(0);
+    // независимый SQL с тем же правилом L0 совпадает
+    const e = await sqlHoursWithEstimate('2025-12-01', '2025-12-31');
+    expect(e.hours).toBe(11);
   });
 });

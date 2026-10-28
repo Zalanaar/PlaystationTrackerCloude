@@ -13,11 +13,13 @@ export type Filters = {
   q: string;
   /** null = в URL не задан: берётся сохранённый в localStorage, иначе по умолчанию */
   view: ViewMode | null;
+  /** Раздел «Скрытые» (9.2 `hidden=only`): только убранные из коллекции игры */
+  hidden: boolean;
 };
 
 /** Сортировка по умолчанию = дата завершения: включает хронику (design-system §4.3). */
 export const DEFAULT_SORT: GameSort = 'completed_at';
-export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null };
+export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null, hidden: false };
 
 export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -66,6 +68,7 @@ export function parseFilters(params: ParamsLike): Filters {
     order,
     q: (params.get('q') ?? '').slice(0, MAX_QUERY_LENGTH),
     view: isViewMode(viewRaw) ? viewRaw : null,
+    hidden: params.get('hidden') === '1',
   };
 }
 
@@ -82,6 +85,7 @@ export function filtersToUrl(f: Filters): URLSearchParams {
   if (f.order !== null && f.order !== DEFAULT_ORDER[f.sort]) p.set('order', f.order);
   if (f.q.trim()) p.set('q', f.q);
   if (f.view) p.set('view', f.view);
+  if (f.hidden) p.set('hidden', '1');
   return p;
 }
 
@@ -93,6 +97,7 @@ export function filtersToApi(f: Filters, page: { limit: number; offset: number }
   if (f.status !== 'all') p.set('status', f.status);
   p.set('sort', f.sort);
   if (f.order !== null) p.set('order', f.order);
+  if (f.hidden) p.set('hidden', 'only');
   p.set('limit', String(page.limit));
   p.set('offset', String(page.offset));
   return p;
@@ -110,9 +115,9 @@ export function blockQuery(statuses: readonly StatusFilterValue[], sort: GameSor
   return p;
 }
 
-/** Хроника строится только при сортировке по дате завершения. */
-export function isChronicleMode(f: Pick<Filters, 'sort'>): boolean {
-  return f.sort === 'completed_at';
+/** Хроника строится только при сортировке по дате завершения и не в разделе «Скрытые» (там плоский список). */
+export function isChronicleMode(f: Pick<Filters, 'sort'> & Partial<Pick<Filters, 'hidden'>>): boolean {
+  return f.sort === 'completed_at' && !f.hidden;
 }
 
 /** Попадает ли игра под выбранную вкладку статуса. */
@@ -120,11 +125,12 @@ export function matchesStatusTab(g: Pick<GameItem, 'status'>, tab: StatusTab): b
   return tab === 'all' || (g.status ?? 'none') === tab;
 }
 
-/** Фильтры, которые сбрасывает «Сбросить» (сортировка и вид не считаются). */
+/** Фильтры, которые сбрасывает «Сбросить» (сортировка, вид и раздел «Скрытые» не считаются). */
 export function hasActiveFilters(f: Filters): boolean {
   return f.status !== 'all' || f.q.trim() !== '';
 }
 
+/** Сброс статуса и поиска; раздел («Скрытые» или вся коллекция) остаётся. */
 export function resetFilters(f: Filters): Filters {
   return { ...f, status: 'all', q: '' };
 }
@@ -157,6 +163,12 @@ export function adjustCounts(c: StatusCounts, from: GameStatusValue | null, to: 
   return next;
 }
 
+/** Игра ушла из текущей выдачи (скрыта или возвращена из «Скрытых»): минус один в её статусе и в «Все». */
+export function removeFromCounts(c: StatusCounts, status: GameStatusValue | null): StatusCounts {
+  const k = status ?? 'none';
+  return { ...c, [k]: Math.max(0, c[k] - 1), all: Math.max(0, c.all - 1) };
+}
+
 /** Значение `<input type=date>` (ГГГГ-ММ-ДД, день по Москве) -> ISO. Позже now не бывает: обрезается до now. null = неверный ввод. */
 export function dateInputToIso(value: string, nowMs: number): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -176,4 +188,12 @@ export function isoToDateInput(iso: string | null | undefined): string {
   if (Number.isNaN(t)) return '';
   const x = new Date(t + 3 * 3600_000);
   return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}-${String(x.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** Слово подтверждения сброса всех статусов. На сервер уходит `{"confirm":"RESET"}` (контракт 9.8). */
+export const RESET_WORD = 'СБРОС';
+
+/** Ввод подтверждения: без учёта регистра и пробелов по краям. */
+export function isResetWord(v: string): boolean {
+  return v.trim().toLocaleUpperCase('ru-RU') === RESET_WORD;
 }

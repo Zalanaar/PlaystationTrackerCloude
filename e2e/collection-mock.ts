@@ -7,8 +7,11 @@ export type G = {
   id: number; title: string; lastPlayedAt: string | null; status: Status | null;
   completedAt: string | null; droppedAt: string | null; playSeconds: number; playCount: number;
   platform?: 'PS4' | 'PS5'; coverUrl?: string | null; trophies?: { earned: number; defined: number; plat?: boolean } | null;
+  /** Фаза 8 (9.7): скрыта из коллекции */
+  hiddenAt?: string | null;
 };
 
+const NOT_FOUND = Symbol('not_found');
 const ALL: Status[] = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'];
 
 export function seed(): G[] {
@@ -54,6 +57,7 @@ function item(g: G) {
       byType: { platinum: { earned: t.plat ? 1 : 0, defined: 1 }, gold: { earned: 2, defined: 4 }, silver: { earned: 5, defined: 9 }, bronze: { earned: t.earned - 8, defined: t.defined - 14 } },
     } : null,
     genres: [{ key: 'ACTION', label: 'Экшен' }],
+    hiddenAt: g.hiddenAt ?? null,
   };
 }
 
@@ -76,11 +80,13 @@ export type Mock = {
   abortMutations: boolean;
   listFails: boolean;
   syncStatus: Record<string, unknown>;
+  /** status_backups (9.8, 9.9): снимки статусов видимых игр */
+  backups: { id: number; rows: Pick<G, 'id' | 'status' | 'completedAt' | 'droppedAt'>[] }[];
 };
 
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
-    games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false,
+    games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
@@ -88,15 +94,17 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
 
   await page.route('**/api/sync/status', (r) => json(r, m.syncStatus));
 
+  const visible = () => m.games.filter((g) => !g.hiddenAt);
   await page.route('**/api/collection/summary', (r) => {
-    const sec = m.games.reduce((s, g) => s + g.playSeconds, 0);
+    const games = visible();
+    const sec = games.reduce((s, g) => s + g.playSeconds, 0);
     const byRecent = (a: G, b: G) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? '');
     return json(r, {
-      totals: { games: m.games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: 1 },
-      counts: counts(m.games),
-      playing: m.games.filter((g) => g.status === 'playing').sort(byRecent).map(item),
-      services: m.games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
-      continue: m.games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
+      totals: { games: games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: 1 },
+      counts: counts(games),
+      playing: games.filter((g) => g.status === 'playing').sort(byRecent).map(item),
+      services: games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
+      continue: games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
     });
   });
 
@@ -113,7 +121,8 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const sort = u.searchParams.get('sort') ?? 'last_played';
     const limit = Number(u.searchParams.get('limit') ?? 60);
     const offset = Number(u.searchParams.get('offset') ?? 0);
-    const base = m.games.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
+    const scope = u.searchParams.get('hidden') === 'only' ? m.games.filter((g) => g.hiddenAt) : visible();
+    const base = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
     const wanted = st ? st.split(',') : null;
     const filtered = base.filter((g) => !wanted || wanted.includes(g.status ?? 'none'));
     const nl = (a: string | null, b: string | null, dir: 1 | -1) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : dir * a.localeCompare(b));
@@ -122,8 +131,8 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : sort === 'hours' ? b.playSeconds - a.playSeconds
         : sort === 'completed_at' ? nl(done(a), done(b), -1)
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
-        : nl(a.lastPlayedAt, b.lastPlayedAt, -1)) || a.id - b.id);
-    const years = [...new Set(m.games.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
+        : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
+    const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, { items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(base), years });
   });
 
@@ -137,7 +146,9 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       m.failNextMutation = null;
       return json(route, { code: 'db_unavailable', message: 'x' }, s);
     }
-    return json(route, apply(body));
+    const out = apply(body);
+    if (out === NOT_FOUND) return json(route, { code: 'not_found', message: 'x' }, 404);
+    return json(route, out);
   };
   const setStatus = (g: G, s: Status | null, now = new Date().toISOString()) => {
     if (g.status === s) return;
@@ -158,6 +169,38 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     if (typeof b.completedAt === 'string') g.completedAt = b.completedAt;
     if (typeof b.droppedAt === 'string') g.droppedAt = b.droppedAt;
     return { game: item(g) };
+  }));
+  await page.route(/\/api\/games\/\d+\/hidden$/, (route) => mutate(route, (b) => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/hidden/)?.[1]);
+    const g = m.games.find((x) => x.id === id) as G;
+    if (b.hidden === true && !g.hiddenAt) g.hiddenAt = new Date().toISOString();
+    if (b.hidden === false) g.hiddenAt = null;
+    return { game: item(g) };
+  }));
+  const snapshot = () => visible().filter((g) => g.status).map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
+  await page.route('**/api/games/status-reset-all', (route) => mutate(route, () => {
+    const rows = snapshot();
+    if (!rows.length) return { backupId: null, reset: 0 };
+    const id = m.backups.length + 1;
+    m.backups.push({ id, rows });
+    for (const g of visible()) { g.status = null; g.completedAt = null; g.droppedAt = null; }
+    return { backupId: id, reset: rows.length };
+  }));
+  await page.route('**/api/games/status-restore', (route) => mutate(route, (b) => {
+    const src = m.backups.find((x) => x.id === b.backupId);
+    if (!src) return NOT_FOUND;
+    const id = m.backups.length + 1;
+    m.backups.push({ id, rows: snapshot() });
+    for (const g of visible()) { g.status = null; g.completedAt = null; g.droppedAt = null; }
+    let restored = 0;
+    let skipped = 0;
+    for (const r of src.rows) {
+      const g = visible().find((x) => x.id === r.id);
+      if (!g) { skipped++; continue; }
+      Object.assign(g, { status: r.status, completedAt: r.completedAt, droppedAt: r.droppedAt });
+      restored++;
+    }
+    return { restored, skipped, backupId: id };
   }));
   await page.route('**/api/games/status-bulk', (route) => mutate(route, (b) => {
     const ids = [...new Set(b.ids as number[])];

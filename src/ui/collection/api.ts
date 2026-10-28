@@ -3,6 +3,7 @@ import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
   BulkStatusResponse, CollectionSummaryResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
+  StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
 export class ApiError extends Error {
@@ -61,5 +62,17 @@ export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: 
 
 export const postBulk = (ids: number[], status: GameStatusValue | null) =>
   call<BulkStatusResponse>('/api/games/status-bulk', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids, status }) });
+
+/** Мягкое удаление из коллекции и возврат (9.7). */
+export const putHidden = (id: number, hidden: boolean) =>
+  call<GameMutationResponse>(`/api/games/${id}/hidden`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ hidden }) });
+
+/** Сброс статусов всей коллекции (9.8). Слово подтверждения в UI русское, на сервер всегда уходит RESET. */
+export const postResetAll = () =>
+  call<StatusResetAllResponse>('/api/games/status-reset-all', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ confirm: 'RESET' }) });
+
+/** Откат из копии статусов (9.9). */
+export const postRestore = (backupId: number) =>
+  call<StatusRestoreResponse>('/api/games/status-restore', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ backupId }) });
 
 export type { GameItem };

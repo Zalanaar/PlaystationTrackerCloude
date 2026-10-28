@@ -5,7 +5,7 @@ const q = (s: string) => parseListQuery(new URLSearchParams(s));
 
 describe('parseListQuery', () => {
   it('значения по умолчанию', () => {
-    expect(q('')).toEqual({ ok: true, value: { q: null, statuses: null, year: null, sort: 'last_played', order: 'desc', limit: 60, offset: 0 } });
+    expect(q('')).toEqual({ ok: true, value: { q: null, statuses: null, year: null, sort: 'last_played', order: 'desc', limit: 60, offset: 0, hiddenOnly: false } });
   });
   it('направление по умолчанию зависит от сортировки', () => {
     expect(q('sort=title')).toMatchObject({ value: { order: 'asc' } });

@@ -33,6 +33,12 @@ export type GameItem = {
   droppedAt: string | null;
   trophies: GameTrophies | null;
   genres: GameGenre[];
+  /**
+   * ISO UTC момента скрытия или null (игра видна). Контракт 9.1, 9.7. Сервер присылает поле ВСЕГДА;
+   * в типе оно необязательное только чтобы не ломать фикстуры GameItem в тестах src/ui (зона frontend).
+   * TODO(frontend): добавить `hiddenAt: null` в фикстуры, затем сделать поле обязательным.
+   */
+  hiddenAt?: string | null;
 };
 
 export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };
@@ -57,3 +63,15 @@ export type CollectionSummaryResponse = {
 
 export type GameMutationResponse = { game: GameItem };
 export type BulkStatusResponse = { requested: number; changed: number; games: GameItem[] };
+/** POST /api/games/status-reset-all (9.8). backupId = null, если сбрасывать было нечего. */
+export type StatusResetAllResponse = { backupId: number | null; reset: number };
+/** POST /api/games/status-restore (9.9). backupId = бэкап состояния до отката. */
+export type StatusRestoreResponse = { restored: number; skipped: number; backupId: number };
+/** Строка payload в status_backups (1.12). Даты ISO UTC. */
+export type StatusBackupRow = {
+  gameId: number;
+  status: GameStatusValue;
+  completedAt: string | null;
+  droppedAt: string | null;
+  statusChangedAt: string;
+};

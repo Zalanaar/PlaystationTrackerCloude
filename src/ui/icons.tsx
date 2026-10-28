@@ -35,6 +35,8 @@ const P: Record<string, ReactNode> = {
   'chevron-up': <path d="m18 15-6-6-6 6" />,
   'sliders-h': <><path d="M21 4h-7" /><path d="M10 4H3" /><path d="M21 12h-9" /><path d="M8 12H3" /><path d="M21 20h-5" /><path d="M12 20H3" /><path d="M14 2v4" /><path d="M8 10v4" /><path d="M16 18v4" /></>,
   'arrow-right': <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
+  'eye-off': <><path d="M10.7 5.1A10.7 10.7 0 0 1 22 12a13.200 13.200 0 0 1-1.700 2.700" /><path d="M14.1 14.200a3 3 0 0 1-4.200-4.200" /><path d="M17.5 17.500A10.700 10.700 0 0 1 2 12a13.200 13.200 0 0 1 4.400-5.400" /><path d="m2 2 20 20" /></>,
+  eye: <><path d="M2 12s3.500-7 10-7 10 7 10 7-3.500 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>,
 };
 
 export type IconName = keyof typeof P;

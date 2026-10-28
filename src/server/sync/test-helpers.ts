@@ -22,7 +22,7 @@ export async function createTestDb(): Promise<TestDb> {
     pg,
     reset: async () => {
       await client.exec(
-        'TRUNCATE game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth RESTART IDENTITY CASCADE',
+        'TRUNCATE status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth RESTART IDENTITY CASCADE',
       );
     },
     close: () => client.close(),

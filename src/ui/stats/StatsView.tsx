@@ -5,17 +5,18 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
-import { ApiError, errorText, fetchStats, patchStatusDate, putStatus } from '../collection/api';
+import { ApiError, errorText, fetchStats, patchStatusDate, putHidden, putStatus } from '../collection/api';
 import { GameCard, type GameActions } from '../collection/GameCard';
 import { GameDialog } from '../collection/GameDialog';
 import { GameGrid, GameGridItem } from '../collection/GameGrid';
 import { EmptyState } from '../EmptyState';
-import { formatNumber, plural } from '../format';
+import { formatNumber, monthName, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import {
-  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
+  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, monthHoursText, parseSelection, periodLabel,
+  playedGamesCount,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
 } from './model';
 
@@ -69,16 +70,48 @@ export function StatsView() {
 
   // ---------- действия над карточками игр периода ----------
   const reload = useCallback(() => void load(sel, key), [load, sel, key]);
+  /** Вернуть прошлый статус и его ручную дату (правило 1.3 иначе возьмёт дату последнего запуска). */
+  const revert = useCallback(async (prev: GameItem) => {
+    try {
+      await putStatus(prev.id, prev.status);
+      const date = prev.status === 'completed' ? prev.completedAt : prev.status === 'dropped' ? prev.droppedAt : null;
+      if (date && (prev.status === 'completed' || prev.status === 'dropped')) await patchStatusDate(prev.id, prev.status, date);
+      toast({ text: 'Статус возвращён' });
+    } catch (e) {
+      toast({ kind: 'error', text: `Не удалось вернуть статус. ${errorText(e)}` });
+    }
+    reload();
+  }, [reload, toast]);
   const setStatus = useCallback(async (g: GameItem, status: GameStatusValue | null) => {
     if (g.status === status) return;
     try {
       await putStatus(g.id, status);
-      toast({ text: 'Статус изменён' });
+      toast({ text: status === null ? 'Статус сброшен' : 'Статус изменён', action: { label: 'Отменить', run: () => void revert(g) } });
       reload();
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
     }
+  }, [reload, revert, toast]);
+  const unhide = useCallback(async (g: GameItem) => {
+    try {
+      await putHidden(g.id, false);
+      toast({ text: `«${g.title}» возвращена в коллекцию` });
+    } catch (e) {
+      toast({ kind: 'error', text: `Не удалось вернуть игру. ${errorText(e)}` });
+    }
+    reload();
   }, [reload, toast]);
+  const setHidden = useCallback(async (g: GameItem, hidden: boolean) => {
+    if (!hidden) return void unhide(g);
+    try {
+      await putHidden(g.id, true);
+      setOpen(null);
+      toast({ text: `«${g.title}» убрана из коллекции`, action: { label: 'Вернуть', run: () => void unhide(g) } });
+      reload();
+    } catch (e) {
+      toast({ kind: 'error', text: `Не удалось убрать игру. ${errorText(e)}` });
+    }
+  }, [reload, toast, unhide]);
   const setDate = useCallback(async (g: GameItem, kind: 'completed' | 'dropped', iso: string) => {
     try {
       await patchStatusDate(g.id, kind, iso);
@@ -95,7 +128,7 @@ export function StatsView() {
   }), [setStatus]);
 
   const dialogGame = open && data
-    ? (data.finished.groups.flatMap((g) => g.items).find((i) => i.game.id === open.id)?.game ?? open)
+    ? (data.played.groups.flatMap((g) => g.items).find((i) => i.game.id === open.id)?.game ?? open)
     : null;
 
   return (
@@ -121,6 +154,7 @@ export function StatsView() {
       <GameDialog
         game={dialogGame} startEditing={false} now={now} onClose={() => setOpen(null)}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
+        onHidden={(g, h) => void setHidden(g, h)}
       />
     </div>
   );
@@ -162,7 +196,7 @@ function Content({ data, sel, today, actions }: { data: StatsResponse; sel: Sele
             {data.genres.hasData && <GenresPanel data={data} />}
           </div>
           <TrophiesPanel data={data} sel={sel} />
-          <FinishedBlock data={data} actions={actions} />
+          <PlayedBlock data={data} sel={sel} actions={actions} />
         </>
       )}
     </>
@@ -348,27 +382,28 @@ function TrophiesPanel({ data, sel }: { data: StatsResponse; sel: Selection }) {
   );
 }
 
-function FinishedBlock({ data, actions }: { data: StatsResponse; actions: GameActions }) {
-  const groups = data.finished.groups;
-  const total = groups.reduce((n, g) => n + g.items.length, 0);
-  if (total === 0) return null;
+/** «Игры месяца» (контракт 10.1 `played`): игра в каждом месяце, где в неё играли; фигура только у события месяца. */
+function PlayedBlock({ data, sel, actions }: { data: StatsResponse; sel: Selection; actions: GameActions }) {
+  const groups = data.played.groups;
+  if (groups.length === 0) return null;
   return (
-    <section className="ps-st-finished" aria-labelledby="st-finished">
-      <BlockHead id="st-finished" title="Пройдено и брошено" count={total} />
+    <section className="ps-st-played" aria-labelledby="st-played">
+      <BlockHead id="st-played" title="Игры месяца" count={playedGamesCount(groups)} />
       {groups.map((g) => (
-        <div key={g.month}>
-          <MonthHeader m={{
-            month: g.monthNumber,
-            completed: g.items.filter((i) => i.kind === 'completed').length,
-            dropped: g.items.filter((i) => i.kind === 'dropped').length,
-          }}
-          />
-          <GameGrid density="dense" label={`Игры за ${g.month}`}>
-            {g.items.map((i) => (
-              <GameGridItem key={`${i.kind}-${i.game.id}`}>
-                <GameCard game={i.game} actions={actions} selectMode={false} selected={false} />
-              </GameGridItem>
-            ))}
+        <div key={g.month} className="ps-st-played__month">
+          <MonthHeader id={`st-m-${g.month}`} m={{ month: g.monthNumber, completed: g.completed, dropped: g.dropped }} games={g.items.length} />
+          <GameGrid density="dense" label={`Игры: ${monthName(g.monthNumber)}${sel.period === 'year' ? ` ${g.year}` : ''}`}>
+            {g.items.map((i) => {
+              const h = monthHoursText(i.hours, i.estimated);
+              return (
+                <GameGridItem key={`${g.month}-${i.game.id}`}>
+                  <GameCard
+                    game={i.game} actions={actions} selectMode={false} selected={false}
+                    month={{ finished: i.finished, finishedAt: i.finishedAt, hoursText: h?.text ?? null, hoursLabel: h?.label ?? null }}
+                  />
+                </GameGridItem>
+              );
+            })}
           </GameGrid>
         </div>
       ))}

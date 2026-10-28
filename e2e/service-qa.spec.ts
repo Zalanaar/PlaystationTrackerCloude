@@ -97,6 +97,7 @@ function statsPayload() {
     genres: { hasData: false, items: [] },
     trophies: { counts: z, byMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, ...z })) },
     finished: { groups: [] },
+    played: { groups: [] },
   };
 }
 

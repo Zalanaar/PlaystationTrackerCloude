@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CollectionSummaryResponse, GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
-import { cssUrl, formatNumber } from '../format';
+import { cssUrl, formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow, useViewportWidth } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
@@ -13,22 +13,24 @@ import { StatusMenu } from '../status';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel, phaseText, progressFraction } from '../sync/status';
 import { STATUS_META, type ViewMode } from '../tokens';
-import { ApiError, errorText, fetchGames, fetchSummary, patchStatusDate, postBulk, putStatus } from './api';
+import { ApiError, errorText, fetchGames, fetchSummary, patchStatusDate, postBulk, postResetAll, postRestore, putHidden, putStatus } from './api';
 import {
   blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
 } from './blocks';
-import { BlockHead, MonthHeader, YearHeader } from './Chronicle';
-import { defaultExpandedYears, emptyCounts, groupChronicle, gridCols, previewSlots } from './chronicle';
+import { BlockHead, GamesFact, MonthHeader, YearHeader } from './Chronicle';
+import { defaultExpandedYears, emptyCounts, groupByLastPlayedYear, groupChronicle, gridCols, previewSlots } from './chronicle';
 import { FilterBar } from './FilterBar';
 import {
   adjustCounts, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
-  parseFilters, resetFilters, type Filters,
+  parseFilters, removeFromCounts, resetFilters, type Filters,
 } from './filters';
 import { GameCard, type GameActions } from './GameCard';
 import { GameDialog } from './GameDialog';
 import { GameGrid, GameGridItem } from './GameGrid';
 import { GameRow, RowHeader } from './GameRow';
+import { mapLimit } from './limit';
 import { PlayingStrip } from './PlayingStrip';
+import { ResetAllDialog } from './ResetAllDialog';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 
@@ -36,6 +38,11 @@ const PAGE = 60;
 const BULK_MAX = 250;
 const SERVICE_ROWS = 5;
 const SERVICE_ROWS_STEP = 10;
+/** Параллельных PUT /hidden при массовом скрытии */
+const HIDE_PARALLEL = 5;
+/** Тост с откатом массовых действий висит дольше обычного */
+const UNDO_TTL_MS = 12_000;
+const gamesWord = (n: number) => plural(n, ['игра', 'игры', 'игр']);
 
 type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
 type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[] };
@@ -86,11 +93,14 @@ export function CollectionView() {
   // блок «Игры-сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
   const [serviceOpen, setServiceOpen] = useState(false);
   const [serviceRows, setServiceRows] = useState(SERVICE_ROWS);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const poolRef = useRef<Pool | null>(null);
   useEffect(() => { poolRef.current = pool; }, [pool]);
   const reqId = useRef(0);
   const undoRef = useRef<((g: GameItem, s: GameStatusValue | null, silent?: boolean, restore?: DateRestore) => Promise<void>) | null>(null);
+  const hideRef = useRef<((g: GameItem, hidden: boolean, silent?: boolean) => Promise<void>) | null>(null);
+  const bulkHideRef = useRef<((ids: number[], hidden: boolean, silent?: boolean) => Promise<void>) | null>(null);
   const moreAbort = useRef<AbortController | null>(null);
   const filtersRef = useRef(filters);
   useEffect(() => { filtersRef.current = filters; }, [filters]);
@@ -251,7 +261,7 @@ export function CollectionView() {
         }
       }
       toast({
-        text: silent ? 'Статус возвращён' : `Статус изменён: ${STATUS_META[status ?? 'none'].label}`,
+        text: silent ? 'Статус возвращён' : status === null ? 'Статус сброшен' : `Статус изменён: ${STATUS_META[status].label}`,
         action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true, oldDate(prev)) },
       });
       refresh();
@@ -303,6 +313,91 @@ export function CollectionView() {
     }
   }, [refresh, replaceGames, selected, shiftCounts, toast]);
 
+  /** Игры ушли из текущей выдачи (скрыты или возвращены из «Скрытых»): убрать локально до перезагрузки. */
+  const dropFromPool = useCallback((ids: number[]) => {
+    const set = new Set(ids);
+    setPool((l) => {
+      if (!l) return l;
+      let counts = l.counts;
+      let total = l.total;
+      for (const g of l.items) if (set.has(g.id)) { counts = removeFromCounts(counts, g.status); total = Math.max(0, total - 1); }
+      return { ...l, counts, total, items: l.items.filter((g) => !set.has(g.id)) };
+    });
+    setSelected((s) => new Set([...s].filter((id) => !set.has(id))));
+    setOpen((o) => (o && set.has(o.id) ? null : o));
+  }, []);
+
+  /** Убрать из коллекции / вернуть одну игру (9.7). Toast «Вернуть» после скрытия. */
+  const setHidden = useCallback(async (game: GameItem, hidden: boolean, silent = false) => {
+    const prev = current(game);
+    const inView = !!poolRef.current?.items.some((g) => g.id === prev.id);
+    try {
+      const r = await putHidden(prev.id, hidden);
+      if (inView) dropFromPool([prev.id]);
+      toast({
+        text: hidden ? `«${prev.title}» убрана из коллекции` : `«${prev.title}» возвращена в коллекцию`,
+        action: hidden && !silent ? { label: 'Вернуть', run: () => void hideRef.current?.(r.game, false, true) } : undefined,
+      });
+      refresh();
+    } catch (e) {
+      toast({ kind: 'error', text: `${hidden ? 'Не удалось убрать игру' : 'Не удалось вернуть игру'}. ${errorText(e)}` });
+    }
+  }, [current, dropFromPool, refresh, toast]);
+
+  useEffect(() => { hideRef.current = setHidden; }, [setHidden]);
+
+  /** Массово: PUT /hidden на каждую игру, не больше HIDE_PARALLEL одновременно; итог одним тостом. */
+  const bulkHidden = useCallback(async (ids: number[], hidden: boolean, silent = false) => {
+    if (!ids.length) return;
+    const r = await mapLimit(ids, HIDE_PARALLEL, (id) => putHidden(id, hidden));
+    const done = r.ok.map((o) => o.item);
+    dropFromPool(done);
+    const verb = hidden ? 'Убрано из коллекции' : 'Возвращено в коллекцию';
+    const undo = hidden && !silent && done.length > 0 ? { label: 'Вернуть', run: () => void bulkHideRef.current?.(done, false, true) } : undefined;
+    if (r.failed.length === 0) {
+      toast({ text: `${verb}: ${formatNumber(done.length)} ${gamesWord(done.length)}`, action: undo, ttl: undo ? UNDO_TTL_MS : undefined });
+    } else {
+      toast({
+        kind: 'error', action: undo, ttl: UNDO_TTL_MS,
+        text: `${verb}: ${formatNumber(done.length)} из ${formatNumber(ids.length)}. Не удалось: ${formatNumber(r.failed.length)}. ${errorText(r.failed[0].error)}`,
+      });
+    }
+    if (!silent) {
+      setSelected(new Set());
+      setSelectMode(false);
+    }
+    refresh();
+  }, [dropFromPool, refresh, toast]);
+
+  useEffect(() => { bulkHideRef.current = bulkHidden; }, [bulkHidden]);
+
+  /** Откат сброса всех статусов из копии (9.9). */
+  const restoreBackup = useCallback(async (backupId: number) => {
+    try {
+      const r = await postRestore(backupId);
+      toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
+    } catch (e) {
+      toast({ kind: 'error', text: e instanceof ApiError && e.status === 404 ? 'Копия статусов не найдена, вернуть нельзя.' : `Не удалось вернуть статусы. ${errorText(e)}` });
+    }
+    refresh();
+  }, [refresh, toast]);
+
+  /** Сброс всех статусов (9.8). Ошибку показывает окно подтверждения. */
+  const resetAll = useCallback(async () => {
+    const r = await postResetAll();
+    setResetOpen(false);
+    if (r.backupId === null || r.reset === 0) {
+      toast({ text: 'Сбрасывать нечего: у игр нет статусов' });
+      return;
+    }
+    const backupId = r.backupId;
+    toast({
+      text: `Статусы сброшены: ${formatNumber(r.reset)} ${gamesWord(r.reset)}`, ttl: UNDO_TTL_MS,
+      action: { label: 'Вернуть', run: () => void restoreBackup(backupId) },
+    });
+    refresh();
+  }, [refresh, restoreBackup, toast]);
+
   const actions: GameActions = useMemo(() => ({
     open: (g, edit = false) => setOpen({ id: g.id, edit, snapshot: g }),
     setStatus: (g, s) => void setStatus(g, s),
@@ -334,6 +429,11 @@ export function CollectionView() {
   const defaultOpen = useMemo(() => defaultExpandedYears(chron.years.map((y) => y.year), now), [chron.years, now]);
   const isOpen = (key: string | number) => (filters.q.trim() ? true : toggled[String(key)] ?? (typeof key === 'number' && defaultOpen.has(key)));
   const toggle = (key: string | number) => setToggled((t) => ({ ...t, [String(key)]: !isOpen(key) }));
+  // «По последней игре»: плоская выдача сервера, разбитая по годам последнего запуска (МСК); все группы раскрыты по умолчанию
+  const playedMode = !chronicleMode && filters.sort === 'last_played';
+  const played = useMemo(() => groupByLastPlayedYear(playedMode ? flat : [], filters.order ?? 'desc'), [flat, filters.order, playedMode]);
+  const isPlayedOpen = (key: string) => (filters.q.trim() ? true : toggled[`lp-${key}`] ?? true);
+  const togglePlayed = (key: string) => setToggled((t) => ({ ...t, [`lp-${key}`]: !isPlayedOpen(key) }));
 
   const density = view === 'dense' ? 'dense' : 'comfort';
   const cols = gridCols(width, density);
@@ -347,10 +447,15 @@ export function CollectionView() {
   const serviceLimit = serviceFull ? Infinity : view === 'list' ? serviceRows : serviceOpen ? Infinity : cols;
   const shownGames = chronicleMode
     ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : b === 'service' ? serviceAll.slice(0, serviceLimit) : byBlock[b]))
-    : flat;
+    : playedMode
+      ? [...played.years.filter((y) => isPlayedOpen(String(y.year))).flatMap((y) => y.games), ...(isPlayedOpen('never') ? played.never : [])]
+      : flat;
   const failedBlocks = pool?.failed ?? [];
   const empty = !!pool && failedBlocks.length === 0 && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
-  const noData = !!pool && pool.counts.all === 0 && !active && !error;
+  const hiddenView = filters.hidden;
+  const noData = !!pool && pool.counts.all === 0 && !active && !error && !hiddenView;
+  const hiddenEmpty = hiddenView && !!pool && pool.counts.all === 0 && !active && !error;
+  const withStatus = summary ? summary.counts.all - summary.counts.none : null;
   const playing = byBlock.playing ?? [];
   const openGame = open ? (all.find((g) => g.id === open.id) ?? open.snapshot) : null;
   const run = sync.status?.run;
@@ -381,7 +486,15 @@ export function CollectionView() {
     return (
       <GameGrid density={density}>
         {list.map((g) => (
-          <GameGridItem key={g.id}><GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear} /></GameGridItem>
+          <GameGridItem key={g.id}>
+            <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear}>
+              {hiddenView && !selectMode && (
+                <button type="button" className="ps-btn ps-btn--sm ps-card__restore" aria-label={`Вернуть в коллекцию: ${g.title}`} onClick={() => void setHidden(g, false)}>
+                  <Icon name="undo" size={14} /><span>Вернуть в коллекцию</span>
+                </button>
+              )}
+            </GameCard>
+          </GameGridItem>
         ))}
       </GameGrid>
     );
@@ -428,7 +541,7 @@ export function CollectionView() {
             <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
               <YearHeader
                 id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
-                expanded={open} onToggle={() => toggle(y.year)} hint sectionId={`y${y.year}-body`}
+                expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения, МСК" sectionId={`y${y.year}-body`}
               />
               <div id={`y${y.year}-body`} hidden={!open}>
                 {open && y.months.map((m) => (
@@ -453,6 +566,31 @@ export function CollectionView() {
           </section>
         )}
         {moreBtn('chronicle', totalChron - loaded)}
+      </>
+    );
+  }
+
+  /** «По последней игре»: группы по году последнего запуска, затем «Не запускались». Подгрузка дописывает игры в последнюю группу. */
+  function renderPlayed(): ReactNode {
+    const group = (key: string, label: string, games: GameItem[], hours: number | null) => {
+      const open = isPlayedOpen(key);
+      const sid = key === 'never' ? 'never' : `y${key}`;
+      return (
+        <section key={key} className="ps-chron" id={sid} aria-labelledby={`h-${sid}`}>
+          <YearHeader
+            id={`h-${sid}`} label={label} facts={<GamesFact n={games.length} />} hours={hours}
+            expanded={open} onToggle={() => togglePlayed(key)} hint={key === 'never' ? undefined : 'последний запуск, МСК'} sectionId={`${sid}-body`}
+          />
+          <div id={`${sid}-body`} className="ps-chron__flat" hidden={!open}>
+            {open && renderGames(games, { dateYear: true, withHeader: true })}
+          </div>
+        </section>
+      );
+    };
+    return (
+      <>
+        {played.years.map((y) => group(String(y.year), String(y.year), y.games, Math.round(y.seconds / 3600)))}
+        {played.never.length > 0 && group('never', 'Не запускались', played.never, null)}
       </>
     );
   }
@@ -550,6 +688,11 @@ export function CollectionView() {
     if (year !== undefined) setToggled((t) => ({ ...t, [String(year)]: true }));
     setTimeout(() => scrollToId(target), 30);
   }
+  function jumpPlayed(e: React.MouseEvent, key: string) {
+    e.preventDefault();
+    setToggled((t) => ({ ...t, [`lp-${key}`]: true }));
+    setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
+  }
 
   return (
     <div className="ps-collection">
@@ -563,8 +706,16 @@ export function CollectionView() {
       <FilterBar
         filters={filters} view={view} counts={pool ? counts : null} onChange={setFilters} onView={setView}
         onReset={() => setFilters(resetFilters(filters))} selectMode={selectMode} onSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
-        canSelect={shownGames.length > 0}
+        canSelect={shownGames.length > 0} onHidden={(v) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }} onResetAll={() => setResetOpen(true)}
       />
+
+      {playedMode && played.years.length + (played.never.length > 0 ? 1 : 0) > 1 && (
+        <nav className="ps-anchors" aria-label="Годы">
+          <span>Перейти:</span>
+          {played.years.map((y) => <a key={y.year} href={`#y${y.year}`} onClick={(e) => jumpPlayed(e, String(y.year))}>{y.year}</a>)}
+          {played.never.length > 0 && <a href="#never" onClick={(e) => jumpPlayed(e, 'never')}>Не запускались</a>}
+        </nav>
+      )}
 
       {showAnchors && (
         <nav className="ps-anchors" aria-label="Годы и блоки">
@@ -582,6 +733,10 @@ export function CollectionView() {
         ) : error && !pool ? (
           <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить коллекцию. Сохранённые данные не потеряны.">
             <button type="button" className="ps-btn ps-btn--primary" onClick={() => void loadAll(filters, PAGE)}>Обновить</button>
+          </EmptyState>
+        ) : hiddenEmpty ? (
+          <EmptyState icon="eye-off" title="Скрытых игр нет" text="Здесь появятся игры, которые ты убрал из коллекции. Их можно вернуть в любой момент.">
+            <button type="button" className="ps-btn ps-btn--ghost" onClick={() => setFilters({ hidden: false, status: 'all' })}>К коллекции</button>
           </EmptyState>
         ) : noData ? (
           <EmptyState icon="cloud-download" title="Пока пусто" text="Данные из PSN ещё не загружены. Запусти первый синк, он займёт несколько минут.">
@@ -614,8 +769,19 @@ export function CollectionView() {
           </div>
         ) : (
           <div className="ps-block">
-            <BlockHead title="Результаты" count={pool?.total ?? 0} />
-            {renderGames(flat, { dateYear: true, withHeader: true })}
+            {hiddenView ? (
+              <>
+                <BlockHead title="Скрытые игры" count={pool?.total ?? 0} icon={<Icon name="eye-off" size={18} />}>
+                  <button type="button" className="ps-link ps-link--plain" onClick={() => setFilters({ hidden: false, status: 'all' })}>
+                    К коллекции <Icon name="arrow-right" size={14} />
+                  </button>
+                </BlockHead>
+                <p className="ps-block__note">Эти игры не показываются в коллекции, статистике и итогах. Синк их не возвращает.</p>
+              </>
+            ) : (
+              <BlockHead title="Результаты" count={pool?.total ?? 0} />
+            )}
+            {playedMode ? renderPlayed() : renderGames(flat, { dateYear: true, withHeader: true })}
             {pool && moreBtn(null, pool.total - all.length)}
           </div>
         )}
@@ -627,30 +793,52 @@ export function CollectionView() {
       {selectMode && (
         <SelectBar
           count={selected.size} total={shownGames.length} onAll={() => setSelected(new Set(shownGames.map((g) => g.id)))}
-          onPick={(s) => void bulk(s)} onCancel={exitSelect}
+          onPick={(s) => void bulk(s)} onCancel={exitSelect} hiddenView={hiddenView}
+          onHide={() => void bulkHidden([...selected], !hiddenView)}
         />
       )}
 
       <GameDialog
         game={openGame} startEditing={open?.edit ?? false} now={now} onClose={() => setOpen(null)}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
+        onHidden={(g, h) => void setHidden(g, h)}
       />
+
+      <ResetAllDialog open={resetOpen} count={withStatus} onClose={() => setResetOpen(false)} onConfirm={resetAll} />
     </div>
   );
 }
 
 
 function SelectBar({
-  count, total, onAll, onPick, onCancel,
-}: { count: number; total: number; onAll: () => void; onPick: (s: GameStatusValue | null) => void; onCancel: () => void }) {
+  count, total, onAll, onPick, onCancel, hiddenView, onHide,
+}: {
+  count: number; total: number; onAll: () => void; onPick: (s: GameStatusValue | null) => void; onCancel: () => void;
+  /** в «Скрытых» вместо статусов одна кнопка «Вернуть в коллекцию» (статусы скрытых массово не меняются, 9.6) */
+  hiddenView: boolean; onHide: () => void;
+}) {
   return (
     <div className="ps-selbar" role="region" aria-label="Выбор игр">
       <span className="ps-selbar__n">Выбрано {count}</span>
       <button type="button" className="ps-link" onClick={onAll}>Выбрать все ({total})</button>
       <span className="ps-section__spacer" />
-      <StatusMenu onPick={onPick} label="Поставить статус" className="ps-selbar__menu">
-        <span className={`ps-btn ps-btn--primary ${count ? '' : 'ps-btn--off'}`} aria-disabled={!count}>Поставить статус<Icon name="chevron-down" size={14} /></span>
-      </StatusMenu>
+      {hiddenView ? (
+        <button type="button" className="ps-btn ps-btn--primary" disabled={!count} onClick={onHide}>
+          <Icon name="undo" size={16} />Вернуть в коллекцию
+        </button>
+      ) : (
+        <>
+          <StatusMenu onPick={onPick} label="Поставить статус" className="ps-selbar__menu">
+            <span className={`ps-btn ps-btn--primary ${count ? '' : 'ps-btn--off'}`} aria-disabled={!count}>Поставить статус<Icon name="chevron-down" size={14} /></span>
+          </StatusMenu>
+          <button type="button" className="ps-btn" aria-label="Сбросить статус" title="Сбросить статус" disabled={!count} onClick={() => onPick(null)}>
+            <Icon name="undo" size={16} /><span className="ps-btn__t">Сбросить статус</span>
+          </button>
+          <button type="button" className="ps-btn ps-btn--ghost ps-btn--danger" aria-label="Убрать из коллекции" title="Убрать из коллекции" disabled={!count} onClick={onHide}>
+            <Icon name="eye-off" size={16} /><span className="ps-btn__t">Убрать из коллекции</span>
+          </button>
+        </>
+      )}
       <button type="button" className="ps-btn" onClick={onCancel}>Отмена</button>
     </div>
   );

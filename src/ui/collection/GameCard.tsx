@@ -30,21 +30,28 @@ export function dateMenuItem(g: GameItem, actions: GameActions) {
   };
 }
 
-function GlyphBadge({ status }: { status: GameStatusValue | null }) {
+function GlyphBadge({ status, title }: { status: GameStatusValue | null; title?: string }) {
   const key = toKey(status);
   return (
-    <span className="ps-card__glyph" data-status={key} title={STATUS_META[key].title ?? STATUS_META[key].label}>
+    <span className="ps-card__glyph" data-status={key} title={title ?? STATUS_META[key].title ?? STATUS_META[key].label}>
       <StatusGlyph status={key} size={16} />
     </span>
   );
 }
 
+/**
+ * Карточка в «Играх месяца» (Статистика): фигура в углу только у события месяца (пройдено/брошено), без меню статуса;
+ * плашка даты = дата события; под обложкой часы за месяц вместо общих.
+ */
+export type CardMonth = { finished: 'completed' | 'dropped' | null; finishedAt: string | null; hoursText: string | null; hoursLabel: string | null };
+
 export function GameCard({
-  game, actions, selectMode, selected, active, dateWithYear, children,
+  game, actions, selectMode, selected, active, dateWithYear, month, children,
 }: {
   game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; active?: boolean;
   /** «9 окт. 2026» вместо «9 окт.» (плоский список результатов) */
   dateWithYear?: boolean;
+  month?: CardMonth;
   /** быстрые действия под карточкой (Бэклог) */
   children?: ReactNode;
 }) {
@@ -52,8 +59,9 @@ export function GameCard({
   const [sheet, setSheet] = useState(false);
   const { handlers, wasLong } = useLongPress(() => { if (!selectMode) setSheet(true); }, mobile);
   const time = formatPlayTime(game.playSeconds);
-  const done = completionInfo(game);
+  const done = month ? (month.finished && month.finishedAt ? { kind: month.finished, iso: month.finishedAt } : null) : completionInfo(game);
   const date = done ? formatDayMonth(done.iso, dateWithYear) : null;
+  const meta = month ? month.hoursText : time;
   const t = game.trophies;
   const key = toKey(game.status);
   return (
@@ -85,10 +93,16 @@ export function GameCard({
       </div>
       <div className="ps-card__body">
         <p className="ps-card__title" title={game.title}>{game.title}</p>
-        {time && <p className="ps-card__meta num">{time}</p>}
+        {meta && <p className="ps-card__meta num" aria-label={month?.hoursLabel ?? undefined}>{meta}</p>}
       </div>
       {children && <div className="ps-card__extra">{children}</div>}
-      {!selectMode && !mobile ? (
+      {month ? (
+        month.finished && (
+          <span className="ps-card__status">
+            <GlyphBadge status={month.finished} title={month.finished === 'completed' ? 'Пройдена в этом месяце' : 'Брошена в этом месяце'} />
+          </span>
+        )
+      ) : !selectMode && !mobile ? (
         <StatusMenu
           value={game.status} onPick={(s) => actions.setStatus(game, s)} label={`Статус: ${game.title}`}
           extra={dateMenuItem(game, actions)} className="ps-card__status" align="end"

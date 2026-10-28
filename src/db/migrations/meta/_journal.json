@@ -15,6 +15,13 @@
       "when": 1793134345881,
       "tag": "0001_game_status_service",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793174157236,
+      "tag": "0002_status_backups_hidden",
+      "breakpoints": true
     }
   ]
 }

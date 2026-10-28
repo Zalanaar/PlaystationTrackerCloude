@@ -1,14 +1,16 @@
 // Чтение данных для /api/stats (контракт 10). Расчёты в чистых модулях, здесь только выборки.
-import { and, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { getGamesByIds } from '@/server/collection/query';
+import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
 import { composeStats } from './compose';
 import { getEstimateInputs } from './estimate-query';
 import type { FinishedEvent } from './finished';
 import type { GenreGame } from './genre-stats';
-import { estimateYears, type EstimateInput, type Snapshot } from './hours';
+import { estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
+import { playedGameIds } from './played';
 import type { EarnedTrophy } from './trophies';
 import type { StatsResponse } from './types';
 import type { StatsQuery } from './validation';
@@ -19,10 +21,10 @@ const TZ = 'Europe/Moscow';
 export async function getStatsYears(db: AnyDb, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
   const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
   const [snap, tr, comp, drop] = await Promise.all([
-    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps),
-    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(isNotNull(trophies.earnedAt)),
-    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(isNotNull(gameStatus.completedAt)),
-    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(isNotNull(gameStatus.droppedAt)),
+    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(gameVisible(ps.gameId)),
+    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId))),
+    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId))),
+    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId))),
   ]);
   const set = new Set<number>([currentYear]);
   for (const r of [...snap, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
@@ -47,34 +49,36 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`)),
+      .where(and(gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(lt(ps.snapshotDate, yearFrom))
+      .where(and(lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps),
     db
       .select({ type: trophies.type, earnedAt: trophies.earnedAt })
       .from(trophies)
-      .where(and(eq(trophies.earned, true), gte(trophies.earnedAt, yearStartUtc), lt(trophies.earnedAt, yearEndUtc))),
+      .where(and(eq(trophies.earned, true), gte(trophies.earnedAt, yearStartUtc), lt(trophies.earnedAt, yearEndUtc), trophySetCounted(trophies.trophySetId))),
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.completedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc))),
+      .where(and(eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc), gameVisible(gameStatus.gameId))),
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc))),
-    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games),
+      .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
+    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
   ]);
 
   const finishedEvents: FinishedEvent[] = [
     ...completedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'completed' as const, at: r.at }] : [])),
     ...droppedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'dropped' as const, at: r.at }] : [])),
   ];
-  const items = await getGamesByIds(db, [...new Set(finishedEvents.map((e) => e.gameId))]);
   const snapshots: Snapshot[] = [...bases, ...inYear];
+  // Карточки одним запросом: завершённые в периоде + все игры блока «Игры месяца» (без N+1).
+  const ids = playedGameIds({ by: groupSnapshots(snapshots), estimates, period, finishedEvents });
+  const items = await getGamesByIds(db, ids);
   const earned: EarnedTrophy[] = trophyRows;
   const genreGames = new Map<number, GenreGame>(genreRows.map((g) => [g.id, g]));
 

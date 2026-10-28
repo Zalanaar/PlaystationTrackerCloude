@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
-import { byLastPlayed, defaultExpandedYears, finishedAt, gridCols, groupChronicle, previewSlots } from './chronicle';
+import { byLastPlayed, defaultExpandedYears, finishedAt, gridCols, groupByLastPlayedYear, groupChronicle, previewSlots } from './chronicle';
 
 const game = (id: number, o: Partial<GameItem> = {}): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 3600, hours: 1, playCount: 1, lastPlayedAt: null,
-  status: 'completed', completedAt: null, droppedAt: null, trophies: null, genres: [], ...o,
+  status: 'completed', completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null, ...o,
 });
 const done = (id: number, iso: string, o: Partial<GameItem> = {}) => game(id, { status: 'completed', completedAt: iso, ...o });
 const drop = (id: number, iso: string, o: Partial<GameItem> = {}) => game(id, { status: 'dropped', droppedAt: iso, ...o });
@@ -76,5 +76,45 @@ describe('раскрытие годов, превью, колонки', () => {
   it('порядок по последнему запуску', () => {
     const l = [game(1, { lastPlayedAt: null }), game(2, { lastPlayedAt: '2026-01-01T00:00:00Z' }), game(3, { lastPlayedAt: '2026-05-01T00:00:00Z' })];
     expect(l.sort(byLastPlayed).map((g) => g.id)).toEqual([3, 2, 1]);
+  });
+});
+
+describe('группы «По последней игре»', () => {
+  const lp = (id: number, iso: string | null, o: Partial<GameItem> = {}) => game(id, { status: 'playing', lastPlayedAt: iso, ...o });
+  it('годы по убыванию, порядок внутри года как на входе, «Не запускались» в конце', () => {
+    const r = groupByLastPlayedYear([
+      lp(1, '2026-10-20T10:00:00Z'), lp(2, '2026-03-01T10:00:00Z'), lp(3, '2025-05-01T10:00:00Z'), lp(4, null), lp(5, '2024-01-01T10:00:00Z'),
+    ]);
+    expect(r.years.map((y) => [y.year, y.games.map((g) => g.id)])).toEqual([[2026, [1, 2]], [2025, [3]], [2024, [5]]]);
+    expect(r.never.map((g) => g.id)).toEqual([4]);
+  });
+  it('asc: старые годы сверху, «Не запускались» всё равно в конце', () => {
+    const r = groupByLastPlayedYear([lp(4, null), lp(5, '2024-01-01T10:00:00Z'), lp(3, '2025-05-01T10:00:00Z'), lp(1, '2026-10-20T10:00:00Z')], 'asc');
+    expect(r.years.map((y) => y.year)).toEqual([2024, 2025, 2026]);
+    expect(r.never.map((g) => g.id)).toEqual([4]);
+  });
+  it('граница года по Москве: 2025-12-31T22:00Z = 2026, 20:59Z = 2025', () => {
+    const r = groupByLastPlayedYear([lp(1, '2025-12-31T22:00:00Z'), lp(2, '2025-12-31T20:59:00Z'), lp(3, '2025-12-31T21:00:00Z')]);
+    expect(r.years.map((y) => [y.year, y.games.map((g) => g.id)])).toEqual([[2026, [1, 3]], [2025, [2]]]);
+  });
+  it('число игр и сумма полных секунд за год; битая дата = не запускалась', () => {
+    const r = groupByLastPlayedYear([
+      lp(1, '2026-01-05T10:00:00Z', { playSeconds: 3600 }), lp(2, '2026-02-05T10:00:00Z', { playSeconds: 5400 }),
+      lp(3, 'мусор', { playSeconds: 60 }), lp(4, null, { playSeconds: 0 }),
+    ]);
+    expect(r.years[0]).toMatchObject({ year: 2026, total: 2, seconds: 9000 });
+    expect(r.never.map((g) => g.id)).toEqual([3, 4]);
+    expect(r.neverSeconds).toBe(60);
+  });
+  it('любые статусы, включая «без статуса»; пусто', () => {
+    const r = groupByLastPlayedYear([lp(1, '2026-01-05T10:00:00Z', { status: null }), lp(2, '2026-01-06T10:00:00Z', { status: 'completed' })]);
+    expect(r.years[0].total).toBe(2);
+    expect(groupByLastPlayedYear([])).toEqual({ years: [], never: [], neverSeconds: 0 });
+  });
+  it('подгрузка следующей страницы продолжает последний год, а не создаёт второй', () => {
+    const page1 = [lp(1, '2026-05-01T10:00:00Z'), lp(2, '2025-09-01T10:00:00Z')];
+    const page2 = [lp(3, '2025-03-01T10:00:00Z'), lp(4, null)];
+    const r = groupByLastPlayedYear([...page1, ...page2]);
+    expect(r.years.map((y) => [y.year, y.games.map((g) => g.id)])).toEqual([[2026, [1]], [2025, [2, 3]]]);
   });
 });

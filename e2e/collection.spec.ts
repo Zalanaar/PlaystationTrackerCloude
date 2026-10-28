@@ -187,6 +187,82 @@ test.describe('коллекция (desktop)', () => {
     await expect(card(page, 'God of War').locator('.ps-card__date')).toHaveText('14 февр. 2026');
   });
 
+  test('«По последней игре»: группы по годам запуска (МСК), часы и число игр, «Не запускались» в конце', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!);
+    await page.getByLabel('Сортировка').selectOption('last_played');
+    await expect(page).toHaveURL(/sort=last_played/);
+    await expect.poll(() => mock.listCalls.at(-1)?.searchParams.get('sort')).toBe('last_played');
+    const groups = coll(page).locator('section.ps-chron');
+    await expect(groups.locator('.ps-year__y')).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    // Hades: 21:30 UTC 31.12.2025 = 2026 по Москве
+    const y2026 = coll(page).locator('#y2026');
+    await expect(y2026.locator('.ps-card__title')).toHaveText(['Tetris Effect', 'Horizon Forbidden West', 'Stray', 'Cyberpunk 2077', 'God of War', 'Hades']);
+    await expect(y2026.locator('.ps-year__btn')).toContainText('6 игр');
+    await expect(y2026.locator('.ps-year__btn')).toContainText('70 ч');
+    await expect(coll(page).locator('#y2025 .ps-year__btn')).toContainText('2 игры');
+    await expect(coll(page).locator('#y2025 .ps-year__btn')).toContainText('108 ч');
+    await expect(coll(page).locator('#y2024 .ps-year__btn')).toContainText('1 игра');
+    await expect(coll(page).locator('#never .ps-card__title')).toHaveText(['Gran Turismo 7']);
+    // месяцев нет; якоря годов
+    await expect(coll(page).locator('.ps-month')).toHaveCount(0);
+    const nav = page.getByRole('navigation', { name: 'Годы' });
+    await expect(nav.getByRole('link')).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    // свернуть и развернуть год через якорь
+    await y2026.locator('.ps-year__btn').click();
+    await expect(y2026.locator('.ps-year__btn')).toHaveAttribute('aria-expanded', 'false');
+    await expect(y2026.locator('.ps-card')).toHaveCount(0);
+    await nav.getByRole('link', { name: '2026' }).click();
+    await expect(y2026.locator('.ps-card')).toHaveCount(6);
+  });
+
+  test('«По последней игре»: asc переворачивает годы; фильтр статуса и поиск сохраняются', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?sort=last_played&order=asc');
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024', '2025', '2026', 'Не запускались']);
+    await page.goto('/?sort=last_played&status=completed');
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2026', '2025', '2024']);
+    await expect(coll(page).locator('#y2026 .ps-card__title')).toHaveText(['God of War']);
+    await page.goto('/?sort=last_played&q=ведьмак');
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024']);
+    await expect(page.getByRole('navigation', { name: 'Годы' })).toHaveCount(0);
+  });
+
+  test('«По последней игре» во всех видах и с «Показать ещё»: заголовок года не дублируется', async ({ page, context, baseURL }) => {
+    const extra = Array.from({ length: 60 }, (_, i) => ({
+      id: 200 + i, title: `Игра ${i + 1}`, lastPlayedAt: new Date(Date.UTC(2025, 6, 28 - (i % 28), 10, i)).toISOString(), status: 'backlog' as const,
+      completedAt: null, droppedAt: null, playSeconds: 3600, playCount: 1, trophies: null,
+    }));
+    const mock = await open(page, context, baseURL!, '/?sort=last_played', [...seed(), ...extra]);
+    // первая страница: 6 игр 2026 + 54 игры 2025
+    await expect(cards(page)).toHaveCount(60);
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2026', '2025']);
+    await coll(page).getByRole('button', { name: /Показать ещё \(10\)/ }).click();
+    await expect(cards(page)).toHaveCount(70);
+    expect(mock.listCalls.at(-1)?.searchParams.get('offset')).toBe('60');
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    await expect(coll(page).locator('#y2025 .ps-card')).toHaveCount(62);
+    await expect(coll(page).locator('#y2025 .ps-year__btn')).toContainText('62 игры');
+    // Плотно
+    await page.getByRole('button', { name: 'Плотно' }).click();
+    await expect(coll(page).locator('#y2026 .ps-grid')).toHaveAttribute('data-density', 'dense');
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+    // Список: таблица в каждой группе, сортировка по заголовку колонки переворачивает годы
+    await page.getByRole('button', { name: 'Список' }).click();
+    await expect(coll(page).locator('#y2026').getByRole('table', { name: 'Игры' })).toBeVisible();
+    await expect(coll(page).locator('#y2026 .ps-row:not(.ps-row--head)')).toHaveCount(6);
+    // Смена порядка перезагружает первую страницу (60). Ждём ответ, иначе ловим кадр со старыми 70 играми в новом порядке (флак).
+    const ascLoaded = page.waitForResponse((r) => r.url().includes('/api/games?') && new URL(r.url()).searchParams.get('order') === 'asc');
+    await coll(page).locator('#y2026').getByRole('button', { name: /Посл\. запуск/ }).click();
+    await ascLoaded;
+    await expect(page).toHaveURL(/order=asc/);
+    // asc, nulls last: 1 игра 2024 + 59 игр 2025; «Не запускались» придут последней страницей
+    const rows = coll(page).locator('.ps-row:not(.ps-row--head)');
+    await expect(rows).toHaveCount(60);
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024', '2025']);
+    await coll(page).getByRole('button', { name: /Показать ещё \(10\)/ }).click();
+    await expect(rows).toHaveCount(70);
+    await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2024', '2025', '2026', 'Не запускались']);
+  });
+
   test('вид «Плотно»/«Список»: URL, localStorage, восстановление без параметра', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(coll(page).locator('.ps-grid').first()).toHaveAttribute('data-density', 'comfort');
@@ -436,6 +512,15 @@ for (const width of [390, 440]) {
       await expect(dlg).toHaveCount(0);
       await expect.poll(() => mock.listCalls.at(-1)?.searchParams.get('sort')).toBe('title');
       await expect(cards(page)).toHaveCount(10);
+      expect(await noOverflow(page)).toBeLessThanOrEqual(0);
+    });
+
+    test('«По последней игре»: группы по годам без переполнения', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!, '/?sort=last_played');
+      await expect(coll(page).locator('section.ps-chron .ps-year__y')).toHaveText(['2026', '2025', '2024', 'Не запускались']);
+      expect(await noOverflow(page)).toBeLessThanOrEqual(0);
+      await page.goto('/?sort=last_played&view=list');
+      await expect(coll(page).locator('#y2026 .ps-row:not(.ps-row--head)')).toHaveCount(6);
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
     });
 

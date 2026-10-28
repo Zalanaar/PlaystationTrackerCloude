@@ -4,7 +4,7 @@ import { blockGames, buildPlan, isFull, visibleBlocks } from './blocks';
 
 const g = (id: number, status: GameItem['status'], lastPlayedAt: string | null = null): GameItem => ({
   id, title: `G${id}`, coverUrl: null, platform: 'PS5', playSeconds: 0, hours: 0, playCount: 0, lastPlayedAt, status,
-  completedAt: null, droppedAt: null, trophies: null, genres: [],
+  completedAt: null, droppedAt: null, trophies: null, genres: [], hiddenAt: null,
 });
 
 describe('блоки коллекции', () => {

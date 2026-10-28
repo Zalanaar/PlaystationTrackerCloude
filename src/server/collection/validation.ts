@@ -25,6 +25,8 @@ export type ListQuery = {
   order: SortOrder;
   limit: number;
   offset: number;
+  /** 9.2: true = только скрытые (`hidden=only`), false = только видимые. */
+  hiddenOnly: boolean;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -76,7 +78,10 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
     if (n === null) return bad('Некорректный offset.');
     offset = n;
   }
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset } };
+  const hRaw = sp.get('hidden');
+  if (hRaw !== null && hRaw !== '' && hRaw !== 'only') return bad('Некорректный параметр hidden.');
+  const hiddenOnly = hRaw === 'only';
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);
@@ -118,4 +123,23 @@ export function parseDateBody(body: unknown): Parsed<DateEdit> {
   const date = new Date(r.data);
   if (Number.isNaN(date.getTime())) return bad('Некорректная дата.');
   return { ok: true, value: { field, date } };
+}
+
+export function parseHiddenBody(body: unknown): Parsed<{ hidden: boolean }> {
+  if (typeof body !== 'object' || body === null || !('hidden' in body)) return bad('Нужно поле hidden.');
+  const h = (body as { hidden: unknown }).hidden;
+  return typeof h === 'boolean' ? { ok: true, value: { hidden: h } } : bad('hidden должно быть true или false.');
+}
+
+export function parseResetAllBody(body: unknown): Parsed<true> {
+  if (typeof body !== 'object' || body === null || (body as { confirm?: unknown }).confirm !== 'RESET') {
+    return bad('Нужно подтверждение: {"confirm":"RESET"}.');
+  }
+  return { ok: true, value: true };
+}
+
+export function parseRestoreBody(body: unknown): Parsed<{ backupId: number }> {
+  if (typeof body !== 'object' || body === null) return bad('Некорректное тело запроса.');
+  const r = idSchema.safeParse((body as { backupId?: unknown }).backupId);
+  return r.success ? { ok: true, value: { backupId: r.data } } : bad('backupId: положительное целое.');
 }

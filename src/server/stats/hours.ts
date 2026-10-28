@@ -59,7 +59,7 @@ export function sumSeconds(m: Map<number, number>): number {
   return t;
 }
 
-/** Вход оценки (контракт 1.6): первый снимок игры и даты запусков из games. */
+/** Вход оценки (контракт 1.6): первый снимок игры (D0, S0, L0) и first_played_at из games. */
 export type EstimateInput = {
   gameId: number;
   /** D0: min(snapshot_date) игры, YYYY-MM-DD (МСК). */
@@ -67,6 +67,7 @@ export type EstimateInput = {
   /** S0: playDuration в первом снимке, секунды. */
   firstSeconds: number;
   firstPlayedAt: Date | null;
+  /** L0: last_played_at первого снимка игры (fallback games.last_played_at), НЕ текущий games.last_played_at. */
   lastPlayedAt: Date | null;
 };
 
@@ -79,7 +80,7 @@ const nextMonth = (key: string): string => {
 
 /**
  * Оценочные секунды игры по месяцам МСК (ключ YYYY-MM), контракт 1.6. Пустая карта = оценки нет.
- * S0 делится поровну по месяцам [месяц firstPlayedAt .. месяц min(lastPlayedAt, D0)], остаток целиком в последний.
+ * S0 делится поровну по месяцам [месяц firstPlayedAt .. месяц min(L0, D0)], остаток целиком в последний.
  */
 export function estimateByMonth(i: EstimateInput): Map<string, number> {
   const out = new Map<string, number>();
