@@ -96,6 +96,25 @@ describe('hltbStep', () => {
     expect(c.warnings.map((w) => w.code)).toContain('hltb_empty');
   });
 
+  it.each([1, 4])('малая партия (%i игр), все выдачи пустые: not_found не пишется, hltb_empty', async (n) => {
+    for (let i = 0; i < n; i++) await add(`Small${i}`, {}, 'backlog');
+    const c = await ctx();
+    const r = await hltbStep(c, deps(async () => []));
+    expect(r).toMatchObject({ checked: 0, found: 0 });
+    expect((await t.db.select().from(games)).every((g) => g.hltbCheckedAt === null)).toBe(true);
+    expect(c.warnings.map((w) => w.code)).toContain('hltb_empty');
+  });
+
+  it('малая партия, но есть один нормальный ответ: пустые выдачи фиксируются как not_found', async () => {
+    const a = await add('Hades', {}, 'backlog');
+    const b = await add('Совсем Неизвестная Игра', {}, 'backlog');
+    const c = await ctx();
+    await hltbStep(c, deps(async (term) => (term.includes('hades') ? [cand(2127, 'Hades', 21.9)] : [])));
+    expect((await row(a)).hltbId).toBe(2127);
+    expect(await row(b)).toMatchObject({ hltbId: null, hltbCheckedAt: NOW });
+    expect(c.warnings.map((w) => w.code)).not.toContain('hltb_empty');
+  });
+
   it('раньше находили, теперь нет: данные не стираются', async () => {
     const id = await add('Hades', { hltbId: 5, hltbName: 'Hades', hltbMainHours: 20, hltbCheckedAt: new Date(NOW.getTime() - HLTB_RECHECK_MS - 1) }, 'backlog');
     await add('Other', {}, 'backlog');

@@ -74,7 +74,7 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
           aria-invalid={err ? true : undefined} aria-describedby={err ? errId : undefined} disabled={busy}
           onChange={(e) => { setText(e.target.value); setErr(null); setSaved(null); }}
         />
-        <button type="submit" className="ps-btn ps-btn--primary" disabled={busy}>{busy ? 'Сохраняю…' : 'Сохранить'}</button>
+        <button type="submit" className="ps-btn ps-btn--primary" aria-label="Сохранить длительность" disabled={busy}>{busy ? 'Сохраняю…' : 'Сохранить'}</button>
         {manual && (
           <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void send(null)}>
             <Icon name="undo" size={16} />Сбросить ручное значение

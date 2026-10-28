@@ -1,18 +1,18 @@
 'use client';
 
 import { useId, useState } from 'react';
-import type { DurationCounts } from '@/server/collection/types';
+import type { DurationCounts, GenreCounts } from '@/server/collection/types';
 import { formatNumber } from '../format';
 import { Icon } from '../icons';
 import {
-  BACKLOG_SORTS, backlogSortId, DURATION_BUCKETS, GENRE_OPTIONS, hasBacklogFilters, toggleValue, type BacklogFilters as Filters,
+  BACKLOG_SORTS, backlogSortId, DURATION_BUCKETS, GENRE_NONE_OPTION, GENRE_OPTIONS, genreCount, hasBacklogFilters, toggleValue, type BacklogFilters as Filters,
 } from './backlog';
 
 /** Фильтры бэклога: «Длительность» (чипы со счётчиками), «Жанр» (раскрывающийся список чипов), сортировка. Всё переносится по строкам, без горизонтальной прокрутки. */
 export function BacklogFilters({
-  filters, counts, onChange, onReset,
+  filters, counts, genreCounts, onChange, onReset,
 }: {
-  filters: Filters; counts: DurationCounts | null; onChange: (p: Partial<Filters>) => void; onReset: () => void;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; onChange: (p: Partial<Filters>) => void; onReset: () => void;
 }) {
   const [open, setOpen] = useState(filters.genres.length > 0);
   const panelId = useId();
@@ -61,14 +61,22 @@ export function BacklogFilters({
       </div>
       {open && (
         <div id={panelId} className="ps-bl-group ps-bl-genres" role="group" aria-label="Жанр">
-          {GENRE_OPTIONS.map((g) => (
-            <button
-              key={g.key} type="button" className="ps-filterchip ps-chip" data-genre={g.key} aria-pressed={filters.genres.includes(g.key)}
-              onClick={() => onChange({ genres: toggleValue(filters.genres, g.key) })}
-            >
-              <span className="ps-filterchip__t">{g.label}</span>
-            </button>
-          ))}
+          {[...GENRE_OPTIONS, GENRE_NONE_OPTION]
+            // «Без жанра» показываем, только если такие игры есть или чип уже выбран (иначе его не снять)
+            .filter((g) => g.key !== GENRE_NONE_OPTION.key || filters.genres.includes(g.key) || (genreCount(genreCounts, g.key) ?? 0) > 0)
+            .map((g) => {
+              const n = genreCount(genreCounts, g.key);
+              return (
+                <button
+                  key={g.key} type="button" className="ps-filterchip ps-chip" data-genre={g.key} aria-pressed={filters.genres.includes(g.key)}
+                  aria-label={n !== null ? `${g.label}: ${formatNumber(n)}` : g.label}
+                  onClick={() => onChange({ genres: toggleValue(filters.genres, g.key) })}
+                >
+                  <span className="ps-filterchip__t">{g.label}</span>
+                  {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
+                </button>
+              );
+            })}
         </div>
       )}
     </div>

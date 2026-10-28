@@ -1,4 +1,5 @@
 // Нормализация жанров PSN и словарь RU (контракт 1.9, design-system 4.7).
+// Чистый модуль: без env, БД и серверных импортов. Его можно импортировать из src/ui (CLAUDE.md, правила кода).
 export const GENRE_LABELS_RU = {
   ACTION: 'Экшен',
   ADVENTURE: 'Приключения',
@@ -42,4 +43,13 @@ export function normalizeGenres(raw: readonly string[] | null | undefined): Genr
 /** Эффективные жанры игры: genres_override ?? normalize(psn_genres). */
 export function effectiveGenres(psnGenres: readonly string[] | null, override: readonly string[] | null): GenreKey[] {
   return normalizeGenres(override ?? psnGenres);
+}
+
+/** Служебное значение фильтра `genres` (16.4): у игры нет жанров вообще. Не входит в GenreKey. */
+export const GENRE_NONE = 'none';
+export type GenreFilterKey = GenreKey | typeof GENRE_NONE;
+
+/** true, если у игры нет ни одного жанра (override ?? psn пусто). Такая игра по 1.9 показывается как OTHER, но фильтр `none` отличает её от реального «Другое». */
+export function hasNoGenres(psnGenres: readonly string[] | null, override: readonly string[] | null): boolean {
+  return !(override ?? psnGenres ?? []).some((g) => g.trim() !== '');
 }

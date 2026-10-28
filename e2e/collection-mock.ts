@@ -259,7 +259,14 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const wanted = st ? st.split(',') : null;
     const genresQ = u.searchParams.get('genres')?.split(',').map((x) => x.toUpperCase()) ?? null;
     const durQ = u.searchParams.get('duration')?.split(',') ?? null;
-    const inScope = base.filter((g) => (!genresQ || (g.genres ?? ['ACTION']).some((k) => genresQ.includes(k))));
+    // контракт 16.4: `none` = у игры нет жанров (genres: []), такая игра по 1.9 ещё и OTHER
+    const keysOf = (g: G) => { const k = g.genres ?? ['ACTION']; return k.length ? k : ['OTHER']; };
+    const inScope = base.filter((g) => (!genresQ || keysOf(g).some((k) => genresQ.includes(k)) || (genresQ.includes('NONE') && (g.genres ?? ['ACTION']).length === 0)));
+    const genreCounts: Record<string, number> = {};
+    for (const g of base.filter((x) => (!durQ || durQ.includes(bucketOf(hoursOf(x)))) && (!wanted || wanted.includes(x.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(x)))) {
+      for (const k of keysOf(g)) genreCounts[k] = (genreCounts[k] ?? 0) + 1;
+      if ((g.genres ?? ['ACTION']).length === 0) genreCounts.none = (genreCounts.none ?? 0) + 1;
+    }
     const filtered = inScope.filter((g) => (!durQ || durQ.includes(bucketOf(hoursOf(g)))) && (!wanted || wanted.includes(g.status ?? 'none')) && (u.searchParams.get('forgotten') !== 'only' || isForgotten(g)));
     const durCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
     for (const g of inScope.filter((x) => !wanted || wanted.includes(x.status ?? 'none'))) durCounts[bucketOf(hoursOf(g))]++;
@@ -279,7 +286,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return json(route, {
-      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts,
+      items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts, genreCounts,
       ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
     });
   });

@@ -58,14 +58,51 @@ test.describe('Бэклог: длительность и фильтры', () => 
   test('жанры: мульти ИЛИ, состояние в URL переживает перезагрузку', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
     await page.getByRole('button', { name: /^Жанр/ }).click();
-    await page.getByRole('button', { name: 'Хоррор', exact: true }).click();
-    await page.getByRole('button', { name: 'Гонки', exact: true }).click();
+    await page.getByRole('button', { name: 'Хоррор: 1', exact: true }).click();
+    await page.getByRole('button', { name: 'Гонки: 1', exact: true }).click();
     await expect(page).toHaveURL(/genres=HORROR%2CRACING/);
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
     await page.reload();
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
     await expect(page.getByRole('button', { name: /^Жанр/ })).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('button', { name: 'Хоррор', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Хоррор: 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('жанры: счётчики на чипах не зависят от выбранных жанров', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string);
+    await page.getByRole('button', { name: /^Жанр/ }).click();
+    await expect(page.getByRole('button', { name: 'Экшен: 3', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ролевые: 1', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Приключения: 0', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Без жанра/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Экшен: 3', exact: true }).click();
+    await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(3);
+    await expect(page.getByRole('button', { name: 'Гонки: 1', exact: true })).toBeVisible();
+    // фильтр длительности сужает счётчики жанров
+    await page.getByRole('button', { name: '10–30 ч: 1' }).click();
+    await expect(page.getByRole('button', { name: 'Экшен: 1', exact: true })).toBeVisible();
+  });
+
+  test('чип «Без жанра»: счётчик, ИЛИ с обычным жанром, URL, перезагрузка', async ({ page, context, baseURL }) => {
+    await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL as string }]);
+    const mock = await mockApi(page, [...games(), bl(7, 'Зулу Безымянная', { genres: [], hltbHours: 5, hltbName: 'Zulu' })]);
+    await page.goto('/backlog');
+    await page.locator('.ps-card:not(.ps-card--sk)').first().waitFor();
+    await page.getByRole('button', { name: /^Жанр/ }).click();
+    const none = page.getByRole('button', { name: 'Без жанра: 1', exact: true });
+    await expect(none).toBeVisible();
+    // игра без жанров считается и в «Другое»
+    await expect(page.getByRole('button', { name: 'Другое: 1', exact: true })).toBeVisible();
+    await none.click();
+    await expect(page).toHaveURL(/genres=none$/);
+    expect(await titles(page)).toEqual(['Зулу Безымянная']);
+    expect((mock.listCalls.at(-1) as URL).searchParams.get('genres')).toBe('none');
+    await page.getByRole('button', { name: 'Хоррор: 1', exact: true }).click();
+    await expect(page).toHaveURL(/genres=none%2CHORROR/);
+    await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
+    await page.reload();
+    await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Без жанра: 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('сортировка по длительности: короткие, длинные, без длительности в конце', async ({ page, context, baseURL }) => {
@@ -119,12 +156,12 @@ test.describe('Ручной ввод длительности', () => {
     // неверный ввод не уходит на сервер
     const field = dlg.getByLabel('Своя оценка, часов');
     await field.fill('abc');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByRole('alert')).toContainText('Введи число часов');
     expect(mock.mutations.filter((x) => x.url.includes('/duration'))).toHaveLength(0);
 
     await field.fill('40,5');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 41 ч');
     await expect(dlg.getByTestId('duration-now')).toContainText('вручную');
     await expect(dlg.getByRole('status')).toHaveText('Сохранено');
@@ -146,7 +183,7 @@ test.describe('Ручной ввод длительности', () => {
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByTestId('duration-hltb')).toHaveText('На HLTB не найдено');
     await dlg.getByLabel('Своя оценка, часов').fill('5');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 5 ч');
     // игра ушла из бакета «неизвестно»: список перезагружен
     await page.keyboard.press('Escape');
@@ -159,10 +196,10 @@ test.describe('Ручной ввод длительности', () => {
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Своя оценка, часов').fill('15');
     mock.failNextMutation = 503;
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByRole('alert')).toContainText('База данных недоступна');
     await expect(dlg.getByLabel('Своя оценка, часов')).toHaveValue('15');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 15 ч');
   });
 });

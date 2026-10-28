@@ -75,6 +75,8 @@ export type GameItem = {
 
 export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };
 
+export type GenreCounts = Partial<Record<string, number>>;
+
 export type GamesListResponse = {
   items: GameItem[];
   total: number;
@@ -86,6 +88,8 @@ export type GamesListResponse = {
   forgottenCount: number;
   /** 16.4: бакеты длительности в области запроса без фильтра `duration`. */
   durationCounts: DurationCounts;
+  /** 16.4: счётчики жанровых чипов (ключи GenreKey и `none`) без фильтра `genres`; только ненулевые ключи. */
+  genreCounts: GenreCounts;
 };
 
 /** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */

@@ -1,6 +1,6 @@
 // Разбор и проверка входных данных раздела 9 (чистые функции, без БД).
 import { z } from 'zod';
-import { GENRE_LABELS_RU, normalizeGenre, type GenreKey } from '@/server/stats/genres';
+import { GENRE_LABELS_RU, GENRE_NONE, normalizeGenre, type GenreFilterKey, type GenreKey } from '@/shared/genres';
 import { DURATION_BUCKETS, DURATION_MAX_HOURS, normalizeOverrideHours } from './duration';
 import type { DurationBucket, GameStatusValue, ListSort, SortOrder, StatusFilterValue } from './types';
 
@@ -33,7 +33,7 @@ export type ListQuery = {
   /** 14.4: true = только забытые игры (`forgotten=only`). */
   forgottenOnly: boolean;
   /** 16.4: ключи жанров (ИЛИ) или null. */
-  genres: GenreKey[] | null;
+  genres: GenreFilterKey[] | null;
   /** 16.4: бакеты длительности (ИЛИ) или null. */
   durations: DurationBucket[] | null;
 };
@@ -94,13 +94,13 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
   if (fRaw !== null && fRaw !== '' && fRaw !== 'only') return bad('Некорректный параметр forgotten.');
   const forgottenOnly = fRaw === 'only';
 
-  let genres: GenreKey[] | null = null;
+  let genres: GenreFilterKey[] | null = null;
   const gRaw = sp.get('genres');
   if (gRaw !== null && gRaw.trim() !== '') {
     const parts = gRaw.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
-    const keys = parts.map((p) => (p in GENRE_LABELS_RU ? (p as GenreKey) : p === 'SIMULATOR' || p === 'UNIQUE' ? normalizeGenre(p) : null));
+    const keys = parts.map((p) => (p === 'NONE' ? GENRE_NONE : p in GENRE_LABELS_RU ? (p as GenreKey) : p === 'SIMULATOR' || p === 'UNIQUE' ? normalizeGenre(p) : null));
     if (parts.length === 0 || keys.some((k) => k === null)) return bad('Неизвестный жанр в фильтре.');
-    genres = [...new Set(keys as GenreKey[])];
+    genres = [...new Set(keys as GenreFilterKey[])];
   }
   let durations: DurationBucket[] | null = null;
   const dRaw = sp.get('duration');

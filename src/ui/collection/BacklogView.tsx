@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DurationCounts, GameItem, GameStatusValue } from '@/server/collection/types';
+import type { DurationCounts, GameItem, GenreCounts, GameStatusValue } from '@/server/collection/types';
 import '../backlog.css';
 import { EmptyState } from '../EmptyState';
 import { formatNumber } from '../format';
@@ -45,6 +45,7 @@ export function BacklogView() {
   const [items, setItems] = useState<GameItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<DurationCounts | null>(null);
+  const [genreCounts, setGenreCounts] = useState<GenreCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const reqRef = useRef(0);
   const [error, setError] = useState(false);
@@ -63,6 +64,7 @@ export function BacklogView() {
       setItems(r.items);
       setTotal(r.total);
       setCounts(r.durationCounts ?? null);
+      setGenreCounts(r.genreCounts ?? null);
     } catch (e) {
       if (my !== reqRef.current) return;
       if (e instanceof ApiError && e.status === 401) return;
@@ -152,7 +154,7 @@ export function BacklogView() {
         {items && items.length > 0 && <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p>}
       </div>
       {(items || counts) && (
-        <BacklogFilters filters={filters} counts={counts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
+        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">

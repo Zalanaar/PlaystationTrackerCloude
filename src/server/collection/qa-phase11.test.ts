@@ -17,6 +17,9 @@ describe('QA Ф11: PATCH hours', () => {
     const r = hours(0.05);
     expect(r.ok && r.value.hours).toBe(0.1);
   });
+  it.each([[0.04], [1000.05], [0.049]])('N-3: %j округляется за границу -> отказ', (v) => {
+    expect(hours(v).ok).toBe(false);
+  });
   it('null = сброс; нет поля / не объект = отказ', () => {
     expect(hours(null)).toEqual({ ok: true, value: { hours: null } });
     expect(parseDurationBody({}).ok).toBe(false);

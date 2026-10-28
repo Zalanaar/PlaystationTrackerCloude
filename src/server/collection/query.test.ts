@@ -50,7 +50,7 @@ describe('коллекция (PGlite)', () => {
   it('пустая БД', async () => {
     const r = await listGames(t.db, lq());
     expect(r).toEqual({
-      items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0, durationCounts: { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 },
+      items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0, genreCounts: {}, durationCounts: { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 },
       counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 },
     });
     const s = await getCollectionSummary(t.db);

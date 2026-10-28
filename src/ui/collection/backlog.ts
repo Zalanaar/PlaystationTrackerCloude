@@ -1,6 +1,6 @@
 // Чистая логика бэклога (Фаза 11): фильтры жанр/длительность <-> URL <-> query API (контракт 16.4), показ длительности, ручной ввод.
-import type { DurationBucket, DurationCounts, GameDuration, ListSort, SortOrder } from '@/server/collection/types';
-import { GENRE_LABELS_RU } from '@/server/stats/genres';
+import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, ListSort, SortOrder } from '@/server/collection/types';
+import { GENRE_LABELS_RU, GENRE_NONE } from '@/shared/genres';
 
 export const BACKLOG_PAGE = 300;
 
@@ -15,6 +15,14 @@ const BUCKET_IDS: readonly string[] = DURATION_BUCKETS.map((b) => b.id);
 
 export const GENRE_OPTIONS: readonly { key: string; label: string }[] = Object.entries(GENRE_LABELS_RU).map(([key, label]) => ({ key, label }));
 const GENRE_KEYS: readonly string[] = GENRE_OPTIONS.map((g) => g.key);
+
+/** Служебный чип «Без жанра» (16.4): ключ `none`, подписи в GENRE_LABELS_RU нет. */
+export const GENRE_NONE_OPTION = { key: GENRE_NONE, label: 'Без жанра' } as const;
+
+/** Счётчик жанрового чипа из genreCounts: нет ключа = 0, нет самого объекта = null (счётчик не показываем). */
+export function genreCount(c: GenreCounts | null, key: string): number | null {
+  return c ? c[key] ?? 0 : null;
+}
 
 export type BacklogSort = Extract<ListSort, 'last_played' | 'title' | 'duration'>;
 export type BacklogFilters = { genres: string[]; duration: DurationBucket[]; sort: BacklogSort; order: SortOrder | null };
@@ -42,7 +50,7 @@ function list(raw: string | null): string[] {
 
 /** Разбор URL: неизвестные жанры и бакеты отбрасываются, дубли схлопываются. */
 export function parseBacklogFilters(params: ParamsLike): BacklogFilters {
-  const genres = [...new Set(list(params.get('genres')).map((g) => g.toUpperCase()).filter((g) => GENRE_KEYS.includes(g)))];
+  const genres = [...new Set(list(params.get('genres')).map((g) => (g.toLowerCase() === GENRE_NONE ? GENRE_NONE : g.toUpperCase())).filter((g) => g === GENRE_NONE || GENRE_KEYS.includes(g)))];
   const duration = [...new Set(list(params.get('duration')).filter((d) => BUCKET_IDS.includes(d)))] as DurationBucket[];
   const s = params.get('sort');
   const sort: BacklogSort = s === 'title' || s === 'duration' ? s : 'last_played';

@@ -1,6 +1,6 @@
 // Жанры периода: вес игры делится по 1/N между эффективными жанрами (контракт 1.9, 10.1). Чистые функции.
 import { compareTitleId } from '@/server/common/compare';
-import { GENRE_LABELS_RU, effectiveGenres } from './genres';
+import { GENRE_LABELS_RU, effectiveGenres } from '@/shared/genres';
 import type { StatsGenreEntry, StatsGenreGame, StatsGenreItem } from './types';
 
 export const GENRES_TOP = 8;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   backlogSortId, backlogToApi, backlogToUrl, DEFAULT_BACKLOG, durationText, formatHours, hltbStatusText, hoursInputValue, parseBacklogFilters,
-  parseHoursInput, resetBacklogFilters, sourceLabel, toggleValue,
+  genreCount, parseHoursInput, resetBacklogFilters, sourceLabel, toggleValue,
 } from './backlog';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -19,6 +19,17 @@ describe('фильтры бэклога <-> URL', () => {
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
     expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], sort: 'last_played', order: null });
+  });
+  it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
+    const f = parseBacklogFilters(p('genres=NONE,horror,None'));
+    expect(f.genres).toEqual(['none', 'HORROR']);
+    expect(backlogToUrl(f).toString()).toBe('genres=none%2CHORROR');
+    expect(backlogToApi(f, { limit: 300, offset: 0 }).get('genres')).toBe('none,HORROR');
+  });
+  it('счётчик жанра: нет ключа = 0, нет объекта = null', () => {
+    expect(genreCount({ ACTION: 3, none: 1 }, 'ACTION')).toBe(3);
+    expect(genreCount({ ACTION: 3 }, 'none')).toBe(0);
+    expect(genreCount(null, 'ACTION')).toBeNull();
   });
   it('order по умолчанию не пишется', () => {
     expect(parseBacklogFilters(p('sort=duration&order=asc')).order).toBeNull();
