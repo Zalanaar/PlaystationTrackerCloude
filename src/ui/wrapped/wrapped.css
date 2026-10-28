@@ -23,9 +23,12 @@
   --story-backdrop: rgba(0, 0, 0, .85);
   --story-shade: rgba(0, 0, 0, .55);
   --story-plate: rgba(0, 0, 0, .45);
+  --story-accent: var(--accent);
   position: fixed; inset: 0; z-index: var(--z-story); display: grid; place-items: center; background: var(--story-backdrop);
   color: var(--story-fg);
 }
+/* PS1 светлая: фон истории всегда тёмный, поэтому затемнение сильнее, а акцент белый (тёмный акцент PS1 на тёмном невидим) */
+[data-theme="ps1"] .ps-story { --story-shade: rgba(0, 0, 0, .82); --story-accent: var(--story-fg); }
 .ps-story__stage {
   position: relative; overflow: hidden; outline: none; user-select: none; -webkit-user-select: none; touch-action: none;
   width: min(420px, calc((100dvh - 2 * var(--sp-4)) * 9 / 16)); min-width: 360px;
@@ -96,7 +99,7 @@
 .ps-story__tri b { color: var(--story-fg); font-size: var(--fs-h3); }
 
 .ps-story__genre { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); height: 36px; padding: 0 var(--sp-3); border-radius: var(--r-sm); overflow: hidden; background: var(--story-track); }
-.ps-story__genre-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); opacity: .7; }
+.ps-story__genre-fill { position: absolute; inset: 0 auto 0 0; background: var(--story-accent); opacity: .7; }
 .ps-story__genre-l, .ps-story__genre-v { position: relative; font-size: var(--fs-body); font-weight: 600; }
 .ps-story__genre-v { font-weight: 400; color: var(--story-fg); }
 
@@ -106,7 +109,7 @@
 .ps-story__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-4); }
 .ps-story__btn { min-height: var(--tap-min); gap: var(--sp-2); background: transparent; border-color: var(--story-track); color: var(--story-fg); }
 .ps-story__btn:hover:not(:disabled) { border-color: var(--story-fg); }
-.ps-story__btn--solid { background: var(--story-fg); border-color: var(--story-fg); color: var(--bg); font-weight: 600; }
+.ps-story__btn--solid { background: var(--story-fg); border-color: var(--story-fg); color: var(--story-backdrop); font-weight: 600; }
 
 @media (max-width: 767px) {
   .ps-story { display: block; }

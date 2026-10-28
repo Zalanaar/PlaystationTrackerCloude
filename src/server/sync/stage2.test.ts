@@ -73,14 +73,15 @@ describe('Этап 2: синк', () => {
       expect(await t.db.select().from(trophies).where(isNull(trophies.groupId)).then((r) => r.length)).toBeGreaterThan(0);
       // на следующие сутки: все заполнены, повтор идемпотентен (число строк то же)
       const count = (await t.db.select().from(trophies)).length;
-      clock.t = DAY2.getTime();
+      clock.t = DAY2.getTime() + 2 * 3600_000;
       const { res } = await sync();
       expect(res.status).toBe('success');
+      console.log(JSON.stringify(state.calls), JSON.stringify((await t.db.select().from(syncRuns)).map((r) => [r.id, r.status, r.errorReason, r.trophySetsSynced])));
       expect(await t.db.select().from(trophies).where(isNull(trophies.groupId)).then((r) => r.length)).toBe(0);
       expect((await t.db.select().from(trophies)).length).toBe(count);
       // и ещё один синк: ничего не перезагружается
       const defs = state.calls.defs ?? 0;
-      clock.t = DAY2.getTime() + 2 * 86400_000;
+      clock.t = DAY2.getTime() + 4 * 86400_000;
       await sync();
       // допускаются только перезагрузки по другим причинам; групповых нет
       expect(await t.db.select().from(trophies).where(isNull(trophies.groupId)).then((r) => r.length)).toBe(0);
@@ -88,33 +89,25 @@ describe('Этап 2: синк', () => {
     });
 
     it('DLC: прогноз платины считает базу отдельно от DLC; без group_id помечен приблизительным', async () => {
-      const np = Object.keys(state.trophies).find((k) => (state.trophies[k].defs as { trophyType?: string }[]).some((d) => d.trophyType === 'platinum'));
-      if (np) {
-        const defs = state.trophies[np].defs as Record<string, unknown>[];
-        const last = defs.filter((d) => d.trophyType !== 'platinum').pop();
-        if (last) last.trophyGroupId = '001';
+      const np = 'NPWR00003_00';
+      const set = state.trophies[np] as { defs: Record<string, unknown>[]; earned: Record<string, unknown>[] };
+      // платина не получена; база: бронза 1 (получена); DLC: бронза 2 и 3 (не получены)
+      set.earned[0] = { ...set.earned[0], earned: false, earnedDateTime: undefined };
+      for (const id of [2, 3]) {
+        set.defs.push({ trophyId: id, trophyHidden: false, trophyType: 'bronze', trophyName: `DLC${id}`, trophyDetail: 'd', trophyIconUrl: 'https://img.example/d.png', trophyGroupId: '001' });
+        set.earned.push({ trophyId: id, trophyHidden: false, earned: false, trophyType: 'bronze', trophyRare: 3, trophyEarnedRate: '50.0' });
       }
+      state.trophyTitles.find((x) => x.npCommunicationId === np)!.definedTrophies = { bronze: 3, silver: 0, gold: 0, platinum: 1 };
       await sync();
-      const withPlat = await t.db.select({ id: trophySets.id }).from(trophySets).where(sql`${trophySets.definedPlatinum} > 0 and ${trophySets.earnedPlatinum} = 0`);
-      let checked = 0;
-      for (const s of withPlat) {
-        const link = await t.db.execute(sql`select game_id from game_trophy_sets where trophy_set_id = ${s.id} limit 1`);
-        const rows = (Array.isArray(link) ? link : (link as { rows: { game_id: number }[] }).rows) as { game_id: number }[];
-        if (!rows[0]) continue;
-        const d = await getGameDetails(t.db, rows[0].game_id);
-        if (!d?.platinumForecast) continue;
-        checked++;
-        expect(d.platinumForecast.approximate).toBe(false);
-        const dlcCount = d.trophyList.filter((x) => x.groupId === '001' && x.type !== 'platinum').length;
-        expect(d.platinumForecast.dlc?.required ?? 0).toBe(dlcCount);
-        const base = d.trophyList.filter((x) => (x.groupId ?? 'default') === 'default' && x.type !== 'platinum').length;
-        expect(d.platinumForecast.required).toBe(base);
-        await t.db.update(trophies).set({ groupId: null }).where(eq(trophies.trophySetId, d.trophyList[0].setId));
-        const d2 = await getGameDetails(t.db, rows[0].game_id);
-        expect(d2?.platinumForecast?.approximate).toBe(true);
-        expect(d2?.platinumForecast?.dlc).toBeNull();
-      }
-      expect(checked, 'в фикстурах должна быть игра с неполученной платиной').toBeGreaterThan(0);
+      const res = await t.db.execute(sql`select l.game_id from game_trophy_sets l join trophy_sets s on s.id = l.trophy_set_id where s.np_communication_id = ${np} limit 1`);
+      const gameId = ((Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as { game_id: number }[])[0].game_id;
+      const d = await getGameDetails(t.db, gameId);
+      expect(d?.trophyList.filter((x) => x.groupId === '001')).toHaveLength(2);
+      expect(d?.platinumForecast).toMatchObject({ required: 1, earned: 1, progress: 100, remaining: { total: 0 }, approximate: false, dlc: { required: 2, earned: 0, remaining: 2 } });
+      // группа неизвестна: DLC считаются базой, прогноз приблизительный
+      await t.db.update(trophies).set({ groupId: null }).where(eq(trophies.trophySetId, d!.trophyList[0].setId));
+      const d2 = await getGameDetails(t.db, gameId);
+      expect(d2?.platinumForecast).toMatchObject({ required: 3, earned: 1, approximate: true, dlc: null });
     });
   });
 
