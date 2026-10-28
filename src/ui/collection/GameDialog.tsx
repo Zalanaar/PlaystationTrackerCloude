@@ -391,7 +391,7 @@ function Overview({
                 {editing ? (
                   <form className="ps-inline-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
                     <input type="date" className="ps-input" value={value} max={today} aria-label="Дата завершения" onChange={(e) => { setValue(e.target.value); setErr(null); }} />
-                    <button type="submit" className="ps-btn ps-btn--primary">Сохранить</button>
+                    <button type="submit" aria-label="Сохранить дату завершения" className="ps-btn ps-btn--primary">Сохранить</button>
                     <button type="button" className="ps-btn" onClick={() => setEditing(false)}>Отмена</button>
                     {err && <span role="alert" className="ps-field-error">{err}</span>}
                   </form>

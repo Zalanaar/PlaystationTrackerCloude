@@ -119,12 +119,12 @@ test.describe('Ручной ввод длительности', () => {
     // неверный ввод не уходит на сервер
     const field = dlg.getByLabel('Своя оценка, часов');
     await field.fill('abc');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByRole('alert')).toContainText('Введи число часов');
     expect(mock.mutations.filter((x) => x.url.includes('/duration'))).toHaveLength(0);
 
     await field.fill('40,5');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 41 ч');
     await expect(dlg.getByTestId('duration-now')).toContainText('вручную');
     await expect(dlg.getByRole('status')).toHaveText('Сохранено');
@@ -146,7 +146,7 @@ test.describe('Ручной ввод длительности', () => {
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByTestId('duration-hltb')).toHaveText('На HLTB не найдено');
     await dlg.getByLabel('Своя оценка, часов').fill('5');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 5 ч');
     // игра ушла из бакета «неизвестно»: список перезагружен
     await page.keyboard.press('Escape');
@@ -159,10 +159,10 @@ test.describe('Ручной ввод длительности', () => {
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Своя оценка, часов').fill('15');
     mock.failNextMutation = 503;
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByRole('alert')).toContainText('База данных недоступна');
     await expect(dlg.getByLabel('Своя оценка, часов')).toHaveValue('15');
-    await dlg.getByRole('button', { name: 'Сохранить' }).click();
+    await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 15 ч');
   });
 });

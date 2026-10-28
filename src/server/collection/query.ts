@@ -2,11 +2,12 @@
 import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
-import { GENRE_LABELS_RU, effectiveGenres, type GenreKey } from '@/server/stats/genres';
+import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
 import { bucketSql, buildDuration, durationFilterSql, effectiveHoursSql, type DurationRow } from './duration';
 import type {
   CollectionSummaryResponse,
   DurationCounts,
+  GenreCounts,
   GameItem,
   GameTrophies,
   GamesListResponse,
@@ -212,12 +213,29 @@ export function forgottenSql(now: Date): SQL {
 }
 
 /** 16.4: id игр в области, у которых эффективные жанры (1.9) пересекаются с выбранными. Нормализация в коде, поэтому фильтр по id. */
-export async function genreFilterSql(db: AnyDb, keys: readonly GenreKey[] | null, scope: SQL | undefined): Promise<SQL | undefined> {
+export async function genreFilterSql(db: AnyDb, keys: readonly GenreFilterKey[] | null, scope: SQL | undefined): Promise<SQL | undefined> {
   if (!keys || keys.length === 0) return undefined;
   const rows = await db.select({ id: games.id, psn: games.psnGenres, ov: games.genresOverride }).from(games).where(scope);
   const want = new Set<string>(keys);
-  const ids = rows.filter((r) => effectiveGenres(r.psn, r.ov).some((g) => want.has(g))).map((r) => r.id);
+  const ids = rows
+    .filter((r) => (want.has(GENRE_NONE) && hasNoGenres(r.psn, r.ov)) || effectiveGenres(r.psn, r.ov).some((g) => want.has(g)))
+    .map((r) => r.id);
   return ids.length ? inArray(games.id, ids) : sql`false`;
+}
+
+/** 16.4: сколько игр подошло бы под каждый жанровый чип (включая `none`) в области запроса без фильтра `genres`. Игра с несколькими жанрами считается в каждом. */
+async function genreCountsFor(db: AnyDb, where: SQL | undefined): Promise<GenreCounts> {
+  const rows = await db
+    .select({ psn: games.psnGenres, ov: games.genresOverride })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .where(where);
+  const out: GenreCounts = {};
+  for (const r of rows) {
+    for (const g of effectiveGenres(r.psn, r.ov)) out[g] = (out[g] ?? 0) + 1;
+    if (hasNoGenres(r.psn, r.ov)) out[GENRE_NONE] = (out[GENRE_NONE] ?? 0) + 1;
+  }
+  return out;
 }
 
 async function durationCounts(db: AnyDb, where: SQL | undefined): Promise<DurationCounts> {
@@ -266,7 +284,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
     duration: [sql`${effectiveHoursSql} ${dir} nulls last`],
   };
 
-  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts] = await Promise.all([
+  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts] = await Promise.all([
     q
       .where(whereAll)
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
@@ -289,6 +307,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
       .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
       .where(forgottenSql(now)),
     durationCounts(db, whereNoDuration),
+    genreCountsFor(db, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql)),
   ]);
 
   return {
@@ -303,6 +322,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
       .sort((a, b) => b - a),
     forgottenCount: forgottenRows[0]?.n ?? 0,
     durationCounts: dCounts,
+    genreCounts: gCounts,
   };
 }
 
