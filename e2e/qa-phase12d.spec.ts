@@ -24,7 +24,8 @@ test.describe('QA: Поставить на позицию', () => {
     insertHints: { 2: { insertAt: 1, displacesAtInsert: 1, displacedTitles: ['Игра А'] }, 3: { insertAt: 2, displacesAtInsert: 0, displacedTitles: [] } }, ...o,
   });
 
-  test('гонка: два быстрых клика по разным строкам, второй PUT не должен терять первую перестановку', async ({ page, context, baseURL, isMobile }) => {
+  // BUG-2 (открыт): второй PUT теряет первую перестановку
+  test.fail('гонка: два быстрых клика по разным строкам, второй PUT не должен терять первую перестановку', async ({ page, context, baseURL, isMobile }) => {
     test.skip(isMobile, 'desktop');
     const s = await open(page, context, baseURL as string, two());
     await page.route(/\/api\/roadmap\/order$/, async (r) => { await new Promise((x) => setTimeout(x, 600)); await r.fallback(); });
@@ -34,7 +35,6 @@ test.describe('QA: Поставить на позицию', () => {
     await btns.nth(1).click({ noWaitAfter: true }).catch(() => {});
     await expect.poll(() => s.calls.orders.length, { timeout: 5000 }).toBeGreaterThan(0);
     await page.waitForTimeout(2000);
-    console.log('ORDERS', JSON.stringify(s.calls.orders), 'final', JSON.stringify(s.order));
     // каждый следующий PUT обязан начинаться с того, что уже сохранено первым (игра 2 на позиции 1)
     if (s.calls.orders.length > 1) expect(s.calls.orders[1][0]).toBe(2);
   });
@@ -100,12 +100,9 @@ test.describe('QA: таймлайн по дням', () => {
       });
       expect(g.bars).toHaveLength(3);
       expect(g.bars[0].l).toBeCloseTo(0, 0);
-      expect(g.bars[2].r).toBeLessThanOrEqual(g.w + 0.5);
       expect(g.bars[2].r).toBeGreaterThan(g.w - 1.5);
       const days = year % 4 === 0 ? 366 : 365;
-      console.log(year, 'bar0 w', g.bars[0].w, 'track', g.w, 'expected1day', g.w / days);
       // 1-дневная полоса остаётся кликабельной (минимальная ширина) и не лезет на соседа сильнее min-width
-      for (let i = 0; i < 2; i++) console.log(year, 'overlap', i, g.bars[i].r - g.bars[i + 1].l);
       expect(new Set(g.bars.map((b) => Math.round(b.top))).size).toBe(1);
       const mar = parseFloat(g.months[2]);
       expect(mar).toBeCloseTo(((year % 4 === 0 ? 60 : 59) / days) * 100, 1);
@@ -133,8 +130,6 @@ test.describe('QA: таймлайн по дням', () => {
     await open(page, context, baseURL as string, baseState({ games, order: games.map((x) => x.id) }));
     const bars = await page.evaluate(() => { const t = document.querySelector('[data-testid="rm-lane-queue"]')!.getBoundingClientRect(); return Array.from(document.querySelectorAll('[data-testid="rm-lane-queue"] .ps-rm-bar')).map((b) => { const r = b.getBoundingClientRect(); return { l: r.left - t.left, r: r.right - t.left, top: r.top, tw: t.width }; }); });
     expect(bars.length).toBeGreaterThan(200);
-    const rowsN = new Set(bars.map((b) => Math.round(b.top))).size;
-    console.log('300 games: bars', bars.length, 'rows', rowsN);
     expect(bars.every((b) => b.r <= b.tw + 0.5 && b.l >= -0.5)).toBe(true);
     expect(await noScroll(page)).toBe(true);
   });
@@ -146,8 +141,7 @@ test.describe('QA: таймлайн по дням', () => {
       const long = 'Очень'.repeat(60);
       await open(page, context, baseURL as string, baseState({ games: [{ id: 1, title: long, hours: 40 }, { id: 2, title: 'Короткая', hours: 30 }, { id: 3, title: `<b>x</b>${long}`, hours: 30 }], order: [1, 2, 3] }));
       await page.waitForTimeout(300);
-      if (w === 768) console.log('768 header scroll ok?', await noScroll(page));
-      else expect(await noScroll(page)).toBe(true);
+      if (w !== 768) expect(await noScroll(page)).toBe(true);
     });
   }
 
@@ -156,7 +150,6 @@ test.describe('QA: таймлайн по дням', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await open(page, context, baseURL as string, baseState({ games: [{ id: 1, title: 'Длинная игра', hours: 60 }, { id: 2, title: 'Короткая 3 дня', hours: 4.3 }, { id: 3, title: 'Третья', hours: 40 }], order: [1, 2, 3] }));
     const info = await page.evaluate(() => Array.from(document.querySelectorAll('.ps-rm-bar')).map((b) => ({ w: b.getBoundingClientRect().width, vis: getComputedStyle(b.querySelector('.ps-rm-bar__t')!).display !== 'none', title: b.textContent })));
-    console.log('LABELS', JSON.stringify(info));
     for (const i of info) { if (i.w >= 50) expect(i.vis).toBe(true); if (i.w <= 40) expect(i.vis).toBe(false); }
   });
 
@@ -168,7 +161,6 @@ test.describe('QA: таймлайн по дням', () => {
     const n = await bars.count();
     expect(n).toBe(3);
     const labels = await bars.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-    console.log('ARIA', JSON.stringify(labels));
     for (const l of labels) expect(l).toMatch(/с \d+ \S+ по \d+ \S+/);
     await bars.first().focus();
     await page.keyboard.press('Tab');
@@ -196,7 +188,7 @@ test.describe('QA: таймлайн по дням', () => {
       await page.setViewportSize({ width: 1280, height: 900 });
       await open(page, context, baseURL as string, baseState({ planned: [{ id: 1, title: 'Релиз', releaseDate: '2026-11-02', coverUrl: null, wantAtRelease: true, hoursManual: 10, externalSource: null, externalId: null, status: 'planned' }] }), t.id);
       const res = await page.evaluate(() => {
-        const parse = (c: string) => { const m = c.match(/[\d.]+/g)!.map(Number); return { r: m[0], g: m[1], b: m[2], a: m[3] ?? 1 }; };
+        const parse = (c: string) => { const m = c.match(/[\d.]+/g)!.map(Number); const k = c.startsWith('color(srgb') ? 255 : 1; return { r: m[0] * k, g: m[1] * k, b: m[2] * k, a: m[3] ?? 1 }; };
         const lum = (c: { r: number; g: number; b: number }) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
         const bgOf = (el: Element) => { // стековый фон с учётом прозрачности
           const chain: { r: number; g: number; b: number; a: number }[] = [];
@@ -216,4 +208,13 @@ test.describe('QA: таймлайн по дням', () => {
       expect(res.length).toBeGreaterThan(2);
     });
   }
+});
+
+test('BUG-3 (открыт): полоса в 1 день у 31 декабря не должна выходить за дорожку (min-width 6px)', async ({ page, context, baseURL, isMobile }) => {
+  test.skip(isMobile, 'desktop');
+  test.fail();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await open(page, context, baseURL as string, fullYear(2026));
+  const over = await page.evaluate(() => { const t = document.querySelector('[data-testid="rm-lane-queue"]')!.getBoundingClientRect(); const bs = document.querySelectorAll('[data-testid="rm-lane-queue"] .ps-rm-bar'); return bs[bs.length - 1].getBoundingClientRect().right - t.right; });
+  expect(over).toBeLessThanOrEqual(0.5);
 });
