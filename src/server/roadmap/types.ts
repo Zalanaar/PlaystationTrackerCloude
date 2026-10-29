@@ -35,10 +35,10 @@ export type NotFitReason = 'no_capacity' | 'exceeds_year_end' | 'after_year_end'
 export type NotFitEntry = RoadmapEntry & {
   reason: NotFitReason;
   hoursShort: number | null;
-  /** Только для g:* с reason no_capacity (17.5): пробный прогон «перенести в конец очереди». null = проба не считалась (сверх лимита). */
-  canFitAtEnd?: boolean | null;
-  hoursShortAtEnd?: number | null;
-  displacesAtEnd?: number | null;
+  /** Только для g:* с reason no_capacity (17.15). null = нигде не влезет (insertAt) или проба не считалась (бюджет). */
+  insertAt?: number | null;
+  displacesAtInsert?: number | null;
+  displacedTitles?: string[] | null;
 };
 
 export type QueueState = 'scheduled' | 'not_fit' | 'need_hours' | 'unplanned';

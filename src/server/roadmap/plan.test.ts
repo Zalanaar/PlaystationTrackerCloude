@@ -241,72 +241,73 @@ describe('нагрузка по неделям и месяцам', () => {
   });
 });
 
-describe('notFit: пробный прогон «в конец очереди» (17.5)', () => {
-  // 10 ч/нед, 365 дней: A 300 ч = 210 дней, X 300 ч = 210 дней не влезает (свободно 155 дней), hoursShort = 55 * 10/7 = 78.6.
+describe('notFit: лучшая позиция вставки (17.15)', () => {
+  // 10 ч/нед, 365 дней. 300 ч = 210 дней.
   const A = bl(1, 300);
   const X = bl(2, 300);
-  const C = bl(3, 100); // 70 дней, ставится после A (X не влезла)
-  const notFitOf = (p: ReturnType<typeof plan>, key: string) => p.notFit.find((n) => n.key === key);
+  const C = bl(3, 100);
+  const nf = (p: ReturnType<typeof plan>, key: string) => p.notFit.find((n) => n.key === key);
 
-  it('базовый случай: X не влезла, C после неё ставится', () => {
-    const p = plan([A, X, C]);
-    expect(notFitOf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6 });
-    expect(item(p, 'g:3')).toBeDefined();
+  it('базовый случай и удаление игр до/после X', () => {
+    expect(nf(plan([A, X, C]), 'g:2')).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6 });
+    expect(nf(plan([bl(1, 260), X, C]), 'g:2')?.hoursShort).toBeLessThan(78.6); // игра ДО X: помогает
+    expect(nf(plan([A, X]), 'g:2')?.hoursShort).toBe(nf(plan([A, X, C]), 'g:2')?.hoursShort); // игра ПОСЛЕ X: нет
+    expect(nf(plan([X, C]), 'g:2')).toBeUndefined();
   });
 
-  it('(1) удаление игры ДО X уменьшает hoursShort у X', () => {
-    const without = plan([bl(1, 260), X, C]);
-    const short = notFitOf(without, 'g:2');
-    expect(short?.hoursShort).toBeLessThan(78.6);
-    expect(notFitOf(plan([X, C]), 'g:2')).toBeUndefined(); // совсем убрали A: X влезает
+  it('(1) X не влезает из-за ранних игр: insertAt = самая поздняя позиция, где влезает; displaces считается', () => {
+    const P = bl(1, 50);
+    const Aa = bl(2, 300);
+    const Q = bl(3, 50);
+    const Xx = bl(4, 300);
+    const p = plan([P, Aa, Q, Xx, bl(5, 100)]);
+    expect(nf(p, 'g:4')).toMatchObject({ insertAt: 2, displacesAtInsert: 1, displacedTitles: ['B2'] });
+    // проверка пробы вручную: X на позиции 2 влезает, на позиции 3 нет
+    expect(item(plan([P, Xx, Aa, Q, bl(5, 100)]), 'g:4')).toBeDefined();
+    expect(item(plan([P, Aa, Xx, Q, bl(5, 100)]), 'g:4')).toBeUndefined();
   });
 
-  it('(2) удаление игры ПОСЛЕ X не меняет hoursShort; перенос в конец не помогает (проба это показывает)', () => {
-    const withC = notFitOf(plan([A, X, C]), 'g:2');
-    const withoutC = notFitOf(plan([A, X]), 'g:2');
-    expect(withoutC?.hoursShort).toBe(withC?.hoursShort);
-    expect(withoutC).toMatchObject({ canFitAtEnd: false });
-    // реально перенесли X в конец: по-прежнему не влезает, и не лучше, чем было
-    const moved = notFitOf(plan([A, C, X]), 'g:2');
-    expect(moved?.hoursShort).toBeGreaterThanOrEqual(withC?.hoursShort ?? 0);
+  it('(1b) вставка в начало: вытесняется игра, остальные остаются', () => {
+    expect(nf(plan([A, X, C]), 'g:2')).toMatchObject({ insertAt: 1, displacesAtInsert: 1, displacedTitles: ['B1'] });
   });
 
-  it('(3) поля пробы: форма и displacesAtEnd', () => {
-    const n = notFitOf(plan([A, X, C]), 'g:2');
-    expect(n).toMatchObject({ canFitAtEnd: false, displacesAtEnd: 0 });
-    // после переноса C до X места под X меньше: hoursShortAtEnd >= hoursShort
-    expect(n?.hoursShortAtEnd ?? 0).toBeGreaterThanOrEqual(n?.hoursShort ?? 0);
-    expect(n?.hoursShortAtEnd).toBe(notFitOf(plan([A, C, X]), 'g:2')?.hoursShort);
+  it('(2) X длиннее года: insertAt null', () => {
+    const p = plan([bl(1, 10), bl(2, 600)]);
+    expect(nf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', insertAt: null, displacesAtInsert: 0, displacedTitles: [] });
+  });
+
+  it('(3) окна релизов рвут свободное время: суммарно места хватает, непрерывного интервала нет -> insertAt null', () => {
+    // релиз 1 июля на неделю: свободно 0..180 (181 дн.) и 188..364 (177 дн.); X 290 ч = 203 дня не влезает никуда
+    const p = plan([bl(1, 20), bl(2, 290)], [rel(1, '2026-07-01', 10)]);
+    expect(nf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', insertAt: null });
+    // игра покороче (150 дней = 215 ч) влезает в любое окно, не-влезшей нет
+    expect(plan([bl(1, 20), bl(2, 215)], [rel(1, '2026-07-01', 10)]).notFit).toEqual([]);
+  });
+
+  it('(3b) релиз занял начало: X влезает только после игры в большем окне, позиция учитывает окна', () => {
+    // релиз 15 марта на 5 недель; свободно 0..72 (73 дн.) и после; Z 100 ч (70 дн) в начале занимает первое окно,
+    // X 150 ч (105 дн) идёт во второе окно, а W 300 ч (210 дн) стоит до неё и съедает его
+    const p = plan([bl(1, 100), bl(2, 300), bl(3, 150)], [rel(1, '2026-03-15', 50)]);
+    const n = nf(p, 'g:3');
+    expect(n).toMatchObject({ reason: 'no_capacity' });
+    expect(n?.insertAt).toBe(2);
   });
 
   it('релизы и after_year_end пробных полей не получают', () => {
     const p = plan([], [rel(1, '2027-02-01', 5)]);
-    expect(p.notFit[0]).toEqual(expect.objectContaining({ reason: 'after_year_end' }));
-    expect('canFitAtEnd' in p.notFit[0]).toBe(false);
+    expect('insertAt' in p.notFit[0]).toBe(false);
   });
 
-  it('инвариант: при любом входе перенос в конец не помогает и никого не вытесняет (случайные входы)', () => {
-    let seed = 12345;
-    const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-    for (let run = 0; run < 60; run++) {
-      const backlog = Array.from({ length: 12 }, (_, i) => bl(i + 1, Math.round(rnd() * 250) + 5));
-      const planned = rnd() < 0.5 ? [rel(1, `2026-0${1 + Math.floor(rnd() * 9)}-10`, Math.round(rnd() * 60) + 5)] : [];
-      for (const n of plan(backlog, planned).notFit.filter((x) => x.reason === 'no_capacity')) {
-        expect(n.canFitAtEnd).toBe(false);
-        expect(n.displacesAtEnd).toBe(0);
-      }
-    }
-  });
-
-  it('производительность: 300 игр, много не влезших; пробы ограничены 50, остальные null', () => {
+  it('(4) 300 игр: время приемлемо, бюджет проб ограничен (часть полей null)', () => {
     const backlog = Array.from({ length: 300 }, (_, i) => bl(i + 1, 20 + (i % 7) * 10));
     const t0 = performance.now();
-    const p = plan(backlog);
+    const p = plan(backlog, [rel(1, '2026-05-01', 40), rel(2, '2026-09-01', 60)]);
     const ms = performance.now() - t0;
-    const nf = p.notFit.filter((n) => n.reason === 'no_capacity');
-    expect(nf.length).toBeGreaterThan(60);
-    expect(nf.filter((n) => n.canFitAtEnd === null)).toHaveLength(nf.length - 50);
-    expect(nf.slice(0, 50).every((n) => typeof n.canFitAtEnd === 'boolean')).toBe(true);
-    expect(ms).toBeLessThan(2000);
+    const list = p.notFit.filter((n) => n.reason === 'no_capacity' && n.kind === 'backlog');
+    expect(list.length).toBeGreaterThan(100);
+    expect(list.some((n) => n.displacesAtInsert === null)).toBe(true); // бюджет кончился
+    expect(list.slice(0, 5).every((n) => n.displacesAtInsert !== null)).toBe(true);
+    process.stdout.write(`MEASURE 300 games: ${Math.round(ms)} ms, notFit ${list.length}\n`);
+    expect(ms).toBeLessThan(3000);
   });
 });

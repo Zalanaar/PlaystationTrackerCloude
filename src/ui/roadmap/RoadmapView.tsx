@@ -7,7 +7,7 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
-import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtEnd, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
+import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { flashElement } from './parts';
@@ -252,19 +252,21 @@ export function RoadmapView() {
     void refresh();
   }, [refresh]);
 
-  // ---- «Поставить в конец очереди» для не влезшей игры ----
-  const moveToEnd = useCallback(async (e: RoadmapEntry): Promise<void> => {
-    const next = orderWithAtEnd(fullKeysRef.current, e.key);
+  // ---- «Поставить на позицию N» для не влезшей игры (контракт 17.15: insertAt среди всех g:* очереди) ----
+  const moveToPosition = useCallback(async (e: RoadmapEntry, at: number): Promise<void> => {
+    const next = orderWithAtPosition(fullKeysRef.current, e.key, at);
+    const before = dataRef.current?.notFit.length ?? 0;
     try {
       await putOrder(orderGameIds(next));
     } catch (err) {
-      toast({ kind: 'error', text: `Не удалось поставить в конец очереди. ${mutationError(err)}` });
+      toast({ kind: 'error', text: `Не удалось поставить на позицию. ${mutationError(err)}` });
       throw err;
     }
     setOrder(null);
     await refresh();
+    const after = dataRef.current?.notFit.length ?? 0;
     const still = dataRef.current?.notFit.some((x) => x.key === e.key);
-    toast(still ? { text: 'Не влезла даже в конце очереди: осталась в «Не успеваю», часы обновлены' } : { text: 'Поставлено в конец очереди' });
+    toast({ text: still ? `Не влезла и на позиции ${at}: осталась в «Не успеваю», часы обновлены` : placedToast(at, before, after) });
   }, [refresh, toast]);
 
   const focusNeed = useCallback((key: string) => {
@@ -349,7 +351,7 @@ export function RoadmapView() {
         )}
         {data && data.notFit.length > 0 && (
           <section className="ps-rm-panel" id="rm-over" data-area="over" aria-label="Не успеваю">
-            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveToEnd={moveToEnd} />
+            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveTo={moveToPosition} />
           </section>
         )}
         {data && (data.unallocated ?? []).length > 0 && (

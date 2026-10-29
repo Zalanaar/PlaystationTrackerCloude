@@ -1,7 +1,7 @@
 import { describe, expect, it, it as it_ } from 'vitest';
 import type { Conflict, PlanItem, RoadmapResponse } from '@/server/roadmap/types';
 import {
-  applyOrder, appendUnique, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, endQueueHint, orderWithAtEnd, removedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
+  applyOrder, appendUnique, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, insertHint, orderWithAtPosition, removedToast, placedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
   periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, catalogFail, platformsText, filterCandidates,
 } from './model';
 
@@ -211,24 +211,26 @@ describe('предстоящие релизы', () => {
     expect(upcomingState(c('1', { planned: true, plannedId: 5 }), [])).toEqual({ state: 'new', plannedId: null });
     expect(upcomingState(c('1'), [rec(5, '1', 'done')]).state).toBe('planned');
   });
-  it('подсказка «в конце очереди»', () => {
-    const f = (o: Record<string, unknown>) => ({ key: 'g:1', ...o }) as unknown as Parameters<typeof endQueueHint>[0];
-    expect(endQueueHint(f({}))).toBeNull();
-    expect(endQueueHint(f({ canFitAtEnd: null }))).toBeNull();
-    expect(endQueueHint({ ...f({ canFitAtEnd: true, displacesAtEnd: 0 }) })).toEqual({ text: 'Влезет в конце очереди', tone: 'ok' });
-    expect(endQueueHint(f({ canFitAtEnd: true, displacesAtEnd: 2 }))).toEqual({ text: 'Влезет, но вытеснит 2 игры', tone: 'warn' });
-    expect(endQueueHint(f({ canFitAtEnd: true, displacesAtEnd: 5 }))?.text).toBe('Влезет, но вытеснит 5 игр');
-    expect(endQueueHint(f({ canFitAtEnd: false, hoursShortAtEnd: 7.5 }))).toEqual({ text: 'Не хватит ещё 7,5 ч', tone: 'bad' });
-    expect(endQueueHint({ ...f({ canFitAtEnd: true }), key: 'p:1' })).toBeNull();
+  it('подсказка «на позицию»', () => {
+    const f = (o: Record<string, unknown>) => ({ key: 'g:1', reason: 'no_capacity', ...o }) as unknown as Parameters<typeof insertHint>[0];
+    expect(insertHint(f({}))).toBeNull();
+    expect(insertHint(f({ insertAt: null, displacesAtInsert: null }))).toBeNull(); // проба не считалась
+    expect(insertHint(f({ insertAt: null, displacesAtInsert: 0 }))).toEqual({ kind: 'never', line: 'Нигде не влезет: слишком длинная или мешают релизы' });
+    expect(insertHint(f({ insertAt: 3, displacesAtInsert: 0, displacedTitles: [] }))).toMatchObject({ kind: 'insert', at: 3, warn: false, line: 'Влезет на позиции 3, никого не вытеснит' });
+    expect(insertHint(f({ insertAt: 2, displacesAtInsert: 2, displacedTitles: ['А', 'Б'] }))).toMatchObject({ warn: true, line: 'Влезет на позиции 2, вытеснит 2: «А», «Б»' });
+    expect(insertHint({ ...f({ insertAt: 2, displacesAtInsert: 0 }), key: 'p:1' })).toBeNull();
+    expect(insertHint(f({ insertAt: 2, displacesAtInsert: 0, reason: 'after_year_end' }))).toBeNull();
   });
-  it('игра в конец очереди сохраняет остальной порядок', () => {
-    expect(orderWithAtEnd(['g:1', 'g:2', 'g:3'], 'g:1')).toEqual(['g:2', 'g:3', 'g:1']);
-    expect(orderWithAtEnd(['g:1', 'g:2'], 'g:9')).toEqual(['g:1', 'g:2']);
-    expect(mergeVisibleOrder(orderWithAtEnd(['g:1', 'g:2', 'g:3'], 'g:2'), ['g:1', 'g:3'])).toEqual(['g:1', 'g:3', 'g:2']);
+  it('вставка игры на позицию по ключам сохраняет остальной порядок', () => {
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3', 'g:4'], 'g:4', 2)).toEqual(['g:1', 'g:4', 'g:2', 'g:3']);
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3'], 'g:1', 3)).toEqual(['g:2', 'g:3', 'g:1']);
+    expect(orderWithAtPosition(['g:1', 'g:2'], 'g:9', 1)).toEqual(['g:1', 'g:2']);
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3'], 'g:3', 99)).toEqual(['g:1', 'g:2', 'g:3']);
   });
   it('тост после «Убрать из плана»', () => {
     expect(removedToast(3, 1)).toBe('Убрано из плана. Не успеваю: было 3, стало 1');
     expect(removedToast(0, 0)).toBe('Убрано из плана');
+    expect(placedToast(2, 3, 2)).toBe('Поставлено на позицию 2. Не успеваю: было 3, стало 2');
   });
   it('тело POST: галка на релизе по умолчанию, часы пустые', () => {
     expect(upcomingBody(c('9'))).toEqual({ title: 'T9', releaseDate: '2026-12-01', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '9' });

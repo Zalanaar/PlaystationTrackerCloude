@@ -3,7 +3,7 @@
 import { useId, useState } from 'react';
 import type { NotFitEntry, RoadmapEntry } from '@/server/roadmap/types';
 import { Icon } from '../icons';
-import { dayText, endQueueHint, hoursLabel, notFitReasonText, notFitShortText, parseRowHours, ROW_HOURS_MAX, ROW_HOURS_MIN, hoursNum, totalShortHours } from './model';
+import { dayText, hoursLabel, insertHint, notFitReasonText, notFitShortText, parseRowHours, ROW_HOURS_MAX, ROW_HOURS_MIN, hoursNum, totalShortHours } from './model';
 import { FieldError, jumpToEntry, Spinner, Thumb } from './parts';
 
 function NeedRow({ e, onSave, onRemove }: { e: RoadmapEntry; onSave: (key: string, hours: number) => Promise<void>; onRemove: (e: RoadmapEntry) => void }) {
@@ -58,7 +58,7 @@ export function NeedHoursPanel({ list, onSave, onRemove }: { list: readonly Road
 }
 
 /** Блок «Не успеваю»: игры, не влезшие в год. Скрыт, если пусто. Кнопки «Применить N ч в неделю» нет (решение Артёма). */
-export function OverPanel({ list, yearEnd, onRemove, onMoveToEnd }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void; onMoveToEnd: (e: NotFitEntry) => Promise<void> }) {
+export function OverPanel({ list, yearEnd, onRemove, onMoveTo }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void; onMoveTo: (e: NotFitEntry, at: number) => Promise<void> }) {
   const [busy, setBusy] = useState<string | null>(null);
   if (!list.length) return null;
   const total = totalShortHours(list);
@@ -67,7 +67,7 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveToEnd }: { list: read
       <div className="ps-rm-head">
         <h2 className="ps-h2 ps-h2--ic"><Icon name="alert" size={16} />Не успеваю <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
-      <p className="ps-rm-sub" data-testid="rm-over-hint">Игры считаются по порядку очереди; освободившееся время позже не поможет — поставь игру в конец.</p>
+      <p className="ps-rm-sub" data-testid="rm-over-hint">Не влезла по порядку очереди. Освободить время можно, убрав игры раньше неё или поставив её выше.</p>
       {total > 0 && <p className="ps-rm-over__sum">Не хватает <b className="num">{hoursLabel(total)}</b>, чтобы пройти всё до {dayText(yearEnd)}</p>}
       <ul className="ps-rm-over">
         {list.map((r) => (
@@ -81,15 +81,20 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveToEnd }: { list: read
               <div className="ps-rm-over__row" data-testid="rm-over-row"><OverBody r={r} /></div>
             )}
             {r.key.startsWith('g:') && (() => {
-              const hint = endQueueHint(r);
+              const hint = insertHint(r);
+              if (!hint) return null;
               return (
                 <span className="ps-rm-over__end">
-                  <button
-                    type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-end" disabled={busy === r.key}
-                    aria-describedby={hint ? `end-${r.key}` : undefined}
-                    onClick={() => { setBusy(r.key); void onMoveToEnd(r).catch(() => {}).finally(() => setBusy(null)); }}
-                  >{busy === r.key ? <Spinner size={12} /> : <Icon name="arrow-down" size={14} />}Поставить в конец очереди</button>
-                  {hint && <small id={`end-${r.key}`} data-tone={hint.tone} data-testid="rm-end-hint">{hint.tone === 'warn' && <Icon name="alert" size={12} />}{hint.text}</small>}
+                  {hint.kind === 'insert' && (
+                    <button
+                      type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-pos" disabled={busy === r.key}
+                      aria-describedby={`end-${r.key}`}
+                      onClick={() => { setBusy(r.key); void onMoveTo(r, hint.at).catch(() => {}).finally(() => setBusy(null)); }}
+                    >{busy === r.key ? <Spinner size={12} /> : <Icon name="arrow-up" size={14} />}Поставить на позицию {hint.at}</button>
+                  )}
+                  <small id={`end-${r.key}`} data-tone={hint.kind === 'insert' && hint.warn ? 'warn' : 'ok'} data-testid="rm-end-hint">
+                    {hint.kind === 'insert' && hint.warn && <Icon name="alert" size={12} />}{hint.line}
+                  </small>
                 </span>
               );
             })()}

@@ -302,7 +302,7 @@ describe('roadmap на БД', () => {
       await saveOrder(t.db, [p, q, r3]);
       const short = async () => (await getRoadmap(t.db, NOW)).notFit.find((n) => n.gameId === q);
       const first = await short();
-      expect(first).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6, canFitAtEnd: false, displacesAtEnd: 0 });
+      expect(first).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6, insertAt: 1, displacesAtInsert: 1, displacedTitles: ['First'] });
       await excludeGame(t.db, r3); // после Second: ничего не меняется
       expect(await short()).toMatchObject({ hoursShort: 78.6 });
       await excludeGame(t.db, p); // до Second: теперь влезает

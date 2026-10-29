@@ -32,30 +32,57 @@ type Placed = { entry: RoadmapEntry & { hours: number }; segs: { from: number; t
 
 const cmpStr = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** Сколько не влезших игр бэклога получают пробный прогон «в конец очереди» (17.5); остальным поля = null. */
-export const MAX_END_PROBES = 50;
+/** Общий бюджет пробных прогонов на один план (17.15). Игры, которым проб не хватило, получают null. */
+export const MAX_INSERT_PROBES = 200;
+export const MAX_DISPLACED_TITLES = 5;
 
-/** План + пробные прогоны для notFit (g:*, no_capacity): влезет ли игра, если перенести её в конец очереди. */
+/**
+ * План + для каждой не влезшей игры бэклога (no_capacity) пробы «лучшая позиция вставки»: на какую позицию среди g:* её поставить,
+ * чтобы влезла (самая поздняя из подходящих). Влезание игры зависит только от игр ДО неё и релизов, и монотонно по позиции
+ * (чем раньше, тем не хуже), поэтому позднейшая подходящая позиция ищется бинарным поиском.
+ */
 export function buildPlan(input: PlanInput): Plan {
   const plan = buildPlanCore(input);
-  const probes = plan.notFit.filter((n) => n.kind === 'backlog' && n.reason === 'no_capacity');
-  if (!probes.length) return plan;
-  const before = new Set(plan.items.map((i) => i.key));
-  let used = 0;
-  plan.notFit = plan.notFit.map((n) => {
-    if (n.kind !== 'backlog' || n.reason !== 'no_capacity') return n;
-    if (used++ >= MAX_END_PROBES) return { ...n, canFitAtEnd: null, hoursShortAtEnd: null, displacesAtEnd: null };
-    const moved = input.backlog.find((e) => e.key === n.key) as RoadmapEntry;
-    const trial = buildPlanCore({ ...input, backlog: [...input.backlog.filter((e) => e.key !== n.key), moved] });
-    const stays = new Set(trial.items.map((i) => i.key));
-    const still = trial.notFit.find((x) => x.key === n.key);
-    return {
-      ...n,
-      canFitAtEnd: stays.has(n.key),
-      hoursShortAtEnd: still ? (still.hoursShort ?? 0) : 0,
-      displacesAtEnd: [...before].filter((k) => !stays.has(k)).length,
+  if (!plan.notFit.some((n) => n.kind === 'backlog' && n.reason === 'no_capacity')) return plan;
+  const before = plan.items.filter((i) => i.kind === 'backlog');
+  let budget = MAX_INSERT_PROBES;
+  const nullFields = { insertAt: null, displacesAtInsert: null, displacedTitles: null };
+
+  const probeFor = (n: NotFitEntry): Pick<NotFitEntry, 'insertAt' | 'displacesAtInsert' | 'displacedTitles'> => {
+    const cur = input.backlog.findIndex((e) => e.key === n.key);
+    const rest = input.backlog.filter((e) => e.key !== n.key);
+    const moved = input.backlog[cur];
+    const cache = new Map<number, ReadonlySet<string> | null>();
+    // fits(k): X на 0-based позиции k влезает? Возвращает ключи items пробного плана или null; undefined = бюджет кончился.
+    const run = (k: number): ReadonlySet<string> | null | undefined => {
+      if (cache.has(k)) return cache.get(k);
+      if (budget <= 0) return undefined;
+      budget--;
+      const trial = buildPlanCore({ ...input, backlog: [...rest.slice(0, k), moved, ...rest.slice(k)] });
+      const keys = new Set(trial.items.map((i) => i.key));
+      const r = keys.has(n.key) ? keys : null;
+      cache.set(k, r);
+      return r;
     };
-  });
+    if (cur <= 0) return { insertAt: null, displacesAtInsert: 0, displacedTitles: [] };
+    const first = run(0);
+    if (first === undefined) return nullFields;
+    if (first === null) return { insertAt: null, displacesAtInsert: 0, displacedTitles: [] };
+    let lo = 0; // влезает
+    let hi = cur; // не влезает (так сказал основной прогон)
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      const r = run(mid);
+      if (r === undefined) return nullFields;
+      if (r) lo = mid;
+      else hi = mid;
+    }
+    const keys = cache.get(lo) as ReadonlySet<string>;
+    const displaced = before.filter((i) => !keys.has(i.key));
+    return { insertAt: lo + 1, displacesAtInsert: displaced.length, displacedTitles: displaced.slice(0, MAX_DISPLACED_TITLES).map((i) => i.title) };
+  };
+
+  plan.notFit = plan.notFit.map((n) => (n.kind === 'backlog' && n.reason === 'no_capacity' ? { ...n, ...probeFor(n) } : n));
   return plan;
 }
 

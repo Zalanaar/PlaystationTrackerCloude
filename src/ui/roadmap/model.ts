@@ -584,25 +584,36 @@ export function dropOrder(rows: readonly QueueRow[], dragKey: string, overKey: s
   return to === null ? null : moveTo(keys, from, to);
 }
 
-// ---------- «Не успеваю»: подсказка про конец очереди (поля backend: canFitAtEnd, hoursShortAtEnd, displacesAtEnd) ----------
-export type NotFitView = NotFitEntry & { canFitAtEnd?: boolean | null; hoursShortAtEnd?: number | null; displacesAtEnd?: number | null };
+// ---------- «Не успеваю»: на какую позицию поставить игру (поля backend insertAt, displacesAtInsert, displacedTitles; контракт 17.15) ----------
+export type NotFitView = NotFitEntry & { insertAt?: number | null; displacesAtInsert?: number | null; displacedTitles?: string[] | null };
 
-export function endQueueHint(e: NotFitView): { text: string; tone: 'ok' | 'warn' | 'bad' } | null {
-  if (!e.key.startsWith('g:') || e.canFitAtEnd === undefined || e.canFitAtEnd === null) return null;
-  if (e.canFitAtEnd) {
-    const n = e.displacesAtEnd ?? 0;
-    return n > 0
-      ? { text: `Влезет, но вытеснит ${n} ${plural(n, ['игру', 'игры', 'игр'])}`, tone: 'warn' }
-      : { text: 'Влезет в конце очереди', tone: 'ok' };
+export type InsertHint =
+  | { kind: 'insert'; at: number; displaces: number; line: string; warn: boolean }
+  | { kind: 'never'; line: string };
+
+/** Подсказка по строке «Не успеваю»: null = полей нет (проба не считалась) или это не g:* с no_capacity. */
+export function insertHint(e: NotFitView): InsertHint | null {
+  if (!e.key.startsWith('g:') || e.reason !== 'no_capacity' || e.insertAt === undefined) return null;
+  if (e.insertAt === null) {
+    return e.displacesAtInsert === null || e.displacesAtInsert === undefined ? null : { kind: 'never', line: 'Нигде не влезет: слишком длинная или мешают релизы' };
   }
-  const h = e.hoursShortAtEnd ?? 0;
-  return h > 0 ? { text: `Не хватит ещё ${hoursLabel(h)}`, tone: 'bad' } : null;
+  const n = e.displacesAtInsert ?? 0;
+  const titles = (e.displacedTitles ?? []).map((t) => `«${t}»`).join(', ');
+  return {
+    kind: 'insert', at: e.insertAt, displaces: n, warn: n > 0,
+    line: n > 0 ? `Влезет на позиции ${e.insertAt}, вытеснит ${n}${titles ? `: ${titles}` : ''}` : `Влезет на позиции ${e.insertAt}, никого не вытеснит`,
+  };
 }
 
-/** Полный порядок g:* с игрой `key` в конце (остальной порядок сохраняется, скрытые на своих местах относительно друг друга). */
-export function orderWithAtEnd(full: readonly string[], key: string): string[] {
-  return full.includes(key) ? [...full.filter((k) => k !== key), key] : [...full];
+/** Полный порядок g:* с игрой `key` на позиции `at` (1-based) среди всех g:* очереди; вставка по ключам, остальной порядок сохраняется. */
+export function orderWithAtPosition(full: readonly string[], key: string, at: number): string[] {
+  if (!full.includes(key)) return [...full];
+  const rest = full.filter((k) => k !== key);
+  const i = Math.max(0, Math.min(rest.length, Math.floor(at) - 1));
+  return [...rest.slice(0, i), key, ...rest.slice(i)];
 }
+
+export const placedToast = (pos: number, before: number, after: number): string => `Поставлено на позицию ${pos}. Не успеваю: было ${before}, стало ${after}`;
 
 /** Текст тоста после «Убрать из плана»: сколько игр было и стало в «Не успеваю». */
 export function removedToast(before: number, after: number): string {

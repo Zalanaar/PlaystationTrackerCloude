@@ -62,6 +62,12 @@ export function BacklogView() {
   const serviceRef = useRef<GameItem[] | null>(null);
   useEffect(() => { serviceRef.current = service; }, [service]);
   const serviceReq = useRef(0);
+  const jumpTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.focus({ preventScroll: true });
+  };
   const loadService = useCallback(async () => {
     const my = ++serviceReq.current;
     try {
@@ -192,6 +198,19 @@ export function BacklogView() {
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
       <HltbRunner onFinished={() => void load()} />
+      {service && service.length > 0 && (
+        <nav className="ps-bl-jump" aria-label="Блоки страницы" data-testid="bl-jump">
+          <div className="ps-seg">
+            <button type="button" onClick={() => jumpTo('h-bl-main')}>Бэклог <b className="num">{formatNumber(total)}</b></button>
+            <button type="button" onClick={() => jumpTo('h-bl-service')}>Сервис <b className="num">{formatNumber(serviceTotal)}</b></button>
+          </div>
+        </nav>
+      )}
+      {items && (
+        <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
+          <StatusGlyph status="backlog" size={16} />Бэклог <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>
+        </h2>
+      )}
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
@@ -222,7 +241,7 @@ export function BacklogView() {
                   {sourceLabel(g.duration?.source ?? null) && <span className="ps-bl-src" data-source={g.duration?.source ?? undefined}>{sourceLabel(g.duration?.source ?? null)}</span>}
                   {isNotOnHltb(g.duration) && <span className="ps-bl-src" data-hltb="not_found" data-testid="bl-no-hltb">нет на HLTB</span>}
                 </p>
-                <div className="ps-quick">
+                <div className="ps-bl-actions">
                   <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
                     <StatusGlyph status="playing" size={14} />Начать играть
                   </button>
@@ -247,7 +266,7 @@ export function BacklogView() {
       {service && service.length > 0 && (
         <section className="ps-bl-service" id="service" aria-labelledby="h-bl-service" data-testid="bl-service">
           <div className="ps-bl-service__head">
-            <h2 className="ps-h2 ps-h2--icon" id="h-bl-service">
+            <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-service" tabIndex={-1}>
               <StatusGlyph status="service" size={16} />Сервис <small className="num ps-bl-service__n" data-testid="bl-service-count">{formatNumber(serviceTotal)}</small>
             </h2>
             <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" aria-expanded={serviceOpen} aria-controls="bl-service-list" onClick={() => setServiceOpen((v) => !v)}>
@@ -261,7 +280,7 @@ export function BacklogView() {
                 {service.map((g) => (
                   <GameGridItem key={g.id}>
                     <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                      <div className="ps-quick">
+                      <div className="ps-bl-actions">
                         <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
                           <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
                         </button>
