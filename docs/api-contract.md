@@ -1719,11 +1719,12 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
     "reason": "Тебе заходят большие сюжетные RPG: на неё уйдёт около 50 часов.",
     "planned": false, "plannedId": null
   } ],
-  "meta": { "llm": "ok", "catalog": "ok", "cached": true, "generatedAt": "2026-10-29T10:00:00.000Z", "refreshLeft": 3, "verified": 11, "proposed": 15 }
+  "meta": { "llm": "ok", "llmReason": null, "catalog": "ok", "cached": true, "generatedAt": "2026-10-29T10:00:00.000Z", "refreshLeft": 3, "verified": 11, "proposed": 15 }
 } }
 ```
 - `meta.llm`: `ok` | `disabled` | `limit` | `error`; `meta.catalog`: `ok` | `unavailable` (нет ключа или RAWG не отвечает: подтвердить нельзя → ничего не показываем, не кэшируем).
 - `planned`/`plannedId`: запись в `planned_games` с этим `externalSource+externalId` (любой статус); см. 17.13.
+- `meta.llmReason`: `string | null`, машинная причина сбоя, не показывается как есть (диагностика). Не `null` при `llm = "error"` и при пустом результате после неудачи: `http_<статус>` или `http_<статус>:<error.code|error.type Groq>` (например `http_401`, `http_400:model_not_found`), `timeout`, `network`, `bad_response`, `empty_proposals` (Groq вернул 0 валидных игр), `no_verified` (RAWG ничего не подтвердил), `rawg_unavailable`. Остальные случаи (`ok`, `disabled`, `limit`) = `null`.
 - Пустой результат — `200` с `items: []`; причину читаем из `meta`.
 - Ошибки: `400 invalid_request` (неверный `refresh`), `503 db_unavailable`. Сбои Groq/RAWG — не ошибка HTTP, а `meta`.
 - Время ответа без кэша до ~35 с: для маршрута `maxDuration` = 60.
@@ -1753,3 +1754,4 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 - **Профиль.** Часы в `profile_hash` округляются до 10, чтобы дневной прирост часов не сбрасывал кэш. Названия из библиотеки очищаются от управляющих символов и режутся до 80 символов; системный промпт объявляет профиль данными, а не инструкциями.
 - **`refresh`.** `GET ?refresh=` принимает `1|true` (обновить) и `0|false` (как без параметра), остальное (в т.ч. пусто) = `400`.
 - **Атомарность refresh и пауза после неудачи.** `?refresh=1` занимает слот (`UPDATE ... SET refreshes = refreshes + 1 WHERE day = ? AND refreshes < 3 RETURNING`) до вызова Groq, при `limit` слот возвращается. После неудачной генерации (ошибка Groq, 0 подтверждённых, RAWG недоступен целиком) Groq 10 минут не вызывается: отдаётся последний кэш или пусто с `meta.llm = "error"`; время неудачи хранится в служебной строке `recommend_discover_cache` с `day = '1970-01-01'` (без миграции; в выдачу и фолбэк не попадает).
+- **Диагностика `llmReason`.** Значение символов только `[a-z0-9_.:-]`; из ответа Groq берутся лишь HTTP-статус и очищенные до `[a-z0-9_.-]{1,40}` `error.code`/`error.type`, тела ответов, ключи и промпт не сохраняются и не логируются. При неудаче пишется одна строка `console.warn('[recommend/discover] ' + reason)`. Причина хранится в служебной строке паузы D3 (`payload.reason` рядом с `failedAt`), поэтому в течение 10 минут `meta.llmReason` показывает прежнюю причину (повторного warn нет).

@@ -41,6 +41,8 @@ export type DiscoverPayload = { proposed: number; candidates: DiscoverCandidate[
 export type DiscoverItem = DiscoverCandidate & { planned: boolean; plannedId: number | null };
 export type DiscoverMeta = {
   llm: LlmMeta;
+  /** Машинная причина сбоя (`http_401`, `http_400:model_not_found`, `timeout`, `network`, `bad_response`, `empty_proposals`, `no_verified`, `rawg_unavailable`) или null. */
+  llmReason: string | null;
   catalog: 'ok' | 'unavailable';
   cached: boolean;
   generatedAt: string | null;
@@ -126,14 +128,20 @@ async function releaseRefresh(db: AnyDb, day: string): Promise<void> {
   await db.update(recommendDiscoverCache).set({ refreshes: sql`greatest(${recommendDiscoverCache.refreshes} - 1, 0)` }).where(eq(recommendDiscoverCache.day, day));
 }
 
-async function lastFailureAt(db: AnyDb): Promise<number | null> {
+async function lastFailure(db: AnyDb): Promise<{ at: number; reason: string } | null> {
   const [r] = await db.select({ payload: recommendDiscoverCache.payload }).from(recommendDiscoverCache).where(eq(recommendDiscoverCache.day, FAILURE_DAY));
-  const at = Number((r?.payload as { failedAt?: number } | undefined)?.failedAt);
-  return Number.isFinite(at) ? at : null;
+  const p = r?.payload as { failedAt?: number; reason?: unknown } | undefined;
+  const at = Number(p?.failedAt);
+  if (!Number.isFinite(at)) return null;
+  return { at, reason: typeof p?.reason === 'string' && REASON_RE.test(p.reason) ? p.reason : 'unknown' };
 }
 
-async function markFailure(db: AnyDb, now: Date): Promise<void> {
-  const payload = { failedAt: now.getTime() };
+const REASON_RE = /^[a-z0-9_.:-]{1,90}$/;
+
+/** Запоминает время и причину неудачи и пишет в лог одну строку: только причина, без ключей, тел ответов и промпта. */
+async function markFailure(db: AnyDb, now: Date, reason: string): Promise<void> {
+  console.warn('[recommend/discover] ' + reason);
+  const payload = { failedAt: now.getTime(), reason };
   await db
     .insert(recommendDiscoverCache)
     .values({ day: FAILURE_DAY, profileHash: 'failure', payload, createdAt: now })
@@ -158,7 +166,8 @@ async function askGroq(provider: PhraseProvider, profile: TasteProfile, timeoutM
   try {
     const raw = await provider.complete(buildDiscoverPrompt(profile), ctrl.signal);
     const list = parseProposals(raw);
-    if (!list || list.length === 0) throw new LlmError('bad_response');
+    if (!list) throw new LlmError('bad_response');
+    if (list.length === 0) throw new LlmError('bad_response', 'empty_proposals');
     return list;
   } catch (e) {
     if (e instanceof LlmError) throw e;
@@ -221,7 +230,7 @@ export async function verifyProposals(proposals: readonly Proposal[], rawgKey: s
 
 // --- выдача (19.5)
 
-async function serve(db: AnyDb, payload: DiscoverPayload, meta: Omit<DiscoverMeta, 'verified' | 'proposed'>, now: Date): Promise<DiscoverResponse> {
+async function serve(db: AnyDb, payload: DiscoverPayload, meta: Omit<DiscoverMeta, 'verified' | 'proposed' | 'llmReason'> & { llmReason?: string | null }, now: Date): Promise<DiscoverResponse> {
   const [owned, planned, disliked] = await Promise.all([
     db.select({ name: games.name, hltb: games.hltbName }).from(games), // любой статус, включая скрытые
     db.select({ id: plannedGames.id, title: plannedGames.title, source: plannedGames.externalSource, extId: plannedGames.externalId, status: plannedGames.status }).from(plannedGames),
@@ -255,11 +264,11 @@ async function serve(db: AnyDb, payload: DiscoverPayload, meta: Omit<DiscoverMet
     items.push({ ...c, planned: !!pl, plannedId: pl?.id ?? null });
     if (items.length >= DISCOVER_LIMIT) break;
   }
-  return { items, meta: { ...meta, verified: payload.candidates.length, proposed: payload.proposed } };
+  return { items, meta: { ...meta, llmReason: meta.llmReason ?? null, verified: payload.candidates.length, proposed: payload.proposed } };
 }
 
-const emptyMeta = (llm: LlmMeta, catalog: 'ok' | 'unavailable', refreshLeft: number): DiscoverMeta => ({
-  llm, catalog, cached: false, generatedAt: null, refreshLeft, verified: 0, proposed: 0,
+const emptyMeta = (llm: LlmMeta, catalog: 'ok' | 'unavailable', refreshLeft: number, llmReason: string | null = null): DiscoverMeta => ({
+  llm, llmReason, catalog, cached: false, generatedAt: null, refreshLeft, verified: 0, proposed: 0,
 });
 
 /**
@@ -276,12 +285,12 @@ export async function getDiscover(db: AnyDb, opts: { refresh: boolean }, now: Da
   if (!env || env.provider !== 'groq') return { items: [], meta: emptyMeta('disabled', rawgKey ? 'ok' : 'unavailable', refreshLeft) };
   if (!rawgKey) return { items: [], meta: emptyMeta('ok', 'unavailable', refreshLeft) };
 
-  const fromCache = (row: CacheRow, llm: LlmMeta, catalog: 'ok' | 'unavailable', left: number) =>
-    serve(db, row.payload, { llm, catalog, cached: true, generatedAt: row.createdAt.toISOString(), refreshLeft: left }, now);
-  const fallback = async (llm: LlmMeta, catalog: 'ok' | 'unavailable'): Promise<DiscoverResponse> => {
+  const fromCache = (row: CacheRow, llm: LlmMeta, catalog: 'ok' | 'unavailable', left: number, llmReason: string | null = null) =>
+    serve(db, row.payload, { llm, llmReason, catalog, cached: true, generatedAt: row.createdAt.toISOString(), refreshLeft: left }, now);
+  const fallback = async (llm: LlmMeta, catalog: 'ok' | 'unavailable', reason: string | null = null): Promise<DiscoverResponse> => {
     const last = today ?? (await readLatestCache(db));
     // today мог быть с другим хэшем профиля: для отказа это всё равно лучшее, что есть
-    return last ? fromCache(last, llm, catalog, refreshLeft) : { items: [], meta: emptyMeta(llm, catalog, refreshLeft) };
+    return last ? fromCache(last, llm, catalog, refreshLeft, reason) : { items: [], meta: emptyMeta(llm, catalog, refreshLeft, reason) };
   };
 
   const profile = buildProfile(await loadProfileGames(db));
@@ -291,8 +300,8 @@ export async function getDiscover(db: AnyDb, opts: { refresh: boolean }, now: Da
   if (sameHash && refreshLeft === 0) return fromCache(today!, 'ok', 'ok', 0); // лимит ручных обновлений: кэш, Groq не трогаем
 
   // После неудачи Groq не дёргаем FAILURE_COOLDOWN_MS: последний кэш или пусто, meta.llm = error.
-  const failedAt = await lastFailureAt(db);
-  if (failedAt !== null && now.getTime() - failedAt >= 0 && now.getTime() - failedAt < FAILURE_COOLDOWN_MS) return fallback('error', 'ok');
+  const failed = await lastFailure(db);
+  if (failed && now.getTime() - failed.at >= 0 && now.getTime() - failed.at < FAILURE_COOLDOWN_MS) return fallback('error', 'ok', failed.reason);
 
   // refresh занимается атомарно ДО вызова Groq: параллельные ?refresh=1 не обходят лимит.
   let claimed = false;
@@ -313,20 +322,21 @@ export async function getDiscover(db: AnyDb, opts: { refresh: boolean }, now: Da
   let proposals: Proposal[];
   try {
     proposals = await askGroq(provider, profile, deps.groqTimeoutMs ?? GROQ_TIMEOUT_MS);
-  } catch {
-    await markFailure(db, now);
-    return fallback('error', 'ok');
+  } catch (e) {
+    const reason = e instanceof LlmError ? e.detail : 'network';
+    await markFailure(db, now, reason);
+    return fallback('error', 'ok', reason);
   }
 
   const v = await verifyProposals(proposals.slice(0, MAX_PROPOSALS), rawgKey, deps);
   if (v.failed === v.searched && v.candidates.length === 0) {
-    await markFailure(db, now);
-    return fallback('ok', 'unavailable'); // подтвердить нечем: не кэшируем
+    await markFailure(db, now, 'rawg_unavailable');
+    return fallback('ok', 'unavailable', 'rawg_unavailable'); // подтвердить нечем: не кэшируем
   }
   const payload: DiscoverPayload = { proposed: proposals.length, candidates: v.candidates };
   if (v.candidates.length === 0) {
-    await markFailure(db, now);
-    return { items: [], meta: { ...emptyMeta('ok', 'ok', left), proposed: proposals.length } };
+    await markFailure(db, now, 'no_verified');
+    return { items: [], meta: { ...emptyMeta('ok', 'ok', left, 'no_verified'), proposed: proposals.length } };
   }
   await writeCache(db, day, hash, payload, now);
   return serve(db, payload, { llm: 'ok', catalog: 'ok', cached: false, generatedAt: now.toISOString(), refreshLeft: left }, now);

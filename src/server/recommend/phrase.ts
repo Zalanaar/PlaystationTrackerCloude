@@ -16,7 +16,8 @@ export type LlmConfig = { provider: LlmProviderName; apiKey: string; model: stri
 export type PhraseFact = { id: number; name: string; genres: string[]; hours: number | null; signals: string[] };
 
 export class LlmError extends Error {
-  constructor(readonly code: 'timeout' | 'http' | 'network' | 'bad_response') {
+  /** detail: машинная причина для диагностики (`http_401`, `http_400:model_not_found`, `timeout`...). Только [a-z0-9_.:-], без тел ответов и ключа. */
+  constructor(readonly code: 'timeout' | 'http' | 'network' | 'bad_response', readonly detail: string = code) {
     super(`llm_${code}`); // без тел ответов и ключа
     this.name = 'LlmError';
   }
@@ -30,6 +31,25 @@ export interface PhraseProvider {
 
 type FetchLike = typeof fetch;
 
+const cleanToken = (v: unknown): string | null => {
+  if (typeof v !== 'string') return null;
+  const t = v.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 40);
+  return t || null;
+};
+
+/** `http_<статус>` и, если в теле есть error.code / error.type, `:<значение>`. Тело целиком не сохраняется. */
+async function httpDetail(res: Response): Promise<string> {
+  const base = `http_${Number.isInteger(res.status) ? res.status : 0}`;
+  try {
+    const text = (await res.text()).slice(0, 4096);
+    const err = obj(obj(JSON.parse(text))?.error);
+    const extra = cleanToken(err?.code) ?? cleanToken(err?.type);
+    return extra ? `${base}:${extra}` : base;
+  } catch {
+    return base;
+  }
+}
+
 async function postJson(fetchImpl: FetchLike, url: string, headers: Record<string, string>, body: unknown, signal: AbortSignal): Promise<unknown> {
   let res: Response;
   try {
@@ -38,8 +58,7 @@ async function postJson(fetchImpl: FetchLike, url: string, headers: Record<strin
     throw new LlmError(signal.aborted || (e as { name?: string })?.name === 'AbortError' ? 'timeout' : 'network');
   }
   if (!res.ok) {
-    await res.body?.cancel().catch(() => undefined);
-    throw new LlmError('http');
+    throw new LlmError('http', await httpDetail(res));
   }
   try {
     const text = await res.text();

@@ -1,6 +1,6 @@
 // «Новое от ИИ» на PGlite с моками fetch Groq и RAWG (контракт 19).
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
@@ -372,6 +372,69 @@ describe('пауза после неудачи (D3)', () => {
     expect(r.meta.llm).toBe('error');
     expect(r.items).toEqual([]);
     expect(empty.state.groqCalls).toBe(1);
+  });
+});
+
+describe('диагностика llmReason', () => {
+  let t: TestDb;
+  beforeAll(async () => { t = await createTestDb(); });
+  afterAll(() => t.close());
+  beforeEach(() => t.reset());
+  const d = (f: typeof fetch): DiscoverDeps => ({ llm: LLM, rawgKey: RAWG_KEY, fetch: f });
+  const groqFail = (status: number, body: string) => (async () => new Response(body, { status })) as unknown as typeof fetch;
+
+  it.each([
+    [400, JSON.stringify({ error: { message: 'The model `x` does not exist. key gsk_SECRET_GROQ_KEY', type: 'invalid_request_error', code: 'model_not_found' } }), 'http_400:model_not_found'],
+    [401, JSON.stringify({ error: { message: 'Invalid API Key gsk_SECRET_GROQ_KEY', type: 'Invalid_Request_Error!' } }), 'http_401:invalid_request_error'],
+    [429, 'plain text gsk_SECRET_GROQ_KEY', 'http_429'],
+    [404, JSON.stringify({ error: { code: 'А/б<script>' } }), 'http_404:script'],
+  ])('HTTP %s -> %s, ни ключа, ни тела в ответе, логе и служебной строке', async (status, body, reason) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await getDiscover(t.db, { refresh: false }, NOW, d(groqFail(status, body)));
+    expect(r.meta).toMatchObject({ llm: 'error', llmReason: reason });
+    expect(warn.mock.calls).toEqual([['[recommend/discover] ' + reason]]);
+    expect(JSON.stringify([r, warn.mock.calls, await t.db.select().from(recommendDiscoverCache)])).not.toMatch(/SECRET|message|plain text/);
+    warn.mockRestore();
+  });
+
+  it('timeout, network, bad_response, empty_proposals', async () => {
+    const cases: [typeof fetch, string, DiscoverDeps?][] = [
+      [(async (_u: unknown, init?: RequestInit) => new Promise((_, rej) => init?.signal?.addEventListener('abort', () => rej(Object.assign(new Error('a'), { name: 'AbortError' }))))) as typeof fetch, 'timeout', { groqTimeoutMs: 20 }],
+      [(async () => { throw new Error('ECONNRESET gsk_SECRET_GROQ_KEY'); }) as typeof fetch, 'network'],
+      [makeFetch({ groqRaw: 'не json' }), 'bad_response'],
+      [makeFetch({ groqRaw: '{"games":[]}' }), 'empty_proposals'],
+    ];
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const [f, reason, extra] of cases) {
+      await t.reset();
+      const r = await getDiscover(t.db, { refresh: false }, NOW, { ...d(f), ...extra });
+      expect(r.meta.llmReason, reason).toBe(reason);
+    }
+    vi.restoreAllMocks();
+  });
+
+  it('no_verified и rawg_unavailable; успех и disabled дают null', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const none = makeFetch({ proposals: [{ title: 'Выдумка Раз' }], rawg: () => [] });
+    expect((await getDiscover(t.db, { refresh: false }, NOW, d(none))).meta.llmReason).toBe('no_verified');
+    await t.reset();
+    const down = makeFetch({ proposals: [{ title: 'Hades' }], rawg: () => 500 });
+    expect((await getDiscover(t.db, { refresh: false }, NOW, d(down))).meta.llmReason).toBe('rawg_unavailable');
+    await t.reset();
+    const ok = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
+    expect((await getDiscover(t.db, { refresh: false }, NOW, d(ok))).meta.llmReason).toBeNull();
+    expect((await getDiscover(t.db, { refresh: false }, NOW, { ...d(ok), llm: null })).meta.llmReason).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('во время паузы 10 минут показывается прежняя причина, повторного warn нет', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = groqFail(401, JSON.stringify({ error: { code: 'invalid_api_key' } }));
+    await getDiscover(t.db, { refresh: false }, NOW, d(f));
+    const r = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 60_000), d(f));
+    expect(r.meta).toMatchObject({ llm: 'error', llmReason: 'http_401:invalid_api_key' });
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });
 
