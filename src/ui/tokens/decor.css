@@ -2,6 +2,7 @@
    Хуки (классы обязательны в разметке):
      .ps-app .ps-header .ps-nav-item .ps-card .ps-card__cover .ps-card__date .ps-row .ps-skeleton
      .ps-panel (панели статистики, профиля, таблица списка) .ps-search .ps-chip (aria-pressed) .ps-hero__mini .ps-hero__label
+     Фаза 18: .ps-subnav (подвкладки, ссылки a[aria-current]) .ps-mchips (чипы месяцев: .ps-chip + aria-pressed / aria-current="true")
    Функциональные вещи (статусы, баннеры, контраст) сюда не выносятся.
    .ps-app: position relative, isolation isolate; контент выше декора (z-index 1), декор на z-index -1/-2.
 
@@ -92,7 +93,7 @@
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2880 300' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.05)' stroke-width='70'/%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.06)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 178C240 98 480 98 720 178S1200 258 1440 178S1920 98 2160 178S2640 258 2880 178' stroke='rgba(255,255,255,.06)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
   animation: ps3-wave 48s linear infinite; will-change: transform;
 }
-[data-theme="ps3"] .ps-nav-item[aria-current="page"]::after { box-shadow: 0 0 12px rgba(255, 255, 255, .6); }
+[data-theme="ps3"] :is(.ps-nav-item, .ps-subnav a)[aria-current="page"]::after { box-shadow: 0 0 12px rgba(255, 255, 255, .6); }
 [data-theme="ps3"] .ps-card[data-active="true"] .ps-card__cover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55), 0 0 24px rgba(255, 255, 255, .22); }
 @keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
 
@@ -128,6 +129,13 @@
   align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
 }
 [data-theme="ps5"] .ps-nav-item[aria-current="page"]::after { display: none; }
+/* Фаза 18: подвкладки (.ps-subnav) и чип текущего месяца (.ps-mchips) в PS5 тоже белая pill */
+[data-theme="ps5"] .ps-subnav a[aria-current="page"] {
+  align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+}
+[data-theme="ps5"] .ps-subnav a[aria-current="page"]::after { display: none; }
+[data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+[data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small { color: inherit; opacity: .65; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) small { color: inherit; opacity: .65; }
 /* Чип «Платина» в PS5: pill тоже заливается, но платиновым льдом (не белым), знак тёмный: остаётся узнаваемым и отличается от остальных чипов */
