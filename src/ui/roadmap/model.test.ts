@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, it as it_ } from 'vitest';
 import type { Conflict, PlanItem, RoadmapResponse, WeekLoad } from '@/server/roadmap/types';
 import {
-  applyOrder, appendUnique, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
+  applyOrder, appendUnique, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
   periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, weekPos, catalogFail, platformsText, filterCandidates,
 } from './model';
 
@@ -180,5 +180,36 @@ describe('предстоящие релизы', () => {
   });
   it('страницы дописываются без повторов', () => {
     expect(appendUnique([c('1'), c('2')], [c('2'), c('3')]).map((x) => x.externalId)).toEqual(['1', '2', '3']);
+  });
+});
+
+describe('единое расписание', () => {
+  const mk = (key: string, start: string, o: Record<string, unknown> = {}) => ({ ...e(key, o), start, end: start, days: 1, shiftedDays: 0, queuePosition: null, segments: [] });
+  const d = {
+    queue: [{ key: 'g:1', state: 'scheduled' }, { key: 'g:2', state: 'scheduled' }, { key: 'g:3', state: 'not_fit' }, { key: 'g:4', state: 'need_hours' }, { key: 'p:9', state: 'scheduled' }],
+    items: [
+      mk('g:1', '2026-01-01', { queuePosition: 1 }), mk('g:2', '2026-03-09', { queuePosition: 2 }),
+      mk('p:7', '2026-01-28', { kind: 'release', wantAtRelease: true }), mk('p:9', '2026-03-09', { releaseDate: '2026-03-01', queuePosition: 5 }),
+    ],
+    notFit: [{ ...e('g:3'), reason: 'no_capacity', hoursShort: 1 }],
+    needHours: [e('g:4', { hours: null })],
+  } as unknown as Parameters<typeof buildSchedule>[0];
+  it_('по start, релиз раньше при равенстве, not_fit скрыт, без дат в конце', () => {
+    expect(buildSchedule(d, null).map((r) => r.key)).toEqual(['g:1', 'p:7', 'p:9', 'g:2', 'g:4']);
+  });
+  it_('номера и порядок считаются только по g:*', () => {
+    const rows = buildSchedule(d, null);
+    expect([...backlogPositions(rows)]).toEqual([['g:1', 1], ['g:2', 2], ['g:4', 3]]);
+    expect(backlogKeys(rows)).toEqual(['g:1', 'g:2', 'g:4']);
+  });
+  it_('локальный порядок переставляет g:* между своими местами, релизы остаются', () => {
+    expect(buildSchedule(d, ['g:2', 'g:4', 'g:1', 'g:3']).map((r) => r.key)).toEqual(['g:2', 'p:7', 'p:9', 'g:4', 'g:1']);
+  });
+  it_('drop-цель среди g:*, релизная строка не цель', () => {
+    const rows = buildSchedule(d, null);
+    expect(dropOrder(rows, 'g:2', 'g:1', 'before')).toEqual(['g:2', 'g:1', 'g:4']);
+    expect(dropOrder(rows, 'g:1', 'p:7', 'after')).toBeNull();
+    expect(dropOrder(rows, 'g:1', 'g:2', 'before')).toBeNull();
+    expect(mergeVisibleOrder(['g:1', 'g:2', 'g:3', 'g:4'], dropOrder(rows, 'g:4', 'g:1', 'before') as string[])).toEqual(['g:4', 'g:1', 'g:3', 'g:2']);
   });
 });

@@ -43,3 +43,10 @@
 .ps-bl-hltb__result ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); }
 .ps-bl-src[data-hltb="not_found"] { border-color: var(--warning); }
 .ps-bl-dur { flex-wrap: wrap; }
+
+/* Блок «Сервис» на странице бэклога */
+.ps-bl-service { margin-top: var(--sp-8); }
+.ps-bl-service__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-1); }
+.ps-bl-service__head .ps-h2 { margin: 0; }
+.ps-bl-service__n { font-size: var(--fs-small); font-weight: 500; color: var(--text-3); margin-left: var(--sp-1); }
+.ps-bl-service__sub { margin: 0 0 var(--sp-3); font-size: var(--fs-small); color: var(--text-3); }

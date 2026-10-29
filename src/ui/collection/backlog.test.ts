@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   backlogSortId, backlogToApi, backlogToUrl, DEFAULT_BACKLOG, durationText, formatHours, hltbStatusText, hoursInputValue, parseBacklogFilters,
   genreCount, parseHoursInput, resetBacklogFilters, sourceLabel, toggleValue,
+  moveBetweenLists, serviceToApi,
 } from './backlog';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -106,5 +107,34 @@ describe('фильтр hltb', () => {
     expect(resetBacklogFilters(f).hltb).toEqual([]);
     expect(isNotOnHltb({ hltb: { status: 'not_found', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } })).toBe(true);
     expect(isNotOnHltb(undefined)).toBe(false);
+  });
+});
+
+describe('moveBetweenLists: блоки бэклога и сервиса', () => {
+  type G = { id: number; status: 'backlog' | 'service' | 'playing' | null };
+  const lists = { backlog: [{ id: 1, status: 'backlog' }, { id: 2, status: 'backlog' }] as G[], service: [{ id: 3, status: 'service' }] as G[] };
+  it('бэклог -> сервис', () => {
+    const r = moveBetweenLists(lists, lists.backlog[0], 'service');
+    expect(r.lists.backlog.map((g) => g.id)).toEqual([2]);
+    expect(r.lists.service.map((g) => g.id)).toEqual([1, 3]);
+    expect(r.lists.service[0].status).toBe('service');
+    expect([r.backlogDelta, r.serviceDelta]).toEqual([-1, 1]);
+  });
+  it('сервис -> бэклог и сервис -> без статуса', () => {
+    const a = moveBetweenLists(lists, lists.service[0], 'backlog');
+    expect(a.lists.backlog.map((g) => g.id)).toEqual([3, 1, 2]);
+    expect(a.lists.service).toEqual([]);
+    expect([a.backlogDelta, a.serviceDelta]).toEqual([1, -1]);
+    const b = moveBetweenLists(lists, lists.service[0], null);
+    expect(b.lists.backlog).toHaveLength(2);
+    expect([b.backlogDelta, b.serviceDelta]).toEqual([0, -1]);
+  });
+  it('в другой статус игра покидает оба блока', () => {
+    const r = moveBetweenLists(lists, lists.backlog[1], 'playing');
+    expect(r.lists.backlog.map((g) => g.id)).toEqual([1]);
+    expect(r.lists.service.map((g) => g.id)).toEqual([3]);
+  });
+  it('запрос сервиса без фильтров бэклога', () => {
+    expect(serviceToApi(50).toString()).toBe('status=service&sort=last_played&limit=50&offset=0');
   });
 });

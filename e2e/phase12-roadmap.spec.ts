@@ -39,8 +39,11 @@ test.describe('План: очередь бэклога', () => {
     const s = await open(page, context, baseURL as string);
     await expect(page.getByRole('button', { name: 'Выше: Хейдес' })).toHaveAttribute('aria-disabled', 'true');
     await expect(page.getByRole('button', { name: 'Ниже: Игра без часов' })).toHaveAttribute('aria-disabled', 'true');
-    await page.getByRole('button', { name: 'Выше: Год оф Вар' }).click();
-    await page.getByRole('button', { name: 'Выше: Год оф Вар' }).click();
+    // первое нажатие мышью, второе с клавиатуры (фокус остаётся на той же кнопке): иначе строка уходит под липкую шапку
+    const up = page.getByRole('button', { name: 'Выше: Год оф Вар' });
+    await up.click();
+    await up.focus();
+    await page.keyboard.press('Enter');
     expect(await rowKeys(page)).toEqual(['g:3', 'g:1', 'g:2', 'g:4']);
     await expect(page.getByText('Сохранено', { exact: true })).toBeVisible();
     expect(s.calls.orders).toEqual([[3, 1, 2, 4]]);
@@ -392,7 +395,7 @@ test.describe('План: убрать из плана и «Не распреде
     await un.getByRole('button', { name: 'Вернуть в план' }).click();
     await expect(page.getByTestId('rm-unallocated')).toHaveCount(0);
     expect(s.calls.exclusions.at(-1)).toEqual({ method: 'DELETE', gameId: 1 });
-    expect(await rowKeys(page)).toEqual(['g:2', 'g:3', 'g:4', 'g:1']);
+    expect(await rowKeys(page)).toEqual(['g:2', 'g:3', 'g:1', 'g:4']); // игра без часов (нет дат) остаётся в конце
   });
 
   test('тост «Отменить» возвращает убранную игру', async ({ page, context, baseURL }) => {
@@ -488,5 +491,66 @@ test.describe('План: игры-сервисы', () => {
   test('нет сервисов: блока нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
     await expect(page.getByTestId('rm-services')).toHaveCount(0);
+  });
+});
+
+test.describe('План: единое расписание в очереди', () => {
+  const dawn = () => rel(20, 'Анти Дон 2', '2026-01-28', { wantAtRelease: true, hoursManual: 14, externalSource: 'rawg', externalId: '20' });
+
+  test('релиз с галкой стоит в очереди по дате, с бейджем «Релиз», без ручки и кнопок, номера только у бэклога', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, baseState({ planned: [dawn()] }));
+    await expect(page.getByTestId('rm-queue-row')).toHaveCount(5);
+    expect(await rowKeys(page)).toEqual(['g:1', 'g:2', 'p:20', 'g:3', 'g:4']);
+    const row = page.locator('[data-rm-zone="queue"][data-rm-key="p:20"]');
+    await expect(row).toContainText('Релиз');
+    await expect(row).toContainText('выходит 28 янв.');
+    await expect(row).toContainText('ручн.');
+    await expect(row.getByRole('button', { name: /Выше|Ниже/ })).toHaveCount(0);
+    await expect(row.locator('.ps-rm-q__handle')).toHaveText('');
+    await expect(row.locator('[data-act="menu"]')).toBeVisible();
+    // номера бэклога идут подряд без учёта релиза
+    const nums = await page.locator('[data-rm-key] .ps-rm-q__n[aria-label^="Позиция"]').evaluateAll((els) => els.map((e) => e.textContent));
+    expect(nums).toEqual(['1', '2', '3', '4']);
+    await expect(page.getByText('релизы с галкой стоят по дате выхода и двигаться не могут')).toBeVisible();
+  });
+
+  test('перестановка бэклога через релизную строку: PUT только с g:* и полным порядком', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ planned: [dawn()] }));
+    await page.getByRole('button', { name: 'Ниже: Хейдес' }).click();
+    await expect(page.getByText('Сохранено', { exact: true })).toBeVisible();
+    expect(s.calls.orders).toEqual([[2, 1, 3, 4]]);
+    // после пересчёта расписание по датам: релиз 28 янв. теперь стоит между играми
+    await expect.poll(() => rowKeys(page)).toEqual(['g:2', 'p:20', 'g:1', 'g:3', 'g:4']);
+  });
+
+  test('«В план» из предстоящих: план перезапрашивается, после ввода часов строка появляется в очереди на своём месте', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ upcoming: { pages: [[upc(20, { title: 'Анти Дон 2', releaseDate: '2026-01-28' })]], fail: null } }));
+    const before = s.calls.roadmap;
+    await page.getByRole('button', { name: 'В план: Анти Дон 2' }).click();
+    await expect(page.getByTestId('rm-upcoming-row')).toContainText('В плане');
+    await expect.poll(() => s.calls.roadmap).toBeGreaterThan(before);
+    // без часов релиз ждёт в «Нужны часы», в очередь не ставится
+    await expect(page.getByTestId('rm-need-row').filter({ hasText: 'Анти Дон 2' })).toHaveCount(1);
+    await page.getByTestId('rm-release').getByLabel('Часов на прохождение').fill('14');
+    await page.getByTestId('rm-release').getByLabel('Часов на прохождение').blur();
+    await expect(page.locator('[data-rm-zone="queue"][data-rm-key^="p:"]')).toHaveCount(1);
+    expect(await rowKeys(page)).toEqual(['g:1', 'g:2', s.planned[0] ? `p:${s.planned[0].id}` : '', 'g:3', 'g:4']);
+    await expect(page.locator('[data-rm-zone="queue"][data-rm-key^="p:"]')).toContainText('Релиз');
+  });
+
+  test('меню релизной строки: «Убрать из плана»', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ planned: [dawn()] }));
+    await page.getByRole('button', { name: 'Ещё: Анти Дон 2' }).click();
+    await page.getByRole('menuitem', { name: 'Убрать из плана' }).click();
+    expect(s.calls.patches.at(-1)).toEqual({ id: 20, body: { status: 'unallocated' } });
+    await expect(page.locator('[data-rm-zone="queue"][data-rm-key="p:20"]')).toHaveCount(0);
+  });
+
+  test('drag&drop бэклога через релизную строку (десктоп)', async ({ page, context, baseURL, isMobile }) => {
+    test.skip(isMobile, 'на touch drag отключён');
+    const s = await open(page, context, baseURL as string, baseState({ planned: [dawn()] }));
+    await page.locator('[data-rm-key="g:3"] .ps-rm-q__handle').dragTo(page.locator('[data-rm-key="g:1"]'), { targetPosition: { x: 200, y: 4 } });
+    await expect(page.getByText('Сохранено', { exact: true })).toBeVisible();
+    expect(s.calls.orders).toEqual([[3, 1, 2, 4]]);
   });
 });

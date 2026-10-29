@@ -509,3 +509,46 @@ export function appendUnique(list: readonly UpcomingCandidate[], more: readonly 
   const seen = new Set(list.map((c) => c.externalId));
   return [...list, ...more.filter((c) => !seen.has(c.externalId))];
 }
+
+// ---------- Единое расписание (очередь = игры бэклога + релизы по датам) ----------
+const rank = (r: QueueRow): number => (r.key.startsWith('p:') ? 0 : 1);
+function cmpStart(a: QueueRow, b: QueueRow): number {
+  const x = a.item as PlanItem;
+  const y = b.item as PlanItem;
+  if (x.start !== y.start) return x.start < y.start ? -1 : 1;
+  return rank(a) - rank(b) || (x.queuePosition ?? 1e9) - (y.queuePosition ?? 1e9) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+}
+
+/**
+ * Список очереди = единое расписание: items (бэклог, релизы с галкой и без) по start, без-дат (need_hours) в конце в порядке очереди.
+ * Скрыты `not_fit`. Строки бэклога (g:*) переставляются между своими местами в порядке `order` (оптимистично, до пересчёта),
+ * релизные строки остаются на местах по дате.
+ */
+export function buildSchedule(d: JoinSrc, order: readonly string[] | null): QueueRow[] {
+  const base = buildQueueRows(d);
+  const inQueue = new Set(base.map((r) => r.key));
+  const extra: QueueRow[] = d.items.filter((i) => !inQueue.has(i.key)).map((i) => ({ key: i.key, entry: i, state: 'scheduled' as const, item: i, notFit: null, movable: false }));
+  const all = [...base, ...extra].filter((r) => r.state !== 'not_fit');
+  const sched = [...all.filter((r) => r.item).sort(cmpStart), ...all.filter((r) => !r.item)];
+  const ordered = applyOrder(sched.filter((r) => r.movable), order);
+  let j = 0;
+  return sched.map((r) => (r.movable ? ordered[j++] : r));
+}
+
+/** Номера позиций бэклога 1..N только по g:* (релизные строки номера не имеют). */
+export function backlogPositions(rows: readonly QueueRow[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of rows) if (r.movable) m.set(r.key, m.size + 1);
+  return m;
+}
+export const backlogKeys = (rows: readonly QueueRow[]): string[] => rows.filter((r) => r.movable).map((r) => r.key);
+
+/** Drop на строку `over`: новый порядок g:* (цель считается только среди g:*; релизные строки целью не бывают), null = без изменений. */
+export function dropOrder(rows: readonly QueueRow[], dragKey: string, overKey: string, side: 'before' | 'after'): string[] | null {
+  const keys = backlogKeys(rows);
+  const from = keys.indexOf(dragKey);
+  const over = keys.indexOf(overKey);
+  if (from < 0 || over < 0) return null;
+  const to = dropTarget(from, over, side);
+  return to === null ? null : moveTo(keys, from, to);
+}
