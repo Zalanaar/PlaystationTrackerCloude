@@ -512,24 +512,32 @@ export function appendUnique(list: readonly UpcomingCandidate[], more: readonly 
 
 // ---------- Единое расписание (очередь = игры бэклога + релизы по датам) ----------
 const rank = (r: QueueRow): number => (r.key.startsWith('p:') ? 0 : 1);
+/** Дата для сортировки: начало в плане; у релиза без часов (нет периода) дата выхода. */
+const sortDate = (r: QueueRow): string | null => r.item?.start ?? (r.key.startsWith('p:') ? r.entry.releaseDate : null);
 function cmpStart(a: QueueRow, b: QueueRow): number {
-  const x = a.item as PlanItem;
-  const y = b.item as PlanItem;
-  if (x.start !== y.start) return x.start < y.start ? -1 : 1;
-  return rank(a) - rank(b) || (x.queuePosition ?? 1e9) - (y.queuePosition ?? 1e9) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  const x = sortDate(a) as string;
+  const y = sortDate(b) as string;
+  if (x !== y) return x < y ? -1 : 1;
+  return rank(a) - rank(b) || (a.item?.queuePosition ?? 1e9) - (b.item?.queuePosition ?? 1e9) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
 }
 
 /**
- * Список очереди = единое расписание: items (бэклог, релизы с галкой и без) по start, без-дат (need_hours) в конце в порядке очереди.
- * Скрыты `not_fit`. Строки бэклога (g:*) переставляются между своими местами в порядке `order` (оптимистично, до пересчёта),
+ * Список очереди = единое расписание: items (бэклог, релизы с галкой и без) по start; релизы без часов, но с датой выхода,
+ * стоят по дате выхода (периода у них нет); игры бэклога без часов и релизы без часов и без даты в конце. Скрыты `not_fit`.
+ * Строки бэклога (g:*) переставляются между своими местами в порядке `order` (оптимистично, до пересчёта),
  * релизные строки остаются на местах по дате.
  */
 export function buildSchedule(d: JoinSrc, order: readonly string[] | null): QueueRow[] {
   const base = buildQueueRows(d);
   const inQueue = new Set(base.map((r) => r.key));
   const extra: QueueRow[] = d.items.filter((i) => !inQueue.has(i.key)).map((i) => ({ key: i.key, entry: i, state: 'scheduled' as const, item: i, notFit: null, movable: false }));
-  const all = [...base, ...extra].filter((r) => r.state !== 'not_fit');
-  const sched = [...all.filter((r) => r.item).sort(cmpStart), ...all.filter((r) => !r.item)];
+  // релиз с галкой без часов в queue не входит, но в расписании виден по дате выхода
+  const seen = new Set([...inQueue, ...extra.map((r) => r.key)]);
+  const needRel: QueueRow[] = d.needHours
+    .filter((e) => e.key.startsWith('p:') && e.releaseDate && !seen.has(e.key))
+    .map((e) => ({ key: e.key, entry: e, state: 'need_hours' as const, item: null, notFit: null, movable: false }));
+  const all = [...base, ...extra, ...needRel].filter((r) => r.state !== 'not_fit');
+  const sched = [...all.filter((r) => sortDate(r)).sort(cmpStart), ...all.filter((r) => !sortDate(r))];
   const ordered = applyOrder(sched.filter((r) => r.movable), order);
   let j = 0;
   return sched.map((r) => (r.movable ? ordered[j++] : r));

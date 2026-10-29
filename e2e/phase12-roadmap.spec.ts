@@ -523,19 +523,32 @@ test.describe('План: единое расписание в очереди', (
     await expect.poll(() => rowKeys(page)).toEqual(['g:2', 'p:20', 'g:1', 'g:3', 'g:4']);
   });
 
-  test('«В план» из предстоящих: план перезапрашивается, после ввода часов строка появляется в очереди на своём месте', async ({ page, context, baseURL }) => {
+  test('«В план» из предстоящих без часов: строка сразу в очереди по дате с «Нужны часы», после ввода часов получает период', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string, baseState({ upcoming: { pages: [[upc(20, { title: 'Анти Дон 2', releaseDate: '2026-01-28' })]], fail: null } }));
     const before = s.calls.roadmap;
     await page.getByRole('button', { name: 'В план: Анти Дон 2' }).click();
     await expect(page.getByTestId('rm-upcoming-row')).toContainText('В плане');
     await expect.poll(() => s.calls.roadmap).toBeGreaterThan(before);
-    // без часов релиз ждёт в «Нужны часы», в очередь не ставится
+    const id = s.planned[0].id;
+    const row = page.locator(`[data-rm-zone="queue"][data-rm-key="p:${id}"]`);
+    // без часов: по дате выхода 28 янв. (после Элден Ринга с 17 янв., до Года оф Вар), без периода
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('Релиз');
+    await expect(row).toContainText('Нужны часы');
+    await expect(row).toContainText('выходит 28 янв.');
+    await expect(row.getByRole('button', { name: /Выше|Ниже/ })).toHaveCount(0);
+    expect(await rowKeys(page)).toEqual(['g:1', 'g:2', `p:${id}`, 'g:3', 'g:4']);
     await expect(page.getByTestId('rm-need-row').filter({ hasText: 'Анти Дон 2' })).toHaveCount(1);
-    await page.getByTestId('rm-release').getByLabel('Часов на прохождение').fill('14');
-    await page.getByTestId('rm-release').getByLabel('Часов на прохождение').blur();
-    await expect(page.locator('[data-rm-zone="queue"][data-rm-key^="p:"]')).toHaveCount(1);
-    expect(await rowKeys(page)).toEqual(['g:1', 'g:2', s.planned[0] ? `p:${s.planned[0].id}` : '', 'g:3', 'g:4']);
-    await expect(page.locator('[data-rm-zone="queue"][data-rm-key^="p:"]')).toContainText('Релиз');
+    // «Указать часы» ведёт к полю в карточке релиза
+    await row.getByRole('button', { name: 'Указать часы' }).click();
+    const field = page.getByTestId('rm-release').getByLabel('Часов на прохождение');
+    await expect(field).toBeFocused();
+    await field.fill('14');
+    await field.blur();
+    await expect(row).not.toContainText('Нужны часы');
+    await expect(row).toContainText('28 янв.');
+    await expect(row).toContainText('ручн.');
+    expect(await rowKeys(page)).toEqual(['g:1', 'g:2', `p:${id}`, 'g:3', 'g:4']);
   });
 
   test('меню релизной строки: «Убрать из плана»', async ({ page, context, baseURL }) => {

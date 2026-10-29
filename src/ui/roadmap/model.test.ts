@@ -197,6 +197,16 @@ describe('единое расписание', () => {
   it_('по start, релиз раньше при равенстве, not_fit скрыт, без дат в конце', () => {
     expect(buildSchedule(d, null).map((r) => r.key)).toEqual(['g:1', 'p:7', 'p:9', 'g:2', 'g:4']);
   });
+  it_('релиз без часов стоит по дате выхода между играми, без даты и без часов в расписание не попадает', () => {
+    const d2 = {
+      ...d,
+      needHours: [e('g:4', { hours: null }), e('p:30', { kind: 'release', hours: null, hoursSource: null, releaseDate: '2026-02-01', wantAtRelease: true }), e('p:31', { kind: 'release', hours: null, hoursSource: null, releaseDate: null })],
+    } as unknown as Parameters<typeof buildSchedule>[0];
+    const rows = buildSchedule(d2, null);
+    expect(rows.map((r) => r.key)).toEqual(['g:1', 'p:7', 'p:30', 'p:9', 'g:2', 'g:4']);
+    expect(rows[2]).toMatchObject({ state: 'need_hours', item: null, movable: false });
+    expect([...backlogPositions(rows)].map(([k]) => k)).toEqual(['g:1', 'g:2', 'g:4']);
+  });
   it_('номера и порядок считаются только по g:*', () => {
     const rows = buildSchedule(d, null);
     expect([...backlogPositions(rows)]).toEqual([['g:1', 1], ['g:2', 2], ['g:4', 3]]);

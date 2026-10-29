@@ -21,6 +21,11 @@ function PlanCell({ row, conflicts }: { row: QueueRow; conflicts: number[] }) {
     <div className="ps-rm-q__plan">
       {state === 'not_fit' && notFit ? (
         <span className="ps-rm-state" data-tone="danger" title={`${notFitShortText(notFit)[0].toUpperCase()}${notFitShortText(notFit).slice(1)}`}><Icon name="alert" size={12} />Не успеваю</span>
+      ) : !row.movable && state === 'need_hours' && row.entry.releaseDate ? (
+        <>
+          <span className="ps-rm-state" data-tone="warning"><Icon name="clock" size={12} />Нужны часы</span>
+          <small className="num">выходит {dayText(row.entry.releaseDate)}</small>
+        </>
       ) : item ? (
         <>
           <span className="num">{periodText(item)}</span>
@@ -192,7 +197,15 @@ export function QueuePanel({
                       {src && <span className="ps-rm-src">{r.movable ? src : 'ручн.'}</span>}
                     </>
                   ) : (
-                    <button type="button" className="ps-rm-state" data-tone="warning" onClick={() => onNeedHours(r.key)}><Icon name="clock" size={12} />Нужны часы</button>
+                    <button
+                      type="button" className="ps-rm-state" data-tone="warning"
+                      onClick={() => {
+                        if (r.movable) { onNeedHours(r.key); return; }
+                        // релиз: поле часов в карточке блока «Релизы»
+                        const card = document.querySelector<HTMLElement>(`[data-rm-zone="releases"][data-rm-key="${r.key}"]`);
+                        flashElement(card, card?.querySelector<HTMLElement>('input[type="text"]'));
+                      }}
+                    ><Icon name="clock" size={12} />{r.movable ? 'Нужны часы' : 'Указать часы'}</button>
                   )}
                   {!r.movable && <span className="ps-rm-tag" title={e.wantAtRelease ? 'Стоит по дате выхода' : 'Без галки: идёт после бэклога, не раньше даты выхода'}><Icon name="calendar" size={12} />Релиз</span>}
                 </small>
