@@ -93,10 +93,18 @@ export function hltbStatusSql(s: HltbStatus): SQL {
   return sql`(${games.hltbId} is null and ${games.hltbCheckedAt} is null)`;
 }
 
+/**
+ * «Ждут проверки» (`hltb=unchecked` и `hltbCounts.unchecked`, одно условие): статус unchecked, без ручной длительности и не сервис
+ * (их шаг HLTB пропускает, 20.1). Требует join game_status в запросе.
+ */
+export function uncheckedPendingSql(): SQL {
+  return sql`(${hltbStatusSql('unchecked')} and ${games.durationOverrideHours} is null and ${gameStatus.status} is distinct from 'service')`;
+}
+
 /** Фильтр по нескольким статусам HLTB (ИЛИ). */
 export function hltbFilterSql(list: readonly HltbStatus[] | null): SQL | undefined {
   if (!list || list.length === 0) return undefined;
-  return sql`(${sql.join(list.map(hltbStatusSql), sql` or `)})`;
+  return sql`(${sql.join(list.map((s) => (s === 'unchecked' ? uncheckedPendingSql() : hltbStatusSql(s))), sql` or `)})`;
 }
 
 /** Ручной ввод: число 0.1..1000 -> округлено до 0.1; иначе null. */

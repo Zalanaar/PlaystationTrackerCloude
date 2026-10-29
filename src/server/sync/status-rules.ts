@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 
-const { games, gameStatus } = schema;
+const { games, gameStatus, roadmapOrder } = schema;
 
 export type StatusValue = (typeof schema.gameStatusValue.enumValues)[number];
 
@@ -82,6 +82,8 @@ export async function setGameStatus(db: AnyDb, gameId: number, next: StatusValue
       .insert(gameStatus)
       .values({ gameId, ...t.row, updatedAt: now })
       .onConflictDoUpdate({ target: gameStatus.gameId, set: { ...t.row, updatedAt: now } });
+    // N-2 (Фаза 12): вернувшаяся в бэклог игра встаёт в конец очереди, старая позиция плана сбрасывается.
+    if (t.row.status === 'backlog') await tx.delete(roadmapOrder).where(eq(roadmapOrder.gameId, gameId));
     return t.row;
   });
 }
@@ -159,6 +161,8 @@ export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusV
           },
         });
     }
+    const toBacklog = upserts.filter((u) => u.row.status === 'backlog').map((u) => u.gameId);
+    if (toBacklog.length) await tx.delete(roadmapOrder).where(inArray(roadmapOrder.gameId, toBacklog)); // N-2
     if (deletes.length) await tx.delete(gameStatus).where(inArray(gameStatus.gameId, deletes));
     return upserts.length + deletes.length;
   });

@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { setGameStatus, setGamesStatusBulk } from '@/server/sync/status-rules';
 import {
   createPlanned, deletePlanned, DuplicatePlannedError, excludeGame, getBacklogEntries, getRoadmap, getSettings, listPlanned, markPlanned, NotBacklogError, NotFoundError,
   OrderRejectedError, putSettings, restoreGame, saveOrder, UnknownGamesError, updatePlanned, WantNeedsDateError,
@@ -80,6 +81,19 @@ describe('roadmap на БД', () => {
     expect(rows.map((r) => r.g).sort()).toEqual([id('A'), id('B')].sort());
   });
 
+  it('N-2: игра, вернувшаяся в бэклог (одиночно и массово), встаёт в конец очереди', async () => {
+    const id = await seed();
+    await saveOrder(t.db, [id('B'), id('A'), id('D')]);
+    await setGameStatus(t.db, id('B'), 'playing', NOW);
+    await setGameStatus(t.db, id('B'), 'backlog', new Date(NOW.getTime() + 60_000));
+    expect((await getBacklogEntries(t.db)).map((e) => e.title)).toEqual(['Alpha', 'Delta', 'Bravo']);
+    await setGamesStatusBulk(t.db, [id('A')], 'dropped', NOW);
+    await setGamesStatusBulk(t.db, [id('A')], 'backlog', new Date(NOW.getTime() + 120_000));
+    const order = await t.db.select({ g: schema.roadmapOrder.gameId }).from(schema.roadmapOrder);
+    expect(order.map((r) => r.g)).toEqual([id('D')]);
+    expect((await getBacklogEntries(t.db)).map((e) => e.title)).toEqual(['Delta', 'Bravo', 'Alpha']);
+  });
+
   it('порядок: неизвестные id = UnknownGamesError, ничего не меняется', async () => {
     const id = await seed();
     await saveOrder(t.db, [id('B')]);
@@ -143,7 +157,7 @@ describe('roadmap на БД', () => {
     expect(r.queue).toEqual([{ key: `g:${id('B')}`, state: 'scheduled' }, { key: `g:${id('A')}`, state: 'scheduled' }, { key: `g:${id('D')}`, state: 'need_hours' }]);
     expect(r.notFit).toEqual([]);
     expect(r.progress).toMatchObject({ from: '2026-01-01', asOf: '2026-10-28', actualHours: 250 });
-    expect(r.progress?.plannedHours).toBe(15); // только игры плана: Bravo 5 + Alpha 10, релиз не считается
+    expect(r.progress?.plannedHours).toBe(24); // игры очереди: Bravo 5 + Alpha 10 + Echo 9 (ушла из бэклога, N-3), релиз не считается
     expect(r.progress?.status).toBe('ahead');
   });
 
@@ -255,6 +269,23 @@ describe('roadmap на БД', () => {
       await excludeGame(t.db, id('A'));
       r = await getRoadmap(t.db, NOW);
       expect(r.progress?.actualHours).toBe(20);
+    });
+
+    it('N-3: игра, ушедшая из бэклога, сохраняет плановые часы в прогрессе', async () => {
+      const id = await seed();
+      await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
+      await saveOrder(t.db, [id('A'), id('B')]); // A 10 ч, B 5 ч
+      await t.db.insert(playtimeSnapshots).values([
+        { gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 10 * 3600 },
+      ]);
+      const before = (await getRoadmap(t.db, NOW)).progress!;
+      await setGameStatus(t.db, id('A'), 'completed', NOW);
+      const after = (await getRoadmap(t.db, NOW)).progress!;
+      expect(before.plannedHours).toBe(15);
+      expect(after.plannedHours).toBe(15); // раньше падало до 5 и завышало «опережаю»
+      expect(after.actualHours).toBe(10);
+      expect(after.diffHours).toBe(before.diffHours);
     });
 
     it('serviceGames: видимые service, last_played_at desc, лимит 50, часы с шагом 0.1; есть и при no_budget', async () => {

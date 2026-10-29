@@ -3,7 +3,7 @@ import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNu
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
-import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, effectiveHoursSql, type DurationRow } from './duration';
+import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, uncheckedPendingSql, effectiveHoursSql, type DurationRow } from './duration';
 import type {
   CollectionSummaryResponse,
   DurationCounts,
@@ -245,7 +245,7 @@ async function hltbCountsFor(db: AnyDb, where: SQL | undefined): Promise<HltbCou
       found: sql<number>`(count(*) filter (where ${hltbStatusSql('found')}))::int`,
       notFound: sql<number>`(count(*) filter (where ${hltbStatusSql('not_found')}))::int`,
       // «Ждут проверки»: без ручной длительности и не сервисы (их шаг HLTB пропускает, 20.1)
-      unchecked: sql<number>`(count(*) filter (where ${hltbStatusSql('unchecked')} and ${games.durationOverrideHours} is null and ${gameStatus.status} is distinct from 'service'))::int`,
+      unchecked: sql<number>`(count(*) filter (where ${uncheckedPendingSql()}))::int`,
     })
     .from(games)
     .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
