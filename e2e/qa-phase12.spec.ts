@@ -19,8 +19,6 @@ test.describe('QA 12: шапка на 768-1023', () => {
   for (const width of [768, 820, 900, 1023]) {
     test(`${width}px: вкладки, «Синк», тема и аватар целы и не выходят за шапку`, async ({ page, context, baseURL, isMobile }) => {
       test.skip(isMobile, 'размер задаётся вручную');
-      // BUG-1 (docs/qa/phase-12.md): на 768-~905 переключатель темы и аватар уходят за правый край шапки. Снять test.fail после исправления.
-      test.fail(width <= 900, 'BUG-1: шапка шире окна');
       await page.setViewportSize({ width, height: 800 });
       await open(page, context, baseURL as string);
       expect(await noH(page)).toBe(true);
