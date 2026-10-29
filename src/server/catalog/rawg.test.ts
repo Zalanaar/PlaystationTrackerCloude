@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CatalogError, mapResults, searchCatalog } from './rawg';
+import { CatalogError, getUpcoming, mapResults, searchCatalog, type UpcomingCache } from './rawg';
 
 const KEY = 'SECRET_KEY_123';
 const json = (body: unknown, init?: ResponseInit) => new Response(JSON.stringify(body), { status: 200, ...init });
@@ -86,5 +86,69 @@ describe('mapResults', () => {
   it('даты: несуществующая и не ISO отбрасываются, http-обложка отбрасывается', () => {
     const r = mapResults({ results: [{ id: 1, name: 'A', released: '2026-02-30', background_image: 'http://x/a.jpg' }, { id: 2, name: 'B', released: '2026', background_image: null }, { id: 3, name: 'C', released: '2026-04-10', tba: true }] });
     expect(r.map((c) => [c.releaseDate, c.coverUrl])).toEqual([[null, null], [null, null], [null, null]]);
+  });
+});
+
+describe('getUpcoming (RAWG, предстоящие релизы)', () => {
+  const NOW = new Date('2026-10-29T21:30:00Z'); // 30 октября 00:30 МСК
+  const page1 = {
+    count: 3,
+    next: 'https://api.rawg.io/api/games?page=2&key=SECRET',
+    results: [
+      { id: 10, name: 'Soon', released: '2026-11-05', tba: false, background_image: 'https://media.rawg.io/s.jpg', platforms: [{ platform: { name: 'PlayStation 5', slug: 'playstation5' } }] },
+      { id: 11, name: 'No date', released: null, tba: true, background_image: null, platforms: [] },
+      { id: 12, name: 'Later', released: '2027-01-10', tba: false, background_image: null, platforms: [{ platform: { name: 'PC', slug: 'pc' } }] },
+    ],
+  };
+
+  it('строит запрос: диапазон по МСК, ordering, платформы PlayStation, page_size, page; пропускает tba; порядок RAWG', async () => {
+    const f = mock(async () => json(page1));
+    const r = await getUpcoming(2, { apiKey: KEY, fetch: f, now: NOW, cache: new Map() });
+    const u = f.mock.calls[0][0] as URL;
+    expect(u.searchParams.get('dates')).toBe('2026-10-30,2027-10-30');
+    expect(u.searchParams.get('ordering')).toBe('released');
+    expect(u.searchParams.get('platforms')).toBe('187,18');
+    expect(u.searchParams.get('page_size')).toBe('20');
+    expect(u.searchParams.get('page')).toBe('2');
+    expect(u.searchParams.get('key')).toBe(KEY);
+    expect(r.page).toBe(2);
+    expect(r.hasMore).toBe(true);
+    expect(r.candidates.map((c) => c.externalId)).toEqual(['10', '12']); // без tba, без пересортировки PS-первыми
+  });
+
+  it('hasMore: next null = false; нет поля next = по заполненности страницы', async () => {
+    const c: UpcomingCache = new Map();
+    expect((await getUpcoming(1, { apiKey: KEY, fetch: mock(async () => json({ ...page1, next: null })), now: NOW, cache: c })).hasMore).toBe(false);
+    const full = { results: Array.from({ length: 20 }, (_, i) => ({ id: i + 1, name: `G${i}`, released: '2026-12-01' })) };
+    expect((await getUpcoming(2, { apiKey: KEY, fetch: mock(async () => json(full)), now: NOW, cache: c })).hasMore).toBe(true);
+    expect((await getUpcoming(3, { apiKey: KEY, fetch: mock(async () => json({ results: [] })), now: NOW, cache: c })).hasMore).toBe(false);
+  });
+
+  it('кэш 1 час: повтор не ходит в сеть, страницы раздельно, через час и новый день заново', async () => {
+    const f = mock(async () => json(page1));
+    const cache: UpcomingCache = new Map();
+    const at = (ms: number) => new Date(NOW.getTime() + ms);
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: NOW, cache });
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(59 * 60_000), cache });
+    expect(f).toHaveBeenCalledTimes(1);
+    await getUpcoming(2, { apiKey: KEY, fetch: f, now: at(59 * 60_000), cache });
+    expect(f).toHaveBeenCalledTimes(2);
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(60 * 60_000), cache });
+    expect(f).toHaveBeenCalledTimes(3);
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(26 * 3600_000), cache });
+    expect(f).toHaveBeenCalledTimes(4);
+  });
+
+  it('ошибки не кэшируются; нет ключа без сети; ключа нет в сообщениях', async () => {
+    const cache: UpcomingCache = new Map();
+    const bad = mock(async () => new Response('x', { status: 500 }));
+    expect(await reason(getUpcoming(1, { apiKey: KEY, fetch: bad, now: NOW, cache }))).toBe('http_error');
+    expect(await reason(getUpcoming(1, { apiKey: KEY, fetch: mock(async () => new Response('', { status: 429 })), now: NOW, cache }))).toBe('rate_limited');
+    expect(await reason(getUpcoming(1, { apiKey: KEY, fetch: mock(async () => { throw new TypeError(`failed ?key=${KEY}`); }), now: NOW, cache }))).toBe('network');
+    expect(await reason(getUpcoming(1, { apiKey: KEY, fetch: mock(async () => json({ nope: 1 })), now: NOW, cache }))).toBe('bad_response');
+    expect(cache.size).toBe(0);
+    const f = mock(async () => json(page1));
+    expect(await reason(getUpcoming(1, { apiKey: null, fetch: f, now: NOW, cache }))).toBe('no_key');
+    expect(f).not.toHaveBeenCalled();
   });
 });

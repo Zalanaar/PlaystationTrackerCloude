@@ -71,7 +71,17 @@ export type Progress = {
 
 export type SettingsView = { year: number; hoursPerWeek: number | null; configured: boolean };
 
-export type RoadmapResponse = Plan & { settings: SettingsView; today: string; progress: Progress | null };
+/** 17.11: игра-сервис для таблицы «в план не берём». */
+export type ServiceGame = { gameId: number; title: string; coverUrl: string | null; playedHours: number };
+
+export type RoadmapResponse = Plan & {
+  settings: SettingsView;
+  today: string;
+  progress: Progress | null;
+  /** 17.12: «Не распределено» (исключённый бэклог и отменённые релизы). */
+  unallocated: RoadmapEntry[];
+  serviceGames: ServiceGame[];
+};
 
 export type PlannedGameStatus = 'planned' | 'done' | 'cancelled';
 export type PlannedGameDto = {

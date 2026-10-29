@@ -6,7 +6,7 @@ import { Icon } from '../icons';
 import { dayText, hoursLabel, notFitReasonText, notFitShortText, parseRowHours, ROW_HOURS_MAX, ROW_HOURS_MIN, hoursNum, totalShortHours } from './model';
 import { FieldError, jumpToEntry, Spinner, Thumb } from './parts';
 
-function NeedRow({ e, onSave }: { e: RoadmapEntry; onSave: (key: string, hours: number) => Promise<void> }) {
+function NeedRow({ e, onSave, onRemove }: { e: RoadmapEntry; onSave: (key: string, hours: number) => Promise<void>; onRemove: (e: RoadmapEntry) => void }) {
   const id = useId();
   const [text, setText] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -36,6 +36,7 @@ function NeedRow({ e, onSave }: { e: RoadmapEntry; onSave: (key: string, hours: 
           <span className="ps-rm-sfx" aria-hidden="true">ч</span>
         </span>
         <button type="submit" className="ps-btn ps-btn--ghost ps-btn--sm ps-rm-need__btn" disabled={busy}>{busy ? <><Spinner size={12} />Сохраняю…</> : 'Сохранить'}</button>
+        <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Убрать из плана: ${e.title}`} title="Убрать из плана" onClick={() => onRemove(e)}><Icon name="eye-off" size={16} /></button>
       </form>
       {err && <div className="ps-rm-need__err"><FieldError id={`${id}-e`}>{err}</FieldError></div>}
     </li>
@@ -43,7 +44,7 @@ function NeedRow({ e, onSave }: { e: RoadmapEntry; onSave: (key: string, hours: 
 }
 
 /** Блок «Нужны часы»: игры без длительности. Скрыт, если пусто. */
-export function NeedHoursPanel({ list, onSave }: { list: readonly RoadmapEntry[]; onSave: (key: string, hours: number) => Promise<void> }) {
+export function NeedHoursPanel({ list, onSave, onRemove }: { list: readonly RoadmapEntry[]; onSave: (key: string, hours: number) => Promise<void>; onRemove: (e: RoadmapEntry) => void }) {
   if (!list.length) return null;
   return (
     <>
@@ -51,13 +52,13 @@ export function NeedHoursPanel({ list, onSave }: { list: readonly RoadmapEntry[]
         <h2 className="ps-h2 ps-h2--ic"><Icon name="clock" size={16} />Нужны часы <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
       <p className="ps-rm-sub">Без часов игру нельзя поставить на таймлайн. Введи примерную длительность.</p>
-      <ul className="ps-rm-need">{list.map((e) => <NeedRow key={e.key} e={e} onSave={onSave} />)}</ul>
+      <ul className="ps-rm-need">{list.map((e) => <NeedRow key={e.key} e={e} onSave={onSave} onRemove={onRemove} />)}</ul>
     </>
   );
 }
 
 /** Блок «Не успеваю»: игры, не влезшие в год. Скрыт, если пусто. Кнопки «Применить N ч в неделю» нет (решение Артёма). */
-export function OverPanel({ list, yearEnd }: { list: readonly NotFitEntry[]; yearEnd: string }) {
+export function OverPanel({ list, yearEnd, onRemove }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void }) {
   if (!list.length) return null;
   const total = totalShortHours(list);
   return (
@@ -68,15 +69,29 @@ export function OverPanel({ list, yearEnd }: { list: readonly NotFitEntry[]; yea
       {total > 0 && <p className="ps-rm-over__sum">Не хватает <b className="num">{hoursLabel(total)}</b>, чтобы пройти всё до {dayText(yearEnd)}</p>}
       <ul className="ps-rm-over">
         {list.map((r) => (
-          <li key={r.key}>
-            <button type="button" className="ps-rm-over__row" data-testid="rm-over-row" onClick={() => jumpToEntry(r.key)}>
-              <Thumb url={r.coverUrl} title={r.title} w={32} h={42} />
-              <span className="ps-rm-over__tx"><b title={r.title}>{r.title}</b><small>{notFitReasonText(r)}</small></span>
-              <span className="ps-rm-over__h num">{notFitShortText(r)}</span>
-            </button>
+          <li key={r.key} className="ps-rm-over__li" data-rm-over={r.key}>
+            {/* релиз ведёт к строке в «Релизах»; игры бэклога в очереди не показываются, строка без перехода */}
+            {r.key.startsWith('p:') ? (
+              <button type="button" className="ps-rm-over__row" data-testid="rm-over-row" onClick={() => jumpToEntry(r.key)}>
+                <OverBody r={r} />
+              </button>
+            ) : (
+              <div className="ps-rm-over__row" data-testid="rm-over-row"><OverBody r={r} /></div>
+            )}
+            <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Убрать из плана: ${r.title}`} title="Убрать из плана" onClick={() => onRemove(r)}><Icon name="eye-off" size={16} /></button>
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+function OverBody({ r }: { r: NotFitEntry }) {
+  return (
+    <>
+      <Thumb url={r.coverUrl} title={r.title} w={32} h={42} />
+      <span className="ps-rm-over__tx"><b title={r.title}>{r.title}</b><small>{notFitReasonText(r)}</small></span>
+      <span className="ps-rm-over__h num">{notFitShortText(r)}</span>
     </>
   );
 }

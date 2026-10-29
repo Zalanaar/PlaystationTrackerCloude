@@ -468,3 +468,44 @@ export function plannedPlanState(
   if (d.needHours.some((i) => i.key === key)) return { kind: 'need_hours', conflicts };
   return { kind: 'unknown', conflicts };
 }
+
+// ---------- Скрытые из очереди «Не успеваю», полный порядок ----------
+/** В очереди показываем всё, кроме `not_fit`: такие игры живут только в блоке «Не успеваю». */
+export const visibleQueue = (rows: readonly QueueRow[]): QueueRow[] => rows.filter((r) => r.state !== 'not_fit');
+
+/**
+ * Полный порядок g:* после перестановки среди видимых: скрытые игры (not_fit) сохраняют свои места,
+ * видимые занимают остальные места в новом порядке `visible`. Контракт 17.8: PUT получает порядок ВСЕХ игр очереди.
+ */
+export function mergeVisibleOrder(full: readonly string[], visible: readonly string[]): string[] {
+  const fullSet = new Set(full);
+  const present = visible.filter((k) => fullSet.has(k));
+  const vset = new Set(present);
+  if (full.filter((k) => vset.has(k)).length !== present.length) return [...full];
+  let j = 0;
+  return full.map((k) => (vset.has(k) ? present[j++] : k));
+}
+
+// ---------- Предстоящие релизы ----------
+export type UpcomingCandidate = CatalogCandidateView & { planned: boolean; unallocated: boolean; plannedId: number | null };
+export type UpcomingState = 'new' | 'planned' | 'unallocated';
+
+/** Состояние строки: актуальные списки (релизы, «Не распределено») важнее пометок каталога на момент загрузки. */
+export function upcomingState(c: Pick<UpcomingCandidate, 'planned' | 'unallocated' | 'plannedId'>, plannedIds: ReadonlySet<number> | null, unallocatedIds: ReadonlySet<number> | null): UpcomingState {
+  if (c.plannedId !== null) {
+    if (plannedIds?.has(c.plannedId)) return 'planned';
+    if (unallocatedIds?.has(c.plannedId)) return 'unallocated';
+  }
+  return c.unallocated ? 'unallocated' : c.planned ? 'planned' : 'new';
+}
+
+/** Тело POST «В план» из строки каталога: галка «на релизе» включена, часы потом вручную. */
+export function upcomingBody(c: Pick<UpcomingCandidate, 'title' | 'releaseDate' | 'coverUrl' | 'externalId'>): PlannedBody {
+  return { title: c.title.slice(0, 120), releaseDate: c.releaseDate, coverUrl: c.coverUrl, wantAtRelease: c.releaseDate !== null, hoursManual: null, externalSource: 'rawg', externalId: c.externalId };
+}
+
+/** Дописать страницу без повторов (порядок сохраняется). */
+export function appendUnique(list: readonly UpcomingCandidate[], more: readonly UpcomingCandidate[]): UpcomingCandidate[] {
+  const seen = new Set(list.map((c) => c.externalId));
+  return [...list, ...more.filter((c) => !seen.has(c.externalId))];
+}

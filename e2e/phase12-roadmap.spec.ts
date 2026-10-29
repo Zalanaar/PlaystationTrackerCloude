@@ -1,7 +1,7 @@
 // Фаза 12: экран /roadmap. API эмулируется (e2e/roadmap-mock.ts, контракт §17).
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
-import { baseState, mockRoadmap, type RmPlanned, type RmState } from './roadmap-mock';
+import { baseState, mockRoadmap, upc, type RmPlanned, type RmState } from './roadmap-mock';
 import { signedSession } from './session';
 
 async function open(page: Page, context: BrowserContext, baseURL: string, s: RmState = baseState()): Promise<RmState> {
@@ -234,7 +234,7 @@ test.describe('План: состояния', () => {
     await expect(page.getByRole('heading', { name: 'В бэклоге нет игр' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Релизов пока нет' })).toBeVisible();
     await expect(page.getByText('Пока нечего сравнивать: в плане нет игр')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'К коллекции' })).toHaveAttribute('href', '/');
   });
 
@@ -360,5 +360,133 @@ test.describe('План: вёрстка', () => {
     await expect(bar).toHaveAttribute('aria-label', /Элден Ринг: очередь, с .* по .*, позиция 2/);
     await bar.click();
     await expect(page.locator('[data-rm-zone="queue"][data-rm-key="g:2"]')).toBeFocused();
+  });
+});
+
+test.describe('План: убрать из плана и «Не распределено»', () => {
+  test('«Не успеваю» нет в очереди, а PUT порядка получает полный список со скрытой игрой', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({
+      games: [{ id: 1, title: 'Хейдес', hours: 22 }, { id: 2, title: 'Бесконечная игра', hours: 600 }, { id: 3, title: 'Год оф Вар', hours: 30 }],
+      order: [1, 2, 3],
+    }));
+    await expect(page.getByTestId('rm-queue-row')).toHaveCount(2);
+    expect(await rowKeys(page)).toEqual(['g:1', 'g:3']);
+    await expect(page.locator('[data-rm-zone="queue"][data-rm-key="g:2"]')).toHaveCount(0);
+    await expect(page.locator('#rm-over')).toContainText('Бесконечная игра');
+    await page.getByRole('button', { name: 'Ниже: Хейдес' }).click();
+    await expect(page.getByText('Сохранено', { exact: true })).toBeVisible();
+    // скрытая g:2 сохраняет своё место (середина), видимые меняются местами
+    expect(s.calls.orders).toEqual([[3, 2, 1]]);
+  });
+
+  test('бэклог: убрать из плана -> «Не распределено» -> вернуть (в конец очереди)', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ order: [1, 2, 3, 4] }));
+    await page.getByRole('button', { name: 'Ещё: Хейдес' }).click();
+    await page.getByRole('menuitem', { name: 'Убрать из плана' }).click();
+    await expect(page.getByText('Убрано из плана')).toBeVisible();
+    expect(s.calls.exclusions).toEqual([{ method: 'POST', gameId: 1 }]);
+    expect(await rowKeys(page)).toEqual(['g:2', 'g:3', 'g:4']);
+    const un = page.getByTestId('rm-unallocated');
+    await expect(un).toHaveCount(1);
+    await expect(un).toContainText('Хейдес');
+    await un.getByRole('button', { name: 'Вернуть в план' }).click();
+    await expect(page.getByTestId('rm-unallocated')).toHaveCount(0);
+    expect(s.calls.exclusions.at(-1)).toEqual({ method: 'DELETE', gameId: 1 });
+    expect(await rowKeys(page)).toEqual(['g:2', 'g:3', 'g:4', 'g:1']);
+  });
+
+  test('тост «Отменить» возвращает убранную игру', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string);
+    await page.getByRole('button', { name: 'Убрать из плана: Игра без часов' }).click();
+    await expect(page.getByTestId('rm-need-row')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Отменить' }).click();
+    await expect(page.getByTestId('rm-need-row')).toHaveCount(1);
+    expect(s.calls.exclusions).toEqual([{ method: 'POST', gameId: 4 }, { method: 'DELETE', gameId: 4 }]);
+  });
+
+  test('релиз: убрать из плана, вернуть и удалить совсем с подтверждением', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ planned: [rel(7, 'Будущая игра', '2026-12-10', { hoursManual: 20, wantAtRelease: true })] }));
+    await page.getByRole('button', { name: 'Убрать из плана: Будущая игра' }).click();
+    expect(s.calls.patches.at(-1)).toEqual({ id: 7, body: { status: 'unallocated' } });
+    await expect(page.getByTestId('rm-release')).toHaveCount(0);
+    const un = page.getByTestId('rm-unallocated');
+    await expect(un).toContainText('Будущая игра');
+    await un.getByRole('button', { name: 'Вернуть в план' }).click();
+    expect(s.calls.patches.at(-1)).toEqual({ id: 7, body: { status: 'planned' } });
+    await expect(page.getByTestId('rm-release')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Убрать из плана: Будущая игра' }).click();
+    await page.getByTestId('rm-unallocated').getByRole('button', { name: 'Удалить совсем' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Удалить', exact: true }).click();
+    await expect(page.getByTestId('rm-unallocated')).toHaveCount(0);
+    expect(s.calls.deletes).toEqual([7]);
+  });
+});
+
+test.describe('План: предстоящие релизы', () => {
+  const cands = () => ({
+    pages: [[upc(1), upc(2), upc(3)], [upc(4)]],
+    fail: null,
+  });
+  test('список сразу: добавление без перезагрузки, «В плане», «Не распределено», «Показать ещё»', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({
+      upcoming: cands(),
+      planned: [
+        rel(5, 'Новинка 2', '2026-12-12', { externalSource: 'rawg', externalId: '2' }),
+        { ...rel(6, 'Новинка 3', '2026-12-13', { externalSource: 'rawg', externalId: '3' }), status: 'cancelled' },
+      ],
+    }));
+    const rows = page.getByTestId('rm-upcoming-row');
+    await expect(rows).toHaveCount(3);
+    expect(s.calls.upcoming).toEqual([1]);
+    await expect(rows.nth(1)).toContainText('В плане');
+    await expect(rows.nth(1).getByRole('button')).toHaveCount(0);
+    await expect(rows.nth(2)).toContainText('Не распределено');
+    await expect(rows.nth(0)).toContainText('PS5');
+    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
+    // «В план»: wantAtRelease по умолчанию, часы потом вручную
+    await rows.nth(0).getByRole('button', { name: 'В план: Новинка 1' }).click();
+    await expect(rows.nth(0)).toContainText('В плане');
+    expect(s.calls.posts).toEqual([{ title: 'Новинка 1', releaseDate: '2026-12-11', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '1' }]);
+    await expect(rows).toHaveCount(3);
+    expect(s.calls.upcoming).toEqual([1]);
+    await expect(page.getByTestId('rm-release').filter({ hasText: 'Новинка 1' })).toHaveCount(1);
+    await expect(page.getByTestId('rm-need-row').filter({ hasText: 'Новинка 1' })).toHaveCount(1);
+    // вернуть из «Не распределено»
+    await rows.nth(2).getByRole('button', { name: 'Вернуть в план' }).click();
+    expect(s.calls.patches.at(-1)).toEqual({ id: 6, body: { status: 'planned' } });
+    await expect(rows.nth(2)).toContainText('В плане');
+    // следующая страница
+    await page.getByRole('button', { name: 'Показать ещё' }).click();
+    await expect(rows).toHaveCount(4);
+    expect(s.calls.upcoming).toEqual([1, 2]);
+    await expect(page.getByRole('button', { name: 'Показать ещё' })).toHaveCount(0);
+  });
+
+  test('ошибка каталога 503: понятное сообщение, страница и ручной ввод работают, повтор', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, baseState({ upcoming: { pages: [[upc(1)]], fail: { status: 503, reason: 'timeout' } } }));
+    await expect(page.getByTestId('rm-upcoming-fail')).toContainText('Каталог сейчас недоступен. Найди игру по названию или добавь вручную.');
+    await expect(page.getByTestId('rm-queue-row')).toHaveCount(4);
+    await expect(page.getByRole('button', { name: 'Добавить игру' })).toBeVisible();
+    s.upcoming.fail = null;
+    await page.getByTestId('rm-upcoming-fail').getByRole('button', { name: 'Повторить' }).click();
+    await expect(page.getByTestId('rm-upcoming-row')).toHaveCount(1);
+  });
+});
+
+test.describe('План: игры-сервисы', () => {
+  test('таблица со справкой, без добавления в план; пустая скрыта', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, baseState({
+      serviceGames: [{ gameId: 7, title: 'Фортнайт', coverUrl: null, playedHours: 312.4 }, { gameId: 8, title: 'Дестини', coverUrl: null, playedHours: 80 }],
+    }));
+    const t = page.getByTestId('rm-services');
+    await expect(t.locator('tbody tr')).toHaveCount(2);
+    await expect(t).toContainText('Фортнайт');
+    await expect(t).toContainText('312 ч');
+    await expect(page.getByRole('heading', { name: /Игры-сервисы: в план не берём/ })).toBeVisible();
+    await expect(page.locator('#rm-services').getByRole('button')).toHaveCount(0);
+  });
+  test('нет сервисов: блока нет', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string);
+    await expect(page.getByTestId('rm-services')).toHaveCount(0);
   });
 });

@@ -361,3 +361,11 @@ export const roadmapOrder = pgTable(
   },
   (t) => [index('roadmap_order_position_idx').on(t.position), check('roadmap_order_position_check', sql`${t.position} >= 0`)],
 );
+
+// Правка Фазы 12 (контракт 17.12, миграция 0009): игры бэклога, убранные из плана («Не распределено»). Статус игры не меняется.
+export const roadmapExcluded = pgTable('roadmap_excluded', {
+  gameId: integer('game_id')
+    .primaryKey()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  createdAt: tz('created_at').notNull().defaultNow(),
+});

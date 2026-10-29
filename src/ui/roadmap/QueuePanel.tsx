@@ -35,10 +35,11 @@ function PlanCell({ row, conflicts }: { row: QueueRow; conflicts: number[] }) {
 
 /** Блок «Очередь бэклога»: ручной порядок. Drag&drop (мышь), кнопки «выше/ниже», Alt+стрелки, меню «⋯». */
 export function QueuePanel({
-  rows, conflicts, error, loading, saveState, onReorder, onRetry, onRetrySave, onNeedHours,
+  rows, conflicts, error, loading, saveState, onReorder, onRetry, onRetrySave, onNeedHours, onRemove,
 }: {
   rows: QueueRow[] | null; conflicts: readonly Conflict[]; error: boolean; loading: boolean; saveState: SaveState;
   onReorder: (keys: string[]) => void; onRetry: () => void; onRetrySave: () => void; onNeedHours: (key: string) => void;
+  onRemove: (e: QueueRow['entry']) => void;
 }) {
   const listRef = useRef<HTMLOListElement>(null);
   const [armed, setArmed] = useState<string | null>(null);
@@ -217,11 +218,27 @@ export function QueuePanel({
                         <Link href={`/?q=${encodeURIComponent(e.title)}`} role="menuitem" className="ps-menu-item" onClick={close}>
                           <Icon name="external-link" size={16} /><span className="ps-menu-item__label">Открыть игру</span>
                         </Link>
+                        <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => { close(); onRemove(e); }}>
+                          <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Убрать из плана</span>
+                        </button>
                       </>
                     )}
                   </Popover>
                 </div>
-              ) : <div className="ps-rm-q__act" />}
+              ) : (
+                <div className="ps-rm-q__act">
+                  <Popover
+                    align="end"
+                    trigger={(p) => <button type="button" className="ps-iconbtn ps-rm-sq ps-rm-q__more" data-act="menu" aria-label={`Ещё: ${e.title}`} {...p}><Icon name="more" size={16} /></button>}
+                  >
+                    {(close) => (
+                      <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); onRemove(e); }}>
+                        <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Убрать из плана</span>
+                      </button>
+                    )}
+                  </Popover>
+                </div>
+              )}
             </li>
           );
         })}

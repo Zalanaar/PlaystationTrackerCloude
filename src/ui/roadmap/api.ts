@@ -1,7 +1,7 @@
 // Клиент API роадмапа (контракт docs/api-contract.md §17). Только типы из server.
 import type { PlannedGameDto, RoadmapResponse, SettingsView } from '@/server/roadmap/types';
 import { ApiError, call } from '../collection/api';
-import { mutationErrorText, type CatalogCandidateView, type PlannedBody } from './model';
+import { mutationErrorText, type CatalogCandidateView, type PlannedBody, type UpcomingCandidate } from './model';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -11,7 +11,8 @@ export const putSettings = (year: number, hoursPerWeek: number) =>
 export const fetchPlanned = (signal?: AbortSignal) => call<{ planned: PlannedGameDto[] }>('/api/roadmap/planned?status=planned', { signal });
 export const postPlanned = (body: PlannedBody) =>
   call<{ planned: PlannedGameDto }>('/api/roadmap/planned', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) });
-export const patchPlanned = (id: number, body: Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>>) =>
+export type PlannedPatch = Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>> & { status?: 'planned' | 'unallocated' };
+export const patchPlanned = (id: number, body: PlannedPatch) =>
   call<{ planned: PlannedGameDto }>(`/api/roadmap/planned/${id}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body) });
 export const deletePlanned = (id: number) => call<{ deleted: boolean; id: number }>(`/api/roadmap/planned/${id}`, { method: 'DELETE' });
 export const putOrder = (gameIds: number[]) =>
@@ -19,6 +20,12 @@ export const putOrder = (gameIds: number[]) =>
 /** onlyPlayStation: фильтр на сервере (параметр playstation=1, контракт 17.9). */
 export const searchCatalog = (q: string, onlyPlayStation: boolean, signal?: AbortSignal) =>
   call<{ candidates: CatalogCandidateView[] }>(`/api/roadmap/catalog/search?q=${encodeURIComponent(q)}${onlyPlayStation ? '&playstation=1' : ''}`, { signal });
+
+export const postExclusion = (gameId: number) =>
+  call<{ excluded: boolean; gameId: number }>('/api/roadmap/exclusions', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ gameId }) });
+export const deleteExclusion = (gameId: number) => call<{ excluded: boolean; gameId: number }>(`/api/roadmap/exclusions/${gameId}`, { method: 'DELETE' });
+export const fetchUpcoming = (page: number, signal?: AbortSignal) =>
+  call<{ candidates: UpcomingCandidate[]; page: number; hasMore: boolean }>(`/api/roadmap/catalog/upcoming?page=${page}`, { signal });
 
 export { ApiError };
 

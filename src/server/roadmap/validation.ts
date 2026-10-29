@@ -12,6 +12,9 @@ export const ORDER_MAX = 1000;
 export const CATALOG_Q_MIN = 2;
 export const CATALOG_Q_MAX = 100;
 export const PLANNED_STATUSES = ['planned', 'done', 'cancelled'] as const satisfies readonly PlannedGameStatus[];
+/** Вход принимает ещё алиас `unallocated` = `cancelled` (17.12). */
+const PLANNED_STATUS_INPUT = ['planned', 'done', 'cancelled', 'unallocated'] as const;
+const statusOf = (s: (typeof PLANNED_STATUS_INPUT)[number]): PlannedGameStatus => (s === 'unallocated' ? 'cancelled' : s);
 
 const issueMessage = (e: z.ZodError): string => {
   const path = e.issues[0]?.path.join('.');
@@ -66,7 +69,7 @@ const patchSchema = z.strictObject({
   coverUrl: coverUrl.optional(),
   wantAtRelease: z.boolean().optional(),
   hoursManual: hoursManual.optional(),
-  status: z.enum(PLANNED_STATUSES).optional(),
+  status: z.enum(PLANNED_STATUS_INPUT).optional(),
 });
 
 export type PlannedCreate = {
@@ -115,7 +118,7 @@ export function parsePlannedPatch(body: unknown): Parsed<PlannedPatch> {
   if (d.coverUrl !== undefined) out.coverUrl = d.coverUrl;
   if (d.wantAtRelease !== undefined) out.wantAtRelease = d.wantAtRelease;
   if (h.value !== undefined) out.hoursManual = h.value;
-  if (d.status !== undefined) out.status = d.status;
+  if (d.status !== undefined) out.status = statusOf(d.status);
   if (Object.keys(out).length === 0) return bad('Нет полей для изменения.');
   return { ok: true, value: out };
 }
@@ -124,7 +127,7 @@ export function parsePlannedStatusFilter(sp: URLSearchParams): Parsed<PlannedGam
   const raw = sp.get('status');
   if (raw === null || raw === '') return { ok: true, value: 'all' };
   if (raw === 'all') return { ok: true, value: 'all' };
-  return (PLANNED_STATUSES as readonly string[]).includes(raw) ? { ok: true, value: raw as PlannedGameStatus } : bad('Неизвестный статус.');
+  return (PLANNED_STATUS_INPUT as readonly string[]).includes(raw) ? { ok: true, value: statusOf(raw as (typeof PLANNED_STATUS_INPUT)[number]) } : bad('Неизвестный статус.');
 }
 
 // --- порядок (17.8)
@@ -150,4 +153,22 @@ export function parseCatalogPlaystation(sp: URLSearchParams): Parsed<boolean> {
   if (v === null || v === '' || v === '0' || v === 'false') return { ok: true, value: false };
   if (v === '1' || v === 'true') return { ok: true, value: true };
   return bad('Некорректный параметр playstation.');
+}
+
+// --- исключения из плана (17.12)
+const exclusionSchema = z.strictObject({ gameId: z.number().int().min(1).max(2_147_483_647) });
+export function parseExclusionBody(body: unknown): Parsed<number> {
+  const r = exclusionSchema.safeParse(body);
+  if (!r.success) return bad(issueMessage(r.error));
+  return { ok: true, value: r.data.gameId };
+}
+
+// --- предстоящие релизы (17.13)
+export const UPCOMING_PAGE_MAX = 500;
+export function parseUpcomingPage(sp: URLSearchParams): Parsed<number> {
+  const raw = sp.get('page');
+  if (raw === null || raw === '') return { ok: true, value: 1 };
+  if (!/^\d{1,4}$/.test(raw)) return bad('Некорректный page.');
+  const n = Number(raw);
+  return n >= 1 && n <= UPCOMING_PAGE_MAX ? { ok: true, value: n } : bad('Некорректный page.');
 }
