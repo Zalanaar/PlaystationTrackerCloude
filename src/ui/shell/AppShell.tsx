@@ -13,11 +13,12 @@ import { useSync } from '../sync/SyncProvider';
 import { SyncIndicator } from './SyncIndicator';
 import { ThemeList, ThemePicker } from './ThemePicker';
 
-export const NAV: readonly { href: string; label: string; icon: IconName }[] = [
+export const NAV: readonly { href: string; label: string; icon: IconName; short?: string }[] = [
   { href: '/', label: 'Коллекция', icon: 'library' },
   { href: '/backlog', label: 'Бэклог', icon: 'bookmark' },
   { href: '/roadmap', label: 'План', icon: 'roadmap' },
-  { href: '/stats', label: 'Статистика', icon: 'bar-chart' },
+  { href: '/recommend', label: 'Подскажи', icon: 'lightbulb' },
+  { href: '/stats', label: 'Статистика', icon: 'bar-chart', short: 'Стат.' },
   { href: '/wrapped', label: 'Итоги', icon: 'sparkles' },
 ];
 
@@ -143,9 +144,9 @@ export function TabBar() {
   return (
     <nav className="ps-tabbar" aria-label="Разделы">
       {NAV.map((n) => (
-        <Link key={n.href} href={n.href} className="ps-tab" aria-current={isActiveNav(pathname, n.href) ? 'page' : undefined}>
+        <Link key={n.href} href={n.href} className="ps-tab" aria-label={n.short ? n.label : undefined} aria-current={isActiveNav(pathname, n.href) ? 'page' : undefined}>
           <Icon name={n.icon} size={20} />
-          <span>{n.label}</span>
+          {n.short ? <><span className="ps-tab__full" aria-hidden="true">{n.label}</span><span className="ps-tab__short" aria-hidden="true">{n.short}</span></> : <span>{n.label}</span>}
         </Link>
       ))}
     </nav>

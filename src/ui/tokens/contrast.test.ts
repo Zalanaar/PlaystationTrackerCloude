@@ -116,6 +116,8 @@ describe('контраст тем', () => {
         for (const bg of BGS)
           it(`${fg} на ${bg} >= 4.5`, () => expect(ratio(get(t, fg), get(t, bg))).toBeGreaterThanOrEqual(4.5));
       it('--accent-ink на --accent >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
+      // Фаза 13: подсказка активного сегмента времени («Подскажи») лежит на --surface-3
+      it('--text-2 на --surface-3 >= 4.5', () => expect(ratio(get(t, '--text-2'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
       for (const bg of BGS)
         it(`--accent на ${bg} >= 4.5`, () => expect(ratio(get(t, '--accent'), get(t, bg))).toBeGreaterThanOrEqual(4.5));
       for (const st of [...STATUSES, ...SEMANTIC])
