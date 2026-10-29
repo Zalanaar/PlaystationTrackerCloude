@@ -80,7 +80,7 @@ describe('QA 13b: матчер названий', () => {
   ];
   it.each(diff)('разные игры: %s != %s', (a, b) => expect(titleMatches(a, b)).toBe(false));
 
-  it.fails('BUG-D2: ™ превращается в «tm» (NFKD раньше чистки): «Control™» из PSN не равно «Control» из RAWG', () => {
+  it('BUG-D2: ™ превращается в «tm» (NFKD раньше чистки): «Control™» из PSN не равно «Control» из RAWG', () => {
     expect(titleMatches('Control™', 'Control')).toBe(true);
     expect(titleMatches('Hades™', 'Hades')).toBe(true);
     expect(normalizeTitle('Death Stranding™')).toBe('death stranding');
@@ -350,8 +350,8 @@ describe('QA 13b: getDiscover на PGlite', () => {
       await getDiscover(t.db, { refresh: false }, NOW, deps(f));
       expect(a.items).toEqual([]);
       expect(a.meta).toMatchObject({ llm: 'ok', catalog: 'ok', proposed: 3 });
-      expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
-      expect(f.st.groq).toBe(2); // каждый заход на вкладку снова тратит вызов Groq (до дневного лимита)
+      expect((await t.db.select().from(recommendDiscoverCache)).filter((r) => r.day !== '1970-01-01')).toHaveLength(0); // служебная строка паузы (D3) не кэш
+      expect(f.st.groq).toBe(1); // D3: после неудачи 10 минут Groq не зовём
     });
     it('лимит LLM: при исчерпании limit + последний кэш за прошлые сутки; без кэша пусто', async () => {
       const f = f1();
@@ -378,7 +378,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
         expect(r.items).toHaveLength(3);
         expect(JSON.stringify(r)).not.toMatch(SECRETS);
       }
-      expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(1);
+      expect((await t.db.select().from(recommendDiscoverCache)).filter((r) => r.day !== '1970-01-01')).toHaveLength(1);
     });
     it('RAWG целиком недоступен: unavailable, не кэшируем', async () => {
       const f = makeFetch({ proposals: three });
@@ -388,7 +388,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
       }) as typeof fetch;
       const r = await getDiscover(t.db, { refresh: false }, NOW, deps(f, { fetch: bad }));
       expect(r).toMatchObject({ items: [], meta: { catalog: 'unavailable' } });
-      expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
+      expect((await t.db.select().from(recommendDiscoverCache)).filter((r) => r.day !== '1970-01-01')).toHaveLength(0); // служебная строка паузы (D3) не кэш
     });
     it('нет ключей: сеть не вызывается', async () => {
       const f = f1();
@@ -400,7 +400,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
   });
 
   describe('гонки', () => {
-    it.fails('BUG-D1: параллельные refresh обходят лимит 3 в сутки', async () => {
+    it('BUG-D1: параллельные refresh обходят лимит 3 в сутки', async () => {
       const f = makeFetch({ proposals: three, rawg: cat, groqDelay: 5 });
       await getDiscover(t.db, { refresh: false }, NOW, deps(f));
       // два последовательных refresh: остаётся 1

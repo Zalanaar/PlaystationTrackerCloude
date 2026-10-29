@@ -1,6 +1,6 @@
 // «Новое от ИИ» (контракт 19): Groq предлагает названия по профилю вкуса, RAWG подтверждает существование и платформу.
 // Название, которое RAWG не подтвердил, на экран не попадает. Ключи нигде не логируются и не попадают в ответы, кэш и ошибки.
-import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { CatalogError, searchCatalog, RAWG_TIMEOUT_MS } from '@/server/catalog/rawg';
@@ -21,6 +21,10 @@ export const REFRESH_PER_DAY = 3;
 export const GROQ_TIMEOUT_MS = 15_000;
 export const RAWG_CONCURRENCY = 3;
 export const RAWG_BUDGET_MS = 20_000;
+/** После неудачной генерации Groq повторно не вызываем 10 минут. */
+export const FAILURE_COOLDOWN_MS = 10 * 60_000;
+/** Служебная строка кэша (без миграции): время последней неудачи в payload. Из выдачи и фолбэка исключена. */
+const FAILURE_DAY = '1970-01-01';
 
 export type DiscoverCandidate = {
   externalSource: 'rawg';
@@ -104,20 +108,45 @@ async function readCache(db: AnyDb, day: string): Promise<CacheRow | null> {
 }
 
 async function readLatestCache(db: AnyDb): Promise<CacheRow | null> {
-  const [r] = await db.select().from(recommendDiscoverCache).orderBy(desc(recommendDiscoverCache.day)).limit(1);
+  const [r] = await db.select().from(recommendDiscoverCache).where(gt(recommendDiscoverCache.day, FAILURE_DAY)).orderBy(desc(recommendDiscoverCache.day)).limit(1);
   return r ? { ...r, payload: toPayload(r.payload) } : null;
 }
 
-async function writeCache(db: AnyDb, day: string, hash: string, payload: DiscoverPayload, now: Date, countRefresh: boolean): Promise<void> {
+/** Атомарно занимает один refresh суток: false = уже 3. Строки на сутки нет — вызывать не надо. */
+async function claimRefresh(db: AnyDb, day: string): Promise<number | null> {
+  const rows = await db
+    .update(recommendDiscoverCache)
+    .set({ refreshes: sql`${recommendDiscoverCache.refreshes} + 1` })
+    .where(and(eq(recommendDiscoverCache.day, day), lt(recommendDiscoverCache.refreshes, REFRESH_PER_DAY)))
+    .returning({ refreshes: recommendDiscoverCache.refreshes });
+  return rows.length ? rows[0].refreshes : null;
+}
+
+async function releaseRefresh(db: AnyDb, day: string): Promise<void> {
+  await db.update(recommendDiscoverCache).set({ refreshes: sql`greatest(${recommendDiscoverCache.refreshes} - 1, 0)` }).where(eq(recommendDiscoverCache.day, day));
+}
+
+async function lastFailureAt(db: AnyDb): Promise<number | null> {
+  const [r] = await db.select({ payload: recommendDiscoverCache.payload }).from(recommendDiscoverCache).where(eq(recommendDiscoverCache.day, FAILURE_DAY));
+  const at = Number((r?.payload as { failedAt?: number } | undefined)?.failedAt);
+  return Number.isFinite(at) ? at : null;
+}
+
+async function markFailure(db: AnyDb, now: Date): Promise<void> {
+  const payload = { failedAt: now.getTime() };
+  await db
+    .insert(recommendDiscoverCache)
+    .values({ day: FAILURE_DAY, profileHash: 'failure', payload, createdAt: now })
+    .onConflictDoUpdate({ target: recommendDiscoverCache.day, set: { payload, createdAt: now } });
+}
+
+async function writeCache(db: AnyDb, day: string, hash: string, payload: DiscoverPayload, now: Date): Promise<void> {
   await db
     .insert(recommendDiscoverCache)
     .values({ day, profileHash: hash, payload, refreshes: 0, createdAt: now })
     .onConflictDoUpdate({
       target: recommendDiscoverCache.day,
-      set: {
-        profileHash: hash, payload, createdAt: now,
-        refreshes: countRefresh ? sql`${recommendDiscoverCache.refreshes} + 1` : recommendDiscoverCache.refreshes,
-      },
+      set: { profileHash: hash, payload, createdAt: now },
     });
 }
 
@@ -257,27 +286,49 @@ export async function getDiscover(db: AnyDb, opts: { refresh: boolean }, now: Da
 
   const profile = buildProfile(await loadProfileGames(db));
   const hash = profileHash(profile);
-  if (today && today.profileHash === hash) {
-    if (!opts.refresh) return fromCache(today, 'ok', 'ok', refreshLeft);
-    if (refreshLeft === 0) return fromCache(today, 'ok', 'ok', 0); // лимит ручных обновлений: кэш, Groq не трогаем
+  const sameHash = !!today && today.profileHash === hash;
+  if (sameHash && !opts.refresh) return fromCache(today!, 'ok', 'ok', refreshLeft);
+  if (sameHash && refreshLeft === 0) return fromCache(today!, 'ok', 'ok', 0); // лимит ручных обновлений: кэш, Groq не трогаем
+
+  // После неудачи Groq не дёргаем FAILURE_COOLDOWN_MS: последний кэш или пусто, meta.llm = error.
+  const failedAt = await lastFailureAt(db);
+  if (failedAt !== null && now.getTime() - failedAt >= 0 && now.getTime() - failedAt < FAILURE_COOLDOWN_MS) return fallback('error', 'ok');
+
+  // refresh занимается атомарно ДО вызова Groq: параллельные ?refresh=1 не обходят лимит.
+  let claimed = false;
+  let left = refreshLeft;
+  if (sameHash && opts.refresh) {
+    const n = await claimRefresh(db, day);
+    if (n === null) return fromCache(today!, 'ok', 'ok', 0);
+    claimed = true;
+    left = Math.max(0, REFRESH_PER_DAY - n);
   }
 
-  if (!(await reserveLlmCall(db, env.dailyLimit, now))) return fallback('limit', 'ok');
+  if (!(await reserveLlmCall(db, env.dailyLimit, now))) {
+    if (claimed) await releaseRefresh(db, day); // Groq не вызывался: обновление не тратим
+    return fallback('limit', 'ok');
+  }
 
   const provider = deps.provider ?? createProvider({ provider: 'groq', apiKey: env.apiKey, model: env.model ?? DEFAULT_MODELS.groq }, deps.fetch);
   let proposals: Proposal[];
   try {
     proposals = await askGroq(provider, profile, deps.groqTimeoutMs ?? GROQ_TIMEOUT_MS);
   } catch {
+    await markFailure(db, now);
     return fallback('error', 'ok');
   }
 
   const v = await verifyProposals(proposals.slice(0, MAX_PROPOSALS), rawgKey, deps);
-  if (v.failed === v.searched && v.candidates.length === 0) return fallback('ok', 'unavailable'); // подтвердить нечем: не кэшируем
+  if (v.failed === v.searched && v.candidates.length === 0) {
+    await markFailure(db, now);
+    return fallback('ok', 'unavailable'); // подтвердить нечем: не кэшируем
+  }
   const payload: DiscoverPayload = { proposed: proposals.length, candidates: v.candidates };
-  if (v.candidates.length === 0) return { items: [], meta: { ...emptyMeta('ok', 'ok', refreshLeft), proposed: proposals.length } };
-  const counted = opts.refresh && !!today;
-  await writeCache(db, day, hash, payload, now, counted);
-  return serve(db, payload, { llm: 'ok', catalog: 'ok', cached: false, generatedAt: now.toISOString(), refreshLeft: counted ? Math.max(0, refreshLeft - 1) : refreshLeft }, now);
+  if (v.candidates.length === 0) {
+    await markFailure(db, now);
+    return { items: [], meta: { ...emptyMeta('ok', 'ok', left), proposed: proposals.length } };
+  }
+  await writeCache(db, day, hash, payload, now);
+  return serve(db, payload, { llm: 'ok', catalog: 'ok', cached: false, generatedAt: now.toISOString(), refreshLeft: left }, now);
 }
 

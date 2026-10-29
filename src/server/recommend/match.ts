@@ -16,11 +16,12 @@ export type Proposal = { title: string; year: number | null; reason: string };
  */
 export function normalizeTitle(s: string): string {
   const t = s
+    .replace(/[™®©℠]/g, ' ') // до NFKD: иначе ™ раскладывается в «tm»
     .normalize('NFKD')
     .replace(/\p{M}+/gu, '')
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .replace(/[™®©'’`]/g, '')
+    .replace(/['’`]/g, '')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
   return t.replace(/^(?:the|a|an)\s+/, '');

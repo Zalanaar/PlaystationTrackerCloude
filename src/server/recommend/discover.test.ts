@@ -283,7 +283,7 @@ describe('getDiscover', () => {
     const r = await getDiscover(t.db, { refresh: false }, NOW, deps(f));
     expect(r.items).toEqual([]);
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'unavailable' });
-    expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
+    expect((await t.db.select().from(recommendDiscoverCache)).filter((r) => r.day !== '1970-01-01')).toHaveLength(0); // служебная строка паузы (D3) не кэш
     expect(JSON.stringify(r)).not.toMatch(SECRETS);
   });
 
@@ -292,7 +292,7 @@ describe('getDiscover', () => {
     const r = await getDiscover(t.db, { refresh: false }, NOW, deps(f));
     expect(r.items).toEqual([]);
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'ok', verified: 0, proposed: 2 });
-    expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
+    expect((await t.db.select().from(recommendDiscoverCache)).filter((r) => r.day !== '1970-01-01')).toHaveLength(0); // служебная строка паузы (D3) не кэш
   });
 
   it('сбой Groq (HTTP 500, мусор): meta.llm=error, вчерашний кэш остаётся; ключ не течёт', async () => {
@@ -339,6 +339,39 @@ describe('getDiscover', () => {
     expect(r.meta.verified).toBeGreaterThan(0);
     expect(r.meta.verified).toBeLessThan(15);
     expect(r.meta.proposed).toBe(15);
+  });
+});
+
+describe('пауза после неудачи (D3)', () => {
+  let t: TestDb;
+  beforeAll(async () => { t = await createTestDb(); });
+  afterAll(() => t.close());
+  beforeEach(() => t.reset());
+  const d = (f: Mock): DiscoverDeps => ({ llm: LLM, rawgKey: RAWG_KEY, fetch: f });
+
+  it('сбой Groq: 10 минут повторных вызовов нет, meta.llm=error; потом снова пробуем', async () => {
+    const bad = makeFetch({ groqStatus: 500 });
+    const r1 = await getDiscover(t.db, { refresh: false }, NOW, d(bad));
+    expect(r1.meta.llm).toBe('error');
+    const r2 = await getDiscover(t.db, { refresh: false }, new Date(NOW.getTime() + 5 * 60_000), d(bad));
+    expect(r2.meta.llm).toBe('error');
+    expect(bad.state.groqCalls).toBe(1);
+    const later = new Date(NOW.getTime() + 11 * 60_000);
+    await getDiscover(t.db, { refresh: false }, later, d(bad));
+    expect(bad.state.groqCalls).toBe(2);
+    // служебная строка не считается кэшем: после успеха выдача нормальная
+    const good = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
+    const ok = await getDiscover(t.db, { refresh: false }, new Date(later.getTime() + 11 * 60_000), d(good));
+    expect(ok.items).toHaveLength(1);
+  });
+
+  it('0 подтверждённых тоже запускает паузу; старый кэш остаётся доступным', async () => {
+    const empty = makeFetch({ proposals: [{ title: 'Выдумка Раз' }], rawg: () => [] });
+    expect((await getDiscover(t.db, { refresh: false }, NOW, d(empty))).items).toEqual([]);
+    const r = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 60_000), d(empty));
+    expect(r.meta.llm).toBe('error');
+    expect(r.items).toEqual([]);
+    expect(empty.state.groqCalls).toBe(1);
   });
 });
 
