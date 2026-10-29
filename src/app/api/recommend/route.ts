@@ -6,7 +6,7 @@ import { parseTime } from '@/server/recommend/validation';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// «Подскажи»: топ-3 из бэклога. Сессию проверяет src/proxy.ts. Контракт 18.4.
+// «Подскажи»: топ-9 из бэклога. Сессию проверяет src/proxy.ts. Контракт 18.4.
 export async function GET(req: Request) {
   const t = parseTime(new URL(req.url).searchParams.get('time'));
   if (!t.ok) return fail(400, 'invalid_request', t.message);

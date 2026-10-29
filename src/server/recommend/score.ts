@@ -11,7 +11,7 @@ export const WEIGHTS: Readonly<Record<SignalKey, number>> = {
   dropped_genre_penalty: -2,
 };
 
-export const TOP_N = 3;
+export const TOP_N = 9;
 /** Окна длительности по запросу (часы): short <= 8, medium 8..30, long > 30. */
 export const SHORT_MAX_HOURS = 8;
 export const MEDIUM_MAX_HOURS = 30;

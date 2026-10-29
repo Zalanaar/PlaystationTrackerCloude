@@ -86,3 +86,28 @@ export function llmNote(llm: 'ok' | 'disabled' | 'limit' | 'error'): string | nu
 export function updatedText(n: number): string {
   return `Подсказки обновлены: ${n} ${plural(n, ['игра', 'игры', 'игр'])}`;
 }
+
+/** Размер выдачи (серверный TOP_N, §18.9). Меньше этого числа показывается пометка «Подходящих игр». */
+export const REC_COUNT = 9;
+/** Срок скрытия по умолчанию, пока сервер не вернул `ttlDays` (§18.9). */
+export const DEFAULT_TTL_DAYS = 30;
+
+export function daysText(n: number): string {
+  return `${n} ${plural(n, ['день', 'дня', 'дней'])}`;
+}
+
+/** Подпись при скрытии: «Скрыто на 30 дней». */
+export function hiddenForText(days: number): string {
+  return `Скрыто на ${daysText(days)}`;
+}
+
+/** Целых суток до конца скрытия, минимум 1 (пока отметка действует). */
+export function daysLeft(expiresAt: string, now: number): number {
+  const ms = Date.parse(expiresAt) - now;
+  return Math.max(1, Math.ceil(ms / 86_400_000));
+}
+
+/** «вернётся через 12 дн.» */
+export function returnsInText(expiresAt: string, now: number): string {
+  return `вернётся через ${daysLeft(expiresAt, now)} дн.`;
+}

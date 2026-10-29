@@ -36,10 +36,10 @@ function Media({ item, wide, eager }: { item: RecommendItem; wide: boolean; eage
 }
 
 export function RecCard({
-  item, index, total, wide, open, busy, locked, onToggle, onOpenGame, onStart, onHide,
+  item, index, total, wide, open, busy, locked, hideHint, onToggle, onOpenGame, onStart, onHide,
 }: {
   item: RecommendItem; index: number; total: number; wide: boolean; open: boolean;
-  busy: CardBusy; locked: boolean;
+  busy: CardBusy; locked: boolean; hideHint: string;
   onToggle: () => void; onOpenGame: () => void; onStart: () => void; onHide: () => void;
 }) {
   const { game, signals, reason } = item;
@@ -74,7 +74,7 @@ export function RecCard({
     <li className="ps-panel ps-rec-panel ps-rec" aria-label={`Рекомендация ${index + 1} из ${total}: ${game.name}`} aria-busy={busy !== null || undefined} data-wide={wide || undefined}>
       <div className="ps-rec__top">
         <button type="button" className="ps-rec__mediabtn" tabIndex={-1} aria-hidden="true" onClick={onOpenGame}>
-          <Media item={item} wide={wide} eager={index === 0} />
+          <Media item={item} wide={wide} eager={index < 3} />
         </button>
         <div className="ps-rec__info">{info}</div>
       </div>
@@ -111,7 +111,7 @@ export function RecCard({
           {busy === 'start' && <span className="ps-rec__spin" aria-hidden="true" />}
           {busy === 'start' ? 'Запускаю…' : 'Начать играть'}
         </button>
-        <button type="button" className="ps-btn ps-btn--ghost ps-rec__hide" disabled={disabled} aria-label={`Не интересно: ${game.name}`} onClick={onHide}>
+        <button type="button" className="ps-btn ps-btn--ghost ps-rec__hide" disabled={disabled} title={hideHint} aria-label={`Не интересно: ${game.name}`} onClick={onHide}>
           {busy === 'hide' ? <span className="ps-rec__spin" aria-hidden="true" /> : <Icon name="thumbs-down" size={16} />}
           {busy === 'hide' ? 'Скрываю…' : 'Не интересно'}
         </button>

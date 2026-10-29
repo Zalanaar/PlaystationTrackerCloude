@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GenreKey } from '@/shared/genres';
-import { durationFit, platinumClose, scoreBacklog, WEIGHTS, waitingValue } from './score';
+import { durationFit, platinumClose, scoreBacklog, TOP_N, WEIGHTS, waitingValue } from './score';
 import type { Candidate, HistoryGame, ScoreInput, SignalKey } from './types';
 
 const NOW = new Date('2026-10-29T09:00:00Z');
@@ -19,10 +19,12 @@ describe('scoreBacklog', () => {
     expect(run({ candidates: [] })).toEqual({ items: [], candidates: 0 });
   });
 
-  it('топ-3 и счётчик кандидатов; меньше кандидатов = меньше элементов', () => {
-    const r = run({ candidates: [1, 2, 3, 4, 5].map((i) => cand(i)) });
-    expect(r.items).toHaveLength(3);
-    expect(r.candidates).toBe(5);
+  it('топ-9 и счётчик кандидатов; меньше кандидатов = меньше элементов', () => {
+    expect(TOP_N).toBe(9);
+    const r = run({ candidates: Array.from({ length: 12 }, (_, i) => cand(i + 1)) });
+    expect(r.items).toHaveLength(9);
+    expect(r.candidates).toBe(12);
+    expect(run({ candidates: Array.from({ length: 9 }, (_, i) => cand(i + 1)) }).items).toHaveLength(9);
     expect(run({ candidates: [cand(1), cand(2)] }).items).toHaveLength(2);
   });
 
@@ -37,7 +39,7 @@ describe('scoreBacklog', () => {
 
   it('тай-брейк: равные баллы идут по game.id asc', () => {
     const r = run({ candidates: [cand(9), cand(2), cand(5), cand(1)] });
-    expect(r.items.map((i) => i.game.id)).toEqual([1, 2, 5]);
+    expect(r.items.map((i) => i.game.id)).toEqual([1, 2, 5, 9]);
   });
 
   it('дизлайк исключает игру и не считается кандидатом', () => {

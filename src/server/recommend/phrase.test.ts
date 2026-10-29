@@ -60,6 +60,11 @@ describe('валидация фраз', () => {
     expect(isValidPhrase(42)).toBe(false);
   });
 
+  it('isValidPhrase: обычный текст с точками и названия игр проходят', () => {
+    for (const ok of ['Конец.', 'Хорошая игра. Берись сейчас.', 'Около 22 часов...', 'Версия 1.5 и v1.2, Ep.2 и No.1.', 'Игра Marvel\'s Spider-Man 2. Ждёт давно.', 'Dr. Mario и S.T.A.L.K.E.R. 2 подойдут.', 'Ждёт.Давно', 'Hades II: ждёт, а платина близко!'])
+      expect(isValidPhrase(ok), ok).toBe(true);
+  });
+
   it('parsePhrases: валидный JSON, в том числе в блоке ```', () => {
     const raw = reasonsJson([{ id: 1, text: 'Фраза один.' }, { id: 2, text: 'Фраза два.' }]);
     expect([...parsePhrases(raw, facts)]).toEqual([[1, 'Фраза один.'], [2, 'Фраза два.']]);

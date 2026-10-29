@@ -1,14 +1,15 @@
 // Выборки, кэш фраз, счётчик лимита и дизлайки «Подскажи» (контракт 18). Расчёт в score.ts, тексты в phrase.ts.
-import { and, eq, gte, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
+import { and, desc, asc, eq, gt, gte, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { effectiveDuration } from '@/server/collection/duration';
 import { getLlmEnv, type LlmEnv } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
 import { effectiveGenres } from '@/shared/genres';
+import { DISLIKE_TTL_DAYS, DISLIKE_TTL_MS, dislikeExpiresAt } from '@/shared/recommend';
 import { createProvider, factsOf, requestPhrases, signalsHash, templateReason, DEFAULT_MODELS, type PhraseProvider } from './phrase';
 import { scoreBacklog } from './score';
-import type { Candidate, HistoryGame, LlmMeta, Reason, RecommendResponse, ScoredItem, TimeWish } from './types';
+import type { Candidate, DislikesResponse, HistoryGame, LlmMeta, Reason, RecommendResponse, ScoredItem, TimeWish } from './types';
 
 const { games, gameStatus, gameTrophySets, trophySets, trophies, recommendDislikes, recommendReasons, recommendLlmUsage } = schema;
 
@@ -16,8 +17,12 @@ export const REASON_TTL_MS = 7 * 86_400_000;
 
 export class NotFoundError extends Error {}
 
-export async function getDislikedIds(db: AnyDb): Promise<Set<number>> {
-  const rows = await db.select({ id: recommendDislikes.gameId }).from(recommendDislikes);
+/** Активные (неистёкшие, 18.9) отметки «Не интересно». */
+export async function getDislikedIds(db: AnyDb, now: Date = new Date()): Promise<Set<number>> {
+  const rows = await db
+    .select({ id: recommendDislikes.gameId })
+    .from(recommendDislikes)
+    .where(gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)));
   return new Set(rows.map((r) => r.id));
 }
 
@@ -134,7 +139,7 @@ export async function resolveReasons(db: AnyDb, items: readonly ScoredItem[], no
 
 /** GET /api/recommend (18.4). Ошибки БД пробрасываются (503 в роуте). */
 export async function getRecommendations(db: AnyDb, time: TimeWish, now: Date = new Date(), deps: RecommendDeps = {}): Promise<RecommendResponse> {
-  const [candidates, history, dislikedIds] = await Promise.all([loadCandidates(db), loadHistory(db), getDislikedIds(db)]);
+  const [candidates, history, dislikedIds] = await Promise.all([loadCandidates(db), loadHistory(db), getDislikedIds(db, now)]);
   const scored = scoreBacklog({ candidates, history, dislikedIds, time, now });
   const { reasons, llm } = await resolveReasons(db, scored.items, now, deps);
   const items = scored.items.map((i) => ({ game: i.game, score: i.score, signals: i.signals, reason: reasons.get(i.game.id)! }));
@@ -143,14 +148,34 @@ export async function getRecommendations(db: AnyDb, time: TimeWish, now: Date = 
 
 // --- дизлайки (18.5)
 
-export async function dislikeGame(db: AnyDb, gameId: number): Promise<void> {
+export async function dislikeGame(db: AnyDb, gameId: number, now: Date = new Date()): Promise<void> {
   const [g] = await db.select({ id: games.id }).from(games).where(eq(games.id, gameId));
   if (!g) throw new NotFoundError('Игра не найдена.');
-  await db.insert(recommendDislikes).values({ gameId }).onConflictDoNothing();
+  // Повтор продлевает срок: created_at = now() (18.9).
+  await db.insert(recommendDislikes).values({ gameId, createdAt: now }).onConflictDoUpdate({ target: recommendDislikes.gameId, set: { createdAt: now } });
 }
 
 export async function undislikeGame(db: AnyDb, gameId: number): Promise<void> {
   const [g] = await db.select({ id: games.id }).from(games).where(eq(games.id, gameId));
   if (!g) throw new NotFoundError('Игра не найдена.');
   await db.delete(recommendDislikes).where(eq(recommendDislikes.gameId, gameId));
+}
+
+/** GET /api/recommend/dislikes (18.9): неистёкшие отметки игр из бэклога, не скрытых hidden_at. */
+export async function listDislikes(db: AnyDb, now: Date = new Date()): Promise<DislikesResponse> {
+  const rows = await db
+    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, bannerUrl: games.bannerUrl, psn: games.psnGenres, override: games.genresOverride, at: recommendDislikes.createdAt })
+    .from(recommendDislikes)
+    .innerJoin(games, eq(games.id, recommendDislikes.gameId))
+    .innerJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .where(and(gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)))
+    .orderBy(desc(recommendDislikes.createdAt), asc(games.id));
+  return {
+    items: rows.map((r) => ({
+      game: { id: r.id, name: r.name, imageUrl: r.imageUrl, bannerUrl: r.bannerUrl, genres: effectiveGenres(r.psn, r.override) },
+      hiddenAt: r.at.toISOString(),
+      expiresAt: dislikeExpiresAt(r.at).toISOString(),
+    })),
+    ttlDays: DISLIKE_TTL_DAYS,
+  };
 }

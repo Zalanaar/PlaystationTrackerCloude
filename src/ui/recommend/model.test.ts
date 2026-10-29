@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barPercent, candidatesText, genresLine, hoursText, llmNote, parseTime, recommendHref, scoreText, signedContribution, updatedText } from './model';
+import { barPercent, candidatesText, genresLine, hoursText, llmNote, parseTime, recommendHref, scoreText, signedContribution, updatedText, daysLeft, hiddenForText, returnsInText } from './model';
 
 describe('recommend model', () => {
   it('parseTime: неизвестное = any', () => {
@@ -54,4 +54,14 @@ describe('recommend model', () => {
     expect(llmNote('error')).toContain('временно');
   });
   it('updatedText', () => expect(updatedText(3)).toBe('Подсказки обновлены: 3 игры'));
+  it('скрытые: подписи и склонение дней', () => {
+    expect(hiddenForText(30)).toBe('Скрыто на 30 дней');
+    expect(hiddenForText(1)).toBe('Скрыто на 1 день');
+    expect(hiddenForText(2)).toBe('Скрыто на 2 дня');
+    const now = Date.parse('2026-10-29T10:00:00.000Z');
+    expect(daysLeft('2026-11-28T10:00:00.000Z', now)).toBe(30);
+    expect(daysLeft('2026-10-29T10:30:00.000Z', now)).toBe(1);
+    expect(daysLeft('2026-10-28T10:00:00.000Z', now)).toBe(1);
+    expect(returnsInText('2026-11-10T09:00:00.000Z', now)).toBe('вернётся через 12 дн.');
+  });
 });

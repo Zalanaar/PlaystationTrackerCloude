@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
-import { dislikeGame, getRecommendations, NotFoundError, reserveLlmCall, undislikeGame } from './db';
+import { dislikeGame, getRecommendations, listDislikes, NotFoundError, reserveLlmCall, undislikeGame } from './db';
 import type { PhraseProvider } from './phrase';
 
 const { games, gameStatus, recommendDislikes, recommendReasons, recommendLlmUsage, trophySets, gameTrophySets, trophies } = schema;
@@ -114,6 +114,69 @@ describe('recommend на БД', () => {
     expect(r.meta.candidates).toBe(3);
     await expect(dislikeGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
     await expect(undislikeGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  const DAY = 86_400_000;
+  const dislikeAt = async (gameId: number, daysAgo: number, ms = 0) => {
+    await t.db.insert(recommendDislikes).values({ gameId, createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) }).onConflictDoUpdate({ target: recommendDislikes.gameId, set: { createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) } });
+  };
+
+  it('TTL дизлайка: 29 и 30 суток без секунды скрывают, ровно 30 и 31 нет', async () => {
+    const id = await seed();
+    const has = async () => (await getRecommendations(t.db, 'any', NOW, { llm: null })).items.some((i) => i.game.id === id('A'));
+    await dislikeAt(id('A'), 29);
+    expect(await has()).toBe(false);
+    await dislikeAt(id('A'), 30, -1000); // 29 сут 23:59:59
+    expect(await has()).toBe(false);
+    await dislikeAt(id('A'), 30);
+    expect(await has()).toBe(true);
+    await dislikeAt(id('A'), 31);
+    expect(await has()).toBe(true);
+    expect((await listDislikes(t.db, NOW)).items).toEqual([]);
+  });
+
+  it('повторный POST продлевает срок (created_at обновляется), строка одна', async () => {
+    const id = await seed();
+    await dislikeAt(id('A'), 29);
+    await dislikeGame(t.db, id('A'), NOW);
+    const rows = await t.db.select().from(recommendDislikes);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].createdAt.getTime()).toBe(NOW.getTime());
+    const later = new Date(NOW.getTime() + 10 * DAY); // старый срок уже истёк бы
+    expect((await getRecommendations(t.db, 'any', later, { llm: null })).items.some((i) => i.game.id === id('A'))).toBe(false);
+  });
+
+  it('истёкший дизлайк возвращает игру в скоринг и счётчик кандидатов', async () => {
+    const id = await seed();
+    await dislikeAt(id('A'), 40);
+    const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    expect(r.meta.candidates).toBe(3);
+    expect(r.items.map((i) => i.game.id)).toContain(id('A'));
+    await dislikeAt(id('A'), 1);
+    expect((await getRecommendations(t.db, 'any', NOW, { llm: null })).meta.candidates).toBe(2);
+  });
+
+  it('listDislikes: пусто; только бэклог и не hidden; порядок hiddenAt desc, затем id; поля контракта', async () => {
+    const id = await seed();
+    expect(await listDislikes(t.db, NOW)).toEqual({ items: [], ttlDays: 30 });
+    await dislikeAt(id('A'), 5);
+    await dislikeAt(id('B'), 1);
+    await dislikeAt(id('D'), 5); // тот же момент, что у A: порядок по id
+    await dislikeAt(id('C'), 2); // hidden_at
+    await dislikeAt(id('H1'), 2); // completed
+    await dislikeAt(id('S'), 2); // service
+    const r = await listDislikes(t.db, NOW);
+    expect(r.items.map((i) => i.game.id)).toEqual([id('B'), Math.min(id('A'), id('D')), Math.max(id('A'), id('D'))]);
+    expect(r.ttlDays).toBe(30);
+    expect(r.items[0]).toEqual({
+      game: { id: id('B'), name: 'Bravo', imageUrl: null, bannerUrl: null, genres: ['PUZZLE'] },
+      hiddenAt: new Date(NOW.getTime() - DAY).toISOString(),
+      expiresAt: new Date(NOW.getTime() + 29 * DAY).toISOString(),
+    });
+    expect(r.items[0]).not.toHaveProperty('topGenre');
+    // игра ушла из бэклога: отметка не показывается
+    await t.db.update(gameStatus).set({ status: 'playing' }).where(eq(gameStatus.gameId, id('B')));
+    expect((await listDislikes(t.db, NOW)).items.map((i) => i.game.id)).not.toContain(id('B'));
   });
 
   it('дизлайк каскадно удаляется вместе с игрой', async () => {

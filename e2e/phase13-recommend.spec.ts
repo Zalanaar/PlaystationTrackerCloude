@@ -25,11 +25,13 @@ type Rec = {
   all: Item[]; disliked: number[]; llm: 'ok' | 'disabled' | 'limit' | 'error'; backlogCount: number;
   /** принудительный ответ ошибкой для GET (исчерпывается по одному) */
   fails: number[]; failAlways: number | null; delayMs: number;
-  calls: { get: string[]; dislike: number[]; undislike: number[]; status: { id: number; body: unknown }[] };
+  /** сколько дней осталось у скрытых игр (по id), по умолчанию 30 */
+  daysLeft: Record<number, number>; failDislikes: boolean;
+  calls: { get: string[]; dislikes: number; dislike: number[]; undislike: number[]; status: { id: number; body: unknown }[] };
 };
 const state = (o: Partial<Rec> = {}): Rec => ({
-  all: [item(1, 'Хейдес'), item(2, 'Элден Ринг'), item(3, 'Год оф Вар')], disliked: [], llm: 'disabled', backlogCount: 37, fails: [], failAlways: null, delayMs: 0,
-  calls: { get: [], dislike: [], undislike: [], status: [] }, ...o,
+  all: [item(1, 'Хейдес'), item(2, 'Элден Ринг'), item(3, 'Год оф Вар')], disliked: [], llm: 'disabled', backlogCount: 37, fails: [], failAlways: null, delayMs: 0, daysLeft: {}, failDislikes: false,
+  calls: { get: [], dislikes: 0, dislike: [], undislike: [], status: [] }, ...o,
 });
 
 async function open(page: Page, context: BrowserContext, baseURL: string, s: Rec = state(), path = '/recommend'): Promise<Rec> {
@@ -44,8 +46,19 @@ async function open(page: Page, context: BrowserContext, baseURL: string, s: Rec
     const f = s.fails.shift();
     if (f) return fail(r, f, f === 503 ? 'db_unavailable' : 'internal');
     if (s.failAlways) return fail(r, s.failAlways, s.failAlways === 503 ? 'db_unavailable' : 'internal');
-    const items = s.all.filter((i) => !s.disliked.includes(i.game.id)).slice(0, 3);
+    const items = s.all.filter((i) => !s.disliked.includes(i.game.id)).slice(0, 9);
     return ok(r, { items, meta: { llm: s.llm, candidates: items.length === 0 ? 0 : s.backlogCount, time: q } });
+  });
+  await page.route(/\/api\/recommend\/dislikes$/, (r) => {
+    s.calls.dislikes += 1;
+    if (s.failDislikes) return fail(r, 503, 'db_unavailable');
+    const base = Date.parse('2026-10-29T10:00:00.000Z');
+    const items = s.all.filter((i) => s.disliked.includes(i.game.id)).map((i) => ({
+      game: { id: i.game.id, name: i.game.name, imageUrl: i.game.imageUrl, bannerUrl: null, genres: i.game.genres },
+      hiddenAt: new Date(base).toISOString(),
+      expiresAt: new Date(Date.now() + (s.daysLeft[i.game.id] ?? 30) * 86_400_000 - 3_600_000).toISOString(),
+    }));
+    return ok(r, { items, ttlDays: 30 });
   });
   await page.route('**/api/recommend/dislike', (r) => {
     const id = (r.request().postDataJSON() as { gameId: number }).gameId;
@@ -207,7 +220,7 @@ test.describe('Подскажи: действия', () => {
   test('«Не интересно» скрывает, «Отменить» возвращает', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string);
     await page.getByRole('button', { name: 'Не интересно: Хейдес' }).click();
-    await expect(page.getByText('«Хейдес» скрыта из подсказок')).toBeVisible();
+    await expect(page.getByText('Скрыто на 30 дней: «Хейдес»')).toBeVisible();
     expect(s.calls.dislike).toEqual([1]);
     await expect(page.getByRole('listitem', { name: /Хейдес/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Отменить' }).click();
@@ -242,7 +255,7 @@ test.describe('Подскажи: состояния', () => {
       await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { items: [], meta: { llm: 'disabled', candidates: 0, time: 'any' } } }) });
     });
     await page.goto('/recommend');
-    await expect(page.locator('.ps-rec--sk')).toHaveCount(3);
+    await expect(page.locator('.ps-rec--sk')).toHaveCount(9);
     await expect(page.locator('ol[aria-busy="true"]')).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Сколько времени есть' })).toBeVisible();
   });
@@ -255,17 +268,31 @@ test.describe('Подскажи: состояния', () => {
     await expect(page.getByText(/^Из \d+ игр/)).toHaveCount(0);
   });
 
-  test('все скрыты: «Вернуть скрытые: N» возвращает игры сессии', async ({ page, context, baseURL }) => {
+  test('все скрыты: панель ведёт к блоку «Скрытые», возврат из блока', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string, state({ all: [item(1, 'Хейдес'), item(2, 'Элден Ринг')], backlogCount: 2 }));
     await page.getByRole('button', { name: 'Не интересно: Хейдес' }).click();
     await expect(cards(page)).toHaveCount(1);
     await page.getByRole('button', { name: 'Не интересно: Элден Ринг' }).click();
     await expect(page.getByRole('heading', { name: 'Подсказывать нечего: все игры бэклога скрыты' })).toBeVisible();
-    await page.getByRole('button', { name: 'Вернуть скрытые: 2' }).click();
-    await expect(cards(page)).toHaveCount(2);
-    expect(s.calls.undislike.sort()).toEqual([1, 2]);
+    await expect(page.getByRole('button', { name: /Вернуть скрытые/ })).toHaveCount(0);
+    const toggle = page.getByRole('button', { name: /Скрытые на сейчас · 2/ });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await page.getByRole('button', { name: 'Показать скрытые: 2' }).click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(toggle).toBeFocused();
+    await page.getByRole('button', { name: 'Вернуть: Хейдес' }).click();
+    await expect(cards(page)).toHaveCount(1);
+    expect(s.calls.undislike).toEqual([1]);
   });
 
+  test('пустое состояние после перезагрузки: скрытые приходят с сервера, а не из сессии', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, state({ all: [item(1, 'Хейдес')], disliked: [1], backlogCount: 1 }));
+    await expect(page.getByRole('heading', { name: 'Подсказывать нечего: все игры бэклога скрыты' })).toBeVisible();
+    await page.getByRole('button', { name: 'Показать скрытые: 1' }).click();
+    await page.getByRole('button', { name: 'Вернуть: Хейдес' }).click();
+    await expect(cards(page)).toHaveCount(1);
+    expect(s.calls.undislike).toEqual([1]);
+  });
   test('503 на первой загрузке: панель, выбор времени виден, «Повторить» работает', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string, state({ fails: [503] }));
     await expect(page.getByRole('heading', { name: 'Подсказки пока недоступны' })).toBeVisible();
@@ -306,6 +333,75 @@ test.describe('Подскажи: состояния', () => {
     await open(page, context, baseURL as string, state({ llm: 'ok' }));
     await expect(cards(page)).toHaveCount(3);
     await expect(page.getByText(/Формулировки/)).toHaveCount(0);
+  });
+});
+
+test.describe('Подскажи: 9 карточек и блок «Скрытые на сейчас»', () => {
+  const nine = Array.from({ length: 12 }, (_, i) => item(i + 1, `Игра ${i + 1}`));
+
+  test('9 карточек: 3 колонки x 3 ряда на десктопе, без горизонтального скролла', async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await open(page, context, baseURL as string, state({ all: nine }));
+    await expect(cards(page)).toHaveCount(9);
+    const pos = await cards(page).evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; }));
+    expect(new Set(pos.map((p) => p[0])).size).toBe(3);
+    expect(new Set(pos.map((p) => p[1])).size).toBe(3);
+    await expect(page.getByText('Подходящих игр в бэклоге')).toHaveCount(0);
+    expect(await noHScroll(page)).toBe(true);
+  });
+
+  test('9 карточек на 360: одна колонка', async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await open(page, context, baseURL as string, state({ all: nine }));
+    await expect(cards(page)).toHaveCount(9);
+    expect(await noHScroll(page)).toBe(true);
+  });
+
+  test('блока нет, когда скрытых нет', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string);
+    await expect(cards(page)).toHaveCount(3);
+    await expect.poll(() => s.calls.dislikes).toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: /Скрытые на сейчас/ })).toHaveCount(0);
+  });
+
+  test('блок закрыт по умолчанию: строка с названием, «вернётся через N дн.», «Вернуть»', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, state({ disliked: [2], daysLeft: { 2: 12 } }));
+    await expect(cards(page)).toHaveCount(2);
+    const toggle = page.getByRole('button', { name: /Скрытые на сейчас · 1/ });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: 'Вернуть: Элден Ринг' })).toBeHidden();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const row = page.locator('.ps-rec-hid__row').filter({ hasText: 'Элден Ринг' });
+    await expect(row).toBeVisible();
+    await expect(row.getByText('вернётся через 12 дн.')).toBeVisible();
+    await expect(toggle).toContainText('Скрыто на 30 дней');
+    expect(await noHScroll(page)).toBe(true);
+    expect(s.calls.undislike).toEqual([]);
+  });
+
+  test('«Вернуть»: DELETE и перезапрос обоих списков, блок исчезает при 0', async ({ page, context, baseURL }) => {
+    const s = await open(page, context, baseURL as string, state({ disliked: [2] }));
+    await page.getByRole('button', { name: /Скрытые на сейчас · 1/ }).click();
+    const gets = s.calls.get.length;
+    const lists = s.calls.dislikes;
+    await page.getByRole('button', { name: 'Вернуть: Элден Ринг' }).click();
+    await expect(page.getByText('«Элден Ринг» снова в подсказках')).toBeVisible();
+    expect(s.calls.undislike).toEqual([2]);
+    await expect(cards(page)).toHaveCount(3);
+    expect(s.calls.get.length).toBe(gets + 1);
+    expect(s.calls.dislikes).toBe(lists + 1);
+    await expect(page.getByRole('button', { name: /Скрытые на сейчас/ })).toHaveCount(0);
+  });
+
+  test('скрытие добавляет игру в блок; ошибка списка скрытых не ломает экран', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, state({ failDislikes: true }));
+    await expect(cards(page)).toHaveCount(3);
+    await expect(page.getByRole('button', { name: /Скрытые на сейчас/ })).toHaveCount(0);
+    const s2 = await open(page, context, baseURL as string);
+    await page.getByRole('button', { name: 'Не интересно: Хейдес' }).click();
+    await expect(page.getByRole('button', { name: /Скрытые на сейчас · 1/ })).toBeVisible();
+    expect(s2.calls.dislike).toEqual([1]);
   });
 });
 

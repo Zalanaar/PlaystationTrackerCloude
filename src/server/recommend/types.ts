@@ -69,3 +69,11 @@ export type RecommendResponse = {
   items: RecommendItem[];
   meta: { llm: LlmMeta; candidates: number; time: TimeWish };
 };
+
+/** GET /api/recommend/dislikes (18.9). */
+export type DislikeItem = {
+  game: { id: number; name: string; imageUrl: string | null; bannerUrl: string | null; genres: GenreKey[] };
+  hiddenAt: string;
+  expiresAt: string;
+};
+export type DislikesResponse = { items: DislikeItem[]; ttlDays: number };

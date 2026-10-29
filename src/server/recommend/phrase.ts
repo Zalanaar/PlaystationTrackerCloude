@@ -128,7 +128,9 @@ export function buildPrompt(facts: readonly PhraseFact[]): { system: string; use
 
 // --- валидация
 
-const LINK_RE = /https?:|www\.|\b[\w-]+\.(?:com|ru|net|org|io|gg|tv|me|app|dev|xyz|info)\b|\]\(|<\/?[a-z]/i;
+// Любой токен «слово.tld» (латиница, tld от 2 букв, без пробела вокруг точки), в т.ч. bit.ly/x, goo.gl/x, evil.co.
+// Обычный текст не задевает: «Конец.» / «Конец. Новое» (после точки пробел или конец), числа «1.5», «v1.2», «Ep.2».
+const LINK_RE = /https?:|www\.|\b[a-z0-9][a-z0-9-]*\.[a-z]{2,}\b|\]\(|<\/?[a-z]/i;
 
 export function isValidPhrase(text: unknown): text is string {
   return typeof text === 'string' && text.trim().length >= 1 && text.trim().length <= REASON_MAX_LEN && !LINK_RE.test(text);

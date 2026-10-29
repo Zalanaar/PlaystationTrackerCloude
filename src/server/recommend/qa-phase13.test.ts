@@ -173,10 +173,8 @@ describe('QA: безопасность LLM (чистые функции)', () =>
     for (const t of ['Тебе заходит экшен, около 22 часов.', 'Платина близко: 30 из 40.'])
       expect(isValidPhrase(t), t).toBe(true);
   });
-  it('ссылки с редкими доменами не ловятся списком TLD (известное ограничение)', () => {
-    const missed = ['bit.ly/abc', 'goo.gl/x', 'evil.co/a', 'evil.to', 'evil.cc'].filter((t) => isValidPhrase(t));
-    // фиксируем факт: перечисленное проходит валидацию (см. отчёт, N-2)
-    expect(missed.length).toBeGreaterThan(0);
+  it('ссылки с любыми доменами отбрасываются (N-2)', () => {
+    for (const t of ['bit.ly/abc', 'goo.gl/x', 'evil.co/a', 'evil.to', 'evil.cc', 'зайди на a-b.example.org', 'vk.com/x', 'EVIL.CO']) expect(isValidPhrase(t), t).toBe(false);
   });
   it('длина: 400 проходит, 401 нет, пустая и пробелы нет; не строки нет', () => {
     expect(isValidPhrase('a'.repeat(400))).toBe(true);
@@ -262,7 +260,7 @@ describe('QA: БД, лимит, гонки, утечки', () => {
     const p = counting();
     const rs = await Promise.all(Array.from({ length: 8 }, () => getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p })));
     expect(p.calls).toBeLessThanOrEqual(3);
-    expect(rs.every((r) => r.items.length === 3)).toBe(true);
+    expect(rs.every((r) => r.items.length === 5)).toBe(true);
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBeLessThanOrEqual(3);
   });
   it('граница суток МСК: 20:59:59Z и 21:00:00Z — разные дни, счётчики независимы', async () => {

@@ -83,6 +83,27 @@
 .ps-rec-empty__ic { display: inline-flex; color: var(--text-3); }
 .ps-rec-empty__sk { width: 100%; height: 120px; }
 
+/* ---- блок «Скрытые на сейчас» (§18.9): те же токены, что у раскрывашки ---- */
+.ps-rec-hid { border-top: var(--border-w) solid var(--border); min-width: 0; }
+.ps-rec-hid__btn { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap-min); padding: 0; background: none; border: 0; color: var(--text-2); font: inherit; text-align: left; cursor: pointer; }
+.ps-rec-hid__btn[aria-expanded="true"] .ps-rec__chev { transform: rotate(180deg); }
+.ps-rec-hid__t { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text-2); }
+.ps-rec-hid__ttl { margin-left: auto; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-rec-hid__list { list-style: none; margin: 0; padding: var(--sp-1) var(--sp-3); background: var(--surface-2); border-radius: var(--r-sm); }
+.ps-rec-hid__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) 0; border-top: var(--border-w) solid var(--border); }
+.ps-rec-hid__row:first-child { border-top: 0; }
+.ps-rec-hid__cover { display: block; width: 36px; height: 48px; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-3); }
+.ps-rec-hid__cover--empty { display: grid; place-items: center; font: 600 16px/1 var(--font-display); color: var(--text-2); }
+.ps-rec-hid__name { min-width: 0; font-size: 14px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ps-rec-hid__back { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); white-space: nowrap; }
+.ps-rec-hid__ret { min-height: var(--control-h); }
+@media (max-width: 767px) {
+  .ps-rec-hid__row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .ps-rec-hid__back { grid-column: 2; grid-row: 2; white-space: normal; }
+  .ps-rec-hid__ret { grid-column: 3; grid-row: 1 / span 2; min-height: var(--tap-min); }
+  .ps-rec-hid__cover { grid-row: 1 / span 2; }
+}
+
 /* ---- скелеты ---- */
 .ps-rec--sk .ps-rec__sk-cover { width: 96px; height: 128px; border-radius: var(--r-cover); }
 .ps-rec--sk .ps-rec__sk-media { width: 100%; aspect-ratio: 16 / 9; }
@@ -127,6 +148,7 @@
 @media (prefers-contrast: more) {
   .ps-rec-panel, .ps-rec-banner { border-width: 2px; }
   .ps-rec__why, .ps-rec__sig { border-width: 2px; }
+  .ps-rec-hid, .ps-rec-hid__row { border-width: 2px; }
   .ps-rec__bar { border: var(--border-w) solid var(--border-strong); }
   .ps-rec-page :focus-visible { outline-width: 3px; }
 }
