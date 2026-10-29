@@ -1,7 +1,7 @@
 // Разбор query GET /api/stats (контракт 10.1). Чистая функция.
 import type { StatsPeriodType } from './types';
 
-export type StatsQuery = { type: StatsPeriodType; year: number; month: number | null };
+export type StatsQuery = { type: StatsPeriodType; year: number; month: number | null; /** 17.2: вернуть в «Редкие трофеи» игры-сервисы (по умолчанию нет) */ withService?: boolean };
 export type StatsParsed = { ok: true; value: StatsQuery } | { ok: false; message: string };
 
 const bad = (message: string): { ok: false; message: string } => ({ ok: false, message });
@@ -10,6 +10,13 @@ function int(raw: string, min: number, max: number): number | null {
   if (!/^\d{1,5}$/.test(raw)) return null;
   const n = Number(raw);
   return n >= min && n <= max ? n : null;
+}
+
+/** `withService` (контракт 20.8): 1|true включить, 0|false|нет = выключено; иное = null (ошибка). */
+export function parseWithService(raw: string | null): boolean | null {
+  if (raw === null || raw === '0' || raw === 'false') return false;
+  if (raw === '1' || raw === 'true') return true;
+  return null;
 }
 
 /** currentYear: год МСК «сегодня» (по умолчанию для year). */
@@ -30,7 +37,9 @@ export function parseStatsQuery(sp: URLSearchParams, currentYear: number): Stats
     if (m === null) return bad('Для периода «месяц» нужен month от 1 до 12.');
     month = m;
   }
-  return { ok: true, value: { type: pRaw, year, month } };
+  const ws = parseWithService(sp.get('withService'));
+  if (ws === null) return bad('Некорректный параметр withService.');
+  return { ok: true, value: { type: pRaw, year, month, ...(ws ? { withService: true } : {}) } };
 }
 
 /** GET /api/stats/activity (14.3): только year, по умолчанию текущий год МСК; пустая строка = нет параметра. */

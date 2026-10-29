@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   try {
     // Ник берём из env (PSN_TARGET_ONLINE_ID); без PSN-настроек просто null. Секреты в ответ не попадают.
     const onlineId = process.env.PSN_TARGET_ONLINE_ID?.trim() || null;
-    return ok(await getWrapped(getDb(), p.value.year, onlineId));
+    return ok(await getWrapped(getDb(), p.value.year, onlineId, new Date(), { withService: p.value.withService }));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

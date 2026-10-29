@@ -58,6 +58,24 @@ async function writeBackup(tx: Tx, reason: string, payload: StatusBackupRow[], n
   return b.id;
 }
 
+/**
+ * Копия ВСЕХ строк game_status (включая скрытые игры) перед восстановлением из файла (контракт 20.3). В транзакции вызывающего.
+ * Возвращает id копии или null, если статусов нет.
+ */
+export async function snapshotAllStatuses(tx: Tx, reason: string, now: Date): Promise<number | null> {
+  await lock(tx);
+  const rows = await tx.select().from(gameStatus).orderBy(gameStatus.gameId);
+  if (!rows.length) return null;
+  const payload: StatusBackupRow[] = rows.map((r) => ({
+    gameId: r.gameId,
+    status: r.status,
+    completedAt: iso(r.completedAt),
+    droppedAt: iso(r.droppedAt),
+    statusChangedAt: r.statusChangedAt.toISOString(),
+  }));
+  return writeBackup(tx, reason, payload, now);
+}
+
 /** 9.8: снимок статусов видимых игр в status_backups и их удаление. 0 строк = бэкап не создаётся. */
 export async function resetAllStatuses(db: AnyDb, now: Date = new Date()): Promise<StatusResetAllResponse> {
   return db.transaction(async (tx) => {

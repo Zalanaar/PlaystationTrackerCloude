@@ -55,6 +55,8 @@ export type ScoreInput = {
   time: TimeWish;
   /** «Сейчас» передаётся аргументом: внутри Date.now не используется. */
   now: Date;
+  /** Сколько лучших вернуть (по умолчанию TOP_N). Шаг синка (20.5) просит весь бэклог. */
+  limit?: number;
 };
 
 export type ScoreResult = { items: ScoredItem[]; candidates: number };
@@ -67,7 +69,8 @@ export type RecommendItem = Omit<ScoredItem, 'topGenre'> & { reason: Reason };
 
 export type RecommendResponse = {
   items: RecommendItem[];
-  meta: { llm: LlmMeta; candidates: number; time: TimeWish };
+  /** llmPending: карточек с шаблоном при включённом LLM (фразу создаст ночной синк, контракт 20.4). */
+  meta: { llm: LlmMeta; candidates: number; time: TimeWish; llmPending: number };
 };
 
 /** GET /api/recommend/dislikes (18.9). */

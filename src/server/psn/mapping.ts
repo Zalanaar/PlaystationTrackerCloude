@@ -16,6 +16,26 @@ export function httpsUrl(v: unknown): string | null {
     return null;
   }
 }
+
+/**
+ * Аватар профиля (контракт 20.7): `profile2` отдаёт адреса вида `http://static-resource.np.community.playstation.net/...`.
+ * Для хостов PSN (*.playstation.net, *.playstation.com) схема повышается до https; прочие не-https адреса отбрасываются (BUG-P9-2).
+ */
+export function psnAvatarUrl(v: unknown): string | null {
+  const s = str(v)?.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    if (u.protocol === 'https:') return s;
+    if (u.protocol === 'http:' && /(^|\.)playstation\.(net|com)$/i.test(u.hostname)) {
+      u.protocol = 'https:';
+      return u.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 const INT32_MAX = 2_147_483_647;
 
 /** ISO 8601 `PT228H56M33S` (допускает дни и дробные секунды) -> секунды. Мусор = 0. */
@@ -77,7 +97,7 @@ export function mapProfile(raw: unknown): PsnProfile | null {
     let best = -1;
     for (const a of p.avatarUrls) {
       if (!isObj(a)) continue;
-      const url = httpsUrl(a.avatarUrl);
+      const url = psnAvatarUrl(a.avatarUrl);
       if (!url) continue;
       const r = typeof a.size === 'string' ? (rank[a.size.toLowerCase()] ?? 0) : 0;
       if (r > best) {

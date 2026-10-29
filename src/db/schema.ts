@@ -401,9 +401,31 @@ export const recommendLlmUsage = pgTable(
   'recommend_llm_usage',
   {
     day: date({ mode: 'string' }).primaryKey(),
+    // Всего за сутки (общий предохранитель LLM_DAILY_LIMIT). С Этапа 5 (контракт 20.4) ниже счётчики по видам вызова.
     calls: integer().notNull().default(0),
+    phraseCalls: integer('phrase_calls').notNull().default(0),
+    discoverAutoCalls: integer('discover_auto_calls').notNull().default(0),
+    discoverManualCalls: integer('discover_manual_calls').notNull().default(0),
   },
-  (t) => [check('recommend_llm_usage_calls_check', sql`${t.calls} >= 0`)],
+  (t) => [
+    check('recommend_llm_usage_calls_check', sql`${t.calls} >= 0`),
+    check('recommend_llm_usage_phrase_calls_check', sql`${t.phraseCalls} >= 0`),
+    check('recommend_llm_usage_discover_auto_calls_check', sql`${t.discoverAutoCalls} >= 0`),
+    check('recommend_llm_usage_discover_manual_calls_check', sql`${t.discoverManualCalls} >= 0`),
+  ],
+);
+
+// Этап 5 (контракт 20.4, миграция 0012): подряд идущие неудачные вызовы LLM, ровно одна строка (id = 1).
+// fail_streak >= 3 = пауза до следующего синка (синк обнуляет в начале шага LLM).
+export const recommendLlmState = pgTable(
+  'recommend_llm_state',
+  {
+    id: smallint().primaryKey(),
+    failStreak: integer('fail_streak').notNull().default(0),
+    lastReason: text('last_reason'),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [check('recommend_llm_state_singleton_check', sql`${t.id} = 1`), check('recommend_llm_state_streak_check', sql`${t.failStreak} >= 0`)],
 );
 
 // Фаза 13b (контракт 19.1, миграция 0011): «Новое от ИИ». Миграция только добавляет таблицы.

@@ -10,6 +10,7 @@ const { syncRuns, psnAuth, notifyLog } = schema;
 export const STALE_SYNC_MS = 3 * 86400_000;
 export const TOKEN_AGE_MS = 7 * 86400_000;
 export const TELEGRAM_TIMEOUT_MS = 8000;
+export const TELEGRAM_DOC_TIMEOUT_MS = 15_000;
 const DAY_MS = 86400_000;
 const DOC = 'Инструкция: docs/release.md, раздел 3 (Обновление NPSSO).';
 
@@ -47,7 +48,54 @@ export async function sendTelegram(text: string, o: { env?: TelegramEnv | null; 
   }
 }
 
-export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age';
+/**
+ * Отправка файла документом (контракт 20.3). Любая ошибка проглатывается (false); токен в логи не попадает.
+ * Файл уходит как multipart; подпись до 1024 символов.
+ */
+export async function sendTelegramDocument(
+  file: { name: string; content: string; caption?: string },
+  o: { env?: TelegramEnv | null; fetchImpl?: typeof fetch } = {},
+): Promise<boolean> {
+  const env = o.env === undefined ? getTelegramEnv() : o.env;
+  if (!env) return false;
+  try {
+    const form = new FormData();
+    form.set('chat_id', env.chatId);
+    if (file.caption) form.set('caption', file.caption.slice(0, 1000));
+    form.set('document', new Blob([file.content], { type: 'application/json' }), file.name);
+    const res = await (o.fetchImpl ?? fetch)(`https://api.telegram.org/bot${env.token}/sendDocument`, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(TELEGRAM_DOC_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    await res.body?.cancel();
+    if (!res.ok) {
+      console.error(`notify: telegram document http ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error('notify: telegram недоступен (документ)');
+    return false;
+  }
+}
+
+/** Дата (МСК) последней отправки данного вида или null. Для дедупа раз в сутки / раз в неделю. */
+export async function lastSentOn(db: AnyDb, kind: string): Promise<string | null> {
+  const [r] = await db.select({ sentOn: notifyLog.sentOn }).from(notifyLog).where(eq(notifyLog.kind, kind)).limit(1);
+  return r?.sentOn ?? null;
+}
+
+export async function markSent(db: AnyDb, kind: string, now: Date): Promise<void> {
+  const today = mskDateString(now);
+  await db
+    .insert(notifyLog)
+    .values({ kind, lastSentAt: now, sentOn: today })
+    .onConflictDoUpdate({ target: notifyLog.kind, set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` } });
+}
+
+export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age' | 'sync_missed';
 
 const days = (ms: number) => Math.max(1, Math.floor(ms / DAY_MS));
 
@@ -59,6 +107,10 @@ export function messageFor(kind: NotifyKind, o: { ageMs?: number } = {}): string
       return `PS Tracker: PSN отклонил NPSSO, синк остановлен. Замените PSN_NPSSO на Vercel.\n${DOC}`;
     case 'sync_stale':
       return `PS Tracker: синк не выполнялся успешно уже ${days(o.ageMs ?? STALE_SYNC_MS)} сут. Проверьте cron и NPSSO.\n${DOC}`;
+    case 'sync_missed': {
+      const h = Math.max(1, Math.floor((o.ageMs ?? 0) / 3_600_000));
+      return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). Проверьте cron на Vercel и NPSSO.\n${DOC}`;
+    }
     case 'token_age':
       return `PS Tracker: токены PSN не обновлялись ${days(o.ageMs ?? TOKEN_AGE_MS)} сут., refresh живёт около 10 суток. Возможно, скоро понадобится новый NPSSO.\n${DOC}`;
   }
@@ -86,15 +138,12 @@ export async function notifyAfterSync(db: AnyDb, o: NotifyAfterSyncOpts = {}): P
     if (!trigger) return null;
 
     const today = mskDateString(now);
-    const [prev] = await db.select({ sentOn: notifyLog.sentOn }).from(notifyLog).where(eq(notifyLog.kind, trigger.kind)).limit(1);
-    if (prev && prev.sentOn >= today) return null;
+    const prev = await lastSentOn(db, trigger.kind);
+    if (prev && prev >= today) return null;
 
     const sent = await sendTelegram(messageFor(trigger.kind, { ageMs: trigger.ageMs }), { env, fetchImpl: o.fetchImpl });
     if (!sent) return null;
-    await db
-      .insert(notifyLog)
-      .values({ kind: trigger.kind, lastSentAt: now, sentOn: today })
-      .onConflictDoUpdate({ target: notifyLog.kind, set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` } });
+    await markSent(db, trigger.kind, now);
     return trigger.kind;
   } catch {
     console.error('notify: проверка уведомлений не выполнена');

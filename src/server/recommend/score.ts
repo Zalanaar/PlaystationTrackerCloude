@@ -167,12 +167,12 @@ export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreSt
   };
 }
 
-/** Топ-3 бэклога. Тай-брейк: game.id asc. Одинаковый вход даёт одинаковый выход. */
+/** Топ бэклога (TOP_N или input.limit). Тай-брейк: game.id asc. Одинаковый вход даёт одинаковый выход. */
 export function scoreBacklog(input: ScoreInput): ScoreResult {
   const eligible = [...input.candidates].filter((c) => !input.dislikedIds.has(c.id)).sort((a, b) => a.id - b.id);
   const stats = genreStats(input.history);
   const maxHours = Math.max(0, ...[...stats.values()].map((s) => s.hours));
   const scored = eligible.map((c) => scoreCandidate(c, { stats, maxHours, time: input.time, now: input.now }));
   scored.sort((a, b) => b.score - a.score || a.game.id - b.game.id);
-  return { items: scored.slice(0, TOP_N).map((s) => ({ ...s, score: r2(s.score) })), candidates: eligible.length };
+  return { items: scored.slice(0, input.limit ?? TOP_N).map((s) => ({ ...s, score: r2(s.score) })), candidates: eligible.length };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getLlmEnv } from '@/server/env';
-import { LLM_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, signalsHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
+import { LLM_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, stableHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
 import type { ScoredItem } from './types';
 
 const item = (id: number, o: Partial<ScoredItem> = {}, name = `Игра ${id}`): ScoredItem => ({
@@ -34,18 +34,41 @@ describe('templateReason', () => {
   });
 });
 
-describe('signalsHash', () => {
+describe('stableHash (20.4)', () => {
   it('стабилен при малых сдвигах и меняется при существенных', () => {
-    const a = signalsHash(item(1));
-    expect(signalsHash(item(1, { signals: [{ key: 'genre_affinity', label: 'другая подпись', contribution: 2.3 }] }))).toBe(a);
-    expect(signalsHash(item(1, { signals: [{ key: 'genre_affinity', label: '', contribution: 1.2 }] }))).not.toBe(a);
-    expect(signalsHash(item(2))).not.toBe(a);
+    const a = stableHash(item(1));
+    expect(stableHash(item(1, { signals: [{ key: 'genre_affinity', label: 'другая подпись', contribution: 2.3 }] }))).toBe(a);
+    expect(stableHash(item(1, { signals: [{ key: 'genre_affinity', label: '', contribution: 1.2 }] }))).not.toBe(a);
+    expect(stableHash(item(2))).not.toBe(a);
+  });
+  it('не зависит от waiting и duration_fit (давность и фильтр времени), порядка сигналов', () => {
+    const base = item(1, { signals: [{ key: 'genre_affinity', label: '', contribution: 2.4 }, { key: 'platinum_close', label: '', contribution: 1.2 }] });
+    const h = stableHash(base);
+    const noisy = item(1, {
+      signals: [
+        { key: 'waiting', label: 'В бэклоге 5 мес.', contribution: 0.4 },
+        { key: 'platinum_close', label: '', contribution: 1.2 },
+        { key: 'duration_fit', label: 'Подходит по времени', contribution: 2 },
+        { key: 'genre_affinity', label: '', contribution: 2.4 },
+      ],
+    });
+    expect(stableHash(noisy)).toBe(h);
+    const waitingOnly = item(1, { signals: [...base.signals, { key: 'waiting', label: '', contribution: 1 }] });
+    expect(stableHash(waitingOnly)).toBe(h);
+  });
+  it('меняется от жанров, названия и целых часов; не от дробных долей часа', () => {
+    const h = stableHash(item(1));
+    expect(stableHash(item(1, { game: { ...item(1).game, genres: ['RACING'] } }))).not.toBe(h);
+    expect(stableHash(item(1, { game: { ...item(1).game, hours: 30 } }))).not.toBe(h);
+    expect(stableHash(item(1, { game: { ...item(1).game, hours: 22.9 } }))).toBe(stableHash(item(1, { game: { ...item(1).game, hours: 23.2 } })));
   });
 });
 
 describe('factsOf', () => {
-  it('в LLM уходят только название, жанры RU, часы и подписи', () => {
+  it('в LLM уходят только название, жанры RU, часы и подписи стабильных сигналов', () => {
     expect(factsOf([item(1)])).toEqual([{ id: 1, name: 'Игра 1', genres: ['Экшен'], hours: 22.5, signals: ['Любимый жанр: Экшен, 120 ч'] }]);
+    const withWaiting = item(1, { signals: [{ key: 'waiting', label: 'В бэклоге 5 мес.', contribution: 0.4 }, { key: 'duration_fit', label: 'Подходит по времени', contribution: 1 }, ...item(1).signals] });
+    expect(factsOf([withWaiting])[0].signals).toEqual(['Любимый жанр: Экшен, 120 ч']);
   });
 });
 
@@ -187,5 +210,40 @@ describe('лимит токенов и промпт', () => {
     expect(LLM_MAX_OUTPUT_TOKENS).toBe(2000);
     expect(SYSTEM_PROMPT).toContain('до 200 символов');
     expect(SYSTEM_PROMPT).toContain('ровно по одному элементу на каждый id');
+  });
+});
+
+describe('обрезка ответа по токенам (контракт 20.4)', () => {
+  const sig = () => new AbortController().signal;
+  it('groq: finish_reason=length = LlmError truncated; stop проходит; maxTokens из аргумента', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const mk = (finish: string) => (async (_u: unknown, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ choices: [{ finish_reason: finish, message: { content: '{"games":[]}' } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const c: LlmConfig = { provider: 'groq', apiKey: 'k', model: 'm' };
+    await expect(groqProvider(c, mk('length')).complete({ system: 's', user: 'u' }, sig(), { maxTokens: 4000 })).rejects.toMatchObject({ name: 'LlmError', code: 'bad_response', detail: 'truncated' });
+    expect(bodies[0].max_tokens).toBe(4000);
+    await expect(groqProvider(c, mk('stop')).complete({ system: 's', user: 'u' }, sig())).resolves.toBe('{"games":[]}');
+    expect(bodies[1].max_tokens).toBe(LLM_MAX_OUTPUT_TOKENS);
+  });
+  it('gemini: finishReason=MAX_TOKENS = truncated; maxOutputTokens из аргумента', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const f = (async (_u: unknown, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"rea' }] } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await expect(geminiProvider({ provider: 'gemini', apiKey: 'k', model: 'm' }, f).complete({ system: 's', user: 'u' }, sig(), { maxTokens: 3000 })).rejects.toMatchObject({ detail: 'truncated' });
+    expect((bodies[0].generationConfig as { maxOutputTokens: number }).maxOutputTokens).toBe(3000);
+  });
+  it('requestPhrases: truncated пробрасывается как есть', async () => {
+    const p: PhraseProvider = { name: 'groq', complete: async () => { throw new LlmError('bad_response', 'truncated'); } };
+    await expect(requestPhrases(p, facts)).rejects.toMatchObject({ detail: 'truncated' });
+  });
+  it('requestPhrases по умолчанию просит 3000 токенов', async () => {
+    let seen: unknown;
+    const p: PhraseProvider = { name: 'groq', complete: async ({ user }, _s, opts) => { seen = opts; return reasonsJson((JSON.parse(user) as { games: { id: number }[] }).games.map((g) => ({ id: g.id, text: 'Ок.' }))); } };
+    await requestPhrases(p, facts);
+    expect(seen).toEqual({ maxTokens: 3000 });
   });
 });

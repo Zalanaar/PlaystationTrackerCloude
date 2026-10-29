@@ -91,8 +91,8 @@ export async function getStats(db: AnyDb, q: StatsQuery, now: Date = new Date())
       .where(and(eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc)))
       .groupBy(owner.gameId, trophies.type),
     // 14.1: по LIMIT 5 строк, без GameItem (вес ответа, P8-3).
-    getRareTrophies(db, { fromUtc, toUtc }),
-    getRareTrophies(db, null),
+    getRareTrophies(db, { fromUtc, toUtc }, undefined, q.withService === true),
+    getRareTrophies(db, null, undefined, q.withService === true),
   ]);
 
   const finishedEvents: FinishedEvent[] = [

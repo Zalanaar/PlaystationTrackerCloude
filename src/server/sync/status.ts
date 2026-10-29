@@ -3,13 +3,14 @@ import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { PHASES, parseCursor } from './context';
+import { getSyncOverdue } from './overdue';
 
 const { syncRuns, psnAuth } = schema;
 
 // Запуски kind='hltb' (контракт 16.7) в индикации синка не участвуют.
 const notHltb = ne(syncRuns.kind, 'hltb');
 
-export async function getSyncStatus(db: AnyDb) {
+export async function getSyncStatus(db: AnyDb, now: Date = new Date()) {
   const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastDone] = await db.select().from(syncRuns).where(and(notHltb, ne(syncRuns.status, 'running'))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastSuccess] = await db
@@ -82,5 +83,6 @@ export async function getSyncStatus(db: AnyDb) {
     psnAuth: psnAuthState,
     psnAuthExpiresAt: auth?.refreshExpiresAt ? auth.refreshExpiresAt.toISOString() : null,
     totals,
+    overdue: await getSyncOverdue(db, now),
   };
 }

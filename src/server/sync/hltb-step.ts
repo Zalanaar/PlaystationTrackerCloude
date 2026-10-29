@@ -1,6 +1,6 @@
 // Шаг «длительность по HLTB» в конце успешного звена синка (контракт 16.6). Не фаза курсора: остаток определяют данные.
 // Любая ошибка HLTB = предупреждение в sync_runs.warnings, итог запуска не меняется.
-import { and, asc, count, eq, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import { HltbError, capDetail, createHltbClient, type HltbClient } from '@/server/hltb/client';
 import { pickAny, searchTerms } from '@/server/hltb/normalize';
@@ -28,7 +28,8 @@ const dueWhere = (now: Date, recheckBefore?: Date) =>
   and(
     isNull(games.hiddenAt),
     isNull(games.durationOverrideHours),
-    or(isNull(gameStatus.status), inArray(gameStatus.status, ['backlog', 'playing', 'shelved'])),
+    // 20.1: любой статус, кроме service (completed/dropped тоже нужны: фильтры и «Подскажи» опираются на длительность)
+    or(isNull(gameStatus.status), ne(gameStatus.status, 'service')),
     or(
       isNull(games.hltbCheckedAt),
       lt(games.hltbCheckedAt, new Date(now.getTime() - HLTB_RECHECK_MS)),
@@ -79,7 +80,7 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
   const none: HltbBatchResult = { checked: 0, found: 0, failed: 0, picked: 0, attemptedIds: [], sawNonEmpty: opts.sawNonEmpty ?? false, stop: null };
   if (ctx.timeLeft() < minLeft) return { ...none, stop: 'time' };
   const now = ctx.now();
-  const priority = sql`case ${gameStatus.status} when 'backlog' then 0 when 'playing' then 1 when 'shelved' then 2 else 3 end`;
+  const priority = sql`case ${gameStatus.status} when 'backlog' then 0 when 'playing' then 1 when 'shelved' then 2 when 'completed' then 4 when 'dropped' then 5 else 3 end`;
   const excl = opts.excludeIds?.length ? notInArray(games.id, opts.excludeIds) : undefined;
   const due = await ctx.db
     .select({ id: games.id, name: games.name, hltbId: games.hltbId, main: games.hltbMainHours, extra: games.hltbExtraHours })

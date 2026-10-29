@@ -30,7 +30,7 @@ describe('hltbStep', () => {
     if (s.kind !== 'started') throw new Error(s.kind);
     return new RunContext(t.db, s.run, () => NOW, budget);
   }
-  async function add(name: string, o: Partial<typeof games.$inferInsert> = {}, status?: 'backlog' | 'completed' | 'service' | 'playing') {
+  async function add(name: string, o: Partial<typeof games.$inferInsert> = {}, status?: 'backlog' | 'completed' | 'service' | 'playing' | 'dropped' | 'shelved') {
     const [g] = await t.db
       .insert(games)
       .values({ titleId: `T-${name}`, name, category: 'ps5_native_game', lastSeenAt: NOW, ...o })
@@ -51,9 +51,10 @@ describe('hltbStep', () => {
     expect(await row(b)).toMatchObject({ hltbId: null, hltbMainHours: null, hltbCheckedAt: NOW });
   });
 
-  it('кого пропускаем: completed, service, скрытые, с ручной длительностью, свежепроверенные', async () => {
+  it('кого пропускаем: service, скрытые, с ручной длительностью, свежепроверенные (completed/dropped берём, 20.1)', async () => {
     const asked: string[] = [];
     await add('Done', {}, 'completed');
+    await add('Quit', {}, 'dropped');
     await add('Svc', {}, 'service');
     await add('Hidden', { hiddenAt: NOW }, 'backlog');
     await add('Manual', { durationOverrideHours: 5 }, 'backlog');
@@ -61,7 +62,19 @@ describe('hltbStep', () => {
     await add('Stale', { hltbCheckedAt: new Date(NOW.getTime() - HLTB_RECHECK_MS - 1000) }, 'backlog');
     await add('NoStatus');
     await hltbStep(await ctx(), deps(async (term) => (asked.push(term), [])));
-    expect(asked.sort()).toEqual(['nostatus', 'stale']);
+    expect(asked.sort()).toEqual(['done', 'nostatus', 'quit', 'stale']);
+  });
+
+  it('порядок: backlog, playing, shelved, без статуса, completed, dropped', async () => {
+    await add('Z-drop', {}, 'dropped');
+    await add('Y-done', {}, 'completed');
+    await add('X-none');
+    await add('W-shelf', {}, 'shelved');
+    await add('V-play', {}, 'playing');
+    await add('U-back', {}, 'backlog');
+    const asked: string[] = [];
+    await hltbStep(await ctx(), deps(async (term) => (asked.push(term), [cand(1, term, 5)])));
+    expect(asked).toEqual(['u back', 'v play', 'w shelf', 'x none', 'y done', 'z drop']);
   });
 
   it('порядок: backlog раньше игр без статуса; пачка ограничена', async () => {

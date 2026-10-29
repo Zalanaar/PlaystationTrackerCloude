@@ -8,6 +8,12 @@ export const LLM_TIMEOUT_MS = 5000;
 export const REASON_MAX_LEN = 400;
 /** Потолок токенов ответа: до 9 фраз по 200 символов (Gemini maxOutputTokens, Groq max_tokens). */
 export const LLM_MAX_OUTPUT_TOKENS = 2000;
+/** Пачка фраз бэклога в синке (до PHRASE_BATCH игр по ~100 токенов, контракт 20.4). */
+export const PHRASES_MAX_OUTPUT_TOKENS = 3000;
+/** Фразы пачкой в синке: таймаут одного вызова (экрана больше нет, 5 с на 16 игр мало). */
+export const PHRASES_SYNC_TIMEOUT_MS = 12_000;
+/** «Новое от ИИ»: 12 игр с reason до 120 символов (контракт 20.6). */
+export const DISCOVER_MAX_OUTPUT_TOKENS = 4000;
 export const LLM_MAX_RESPONSE_BYTES = 64 * 1024;
 export const DEFAULT_MODELS = { gemini: 'gemini-2.5-flash-lite', groq: 'llama-3.1-8b-instant' } as const;
 
@@ -23,10 +29,15 @@ export class LlmError extends Error {
   }
 }
 
-/** Провайдер: принимает system+user и возвращает сырой текст ответа модели. */
+export type CompleteOpts = { maxTokens?: number };
+
+/**
+ * Провайдер: принимает system+user и возвращает сырой текст ответа модели.
+ * Ответ, оборванный по лимиту токенов (finish_reason = length / MAX_TOKENS), = LlmError('bad_response', 'truncated').
+ */
 export interface PhraseProvider {
   readonly name: LlmProviderName;
-  complete(prompt: { system: string; user: string }, signal: AbortSignal): Promise<string>;
+  complete(prompt: { system: string; user: string }, signal: AbortSignal, opts?: CompleteOpts): Promise<string>;
 }
 
 type FetchLike = typeof fetch;
@@ -74,7 +85,7 @@ const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === '
 export function geminiProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): PhraseProvider {
   return {
     name: 'gemini',
-    async complete({ system, user }, signal) {
+    async complete({ system, user }, signal, opts) {
       // Ключ в заголовке, а не в URL: URL попадает в логи.
       const json = await postJson(
         fetchImpl,
@@ -83,13 +94,14 @@ export function geminiProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Ph
         {
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: 'user', parts: [{ text: user }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: LLM_MAX_OUTPUT_TOKENS },
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: opts?.maxTokens ?? LLM_MAX_OUTPUT_TOKENS },
         },
         signal,
       );
       const cand = obj(Array.isArray(obj(json)?.candidates) ? (obj(json)!.candidates as unknown[])[0] : null);
       const parts = obj(cand?.content)?.parts;
       const text = Array.isArray(parts) ? obj(parts[0])?.text : null;
+      if (cand?.finishReason === 'MAX_TOKENS') throw new LlmError('bad_response', 'truncated');
       if (typeof text !== 'string') throw new LlmError('bad_response');
       return text;
     },
@@ -99,7 +111,7 @@ export function geminiProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Ph
 export function groqProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): PhraseProvider {
   return {
     name: 'groq',
-    async complete({ system, user }, signal) {
+    async complete({ system, user }, signal, opts) {
       const json = await postJson(
         fetchImpl,
         'https://api.groq.com/openai/v1/chat/completions',
@@ -109,12 +121,13 @@ export function groqProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Phra
           messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
           response_format: { type: 'json_object' },
           temperature: 0.4,
-          max_tokens: LLM_MAX_OUTPUT_TOKENS,
+          max_tokens: opts?.maxTokens ?? LLM_MAX_OUTPUT_TOKENS,
         },
         signal,
       );
       const choice = obj(Array.isArray(obj(json)?.choices) ? (obj(json)!.choices as unknown[])[0] : null);
       const text = obj(choice?.message)?.content;
+      if (choice?.finish_reason === 'length') throw new LlmError('bad_response', 'truncated');
       if (typeof text !== 'string') throw new LlmError('bad_response');
       return text;
     },
@@ -132,14 +145,20 @@ export const SYSTEM_PROMPT =
   'Используй ТОЛЬКО переданные факты, ничего не выдумывай. Не называй другие игры, не используй ссылки и эмодзи. Игры не выбирай и не меняй. ' +
   'Ответ строго JSON без пояснений: {"reasons":[{"id":<число из списка>,"text":"<фраза>"}]}, ровно по одному элементу на каждый id.';
 
-/** В LLM уходят только название, жанры, часы и подписи сигналов. */
+/**
+ * Сигналы, от которых зависит фраза и её кэш (контракт 20.4). `waiting` (давность растёт каждый день) и `duration_fit`
+ * (зависит от фильтра времени на экране) в хэш и в запрос к LLM не входят.
+ */
+export const STABLE_SIGNAL_KEYS: readonly string[] = ['genre_affinity', 'platinum_close', 'dropped_genre_penalty'];
+
+/** В LLM уходят только название, жанры, часы и подписи стабильных сигналов. */
 export function factsOf(items: readonly ScoredItem[]): PhraseFact[] {
   return items.map((i) => ({
     id: i.game.id,
     name: i.game.name,
     genres: i.game.genres.map((g) => GENRE_LABELS_RU[g]),
     hours: i.game.hours === null ? null : Math.round(i.game.hours * 10) / 10,
-    signals: i.signals.map((s) => s.label),
+    signals: i.signals.filter((s) => STABLE_SIGNAL_KEYS.includes(s.key)).map((s) => s.label),
   }));
 }
 
@@ -189,12 +208,17 @@ export function parsePhrases(raw: string, facts: readonly PhraseFact[]): Map<num
   return out;
 }
 
-/** Один запрос к провайдеру за пачку. Таймаут 5 с. Бросает LlmError. */
-export async function requestPhrases(provider: PhraseProvider, facts: readonly PhraseFact[], timeoutMs: number = LLM_TIMEOUT_MS): Promise<Map<number, string>> {
+/** Один запрос к провайдеру за пачку. Таймаут по умолчанию 5 с (в синке больше). Бросает LlmError. */
+export async function requestPhrases(
+  provider: PhraseProvider,
+  facts: readonly PhraseFact[],
+  timeoutMs: number = LLM_TIMEOUT_MS,
+  maxTokens: number = PHRASES_MAX_OUTPUT_TOKENS,
+): Promise<Map<number, string>> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const raw = await provider.complete(buildPrompt(facts), ctrl.signal);
+    const raw = await provider.complete(buildPrompt(facts), ctrl.signal, { maxTokens });
     const out = parsePhrases(raw, facts);
     if (out.size === 0) throw new LlmError('bad_response');
     return out;
@@ -208,14 +232,20 @@ export async function requestPhrases(provider: PhraseProvider, facts: readonly P
 
 // --- кэш и шаблон
 
-/** Хэш округлённых сигналов: фраза живёт, пока вклад не сдвинулся заметно (шаг 0.5) и часы в целых. */
-export function signalsHash(item: ScoredItem): string {
+/**
+ * Хэш стабильных фактов (контракт 20.4): id, название, жанры, часы (целые) и вклады только стабильных сигналов с шагом 0.5.
+ * Не зависит от `waiting` и `duration_fit`, поэтому не меняется со временем и от фильтра на экране: фраза живёт до изменения данных.
+ */
+export function stableHash(item: ScoredItem): string {
   const parts = {
     id: item.game.id,
     name: item.game.name,
     genres: item.game.genres,
     hours: item.game.hours === null ? null : Math.round(item.game.hours),
-    signals: item.signals.map((s) => [s.key, Math.round(s.contribution * 2) / 2]),
+    signals: item.signals
+      .filter((s) => STABLE_SIGNAL_KEYS.includes(s.key))
+      .map((s) => [s.key, Math.round(s.contribution * 2) / 2] as const)
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)),
   };
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 32);
 }

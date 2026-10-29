@@ -2,9 +2,9 @@
 // Без env, БД и сети. Модели не доверяем: на экран попадает только то, что подтвердил RAWG.
 import { LINK_RE } from './phrase';
 
-export const MAX_PROPOSALS = 15;
+export const MAX_PROPOSALS = 12;
 export const TITLE_MAX = 120;
-export const REASON_MAX = 200;
+export const REASON_MAX = 120;
 export const SIMILARITY_THRESHOLD = 0.9;
 export const YEAR_TOLERANCE = 1;
 
@@ -94,7 +94,7 @@ export function isValidProposalText(s: unknown, max: number): s is string {
 
 /**
  * Разбор ответа модели `{ "games": [ { title, year, reason } ] }`. Нарушающие элементы (длина, ссылки, не объект, дубль названия)
- * отбрасываются, лишнее сверх 15 обрезается. Не JSON или нет массива games = null.
+ * отбрасываются, лишнее сверх 12 обрезается. Не JSON или нет массива games = null.
  */
 export function parseProposals(raw: string): Proposal[] | null {
   let data: unknown;

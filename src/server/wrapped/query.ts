@@ -65,7 +65,7 @@ export async function getWrappedYears(db: AnyDb, currentYear: number, estimates:
   return [...all].sort((a, b) => b - a).map((year) => ({ year, hasData: set.has(year) }));
 }
 
-export async function getWrapped(db: AnyDb, year: number, onlineId: string | null, now: Date = new Date()): Promise<WrappedResponse> {
+export async function getWrapped(db: AnyDb, year: number, onlineId: string | null, now: Date = new Date(), opts: { withService?: boolean } = {}): Promise<WrappedResponse> {
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const yearFrom = ymd(year, 1, 1);
@@ -110,7 +110,7 @@ export async function getWrapped(db: AnyDb, year: number, onlineId: string | nul
       .where(and(eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
     db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(isNull(games.hiddenAt)),
     getPsnProfile(db),
-    getRareTrophies(db, { fromUtc, toUtc }),
+    getRareTrophies(db, { fromUtc, toUtc }, undefined, opts.withService === true),
   ]);
 
   // Игра сета платины: минимальный id видимой игры из game_trophy_sets (сет может быть у нескольких версий).

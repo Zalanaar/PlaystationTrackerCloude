@@ -1,15 +1,18 @@
 // Выборка «Редких трофеев» (контракт 14.1): одна выборка с LIMIT 5 на список.
-import { and, asc, eq, gte, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, isNull, lt, min, ne, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { trophySetCounted } from '@/server/collection/visibility';
 import { pickRare, RARE_LIMIT } from './rare';
 import type { RareTrophy } from './types';
 
-const { games, gameTrophySets, trophies, trophySets } = schema;
+const { games, gameStatus, gameTrophySets, trophies, trophySets } = schema;
 
-/** range = [fromUtc, toUtc) по earned_at; null = за всё время (включая трофеи без даты). */
-export async function getRareTrophies(db: AnyDb, range: { fromUtc: Date; toUtc: Date } | null, limit = RARE_LIMIT): Promise<RareTrophy[]> {
+/**
+ * range = [fromUtc, toUtc) по earned_at; null = за всё время (включая трофеи без даты).
+ * withService (20.8): по умолчанию трофеи игр-сервисов (статус игры сета `service`) не участвуют; сироты и игры без статуса остаются.
+ */
+export async function getRareTrophies(db: AnyDb, range: { fromUtc: Date; toUtc: Date } | null, limit = RARE_LIMIT, withService = false): Promise<RareTrophy[]> {
   // Игра сета: минимальный id видимой игры (как 11.1, 13.2); сирота = null.
   const owner = db
     .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId).as('rare_owner_game_id') })
@@ -38,6 +41,7 @@ export async function getRareTrophies(db: AnyDb, range: { fromUtc: Date; toUtc: 
     .innerJoin(trophySets, eq(trophySets.id, trophies.trophySetId))
     .leftJoin(owner, eq(owner.setId, trophies.trophySetId))
     .leftJoin(games, eq(games.id, owner.gameId))
+    .leftJoin(gameStatus, eq(gameStatus.gameId, owner.gameId))
     .where(
       and(
         eq(trophies.earned, true),
@@ -45,6 +49,7 @@ export async function getRareTrophies(db: AnyDb, range: { fromUtc: Date; toUtc: 
         range ? gte(trophies.earnedAt, range.fromUtc) : undefined,
         range ? lt(trophies.earnedAt, range.toUtc) : undefined,
         trophySetCounted(trophies.trophySetId),
+        withService ? undefined : or(isNull(gameStatus.status), ne(gameStatus.status, 'service')),
       ),
     )
     .orderBy(asc(trophies.earnedRate), sql`${trophies.earnedAt} asc nulls last`, asc(trophies.trophySetId), asc(trophies.trophyId))

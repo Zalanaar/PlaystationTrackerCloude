@@ -41,7 +41,7 @@ describe('runHltbMass', () => {
       },
     };
   }
-  async function add(n: number, status: 'backlog' | 'completed' = 'backlog') {
+  async function add(n: number, status: 'backlog' | 'completed' | 'service' = 'backlog') {
     for (let i = 0; i < n; i++) {
       const [g] = await t.db.insert(games).values({ titleId: `T${i}-${status}`, name: `Game ${i} ${status}`, category: 'ps5_native_game', lastSeenAt: T0 }).returning({ id: games.id });
       await t.db.insert(gameStatus).values({ gameId: g.id, status });
@@ -52,11 +52,13 @@ describe('runHltbMass', () => {
   it('обрабатывает все пачками, remaining=0, done=true, пишет sync_runs kind=hltb', async () => {
     await add(25);
     await add(3, 'completed');
+    await add(2, 'service');
     const { deps, now } = mk(found);
     const r = await runHltbMass({ db: t.db, deps, now, batch: 10 });
     expect(r.kind).toBe('done');
     if (r.kind !== 'done') return;
-    expect(r.result).toMatchObject({ processed: 25, remaining: 0, done: true, stopReason: 'complete', failed: 0 });
+    // 20.1: completed берём тоже, service никогда
+    expect(r.result).toMatchObject({ processed: 28, remaining: 0, done: true, stopReason: 'complete', failed: 0 });
     const runs = await t.db.select().from(syncRuns);
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({ kind: 'hltb', status: 'success' });

@@ -5,8 +5,9 @@ import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
 import type { GenreKey } from '@/shared/genres';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
-import { getRecommendations, reserveLlmCall } from './db';
-import { buildPrompt, factsOf, geminiProvider, groqProvider, isValidPhrase, parsePhrases, requestPhrases, templateReason, type PhraseProvider } from './phrase';
+import { reserveCall } from './budget';
+import { getRecommendations, loadCandidates, loadHistory, writeCachedReasons } from './db';
+import { buildPrompt, factsOf, geminiProvider, groqProvider, isValidPhrase, parsePhrases, requestPhrases, templateReason } from './phrase';
 import { scoreBacklog, WEIGHTS } from './score';
 import type { Candidate, HistoryGame, ScoreInput } from './types';
 
@@ -237,89 +238,61 @@ describe('QA: БД, лимит, гонки, утечки', () => {
     await t.db.insert(gameStatus).values(ins.map((g) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: NOW })));
     return ins.map((g) => g.id);
   }
-  const good = (ids: number[]) => JSON.stringify({ reasons: ids.map((id) => ({ id, text: `Фраза ${id}.` })) });
-  const counting = (text = good): PhraseProvider & { calls: number; prompts: string[] } => {
-    const p = {
-      name: 'groq' as const, calls: 0, prompts: [] as string[],
-      async complete({ user }: { system: string; user: string }) {
-        p.calls++; p.prompts.push(user);
-        await new Promise((r) => setTimeout(r, 5));
-        return text((JSON.parse(user) as { games: { id: number }[] }).games.map((g) => g.id));
-      },
-    };
-    return p;
+  const cacheFor = async () => {
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW, limit: 100 }).items;
+    await writeCachedReasons(t.db, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), NOW);
   };
 
-  it('гонка счётчика: 12 параллельных reserveLlmCall при лимите 5 дают ровно 5 true и calls = 5', async () => {
-    const res = await Promise.all(Array.from({ length: 12 }, () => reserveLlmCall(t.db, 5, NOW)));
+  it('гонка счётчика: 12 параллельных reserveCall при общем лимите 5 дают ровно 5 true и calls = 5', async () => {
+    const res = await Promise.all(Array.from({ length: 12 }, () => reserveCall(t.db, 'phrases', 5, NOW)));
     expect(res.filter(Boolean)).toHaveLength(5);
-    expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(5);
+    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 5, phraseCalls: 5 });
   });
-  it('гонка запросов: 8 параллельных GET при лимите 3 — вызовов провайдера не больше 3, ответы 200', async () => {
+  it('экран: 8 параллельных GET не вызывают провайдера и не трогают счётчик; ответы 200', async () => {
     await seed();
-    const p = counting();
-    const rs = await Promise.all(Array.from({ length: 8 }, () => getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p })));
-    expect(p.calls).toBeLessThanOrEqual(3);
+    const rs = await Promise.all(Array.from({ length: 8 }, () => getRecommendations(t.db, 'any', NOW, { llm: ENV })));
     expect(rs.every((r) => r.items.length === 5)).toBe(true);
-    expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBeLessThanOrEqual(3);
+    expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
   it('граница суток МСК: 20:59:59Z и 21:00:00Z — разные дни, счётчики независимы', async () => {
-    await reserveLlmCall(t.db, 1, new Date('2026-10-29T20:59:59Z'));
-    expect(await reserveLlmCall(t.db, 1, new Date('2026-10-29T20:59:59Z'))).toBe(false);
-    expect(await reserveLlmCall(t.db, 1, new Date('2026-10-29T21:00:00Z'))).toBe(true);
+    await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T20:59:59Z'));
+    expect(await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T20:59:59Z'))).toBe(false);
+    expect(await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T21:00:00Z'))).toBe(true);
     const days = (await t.db.select().from(recommendLlmUsage)).map((r) => String(r.day)).sort();
     expect(days).toEqual(['2026-10-29', '2026-10-30']);
   });
   it('снижение лимита в течение суток: calls не растёт сверх, не уходит вниз', async () => {
-    for (let i = 0; i < 4; i++) await reserveLlmCall(t.db, 10, NOW);
-    expect(await reserveLlmCall(t.db, 2, NOW)).toBe(false);
+    for (let i = 0; i < 4; i++) await reserveCall(t.db, 'phrases', 10, NOW);
+    expect(await reserveCall(t.db, 'phrases', 2, NOW)).toBe(false);
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(4);
   });
-  it('ключ не попадает в ответ, консоль и кэш; в провайдера уходят только допустимые поля', async () => {
-    const ids = await seed(4);
+  it('ключ не попадает в ответ экрана, консоль и кэш', async () => {
+    await seed(4);
+    await cacheFor();
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => undefined));
-    const leaky: PhraseProvider = { name: 'groq', complete: async () => { throw new Error('upstream said LEAKME-KEY invalid'); } };
-    const r1 = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: leaky });
-    expect(r1.meta.llm).toBe('error');
-    const p = counting();
-    const r2 = await getRecommendations(t.db, 'short', NOW, { llm: ENV, provider: p });
-    const dump = JSON.stringify([r1, r2, await t.db.select().from(recommendReasons), await t.db.select().from(recommendLlmUsage)]);
+    const r = await getRecommendations(t.db, 'short', NOW, { llm: ENV });
+    const dump = JSON.stringify([r, await t.db.select().from(recommendReasons), await t.db.select().from(recommendLlmUsage)]);
     expect(dump).not.toContain('LEAKME');
     for (const s of spies) expect(s).not.toHaveBeenCalled();
-    for (const pr of p.prompts) {
-      expect(pr).not.toContain('LEAKME');
-      for (const g of (JSON.parse(pr) as { games: Record<string, unknown>[] }).games) expect(Object.keys(g).sort()).toEqual(['genres', 'hours', 'id', 'name', 'signals']);
-    }
-    expect(ids.length).toBe(4);
   });
-  it('LLM вернул названия чужой игры и ссылки: в ответ API попадает только шаблон, в кэш ничего', async () => {
-    await seed(3);
-    const p = counting((ids) => JSON.stringify({ reasons: ids.map((id) => ({ id, text: id % 2 ? 'Зайди на http://x.io' : 'см. www.evil.net' })) }));
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    expect(r.meta.llm).toBe('error');
-    expect(r.items.every((i) => i.reason.source === 'template' && !/http|www/.test(i.reason.text))).toBe(true);
-    expect(await t.db.select().from(recommendReasons)).toEqual([]);
-  });
-  it('все в дизлайках и пустой бэклог: 200-форма, LLM не вызывается и счётчик не растёт', async () => {
+  it('все в дизлайках и пустой бэклог: 200-форма, счётчик не растёт', async () => {
     const ids = await seed(2);
     await t.db.insert(recommendDislikes).values(ids.map((gameId) => ({ gameId })));
-    const p = counting();
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any' } });
-    expect(p.calls).toBe(0);
+    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    expect(r).toEqual({ items: [], meta: { llm: 'ok', candidates: 0, time: 'any', llmPending: 0 } });
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
-  it('одна игра в бэклоге: LLM получает одну, ответ из одной карточки', async () => {
+  it('одна игра в бэклоге: ответ из одной карточки с фразой из кэша', async () => {
     await seed(1);
-    const p = counting();
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
+    await cacheFor();
+    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
     expect(r.items).toHaveLength(1);
     expect(r.meta.candidates).toBe(1);
     expect(r.items[0].reason.source).toBe('llm');
   });
   it('удаление игры каскадно чистит кэш фраз и дизлайк', async () => {
     const ids = await seed(3);
-    await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: counting() });
+    await cacheFor();
     await t.db.insert(recommendDislikes).values({ gameId: ids[0] });
     await t.db.delete(games).where(eq(games.id, ids[0]));
     expect((await t.db.select().from(recommendReasons)).some((r) => r.gameId === ids[0])).toBe(false);

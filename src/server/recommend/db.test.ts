@@ -1,11 +1,11 @@
 // «Подскажи» на PGlite: выборки, кэш фраз, лимит LLM, дизлайки, сбои LLM не ломают ответ.
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
-import { dislikeGame, getRecommendations, listDislikes, NotFoundError, reserveLlmCall, undislikeGame } from './db';
-import type { PhraseProvider } from './phrase';
+import { dislikeGame, getRecommendations, listDislikes, loadCandidates, loadHistory, NotFoundError, resolveReasons, undislikeGame, writeCachedReasons } from './db';
+import { scoreBacklog } from './score';
 
 const { games, gameStatus, recommendDislikes, recommendReasons, recommendLlmUsage, trophySets, gameTrophySets, trophies } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z');
@@ -47,23 +47,10 @@ describe('recommend на БД', () => {
     return id;
   }
 
-  const provider = (text: (ids: number[]) => string): PhraseProvider & { calls: number } => {
-    const p = {
-      name: 'groq' as const, calls: 0,
-      async complete({ user }: { system: string; user: string }) {
-        p.calls++;
-        const ids = (JSON.parse(user) as { games: { id: number }[] }).games.map((g) => g.id);
-        return text(ids);
-      },
-    };
-    return p;
-  };
-  const good = (ids: number[]) => JSON.stringify({ reasons: ids.map((id) => ({ id, text: `Фраза ${id}.` })) });
-
   it('без LLM: кандидаты только видимый backlog, шаблоны, disabled; service и скрытые не участвуют', async () => {
     const id = await seed();
     const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
-    expect(r.meta).toEqual({ llm: 'disabled', candidates: 3, time: 'any' });
+    expect(r.meta).toEqual({ llm: 'disabled', candidates: 3, time: 'any', llmPending: 0 });
     expect(r.items.map((i) => i.game.id)).not.toContain(id('C'));
     expect(r.items.map((i) => i.game.id)).not.toContain(id('S'));
     expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
@@ -85,7 +72,7 @@ describe('recommend на БД', () => {
 
   it('пустой бэклог: items [], candidates 0', async () => {
     const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
-    expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any' } });
+    expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any', llmPending: 0 } });
   });
 
   it('трофеи: начатая игра с набором получает platinum_close, DLC-хвост снижает', async () => {
@@ -186,95 +173,64 @@ describe('recommend на БД', () => {
     expect(await t.db.select().from(recommendDislikes)).toEqual([]);
   });
 
-  it('LLM: один вызов за пачку, фразы с source llm, кэш, повторный запрос без вызова', async () => {
-    await seed();
-    const p = provider(good);
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    expect(r.meta.llm).toBe('ok');
-    expect(p.calls).toBe(1);
-    expect(r.items.every((i) => i.reason.source === 'llm' && i.reason.text === `Фраза ${i.game.id}.`)).toBe(true);
-    expect((await t.db.select().from(recommendReasons)).length).toBe(3);
-    const again = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    expect(p.calls).toBe(1);
-    expect(again.meta.llm).toBe('ok');
-    expect(again.items.map((i) => i.reason)).toEqual(r.items.map((i) => i.reason));
-    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ day: '2026-10-29', calls: 1 });
-  });
+  // --- 20.4: экран не вызывает LLM, фразы читаются из кэша, который наполняет синк
+  const fill = async (at: Date = NOW) => {
+    // имитация шага синка: фразы всем кандидатам из скоринга time=any
+    const items = scoreBacklog({
+      candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: at, limit: 100,
+    }).items;
+    await writeCachedReasons(t.db, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), at);
+  };
 
-  it('кэш старше 7 суток игнорируется', async () => {
+  it('экран: LLM не вызывается и счётчик не растёт; без кэша шаблон и llmPending', async () => {
     await seed();
-    const p = provider(good);
-    await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    await getRecommendations(t.db, 'any', new Date(NOW.getTime() + 8 * 86_400_000), { llm: { ...ENV, dailyLimit: 5 }, provider: p });
-    expect(p.calls).toBe(2);
-  });
-
-  it('смена сигналов (хэш) инвалидирует кэш: вызов только для изменившихся игр', async () => {
-    const id = await seed();
-    const p = provider(good);
-    await getRecommendations(t.db, 'any', NOW, { llm: { ...ENV, dailyLimit: 5 }, provider: p });
-    await t.db.update(games).set({ durationOverrideHours: 50 }).where(eq(games.id, id('D')));
-    const seen: number[][] = [];
-    const p2 = provider((ids) => (seen.push(ids), good(ids)));
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: { ...ENV, dailyLimit: 5 }, provider: p2 });
-    expect(seen).toEqual([[id('D')]]);
-    expect(r.meta.llm).toBe('ok');
-  });
-
-  it('лимит: после dailyLimit вызовов meta.llm = limit и шаблоны', async () => {
-    await seed();
-    const p = provider(good);
-    const env: LlmEnv = { ...ENV, dailyLimit: 1 };
-    await getRecommendations(t.db, 'any', NOW, { llm: env, provider: p });
-    await t.db.delete(recommendReasons);
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: env, provider: p });
-    expect(p.calls).toBe(1);
-    expect(r.meta.llm).toBe('limit');
+    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    expect(r.meta).toEqual({ llm: 'ok', candidates: 3, time: 'any', llmPending: 3 });
     expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
-    // следующие сутки МСК: снова можно
-    const next = await getRecommendations(t.db, 'any', new Date(NOW.getTime() + 86_400_000), { llm: env, provider: p });
-    expect(next.meta.llm).toBe('ok');
+    expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
 
-  it('reserveLlmCall: суточная граница по МСК и потолок', async () => {
-    expect(await reserveLlmCall(t.db, 2, new Date('2026-10-29T20:59:00Z'))).toBe(true); // 23:59 МСК 29-го
-    expect(await reserveLlmCall(t.db, 2, new Date('2026-10-29T20:59:30Z'))).toBe(true);
-    expect(await reserveLlmCall(t.db, 2, new Date('2026-10-29T20:59:40Z'))).toBe(false);
-    expect(await reserveLlmCall(t.db, 2, new Date('2026-10-29T21:00:00Z'))).toBe(true); // 00:00 МСК 30-го
-  });
-
-  it('сбой LLM (исключение, мусор, таймаут): 200 с шаблонами и meta.llm = error; вызов учтён', async () => {
-    await seed();
-    const env = { ...ENV, dailyLimit: 10 };
-    const broken: PhraseProvider = { name: 'groq', complete: async () => { throw new Error('boom'); } };
-    const garbage = provider(() => 'не json');
-    const hang: PhraseProvider = { name: 'groq', complete: (_p, signal) => new Promise((_, rej) => signal.addEventListener('abort', () => rej(Object.assign(new Error('a'), { name: 'AbortError' })))) };
-    for (const [p, ms] of [[broken, undefined], [garbage, undefined], [hang, 20]] as const) {
-      const r = await getRecommendations(t.db, 'any', NOW, { llm: env, provider: p, timeoutMs: ms });
-      expect(r.meta.llm).toBe('error');
-      expect(r.items).toHaveLength(3);
-      expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
+  it('кэш синка: фразы source llm, llmPending 0; фильтр времени не меняет хэш и не требует вызовов', async () => {
+    const id = await seed();
+    await fill();
+    for (const time of ['any', 'short', 'medium', 'long'] as const) {
+      const r = await getRecommendations(t.db, time, NOW, { llm: ENV });
+      expect(r.meta.llm).toBe('ok');
+      expect(r.meta.llmPending).toBe(0);
+      expect(r.items.every((i) => i.reason.source === 'llm' && i.reason.text === `Фраза ${i.game.id}.`)).toBe(true);
     }
-    expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(3);
-    expect(await t.db.select().from(recommendReasons)).toEqual([]);
+    expect((await t.db.select().from(recommendReasons)).length).toBe(3);
+    expect(id('A')).toBeGreaterThan(0);
   });
 
-  it('часть фраз невалидна: валидные = llm, остальные шаблон, невалидные не кэшируются', async () => {
+  it('срока годности нет: через 400 суток «давность» выросла, но фраза живёт', async () => {
     await seed();
-    const p = provider((ids) => JSON.stringify({ reasons: [{ id: ids[0], text: 'Ок.' }, { id: ids[1], text: 'см. https://x.io' }] }));
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV, provider: p });
-    expect(r.meta.llm).toBe('ok');
-    expect(r.items.map((i) => i.reason.source)).toEqual(['llm', 'template', 'template']);
-    expect((await t.db.select().from(recommendReasons)).length).toBe(1);
+    await fill();
+    const later = new Date(NOW.getTime() + 400 * 86_400_000);
+    const r = await getRecommendations(t.db, 'any', later, { llm: ENV });
+    expect(r.items.every((i) => i.reason.source === 'llm')).toBe(true);
   });
 
-  it('недоступный кэш/счётчик не роняет ответ', async () => {
+  it('смена фактов (часы игры) инвалидирует кэш только этой игры; прежняя запись заменяется', async () => {
+    const id = await seed();
+    await fill();
+    await t.db.update(games).set({ durationOverrideHours: 50 }).where(eq(games.id, id('D')));
+    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    expect(r.meta.llmPending).toBe(1);
+    expect(r.items.find((i) => i.game.id === id('D'))!.reason.source).toBe('template');
+    expect(r.items.filter((i) => i.reason.source === 'llm')).toHaveLength(2);
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW }).items;
+    await writeCachedReasons(t.db, items.filter((i) => i.game.id === id('D')), new Map([[id('D'), 'Новая.']]), NOW);
+    expect((await t.db.select().from(recommendReasons).where(eq(recommendReasons.gameId, id('D')))).map((x) => x.text)).toEqual(['Новая.']);
+  });
+
+  it('недоступный кэш не роняет ответ: шаблоны', async () => {
     await seed();
-    const db = Object.assign(Object.create(t.db), { insert: () => { throw new Error('db down'); } });
-    const spy = vi.fn();
-    const r = await getRecommendations(db, 'any', NOW, { llm: ENV, provider: { name: 'groq', complete: spy } });
-    expect(r.meta.llm).toBe('error');
-    expect(spy).not.toHaveBeenCalled();
-    expect(r.items).toHaveLength(3);
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW }).items;
+    const db = Object.assign(Object.create(t.db), { select: () => { throw new Error('db down'); } });
+    const r = await resolveReasons(db, items, { llm: ENV });
+    expect(r.llm).toBe('ok');
+    expect(r.pending).toBe(3);
+    expect([...r.reasons.values()].every((x) => x.source === 'template')).toBe(true);
   });
 });

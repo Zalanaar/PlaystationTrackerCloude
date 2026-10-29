@@ -66,10 +66,14 @@ describe('pickMatch', () => {
 describe('parseProposals', () => {
   const g = (o: Record<string, unknown>) => ({ title: 'Hades', year: 2020, reason: 'Подойдёт.', ...o });
   const raw = (games: unknown[]) => JSON.stringify({ games });
-  it('валидный ответ и обрезка по 15', () => {
+  it('валидный ответ и обрезка по 12', () => {
     const many = Array.from({ length: 20 }, (_, i) => g({ title: `Game number ${i}` }));
-    expect(parseProposals(raw(many))).toHaveLength(15);
+    expect(parseProposals(raw(many))).toHaveLength(12);
     expect(parseProposals(raw([g({})]))).toEqual([{ title: 'Hades', year: 2020, reason: 'Подойдёт.' }]);
+  });
+  it('reason: 120 символов проходит, 121 нет (контракт 20.6)', () => {
+    expect(parseProposals(raw([g({ reason: 'я'.repeat(120) })]))).toHaveLength(1);
+    expect(parseProposals(raw([g({ reason: 'я'.repeat(121) })]))).toEqual([]);
   });
   it('markdown-обёртка допустима, мусор = null', () => {
     expect(parseProposals('```json\n' + raw([g({})]) + '\n```')).toHaveLength(1);
@@ -84,7 +88,7 @@ describe('parseProposals', () => {
         g({ title: 'Linked', reason: 'Смотри https://x.y' }),
         g({ title: 'Linked2', reason: 'bit.ly/abc' }),
         g({ title: 'T'.repeat(121) }),
-        g({ title: 'Long reason', reason: 'я'.repeat(201) }),
+        g({ title: 'Long reason', reason: 'я'.repeat(121) }),
         g({ title: '  ' }),
         g({ title: 'ok one' }),
         g({ title: 'Bad Year', year: 1850 }),
