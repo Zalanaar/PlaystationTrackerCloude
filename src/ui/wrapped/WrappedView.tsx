@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WrappedResponse } from '@/server/wrapped/types';
@@ -8,6 +9,7 @@ import { ApiError, errorText, fetchWrapped } from '../collection/api';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
 import { parseYearParam } from './model';
+import { hideSeason, seasonYear } from './season';
 import { WrappedStory } from './WrappedStory';
 
 type Loaded = { key: string; data: WrappedResponse } | { key: string; error: unknown };
@@ -23,6 +25,12 @@ export function WrappedView() {
   const [years, setYears] = useState<WrappedResponse['years']>([]);
   const [open, setOpen] = useState(false);
   const reqId = useRef(0);
+
+  // открыли Итоги в сезон (дек.–янв.): точка на вкладке и баннер этого года гаснут
+  useEffect(() => {
+    const y = seasonYear(Date.now());
+    if (y !== null) hideSeason(y);
+  }, []);
 
   const load = useCallback(async (y: number | null, k: string) => {
     const id = ++reqId.current;
@@ -52,6 +60,7 @@ export function WrappedView() {
 
   return (
     <div className="ps-wrapped-page">
+      <Link href="/stats" className="ps-back"><Icon name="chevron-left" size={16} />Статистика</Link>
       <div className="ps-pagehead">
         <h1 className="ps-h1">Итоги</h1>
       </div>

@@ -949,9 +949,7 @@ svg.ps-trophy__type { color: var(--plat-text); }
 }
 
 /* Tab bar на 6 ячеек (фаза 13, п.2.1): подпись 10px на всех ширинах <768, ниже 360 «Статистика» -> «Стат.» */
-.ps-tab__short { display: none; }
-@media (max-width: 359px) { .ps-tab__full { display: none; } .ps-tab__short { display: inline; } .ps-tab { padding-inline: 0; letter-spacing: -.02em; } }
-@media (min-width: 768px) and (max-width: 1023px) { .ps-nav-item { padding: 0 8px; } .ps-nav-item[aria-current="page"]::after { left: 8px; right: 8px; } }
+@media (min-width: 768px) and (max-width: 1023px) { .ps-nav-item { padding: 0 10px; } .ps-nav-item[aria-current="page"]::after { left: 10px; right: 10px; } }
 
 /* Шапка на планшете (768-1023): 5 вкладок + синк + тема + аватар не помещаются, текст синка скрыт, остаётся точка с aria-label (BUG-1 фазы 12) */
 @media (min-width: 768px) and (max-width: 1023px) {

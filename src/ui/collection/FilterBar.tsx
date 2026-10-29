@@ -161,7 +161,7 @@ function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps
             >
               {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
               <span className="ps-filterchip__t">{t.label}</span>
-              {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
+              {n !== null ? <span className="ps-filterchip__n num">{formatNumber(n)}</span> : <span className="ps-filterchip__n num" style={{ display: 'inline-block', width: '2ch' }} aria-hidden="true" />}
             </button>
           );
         })}
@@ -175,7 +175,7 @@ function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps
       >
         <PlatinumIcon size={16} className="ps-filterchip__plat" />
         <span className="ps-filterchip__t">Платина</span>
-        {platinumCount !== null && <span className="ps-filterchip__n num">{formatNumber(platinumCount)}</span>}
+        {platinumCount !== null ? <span className="ps-filterchip__n num">{formatNumber(platinumCount)}</span> : <span className="ps-filterchip__n num" style={{ display: 'inline-block', width: '2ch' }} aria-hidden="true" />}
       </button>
     </div>
   );

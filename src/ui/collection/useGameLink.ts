@@ -60,8 +60,12 @@ export function useGameLink() {
 
   // неверный формат id: диалог не открывается, адрес чистится, тост
   const invalid = parsed.kind === 'invalid';
+  const handled = useRef(false);
   useEffect(() => {
-    if (invalid) notFound();
+    if (!invalid) { handled.current = false; return; }
+    if (handled.current) return; // StrictMode повторяет эффект: тост один раз
+    handled.current = true;
+    notFound();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- только при смене признака
   }, [invalid]);
 

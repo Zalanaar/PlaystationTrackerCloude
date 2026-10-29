@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../icons';
+import { COLLAPSED_LIST_LIMIT } from '../tokens';
 import { hoursFieldValue, hoursNum, parseRowHours, ROW_HOURS_MAX, ROW_HOURS_MIN } from './model';
 
 export function Spinner({ size = 14 }: { size?: number }) {
@@ -108,4 +109,42 @@ export function HoursField({
       {err && <FieldError id={`${id}-e`}>{err}</FieldError>}
     </div>
   );
+}
+
+/**
+ * Свёрнутый список (§8.2): первые COLLAPSED_LIST_LIMIT строк + кнопка «Показать все N». Состояние не сохраняется.
+ * Хэш `#rm-g-{gameId}` на строку за пределом лимита раскрывает список. Список из 5 и менее: кнопки нет.
+ */
+export function useCollapsedList<T extends { gameId: number | null }>(list: readonly T[], panelId: string, listId: string) {
+  const [open, setOpen] = useState(false);
+  const [hash, setHash] = useState('');
+  useEffect(() => {
+    const read = () => setHash(window.location.hash);
+    const t = setTimeout(read, 0);
+    window.addEventListener('hashchange', read);
+    return () => { clearTimeout(t); window.removeEventListener('hashchange', read); };
+  }, []);
+  const limit = COLLAPSED_LIST_LIMIT;
+  const hashIdx = list.findIndex((e) => e.gameId !== null && hash === `#rm-g-${e.gameId}`);
+  const expanded = open || hashIdx >= limit;
+  const collapsible = list.length > limit;
+  const shown = collapsible && !expanded ? list.slice(0, limit) : list;
+  const toggle = collapsible ? (
+    <div className="ps-rm-more">
+      <button
+        type="button" className="ps-btn ps-btn--ghost" aria-expanded={expanded} aria-controls={listId}
+        onClick={() => {
+          if (expanded) {
+            setOpen(false);
+            if (hashIdx >= 0) history.replaceState(null, '', window.location.pathname + window.location.search);
+            setHash('');
+            document.getElementById(panelId)?.scrollIntoView({ block: 'nearest' });
+          } else {
+            setOpen(true);
+          }
+        }}
+      >{expanded ? 'Свернуть' : `Показать все ${list.length}`}</button>
+    </div>
+  ) : null;
+  return { shown, toggle };
 }

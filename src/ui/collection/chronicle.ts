@@ -1,5 +1,6 @@
 // Хроника (design-system §4.3, §4.8): пройденное и брошенное по годам и месяцам даты завершения (Europe/Moscow).
 import type { GameItem, StatusCounts } from '@/server/collection/types';
+import { compareText } from '@/shared/compare';
 import { mskParts } from '../format';
 
 export type ChronicleMonth = { month: number; games: GameItem[]; completed: number; dropped: number };
@@ -26,15 +27,7 @@ function ms(iso: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
-/**
- * Детерминированное сравнение строк без ICU/локали: по toLowerCase через < / >.
- * Тот же алгоритм, что на сервере (src/server/common/compare.ts); UI сервер не импортирует.
- */
-export function compareText(a: string, b: string): number {
-  const x = a.toLowerCase();
-  const y = b.toLowerCase();
-  return x < y ? -1 : x > y ? 1 : 0;
-}
+export { compareText };
 
 /** Новые первыми; при равенстве по названию, затем id (стабильно). */
 function byFinishedDesc(a: GameItem, b: GameItem): number {

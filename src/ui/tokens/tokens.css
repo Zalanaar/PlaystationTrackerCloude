@@ -180,7 +180,7 @@
     --heat-cell: 12px; --heat-gap: 3px;
     --rm-row-h: 96px;
     --mchip-h: 36px;
-    --hero-box-h: 304px;
+    --hero-box-h: 322px;   /* измерено: hero на 360–440 с одной игрой, заголовок в одну строку (спека 304) */
     --chart-h: 180px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }

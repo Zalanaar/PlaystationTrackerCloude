@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
-  DEFAULT_FILTERS, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
+  DEFAULT_FILTERS, filtersDot, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
   filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, parseFilters, removeFromCounts, resetFilters,
 } from './filters';
 
@@ -134,5 +134,17 @@ describe('подтверждение сброса всех статусов', ()
     expect(isResetWord('RESET')).toBe(false);
     expect(isResetWord('СБРО')).toBe(false);
     expect(isResetWord('')).toBe(false);
+  });
+});
+
+describe('точка на кнопке «Фильтры» (моб.)', () => {
+  const base = { sort: 'completed_at' as const, status: 'all' as const, platinum: false };
+  it('по умолчанию нет', () => expect(filtersDot(base, 'comfort')).toBe(false));
+  it('сортировка, статус, платина, вид', () => {
+    expect(filtersDot({ ...base, sort: 'title' }, 'comfort')).toBe(true);
+    expect(filtersDot({ ...base, status: 'playing' }, 'comfort')).toBe(true);
+    expect(filtersDot({ ...base, platinum: true }, 'comfort')).toBe(true);
+    expect(filtersDot(base, 'dense')).toBe(true);
+    expect(filtersDot(base, 'list')).toBe(true);
   });
 });

@@ -6,7 +6,7 @@ import { Icon } from '../icons';
 import { ApiError, fetchUpcoming } from './api';
 import { appendUnique, candidateMeta, catalogFail, dayYearText, hoursLabel, upcomingState, type CatalogFailKind, type UpcomingCandidate } from './model';
 import { Attribution } from './ReleasesPanel';
-import { Spinner, Thumb } from './parts';
+import { Spinner, Thumb, useCollapsedList } from './parts';
 
 /** Блок «Не распределено»: игры, убранные из плана. Скрыт, если пусто. */
 export function UnallocatedPanel({
@@ -14,6 +14,7 @@ export function UnallocatedPanel({
 }: { list: readonly RoadmapEntry[]; onRestore: (e: RoadmapEntry) => Promise<void>; onDelete: (e: RoadmapEntry) => Promise<void> }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const { shown, toggle } = useCollapsedList(list, 'rm-unallocated', 'rm-un-list');
   if (!list.length) return null;
   async function run(e: RoadmapEntry, fn: (e: RoadmapEntry) => Promise<void>) {
     setBusy(e.key);
@@ -25,9 +26,9 @@ export function UnallocatedPanel({
         <h2 className="ps-h2 ps-h2--ic"><Icon name="eye-off" size={16} />Не распределено <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
       <p className="ps-rm-sub">Эти игры убраны из плана и не занимают недели. Игра из бэклога после возврата встаёт в конец очереди.</p>
-      <ul className="ps-rm-un">
-        {list.map((e) => (
-          <li key={e.key} className="ps-rm-un__item" data-testid="rm-unallocated" data-rm-key={e.key}>
+      <ul className="ps-rm-un" id="rm-un-list">
+        {shown.map((e) => (
+          <li key={e.key} id={e.gameId !== null ? `rm-g-${e.gameId}` : undefined} className="ps-rm-un__item" data-testid="rm-unallocated" data-rm-key={e.key}>
             <Thumb url={e.coverUrl} title={e.title} w={36} h={48} />
             <div className="ps-rm-un__name">
               <b title={e.title}>{e.title}</b>
@@ -58,12 +59,14 @@ export function UnallocatedPanel({
           </li>
         ))}
       </ul>
+      {toggle}
     </>
   );
 }
 
 /** Таблица «Игры-сервисы: в план не берём»: только справка, без добавления в план. Скрыта, если пусто. */
 export function ServicePanel({ list }: { list: readonly ServiceGame[] }) {
+  const { shown, toggle } = useCollapsedList(list.map((g) => ({ ...g, gameId: g.gameId as number | null })), 'rm-services', 'rm-svc-body');
   if (!list.length) return null;
   return (
     <>
@@ -71,17 +74,18 @@ export function ServicePanel({ list }: { list: readonly ServiceGame[] }) {
         <h2 className="ps-h2">Игры-сервисы: в план не берём <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
       <p className="ps-rm-sub">Игры со статусом «Сервис» не попадают в очередь и не занимают недели плана. Здесь только справка: сколько часов в них уже сыграно.</p>
-      <table className="ps-rm-svc" data-testid="rm-services">
+      <table className="ps-rm-svc" data-testid="rm-services" id="rm-svc-body">
         <thead><tr><th scope="col">Игра</th><th scope="col" className="ps-rm-svc__h">Сыграно</th></tr></thead>
         <tbody>
-          {list.map((g) => (
-            <tr key={g.gameId}>
+          {shown.map((g) => (
+            <tr key={g.gameId} id={`rm-g-${g.gameId}`}>
               <td><span className="ps-rm-svc__g"><Thumb url={g.coverUrl} title={g.title} w={28} h={37} /><span title={g.title}>{g.title}</span></span></td>
               <td className="ps-rm-svc__h num">{hoursLabel(g.playedHours)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {toggle}
     </>
   );
 }

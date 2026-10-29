@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import type { NotFitEntry, RoadmapEntry } from '@/server/roadmap/types';
 import { Icon } from '../icons';
 import { dayText, hoursLabel, insertHint, notFitReasonText, notFitShortText, parseRowHours, ROW_HOURS_MAX, ROW_HOURS_MIN, hoursNum, totalShortHours } from './model';
-import { FieldError, jumpToEntry, Spinner, Thumb } from './parts';
+import { FieldError, jumpToEntry, Spinner, Thumb, useCollapsedList } from './parts';
 
 function NeedRow({ e, onSave, onRemove }: { e: RoadmapEntry; onSave: (key: string, hours: number) => Promise<void>; onRemove: (e: RoadmapEntry) => void }) {
   const id = useId();
@@ -60,6 +60,7 @@ export function NeedHoursPanel({ list, onSave, onRemove }: { list: readonly Road
 /** Блок «Не успеваю»: игры, не влезшие в год. Скрыт, если пусто. Кнопки «Применить N ч в неделю» нет (решение Артёма). */
 export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void; onMoveTo: (e: NotFitEntry, at: number) => Promise<void>; locked?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const { shown, toggle } = useCollapsedList(list, 'rm-over', 'rm-over-list');
   if (!list.length) return null;
   const total = totalShortHours(list);
   return (
@@ -69,9 +70,9 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }:
       </div>
       <p className="ps-rm-sub" data-testid="rm-over-hint">Не влезла по порядку очереди. Освободить время можно, убрав игры раньше неё или поставив её выше.</p>
       {total > 0 && <p className="ps-rm-over__sum">Не хватает <b className="num">{hoursLabel(total)}</b>, чтобы пройти всё до {dayText(yearEnd)}</p>}
-      <ul className="ps-rm-over">
-        {list.map((r) => (
-          <li key={r.key} className="ps-rm-over__li" data-rm-over={r.key} data-testid="rm-over-item">
+      <ul className="ps-rm-over" id="rm-over-list">
+        {shown.map((r) => (
+          <li key={r.key} id={r.gameId !== null ? `rm-g-${r.gameId}` : undefined} className="ps-rm-over__li" data-rm-over={r.key} data-testid="rm-over-item">
             {/* релиз ведёт к строке в «Релизах»; игры бэклога в очереди не показываются, строка без перехода */}
             {r.key.startsWith('p:') ? (
               <button type="button" className="ps-rm-over__row" data-testid="rm-over-row" onClick={() => jumpToEntry(r.key)}>
@@ -106,6 +107,7 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }:
           </li>
         ))}
       </ul>
+      {toggle}
     </>
   );
 }

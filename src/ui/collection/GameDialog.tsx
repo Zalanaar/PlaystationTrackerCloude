@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameDetailsResponse, GameItem, GameStatusValue, GameTrophyItem, PlatinumForecast } from '@/server/collection/types';
 import { cssUrl, formatDate, formatDayMonth } from '../format';
@@ -24,6 +24,8 @@ import { useGameDetails, type DetailsState } from './useGameDetails';
 /** Минимум данных об игре, пока полный `GameItem` ещё не получен (открытие из поповера жанров). */
 export type GameStub = { id: number; title: string; coverUrl: string | null };
 
+const subscribeNoop = () => () => {};
+
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
@@ -31,8 +33,12 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
  * Данные шапки и плиток берутся из `game`; список трофеев и даты приходят из GET /api/games/{id}.
  */
 export function GameDialog({
-  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged,
+  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, initialTab, onNotFound,
 }: {
+  /** Вкладка при открытии (`?tab=trophies`, редкий трофей) */
+  initialTab?: DetailTab;
+  /** Игры нет (404) и полных данных нет: окно не показывается, родитель убирает ссылку и говорит тостом (§8.6) */
+  onNotFound?: () => void;
   game: GameItem | null;
   /** Игра известна только по id и названию: шапка рисуется из stub, плитки появятся после загрузки */
   stub?: GameStub | null;
@@ -49,13 +55,16 @@ export function GameDialog({
   onGameChanged?: (g: GameItem) => void;
 }) {
   const target = game ?? stub ?? null;
-  if (!target || typeof document === 'undefined') return null;
+  // портал только после монтирования: окно может быть открыто адресом ?game= уже при гидрации
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  if (!target || !mounted) return null;
   return createPortal(
     <Frame key={target.id} onClose={onClose} tint={game?.tint}>
       {(titleId) => (
         <Body
           key={`${target.id}:${startEditing}`} id={target.id} titleId={titleId} game={game} stub={stub ?? null} startEditing={startEditing} now={now}
           onClose={onClose} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onLoaded={onLoaded} onGameChanged={onGameChanged}
+          initialTab={initialTab} onNotFound={onNotFound}
         />
       )}
     </Frame>,
@@ -147,8 +156,9 @@ function Art({ mode, bannerUrl, coverUrl, loading, onBannerError }: {
 }
 
 function Body({
-  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged,
+  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, initialTab, onNotFound,
 }: {
+  initialTab?: DetailTab; onNotFound?: () => void;
   id: number; titleId: string; game: GameItem | null; stub: GameStub | null; startEditing: boolean; now: number;
   onClose: () => void;
   onStatus: (g: GameItem, s: GameStatusValue | null) => void;
@@ -162,7 +172,7 @@ function Body({
   const { state, retry } = useGameDetails(id, refreshKey);
   const details = state.kind === 'ok' ? state.data : null;
   const game = gameProp ?? details?.game ?? null;
-  const [tab, setTab] = useState<DetailTab>('overview');
+  const [tab, setTab] = useState<DetailTab>(initialTab ?? 'overview');
   const [bannerFailed, setBannerFailed] = useState<string | null>(null);
   const tabId = useId();
   const loadedCb = useRef(onLoaded);
@@ -170,8 +180,30 @@ function Body({
   useEffect(() => {
     if (!gameProp && details) loadedCb.current?.(details.game);
   }, [gameProp, details]);
+  const missing = state.kind === 'error' && state.notFound && !game;
+  const notFoundCb = useRef(onNotFound);
+  useEffect(() => { notFoundCb.current = onNotFound; }, [onNotFound]);
+  useEffect(() => {
+    if (missing) notFoundCb.current?.();
+  }, [missing]);
 
-  if (state.kind === 'error' && state.notFound && !game) {
+  if (missing && onNotFound) return null;
+  if (state.kind === 'error' && !state.notFound && !game) {
+    return (
+      <div className="ps-gd__col">
+        <div className="ps-gd__missing" role="alert">
+          <Icon name="circle-alert" size={40} />
+          <h2 id={titleId} className="ps-h2">Не удалось загрузить игру</h2>
+          <p>Проверь соединение и попробуй ещё раз.</p>
+          <div className="ps-gd__missing-act">
+            <button type="button" className="ps-btn ps-btn--primary" onClick={retry}>Повторить</button>
+            <button type="button" className="ps-btn" onClick={onClose}>Закрыть</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (missing) {
     return (
       <div className="ps-gd__col">
         <div className="ps-gd__missing">
@@ -216,7 +248,9 @@ function Body({
           <Cover url={coverUrl} title={title} className="ps-gd__cover" />
           <div className="ps-gd__tt">
             <div className="ps-gd__titlerow">
-              <h2 id={titleId} className="ps-gd__title">{title}</h2>
+              <h2 id={titleId} className="ps-gd__title">
+                {title || <><span className="ps-sr">Загрузка игры</span><span className="ps-skeleton ps-gd__sk-title" aria-hidden="true" /></>}
+              </h2>
               {plat && <PlatinumIcon size={24} className="ps-gd__plat" title="Платина получена" />}
             </div>
             {game ? (

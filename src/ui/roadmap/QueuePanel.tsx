@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { markGamePushed } from '../collection/useGameLink';
 import { Icon, StatusGlyph } from '../icons';
 import { Popover } from '../primitives/Popover';
 import {
@@ -234,7 +235,7 @@ export function QueuePanel({
                           <Icon name="arrow-down" size={16} /><span className="ps-menu-item__label">В конец очереди</span>
                         </button>
                         {e.gameId !== null && (
-                          <Link href={`/?game=${e.gameId}`} scroll={false} role="menuitem" className="ps-menu-item" onClick={close}>
+                          <Link href={`/?game=${e.gameId}`} scroll={false} role="menuitem" className="ps-menu-item" onClick={() => { markGamePushed(e.gameId as number); close(); }}>
                             <Icon name="external-link" size={16} /><span className="ps-menu-item__label">Открыть игру</span>
                           </Link>
                         )}

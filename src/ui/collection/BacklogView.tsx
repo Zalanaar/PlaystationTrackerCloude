@@ -20,6 +20,7 @@ import {
 import { GameCard, type GameActions } from './GameCard';
 import { HltbRunner } from './HltbRunner';
 import { GameDialog } from './GameDialog';
+import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
@@ -196,8 +197,9 @@ export function BacklogView() {
     <div className="ps-collection">
       <div className="ps-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
-        {items && items.length > 0 && <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p>}
+        {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
       </div>
+      {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
       {(items || counts) && (
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
@@ -210,9 +212,9 @@ export function BacklogView() {
           </div>
         </nav>
       )}
-      {items && (
+      {(items || !error) && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
-          <StatusGlyph status="backlog" size={16} />Бэклог <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>
+          <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>}
         </h2>
       )}
       {error && !items ? (
@@ -220,11 +222,7 @@ export function BacklogView() {
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
       ) : !items ? (
-        <ul className="ps-grid" data-density="comfort" aria-hidden="true" aria-busy="true">
-          {Array.from({ length: 12 }, (_, i) => (
-            <li key={i}><div className="ps-card ps-card--sk"><div className="ps-skeleton ps-sk-cover" /><div className="ps-skeleton ps-sk-line" /></div></li>
-          ))}
-        </ul>
+        <div aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
       ) : items.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text="В бэклоге нет игр под выбранные фильтры.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setFilters(resetBacklogFilters(filters))}>Сбросить фильтры</button>
