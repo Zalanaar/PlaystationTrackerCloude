@@ -69,6 +69,7 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   const hidReq = useRef(0);
   const ctlRef = useRef<AbortController | null>(null);
   const startRef = useRef(0);
+  const genRef = useRef(0); // поколение данных: отложенное удаление карточки не должно пережить свежий ответ
   const dataRef = useRef<DiscoverResponse | null>(null);
   const ttlRef = useRef(DEFAULT_TTL_DAYS);
   const latest = useRef<{ run: (refresh: boolean) => Promise<DiscoverResponse | null>; loadHidden: () => Promise<void>; plan: (it: DiscoverItem) => Promise<void>; hide: (it: DiscoverItem) => Promise<void> } | null>(null);
@@ -90,6 +91,7 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
       if (my !== reqRef.current) return null; // ушедший режим или устаревший запрос
       const first = dataRef.current === null;
       dataRef.current = r;
+      genRef.current += 1;
       setData(r);
       setFatal(null);
       setRefreshErr(false);
@@ -176,7 +178,11 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
     toast({ text: `${hiddenForText(ttlRef.current)}: «${it.title}»`, ttl: 8000, action: { label: 'Отменить', run: () => void undoHide(it.externalId) } });
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setLeaving((s) => new Set(s).add(it.externalId));
-    setTimeout(() => { setGone((s) => new Set(s).add(it.externalId)); setBusyFor(it.externalId, null); }, reduce ? 0 : FADE_MS);
+    const gen = genRef.current;
+    setTimeout(() => {
+      if (gen === genRef.current) setGone((s) => new Set(s).add(it.externalId));
+      setBusyFor(it.externalId, null);
+    }, reduce ? 0 : FADE_MS);
     void refetchAll();
   }, [refetchAll, toast, undoHide]);
 

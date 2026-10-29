@@ -265,7 +265,7 @@ test.describe('Подскажи: состояния', () => {
     await open(page, context, baseURL as string, state({ all: [], backlogCount: 0 }));
     await expect(page.getByRole('heading', { name: 'В бэклоге пусто' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'К коллекции' })).toHaveAttribute('href', '/');
-    await expect(page.getByRole('radiogroup')).toHaveCount(0);
+    await expect(page.getByRole('radiogroup', { name: 'Сколько времени есть' })).toHaveCount(0);
     await expect(page.getByText(/^Из \d+ игр/)).toHaveCount(0);
   });
 

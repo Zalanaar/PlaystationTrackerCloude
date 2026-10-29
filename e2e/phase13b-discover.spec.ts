@@ -436,6 +436,7 @@ test.describe('Новое от ИИ: состояния', () => {
 
   test('сбой обновления при наличии карточек: баннер, карточки остаются, действия работают', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string);
+    await expect(card(page, 1, 3, 'The Witcher 3: Wild Hunt')).toBeVisible();
     s.fails.push(503);
     await refreshBtn(page).click();
     await expect(page.getByText('Не удалось обновить подборку. Показана прежняя.')).toBeVisible();
