@@ -5,7 +5,6 @@ import type { TimeValue } from './model';
 
 export type { DislikeItem, DislikesResponse, RecommendItem, RecommendResponse } from '@/server/recommend/types';
 
-
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export const fetchRecommend = (time: TimeValue, signal?: AbortSignal) =>
