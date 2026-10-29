@@ -21,10 +21,10 @@ export function Attribution() {
 type RowProps = {
   g: PlannedGameDto; data: RoadmapResponse | null; today: string; year: number;
   onPatch: (id: number, patch: Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>>) => Promise<void>;
-  onEdit: (g: PlannedGameDto) => void; onRemove: (g: PlannedGameDto) => Promise<void>;
+  onEdit: (g: PlannedGameDto) => void; onRemove: (g: PlannedGameDto) => Promise<void>; onUnallocate: (g: PlannedGameDto) => void;
 };
 
-function ReleaseRow({ g, data, today, year, onPatch, onEdit, onRemove }: RowProps) {
+function ReleaseRow({ g, data, today, year, onPatch, onEdit, onRemove, onUnallocate }: RowProps) {
   const id = useId();
   const [want, setWant] = useState<boolean | null>(null); // оптимистичное значение, пока идёт сохранение
   const [confirm, setConfirm] = useState(false);
@@ -67,6 +67,7 @@ function ReleaseRow({ g, data, today, year, onPatch, onEdit, onRemove }: RowProp
       </div>
       <div className="ps-rm-rel__act">
         <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Изменить: ${g.title}`} onClick={() => onEdit(g)}><Icon name="pencil" size={16} /></button>
+        <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Убрать из плана: ${g.title}`} title="Убрать из плана" onClick={() => onUnallocate(g)}><Icon name="eye-off" size={16} /></button>
         <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Удалить: ${g.title}`} aria-expanded={confirm} onClick={() => setConfirm((v) => !v)}><Icon name="trash" size={16} /></button>
       </div>
       {confirm && (
@@ -84,12 +85,12 @@ function ReleaseRow({ g, data, today, year, onPatch, onEdit, onRemove }: RowProp
 
 /** Блок «Релизы»: невышедшие игры (RAWG или вручную), галка «Хочу пройти на релизе», правка, удаление. */
 export function ReleasesPanel({
-  planned, error, data, today, year, onRetry, onAdd, onPatch, onRemove,
+  planned, error, data, today, year, onRetry, onAdd, onPatch, onRemove, onUnallocate,
 }: {
   planned: PlannedGameDto[] | null; error: boolean; data: RoadmapResponse | null; today: string; year: number; onRetry: () => void;
   onAdd: (body: PlannedBody, withExternal: boolean) => Promise<void>;
   onPatch: (id: number, patch: Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>>) => Promise<void>;
-  onRemove: (g: PlannedGameDto) => Promise<void>;
+  onRemove: (g: PlannedGameDto) => Promise<void>; onUnallocate: (g: PlannedGameDto) => void;
 }) {
   const [dlg, setDlg] = useState<{ game: PlannedGameDto | null } | null>(null);
   const addBtn = (
@@ -121,7 +122,7 @@ export function ReleasesPanel({
       ) : (
         <ul className="ps-rm-rel">
           {planned.map((g) => (
-            <ReleaseRow key={g.id} g={g} data={data} today={today} year={year} onPatch={onPatch} onEdit={(x) => setDlg({ game: x })} onRemove={onRemove} />
+            <ReleaseRow key={g.id} g={g} data={data} today={today} year={year} onPatch={onPatch} onEdit={(x) => setDlg({ game: x })} onRemove={onRemove} onUnallocate={onUnallocate} />
           ))}
         </ul>
       )}

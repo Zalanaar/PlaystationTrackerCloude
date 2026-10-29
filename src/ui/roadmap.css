@@ -27,8 +27,11 @@
   .ps-rm-panel { padding: var(--sp-5); margin-bottom: 36px; }
 }
 @media (min-width: 1024px) {
-  .ps-rm { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--sp-6); grid-template-rows: auto auto auto auto 1fr;
-    grid-template-areas: "set prog" "tl tl" "rel queue" "need queue" "over queue"; }
+  .ps-rm { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--sp-6); grid-template-rows: repeat(6, auto) 1fr auto;
+    grid-template-areas: "set prog" "tl tl" "upc queue" "rel queue" "need queue" "over queue" "unal queue" "svc svc"; }
+  .ps-rm-panel[data-area="upc"] { grid-area: upc; }
+  .ps-rm-panel[data-area="unal"] { grid-area: unal; }
+  .ps-rm-panel[data-area="svc"] { grid-area: svc; }
   .ps-rm-panel[data-area="set"] { grid-area: set; align-self: stretch; }
   .ps-rm-panel[data-area="prog"] { grid-area: prog; align-self: stretch; }
   .ps-rm-panel[data-area="tl"] { grid-area: tl; }
@@ -293,13 +296,42 @@ button.ps-rm-state { cursor: pointer; }
   .ps-rm-cand { min-height: 64px; }
 }
 
+/* ---------- Предстоящие релизы, Не распределено, Игры-сервисы ---------- */
+.ps-rm-upc { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.ps-rm-upc__item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: 5px var(--sp-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-rm-upc__item[data-state="planned"] { border-color: var(--border-strong); }
+.ps-rm-upc__act { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.ps-rm-upc__err { display: flex; align-items: center; gap: 4px; color: var(--text) !important; }
+.ps-rm-upc__err svg { color: var(--danger); }
+.ps-rm-upc__more { display: flex; justify-content: center; margin-top: var(--sp-3); }
+.ps-rm-un { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-rm-un__item { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-rm-un__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-rm-un__name b { font: 600 13px/16px var(--font-body); color: var(--text); overflow-wrap: anywhere; }
+.ps-rm-un__name small { font-size: var(--fs-small); color: var(--text-3); }
+.ps-rm-un__act { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.ps-rm-un .ps-rm-rel__del { grid-column: 1 / -1; }
+.ps-rm-svc { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.ps-rm-svc th { padding: var(--sp-2) var(--sp-3); text-align: left; font: 600 var(--fs-micro)/var(--lh-micro) var(--font-body); text-transform: uppercase; letter-spacing: var(--ls-micro); color: var(--text-3); border-bottom: var(--border-w) solid var(--border); }
+.ps-rm-svc td { padding: var(--sp-2) var(--sp-3); border-bottom: var(--border-w) solid var(--border); color: var(--text); }
+.ps-rm-svc__h { text-align: right !important; white-space: nowrap; }
+.ps-rm-svc__g { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .ps-rm-upc__item { grid-template-columns: 40px minmax(0, 1fr); }
+  .ps-rm-upc__act { grid-column: 1 / -1; justify-content: flex-start; }
+  .ps-rm-upc__act .ps-btn { height: var(--tap-min); }
+  .ps-rm-un__item { grid-template-columns: 36px minmax(0, 1fr); }
+  .ps-rm-un__act { grid-column: 1 / -1; justify-content: flex-start; }
+  .ps-rm-un__act .ps-btn { height: var(--tap-min); }
+}
+
 /* ---------- Нужны часы, Не успеваю ---------- */
 .ps-rm-need, .ps-rm-over { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .ps-rm-need__item { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
 .ps-rm-need__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ps-rm-need__name b { font: 600 13px/16px var(--font-body); color: var(--text); overflow-wrap: anywhere; }
 .ps-rm-need__name small { font-size: var(--fs-small); color: var(--text-3); }
-.ps-rm-need__form { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-rm-need__form { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .ps-rm-need__form .ps-rm-input { height: 36px; }
 .ps-rm-need__err { grid-column: 1 / -1; }
 @media (max-width: 767px) {
@@ -308,6 +340,8 @@ button.ps-rm-state { cursor: pointer; }
   .ps-rm-need__form .ps-rm-input, .ps-rm-need__btn { height: var(--tap-min); }
 }
 .ps-rm-over__sum { margin: 0 0 var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+.ps-rm-over__li { display: flex; align-items: center; gap: var(--sp-1); }
+.ps-rm-over__li .ps-rm-over__row { flex: 1; min-width: 0; }
 .ps-rm-over__row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); width: 100%; min-height: 56px; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .ps-rm-over__row:hover { background: var(--surface-3); border-color: var(--border-strong); }
 .ps-rm-over__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

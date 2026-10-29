@@ -8,15 +8,20 @@ const ms = (s: string) => Date.parse(`${s}T00:00:00Z`);
 export type RmGame = { id: number; title: string; hours: number | null; source?: 'hltb' | 'manual' };
 export type RmPlanned = {
   id: number; title: string; releaseDate: string | null; coverUrl: string | null; wantAtRelease: boolean; hoursManual: number | null;
-  externalSource: 'rawg' | null; externalId: string | null; status: 'planned';
+  externalSource: 'rawg' | null; externalId: string | null; status: 'planned' | 'cancelled';
 };
 export type RmState = {
   year: number; today: string; hoursPerWeek: number | null; configured: boolean;
   order: number[]; games: RmGame[]; planned: RmPlanned[];
+  /** id игр бэклога, убранных из плана */
+  excluded: number[];
+  serviceGames: { gameId: number; title: string; coverUrl: string | null; playedHours: number }[];
+  /** предстоящие релизы по страницам; fail = ответ ошибкой */
+  upcoming: { pages: Record<string, unknown>[][]; fail: { status: number; reason?: string } | null };
   /** принудительные ответы */
   roadmapFail: number | null; plannedFail: number | null; orderFail: boolean;
   catalog: { status: number; reason?: string; candidates?: unknown[] } | null;
-  calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[]; catalogPs: (string | null)[] };
+  calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[]; catalogPs: (string | null)[]; exclusions: { method: string; gameId: number }[]; upcoming: number[] };
 };
 
 export function baseState(over: Partial<RmState> = {}): RmState {
@@ -28,8 +33,8 @@ export function baseState(over: Partial<RmState> = {}): RmState {
       { id: 3, title: 'Год оф Вар', hours: 30, source: 'manual' },
       { id: 4, title: 'Игра без часов', hours: null },
     ],
-    planned: [], roadmapFail: null, plannedFail: null, orderFail: false, catalog: null,
-    calls: { roadmap: 0, settings: [], orders: [], posts: [], patches: [], deletes: [], durations: [], catalog: [], catalogPs: [] },
+    planned: [], excluded: [], serviceGames: [], upcoming: { pages: [], fail: null }, roadmapFail: null, plannedFail: null, orderFail: false, catalog: null,
+    calls: { roadmap: 0, settings: [], orders: [], posts: [], patches: [], deletes: [], durations: [], catalog: [], catalogPs: [], exclusions: [], upcoming: [] },
     ...over,
   };
 }
@@ -86,7 +91,8 @@ export function buildRoadmap(s: RmState) {
   // релизы с галкой: жёстко по дате, пересечение = сдвиг и конфликт
   let busyUntil = ms(yearStart) - DAY;
   let lastKey: string | null = null;
-  const rel = s.planned.filter((p) => p.wantAtRelease && p.releaseDate).sort((a, c) => (a.releaseDate as string).localeCompare(c.releaseDate as string));
+  const livePlanned = s.planned.filter((p) => p.status === 'planned');
+  const rel = livePlanned.filter((p) => p.wantAtRelease && p.releaseDate).sort((a, c) => (a.releaseDate as string).localeCompare(c.releaseDate as string));
   const relEntries = new Map<string, Entry>();
   for (const p of rel) {
     const key = `p:${p.id}`;
@@ -126,10 +132,10 @@ export function buildRoadmap(s: RmState) {
   const byId = new Map(s.games.map((g) => [g.id, g]));
   for (const id of s.order) {
     const g = byId.get(id);
-    if (g) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
+    if (g && !s.excluded.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
   }
-  for (const g of s.games) if (!s.order.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
-  for (const p of s.planned.filter((x) => !x.wantAtRelease)) q.push({ key: `p:${p.id}`, kind: 'planned', gameId: null, plannedId: p.id, title: p.title, coverUrl: p.coverUrl, hours: p.hoursManual, hoursSource: p.hoursManual ? 'manual' : null, releaseDate: p.releaseDate, wantAtRelease: false });
+  for (const g of s.games) if (!s.order.includes(g.id) && !s.excluded.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
+  for (const p of livePlanned.filter((x) => !x.wantAtRelease)) q.push({ key: `p:${p.id}`, kind: 'planned', gameId: null, plannedId: p.id, title: p.title, coverUrl: p.coverUrl, hours: p.hoursManual, hoursSource: p.hoursManual ? 'manual' : null, releaseDate: p.releaseDate, wantAtRelease: false });
   let cursor = ms(yearStart);
   let pos = 0;
   for (const e of q) {
@@ -159,6 +165,11 @@ export function buildRoadmap(s: RmState) {
     status: b > 0 ? 'ok' : 'no_budget', today: s.today, range: { from: yearStart, to: yearEnd, days },
     totals: { capacityHours: Math.round(((b * days) / 7) * 10) / 10, plannedHours: Math.round(planned * 10) / 10 },
     weeks, months, items, queue, conflicts, notFit, needHours,
+    unallocated: [
+      ...s.games.filter((g) => s.excluded.includes(g.id)).map((g) => ({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? 'hltb' : null, releaseDate: null, wantAtRelease: false })),
+      ...s.planned.filter((p) => p.status === 'cancelled').map((p) => ({ key: `p:${p.id}`, kind: p.wantAtRelease ? 'release' : 'planned', gameId: null, plannedId: p.id, title: p.title, coverUrl: p.coverUrl, hours: p.hoursManual, hoursSource: p.hoursManual ? 'manual' : null, releaseDate: p.releaseDate, wantAtRelease: p.wantAtRelease })),
+    ],
+    serviceGames: s.serviceGames,
     progress: b > 0 ? { status: 'behind', from: yearStart, asOf: '2026-10-28', plannedHours: 280.5, actualHours: 262, diffHours: -18.5, toleranceHours: 2, budgetHours: 390 } : null,
   };
 }
@@ -196,7 +207,7 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
       return ok(r, { planned: dto(p) });
     }
     if (s.plannedFail) return fail(r, s.plannedFail, 'db_unavailable');
-    const sorted = [...s.planned].sort((a, c) => (a.releaseDate ?? '9999').localeCompare(c.releaseDate ?? '9999') || a.id - c.id);
+    const sorted = s.planned.filter((x) => x.status === 'planned').sort((a, c) => (a.releaseDate ?? '9999').localeCompare(c.releaseDate ?? '9999') || a.id - c.id);
     return ok(r, { planned: sorted.map(dto) });
   });
   await page.route(/\/api\/roadmap\/planned\/\d+$/, async (r) => {
@@ -204,10 +215,29 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
     const p = s.planned.find((x) => x.id === id);
     if (!p) return fail(r, 404, 'not_found');
     if (r.request().method() === 'DELETE') { s.calls.deletes.push(id); s.planned = s.planned.filter((x) => x.id !== id); return ok(r, { deleted: true, id }); }
-    const body = r.request().postDataJSON() as Partial<RmPlanned>;
+    const body = r.request().postDataJSON() as Partial<RmPlanned> & { status?: string };
     s.calls.patches.push({ id, body });
-    Object.assign(p, body);
+    Object.assign(p, body, body.status ? { status: body.status === 'planned' ? 'planned' : 'cancelled' } : {});
     return ok(r, { planned: dto(p) });
+  });
+  await page.route(/\/api\/roadmap\/exclusions(\/\d+)?$/, async (r) => {
+    const method = r.request().method();
+    const gameId = method === 'POST' ? (r.request().postDataJSON() as { gameId: number }).gameId : Number(r.request().url().match(/exclusions\/(\d+)/)?.[1]);
+    s.calls.exclusions.push({ method, gameId });
+    if (method === 'POST') { if (!s.excluded.includes(gameId)) s.excluded.push(gameId); s.order = s.order.filter((x) => x !== gameId); return ok(r, { excluded: true, gameId }); }
+    s.excluded = s.excluded.filter((x) => x !== gameId);
+    if (!s.order.includes(gameId)) s.order.push(gameId);
+    return ok(r, { excluded: false, gameId });
+  });
+  await page.route(/\/api\/roadmap\/catalog\/upcoming/, async (r) => {
+    const page_ = Number(new URL(r.request().url()).searchParams.get('page') ?? '1');
+    s.calls.upcoming.push(page_);
+    if (s.upcoming.fail) return fail(r, s.upcoming.fail.status, 'catalog_unavailable', { reason: s.upcoming.fail.reason ?? 'network' });
+    const list = (s.upcoming.pages[page_ - 1] ?? []).map((c) => {
+      const rec = s.planned.find((p) => p.externalId === c.externalId);
+      return { ...c, planned: Boolean(rec), unallocated: rec?.status === 'cancelled', plannedId: rec?.id ?? null };
+    });
+    return ok(r, { candidates: list, page: page_, hasMore: page_ < s.upcoming.pages.length });
   });
   await page.route(/\/api\/roadmap\/order$/, async (r) => {
     const ids = (r.request().postDataJSON() as { gameIds: number[] }).gameIds;
@@ -235,3 +265,9 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
   });
   return s;
 }
+
+/** Кандидат каталога для списка предстоящих релизов. */
+export const upc = (n: number, o: Record<string, unknown> = {}) => ({
+  externalSource: 'rawg', externalId: String(n), title: `Новинка ${n}`, releaseDate: `2026-12-${String(10 + (n % 15)).padStart(2, '0')}`,
+  coverUrl: null, platforms: ['PlayStation 5'], playstation: true, ...o,
+});

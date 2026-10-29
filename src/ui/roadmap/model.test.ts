@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Conflict, PlanItem, RoadmapResponse, WeekLoad } from '@/server/roadmap/types';
 import {
-  applyOrder, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
+  applyOrder, appendUnique, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
   periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, weekPos, catalogFail, platformsText, filterCandidates,
 } from './model';
 
@@ -145,5 +145,40 @@ describe('форма релиза и каталог', () => {
     expect(catalogFail('timeout').kind).toBe('unavailable');
     expect(platformsText(['PC', 'PlayStation 5', 'PlayStation 4'])).toBe('PS5, PS4');
     expect(filterCandidates([{ playstation: true }, { playstation: false }], true)).toHaveLength(1);
+  });
+});
+
+describe('полный порядок со скрытыми not_fit', () => {
+  it('скрытые игры сохраняют места, видимые переставляются', () => {
+    expect(mergeVisibleOrder(['g:1', 'g:2', 'g:3'], ['g:3', 'g:1'])).toEqual(['g:3', 'g:2', 'g:1']);
+    expect(mergeVisibleOrder(['g:1', 'g:2', 'g:3', 'g:4'], ['g:1', 'g:4', 'g:3'])).toEqual(['g:1', 'g:2', 'g:4', 'g:3'].map((k, i) => (i === 1 ? 'g:2' : k)));
+    expect(mergeVisibleOrder(['g:9', 'g:1', 'g:2'], ['g:2', 'g:1'])).toEqual(['g:9', 'g:2', 'g:1']);
+  });
+  it('без скрытых совпадает с видимым порядком, чужие ключи игнорируются', () => {
+    expect(mergeVisibleOrder(['g:1', 'g:2'], ['g:2', 'g:1'])).toEqual(['g:2', 'g:1']);
+    expect(mergeVisibleOrder(['g:1', 'g:2'], ['g:2', 'g:1', 'g:77'])).toEqual(['g:2', 'g:1']);
+    expect(mergeVisibleOrder(['g:1', 'g:2', 'g:3'], ['g:1'])).toEqual(['g:1', 'g:2', 'g:3'].slice(0, 3));
+  });
+  it('visibleQueue убирает not_fit', () => {
+    const rows = [{ key: 'g:1', state: 'scheduled' }, { key: 'g:2', state: 'not_fit' }, { key: 'g:3', state: 'need_hours' }] as unknown as Parameters<typeof visibleQueue>[0];
+    expect(visibleQueue(rows).map((r) => r.key)).toEqual(['g:1', 'g:3']);
+  });
+});
+
+describe('предстоящие релизы', () => {
+  const c = (id: string, o: Record<string, unknown> = {}) => ({
+    externalSource: 'rawg', externalId: id, title: `T${id}`, releaseDate: '2026-12-01', coverUrl: null, platforms: [], playstation: true, planned: false, unallocated: false, plannedId: null, ...o,
+  }) as unknown as Parameters<typeof appendUnique>[0][number];
+  it('состояние: актуальные списки важнее пометок каталога', () => {
+    expect(upcomingState(c('1'), null, null)).toBe('new');
+    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), new Set([5]), new Set())).toBe('planned');
+    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), new Set(), new Set([5]))).toBe('unallocated');
+    expect(upcomingState(c('1', { planned: true, unallocated: true, plannedId: 5 }), null, null)).toBe('unallocated');
+  });
+  it('тело POST: галка на релизе по умолчанию, часы пустые', () => {
+    expect(upcomingBody(c('9'))).toEqual({ title: 'T9', releaseDate: '2026-12-01', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '9' });
+  });
+  it('страницы дописываются без повторов', () => {
+    expect(appendUnique([c('1'), c('2')], [c('2'), c('3')]).map((x) => x.externalId)).toEqual(['1', '2', '3']);
   });
 });
