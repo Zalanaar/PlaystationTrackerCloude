@@ -255,7 +255,8 @@ test.describe('Подскажи: состояния', () => {
       await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { items: [], meta: { llm: 'disabled', candidates: 0, time: 'any' } } }) });
     });
     await page.goto('/recommend');
-    await expect(page.locator('.ps-rec--sk')).toHaveCount(9);
+    const wide = (page.viewportSize()?.width ?? 0) >= 1024; // 9 скелетов в сетке 3x3, на узких 3
+    await expect(page.locator('.ps-rec--sk')).toHaveCount(wide ? 9 : 3);
     await expect(page.locator('ol[aria-busy="true"]')).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Сколько времени есть' })).toBeVisible();
   });

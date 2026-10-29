@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getLlmEnv } from '@/server/env';
-import { createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, signalsHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
+import { LLM_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, signalsHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
 import type { ScoredItem } from './types';
 
 const item = (id: number, o: Partial<ScoredItem> = {}, name = `Игра ${id}`): ScoredItem => ({
@@ -179,5 +179,13 @@ describe('getLlmEnv', () => {
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_DAILY_LIMIT: 'abc' })!.dailyLimit).toBe(20);
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_MODEL: 'gemini-x.1' })!.model).toBe('gemini-x.1');
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_MODEL: 'bad model?' })!.model).toBeNull();
+  });
+});
+
+describe('лимит токенов и промпт', () => {
+  it('потолок 2000 и промпт требует до 200 символов и один элемент на id', () => {
+    expect(LLM_MAX_OUTPUT_TOKENS).toBe(2000);
+    expect(SYSTEM_PROMPT).toContain('до 200 символов');
+    expect(SYSTEM_PROMPT).toContain('ровно по одному элементу на каждый id');
   });
 });

@@ -6,6 +6,8 @@ import type { ScoredItem } from './types';
 
 export const LLM_TIMEOUT_MS = 5000;
 export const REASON_MAX_LEN = 400;
+/** Потолок токенов ответа: до 9 фраз по 200 символов (Gemini maxOutputTokens, Groq max_tokens). */
+export const LLM_MAX_OUTPUT_TOKENS = 2000;
 export const LLM_MAX_RESPONSE_BYTES = 64 * 1024;
 export const DEFAULT_MODELS = { gemini: 'gemini-2.5-flash-lite', groq: 'llama-3.1-8b-instant' } as const;
 
@@ -62,7 +64,7 @@ export function geminiProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Ph
         {
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: 'user', parts: [{ text: user }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: 800 },
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.4, maxOutputTokens: LLM_MAX_OUTPUT_TOKENS },
         },
         signal,
       );
@@ -88,7 +90,7 @@ export function groqProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Phra
           messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
           response_format: { type: 'json_object' },
           temperature: 0.4,
-          max_tokens: 800,
+          max_tokens: LLM_MAX_OUTPUT_TOKENS,
         },
         signal,
       );
