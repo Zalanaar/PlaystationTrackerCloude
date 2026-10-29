@@ -369,3 +369,39 @@ export const roadmapExcluded = pgTable('roadmap_excluded', {
     .references(() => games.id, { onDelete: 'cascade' }),
   createdAt: tz('created_at').notNull().defaultNow(),
 });
+
+// Фаза 13 (контракт 18.1, миграция 0010): «Подскажи». Миграция только добавляет таблицы.
+// Игры, отмеченные «Не интересно»: не попадают в рекомендации. Статус игры не меняется.
+export const recommendDislikes = pgTable('recommend_dislikes', {
+  gameId: integer('game_id')
+    .primaryKey()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  createdAt: tz('created_at').notNull().defaultNow(),
+});
+
+// Кэш фраз LLM: живёт, пока не изменился хэш сигналов; запись старше 7 суток игнорируется.
+export const recommendReasons = pgTable(
+  'recommend_reasons',
+  {
+    gameId: integer('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    signalsHash: text('signals_hash').notNull(),
+    text: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.gameId, t.signalsHash] }),
+    check('recommend_reasons_text_check', sql`char_length(${t.text}) between 1 and 400`),
+  ],
+);
+
+// Счётчик реальных вызовов LLM по суткам МСК (дневной лимит).
+export const recommendLlmUsage = pgTable(
+  'recommend_llm_usage',
+  {
+    day: date({ mode: 'string' }).primaryKey(),
+    calls: integer().notNull().default(0),
+  },
+  (t) => [check('recommend_llm_usage_calls_check', sql`${t.calls} >= 0`)],
+);
