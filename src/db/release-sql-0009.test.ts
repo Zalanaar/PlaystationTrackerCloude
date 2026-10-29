@@ -36,7 +36,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 describe('docs/release-neon-0009.sql', () => {
   it('поверх 0000–0008 дважды: схема как у drizzle, журнал верный, данные целы', async () => {
     const full = new PGlite();
-    await migrate(drizzle(full), { migrationsFolder: root });
+    await migrate(drizzle(full), { migrationsFolder: folderUpTo(10) });
 
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(9) });
