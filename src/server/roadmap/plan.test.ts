@@ -240,3 +240,74 @@ describe('нагрузка по неделям и месяцам', () => {
     expect(p.weeks[0].days).toBe(7);
   });
 });
+
+describe('notFit: лучшая позиция вставки (17.15)', () => {
+  // 10 ч/нед, 365 дней. 300 ч = 210 дней.
+  const A = bl(1, 300);
+  const X = bl(2, 300);
+  const C = bl(3, 100);
+  const nf = (p: ReturnType<typeof plan>, key: string) => p.notFit.find((n) => n.key === key);
+
+  it('базовый случай и удаление игр до/после X', () => {
+    expect(nf(plan([A, X, C]), 'g:2')).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6 });
+    expect(nf(plan([bl(1, 260), X, C]), 'g:2')?.hoursShort).toBeLessThan(78.6); // игра ДО X: помогает
+    expect(nf(plan([A, X]), 'g:2')?.hoursShort).toBe(nf(plan([A, X, C]), 'g:2')?.hoursShort); // игра ПОСЛЕ X: нет
+    expect(nf(plan([X, C]), 'g:2')).toBeUndefined();
+  });
+
+  it('(1) X не влезает из-за ранних игр: insertAt = самая поздняя позиция, где влезает; displaces считается', () => {
+    const P = bl(1, 50);
+    const Aa = bl(2, 300);
+    const Q = bl(3, 50);
+    const Xx = bl(4, 300);
+    const p = plan([P, Aa, Q, Xx, bl(5, 100)]);
+    expect(nf(p, 'g:4')).toMatchObject({ insertAt: 2, displacesAtInsert: 1, displacedTitles: ['B2'] });
+    // проверка пробы вручную: X на позиции 2 влезает, на позиции 3 нет
+    expect(item(plan([P, Xx, Aa, Q, bl(5, 100)]), 'g:4')).toBeDefined();
+    expect(item(plan([P, Aa, Xx, Q, bl(5, 100)]), 'g:4')).toBeUndefined();
+  });
+
+  it('(1b) вставка в начало: вытесняется игра, остальные остаются', () => {
+    expect(nf(plan([A, X, C]), 'g:2')).toMatchObject({ insertAt: 1, displacesAtInsert: 1, displacedTitles: ['B1'] });
+  });
+
+  it('(2) X длиннее года: insertAt null', () => {
+    const p = plan([bl(1, 10), bl(2, 600)]);
+    expect(nf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', insertAt: null, displacesAtInsert: 0, displacedTitles: [] });
+  });
+
+  it('(3) окна релизов рвут свободное время: суммарно места хватает, непрерывного интервала нет -> insertAt null', () => {
+    // релиз 1 июля на неделю: свободно 0..180 (181 дн.) и 188..364 (177 дн.); X 290 ч = 203 дня не влезает никуда
+    const p = plan([bl(1, 20), bl(2, 290)], [rel(1, '2026-07-01', 10)]);
+    expect(nf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', insertAt: null });
+    // игра покороче (150 дней = 215 ч) влезает в любое окно, не-влезшей нет
+    expect(plan([bl(1, 20), bl(2, 215)], [rel(1, '2026-07-01', 10)]).notFit).toEqual([]);
+  });
+
+  it('(3b) релиз занял начало: X влезает только после игры в большем окне, позиция учитывает окна', () => {
+    // релиз 15 марта на 5 недель; свободно 0..72 (73 дн.) и после; Z 100 ч (70 дн) в начале занимает первое окно,
+    // X 150 ч (105 дн) идёт во второе окно, а W 300 ч (210 дн) стоит до неё и съедает его
+    const p = plan([bl(1, 100), bl(2, 300), bl(3, 150)], [rel(1, '2026-03-15', 50)]);
+    const n = nf(p, 'g:3');
+    expect(n).toMatchObject({ reason: 'no_capacity' });
+    expect(n?.insertAt).toBe(2);
+  });
+
+  it('релизы и after_year_end пробных полей не получают', () => {
+    const p = plan([], [rel(1, '2027-02-01', 5)]);
+    expect('insertAt' in p.notFit[0]).toBe(false);
+  });
+
+  it('(4) 300 игр: время приемлемо, бюджет проб ограничен (часть полей null)', () => {
+    const backlog = Array.from({ length: 300 }, (_, i) => bl(i + 1, 20 + (i % 7) * 10));
+    const t0 = performance.now();
+    const p = plan(backlog, [rel(1, '2026-05-01', 40), rel(2, '2026-09-01', 60)]);
+    const ms = performance.now() - t0;
+    const list = p.notFit.filter((n) => n.reason === 'no_capacity' && n.kind === 'backlog');
+    expect(list.length).toBeGreaterThan(100);
+    expect(list.some((n) => n.displacesAtInsert === null)).toBe(true); // бюджет кончился
+    expect(list.slice(0, 5).every((n) => n.displacesAtInsert !== null)).toBe(true);
+    process.stdout.write(`MEASURE 300 games: ${Math.round(ms)} ms, notFit ${list.length}\n`);
+    expect(ms).toBeLessThan(3000);
+  });
+});

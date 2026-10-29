@@ -1,18 +1,15 @@
 import { describe, expect, it, it as it_ } from 'vitest';
-import type { Conflict, PlanItem, RoadmapResponse, WeekLoad } from '@/server/roadmap/types';
+import type { Conflict, PlanItem, RoadmapResponse } from '@/server/roadmap/types';
 import {
-  applyOrder, appendUnique, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
-  periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, weekPos, catalogFail, platformsText, filterCandidates,
+  applyOrder, appendUnique, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, insertHint, orderWithAtPosition, removedToast, placedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
+  periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, catalogFail, platformsText, filterCandidates,
 } from './model';
 
 const e = (key: string, o: Record<string, unknown> = {}) => ({
   key, kind: key.startsWith('g:') ? 'backlog' : 'planned', gameId: key.startsWith('g:') ? Number(key.slice(2)) : null, plannedId: key.startsWith('p:') ? Number(key.slice(2)) : null,
   title: `T${key}`, coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false, ...o,
 });
-const weeks = [
-  { index: 1, from: '2026-01-01', to: '2026-01-04', days: 4 }, { index: 2, from: '2026-01-05', to: '2026-01-11', days: 7 },
-  { index: 3, from: '2026-01-12', to: '2026-01-18', days: 7 },
-] as WeekLoad[];
+
 
 describe('форматирование', () => {
   it('часы и даты', () => {
@@ -70,24 +67,55 @@ describe('склейка по key и порядок', () => {
   });
 });
 
-describe('таймлайн', () => {
-  it('неделя по дате', () => {
-    expect(weekPos(weeks, '2026-01-01')).toBe(0);
-    expect(weekPos(weeks, '2026-01-11')).toBe(1);
-    expect(weekPos(weeks, '2025-12-01')).toBe(0);
-    expect(weekPos(weeks, '2027-01-01')).toBe(2);
+describe('таймлайн по дням', () => {
+  const r26 = { from: '2026-01-01', to: '2026-12-31', days: 365 };
+  const r28 = { from: '2028-01-01', to: '2028-12-31', days: 366 };
+  it('индекс дня и обрезка по границам года', () => {
+    expect(dayIndex('2026-01-01', '2026-01-01')).toBe(0);
+    expect(dayIndex('2026-01-01', '2026-12-31')).toBe(364);
+    expect(dayIndex('2028-01-01', '2028-12-31')).toBe(365); // високосный год
+    expect(dayIndex('2028-01-01', '2028-03-01') - dayIndex('2028-01-01', '2028-02-28')).toBe(2); // 29 февраля есть
+    expect(daySpan(r26, '2026-03-01', '2026-03-01')).toEqual({ startDay: 59, endDay: 59 }); // полоса в один день
+    expect(daySpan(r26, '2025-12-20', '2026-01-09')).toEqual({ startDay: 0, endDay: 8 }); // стык лет: начало обрезано
+    expect(daySpan(r26, '2026-12-20', '2027-01-09')).toEqual({ startDay: 353, endDay: 364 }); // конец обрезан
+    expect(daySpan(r26, '2025-11-01', '2025-12-31')).toBeNull();
+    expect(daySpan(r26, '2027-01-01', '2027-02-01')).toBeNull();
   });
-  it('жадная укладка по строкам, дорожки раздельно, несколько сегментов', () => {
+  it('проценты ширины: один день и весь год', () => {
+    expect(spanPct(0, 364, 365)).toEqual({ left: 0, width: 100 });
+    const one = spanPct(59, 59, 365);
+    expect(one.width).toBeCloseTo(100 / 365, 6);
+    expect(one.left).toBeCloseTo((59 / 365) * 100, 6);
+  });
+  it('границы месяцев (февраль в високосный год 29 дней)', () => {
+    const feb = monthSpans([{ from: '2028-01-01', days: 31 }, { from: '2028-02-01', days: 29 }, { from: '2028-03-01', days: 31 }], r28);
+    expect(feb.map((m) => m.startDay)).toEqual([0, 31, 60]);
+    expect(feb[1].startDay + feb[1].days).toBe(feb[2].startDay);
+  });
+  it('очередь одной дорожкой: соседние игры встык делят неделю, но не уходят на другую строку; чередование тона', () => {
     const it = (key: string, kind: string, segs: [string, string][]) => ({
       ...e(key, { kind }), start: segs[0][0], end: segs[segs.length - 1][1], days: 1, shiftedDays: 0, queuePosition: 1,
       segments: segs.map(([from, to]) => ({ from, to, days: 1, hours: 1 })),
     }) as unknown as PlanItem;
     const { bars, rows } = layoutBars([
-      it('g:1', 'backlog', [['2026-01-01', '2026-01-11']]), it('g:2', 'backlog', [['2026-01-05', '2026-01-05'], ['2026-01-12', '2026-01-18']]),
+      it('g:1', 'backlog', [['2026-01-01', '2026-01-10']]), it('g:2', 'backlog', [['2026-01-11', '2026-01-12']]), it('g:3', 'backlog', [['2026-01-13', '2026-01-13']]),
       it('p:1', 'release', [['2026-01-05', '2026-01-11']]),
-    ], weeks);
-    expect(rows).toEqual({ release: 1, queue: 2 });
-    expect(bars.filter((b) => b.lane === 'queue').map((b) => [b.key, b.row])).toEqual([['g:1', 0], ['g:2', 1], ['g:2', 0]]);
+    ], r26);
+    expect(rows).toEqual({ release: 1, queue: 1 });
+    const q = bars.filter((b) => b.lane === 'queue');
+    expect(q.map((b) => [b.key, b.row, b.startDay, b.endDay, b.alt])).toEqual([['g:1', 0, 0, 9, 0], ['g:2', 0, 10, 11, 1], ['g:3', 0, 12, 12, 0]]);
+  });
+  it('пересечение по дням даёт вторую строку; несколько сегментов', () => {
+    const it = (key: string, kind: string, segs: [string, string][]) => ({
+      ...e(key, { kind }), start: segs[0][0], end: segs[segs.length - 1][1], days: 1, shiftedDays: 0, queuePosition: 1,
+      segments: segs.map(([from, to]) => ({ from, to, days: 1, hours: 1 })),
+    }) as unknown as PlanItem;
+    const { bars, rows } = layoutBars([
+      it('p:1', 'release', [['2026-01-05', '2026-01-11']]), it('p:2', 'release', [['2026-01-10', '2026-01-12']]),
+      it('g:2', 'backlog', [['2026-01-05', '2026-01-05'], ['2026-01-12', '2026-01-18']]),
+    ], r26);
+    expect(rows).toEqual({ release: 2, queue: 1 });
+    expect(bars.filter((b) => b.key === 'g:2').map((b) => b.segIndex)).toEqual([0, 1]);
     expect(periodText(it('g:2', 'backlog', [['2026-01-05', '2026-01-05'], ['2026-01-12', '2026-01-18']]))).toBe('5 янв. и 12–18 янв.');
   });
 });
@@ -169,11 +197,40 @@ describe('предстоящие релизы', () => {
   const c = (id: string, o: Record<string, unknown> = {}) => ({
     externalSource: 'rawg', externalId: id, title: `T${id}`, releaseDate: '2026-12-01', coverUrl: null, platforms: [], playstation: true, planned: false, unallocated: false, plannedId: null, ...o,
   }) as unknown as Parameters<typeof appendUnique>[0][number];
-  it('состояние: актуальные списки важнее пометок каталога', () => {
-    expect(upcomingState(c('1'), null, null)).toBe('new');
-    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), new Set([5]), new Set())).toBe('planned');
-    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), new Set(), new Set([5]))).toBe('unallocated');
-    expect(upcomingState(c('1', { planned: true, unallocated: true, plannedId: 5 }), null, null)).toBe('unallocated');
+  it('состояние по всем записям: externalId и plannedId, пометки каталога только пока список не загружен', () => {
+    const rec = (id: number, ext: string | null, status: 'planned' | 'cancelled' | 'done') => ({ id, externalId: ext, status });
+    expect(upcomingState(c('1'), null)).toEqual({ state: 'new', plannedId: null });
+    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), null)).toEqual({ state: 'planned', plannedId: 5 });
+    // кандидат загружен ДО добавления (plannedId=null), запись появилась позже: ищем по externalId
+    expect(upcomingState(c('1'), [rec(5, '1', 'planned')])).toEqual({ state: 'planned', plannedId: 5 });
+    // убрали из плана: cancelled = «Не распределено», plannedId для «Вернуть»
+    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), [rec(5, '1', 'cancelled')])).toEqual({ state: 'unallocated', plannedId: 5 });
+    // запись без externalId (ручная правка) находится по plannedId
+    expect(upcomingState(c('1', { plannedId: 5 }), [rec(5, null, 'cancelled')]).state).toBe('unallocated');
+    // удалена совсем: можно добавить заново, даже если пометка каталога устарела
+    expect(upcomingState(c('1', { planned: true, plannedId: 5 }), [])).toEqual({ state: 'new', plannedId: null });
+    expect(upcomingState(c('1'), [rec(5, '1', 'done')]).state).toBe('planned');
+  });
+  it('подсказка «на позицию»', () => {
+    const f = (o: Record<string, unknown>) => ({ key: 'g:1', reason: 'no_capacity', ...o }) as unknown as Parameters<typeof insertHint>[0];
+    expect(insertHint(f({}))).toBeNull();
+    expect(insertHint(f({ insertAt: null, displacesAtInsert: null }))).toBeNull(); // проба не считалась
+    expect(insertHint(f({ insertAt: null, displacesAtInsert: 0 }))).toEqual({ kind: 'never', line: 'Нигде не влезет: слишком длинная или мешают релизы' });
+    expect(insertHint(f({ insertAt: 3, displacesAtInsert: 0, displacedTitles: [] }))).toMatchObject({ kind: 'insert', at: 3, warn: false, line: 'Влезет на позиции 3, никого не вытеснит' });
+    expect(insertHint(f({ insertAt: 2, displacesAtInsert: 2, displacedTitles: ['А', 'Б'] }))).toMatchObject({ warn: true, line: 'Влезет на позиции 2, вытеснит 2: «А», «Б»' });
+    expect(insertHint({ ...f({ insertAt: 2, displacesAtInsert: 0 }), key: 'p:1' })).toBeNull();
+    expect(insertHint(f({ insertAt: 2, displacesAtInsert: 0, reason: 'after_year_end' }))).toBeNull();
+  });
+  it('вставка игры на позицию по ключам сохраняет остальной порядок', () => {
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3', 'g:4'], 'g:4', 2)).toEqual(['g:1', 'g:4', 'g:2', 'g:3']);
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3'], 'g:1', 3)).toEqual(['g:2', 'g:3', 'g:1']);
+    expect(orderWithAtPosition(['g:1', 'g:2'], 'g:9', 1)).toEqual(['g:1', 'g:2']);
+    expect(orderWithAtPosition(['g:1', 'g:2', 'g:3'], 'g:3', 99)).toEqual(['g:1', 'g:2', 'g:3']);
+  });
+  it('тост после «Убрать из плана»', () => {
+    expect(removedToast(3, 1)).toBe('Убрано из плана. Не успеваю: было 3, стало 1');
+    expect(removedToast(0, 0)).toBe('Убрано из плана');
+    expect(placedToast(2, 3, 2)).toBe('Поставлено на позицию 2. Не успеваю: было 3, стало 2');
   });
   it('тело POST: галка на релизе по умолчанию, часы пустые', () => {
     expect(upcomingBody(c('9'))).toEqual({ title: 'T9', releaseDate: '2026-12-01', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '9' });

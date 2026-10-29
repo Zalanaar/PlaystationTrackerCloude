@@ -285,5 +285,31 @@ describe('roadmap на БД', () => {
       expect(r.map((x) => [x.planned, x.unallocated, x.plannedId])).toEqual([[true, false, a.id], [true, true, b.id], [true, false, c.id], [false, false, null]]);
       expect(await markPlanned(t.db, [])).toEqual([]);
     });
+
+    it('после исключения GET /roadmap пересчитывает notFit (без кэша): игра ДО не влезшей освобождает место, игра ПОСЛЕ нет', async () => {
+      const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+      const ins = await t.db
+        .insert(games)
+        .values([
+          { ...base, titleId: 'P', name: 'First', hltbMainHours: 300 },
+          { ...base, titleId: 'Q', name: 'Second', hltbMainHours: 300 },
+          { ...base, titleId: 'R', name: 'Third', hltbMainHours: 100 },
+        ])
+        .returning({ id: games.id });
+      await t.db.insert(gameStatus).values(ins.map((g, i) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() + i) })));
+      await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
+      const [p, q, r3] = ins.map((g) => g.id);
+      await saveOrder(t.db, [p, q, r3]);
+      const short = async () => (await getRoadmap(t.db, NOW)).notFit.find((n) => n.gameId === q);
+      const first = await short();
+      expect(first).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6, insertAt: 1, displacesAtInsert: 1, displacedTitles: ['First'] });
+      await excludeGame(t.db, r3); // после Second: ничего не меняется
+      expect(await short()).toMatchObject({ hoursShort: 78.6 });
+      await excludeGame(t.db, p); // до Second: теперь влезает
+      const after = await getRoadmap(t.db, NOW);
+      expect(after.notFit).toEqual([]);
+      expect(after.items.map((i) => i.gameId)).toEqual([q]);
+      expect(after.unallocated.map((u) => u.gameId).sort()).toEqual([p, r3].sort());
+    });
   });
 });

@@ -32,7 +32,14 @@ export type ConflictReason = 'release_overlap' | 'exceeds_year_end' | 'starts_be
 export type Conflict = { reason: ConflictReason; from: string; to: string; keys: string[] };
 
 export type NotFitReason = 'no_capacity' | 'exceeds_year_end' | 'after_year_end';
-export type NotFitEntry = RoadmapEntry & { reason: NotFitReason; hoursShort: number | null };
+export type NotFitEntry = RoadmapEntry & {
+  reason: NotFitReason;
+  hoursShort: number | null;
+  /** Только для g:* с reason no_capacity (17.15). null = нигде не влезет (insertAt) или проба не считалась (бюджет). */
+  insertAt?: number | null;
+  displacesAtInsert?: number | null;
+  displacedTitles?: string[] | null;
+};
 
 export type QueueState = 'scheduled' | 'not_fit' | 'need_hours' | 'unplanned';
 export type QueueRef = { key: string; state: QueueState };

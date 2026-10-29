@@ -8,7 +8,8 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 export const fetchRoadmap = (signal?: AbortSignal) => call<RoadmapResponse>('/api/roadmap', { signal });
 export const putSettings = (year: number, hoursPerWeek: number) =>
   call<{ settings: SettingsView }>('/api/roadmap/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ year, hoursPerWeek }) });
-export const fetchPlanned = (signal?: AbortSignal) => call<{ planned: PlannedGameDto[] }>('/api/roadmap/planned?status=planned', { signal });
+/** Все записи планируемых игр (любой статус): блок «Релизы» берёт `planned`, «Предстоящие» сверяются по всем. */
+export const fetchPlanned = (signal?: AbortSignal) => call<{ planned: PlannedGameDto[] }>('/api/roadmap/planned?status=all', { signal });
 export const postPlanned = (body: PlannedBody) =>
   call<{ planned: PlannedGameDto }>('/api/roadmap/planned', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) });
 export type PlannedPatch = Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>> & { status?: 'planned' | 'unallocated' };

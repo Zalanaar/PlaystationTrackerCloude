@@ -1,7 +1,7 @@
 // Чистая логика экрана «План»: форматирование, склейка списков ответа по key, перестановка, раскладка полос, проверка форм.
 // Только import type из server (контракт docs/api-contract.md §17).
 import type {
-  Conflict, NotFitEntry, PlanItem, PlanSegment, PlannedGameDto, Progress, QueueState, RoadmapEntry, RoadmapResponse, WeekLoad,
+  Conflict, NotFitEntry, PlanItem, PlanSegment, PlannedGameDto, Progress, QueueState, RoadmapEntry, RoadmapResponse,
 } from '@/server/roadmap/types';
 import { plural } from '../format';
 
@@ -98,48 +98,66 @@ export function yearOptions(todayIso: string): { min: number; max: number } {
   return { min: y - 3, max: y + 1 };
 }
 
-// ---------- Недели и полосы ----------
-/** Индекс (0-based) недели, в которую попадает дата; до начала года = 0, после конца = последняя; -1 при пустом списке. */
-export function weekPos(weeks: readonly Pick<WeekLoad, 'from' | 'to'>[], iso: string): number {
-  if (!weeks.length) return -1;
-  if (iso < weeks[0].from) return 0;
-  for (let i = 0; i < weeks.length; i++) if (iso <= weeks[i].to) return i;
-  return weeks.length - 1;
+// ---------- Дни и полосы ----------
+/** Диапазон плана: from/to включительно, days = число дней. */
+export type DayRange = { from: string; to: string; days: number };
+
+/** Номер дня от начала диапазона (0-based); до начала отрицательный, после конца больше days-1. */
+export function dayIndex(rangeFrom: string, iso: string): number {
+  return dayNumber(iso) - dayNumber(rangeFrom);
 }
 
-/** Первая неделя каждого месяца: индекс недели, в которую попал 1-е число (янв = 0). */
-export function monthStartWeeks(weeks: readonly WeekLoad[], year: number): number[] {
-  return Array.from({ length: 12 }, (_, m) => weekPos(weeks, `${year}-${String(m + 1).padStart(2, '0')}-01`));
+/** Отрезок дат -> дни диапазона (0-based, включительно), обрезанные границами года; null, если целиком вне. */
+export function daySpan(range: DayRange, from: string, to: string): { startDay: number; endDay: number } | null {
+  const a = dayIndex(range.from, from);
+  const b = dayIndex(range.from, to);
+  if (Number.isNaN(a) || Number.isNaN(b) || b < 0 || a > range.days - 1) return null;
+  return { startDay: Math.max(0, a), endDay: Math.min(range.days - 1, Math.max(a, b)) };
+}
+
+/** Проценты ширины: левый край и ширина полосы [startDay..endDay] из days дней. */
+export function spanPct(startDay: number, endDay: number, days: number): { left: number; width: number } {
+  return { left: (startDay / days) * 100, width: ((endDay - startDay + 1) / days) * 100 };
+}
+
+/** Месяцы по реальным границам: начало (день диапазона) и длина. */
+export function monthSpans(months: readonly { from: string; days: number }[], range: DayRange): { startDay: number; days: number }[] {
+  return months.map((m) => ({ startDay: dayIndex(range.from, m.from), days: m.days }));
 }
 
 export type Lane = 'release' | 'queue';
 export type Bar = {
   key: string; lane: Lane; item: PlanItem; seg: PlanSegment; segIndex: number; segCount: number;
-  /** колонки недель 1-based включительно */
-  startWeek: number; endWeek: number; row: number;
+  /** дни диапазона 0-based включительно */
+  startDay: number; endDay: number; row: number;
+  /** чередование тона соседних полос очереди (0/1) */
+  alt: 0 | 1;
 };
 
-/** Полосы по сегментам; дорожки: релизы с галкой / остальное. Пересекающиеся по неделям полосы дорожки укладываются жадно по строкам. */
-export function layoutBars(items: readonly PlanItem[], weeks: readonly WeekLoad[]): { bars: Bar[]; rows: Record<Lane, number> } {
-  const raw: Omit<Bar, 'row'>[] = [];
+/**
+ * Полосы по сегментам, позиция по ДНЯМ. Дорожки: релизы с галкой / очередь. Строка дорожки одна,
+ * дополнительные строки только если полосы реально пересекаются по дням.
+ */
+export function layoutBars(items: readonly PlanItem[], range: DayRange): { bars: Bar[]; rows: Record<Lane, number> } {
+  const raw: Omit<Bar, 'row' | 'alt'>[] = [];
   for (const item of items) {
     const lane: Lane = item.kind === 'release' ? 'release' : 'queue';
     item.segments.forEach((seg, i) => {
-      const s = weekPos(weeks, seg.from) + 1;
-      const e = Math.max(s, weekPos(weeks, seg.to) + 1);
-      raw.push({ key: item.key, lane, item, seg, segIndex: i, segCount: item.segments.length, startWeek: s, endWeek: e });
+      const sp = daySpan(range, seg.from, seg.to);
+      if (sp) raw.push({ key: item.key, lane, item, seg, segIndex: i, segCount: item.segments.length, ...sp });
     });
   }
-  raw.sort((a, b) => a.startWeek - b.startWeek || a.endWeek - b.endWeek || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) || a.segIndex - b.segIndex);
+  raw.sort((a, b) => a.startDay - b.startDay || a.endDay - b.endDay || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) || a.segIndex - b.segIndex);
   const bars: Bar[] = [];
   const rows: Record<Lane, number> = { release: 0, queue: 0 };
   for (const lane of ['release', 'queue'] as const) {
     const last: number[] = [];
+    let n = 0;
     for (const r of raw.filter((b) => b.lane === lane)) {
-      let row = last.findIndex((end) => end < r.startWeek);
-      if (row < 0) { row = last.length; last.push(0); }
-      last[row] = r.endWeek;
-      bars.push({ ...r, row });
+      let row = last.findIndex((end) => end < r.startDay);
+      if (row < 0) { row = last.length; last.push(-1); }
+      last[row] = r.endDay;
+      bars.push({ ...r, row, alt: (n++ % 2) as 0 | 1 });
     }
     rows[lane] = last.length;
   }
@@ -490,13 +508,18 @@ export function mergeVisibleOrder(full: readonly string[], visible: readonly str
 export type UpcomingCandidate = CatalogCandidateView & { planned: boolean; unallocated: boolean; plannedId: number | null };
 export type UpcomingState = 'new' | 'planned' | 'unallocated';
 
-/** Состояние строки: актуальные списки (релизы, «Не распределено») важнее пометок каталога на момент загрузки. */
-export function upcomingState(c: Pick<UpcomingCandidate, 'planned' | 'unallocated' | 'plannedId'>, plannedIds: ReadonlySet<number> | null, unallocatedIds: ReadonlySet<number> | null): UpcomingState {
-  if (c.plannedId !== null) {
-    if (plannedIds?.has(c.plannedId)) return 'planned';
-    if (unallocatedIds?.has(c.plannedId)) return 'unallocated';
-  }
-  return c.unallocated ? 'unallocated' : c.planned ? 'planned' : 'new';
+/**
+ * Состояние строки каталога по ВСЕМ записям планируемых игр (любой статус): ищем по externalId и по plannedId.
+ * Запись `cancelled` = «Не распределено», `planned`/`done` = «В плане», записи нет (удалена) = можно добавить заново.
+ * Пока список записей не загружен, берём пометки каталога.
+ */
+export function upcomingState(
+  c: Pick<UpcomingCandidate, 'planned' | 'unallocated' | 'plannedId' | 'externalId'>, all: readonly Pick<PlannedGameDto, 'id' | 'status' | 'externalId'>[] | null,
+): { state: UpcomingState; plannedId: number | null } {
+  if (!all) return { state: c.unallocated ? 'unallocated' : c.planned ? 'planned' : 'new', plannedId: c.plannedId };
+  const rec = all.find((g) => g.externalId !== null && g.externalId === c.externalId) ?? (c.plannedId !== null ? all.find((g) => g.id === c.plannedId) : undefined);
+  if (!rec) return { state: 'new', plannedId: null };
+  return { state: rec.status === 'cancelled' ? 'unallocated' : 'planned', plannedId: rec.id };
 }
 
 /** Тело POST «В план» из строки каталога: галка «на релизе» включена, часы потом вручную. */
@@ -559,4 +582,40 @@ export function dropOrder(rows: readonly QueueRow[], dragKey: string, overKey: s
   if (from < 0 || over < 0) return null;
   const to = dropTarget(from, over, side);
   return to === null ? null : moveTo(keys, from, to);
+}
+
+// ---------- «Не успеваю»: на какую позицию поставить игру (поля backend insertAt, displacesAtInsert, displacedTitles; контракт 17.15) ----------
+export type NotFitView = NotFitEntry & { insertAt?: number | null; displacesAtInsert?: number | null; displacedTitles?: string[] | null };
+
+export type InsertHint =
+  | { kind: 'insert'; at: number; displaces: number; line: string; warn: boolean }
+  | { kind: 'never'; line: string };
+
+/** Подсказка по строке «Не успеваю»: null = полей нет (проба не считалась) или это не g:* с no_capacity. */
+export function insertHint(e: NotFitView): InsertHint | null {
+  if (!e.key.startsWith('g:') || e.reason !== 'no_capacity' || e.insertAt === undefined) return null;
+  if (e.insertAt === null) {
+    return e.displacesAtInsert === null || e.displacesAtInsert === undefined ? null : { kind: 'never', line: 'Нигде не влезет: слишком длинная или мешают релизы' };
+  }
+  const n = e.displacesAtInsert ?? 0;
+  const titles = (e.displacedTitles ?? []).map((t) => `«${t}»`).join(', ');
+  return {
+    kind: 'insert', at: e.insertAt, displaces: n, warn: n > 0,
+    line: n > 0 ? `Влезет на позиции ${e.insertAt}, вытеснит ${n}${titles ? `: ${titles}` : ''}` : `Влезет на позиции ${e.insertAt}, никого не вытеснит`,
+  };
+}
+
+/** Полный порядок g:* с игрой `key` на позиции `at` (1-based) среди всех g:* очереди; вставка по ключам, остальной порядок сохраняется. */
+export function orderWithAtPosition(full: readonly string[], key: string, at: number): string[] {
+  if (!full.includes(key)) return [...full];
+  const rest = full.filter((k) => k !== key);
+  const i = Math.max(0, Math.min(rest.length, Math.floor(at) - 1));
+  return [...rest.slice(0, i), key, ...rest.slice(i)];
+}
+
+export const placedToast = (pos: number, before: number, after: number): string => `Поставлено на позицию ${pos}. Не успеваю: было ${before}, стало ${after}`;
+
+/** Текст тоста после «Убрать из плана»: сколько игр было и стало в «Не успеваю». */
+export function removedToast(before: number, after: number): string {
+  return before === 0 && after === 0 ? 'Убрано из плана' : `Убрано из плана. Не успеваю: было ${before}, стало ${after}`;
 }
