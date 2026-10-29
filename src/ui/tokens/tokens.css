@@ -117,6 +117,14 @@
   /* Свечение hero «Играю» цветом обложки. Работает только в Night (там --tint = обложка); в остальных темах --tint = акцент темы */
   --tint-glow: 0 0 0 1px color-mix(in srgb, var(--tint) 35%, transparent), 0 14px 44px color-mix(in srgb, var(--tint) 24%, transparent);
 
+  /* Роадмап (спека фазы 12, п.1): геометрия и фон конфликта. Значения общие для всех тем */
+  --rm-bar-h: 36px;          /* высота полосы игры на таймлайне */
+  --rm-axis-h: 28px;         /* высота оси месяцев */
+  --rm-label-w: 88px;        /* колонка подписей дорожек */
+  --rm-row-h: 64px;          /* минимальная высота строки очереди (моб. 96) */
+  --rm-conflict-bg: color-mix(in srgb, var(--danger) 22%, var(--surface-2));
+  --rm-conflict-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--danger) 30%, transparent) 0 2px, transparent 2px 7px);
+
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
   --dur-slide: 7000ms; /* автопереход Wrapped */
@@ -159,6 +167,7 @@
     --plat-corner: 38px; --plat-corner-icon: 14px;
     --gd-art-h: 176px; --gd-art-h-compact: 120px; --gd-cover-w: 80px; --gd-cover-over: 24px;
     --heat-cell: 12px; --heat-gap: 3px;
+    --rm-row-h: 96px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }
