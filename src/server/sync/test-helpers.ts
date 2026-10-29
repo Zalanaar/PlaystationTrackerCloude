@@ -70,6 +70,10 @@ export function fakeApi(state: FakeState): PsnApi {
     return items.slice(offset, offset + size);
   };
   const api = {
+    getProfileFromAccountId: async () => {
+      hit('profileByAccount');
+      return { onlineId: 'Target', avatars: [] };
+    },
     getProfileFromUserName: async () => {
       hit('profile');
       return {

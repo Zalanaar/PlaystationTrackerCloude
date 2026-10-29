@@ -327,7 +327,7 @@ describe('mapProfile', () => {
   });
   it('нет trophySummary и avatarUrls: поля null, профиль есть', () => {
     expect(mapProfile({ profile: { onlineId: 'X' } })).toEqual({
-      onlineId: 'X', avatarUrl: null, trophyLevel: null, trophyProgress: null, trophyTier: null, earned: null,
+      onlineId: 'X', avatarUrl: null, avatarDiag: 'avatarUrls: нет поля; personalDetail.profilePictureUrls: нет поля', trophyLevel: null, trophyProgress: null, trophyTier: null, earned: null,
     });
   });
   it('мусор: отрицательные и нечисловые значения = null, progress режется до 100, неполные счётчики = null', () => {

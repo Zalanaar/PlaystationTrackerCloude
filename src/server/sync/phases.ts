@@ -122,6 +122,7 @@ export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Da
     ctx.warn('profile_missing', 'PSN не отдал профиль (аватар и сводка трофеев не обновлены).');
     return;
   }
+  if (!p.avatarUrl) ctx.warn('avatar_missing', `PSN не отдал адрес аватара. ${p.avatarDiag ?? 'нет данных'}`.slice(0, 500));
   const values = {
     id: 1,
     onlineId: p.onlineId,

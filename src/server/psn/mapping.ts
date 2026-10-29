@@ -83,6 +83,60 @@ export function pickBanner(images: unknown): string | null {
   return wide ? httpsUrl(wide.url) : null;
 }
 
+const AVATAR_RANK: Record<string, number> = { xl: 5, l: 4, m: 3, s: 2, xs: 1 };
+
+/** Короткое безопасное описание одного адреса: схема и хост, без пути и параметров. */
+function urlShape(v: unknown): string {
+  const s = str(v)?.trim();
+  if (!s) return 'empty';
+  try {
+    const u = new URL(s);
+    const host = /^[a-z0-9.-]{1,80}$/i.test(u.hostname) ? u.hostname.toLowerCase() : 'odd-host';
+    return `${u.protocol.replace(':', '')}://${host}${psnAvatarUrl(s) ? '' : ' (rejected)'}`;
+  } catch {
+    return 'invalid-url';
+  }
+}
+
+/** Самый крупный годный адрес из массива `{size, <urlKey>}`; diag описывает массив без секретов. */
+export function pickAvatar(list: unknown, urlKey: string, label: string): { url: string | null; diag: string } {
+  if (list === undefined || list === null) return { url: null, diag: `${label}: нет поля` };
+  if (!Array.isArray(list)) return { url: null, diag: `${label}: не массив (${typeof list})` };
+  let url: string | null = null;
+  let best = -1;
+  const shapes: string[] = [];
+  for (const a of list) {
+    if (!isObj(a)) {
+      shapes.push('не объект');
+      continue;
+    }
+    const size = typeof a.size === 'string' && /^[a-z0-9]{1,8}$/i.test(a.size) ? a.size : '?';
+    shapes.push(`${size}=${urlShape(a[urlKey])}`);
+    const candidate = psnAvatarUrl(a[urlKey]);
+    if (!candidate) continue;
+    const r = typeof a.size === 'string' ? (AVATAR_RANK[a.size.toLowerCase()] ?? 0) : 0;
+    if (r > best) {
+      best = r;
+      url = candidate;
+    }
+  }
+  return { url, diag: `${label}: ${list.length} шт${shapes.length ? ` [${shapes.slice(0, 6).join(', ')}]` : ''}` };
+}
+
+/** Аватар из ответа профиля getProfileFromUserName: avatarUrls, затем personalDetail.profilePictureUrls. */
+function profileAvatar(p: Obj): { url: string | null; diag: string } {
+  const a = pickAvatar(p.avatarUrls, 'avatarUrl', 'avatarUrls');
+  if (a.url) return a;
+  const pd = isObj(p.personalDetail) ? p.personalDetail : null;
+  const b = pickAvatar(pd?.profilePictureUrls, 'profilePictureUrl', 'personalDetail.profilePictureUrls');
+  return b.url ? b : { url: null, diag: `${a.diag}; ${b.diag}` };
+}
+
+/** Аватар из ответа getProfileFromAccountId: avatars[].url (запасной источник). */
+export function mapAccountAvatar(raw: unknown): { url: string | null; diag: string } {
+  return pickAvatar(isObj(raw) ? raw.avatars : undefined, 'url', 'accountId.avatars');
+}
+
 /** Профиль из getProfileFromUserName (защитно). null, если нет onlineId. avatarUrls: берём самый крупный по size. */
 export function mapProfile(raw: unknown): PsnProfile | null {
   const p = isObj(raw) && isObj(raw.profile) ? raw.profile : null;
@@ -90,22 +144,8 @@ export function mapProfile(raw: unknown): PsnProfile | null {
   const onlineId = str(p.onlineId);
   if (!onlineId) return null;
 
-  let avatarUrl: string | null = null;
-  if (Array.isArray(p.avatarUrls)) {
-    // size: 'xl' | 'l' | 'm' | 's' | 'xs'
-    const rank: Record<string, number> = { xl: 5, l: 4, m: 3, s: 2, xs: 1 };
-    let best = -1;
-    for (const a of p.avatarUrls) {
-      if (!isObj(a)) continue;
-      const url = psnAvatarUrl(a.avatarUrl);
-      if (!url) continue;
-      const r = typeof a.size === 'string' ? (rank[a.size.toLowerCase()] ?? 0) : 0;
-      if (r > best) {
-        best = r;
-        avatarUrl = url;
-      }
-    }
-  }
+  const av = profileAvatar(p);
+  const avatarUrl = av.url;
 
   const ts = isObj(p.trophySummary) ? p.trophySummary : null;
   const optInt = (v: unknown, max: number): number | null =>
@@ -117,6 +157,7 @@ export function mapProfile(raw: unknown): PsnProfile | null {
   return {
     onlineId,
     avatarUrl,
+    ...(avatarUrl ? {} : { avatarDiag: av.diag }),
     trophyLevel: optInt(ts?.level, 32767),
     trophyProgress: optInt(ts?.progress, 100),
     trophyTier: optInt(ts?.tier, 32767),

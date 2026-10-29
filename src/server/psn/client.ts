@@ -2,13 +2,14 @@
 // Единственное место, откуда синк обращается к psn-api.
 import * as psnLib from 'psn-api';
 import { PsnError, classifyPsnError } from './errors';
-import { mapEarnedTrophy, mapPlayedTitles, mapProfile, mapTrophyDef, mapTrophyTitle } from './mapping';
+import { mapAccountAvatar, mapEarnedTrophy, mapPlayedTitles, mapProfile, mapTrophyDef, mapTrophyTitle } from './mapping';
 import type { PlayedGamesResult, PsnClient, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophySetRef } from './types';
 
 /** Подмножество psn-api, которое нам нужно (подменяется в тестах JSON-образцами). */
 export type PsnApi = Pick<
   typeof psnLib,
   | 'getProfileFromUserName'
+  | 'getProfileFromAccountId'
   | 'getUserPlayedGames'
   | 'getUserTitles'
   | 'getUserTrophiesForSpecificTitle'
@@ -91,6 +92,17 @@ export async function connectPsn(deps: ClientDeps): Promise<PsnClient> {
     mappedProfile = mapProfile(profile);
   } catch {
     // профиль необязателен: ошибка маппинга не должна ронять синк
+  }
+  // Запасной источник аватара: другой эндпоинт PSN по accountId. Любой сбой молча игнорируется (профиль необязателен).
+  if (mappedProfile && !mappedProfile.avatarUrl && typeof api.getProfileFromAccountId === 'function') {
+    try {
+      await sleep(deps.delayMs);
+      const alt = mapAccountAvatar(await call((auth) => api.getProfileFromAccountId(auth, accountId)));
+      if (alt.url) mappedProfile = { ...mappedProfile, avatarUrl: alt.url, avatarDiag: undefined };
+      else mappedProfile = { ...mappedProfile, avatarDiag: `${mappedProfile.avatarDiag ?? ''}; ${alt.diag}` };
+    } catch {
+      mappedProfile = { ...mappedProfile, avatarDiag: `${mappedProfile.avatarDiag ?? ''}; accountId.avatars: запрос не удался` };
+    }
   }
 
   return {

@@ -63,6 +63,8 @@ export type PsnProfile = {
   onlineId: string;
   /** самый крупный из avatarUrls */
   avatarUrl: string | null;
+  /** Безопасная диагностика, почему аватара нет (только если avatarUrl = null): без токенов и полных URL. */
+  avatarDiag?: string;
   trophyLevel: number | null;
   /** 0..100 до следующего уровня */
   trophyProgress: number | null;

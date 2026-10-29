@@ -91,4 +91,48 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
     await run();
     expect((await eps()).bannerUrl).toBe('https://img.example/eps-concept.jpg');
   });
+
+  async function runWith(api: ReturnType<typeof fakeApi>) {
+    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    if (s.kind !== 'started') throw new Error('не стартовало');
+    const res = await runChunk({ ...deps(), connect: () => connectPsn({ getAccessToken: async () => 'tok', onlineId: 'Target', delayMs: 0, api, sleep: async () => undefined }) }, s.run);
+    const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, s.run.id));
+    return { res, row };
+  }
+  const profileApi = (profile: Record<string, unknown>, byAccount?: unknown) => ({
+    ...fakeApi(state),
+    getProfileFromUserName: (async () => ({ profile: { accountId: '1234567890', onlineId: 'Target', ...profile } })) as never,
+    ...(byAccount === undefined ? {} : { getProfileFromAccountId: (async () => byAccount) as never }),
+  });
+
+  it('аватара нет нигде: предупреждение avatar_missing с безопасной диагностикой (без полных URL и параметров)', async () => {
+    const { res, row } = await runWith(profileApi({ avatarUrls: [{ size: 'xl', avatarUrl: 'http://evil.example.com/a.png?token=SECRET123' }, { size: 'm', avatarUrl: '' }] }));
+    expect(res.status).toBe('success');
+    const w = JSON.stringify(row.warnings);
+    expect(w).toContain('avatar_missing');
+    expect(w).toContain('avatarUrls: 2 шт');
+    expect(w).toContain('xl=http://evil.example.com (rejected)');
+    expect(w).toContain('accountId.avatars: 0 шт');
+    expect(w).not.toMatch(/SECRET123|a\.png/);
+    expect((await t.db.select().from(psnProfile))[0].avatarUrl).toBeNull();
+  });
+
+  it('нет поля avatarUrls: берём personalDetail.profilePictureUrls (http PSN поднимается до https), предупреждения нет', async () => {
+    const { row } = await runWith(profileApi({ personalDetail: { profilePictureUrls: [{ size: 'l', profilePictureUrl: 'http://static-resource.np.community.playstation.net/p/x.png' }] } }));
+    expect((await t.db.select().from(psnProfile))[0].avatarUrl).toBe('https://static-resource.np.community.playstation.net/p/x.png');
+    expect(JSON.stringify(row.warnings)).not.toContain('avatar_missing');
+  });
+
+  it('запасной источник getProfileFromAccountId: аватар берётся оттуда', async () => {
+    const { row } = await runWith(profileApi({}, { onlineId: 'Target', avatars: [{ size: 'm', url: 'https://img.example/m.png' }, { size: 'xl', url: 'https://img.example/xl.png' }] }));
+    expect((await t.db.select().from(psnProfile))[0].avatarUrl).toBe('https://img.example/xl.png');
+    expect(JSON.stringify(row.warnings)).not.toContain('avatar_missing');
+  });
+
+  it('запасной источник упал: синк успешен, в диагностике есть пометка', async () => {
+    const api = { ...profileApi({}), getProfileFromAccountId: (async () => { throw new Error('boom tok'); }) as never };
+    const { res, row } = await runWith(api);
+    expect(res.status).toBe('success');
+    expect(JSON.stringify(row.warnings)).toContain('запрос не удался');
+  });
 });
