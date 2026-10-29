@@ -62,10 +62,14 @@ export function BacklogView() {
   const serviceRef = useRef<GameItem[] | null>(null);
   useEffect(() => { serviceRef.current = service; }, [service]);
   const serviceReq = useRef(0);
+  // прокрутка к заголовку блока: ниже шапки и липкой панели переключателя (высоты меряем, на мобильном они другие)
   const jumpTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    const headerH = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+    const navH = document.querySelector<HTMLElement>('[data-testid="bl-jump"]')?.offsetHeight ?? 0;
+    const top = window.scrollY + el.getBoundingClientRect().top - Math.max(0, headerH) - navH - 8;
+    window.scrollTo({ top: Math.max(0, top), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     el.focus({ preventScroll: true });
   };
   const loadService = useCallback(async () => {

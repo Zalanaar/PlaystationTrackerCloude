@@ -51,7 +51,7 @@
 .ps-bl-service__n { font-size: var(--fs-small); font-weight: 500; color: var(--text-3); margin-left: var(--sp-1); }
 .ps-bl-service__sub { margin: 0 0 var(--sp-3); font-size: var(--fs-small); color: var(--text-3); }
 
-.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--header-h) + 56px); }
+.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--header-h) + 72px); }
 .ps-bl-h:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
 .ps-bl-service .ps-bl-h { margin-top: 0; }
 .ps-bl-jump { position: sticky; top: var(--header-h); z-index: 5; display: flex; padding: var(--sp-2) 0; background: color-mix(in srgb, var(--bg) 92%, transparent); }

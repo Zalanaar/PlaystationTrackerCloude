@@ -76,3 +76,27 @@ test.describe('Бэклог: блок «Сервис»', () => {
     await expect(page.getByTestId('bl-service').getByRole('button', { name: 'Развернуть' })).toHaveAttribute('aria-expanded', 'false');
   });
 });
+
+test.describe('Бэклог: переход по переключателю не прячет заголовок под липкую панель', () => {
+  const long = (): G[] => [...Array.from({ length: 30 }, (_, i) => g(i + 1, `Игра ${i + 1}`, 'backlog')), g(100, 'Сервис 1', 'service')];
+  for (const [w, h] of [[320, 640], [360, 800], [768, 900], [1280, 900]] as const) {
+    test(`${w} px: заголовок блока ниже нижнего края липкой панели`, async ({ page, context, baseURL }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await open(page, context, baseURL as string, long());
+      const jump = page.getByTestId('bl-jump');
+      for (const [name, id] of [['Сервис', 'h-bl-service'], ['Бэклог', 'h-bl-main']] as const) {
+        await jump.getByRole('button', { name: new RegExp(name) }).click();
+        await expect(page.locator(`#${id}`)).toBeFocused();
+        // ждём конца плавной прокрутки: положение заголовка перестаёт меняться
+        let prev = -1e9;
+        await expect.poll(async () => { const t = await page.evaluate((hid) => Math.round(document.getElementById(hid)!.getBoundingClientRect().top), id); const same = t === prev; prev = t; return same; }, { timeout: 8000, intervals: [250] }).toBe(true);
+        const { head, nav } = await page.evaluate((hid) => ({
+          head: document.getElementById(hid)!.getBoundingClientRect().top,
+          nav: (document.querySelector('[data-testid="bl-jump"]') as HTMLElement).getBoundingClientRect().bottom,
+        }), id);
+        // «Сервис» может упереться в конец страницы (заголовок выше не прокрутить), но не под панель
+        expect(head).toBeGreaterThanOrEqual(nav - 0.5);
+      }
+    });
+  }
+});

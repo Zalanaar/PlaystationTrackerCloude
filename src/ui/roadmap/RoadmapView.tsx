@@ -33,6 +33,8 @@ export function RoadmapView() {
   const [order, setOrder] = useState<string[] | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const dataRef = useRef<RoadmapResponse | null>(null);
+  const moving = useRef(false);
+  const [moving_, setMoving] = useState(false);
   const plannedRef = useRef<PlannedGameDto[] | null>(null);
   const reqRef = useRef(0);
   const pendingOrder = useRef<string[] | null>(null);
@@ -113,8 +115,9 @@ export function RoadmapView() {
     let failed = false;
     try {
       await putOrder(orderGameIds(keys));
-    } catch {
+    } catch (err) {
       failed = true;
+      if (err instanceof ApiError && err.status === 400) void latest.current?.load(); // игра исчезла: перезапрос плана
     }
     inflight.current = false;
     if (pendingOrder.current) return latest.current?.flush();
@@ -254,12 +257,17 @@ export function RoadmapView() {
 
   // ---- «Поставить на позицию N» для не влезшей игры (контракт 17.15: insertAt среди всех g:* очереди) ----
   const moveToPosition = useCallback(async (e: RoadmapEntry, at: number): Promise<void> => {
+    if (moving.current) return; // порядок меняется по одному: следующий считается от обновлённого плана
+    moving.current = true;
+    setMoving(true);
+    try {
     const next = orderWithAtPosition(fullKeysRef.current, e.key, at);
     const before = dataRef.current?.notFit.length ?? 0;
     try {
       await putOrder(orderGameIds(next));
     } catch (err) {
       toast({ kind: 'error', text: `Не удалось поставить на позицию. ${mutationError(err)}` });
+      if (err instanceof ApiError && err.status === 400) void refresh(); // игра исчезла или изменилась: список устарел
       throw err;
     }
     setOrder(null);
@@ -267,6 +275,10 @@ export function RoadmapView() {
     const after = dataRef.current?.notFit.length ?? 0;
     const still = dataRef.current?.notFit.some((x) => x.key === e.key);
     toast({ text: still ? `Не влезла и на позиции ${at}: осталась в «Не успеваю», часы обновлены` : placedToast(at, before, after) });
+    } finally {
+      moving.current = false;
+      setMoving(false);
+    }
   }, [refresh, toast]);
 
   const focusNeed = useCallback((key: string) => {
@@ -351,7 +363,7 @@ export function RoadmapView() {
         )}
         {data && data.notFit.length > 0 && (
           <section className="ps-rm-panel" id="rm-over" data-area="over" aria-label="Не успеваю">
-            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveTo={moveToPosition} />
+            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveTo={moveToPosition} locked={moving_} />
           </section>
         )}
         {data && (data.unallocated ?? []).length > 0 && (

@@ -24,8 +24,8 @@ test.describe('QA: Поставить на позицию', () => {
     insertHints: { 2: { insertAt: 1, displacesAtInsert: 1, displacedTitles: ['Игра А'] }, 3: { insertAt: 2, displacesAtInsert: 0, displacedTitles: [] } }, ...o,
   });
 
-  // BUG-2 (открыт): второй PUT теряет первую перестановку
-  test.fail('гонка: два быстрых клика по разным строкам, второй PUT не должен терять первую перестановку', async ({ page, context, baseURL, isMobile }) => {
+  // BUG-2 (исправлен): второй PUT теряет первую перестановку
+  test('гонка: два быстрых клика по разным строкам, второй PUT не должен терять первую перестановку', async ({ page, context, baseURL, isMobile }) => {
     test.skip(isMobile, 'desktop');
     const s = await open(page, context, baseURL as string, two());
     await page.route(/\/api\/roadmap\/order$/, async (r) => { await new Promise((x) => setTimeout(x, 600)); await r.fallback(); });
@@ -210,9 +210,8 @@ test.describe('QA: таймлайн по дням', () => {
   }
 });
 
-test('BUG-3 (открыт): полоса в 1 день у 31 декабря не должна выходить за дорожку (min-width 6px)', async ({ page, context, baseURL, isMobile }) => {
+test('BUG-3: полоса в 1 день у 31 декабря не должна выходить за дорожку (min-width 6px)', async ({ page, context, baseURL, isMobile }) => {
   test.skip(isMobile, 'desktop');
-  test.fail();
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page, context, baseURL as string, fullYear(2026));
   const over = await page.evaluate(() => { const t = document.querySelector('[data-testid="rm-lane-queue"]')!.getBoundingClientRect(); const bs = document.querySelectorAll('[data-testid="rm-lane-queue"] .ps-rm-bar'); return bs[bs.length - 1].getBoundingClientRect().right - t.right; });

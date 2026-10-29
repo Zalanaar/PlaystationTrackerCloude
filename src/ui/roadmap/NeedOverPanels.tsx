@@ -58,7 +58,7 @@ export function NeedHoursPanel({ list, onSave, onRemove }: { list: readonly Road
 }
 
 /** Блок «Не успеваю»: игры, не влезшие в год. Скрыт, если пусто. Кнопки «Применить N ч в неделю» нет (решение Артёма). */
-export function OverPanel({ list, yearEnd, onRemove, onMoveTo }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void; onMoveTo: (e: NotFitEntry, at: number) => Promise<void> }) {
+export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }: { list: readonly NotFitEntry[]; yearEnd: string; onRemove: (e: NotFitEntry) => void; onMoveTo: (e: NotFitEntry, at: number) => Promise<void>; locked?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   if (!list.length) return null;
   const total = totalShortHours(list);
@@ -87,7 +87,7 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo }: { list: readonl
                 <span className="ps-rm-over__end">
                   {hint.kind === 'insert' && (
                     <button
-                      type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-pos" disabled={busy === r.key}
+                      type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-pos" disabled={busy === r.key || locked}
                       aria-describedby={`end-${r.key}`}
                       onClick={() => { setBusy(r.key); void onMoveTo(r, hint.at).catch(() => {}).finally(() => setBusy(null)); }}
                     >{busy === r.key ? <Spinner size={12} /> : <Icon name="arrow-up" size={14} />}Поставить на позицию {hint.at}</button>
