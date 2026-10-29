@@ -77,11 +77,16 @@ export const SOURCE_TEXT = {
   llm: { label: 'ИИ-формулировка', title: 'Игру выбрал расчёт по твоей истории, ИИ только переписал фразу' },
 } as const;
 
-/** Спокойная строка под сеткой по meta.llm (п.8.2). */
+/** Спокойная строка под сеткой по meta.llm (п.8.2). После 16.4 экран бэклога не вызывает LLM: `limit`/`error` приходят редко. */
 export function llmNote(llm: 'ok' | 'disabled' | 'limit' | 'error'): string | null {
   if (llm === 'limit') return 'Формулировки сегодня по шаблону: дневной лимит ИИ исчерпан.';
   if (llm === 'error') return 'Формулировки временно по шаблону.';
   return null;
+}
+
+/** Пометка «часть фраз появится после ночного синка» (meta.llmPending, 20.4). null при 0 и при выключенном LLM. */
+export function pendingNote(llmPending: number | undefined, llm: string): string | null {
+  return llm !== 'disabled' && typeof llmPending === 'number' && llmPending > 0 ? 'Часть фраз появится после ночного синка.' : null;
 }
 
 export function updatedText(n: number): string {
@@ -221,14 +226,30 @@ export type DiscoverNote = 'refresh-fail' | 'limit' | 'error' | null;
 export const DISCOVER_NOTES = {
   limit: 'Показана прежняя подборка: дневной лимит ИИ на сегодня исчерпан.',
   error: 'Новую подборку получить не удалось. Показана прежняя.',
+  paused: 'Показана прежняя подборка: ИИ временно приостановлен после нескольких неудач, возобновится после ночного синка.',
+  truncated: 'Новую подборку получить не удалось: ответ ИИ оказался неполным. Показана прежняя.',
 } as const;
 
-export type DiscoverView = 'cards' | 'disabled' | 'catalog' | 'limit' | 'error' | 'filtered' | 'unverified';
-/** Что показывать при данных; приоритет: disabled > catalog > пусто (limit/error/ok). */
-export function discoverView(d: { items: readonly unknown[]; meta: { llm: string; catalog: string; verified: number } }): DiscoverView {
+/** Подпись ошибки по `meta.llmReason` (20.6); без причины или с иной причиной, общий текст. */
+export function discoverErrorNote(reason: string | null | undefined): string {
+  return reason === 'paused' ? DISCOVER_NOTES.paused : reason === 'truncated' ? DISCOVER_NOTES.truncated : DISCOVER_NOTES.error;
+}
+
+/** Лимит ручных обновлений «Нового от ИИ» в сутки (20.6). */
+export const DISCOVER_REFRESH_PER_DAY = 3;
+
+/** «Осталось 2 из 3 обновлений за сегодня». */
+export function refreshLeftText(left: number): string {
+  return `Осталось ${left} из ${DISCOVER_REFRESH_PER_DAY} ${plural(DISCOVER_REFRESH_PER_DAY, ['обновления', 'обновлений', 'обновлений'])} за сегодня`;
+}
+
+export type DiscoverView = 'cards' | 'disabled' | 'catalog' | 'not_generated' | 'limit' | 'error' | 'filtered' | 'unverified';
+/** Что показывать при данных; приоритет: disabled > catalog > не создана ночью > пусто (limit/error/ok). */
+export function discoverView(d: { items: readonly unknown[]; meta: { llm: string; catalog: string; verified: number; llmReason?: string | null } }): DiscoverView {
   if (d.items.length > 0) return 'cards';
   if (d.meta.llm === 'disabled') return 'disabled';
   if (d.meta.catalog === 'unavailable') return 'catalog';
+  if (d.meta.llmReason === 'not_generated' && d.meta.llm === 'ok') return 'not_generated';
   if (d.meta.llm === 'limit') return 'limit';
   if (d.meta.llm === 'error') return 'error';
   return d.meta.verified > 0 ? 'filtered' : 'unverified';

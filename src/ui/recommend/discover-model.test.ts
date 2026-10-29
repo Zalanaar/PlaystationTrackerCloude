@@ -48,3 +48,27 @@ describe('режимы «Подскажи» (13b)', () => {
     expect(discoverView(m('ok', 'ok', 0))).toBe('unverified');
   });
 });
+
+import { discoverErrorNote, DISCOVER_NOTES, pendingNote, refreshLeftText } from './model';
+
+describe('Фаза 16.4: llmPending, not_generated, paused, truncated', () => {
+  it('pendingNote', () => {
+    expect(pendingNote(3, 'ok')).toMatch(/ночного синка/);
+    expect(pendingNote(0, 'ok')).toBeNull();
+    expect(pendingNote(3, 'disabled')).toBeNull();
+    expect(pendingNote(undefined, 'ok')).toBeNull();
+  });
+  it('discoverView: not_generated важнее limit/error, но не disabled/catalog', () => {
+    const m = (o: object) => ({ items: [], meta: { llm: 'ok', catalog: 'ok', verified: 0, llmReason: 'not_generated', ...o } });
+    expect(discoverView(m({}))).toBe('not_generated');
+    expect(discoverView(m({ llm: 'disabled' }))).toBe('disabled');
+    expect(discoverView(m({ catalog: 'unavailable' }))).toBe('catalog');
+    expect(discoverView(m({ llm: 'error', llmReason: 'paused' }))).toBe('error');
+  });
+  it('тексты причин и остаток обновлений', () => {
+    expect(discoverErrorNote('paused')).toBe(DISCOVER_NOTES.paused);
+    expect(discoverErrorNote('truncated')).toBe(DISCOVER_NOTES.truncated);
+    expect(discoverErrorNote('timeout')).toBe(DISCOVER_NOTES.error);
+    expect(refreshLeftText(2)).toBe('Осталось 2 из 3 обновлений за сегодня');
+  });
+});

@@ -38,7 +38,9 @@ function RarityMark({ row }: { row: RareRow }) {
 }
 
 /** «Редкие трофеи» (п.7): топ-5 по проценту получивших, за период страницы или за всё время. */
-export function RareTrophies({ data, periodLabel, onOpen }: { data: StatsResponse; periodLabel: string; onOpen: (g: StatsGenreGame) => void }) {
+export function RareTrophies({
+  data, periodLabel, onOpen, withService = false, onWithService,
+}: { data: StatsResponse; periodLabel: string; onOpen: (g: StatsGenreGame) => void; withService?: boolean; onWithService?: (v: boolean) => void }) {
   const [scope, setScope] = useState<RareScope>('period');
   const list = useMemo(() => rareList(data.rareTrophies, scope), [data.rareTrophies, scope]);
   const rows = useMemo(() => rareRows(list), [list]);
@@ -53,6 +55,12 @@ export function RareTrophies({ data, periodLabel, onOpen }: { data: StatsRespons
         </div>
       </div>
       <p className="ps-st-panel__s">{RARE_SUBTITLE}</p>
+      {onWithService && (
+        <label className="ps-rare__svc">
+          <input type="checkbox" checked={withService} onChange={(e) => onWithService(e.target.checked)} />
+          <span>С играми-сервисами</span>
+        </label>
+      )}
       {rows.length === 0 ? (
         <p className="ps-rare__empty">{RARE_EMPTY[scope]}</p>
       ) : (

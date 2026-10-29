@@ -14,7 +14,7 @@ import {
 import { DiscoverCard, type DiscoverBusy } from './DiscoverCard';
 import { HiddenBlock, type HiddenRow } from './HiddenBlock';
 import {
-  DEFAULT_TTL_DAYS, DISCOVER_NOTES, DISCOVER_STAGES, discoverView, generatedText, hiddenForText, pickUpdatedText,
+  DEFAULT_TTL_DAYS, DISCOVER_NOTES, discoverErrorNote, refreshLeftText, DISCOVER_STAGES, discoverView, generatedText, hiddenForText, pickUpdatedText,
   PROGRESS_DELAY_MS, shownTotalText, stageIndex,
 } from './model';
 import { RecSkeleton } from './RecCard';
@@ -291,6 +291,15 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
         {toBacklog('ghost')}
       </StatePanel>
     );
+  } else if (view === 'not_generated') {
+    const canGen = (meta?.refreshLeft ?? 0) > 0;
+    panel = (
+      <StatePanel icon="clock" title="Подборка ещё не создана">
+        <p>Подборка появится после ночного синка или по кнопке обновления.{canGen ? ` ${refreshLeftText(meta?.refreshLeft ?? 0)}.` : ' Обновлений на сегодня не осталось.'}</p>
+        {canGen && refreshBtn('panel')}
+        {toBacklog('ghost')}
+      </StatePanel>
+    );
   } else if (view === 'limit') {
     panel = (
       <StatePanel icon="clock" title="На сегодня подборки закончились">
@@ -301,7 +310,9 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   } else if (view === 'error') {
     panel = (
       <StatePanel icon="circle-alert" title="Подборка пока недоступна">
-        <p>ИИ сейчас не отвечает. Это временно, попробуй чуть позже.</p>
+        <p>{meta?.llmReason === 'paused'
+          ? 'ИИ временно приостановлен после нескольких неудач и возобновится после ночного синка.'
+          : meta?.llmReason === 'truncated' ? 'Ответ ИИ оказался неполным. Попробуй обновить подборку ещё раз.' : 'ИИ сейчас не отвечает. Это временно, попробуй чуть позже.'}</p>
         <button type="button" className="ps-btn" disabled={loading} onClick={retry}><Icon name="refresh" size={14} />Повторить</button>
         {toBacklog('ghost')}
       </StatePanel>
@@ -324,7 +335,7 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   }
 
   const note: ReactNode = view === 'cards' && !refreshErr
-    ? (meta?.llm === 'limit' ? DISCOVER_NOTES.limit : meta?.llm === 'error' ? DISCOVER_NOTES.error : null)
+    ? (meta?.llm === 'limit' ? DISCOVER_NOTES.limit : meta?.llm === 'error' ? discoverErrorNote(meta.llmReason) : null)
     : null;
   const when = meta ? generatedText(meta.generatedAt, now) : null;
   const total = view === 'cards' && meta ? shownTotalText(meta.verified, meta.proposed, items.length) : null;

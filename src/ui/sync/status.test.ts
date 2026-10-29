@@ -55,3 +55,23 @@ describe('sync status mapping', () => {
     expect(startErrorText(500, 'config_error')).toMatch(/не настроен/);
   });
 });
+
+import { isSyncOverdue, overdueAgeText } from './status';
+
+describe('overdue (20.2)', () => {
+  const o = (h: number | null, is = true) => ({ isOverdue: is, ageHours: h, thresholdHours: 30 });
+  it('isSyncOverdue: только при isOverdue и без идущего синка', () => {
+    expect(isSyncOverdue({ running: false, overdue: o(53.2) })).toBe(true);
+    expect(isSyncOverdue({ running: true, overdue: o(53.2) })).toBe(false);
+    expect(isSyncOverdue({ running: false, overdue: o(5, false) })).toBe(false);
+    expect(isSyncOverdue({ running: false })).toBe(false);
+  });
+  it('overdueAgeText: часы, сутки со склонением, null', () => {
+    expect(overdueAgeText(o(31.9))).toBe('31 ч');
+    expect(overdueAgeText(o(53.2))).toBe('53 ч');
+    expect(overdueAgeText(o(72))).toBe('3 дня');
+    expect(overdueAgeText(o(24 * 5))).toBe('5 дней');
+    expect(overdueAgeText(o(24 * 21))).toBe('21 день');
+    expect(overdueAgeText(o(null))).toBe('больше 30 ч');
+  });
+});

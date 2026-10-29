@@ -11,7 +11,7 @@ import { useToast } from '../primitives/Toast';
 import '../recommend.css';
 import { deleteDislike, fetchDislikes, fetchRecommend, postDislike, type DislikeItem, type RecommendResponse } from './api';
 import { HiddenBlock, type HiddenRow } from './HiddenBlock';
-import { DEFAULT_TTL_DAYS, daysText, hiddenForText, llmNote, parseTime, REC_COUNT, recommendHref, TIME_OPTIONS, timeHintText, updatedText, type TimeValue } from './model';
+import { DEFAULT_TTL_DAYS, daysText, hiddenForText, llmNote, parseTime, pendingNote, REC_COUNT, recommendHref, TIME_OPTIONS, timeHintText, updatedText, type TimeValue } from './model';
 import { RecCard, RecSkeleton, type CardBusy } from './RecCard';
 import { useWide } from './useWide';
 
@@ -238,6 +238,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
   }, [active, reload]);
   const toggle = (id: number) => setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const note = data ? llmNote(data.meta.llm) : null;
+  const pending = data ? pendingNote(data.meta.llmPending, data.meta.llm) : null;
   const initial = loading && !data;
 
   const retry = () => { setFatal(null); void load(timeRef.current); };
@@ -353,6 +354,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
           {initial && slow && <p className="ps-rec-note">Подбор занимает дольше обычного…</p>}
           {!initial && items.length > 0 && items.length < REC_COUNT && <p className="ps-rec-note">Подходящих игр в бэклоге: {data?.meta.candidates ?? items.length}</p>}
           {!initial && note && <p className="ps-rec-note ps-rec-note--ic"><Icon name="info" size={12} />{note}</p>}
+          {!initial && !note && pending && <p className="ps-rec-note ps-rec-note--ic" data-testid="rec-pending"><Icon name="info" size={12} />{pending}</p>}
         </>
       )}
 

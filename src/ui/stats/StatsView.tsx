@@ -32,7 +32,8 @@ export function StatsView() {
   const now = useNow();
   const today = useMemo(() => todayMsk(now), [now]);
   const sel = useMemo(() => parseSelection(params, today), [params, today]);
-  const key = selectionKey(sel);
+  const [withService, setWithService] = useState(false);
+  const key = selectionKey(sel) + (withService ? '&withService=1' : '');
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<number[]>([]);
@@ -40,10 +41,12 @@ export function StatsView() {
   const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null } | null>(null);
   const reqId = useRef(0);
 
-  const load = useCallback(async (s: Selection, k: string) => {
+  const load = useCallback(async (s: Selection, k: string, svc: boolean) => {
     const id = ++reqId.current;
     try {
-      const data = await fetchStats(selectionToParams(s));
+      const q = selectionToParams(s);
+      if (svc) q.set('withService', '1');
+      const data = await fetchStats(q);
       if (id !== reqId.current) return;
       setYears(data.years);
       setLoaded({ key: k, data });
@@ -55,9 +58,9 @@ export function StatsView() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => void load(sel, key), 0);
+    const t = setTimeout(() => void load(sel, key, withService), 0);
     return () => clearTimeout(t);
-  }, [load, sel, key]);
+  }, [load, sel, key, withService]);
 
   const go = (s: Selection | null) => {
     if (s) router.push(`${pathname}?${selectionToParams(s).toString()}`, { scroll: false });
@@ -72,7 +75,7 @@ export function StatsView() {
   const loading = !fresh;
 
   // ---------- действия над карточками игр периода ----------
-  const reload = useCallback(() => void load(sel, key), [load, sel, key]);
+  const reload = useCallback(() => void load(sel, key, withService), [load, sel, key, withService]);
   /** Вернуть прошлый статус и его ручную дату (правило 1.3 иначе возьмёт дату последнего запуска). */
   const revert = useCallback(async (prev: GameItem) => {
     try {
@@ -156,7 +159,7 @@ export function StatsView() {
         <StatsSkeleton />
       ) : (
         <div className="ps-st" aria-busy={loading || undefined} data-stale={loading || undefined}>
-          <Content data={data} sel={sel} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onChanged={reload} />
+          <Content data={data} sel={sel} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onChanged={reload} />
         </div>
       )}
       <GameDialog
@@ -189,8 +192,9 @@ function PeriodSwitch({
 }
 
 function Content({
-  data, sel, today, actions, onOpenGame, onOpenStub, onChanged,
+  data, sel, today, actions, onOpenGame, onOpenStub, onChanged, withService, onWithService,
 }: {
+  withService: boolean; onWithService: (v: boolean) => void;
   data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions;
   onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void; onChanged: () => void;
 }) {
@@ -211,7 +215,7 @@ function Content({
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />
           <TrophiesPanel data={data} sel={sel} />
-          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenStub} />
+          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenStub} withService={withService} onWithService={onWithService} />
           <ActivityPanel key={sel.year} defaultYear={sel.year} />
           <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
         </>

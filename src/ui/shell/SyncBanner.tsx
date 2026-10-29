@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatMoscow, needsNewNpsso } from '../sync/status';
+import { formatMoscow, isSyncOverdue, needsNewNpsso, overdueAgeText } from '../sync/status';
 import { Icon } from '../icons';
 import { useSync } from '../sync/SyncProvider';
 import { reasonText } from '../sync/status';
@@ -10,11 +10,31 @@ import { reasonText } from '../sync/status';
 export function SyncBanner() {
   const { status, start, starting, openPanel } = useSync();
   const [hidden, setHidden] = useState(false);
+  const [overdueHidden, setOverdueHidden] = useState(false);
   if (!status || status.running) return null;
   const last = formatMoscow(status.lastSuccessAt);
+  const npsso = needsNewNpsso(status);
+  const overdue = isSyncOverdue(status) && status.overdue && !overdueHidden;
+  const overdueBanner = overdue && status.overdue ? (
+    <div className="ps-container" data-testid="overdue-banner">
+      <div className="ps-banner" data-tone="warning" role="status">
+        <Icon name="clock" size={20} />
+        <p className="ps-banner__text">
+          Синк не запускался уже {overdueAgeText(status.overdue)} (порог {status.overdue.thresholdHours} ч).{last ? ` Данные от ${last}.` : ''} Проверьте расписание на сервере.
+        </p>
+        <div className="ps-banner__actions">
+          <button type="button" className="ps-btn" onClick={() => void start()} disabled={starting}>Синк сейчас</button>
+          <button type="button" className="ps-iconbtn" onClick={() => setOverdueHidden(true)} aria-label="Скрыть сообщение">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
-  if (needsNewNpsso(status)) {
+  if (npsso) {
     return (
+      <>
       <div className="ps-container">
         <div className="ps-banner" data-tone="danger" role="alert">
           <Icon name="key" size={20} />
@@ -27,13 +47,16 @@ export function SyncBanner() {
           </div>
         </div>
       </div>
+      {overdueBanner}
+      </>
     );
   }
 
   const run = status.run;
-  if (hidden || !run || (run.status !== 'failed' && run.status !== 'partial')) return null;
+  if (hidden || !run || (run.status !== 'failed' && run.status !== 'partial')) return overdueBanner;
   const why = run.status === 'failed' ? reasonText(run.errorReason) : 'Синк завершился частично.';
   return (
+    <>
     <div className="ps-container">
       <div className="ps-banner" data-tone="warning" role="status">
         <Icon name="alert" size={20} />
@@ -48,5 +71,7 @@ export function SyncBanner() {
         </div>
       </div>
     </div>
+    {overdueBanner}
+    </>
   );
 }

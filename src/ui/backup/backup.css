@@ -1,0 +1,18 @@
+/* Резервная копия: окно восстановления (контракт 20.3). Только токены. */
+.ps-backup__file { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.ps-backup__note { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-backup__table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.ps-backup__table th, .ps-backup__table td { padding: var(--sp-2); text-align: right; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.ps-backup__table th:first-child { text-align: left; color: var(--text); font-weight: 500; }
+.ps-backup__table thead th { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--ls-micro); color: var(--text-2); }
+.ps-backup__details { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }
+.ps-backup__details summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.ps-backup__details summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ps-backup__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-small); }
+.ps-backup__list li { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: baseline; }
+.ps-backup__sec { color: var(--text-3); }
+.ps-backup__list .num { color: var(--text-2); margin-left: auto; }
+@media (max-width: 767px) {
+  .ps-backup__table th, .ps-backup__table td { padding: var(--sp-2) var(--sp-1); }
+  .ps-backup__table thead th { font-size: var(--fs-micro); }
+}

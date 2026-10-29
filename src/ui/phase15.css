@@ -238,3 +238,9 @@
   .ps-tri__mode { display: flex; width: 100%; }
   .ps-tri__mode button { flex: 1; height: 40px; }
 }
+
+/* Фаза 17: переключатель «с играми-сервисами» в «Редких трофеях» */
+.ps-rare__svc { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 32px; margin: var(--sp-2) 0; color: var(--text-2); font-size: var(--fs-small); cursor: pointer; }
+.ps-rare__svc input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.ps-rare__svc input:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
+@media (max-width: 767px) { .ps-rare__svc { min-height: 44px; } }

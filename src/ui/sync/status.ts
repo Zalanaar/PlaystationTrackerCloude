@@ -1,5 +1,7 @@
 // Чистая логика SyncPanel: типы ответа GET /api/sync/status (контракт 8.4) и маппинг в русский текст.
 
+import type { SyncOverdue } from '@/shared/sync';
+
 export type SyncErrorReason =
   | 'auth_expired'
   | 'npsso_invalid'
@@ -45,6 +47,8 @@ export interface SyncStatus {
   lastSuccessAt: string | null;
   psnAuth: 'ok' | 'auth_expired' | 'unknown';
   psnAuthExpiresAt: string | null;
+  /** Давность последнего успешного синка (контракт 20.2). Старые ответы поля не содержат. */
+  overdue?: SyncOverdue | null;
 }
 
 export const STATUS_LABEL: Record<SyncRunStatus, string> = {
@@ -151,4 +155,19 @@ export function startErrorText(status: number, code: string | undefined): string
   if (code === 'db_unavailable' || status === 503) return 'База данных недоступна.';
   if (status === 401) return 'Сессия истекла. Войди заново.';
   return 'Не удалось запустить синк.';
+}
+
+/** Баннер «синк не запускался» (20.2): только при isOverdue и когда синк не идёт. */
+export function isSyncOverdue(s: Pick<SyncStatus, 'overdue' | 'running'>): boolean {
+  return !s.running && s.overdue?.isOverdue === true;
+}
+
+/** «53 ч» / «2 дня»: давность целыми часами до трёх суток, дальше сутками. */
+export function overdueAgeText(o: SyncOverdue): string {
+  const h = o.ageHours;
+  if (h === null || !Number.isFinite(h)) return `больше ${o.thresholdHours} ч`;
+  if (h < 72) return `${Math.floor(h)} ч`;
+  const d = Math.floor(h / 24);
+  const m = d % 10, c = d % 100;
+  return `${d} ${m === 1 && c !== 11 ? 'день' : m >= 2 && m <= 4 && (c < 12 || c > 14) ? 'дня' : 'дней'}`;
 }

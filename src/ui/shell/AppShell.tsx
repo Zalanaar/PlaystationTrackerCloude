@@ -11,6 +11,7 @@ import { useProfile } from '../profile/ProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { SyncIndicator } from './SyncIndicator';
+import { RestoreFileDialog } from '../backup/RestoreFileDialog';
 import { ThemeList, ThemePicker } from './ThemePicker';
 
 export const NAV: readonly { href: string; label: string; icon: IconName; short?: string }[] = [
@@ -46,6 +47,7 @@ export function AppHeader() {
   const { openPanel } = useSync();
   const { busy, logout } = useLogout();
   const [more, setMore] = useState(false);
+  const [restore, setRestore] = useState(false);
   const { profile } = useProfile();
   const line = profile ? profileLine(profile) : null;
 
@@ -92,6 +94,14 @@ export function AppHeader() {
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
                     </Link>
+                    <a href="/api/backup" download role="menuitem" className="ps-menu-item" onClick={close}>
+                      <Icon name="download" size={16} />
+                      <span className="ps-menu-item__label">Скачать копию</span>
+                    </a>
+                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); setRestore(true); }}>
+                      <Icon name="upload" size={16} />
+                      <span className="ps-menu-item__label">Восстановить из файла</span>
+                    </button>
                     <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => void logout()} disabled={busy}>
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти</span>
@@ -130,11 +140,18 @@ export function AppHeader() {
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
           </Link>
+          <a href="/api/backup" download className="ps-menu-item" onClick={() => setMore(false)}>
+            <Icon name="download" size={16} /><span className="ps-menu-item__label">Скачать копию</span>
+          </a>
+          <button type="button" className="ps-menu-item" onClick={() => { setMore(false); setRestore(true); }}>
+            <Icon name="upload" size={16} /><span className="ps-menu-item__label">Восстановить из файла</span>
+          </button>
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти</span>
           </button>
         </div>
       </Sheet>
+      <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />
     </>
   );
 }
