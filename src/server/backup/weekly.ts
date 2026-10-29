@@ -1,6 +1,6 @@
 // Еженедельная отправка копии в Telegram (контракт 20.3). Запускается из cron watchdog. Не бросает.
 import type { AnyDb } from '@/db/types';
-import { getTelegramEnv, lastSentOn, markSent, sendTelegramDocument, type TelegramEnv } from '@/server/notify/telegram';
+import { getTelegramEnv, claimSend, lastSentOn, releaseSend, sendTelegramDocument, type TelegramEnv } from '@/server/notify/telegram';
 import { mskDate, mskDateString } from '@/server/stats/period';
 import { buildBackup } from './export';
 import { backupFileName } from './format';
@@ -34,14 +34,20 @@ export async function runWeeklyBackup(db: AnyDb, o: { now?: Date; env?: Telegram
     if (last && last >= mskDateString(now)) return 'already_sent';
     const env = o.env === undefined ? getTelegramEnv() : o.env;
     if (!env) return 'telegram_disabled';
-    const file = await buildBackup(db, now);
-    const ok = await sendTelegramDocument(
-      { name: backupFileName(mskDateString(now)), content: JSON.stringify(file, null, 1), caption: `PS Tracker: резервная копия разметки, ${file.games.length} игр` },
-      { env, fetchImpl: o.fetchImpl },
-    );
-    if (!ok) return 'send_failed';
-    await markSent(db, BACKUP_KIND, now);
-    return 'sent';
+    // N-7: атомарная отметка до отправки, чтобы двойной ручной запуск не продублировал файл.
+    const claim = await claimSend(db, BACKUP_KIND, now);
+    if (!claim.claimed) return 'already_sent';
+    let ok = false;
+    try {
+      const file = await buildBackup(db, now);
+      ok = await sendTelegramDocument(
+        { name: backupFileName(mskDateString(now)), content: JSON.stringify(file, null, 1), caption: `PS Tracker: резервная копия разметки, ${file.games.length} игр` },
+        { env, fetchImpl: o.fetchImpl },
+      );
+    } finally {
+      if (!ok) await releaseSend(db, BACKUP_KIND, claim, now);
+    }
+    return ok ? 'sent' : 'send_failed';
   } catch {
     console.error('backup: еженедельная копия не выполнена');
     return 'error';

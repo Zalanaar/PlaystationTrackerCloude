@@ -3,7 +3,7 @@ import { sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { GameDuration, DurationBucket, HltbStatus } from './types';
 
-const { games } = schema;
+const { games, gameStatus } = schema;
 
 export const DURATION_BUCKETS = ['lt10', '10_30', '30_60', '60plus', 'unknown'] as const satisfies readonly DurationBucket[];
 export const DURATION_MAX_HOURS = 1000;

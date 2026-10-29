@@ -95,6 +95,41 @@ export async function markSent(db: AnyDb, kind: string, now: Date): Promise<void
     .onConflictDoUpdate({ target: notifyLog.kind, set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` } });
 }
 
+export type SendClaim = { claimed: boolean; prev: { lastSentAt: Date; sentOn: string } | null };
+
+/**
+ * Атомарно «занимает» отправку на сегодня (МСК): строка notify_log обновляется только если там дата раньше сегодняшней.
+ * Два параллельных вызова: claimed=true получит один (N-7). Если отправка не удалась, вызвать releaseSend(prev).
+ */
+export async function claimSend(db: AnyDb, kind: string, now: Date): Promise<SendClaim> {
+  const today = mskDateString(now);
+  const [before] = await db.select({ lastSentAt: notifyLog.lastSentAt, sentOn: notifyLog.sentOn }).from(notifyLog).where(eq(notifyLog.kind, kind)).limit(1);
+  const rows = await db
+    .insert(notifyLog)
+    .values({ kind, lastSentAt: now, sentOn: today })
+    .onConflictDoUpdate({
+      target: notifyLog.kind,
+      set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` },
+      setWhere: sql`${notifyLog.sentOn} < excluded."sent_on"`,
+    })
+    .returning({ kind: notifyLog.kind });
+  return { claimed: rows.length > 0, prev: before ?? null };
+}
+
+/** Отменяет claimSend после неудачной отправки: возвращает прежнюю запись, чтобы следующий запуск мог повторить. */
+export async function releaseSend(db: AnyDb, kind: string, claim: SendClaim, now: Date): Promise<void> {
+  if (!claim.claimed) return;
+  try {
+    if (claim.prev) {
+      await db.update(notifyLog).set({ lastSentAt: claim.prev.lastSentAt, sentOn: claim.prev.sentOn }).where(and(eq(notifyLog.kind, kind), eq(notifyLog.lastSentAt, now)));
+    } else {
+      await db.delete(notifyLog).where(and(eq(notifyLog.kind, kind), eq(notifyLog.lastSentAt, now)));
+    }
+  } catch {
+    console.error('notify: не удалось снять отметку отправки');
+  }
+}
+
 export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age' | 'sync_missed';
 
 const days = (ms: number) => Math.max(1, Math.floor(ms / DAY_MS));

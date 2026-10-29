@@ -197,6 +197,20 @@ describe('backup', () => {
     expect(new Map((await t.db.select().from(roadmapOrder)).map((r) => [r.gameId, r.position]))).toEqual(pos); // идемпотентно
   });
 
+  it('дубли roadmapPosition внутри файла: позиции в БД остаются уникальными, порядок файла сохраняется', async () => {
+    const id = await seed();
+    await t.db.delete(roadmapOrder);
+    const g = (titleId: string, roadmapPosition: number | null) => ({ titleId, name: titleId, status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition, roadmapExcluded: false, monthExclusions: [] });
+    const file = (parseBackup({ app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), games: [g('A', 1), g('E', 1), g('ZZ_MISSING', 1), g('B', 2)], plannedGames: [], roadmapSettings: null }) as { ok: true; value: BackupFile }).value;
+    const pre = await previewRestore(t.db, file);
+    expect(pre.sections.roadmapOrder).toMatchObject({ add: 3, skipped: 1 });
+    await applyRestore(t.db, file, NOW);
+    const pos = new Map((await t.db.select().from(roadmapOrder)).map((r) => [r.gameId, r.position]));
+    expect([pos.get(id('A')), pos.get(id('E')), pos.get(id('B'))]).toEqual([1, 2, 3]);
+    const again = await applyRestore(t.db, file, NOW);
+    expect(again.sections.roadmapOrder).toMatchObject({ add: 0, change: 0 });
+  });
+
   it('N-5: дубли месяцев и планируемых игр внутри файла не завышают add и не создают копий', async () => {
     await seed();
     const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
@@ -399,6 +413,15 @@ describe('backup', () => {
     expect(parseBackup(sent).ok).toBe(true);
     expect((await t.db.select().from(notifyLog).where(eq(notifyLog.kind, BACKUP_KIND)))[0].sentOn).toBe('2026-11-01');
     expect(await runWeeklyBackup(t.db, { now: new Date('2026-11-01T18:00:00Z'), env: ENV, fetchImpl: fi })).toBe('already_sent');
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('N-7: два параллельных запуска weekly шлют один файл', async () => {
+    await seed();
+    const f = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+    const fi = f as unknown as typeof fetch;
+    const r = await Promise.all([runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: fi }), runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: fi })]);
+    expect([...r].sort()).toEqual(['already_sent', 'sent']);
     expect(f).toHaveBeenCalledTimes(1);
   });
 

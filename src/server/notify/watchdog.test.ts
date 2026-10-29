@@ -28,6 +28,25 @@ describe('watchdog', () => {
     });
   }
 
+  it('N-7: два параллельных запуска шлют одно сообщение', async () => {
+    await run({ hoursAgo: 35 });
+    const f = okFetch();
+    const [a, b] = await Promise.all([
+      runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f }),
+      runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f }),
+    ]);
+    expect([a.alert, b.alert].sort()).toEqual(['already_sent', 'sent']);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('N-7: неудачная отправка не блокирует повтор в тот же день', async () => {
+    await run({ hoursAgo: 35 });
+    const bad = vi.fn(async () => new Response('{"ok":false}', { status: 500 }));
+    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: bad })).alert).toBe('send_failed');
+    expect(await t.db.select().from(notifyLog)).toEqual([]);
+    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: okFetch() })).alert).toBe('sent');
+  });
+
   it('свежий успех: не просрочено, Telegram не вызывается', async () => {
     await run({ hoursAgo: 10 });
     const f = okFetch();
