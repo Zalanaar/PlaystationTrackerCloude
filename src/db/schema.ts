@@ -302,3 +302,62 @@ export const notifyLog = pgTable('notify_log', {
   lastSentAt: tz('last_sent_at').notNull(),
   sentOn: date('sent_on', { mode: 'string' }).notNull(),
 });
+
+// Фаза 12 (контракт 17.1): роадмап бэклога. Миграция 0008 только добавляет таблицы.
+// Настройки плана, ровно одна строка (id = 1).
+export const roadmapSettings = pgTable(
+  'roadmap_settings',
+  {
+    id: smallint().primaryKey(),
+    year: smallint().notNull(),
+    hoursPerWeek: doublePrecision('hours_per_week').notNull(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('roadmap_settings_singleton_check', sql`${t.id} = 1`),
+    check('roadmap_settings_year_check', sql`${t.year} >= 2000 and ${t.year} <= 2100`),
+    check('roadmap_settings_hours_check', sql`${t.hoursPerWeek} > 0 and ${t.hoursPerWeek} <= 168`),
+  ],
+);
+
+// Невышедшие / ещё не купленные игры, вводятся вручную (часы только ручные).
+export const plannedGames = pgTable(
+  'planned_games',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: text().notNull(),
+    releaseDate: date('release_date', { mode: 'string' }),
+    coverUrl: text('cover_url'),
+    wantAtRelease: boolean('want_at_release').notNull().default(false),
+    hoursManual: doublePrecision('hours_manual'),
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
+    status: text().notNull().default('planned'),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('planned_games_external_key')
+      .on(t.externalSource, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    index('planned_games_status_idx').on(t.status),
+    check('planned_games_want_release_check', sql`not ${t.wantAtRelease} or ${t.releaseDate} is not null`),
+    check('planned_games_hours_check', sql`${t.hoursManual} is null or ${t.hoursManual} > 0`),
+    check('planned_games_source_check', sql`${t.externalSource} is null or ${t.externalSource} = 'rawg'`),
+    check('planned_games_external_pair_check', sql`(${t.externalSource} is null) = (${t.externalId} is null)`),
+    check('planned_games_status_check', sql`${t.status} in ('planned', 'done', 'cancelled')`),
+  ],
+);
+
+// Ручной порядок очереди бэклога (игры со статусом backlog).
+export const roadmapOrder = pgTable(
+  'roadmap_order',
+  {
+    gameId: integer('game_id')
+      .primaryKey()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    position: integer().notNull(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [index('roadmap_order_position_idx').on(t.position), check('roadmap_order_position_check', sql`${t.position} >= 0`)],
+);

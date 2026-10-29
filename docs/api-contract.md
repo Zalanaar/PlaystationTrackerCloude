@@ -1,6 +1,6 @@
 # API-контракт PS Tracker
 
-Версия: 1.2 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2; раздел 9 «Коллекция» в Фазе 3; раздел 10 «Статистика» в Фазе 5; Фаза 8: скрытие игр, сброс/откат статусов, «Игры месяца», конец оценки часов по первому снимку; раздел 14 «Доп. предложения» в Фазе 15; раздел 15 «Этап 2: backend-блок» дополняет разделы 1, 5, 9, 12, 14). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
+Версия: 1.2 (Фаза 1; раздел 8 «Синк» добавлен в Фазе 2; раздел 9 «Коллекция» в Фазе 3; раздел 10 «Статистика» в Фазе 5; Фаза 8: скрытие игр, сброс/откат статусов, «Игры месяца», конец оценки часов по первому снимку; раздел 14 «Доп. предложения» в Фазе 15; раздел 15 «Этап 2: backend-блок» дополняет разделы 1, 5, 9, 12, 14; раздел 16 «Бэклог: фильтры и длительность» в Фазе 11; раздел 17 «Роадмап бэклога на год» в Фазе 12, дополняет разделы 4.2 и 5). Статус: черновик на согласование с оркестратором. Код (`src/db/schema.ts`, auth, middleware) пишется строго по этому документу. Любое отклонение сначала правится здесь.
 
 Источник фактов о PSN: `docs/api-notes.md` (результаты Фазы 0).
 
@@ -370,11 +370,13 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | 401 | `invalid_credentials` | неверный пароль |
 | 404 | `not_found` | |
 | 409 | `sync_in_progress` | синк уже идёт (`POST /api/sync`), в `details.runId` id идущего запуска |
+| 409 | `planned_duplicate` | игра из каталога уже добавлена в планируемые (17.7) |
 | 409 | `status_conflict` | дату завершения/броска правят у игры, чей статус не соответствует (9.5) |
 | 429 | `rate_limited` | перебор пароля |
 | 500 | `config_error` | не заданы или невалидны обязательные env |
 | 500 | `internal_error` | прочее |
 | 503 | `db_unavailable` | БД недоступна |
+| 503 | `catalog_unavailable` | внешний каталог RAWG недоступен или не настроен (17.9) |
 
 ### 4.3 `GET /api/health`
 Требует сессию. Всегда отвечает быстро, к PSN **не обращается** (только БД).
@@ -426,6 +428,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | `SYNC_ORIGIN` | нет | сервер | доверенный origin для самовызова продолжения синка (туда уходит Bearer `CRON_SECRET`), например `https://ps.example.com`. Если не задан: на Vercel `VERCEL_PROJECT_PRODUCTION_URL` (production) или `VERCEL_URL`; вне production `http://localhost:$PORT` (3000). Из запроса (Host, `req.url`) origin не берётся. Нет ни одного = цепочка не продолжается, остаётся cron/кнопка |
 | `TELEGRAM_BOT_TOKEN` | нет | сервер | Этап 2 (15.4): токен бота для предупреждений о протухании NPSSO. Без пары `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` модуль уведомлений ничего не делает. Секрет: не логируется, не попадает в ответы и `error_message` |
 | `TELEGRAM_CHAT_ID` | нет | сервер | Этап 2 (15.4): id чата (личный чат с ботом или группа), куда бот шлёт сообщения |
+| `RAWG_API_KEY` | нет | сервер | Фаза 12 (17.2, 17.9): ключ rawg.io/apidocs для поиска релизов. Без него поиск отвечает `503 catalog_unavailable`. Секрет: не логируется, не попадает в ответы |
 | `APP_TIMEZONE` | нет | - | **не используется**: часовой пояс жёстко `Europe/Moscow` в константе кода |
 
 Запрещено: логировать любую из переменных, `PSN_NPSSO`, токены, заголовки `Authorization` и `Cookie`. В `error_message` синка токены вырезаются.
@@ -1323,3 +1326,193 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ### 16.8 Применение на Neon
 `docs/release-neon-0006.sql`: идемпотентный (`ADD COLUMN IF NOT EXISTS`, CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Применяет Артём вручную до деплоя кода Фазы 11 (код читает новые колонки).
+
+
+## 17. Роадмап бэклога на год (Фаза 12)
+
+Решения Артёма: один бюджет часов в неделю на год; бэклог идёт в ручном порядке; невышедшие игры вводятся вручную (или подсказкой из RAWG), их часы только ручные; игра с галкой «хочу на релизе» ставится жёстко по дате выхода и в очередь не попадает. Пересчёт плана на лету при каждом `GET /api/roadmap`, ничего не кэшируется (после синка данные уже новые).
+
+Весь раздел под сессией (`src/proxy.ts`). Мутации (`PUT/POST/PATCH/DELETE`) требуют `Content-Type: application/json` (кроме `DELETE` без тела) и проверку `Origin` (3.4). Ответы в конверте 4.1. Календарные даты `YYYY-MM-DD`, «сегодня» и границы недель считаются по Europe/Moscow.
+
+### 17.1 Схема (миграция `0008_roadmap_planning`, только добавляет)
+Три новые таблицы. Существующие таблицы и данные не меняются.
+
+**`roadmap_settings`** (ровно одна строка, как `psn_profile`)
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | smallint PK | нет | всегда 1. CHECK `id = 1` |
+| `year` | smallint | нет | год плана. CHECK `2000..2100` |
+| `hours_per_week` | double precision | нет | бюджет часов в неделю. CHECK `> 0 and <= 168` |
+| `updated_at` | timestamptz | нет, default now() | |
+
+Нет строки = плана ещё не настраивали (`configured: false`).
+
+**`planned_games`** (невышедшие / ещё не купленные игры, вводятся вручную)
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `title` | text | нет | 1..200 символов после trim |
+| `release_date` | date | да | дата выхода (календарная). NULL = дата не известна |
+| `cover_url` | text | да | `https://`-ссылка, до 2048 символов |
+| `want_at_release` | boolean | нет, default false | галка «хочу пройти на релизе». CHECK `not want_at_release or release_date is not null` |
+| `hours_manual` | double precision | да | ручные часы прохождения, `> 0`, до 1000, шаг 0.1. NULL = «нужны часы». HLTB для этих игр не используется |
+| `external_source` | text | да | `rawg` или NULL. CHECK `external_source is null or external_source = 'rawg'` |
+| `external_id` | text | да | id во внешнем каталоге. CHECK: оба поля `external_*` заданы вместе или оба NULL |
+| `status` | text | нет, default `planned` | `planned` (участвует в плане) / `done` (пройдена или куплена, убрана вручную) / `cancelled` (передумал). CHECK на три значения |
+| `created_at` / `updated_at` | timestamptz | нет, default now() | |
+
+Индексы: UNIQUE частичный `planned_games_external_key (external_source, external_id) where external_id is not null` (одну игру из каталога дважды не добавить: `409 planned_duplicate`); `planned_games_status_idx (status)`.
+
+**`roadmap_order`** (ручной порядок очереди бэклога)
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `game_id` | integer PK | нет | FK `games.id` ON DELETE CASCADE |
+| `position` | integer | нет | порядок по возрастанию. CHECK `position >= 0` |
+| `updated_at` | timestamptz | нет, default now() | |
+
+Индекс `roadmap_order_position_idx (position)`. Игра бэклога без строки встаёт в конец очереди (17.4). Строка игры, ушедшей из `backlog`, остаётся и ничего не делает; при возврате в `backlog` игра займёт прежнее место.
+
+### 17.2 Переменные окружения
+`RAWG_API_KEY` (необязательная, только сервер, в `.env.example`). Без неё поиск в каталоге отвечает `503 catalog_unavailable`, всё остальное работает. Ключ не логируется и не попадает в ответы и `details`. Дополняет таблицу раздела 5.
+
+### 17.3 `GET/PUT /api/roadmap/settings`
+`GET` -> `200`:
+```json
+{ "ok": true, "data": { "settings": { "year": 2026, "hoursPerWeek": 10, "configured": true } } }
+```
+Если строки нет: `{ "year": <текущий год МСК>, "hoursPerWeek": null, "configured": false }`.
+
+`PUT` тело `{ "year": 2026, "hoursPerWeek": 7.5 }`: `year` целое 2000..2100, `hoursPerWeek` число (не строка, не NaN/Infinity) `> 0` и `<= 168`, округляется до 0.1 (после округления снова `>= 0.1`). Upsert одной строки. Ответ как у `GET` (`configured: true`). Ошибки: `400 invalid_request`, `503 db_unavailable`.
+
+### 17.4 Модель плана (алгоритм `src/server/roadmap/`, чистые функции)
+Время ведётся по дням года (1 января..31 декабря выбранного года). Бюджет `b` = `hoursPerWeek`, в день `b / 7`.
+
+**Недели.** Это НЕ ISO-недели. Неделя = понедельник..воскресенье по МСК; первая и последняя недели обрезаются границами года (1 янв и 31 дек), `days` < 7, ёмкость обрезанной недели `b * days / 7`. Причина: план одного года не смешивается с соседним (ISO-неделя 1 может начинаться в декабре прошлого года), суммарная ёмкость года ровно `b * днейВГоду / 7`. Нумерация `index` с 1 подряд внутри года. Год из 365 дней даёт 53 строки `weeks`, из 366 тоже (понедельники делят год по-разному, первая и последняя обрезаны).
+
+**Игры плана** (`kind`):
+- `release`: `planned_games` со `status = 'planned'`, `want_at_release = true` (дата обязательна по CHECK). Ставятся жёстко ПЕРВЫМИ.
+- `backlog`: `games` со статусом `backlog`, видимые (`hidden_at` is null). Очередь в порядке `roadmap_order.position` asc, затем игры без позиции в порядке попадания в бэклог (`game_status.status_changed_at` asc, затем `games.id`).
+- `planned`: `planned_games` со `status = 'planned'` БЕЗ галки. Идут в очередь ПОСЛЕ всех игр бэклога, по `release_date` (NULL в конце), затем `id`, и не раньше своей даты выхода (если она есть). Допущение: в решениях Артёма про такие игры нет явного правила.
+
+**Часы игры.** `backlog`: `duration_override_hours` приоритетнее `hltb_main_hours` (`hoursSource`: `manual` | `hltb`). `release` и `planned`: `hours_manual` (`manual`). Нет часов или `<= 0` = игра в `needHours`, в плане не участвует.
+
+**Шаг 1. Релизы (жёстко).** Сортировка по `(release_date, id)`. Окно игры = `7 * ceil(hours / b)` дней подряд с даты релиза (дата до начала года = с 1 января). Часы распределяются по окну равномерно. Если окно предыдущего релиза ещё занято, игра сдвигается на первый свободный день: её окно начинается позже, а промежуток `[дата релиза .. день перед фактическим стартом]` попадает в `conflicts` с причиной `release_overlap`. Окно, выходящее за 31 декабря: `conflicts` причина `exceeds_year_end` (промежуток `[старт .. 31 дек]`); если в оставшихся днях года часы всё равно помещаются (`дней * b / 7 >= hours`), игра ставится в обрезанное окно, иначе уходит в `notFit` и дни остаются свободными. Релиз после 31 декабря: `notFit` причина `after_year_end` (конфликта нет). Весь срок окна принадлежит релизу (остаток последней недели другим играм не отдаётся); в день уходит `hours / дней окна`, то есть не больше `b / 7`.
+
+**Шаг 2. Очередь заполняет свободные дни.** Дни, не занятые релизами, по порядку очереди. Игре нужно `ceil(7 * hours / b)` свободных дней (минимум 1); дни берутся подряд из свободных, окно релиза игру ПРЕРЫВАЕТ (игра получает несколько `segments`, часы делятся по дням поровну). Не хватает свободных дней до конца года: игра в `notFit` причина `no_capacity`, очередь НЕ останавливается (следующая, более короткая игра, которая влезает, ставится). Это сознательно: «не успеваю» значит «именно эта не влезает», а не «всё после неё».
+
+**Начало плана.** План всегда строится с 1 января выбранного года, даже если сегодня октябрь: прошлое не «забывается», на нём считается прогресс (17.6). Из-за этого прошедшие недели показывают игры, которые лежат в бэклоге сейчас (см. риски в отчёте реализации).
+
+**Некорректный бюджет** (нет настроек, `hoursPerWeek` `null`, `<= 0`, `NaN`, `> 168`): `status: "no_budget"`, `items`, `conflicts`, `notFit`, `progress` пусты/`null`, `needHours` считается (от бюджета не зависит), `weeks`/`months` с нулевой ёмкостью.
+
+**Пустой год** (нет игр): `status: "ok"`, `items` пуст, `weeks`/`months` с ёмкостью и нулевой загрузкой.
+
+### 17.5 `GET /api/roadmap`
+Считается на лету: настройки + игры + `planned_games` + снимки часов. Без параметров (год берётся из настроек). `200`:
+```json
+{
+  "ok": true,
+  "data": {
+    "settings": { "year": 2026, "hoursPerWeek": 10, "configured": true },
+    "status": "ok",
+    "today": "2026-10-29",
+    "range": { "from": "2026-01-01", "to": "2026-12-31", "days": 365 },
+    "totals": { "capacityHours": 521.4, "plannedHours": 388.0 },
+    "weeks": [
+      { "index": 1, "from": "2026-01-01", "to": "2026-01-04", "days": 4, "capacityHours": 5.7, "plannedHours": 5.7,
+        "items": [ { "key": "g:12", "hours": 5.7 } ] }
+    ],
+    "months": [
+      { "month": "2026-01", "from": "2026-01-01", "to": "2026-01-31", "days": 31, "capacityHours": 44.3, "plannedHours": 44.3,
+        "items": [ { "key": "g:12", "hours": 30.2 }, { "key": "p:3", "hours": 14.1 } ] }
+    ],
+    "items": [
+      {
+        "key": "p:3", "kind": "release", "gameId": null, "plannedId": 3,
+        "title": "Resident Evil Requiem", "coverUrl": "https://media.rawg.io/media/games/xxx.jpg",
+        "hours": 14, "hoursSource": "manual", "releaseDate": "2026-02-27", "wantAtRelease": true,
+        "start": "2026-02-27", "end": "2026-03-12", "days": 14, "shiftedDays": 0, "queuePosition": null,
+        "segments": [ { "from": "2026-02-27", "to": "2026-03-12", "days": 14, "hours": 14 } ]
+      },
+      {
+        "key": "g:12", "kind": "backlog", "gameId": 12, "plannedId": null,
+        "title": "Hades", "coverUrl": "https://image.api.playstation.com/...",
+        "hours": 22, "hoursSource": "hltb", "releaseDate": null, "wantAtRelease": false,
+        "start": "2026-01-01", "end": "2026-02-26", "days": 57, "shiftedDays": 0, "queuePosition": 1,
+        "segments": [ { "from": "2026-01-01", "to": "2026-02-26", "days": 57, "hours": 22 } ]
+      }
+    ],
+    "queue": [ { "key": "g:12", "state": "scheduled" }, { "key": "g:40", "state": "need_hours" }, { "key": "g:41", "state": "not_fit" } ],
+    "conflicts": [
+      { "reason": "release_overlap", "from": "2026-03-05", "to": "2026-03-12", "keys": ["p:3", "p:4"] }
+    ],
+    "notFit": [
+      { "key": "g:41", "kind": "backlog", "gameId": 41, "plannedId": null, "title": "...", "coverUrl": null,
+        "hours": 120, "hoursSource": "hltb", "releaseDate": null, "wantAtRelease": false,
+        "reason": "no_capacity", "hoursShort": 35.4 }
+    ],
+    "needHours": [
+      { "key": "g:40", "kind": "backlog", "gameId": 40, "plannedId": null, "title": "...", "coverUrl": null,
+        "hours": null, "hoursSource": null, "releaseDate": null, "wantAtRelease": false }
+    ],
+    "progress": {
+      "status": "behind", "from": "2026-01-15", "asOf": "2026-10-28",
+      "plannedHours": 280.5, "actualHours": 262, "diffHours": -18.5, "toleranceHours": 2, "budgetHours": 390.0
+    }
+  }
+}
+```
+- Общая запись игры (`Entry`): `key` (`g:<games.id>` для бэклога, `p:<planned_games.id>` для остальных; стабилен, по нему фронт склеивает списки), `kind` (`release` | `backlog` | `planned`), `gameId`/`plannedId` (одно из двух не `null`), `title`, `coverUrl` (`games.image_url` или `planned_games.cover_url`, может быть `null`), `hours` (число или `null`), `hoursSource` (`manual` | `hltb` | `null`), `releaseDate` (`null` для бэклога), `wantAtRelease`.
+- `items`: игры, поставленные в план, сортировка по `start`, затем `key`. Добавляют `start`/`end` (включительно), `days` (число занятых дней, сумма `segments[].days`), `segments` (непрерывные отрезки; часы отрезка = часы игры * дни отрезка / дни игры), `shiftedDays` (для `release`: на сколько дней старт позже даты релиза, иначе 0), `queuePosition` (место в `queue`, 1-based; `null` для `release`).
+- `queue`: ВСЯ очередь (игры бэклога в ручном порядке, затем `planned` без галки) со статусом `scheduled` | `not_fit` | `need_hours` (`unplanned` вместо `scheduled` только при `status = "no_budget"`: план не строился). Источник списка для drag&drop; перетаскиваются только записи с `key` вида `g:*` (в `PUT /api/roadmap/order` уходят их `gameId`). `release` в очередь не входят.
+- `conflicts`: промежутки, где план идёт вразрез. `reason`: `release_overlap` (желаемая дата релиза занята предыдущим релизом) | `exceeds_year_end`. `from`/`to` включительно. `keys`: затронутые игры (для `release_overlap` сначала блокирующие, последним сдвинутая). Отсортированы по `from`.
+- `notFit`: «не успеваю». `reason`: `no_capacity` (очередь не влезла в год) | `exceeds_year_end` (релиз, у которого после даты выхода не остаётся дней) | `after_year_end` (выходит после 31 декабря). `hoursShort`: на сколько часов не хватает (0.1) или `null` для `after_year_end`.
+- `needHours`: нужны часы, в план не поставлены. Порядок: `backlog` (очередь), затем остальные.
+- `weeks[].items` / `months[].items`: часы каждой игры внутри периода (округлено до 0.1, нулевые опущены). `plannedHours` = сумма до округления, затем округляется до 0.1, поэтому сумма `items` может отличаться на 0.1.
+- `months`: 12 штук. Ёмкость месяца `b * days / 7`.
+- `today`: сегодняшняя дата МСК.
+- `progress`: `null` при `status = "no_budget"`, иначе см. 17.6.
+- Ошибки: `503 db_unavailable` (любая внутренняя ошибка, как в 16.7). Ошибка PSN невозможна (эндпоинт PSN не трогает).
+
+### 17.6 Прогресс (`progress`)
+Сравнивает факт часов из `playtime_snapshots` с тем, сколько по плану должно быть сыграно к сегодняшнему дню.
+- Факт: сумма часов по ВСЕМ видимым играм за период (расчёт 1.6: `secondsByGame` по снимкам). Не только по играм плана: игра, которую начали, уходит из `backlog`, а релизная игра после покупки появляется в коллекции без связи с `planned_games`.
+- План: часы из `segments` (равномерно по дням) за те же даты.
+- Период: от `from` до `asOf`. `asOf` = ВЧЕРА по МСК (сегодняшний день в план не входит: снимок за сегодня появляется вечером), не позже 31 декабря; для прошедшего года весь год. `from` = 1 января, если первый снимок в БД раньше года; иначе день после первого снимка (до первого синка истории часов нет: 10.1).
+- `status`: `ahead` (`diffHours > toleranceHours`), `behind` (`diffHours < -toleranceHours`), `onTrack` (иначе); `no_data` (нет снимков или `from > asOf`; числа 0); `not_started` (год ещё не начался или `asOf` раньше 1 января; числа 0). `toleranceHours = 2`.
+- `diffHours = actualHours - plannedHours` (минус = отстаю), все часы с шагом 0.1.
+- `budgetHours` = `hoursPerWeek * дней(from..asOf) / 7`, справочное «сколько часов выделено на это время»; на `status` не влияет.
+
+### 17.7 `GET/POST /api/roadmap/planned`, `PATCH/DELETE /api/roadmap/planned/{id}`
+Объект `PlannedGame`:
+```json
+{ "id": 3, "title": "Resident Evil Requiem", "releaseDate": "2026-02-27", "coverUrl": "https://media.rawg.io/...", "wantAtRelease": true,
+  "hoursManual": 14, "externalSource": "rawg", "externalId": "123456", "status": "planned",
+  "createdAt": "2026-10-29T10:00:00.000Z", "updatedAt": "2026-10-29T10:00:00.000Z" }
+```
+- `GET /api/roadmap/planned?status=planned|done|cancelled|all` (по умолчанию `all`) -> `{ "planned": [PlannedGame] }`, порядок: `release_date` asc (NULL в конце), затем `id`. Неизвестный `status` = `400`.
+- `POST` тело: `title` (обязателен), `releaseDate` (`YYYY-MM-DD` или `null`), `coverUrl` (https или `null`), `wantAtRelease` (boolean, по умолчанию `false`), `hoursManual` (число `0.1..1000` или `null`, округляется до 0.1), `externalSource` (`"rawg"`) и `externalId` (непустая строка до 64 символов) вместе или оба отсутствуют. `status` создаётся `planned`. Ответ `200` `{ "planned": PlannedGame }` (в проекте мутации тоже отвечают `200`).
+- `PATCH` тело: любое непустое подмножество `title`, `releaseDate`, `coverUrl`, `wantAtRelease`, `hoursManual`, `status`. `externalSource`/`externalId` не меняются (приходят = `400`). Итоговое состояние проверяется целиком: `wantAtRelease = true` без `releaseDate` = `400` с `details: {"reason":"want_requires_release_date"}`. Ответ `{ "planned": PlannedGame }`.
+- `DELETE` -> `{ "deleted": true, "id": 3 }`. Физическое удаление (данные вводились вручную; обратимо «убрать из плана» делает `status`).
+- Ошибки: `400 invalid_request` (id не положительное целое, Origin/Content-Type, тело, даты `2026-02-30` и прочие несуществующие), `404 not_found`, `409 planned_duplicate` (тот же `externalSource+externalId` уже есть, `details.id` существующей), `503 db_unavailable`.
+
+### 17.8 `PUT /api/roadmap/order`
+Тело `{ "gameIds": [12, 40, 41] }`: полный порядок очереди бэклога от первой к последней. Целые положительные, без повторов, до 1000, id должны существовать в `games` (иначе `400 invalid_request`, `details.unknown` = список). Сервер заменяет ВСЕ строки `roadmap_order` одной транзакцией (`position` = индекс в массиве). Игры бэклога, которых нет в массиве (появились после загрузки экрана), встанут в конец. Пустой массив допустим (сброс порядка). Ответ `{ "order": [12, 40, 41] }`. Ошибки: `400`, `503`.
+
+### 17.9 `GET /api/roadmap/catalog/search?q=...` (RAWG)
+Подсказка для формы «Добавить релиз»: ищет игру по названию во внешнем каталоге RAWG. Это подсказка, не истина: дату и обложку можно править вручную, а ручной ввод работает всегда.
+- `q`: 2..100 символов после trim, иначе `400 invalid_request`.
+- Запрос сервера: `GET https://api.rawg.io/api/games?key=<RAWG_API_KEY>&search=<q>&page_size=10` (по документации rawg.io/apidocs; ключ только на сервере, таймаут 8 с, размер ответа до 1 МБ). Формат ответа RAWG: `{ "count", "results": [ { "id", "name", "released": "YYYY-MM-DD" | null, "tba": boolean, "background_image": "https://..." | null, "platforms": [ { "platform": { "id", "name", "slug" } } ] | null } ] }`. Поля вне этого списка игнорируются; результат с неожиданной формой = `catalog_unavailable` (`bad_response`), а не пустой список.
+- `200`:
+```json
+{ "ok": true, "data": { "candidates": [
+  { "externalSource": "rawg", "externalId": "123456", "title": "Resident Evil Requiem", "releaseDate": "2026-02-27",
+    "coverUrl": "https://media.rawg.io/media/games/xxx.jpg", "platforms": ["PlayStation 5", "PC"], "playstation": true }
+] } }
+```
+  `externalId` строкой (`id` RAWG числом). `releaseDate` = `released`, если корректная дата и не `tba`, иначе `null`. `platforms` = названия платформ или `[]`. `playstation` = среди платформ есть `slug`, начинающийся с `playstation`; кандидаты с `playstation = true` идут первыми, внутри групп порядок RAWG (релевантность). Пустая выдача = `candidates: []`.
+- Ошибки: `400 invalid_request`; `503 catalog_unavailable` (нет `RAWG_API_KEY`, сеть, таймаут, HTTP не 2xx, лимит, неожиданная форма), `details: {"reason":"no_key"|"timeout"|"network"|"http_error"|"rate_limited"|"bad_response"}`. Тексты и `details` не содержат ключа и URL. Экран при `503` не ломается, форма остаётся доступна для ручного ввода.
+- Атрибуция: условия RAWG требуют активную ссылку на RAWG там, где показываются их данные (frontend ставит «Данные: RAWG» на экране роадмапа).
+- PS Store через `psn-api` не используется (в библиотеке нет каталога магазина, `docs/api-notes.md`). Обложка и дата только из RAWG или вручную.
+
+### 17.10 Применение на Neon
+`docs/release-neon-0008.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, FK и CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт новые таблицы, существующие данные не затрагивает (потери данных нет). Применяет Артём вручную в Neon SQL Editor до деплоя кода Фазы 12 (код читает новые таблицы; без них эндпоинты раздела 17 отвечают `503 db_unavailable`). Остальная часть сайта от миграции не зависит.
