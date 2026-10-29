@@ -200,6 +200,7 @@ export function RoadmapView() {
 
   useEffect(() => { latest.current = { load, loadPlanned, apply, patchGame, flush }; });
 
+  const extra = useMemo(() => new Map((planned ?? []).map((g) => [`p:${g.id}`, { title: g.title, releaseDate: g.releaseDate }])), [planned]);
   const rows = useMemo(() => (data ? applyOrder(buildQueueRows(data), order) : null), [data, order]);
   const recalculating = recalc > 0;
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
@@ -248,7 +249,7 @@ export function RoadmapView() {
           {data ? <ProgressPanel data={data} /> : <><h2 className="ps-h2">Прогресс</h2><div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="tl" aria-label={`Таймлайн ${year}`}>
-          {data ? <TimelinePanel data={data} recalculating={recalculating} /> : <><h2 className="ps-h2">Таймлайн {year}</h2><div className="ps-skeleton ps-rm-sk-tl" aria-hidden="true" /></>}
+          {data ? <TimelinePanel data={data} recalculating={recalculating} extra={extra} /> : <><h2 className="ps-h2">Таймлайн {year}</h2><div className="ps-skeleton ps-rm-sk-tl" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-label="Релизы">
           <ReleasesPanel

@@ -5,7 +5,7 @@ import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { ApiError, mutationError, searchCatalog } from './api';
 import {
-  candidateMeta, catalogFail, emptyValues, filterCandidates, isRealDate, outsideYear, toPlannedBody, validateRelease, valuesFromPlanned,
+  candidateMeta, catalogFail, emptyValues, isRealDate, outsideYear, toPlannedBody, validateRelease, valuesFromPlanned,
   type CatalogCandidateView, type CatalogFailKind, type PlannedBody, type ReleaseValues,
 } from './model';
 import { FieldError, Spinner, Thumb } from './parts';
@@ -70,7 +70,7 @@ export function ReleaseSheet({
     const ctl = new AbortController();
     const t = setTimeout(() => {
       setSearch({ state: 'loading' });
-      searchCatalog(text, ctl.signal)
+      searchCatalog(text, onlyPs, ctl.signal)
         .then((r) => { if (!ctl.signal.aborted) setSearch({ state: 'ok', list: r.candidates }); })
         .catch((e: unknown) => {
           if (ctl.signal.aborted) return;
@@ -79,7 +79,7 @@ export function ReleaseSheet({
         });
     }, 400);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [q, edit, retry]);
+  }, [q, edit, retry, onlyPs]);
 
   const dirty = JSON.stringify(v) !== JSON.stringify(initial);
   const errors = validateRelease(v);
@@ -114,7 +114,7 @@ export function ReleaseSheet({
     }
   }
 
-  const results = search.state === 'ok' ? filterCandidates(search.list, onlyPs) : [];
+  const results = search.state === 'ok' ? search.list : [];
   const typed = q.trim().length >= 2;
 
   return (
@@ -150,7 +150,7 @@ export function ReleaseSheet({
             ) : results.length === 0 ? (
               <p className="ps-rm-muted ps-rm-muted--ic" role="status">
                 <Icon name="search-x" size={16} />
-                {search.list.length > 0 && onlyPs ? (
+                {onlyPs ? (
                   <span>Нет на PlayStation. <button type="button" className="ps-link" onClick={() => setOnlyPs(false)}>Показать все платформы</button></span>
                 ) : <span>В каталоге ничего не найдено. Заполни форму ниже вручную.</span>}
               </p>

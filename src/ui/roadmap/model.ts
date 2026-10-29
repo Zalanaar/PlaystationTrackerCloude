@@ -255,26 +255,30 @@ export function barLabel(b: Bar, conflicts: readonly number[]): string {
   const it = b.item;
   const kind = it.kind === 'release' ? `релиз, выходит ${it.releaseDate ? dayLong(it.releaseDate) : 'без даты'}` : 'очередь';
   const pos = it.queuePosition !== null ? `, позиция ${it.queuePosition}` : '';
-  const hrs = it.hours !== null ? `, ${hoursNum(it.hours)} ${plural(Math.round(it.hours), ['час', 'часа', 'часов'])}` : '';
+  const sh = b.seg.hours;
+  const hrs = `, ${hoursNum(sh)} ${plural(Math.round(sh), ['час', 'часа', 'часов'])}`;
   const conf = conflicts.length ? `, конфликт ${conflicts.join(', ')}` : '';
   return `${it.title}: ${kind}, с ${dayLong(it.start)} по ${dayLong(it.end)}, ${weeksWord(Math.max(1, Math.ceil(it.days / 7)))}${hrs}${pos}${conf}`;
 }
 
 /** Заголовок и пояснение конфликта (спека п.8, шаблоны по `reason` контракта). */
+export type ExtraGames = ReadonlyMap<string, { title: string; releaseDate: string | null }>;
+
 export function conflictText(
-  c: Conflict, n: number, d: Pick<RoadmapResponse, 'items' | 'notFit' | 'needHours' | 'settings' | 'range'>,
+  c: Conflict, n: number, d: Pick<RoadmapResponse, 'items' | 'notFit' | 'needHours' | 'settings' | 'range'>, extra?: ExtraGames,
 ): { title: string; body: string } {
-  const entries = entryMap(d);
+  const entries: Map<string, { title: string; releaseDate: string | null; hours?: number | null }> = new Map(extra ?? []);
+  for (const [k, v] of entryMap(d)) entries.set(k, v);
   const itemsByKey = new Map(d.items.map((i) => [i.key, i]));
   const budget = d.settings.hoursPerWeek;
   const range = rangeText(c.from, c.to);
-  const names = c.keys.map((k) => `«${entries.get(k)?.title ?? 'Игра'}»`);
+  const names = c.keys.map((k) => `«${entries.get(k)?.title ?? 'игра из плана'}»`);
   const describe = (k: string) => {
     const e = entries.get(k);
     const it = itemsByKey.get(k);
     const date = e?.releaseDate ? `выходит ${dayText(e.releaseDate)}` : 'без даты';
     const weeks = it ? `, ${weeksText(it.days)}` : '';
-    return `«${e?.title ?? 'Игра'}» (${date}${weeks})`;
+    return `«${e?.title ?? 'игра из плана'}» (${date}${weeks})`;
   };
   if (c.reason === 'release_overlap') {
     const list = c.keys.map(describe);
@@ -299,6 +303,17 @@ export function conflictText(
     return {
       title: `Конфликт ${n}: релиз не помещается в год, ${range}`,
       body: `${names[0] ?? '«Игра»'}${e?.releaseDate ? ` выходит ${dayText(e.releaseDate)}` : ''}${need}, а ${d.range.to.slice(0, 4)} год заканчивается ${dayText(d.range.to)}.${tail}`,
+    };
+  }
+  if (c.reason === 'starts_before_year') {
+    const k = c.keys[0];
+    const e = k ? entries.get(k) : undefined;
+    const year = d.range.from.slice(0, 4);
+    const fromYear = c.from.slice(0, 4);
+    const out = itemsByKey.get(k ?? '') ? 'В план попадает только часть внутри года, часы считаются по её дням.' : 'Окно целиком в прошлом году, в план она не попала.';
+    return {
+      title: `Конфликт ${n}: релиз вышел до начала года, ${rangeText(c.from, c.to)} ${fromYear}`,
+      body: `${names[0] ?? '«игра из плана»'}${e?.releaseDate ? ` вышла ${dayYearText(e.releaseDate)}` : ' вышла до начала года'}, а план ${year} года начинается ${dayText(d.range.from)}. ${out}`,
     };
   }
   return { title: `Конфликт ${n}: план идёт вразрез, ${range}`, body: `Затронуты: ${names.join(', ')}.` };

@@ -16,8 +16,9 @@ export const patchPlanned = (id: number, body: Partial<Omit<PlannedBody, 'extern
 export const deletePlanned = (id: number) => call<{ deleted: boolean; id: number }>(`/api/roadmap/planned/${id}`, { method: 'DELETE' });
 export const putOrder = (gameIds: number[]) =>
   call<{ order: number[] }>('/api/roadmap/order', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ gameIds }) });
-export const searchCatalog = (q: string, signal?: AbortSignal) =>
-  call<{ candidates: CatalogCandidateView[] }>(`/api/roadmap/catalog/search?q=${encodeURIComponent(q)}`, { signal });
+/** onlyPlayStation: фильтр на сервере (параметр playstation=1, контракт 17.9). */
+export const searchCatalog = (q: string, onlyPlayStation: boolean, signal?: AbortSignal) =>
+  call<{ candidates: CatalogCandidateView[] }>(`/api/roadmap/catalog/search?q=${encodeURIComponent(q)}${onlyPlayStation ? '&playstation=1' : ''}`, { signal });
 
 export { ApiError };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PlanItem, RoadmapResponse, WeekLoad } from '@/server/roadmap/types';
+import type { Conflict, PlanItem, RoadmapResponse, WeekLoad } from '@/server/roadmap/types';
 import {
   applyOrder, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
   periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, weekPos, catalogFail, platformsText, filterCandidates,
@@ -103,6 +103,16 @@ describe('конфликт и прогресс', () => {
     expect(t.title).toBe('Конфликт 1: пересечение релизов, 10–29 нояб.');
     expect(t.body).toContain('«А» (выходит 2 нояб., 4 нед.) и «Б» (выходит 10 нояб., 2 нед.)');
     expect(t.body).toContain('сдвинут на 20 дн.');
+  });
+  it('starts_before_year: игра может не быть в items, названия из planned или «игра из плана»', () => {
+    const c: Conflict = { reason: 'starts_before_year', from: '2025-12-20', to: '2025-12-31', keys: ['p:5'] };
+    const extra = new Map([['p:5', { title: 'Старый', releaseDate: '2025-12-20' }]]);
+    const t = conflictText(c, 2, base, extra);
+    expect(t.title).toBe('Конфликт 2: релиз вышел до начала года, 20–31 дек. 2025');
+    expect(t.body).toContain('«Старый» вышла 20 дек. 2025');
+    expect(t.body).toContain('Окно целиком в прошлом году');
+    const t2 = conflictText(c, 1, base);
+    expect(t2.body).toContain('«игра из плана»');
   });
   it('прогресс по состояниям', () => {
     const p = { status: 'behind', from: '2026-01-01', asOf: '2026-10-28', plannedHours: 280, actualHours: 262, diffHours: -18, toleranceHours: 2, budgetHours: 1 };

@@ -125,8 +125,10 @@ test.describe('План: релизы', () => {
     await dlg.getByLabel('Найти в каталоге').fill('Игра');
     await expect(dlg.getByRole('button', { name: /Игра ПС/ })).toBeVisible();
     await expect(dlg.getByRole('button', { name: /Игра ПК/ })).toHaveCount(0);
+    expect(s.calls.catalogPs.at(-1)).toBe('1');
     await chip.click();
     await expect(dlg.getByRole('button', { name: /Игра ПК/ })).toBeVisible();
+    expect(s.calls.catalogPs.at(-1)).toBeNull();
     await expect(dlg.getByRole('button', { name: /Игра ПК/ })).toContainText('Дата не объявлена');
     await dlg.getByRole('button', { name: /Игра ПС/ }).click();
     await expect(dlg.getByLabel('Название')).toHaveValue('Игра ПС');
@@ -136,6 +138,25 @@ test.describe('План: релизы', () => {
     await dlg.getByRole('button', { name: 'Добавить в план' }).click();
     await expect(dlg).toBeHidden();
     expect(s.calls.posts[0]).toMatchObject({ title: 'Игра ПС', releaseDate: '2027-02-27', coverUrl: 'https://media.rawg.io/a.jpg', externalSource: 'rawg', externalId: '11', wantAtRelease: false });
+  });
+
+  test('конфликт starts_before_year: релиз вышел до начала года, часть в плане, часы сегмента', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, baseState({
+      games: [], order: [],
+      planned: [
+        rel(1, 'Старый релиз', '2025-12-20', { wantAtRelease: true, hoursManual: 30 }),
+        rel(2, 'Давний релиз', '2025-11-01', { wantAtRelease: true, hoursManual: 10 }),
+      ],
+    }));
+    const items = page.getByTestId('rm-conflict');
+    await expect(items).toHaveCount(2);
+    await expect(items.first()).toContainText('релиз вышел до начала года, 1–7 нояб. 2025');
+    await expect(items.first()).toContainText('«Давний релиз» вышла 1 нояб. 2025');
+    await expect(items.first()).toContainText('Окно целиком в прошлом году');
+    await expect(items.nth(1)).toContainText('20–31 дек. 2025');
+    await expect(items.nth(1)).toContainText('попадает только часть внутри года');
+    // в списке релизов полные часы игры, на таймлайне часы сегмента (21 день года из 21: 30 ч; проверяем что строка не помечена ошибкой)
+    await expect(page.getByTestId('rm-release').first().getByLabel('Часов на прохождение')).toHaveValue('10');
   });
 
   test('каталог не настроен и лимит: понятные сообщения, форма не блокируется', async ({ page, context, baseURL }) => {

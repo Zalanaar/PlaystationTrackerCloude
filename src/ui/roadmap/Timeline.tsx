@@ -7,7 +7,7 @@ import { plural } from '../format';
 import { useIsMobile } from '../primitives/hooks';
 import {
   barLabel, conflictNumbers, conflictText, dayNumber, dayText, hoursLabel, layoutBars, MONTHS_AXIS, MONTHS_NOM, monthStartWeeks, parseYmd,
-  rangeText, weekPos, weeksText, type Bar,
+  rangeText, weekPos, weeksText, type Bar, type ExtraGames,
 } from './model';
 import { jumpToEntry, Spinner, Thumb } from './parts';
 
@@ -82,6 +82,7 @@ function Gantt({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) 
         })}
         {/* конфликты: штриховка + ярлык */}
         {conflicts.map((c, i) => {
+          if (c.to < data.range.from || c.from > data.range.to) return null; // промежуток вне года плана: только текст в списке
           const s = weekPos(weeks, c.from) + 1;
           const e = Math.max(s, weekPos(weeks, c.to) + 1);
           return (
@@ -125,16 +126,16 @@ function GanttTip({ tip, nums, data }: { tip: Tip; nums: number[]; data: Roadmap
   return (
     <div className="ps-rm-tip" role="presentation" aria-hidden="true" style={{ left: tip.left, top: tip.top }}>
       <b>{it.title}</b>
-      <span>{rangeText(it.start, it.end)} · {weeksText(it.days)}{it.hours !== null ? ` · ${hoursLabel(it.hours)}` : ''}</span>
+      <span>{rangeText(it.start, it.end)} · {weeksText(it.days)}{` · ${hoursLabel(tip.bar.seg.hours)}`}</span>
       <span>
         {it.kind === 'release' ? `Выходит ${it.releaseDate ? dayText(it.releaseDate) : 'без даты'} · с даты выхода` : `Позиция ${it.queuePosition ?? '—'} в очереди`}
       </span>
-      {c && nums[0] && <span className="ps-rm-tip__c"><Icon name="alert" size={12} />Конфликт {nums[0]}: {c.reason === 'release_overlap' ? 'пересечение релизов' : 'релиз не помещается в год'}</span>}
+      {c && nums[0] && <span className="ps-rm-tip__c"><Icon name="alert" size={12} />Конфликт {nums[0]}: {c.reason === 'release_overlap' ? 'пересечение релизов' : c.reason === 'exceeds_year_end' ? 'релиз не помещается в год' : 'релиз вышел до начала года'}</span>}
     </div>
   );
 }
 
-function MonthsView({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) => void }) {
+function MonthsView({ data, onJump, extra }: { data: RoadmapResponse; onJump: (key: string) => void; extra?: ExtraGames }) {
   const { months, items, conflicts, settings, today } = data;
   const byKey = useMemo(() => new Map(items.map((i) => [i.key, i])), [items]);
   const nowYear = parseYmd(today)?.y;
@@ -180,7 +181,7 @@ function MonthsView({ data, onJump }: { data: RoadmapResponse; onJump: (key: str
                 <small>{list.length ? `${list.length} ${plural(list.length, ['игра', 'игры', 'игр'])}` : 'Свободно'}</small>
               </div>
               {mConf.map(({ c, n }) => {
-                const t = conflictText(c, n, data);
+                const t = conflictText(c, n, data, extra);
                 return (
                   <div key={n} className="ps-rm-conf" role="note">
                     <Icon name="alert" size={16} />
@@ -215,7 +216,7 @@ function MonthsView({ data, onJump }: { data: RoadmapResponse; onJump: (key: str
 }
 
 /** Блок «Конфликты плана» под сеткой (id rm-conflict-N, фокусируемые). */
-export function ConflictList({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) => void }) {
+export function ConflictList({ data, onJump, extra }: { data: RoadmapResponse; onJump: (key: string) => void; extra?: ExtraGames }) {
   const { conflicts } = data;
   if (!conflicts.length) return null;
   const entries = new Map([...data.needHours, ...data.notFit, ...data.items].map((e) => [e.key, e]));
@@ -224,7 +225,7 @@ export function ConflictList({ data, onJump }: { data: RoadmapResponse; onJump: 
       <h3 id="rm-conflicts-h" className="ps-rm-h3"><Icon name="alert" size={16} />Конфликты плана <small className="num">{conflicts.length}</small></h3>
       <ul>
         {conflicts.map((c, i) => {
-          const t = conflictText(c, i + 1, data);
+          const t = conflictText(c, i + 1, data, extra);
           return (
             <li key={i} id={`rm-conflict-${i + 1}`} tabIndex={-1} className="ps-rm-conf" data-testid="rm-conflict" data-reason={c.reason}>
               <Icon name="alert" size={16} />
@@ -246,7 +247,7 @@ export function ConflictList({ data, onJump }: { data: RoadmapResponse; onJump: 
 }
 
 /** Панель таймлайна: Gantt по неделям (десктоп) или список месяцев (мобильный, по переключателю). */
-export function TimelinePanel({ data, recalculating, onJump }: { data: RoadmapResponse; recalculating: boolean; onJump?: (key: string) => void }) {
+export function TimelinePanel({ data, recalculating, onJump, extra }: { data: RoadmapResponse; recalculating: boolean; onJump?: (key: string) => void; extra?: ExtraGames }) {
   const mobile = useIsMobile();
   const [mode, setMode] = useState<'bars' | 'months'>('bars');
   const jump = onJump ?? jumpToEntry;
@@ -278,8 +279,8 @@ export function TimelinePanel({ data, recalculating, onJump }: { data: RoadmapRe
           <h3 className="ps-h3">На таймлайне пока пусто</h3>
           <p>Укажи часы играм из бэклога или добавь релиз с галкой «Хочу пройти на релизе».</p>
         </div>
-      ) : view === 'bars' ? <Gantt data={data} onJump={jump} /> : <MonthsView data={data} onJump={jump} />}
-      <ConflictList data={data} onJump={jump} />
+      ) : view === 'bars' ? <Gantt data={data} onJump={jump} /> : <MonthsView data={data} onJump={jump} extra={extra} />}
+      <ConflictList data={data} onJump={jump} extra={extra} />
     </div>
   );
 }

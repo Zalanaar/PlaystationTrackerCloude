@@ -16,7 +16,7 @@ export type RmState = {
   /** принудительные ответы */
   roadmapFail: number | null; plannedFail: number | null; orderFail: boolean;
   catalog: { status: number; reason?: string; candidates?: unknown[] } | null;
-  calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[] };
+  calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[]; catalogPs: (string | null)[] };
 };
 
 export function baseState(over: Partial<RmState> = {}): RmState {
@@ -29,7 +29,7 @@ export function baseState(over: Partial<RmState> = {}): RmState {
       { id: 4, title: 'Игра без часов', hours: null },
     ],
     planned: [], roadmapFail: null, plannedFail: null, orderFail: false, catalog: null,
-    calls: { roadmap: 0, settings: [], orders: [], posts: [], patches: [], deletes: [], durations: [], catalog: [] },
+    calls: { roadmap: 0, settings: [], orders: [], posts: [], patches: [], deletes: [], durations: [], catalog: [], catalogPs: [] },
     ...over,
   };
 }
@@ -94,6 +94,20 @@ export function buildRoadmap(s: RmState) {
     relEntries.set(key, e);
     if (!p.hoursManual || b <= 0) { needHours.push(e); continue; }
     const days = 7 * Math.ceil(p.hoursManual / b);
+    if ((p.releaseDate as string) < yearStart) {
+      // релиз до начала года: окно от реальной даты, прошлая часть = конфликт starts_before_year, часы пропорционально дням внутри года
+      const realEnd = ms(p.releaseDate as string) + (days - 1) * DAY;
+      const prevEnd = Math.min(realEnd, ms(yearStart) - DAY);
+      conflicts.push({ reason: 'starts_before_year', from: p.releaseDate, to: iso(prevEnd), keys: [key] });
+      if (realEnd < ms(yearStart)) continue;
+      const inDays = (realEnd - ms(yearStart)) / DAY + 1;
+      const h = Math.round(((p.hoursManual * inDays) / days) * 10) / 10;
+      const from = yearStart; const to = iso(realEnd);
+      busyUntil = realEnd;
+      items.push({ ...e, start: from, end: to, days: inDays, shiftedDays: 0, queuePosition: null, segments: [seg(from, to, h)] });
+      spread(key, from, to, h);
+      continue;
+    }
     let start = Math.max(ms(p.releaseDate as string), ms(yearStart));
     const wanted = start;
     if (start <= busyUntil) start = busyUntil + DAY;
@@ -206,7 +220,10 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
     s.calls.catalog.push(new URL(r.request().url()).searchParams.get('q') ?? '');
     const c = s.catalog;
     if (c && c.status !== 200) return fail(r, c.status, 'catalog_unavailable', { reason: c.reason ?? 'network' });
-    return ok(r, { candidates: c?.candidates ?? [] });
+    const only = new URL(r.request().url()).searchParams.get('playstation');
+    s.calls.catalogPs.push(only);
+    const list = (c?.candidates ?? []) as { playstation: boolean }[];
+    return ok(r, { candidates: only === '1' ? list.filter((x) => x.playstation) : list });
   });
   await page.route(/\/api\/games\/\d+\/duration$/, async (r) => {
     const id = Number(r.request().url().match(/games\/(\d+)\/duration/)?.[1]);
