@@ -3,10 +3,11 @@ import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNu
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
-import { bucketSql, buildDuration, durationFilterSql, effectiveHoursSql, type DurationRow } from './duration';
+import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, effectiveHoursSql, type DurationRow } from './duration';
 import type {
   CollectionSummaryResponse,
   DurationCounts,
+  HltbCounts,
   GenreCounts,
   GameItem,
   GameTrophies,
@@ -238,6 +239,19 @@ async function genreCountsFor(db: AnyDb, where: SQL | undefined): Promise<GenreC
   return out;
 }
 
+async function hltbCountsFor(db: AnyDb, where: SQL | undefined): Promise<HltbCounts> {
+  const [r] = await db
+    .select({
+      found: sql<number>`(count(*) filter (where ${hltbStatusSql('found')}))::int`,
+      notFound: sql<number>`(count(*) filter (where ${hltbStatusSql('not_found')}))::int`,
+      unchecked: sql<number>`(count(*) filter (where ${hltbStatusSql('unchecked')}))::int`,
+    })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .where(where);
+  return { found: r?.found ?? 0, not_found: r?.notFound ?? 0, unchecked: r?.unchecked ?? 0 };
+}
+
 async function durationCounts(db: AnyDb, where: SQL | undefined): Promise<DurationCounts> {
   const out: DurationCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
   const rows = await db
@@ -267,9 +281,11 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
   const genreSql = await genreFilterSql(db, p.genres, whereText);
   const durationSql = durationFilterSql(p.durations);
   // 16.4: счётчики статусов и бакетов учитывают жанры; счётчики статусов ещё и длительность, бакеты нет
-  const whereBase = and(whereText, genreSql, durationSql);
-  const whereNoDuration = and(whereText, genreSql, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined);
+  const hltbSql = hltbFilterSql(p.hltb);
+  const whereBase = and(whereText, genreSql, durationSql, hltbSql);
+  const whereNoDuration = and(whereText, genreSql, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, hltbSql);
   const whereAll = and(whereNoDuration, durationSql);
+  const whereNoHltb = and(whereText, genreSql, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql);
 
   const { q, tr } = itemsQuery(db);
   const dir = p.order === 'asc' ? sql`asc` : sql`desc`;
@@ -284,7 +300,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
     duration: [sql`${effectiveHoursSql} ${dir} nulls last`],
   };
 
-  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts] = await Promise.all([
+  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts, hCounts] = await Promise.all([
     q
       .where(whereAll)
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
@@ -307,7 +323,8 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
       .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
       .where(forgottenSql(now)),
     durationCounts(db, whereNoDuration),
-    genreCountsFor(db, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql)),
+    genreCountsFor(db, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql, hltbSql)),
+    hltbCountsFor(db, whereNoHltb),
   ]);
 
   return {
@@ -323,6 +340,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
     forgottenCount: forgottenRows[0]?.n ?? 0,
     durationCounts: dCounts,
     genreCounts: gCounts,
+    hltbCounts: hCounts,
   };
 }
 

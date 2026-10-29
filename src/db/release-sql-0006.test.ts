@@ -61,7 +61,7 @@ describe('docs/release-neon-0006.sql', () => {
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: root });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(7);
+    expect(n.rows[0].n).toBe(8);
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','Игра','ps4_game', now())`);
     await expect(c.exec(`update games set duration_override_hours = 0`)).rejects.toThrow();
     await expect(c.exec(`update games set hltb_main_hours = -1`)).rejects.toThrow();

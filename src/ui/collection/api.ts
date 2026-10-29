@@ -1,4 +1,5 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
+import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
@@ -8,7 +9,7 @@ import type {
 } from '@/server/collection/types';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(public status: number, public code: string, message: string, public reason?: string) {
     super(message);
   }
 }
@@ -37,7 +38,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
-  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error');
+  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error', json?.error?.details?.reason);
   return json.data as T;
 }
 
@@ -100,3 +101,17 @@ export const postRestore = (backupId: number) =>
 export const fetchStatusBackups = (signal?: AbortSignal) => call<StatusBackupsResponse>('/api/games/status-backups', { signal });
 
 export type { GameItem };
+
+/**
+ * Один вызов массовой подгрузки HLTB (16.7). Ошибки отдаются как HltbCallError (код HTTP, код и причина).
+ * Отмена через signal даёт AbortError (не сбой).
+ */
+export async function fetchHltbRun(body: HltbRunBody, signal?: AbortSignal): Promise<HltbRunResponse> {
+  try {
+    return await call<HltbRunResponse>('/api/hltb/run', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body), signal });
+  } catch (e) {
+    if (signal?.aborted) throw new DOMException('Запрос отменён', 'AbortError');
+    if (e instanceof ApiError) throw new HltbCallError(e.status, e.code, e.reason);
+    throw e;
+  }
+}

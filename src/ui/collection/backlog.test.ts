@@ -13,12 +13,12 @@ describe('фильтры бэклога <-> URL', () => {
   });
   it('круг: жанры (регистр), длительность, сортировка', () => {
     const f = parseBacklogFilters(p('genres=action,role_playing_games&duration=10_30,unknown&sort=duration&order=desc'));
-    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], sort: 'duration', order: 'desc' });
+    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc' });
     expect(backlogToUrl(f).toString()).toBe('genres=ACTION%2CROLE_PLAYING_GAMES&duration=10_30%2Cunknown&sort=duration&order=desc');
   });
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
-    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], sort: 'last_played', order: null });
+    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null });
   });
   it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
     const f = parseBacklogFilters(p('genres=NONE,horror,None'));
@@ -36,7 +36,7 @@ describe('фильтры бэклога <-> URL', () => {
     expect(backlogToUrl({ ...DEFAULT_BACKLOG, sort: 'duration', order: 'asc' }).toString()).toBe('sort=duration');
   });
   it('query API: статус backlog, жанры ИЛИ, бакеты, сортировка', () => {
-    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], sort: 'duration', order: null }, { limit: 300, offset: 0 });
+    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null }, { limit: 300, offset: 0 });
     expect(q.get('status')).toBe('backlog');
     expect(q.get('genres')).toBe('ACTION,HORROR');
     expect(q.get('duration')).toBe('lt10,unknown');
@@ -51,7 +51,7 @@ describe('фильтры бэклога <-> URL', () => {
   it('toggleValue и сброс', () => {
     expect(toggleValue(['A'], 'B')).toEqual(['A', 'B']);
     expect(toggleValue(['A', 'B'], 'A')).toEqual(['B']);
-    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], sort: 'duration', order: 'desc' })).toEqual({ genres: [], duration: [], sort: 'duration', order: 'desc' });
+    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc' })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc' });
   });
   it('id пункта сортировки', () => {
     expect(backlogSortId({ sort: 'duration', order: 'desc' })).toBe('duration_desc');
@@ -92,5 +92,19 @@ describe('ручной ввод часов', () => {
   it('значение поля', () => {
     expect(hoursInputValue(12.5)).toBe('12,5');
     expect(hoursInputValue(null)).toBe('');
+  });
+});
+
+describe('фильтр hltb', () => {
+  it('разбор URL, query API и сброс', async () => {
+    const { parseBacklogFilters, backlogToUrl, backlogToApi, hasBacklogFilters, resetBacklogFilters, isNotOnHltb } = await import('./backlog');
+    const f = parseBacklogFilters(new URLSearchParams('hltb=not_found,bad,not_found,unchecked&genres=ACTION'));
+    expect(f.hltb).toEqual(['not_found', 'unchecked']);
+    expect(backlogToUrl(f).toString()).toBe('genres=ACTION&hltb=not_found%2Cunchecked');
+    expect(backlogToApi(f, { limit: 10, offset: 0 }).get('hltb')).toBe('not_found,unchecked');
+    expect(hasBacklogFilters(parseBacklogFilters(new URLSearchParams('hltb=found')))).toBe(true);
+    expect(resetBacklogFilters(f).hltb).toEqual([]);
+    expect(isNotOnHltb({ hltb: { status: 'not_found', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } })).toBe(true);
+    expect(isNotOnHltb(undefined)).toBe(false);
   });
 });

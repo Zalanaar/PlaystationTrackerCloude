@@ -1,6 +1,6 @@
 // Предупреждения о протухании NPSSO в Telegram (контракт 15.4). Необязательный модуль: без TELEGRAM_BOT_TOKEN и
 // TELEGRAM_CHAT_ID ничего не делает и не падает. Токен бота не логируется и не попадает в тексты ошибок.
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { mskDateString } from '@/server/stats/period';
@@ -108,12 +108,12 @@ async function pickTrigger(db: AnyDb, now: Date, errorReason: string | null): Pr
   const [lastSuccess] = await db
     .select({ at: syncRuns.finishedAt, startedAt: syncRuns.startedAt })
     .from(syncRuns)
-    .where(eq(syncRuns.status, 'success'))
+    .where(and(ne(syncRuns.kind, 'hltb'), eq(syncRuns.status, 'success')))
     .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
     .limit(1);
   let reference = lastSuccess ? (lastSuccess.at ?? lastSuccess.startedAt) : null;
   if (!lastSuccess) {
-    const [firstRun] = await db.select({ startedAt: syncRuns.startedAt }).from(syncRuns).orderBy(syncRuns.startedAt).limit(1);
+    const [firstRun] = await db.select({ startedAt: syncRuns.startedAt }).from(syncRuns).where(ne(syncRuns.kind, 'hltb')).orderBy(syncRuns.startedAt).limit(1);
     reference = firstRun?.startedAt ?? null;
   }
   if (reference && now.getTime() - reference.getTime() > STALE_SYNC_MS) return { kind: 'sync_stale', ageMs: now.getTime() - reference.getTime() };

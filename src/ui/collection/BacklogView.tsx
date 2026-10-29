@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DurationCounts, GameItem, GenreCounts, GameStatusValue } from '@/server/collection/types';
+import type { DurationCounts, GameItem, GenreCounts, GameStatusValue, HltbCounts } from '@/server/collection/types';
 import '../backlog.css';
 import { EmptyState } from '../EmptyState';
 import { formatNumber } from '../format';
@@ -14,10 +14,11 @@ import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
 import { BacklogFilters } from './BacklogFilters';
 import {
-  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, parseBacklogFilters, resetBacklogFilters, sourceLabel,
+  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, parseBacklogFilters, resetBacklogFilters, sourceLabel,
   type BacklogFilters as Filters,
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
+import { HltbRunner } from './HltbRunner';
 import { GameDialog } from './GameDialog';
 import { GameGrid, GameGridItem } from './GameGrid';
 
@@ -46,6 +47,7 @@ export function BacklogView() {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<DurationCounts | null>(null);
   const [genreCounts, setGenreCounts] = useState<GenreCounts | null>(null);
+  const [hltbCounts, setHltbCounts] = useState<HltbCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const reqRef = useRef(0);
   const [error, setError] = useState(false);
@@ -65,6 +67,7 @@ export function BacklogView() {
       setTotal(r.total);
       setCounts(r.durationCounts ?? null);
       setGenreCounts(r.genreCounts ?? null);
+      setHltbCounts(r.hltbCounts ?? null);
     } catch (e) {
       if (my !== reqRef.current) return;
       if (e instanceof ApiError && e.status === 401) return;
@@ -154,8 +157,9 @@ export function BacklogView() {
         {items && items.length > 0 && <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p>}
       </div>
       {(items || counts) && (
-        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
+        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
+      <HltbRunner onFinished={() => void load()} />
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
@@ -184,6 +188,7 @@ export function BacklogView() {
                   <Icon name="clock" size={12} />
                   <span aria-label={g.duration?.hours != null ? `Длительность ${durationText(g.duration)}` : 'Длительность неизвестна'}>{durationText(g.duration)}</span>
                   {sourceLabel(g.duration?.source ?? null) && <span className="ps-bl-src" data-source={g.duration?.source ?? undefined}>{sourceLabel(g.duration?.source ?? null)}</span>}
+                  {isNotOnHltb(g.duration) && <span className="ps-bl-src" data-hltb="not_found" data-testid="bl-no-hltb">нет на HLTB</span>}
                 </p>
                 <div className="ps-quick">
                   <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>

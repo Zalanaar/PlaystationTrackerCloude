@@ -1,5 +1,5 @@
 // Жизненный цикл запуска: старт, возобновление, закрытие брошенных. Контракт: 1.7, 8.2.
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { parseCursor, type RunRow } from './context';
@@ -9,6 +9,8 @@ import { mskDate } from './time';
 const { syncRuns } = schema;
 
 export const STALE_RUN_MS = 15 * 60_000;
+/** Запуск kind='hltb' укладывается в ~60 с (maxDuration) и пишет heartbeat после каждой пачки: брошенный закрываем быстро. */
+export const HLTB_STALE_RUN_MS = 2 * 60_000;
 export const RESUME_WINDOW_MS = 6 * 3600_000;
 
 export type RunKind = (typeof schema.syncRunKind.enumValues)[number];
@@ -26,13 +28,14 @@ function isUniqueViolation(e: unknown): boolean {
   return false;
 }
 
-/** running без признаков жизни дольше 15 минут -> failed/timeout. Данные не трогаются. */
+/** running без признаков жизни дольше 15 минут (hltb: 2 минуты) -> failed/timeout. Данные не трогаются. */
 export async function closeStaleRuns(db: AnyDb, now: Date): Promise<number> {
   const threshold = new Date(now.getTime() - STALE_RUN_MS).toISOString();
+  const hltbThreshold = new Date(now.getTime() - HLTB_STALE_RUN_MS).toISOString();
   const closed = await db
     .update(syncRuns)
     .set({ status: 'failed', errorReason: 'timeout', errorMessage: 'Запуск завис и закрыт автоматически.', finishedAt: now })
-    .where(and(eq(syncRuns.status, 'running'), sql`coalesce((${syncRuns.cursor}->>'heartbeat')::timestamptz, ${syncRuns.startedAt}) < ${threshold}::timestamptz`))
+    .where(and(eq(syncRuns.status, 'running'), sql`coalesce((${syncRuns.cursor}->>'heartbeat')::timestamptz, ${syncRuns.startedAt}) < (case when ${syncRuns.kind} = 'hltb' then ${hltbThreshold}::timestamptz else ${threshold}::timestamptz end)`))
     .returning({ id: syncRuns.id });
   return closed.length;
 }
@@ -66,7 +69,7 @@ export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continu
       const run = await resume(db, row, now, true);
       return run ? { kind: 'started', run, resumed: true } : { kind: 'not_resumable' };
     }
-    const [last] = await db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+    const [last] = await db.select().from(syncRuns).where(ne(syncRuns.kind, 'hltb')).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
     if (last && last.status === 'partial' && now.getTime() - last.startedAt.getTime() < RESUME_WINDOW_MS) {
       const run = await resume(db, last, now, false);
       if (run) return { kind: 'started', run, resumed: true };
@@ -83,6 +86,22 @@ export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continu
       })
       .returning();
     return { kind: 'started', run, resumed: false };
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);
+    return { kind: 'already_running', runId: running?.id ?? null };
+  }
+}
+
+/** Запуск массовой подгрузки HLTB (контракт 16.7). Занимает тот же единственный слот running, что и синк. Никогда не возобновляет partial. */
+export async function startHltbRun(db: AnyDb, now: Date): Promise<{ kind: 'started'; run: RunRow } | { kind: 'already_running'; runId: number | null }> {
+  await closeStaleRuns(db, now);
+  try {
+    const [run] = await db
+      .insert(syncRuns)
+      .values({ kind: 'hltb', status: 'running', snapshotDate: mskDate(now), startedAt: now, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() } })
+      .returning();
+    return { kind: 'started', run };
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
     const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);

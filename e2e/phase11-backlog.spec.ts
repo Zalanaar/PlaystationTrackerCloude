@@ -32,7 +32,7 @@ test.describe('Бэклог: длительность и фильтры', () => 
     const dur = page.getByTestId('bl-duration');
     await expect(dur.nth(0)).toContainText('≈ 8 ч');
     await expect(dur.nth(0)).toContainText('HLTB');
-    await expect(page.locator('.ps-card', { hasText: 'Дельта' }).getByTestId('bl-duration')).toHaveText('—');
+    await expect(page.locator('.ps-card', { hasText: 'Дельта' }).getByTestId('bl-duration')).toContainText('—');
     await expect(page.locator('.ps-card', { hasText: 'Эхо' }).getByTestId('bl-duration')).toContainText('≈ 25 ч');
     await expect(page.locator('.ps-card', { hasText: 'Эхо' }).getByTestId('bl-duration')).toContainText('вручную');
   });

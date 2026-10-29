@@ -22,13 +22,13 @@ const NOISE = [
 ];
 
 /** Название -> строка для сравнения: нижний регистр, без диакритики и знаков, римские цифры -> арабские, без хвостов изданий. */
-export function normalizeTitle(raw: string): string {
+export function normalizeTitle(raw: string, o: { keepRoman?: boolean } = {}): string {
   let s = raw.replace(/[™®©℠]/g, ' ').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
   s = s.replace(/&/g, ' and ').replace(/[’‘ʼ]/g, "'");
   s = s.replace(/[^a-z0-9а-яё' ]+/g, ' ');
   for (const re of NOISE) s = s.replace(re, ' ');
   s = s.replace(/'/g, '');
-  const words = s.split(/\s+/).filter(Boolean).map((w, i) => (i > 0 && ROMAN[w] ? ROMAN[w] : w));
+  const words = s.split(/\s+/).filter(Boolean).map((w, i) => (!o.keepRoman && i > 0 && ROMAN[w] ? ROMAN[w] : w));
   return words.join(' ');
 }
 
@@ -94,4 +94,50 @@ export function secondsToHours(sec: unknown): number | null {
   if (typeof sec !== 'number' || !Number.isFinite(sec) || sec <= 0) return null;
   const h = Math.round(sec / 360) / 10;
   return h > 0 ? h : null;
+}
+
+/** Максимум запросов к HLTB на одну игру (16.6). */
+export const MAX_QUERIES_PER_GAME = 3;
+
+/**
+ * Запросы к HLTB по порядку: 1) с исходными римскими цифрами («diablo ii resurrected»: HLTB ищет по словам, «2» вместо «II» может не находить),
+ * 2) с арабскими, 3) укороченный (до ':' / ' - ' в исходном названии, иначе без последнего слова). Без повторов, не больше MAX_QUERIES_PER_GAME.
+ */
+export function searchTerms(psnName: string): string[] {
+  const out: string[] = [];
+  const add = (t: string) => {
+    const v = t.trim();
+    if (v && !out.includes(v)) out.push(v);
+  };
+  add(normalizeTitle(psnName, { keepRoman: true }));
+  add(searchTerm(psnName));
+  const head = psnName.split(/\s*[:\u2013\u2014]\s*|\s+-\s+/)[0] ?? '';
+  const byHead = normalizeTitle(head, { keepRoman: true });
+  if (head !== psnName && byHead) add(byHead);
+  else {
+    const w = normalizeTitle(psnName, { keepRoman: true }).split(' ');
+    if (w.length >= 2) add(w.slice(0, -1).join(' '));
+  }
+  return out.slice(0, MAX_QUERIES_PER_GAME);
+}
+
+/** Хвосты-пометки, которые PSN добавляет к названию, а HLTB нет («Gothic Classic» = «Gothic»). Только они отбрасываются при мягком сравнении. */
+const LOOSE_TAIL = new Set(['classic', 'original']);
+
+/**
+ * Мягкое совпадение (вторая очередь, когда pickBest ничего не дал): имя кандидата должно ТОЧНО совпасть с нашим названием
+ * без хвостовых слов из LOOSE_TAIL. Номера частей совпадают автоматически (равенство строк), поэтому «Gothic II» не привязывается к «Gothic»,
+ * а «Diablo III» к «Diablo II». Произвольные подзаголовки не отбрасываем: «Batman: Arkham Knight» не станет «Batman».
+ */
+export function pickLoose(psnName: string, candidates: readonly HltbCandidate[]): HltbCandidate | null {
+  const words = normalizeTitle(psnName).split(' ').filter(Boolean);
+  let n = words.length;
+  while (n > 1 && LOOSE_TAIL.has(words[n - 1])) n--;
+  if (n === words.length) return null;
+  const base = words.slice(0, n).join(' ');
+  return candidates.find((c) => normalizeTitle(c.name) === base) ?? null;
+}
+
+export function pickAny(psnName: string, candidates: readonly HltbCandidate[]): HltbCandidate | null {
+  return pickBest(psnName, candidates) ?? pickLoose(psnName, candidates);
 }
