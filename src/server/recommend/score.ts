@@ -31,7 +31,7 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 /** Убирает шум float, чтобы сравнение и тай-брейк были устойчивы. */
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 
-type GenreStat = { hours: number; completed: number; dropped: number; decidedGames: number; droppedGames: number };
+export type GenreStat = { hours: number; completed: number; dropped: number; decidedGames: number; droppedGames: number };
 
 /** Статистика жанров библиотеки: игра делится между жанрами по 1/N. */
 export function genreStats(history: readonly HistoryGame[]): Map<GenreKey, GenreStat> {
@@ -57,7 +57,7 @@ export function genreStats(history: readonly HistoryGame[]): Map<GenreKey, Genre
 }
 
 /** Значение вкуса по жанру в [-1, 1]; нет истории = 0. */
-function affinityOf(s: GenreStat | undefined, maxHours: number): number {
+export function affinityOf(s: GenreStat | undefined, maxHours: number): number {
   if (!s) return 0;
   const finished = s.completed + s.dropped;
   const share = finished > 0 ? (s.completed - s.dropped) / finished : 0;
@@ -65,7 +65,7 @@ function affinityOf(s: GenreStat | undefined, maxHours: number): number {
   return clamp(AFFINITY_HOURS_SHARE * hoursNorm + AFFINITY_FINISH_SHARE * share, -1, 1);
 }
 
-function penalized(s: GenreStat | undefined): boolean {
+export function penalized(s: GenreStat | undefined): boolean {
   return !!s && s.decidedGames >= PENALTY_MIN_GAMES && s.droppedGames / s.decidedGames > PENALTY_DROPPED_SHARE;
 }
 
