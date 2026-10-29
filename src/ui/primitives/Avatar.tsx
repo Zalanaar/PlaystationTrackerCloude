@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { avatarInitial } from '../profile/model';
 
-export type AvatarSize = 32 | 40 | 56 | 96;
+export type AvatarSize = 32 | 36 | 40 | 56 | 96;
 
 /**
  * Аватар PSN (design-system §4.16): `<img>` с fallback на инициал ника.

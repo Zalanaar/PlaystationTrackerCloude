@@ -233,9 +233,11 @@ export function QueuePanel({
                         <button type="button" role="menuitem" className="ps-menu-item" aria-disabled={last || undefined} onClick={() => { close(); if (!last) move(r.key, 'end', 'menu'); }}>
                           <Icon name="arrow-down" size={16} /><span className="ps-menu-item__label">В конец очереди</span>
                         </button>
-                        <Link href={`/?q=${encodeURIComponent(e.title)}`} role="menuitem" className="ps-menu-item" onClick={close}>
-                          <Icon name="external-link" size={16} /><span className="ps-menu-item__label">Открыть игру</span>
-                        </Link>
+                        {e.gameId !== null && (
+                          <Link href={`/?game=${e.gameId}`} scroll={false} role="menuitem" className="ps-menu-item" onClick={close}>
+                            <Icon name="external-link" size={16} /><span className="ps-menu-item__label">Открыть игру</span>
+                          </Link>
+                        )}
                         <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => { close(); onRemove(e); }}>
                           <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Убрать из плана</span>
                         </button>

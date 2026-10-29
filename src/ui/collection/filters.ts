@@ -134,6 +134,11 @@ export function hasActiveFilters(f: Filters): boolean {
   return f.status !== 'all' || f.q.trim() !== '' || f.platinum;
 }
 
+/** Точка на кнопке «Фильтры» (моб., §8.3): сортировка не по умолчанию, выбран статус, платина или вид не «Крупно». Поиск видно в самом поле. */
+export function filtersDot(f: Pick<Filters, 'sort' | 'status' | 'platinum'>, view: ViewMode): boolean {
+  return f.sort !== DEFAULT_SORT || f.status !== 'all' || f.platinum || view !== DEFAULT_VIEW;
+}
+
 /** Сброс статуса, поиска и чипа «Платина»; раздел («Скрытые» или вся коллекция) остаётся. */
 export function resetFilters(f: Filters): Filters {
   return { ...f, status: 'all', q: '', platinum: false };

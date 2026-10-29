@@ -50,7 +50,7 @@ export type CardMonth = {
 };
 
 export function GameCard({
-  game, actions, selectMode, selected, active, dateWithYear, month, children, monthMenu, busy,
+  game, actions, selectMode, selected, active, dateWithYear, month, children, monthMenu, busy, anchorId,
 }: {
   game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; active?: boolean;
   /** «9 окт. 2026» вместо «9 окт.» (плоский список результатов) */
@@ -60,6 +60,8 @@ export function GameCard({
   monthMenu?: ReactNode;
   /** Запрос по карточке в процессе */
   busy?: boolean;
+  /** id первой карточки месяца в Хронике (`m2026-10`): цель прокрутки чипов месяцев */
+  anchorId?: string;
   /** быстрые действия под карточкой (Бэклог) */
   children?: ReactNode;
 }) {
@@ -75,6 +77,7 @@ export function GameCard({
   const plat = t?.platinumEarned === true;
   return (
     <article
+      id={anchorId} tabIndex={anchorId ? -1 : undefined}
       className="ps-card" data-status={key} data-platinum={plat || undefined} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
       data-excluded={month?.excluded || undefined} data-busy={busy || undefined}
     >
