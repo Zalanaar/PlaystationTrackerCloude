@@ -286,7 +286,7 @@ psn_auth (singleton), login_attempts, status_backups (самостоятельн
 ## 3. Auth
 
 ### 3.1 Механизм
-- Единственный пароль `ADMIN_PASSWORD`, пользователей нет.
+- Единственный пароль `ADMIN_PASSWORD`, пользователей нет. **Будет заменено в Фазе 20** (несколько пользователей по белому списку, своя коллекция у каждого, `plan.md` Этап 6): новый контракт входа и схемы фиксируется здесь до реализации.
 - Сессия: cookie `pst_session`, значение `<payload_b64url>.<signature_b64url>`.
   - `payload` = JSON `{"v":1,"iat":<unix сек>,"exp":<unix сек>}`.
   - `signature` = HMAC-SHA256(`payload_b64url`, `SESSION_SECRET`).
