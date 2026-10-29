@@ -134,7 +134,7 @@ export function buildRoadmap(s: RmState) {
   const byId = new Map(s.games.map((g) => [g.id, g]));
   for (const id of s.order) {
     const g = byId.get(id);
-    if (g && !s.excluded.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: (s.insertHints[g.id]?.insertAt ?? 0) >= s.order.indexOf(g.id) + 1 && s.insertHints[g.id]?.insertAt && (g.hours ?? 0) <= 400 ? Math.min(g.hours ?? 10, 10) : g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
+    if (g && !s.excluded.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: (s.insertHints[g.id]?.insertAt ?? 0) >= s.order.indexOf(g.id) + 1 && s.insertHints[g.id]?.insertAt && (g.hours ?? 0) <= 400 && s.calls.orders.length > 0 ? Math.min(g.hours ?? 10, 10) : g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
   }
   for (const g of s.games) if (!s.order.includes(g.id) && !s.excluded.includes(g.id)) q.push({ key: `g:${g.id}`, kind: 'backlog', gameId: g.id, plannedId: null, title: g.title, coverUrl: null, hours: g.hours, hoursSource: g.hours ? (g.source ?? 'hltb') : null, releaseDate: null, wantAtRelease: false });
   for (const p of livePlanned.filter((x) => !x.wantAtRelease)) q.push({ key: `p:${p.id}`, kind: 'planned', gameId: null, plannedId: p.id, title: p.title, coverUrl: p.coverUrl, hours: p.hoursManual, hoursSource: p.hoursManual ? 'manual' : null, releaseDate: p.releaseDate, wantAtRelease: false });

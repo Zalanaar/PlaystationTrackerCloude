@@ -106,7 +106,7 @@ test.describe('«Не успеваю»: позиция в очереди и пе
   test('«никого не вытеснит», «нигде не влезет» без кнопки, нет полей: ни подсказки, ни кнопки', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, big({ insertHints: { 2: { insertAt: 1, displacesAtInsert: 0, displacedTitles: [] } } }));
     await expect(page.getByTestId('rm-end-hint')).toHaveText('Влезет на позиции 1, никого не вытеснит');
-    await expect(page.getByTestId('rm-to-pos')).toHaveText('Поставить на позицию 1');
+    await expect(page.getByTestId('rm-to-pos')).toContainText('Поставить на позицию 1');
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     const s2 = await open(page, context, baseURL as string, big({ insertHints: { 2: { insertAt: null, displacesAtInsert: 0, displacedTitles: [] } } }));
     await expect(page.getByTestId('rm-end-hint')).toHaveText('Нигде не влезет: слишком длинная или мешают релизы');
@@ -243,5 +243,59 @@ test.describe('Бэклог: заголовки, переключатель, к�
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       });
     }
+  }
+});
+
+test.describe('«Не успеваю»: устойчивая раскладка строк', () => {
+  const longName = 'Я'.repeat(300);
+  const state = () => baseState({
+    games: [
+      { id: 1, title: 'Игра А', hours: 250 },
+      { id: 2, title: 'Stellar Blade', hours: 300 }, { id: 3, title: 'Split Fiction', hours: 300 }, { id: 4, title: 'Days Gone', hours: 300 },
+      { id: 5, title: 'Dark Souls II: Scholar of the First Sin Complete Edition', hours: 300 }, { id: 6, title: longName, hours: 300 }, { id: 7, title: 'Без подсказки', hours: 300 },
+      { id: 8, title: 'Нигде не влезет', hours: 300 },
+    ],
+    order: [1, 2, 3, 4, 5, 6, 7, 8],
+    planned: [rel(40, 'Релиз после конца года с длинным названием для проверки переноса', '2027-02-01', { wantAtRelease: true, hoursManual: 14 })],
+    insertHints: {
+      2: { insertAt: 25, displacesAtInsert: 1, displacedTitles: ['Cyberpunk 2077'] },
+      3: { insertAt: 12, displacesAtInsert: 3, displacedTitles: ['The Witcher 3: Wild Hunt Game of the Year Edition', 'Red Dead Redemption 2', 'Assassins Creed Valhalla Ragnarok'] },
+      4: { insertAt: 2, displacesAtInsert: 0, displacedTitles: [] },
+      5: { insertAt: 7, displacesAtInsert: 1, displacedTitles: ['Игра с очень длинным названием без вариантов сократить'] },
+      6: { insertAt: 3, displacesAtInsert: 0, displacedTitles: [] },
+      8: { insertAt: null, displacesAtInsert: 0, displacedTitles: [] },
+    },
+  });
+
+  for (const width of [320, 360, 768, 1280]) {
+    test(`${width} px: название не схлопывается, действия в одной строке, нет горизонтального скролла`, async ({ page, context, baseURL, isMobile }) => {
+      test.skip(isMobile && width > 400, 'ширина задаётся вручную один раз');
+      await page.setViewportSize({ width, height: 900 });
+      await open(page, context, baseURL as string, state());
+      const items = page.getByTestId('rm-over-item');
+      await expect(items).toHaveCount(8);
+      const geo = await items.evaluateAll((els) => els.map((li) => {
+        const b = li.querySelector('.ps-rm-over__tx b') as HTMLElement;
+        const r = b.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(b).lineHeight);
+        const acts = Array.from(li.querySelectorAll('[data-testid="rm-over-actions"] button')).map((x) => Math.round(x.getBoundingClientRect().top));
+        const hint = li.querySelector('[data-testid="rm-end-hint"]') as HTMLElement | null;
+        const act = li.querySelector('[data-testid="rm-over-actions"]') as HTMLElement;
+        return {
+          w: r.width, lines: r.height / lh, acts: new Set(acts).size,
+          hintBelow: hint ? hint.getBoundingClientRect().top >= act.getBoundingClientRect().bottom - 1 : true,
+          hintWide: hint ? hint.getBoundingClientRect().width : 999,
+          liW: li.getBoundingClientRect().width,
+        };
+      }));
+      for (const g of geo) {
+        expect(g.w).toBeGreaterThanOrEqual(120);
+        expect(g.lines).toBeLessThan(4); // не больше 3 строк, никаких побуквенных колонок
+        expect(g.acts).toBe(1); // кнопки в одной строке действий
+        expect(g.hintBelow).toBe(true); // подсказка отдельной строкой под действиями
+        expect(g.hintWide).toBeGreaterThan(g.liW * 0.6); // и на всю ширину карточки
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    });
   }
 });

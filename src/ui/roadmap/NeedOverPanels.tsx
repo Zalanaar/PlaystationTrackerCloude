@@ -71,7 +71,7 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }:
       {total > 0 && <p className="ps-rm-over__sum">Не хватает <b className="num">{hoursLabel(total)}</b>, чтобы пройти всё до {dayText(yearEnd)}</p>}
       <ul className="ps-rm-over">
         {list.map((r) => (
-          <li key={r.key} className="ps-rm-over__li" data-rm-over={r.key}>
+          <li key={r.key} className="ps-rm-over__li" data-rm-over={r.key} data-testid="rm-over-item">
             {/* релиз ведёт к строке в «Релизах»; игры бэклога в очереди не показываются, строка без перехода */}
             {r.key.startsWith('p:') ? (
               <button type="button" className="ps-rm-over__row" data-testid="rm-over-row" onClick={() => jumpToEntry(r.key)}>
@@ -80,25 +80,29 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }:
             ) : (
               <div className="ps-rm-over__row" data-testid="rm-over-row"><OverBody r={r} /></div>
             )}
-            {r.key.startsWith('g:') && (() => {
-              const hint = insertHint(r);
-              if (!hint) return null;
+            {(() => {
+              const hint = r.key.startsWith('g:') ? insertHint(r) : null;
               return (
-                <span className="ps-rm-over__end">
-                  {hint.kind === 'insert' && (
-                    <button
-                      type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-pos" disabled={busy === r.key || locked}
-                      aria-describedby={`end-${r.key}`}
-                      onClick={() => { setBusy(r.key); void onMoveTo(r, hint.at).catch(() => {}).finally(() => setBusy(null)); }}
-                    >{busy === r.key ? <Spinner size={12} /> : <Icon name="arrow-up" size={14} />}Поставить на позицию {hint.at}</button>
+                <>
+                  {/* одна строка действий: позиция и «Убрать из плана»; подсказка отдельной строкой на всю ширину карточки */}
+                  <div className="ps-rm-over__act" data-testid="rm-over-actions">
+                    {hint?.kind === 'insert' && (
+                      <button
+                        type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="rm-to-pos" disabled={busy === r.key || locked}
+                        aria-describedby={`end-${r.key}`} aria-label={`Поставить на позицию ${hint.at}`}
+                        onClick={() => { setBusy(r.key); void onMoveTo(r, hint.at).catch(() => {}).finally(() => setBusy(null)); }}
+                      >{busy === r.key ? <Spinner size={12} /> : <Icon name="arrow-up" size={14} />}<span className="ps-rm-lg">Поставить на позицию {hint.at}</span><span className="ps-rm-sm" aria-hidden="true">На позицию {hint.at}</span></button>
+                    )}
+                    <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Убрать из плана: ${r.title}`} title="Убрать из плана" onClick={() => onRemove(r)}><Icon name="eye-off" size={16} /></button>
+                  </div>
+                  {hint && (
+                    <small className="ps-rm-over__hint" id={`end-${r.key}`} data-tone={hint.kind === 'insert' && hint.warn ? 'warn' : 'ok'} data-testid="rm-end-hint">
+                      {hint.kind === 'insert' && hint.warn && <Icon name="alert" size={12} />}<span>{hint.line}</span>
+                    </small>
                   )}
-                  <small id={`end-${r.key}`} data-tone={hint.kind === 'insert' && hint.warn ? 'warn' : 'ok'} data-testid="rm-end-hint">
-                    {hint.kind === 'insert' && hint.warn && <Icon name="alert" size={12} />}{hint.line}
-                  </small>
-                </span>
+                </>
               );
             })()}
-            <button type="button" className="ps-iconbtn ps-rm-sq" aria-label={`Убрать из плана: ${r.title}`} title="Убрать из плана" onClick={() => onRemove(r)}><Icon name="eye-off" size={16} /></button>
           </li>
         ))}
       </ul>
