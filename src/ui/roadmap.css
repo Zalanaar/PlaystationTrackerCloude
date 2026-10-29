@@ -281,7 +281,9 @@ button.ps-rm-state { cursor: pointer; }
   .ps-rm-q__pos { display: inline; }
   .ps-rm-q__plan { grid-area: plan; }
   .ps-rm-q__act { grid-area: act; flex-direction: column; align-items: flex-end; gap: 0; }
+  .ps-rm-q__act .ps-pop { position: static; }
   .ps-rm-q__more { position: absolute; top: 0; right: var(--tap-min); }
+  .ps-rm-q__act .ps-pop__panel { top: calc(var(--tap-min) + 2px); right: 0; left: auto; }
   .ps-rm-input, .ps-rm-text { height: var(--tap-min); }
   .ps-rm-hours .ps-rm-input { height: var(--tap-min); }
   .ps-rm-check { min-height: var(--tap-min); }
