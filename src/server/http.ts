@@ -10,6 +10,8 @@ export type ErrorCode =
   | 'sync_in_progress'
   | 'status_conflict'
   | 'month_exclusion_conflict'
+  | 'planned_duplicate'
+  | 'catalog_unavailable'
   | 'config_error'
   | 'internal_error'
   | 'db_unavailable';

@@ -61,7 +61,7 @@ describe('docs/release-neon-0008.sql', () => {
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: root });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(9);
+    expect(n.rows[0].n).toBe(journalRaw.entries.length);
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','Игра','ps4_game', now())`);
     await c.exec(`insert into roadmap_order (game_id, position) values (1, 0)`);
     await expect(c.exec(`insert into roadmap_order (game_id, position) values (1, 1)`)).rejects.toThrow();

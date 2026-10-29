@@ -37,6 +37,6 @@ describe('docs/release-neon-0007.sql', () => {
     expect(j.rows).toEqual([{ hash }]);
     await migrate(drizzle(c), { migrationsFolder: root });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(8);
+    expect(n.rows[0].n).toBe(journalRaw.entries.length);
   });
 });
