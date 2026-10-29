@@ -22,3 +22,30 @@ export function parseGameId(raw: string): number | null {
   const n = Number(raw);
   return n >= 1 && n <= 2_147_483_647 ? n : null;
 }
+
+// --- «Новое от ИИ» (раздел 19)
+
+/** `refresh` отсутствует = false; `1`/`true` = true; `0`/`false` = false; иное = ошибка. */
+export function parseRefresh(raw: string | null): Parsed<boolean> {
+  if (raw === null || raw === '0' || raw === 'false') return { ok: true, value: false };
+  if (raw === '1' || raw === 'true') return { ok: true, value: true };
+  return { ok: false, message: 'Некорректный параметр refresh.' };
+}
+
+const externalIdSchema = z.string().trim().min(1).max(64).regex(/^[^\s/?#%\\]+$/);
+const externalDislikeSchema = z.strictObject({
+  externalSource: z.literal('rawg'),
+  externalId: externalIdSchema,
+  title: z.string().trim().min(1).max(200),
+  coverUrl: z.string().max(2048).startsWith('https://').nullable(),
+});
+
+export function parseExternalDislikeBody(body: unknown): Parsed<z.infer<typeof externalDislikeSchema>> {
+  const r = externalDislikeSchema.safeParse(body);
+  return r.success ? { ok: true, value: r.data } : { ok: false, message: 'Некорректные поля externalSource, externalId, title или coverUrl.' };
+}
+
+export function parseExternalId(raw: string): string | null {
+  const r = externalIdSchema.safeParse(raw);
+  return r.success ? r.data : null;
+}
