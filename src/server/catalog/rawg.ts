@@ -2,6 +2,8 @@
 // Формат ответа по документации rawg.io/apidocs (GET /api/games?search=): { results: [{ id, name, released, tba, background_image, platforms: [{ platform: { name, slug } }] }] }.
 // Вживую без ключа не проверялось: разбор оборонительный, неожиданная форма = bad_response, а не пустая выдача.
 import { z } from 'zod';
+import { dayNum, dayStr } from '@/server/roadmap/dates';
+import { mskDateString } from '@/server/stats/period';
 
 export type CatalogCandidate = {
   externalSource: 'rawg';
@@ -51,7 +53,8 @@ const envelope = z.object({ results: z.array(z.unknown()) });
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const validDate = (s: string): boolean => DATE_RE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 
-export function mapResults(body: unknown): CatalogCandidate[] {
+/** Разбор без сортировки (порядок RAWG сохраняется). */
+export function parseResults(body: unknown): CatalogCandidate[] {
   const env = envelope.safeParse(body);
   if (!env.success) throw new CatalogError('bad_response');
   const out: CatalogCandidate[] = [];
@@ -74,19 +77,18 @@ export function mapResults(body: unknown): CatalogCandidate[] {
       playstation: slugs.some((s) => s.startsWith('playstation')),
     });
   }
+  return out;
+}
+
+export function mapResults(body: unknown): CatalogCandidate[] {
+  const out = parseResults(body);
   // Стабильно: PlayStation-версии первыми, внутри групп порядок релевантности RAWG.
   return [...out.filter((c) => c.playstation), ...out.filter((c) => !c.playstation)];
 }
 
-export async function searchCatalog(query: string, deps: CatalogDeps): Promise<CatalogCandidate[]> {
-  if (!deps.apiKey) throw new CatalogError('no_key');
+/** Один запрос к RAWG: таймаут, лимит размера, разбор JSON. Ошибки только CatalogError без URL и ключа. */
+async function requestJson(url: URL, deps: CatalogDeps): Promise<unknown> {
   const doFetch = deps.fetch ?? fetch;
-  const url = new URL(RAWG_BASE);
-  url.searchParams.set('key', deps.apiKey);
-  url.searchParams.set('search', query);
-  url.searchParams.set('page_size', String(RAWG_PAGE_SIZE));
-  if (deps.playstationOnly) url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
-
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), deps.timeoutMs ?? RAWG_TIMEOUT_MS);
   try {
@@ -106,14 +108,65 @@ export async function searchCatalog(query: string, deps: CatalogDeps): Promise<C
       throw new CatalogError(ctl.signal.aborted ? 'timeout' : 'network');
     }
     if (text.length > RAWG_MAX_BYTES) throw new CatalogError('bad_response');
-    let body: unknown;
     try {
-      body = JSON.parse(text);
+      return JSON.parse(text);
     } catch {
       throw new CatalogError('bad_response');
     }
-    return mapResults(body);
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function searchCatalog(query: string, deps: CatalogDeps): Promise<CatalogCandidate[]> {
+  if (!deps.apiKey) throw new CatalogError('no_key');
+  const url = new URL(RAWG_BASE);
+  url.searchParams.set('key', deps.apiKey);
+  url.searchParams.set('search', query);
+  url.searchParams.set('page_size', String(RAWG_PAGE_SIZE));
+  if (deps.playstationOnly) url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
+  return mapResults(await requestJson(url, deps));
+}
+
+// --- предстоящие релизы (контракт 17.13)
+export const RAWG_UPCOMING_PAGE_SIZE = 20;
+export const RAWG_UPCOMING_DAYS = 365;
+export const RAWG_UPCOMING_TTL_MS = 60 * 60 * 1000;
+
+export type UpcomingPage = { candidates: CatalogCandidate[]; page: number; hasMore: boolean };
+export type UpcomingCache = Map<string, { at: number; value: UpcomingPage }>;
+/** Кэш процесса: ключ = диапазон дат + страница (ключ API не входит). */
+const processCache: UpcomingCache = new Map();
+
+export type UpcomingDeps = CatalogDeps & { now?: Date; cache?: UpcomingCache; ttlMs?: number };
+
+const pageEnvelope = z.object({ next: z.string().nullable().optional() });
+
+export async function getUpcoming(page: number, deps: UpcomingDeps): Promise<UpcomingPage> {
+  if (!deps.apiKey) throw new CatalogError('no_key');
+  const now = deps.now ?? new Date();
+  const from = mskDateString(now);
+  const to = dayStr(dayNum(from) + RAWG_UPCOMING_DAYS);
+  const cache = deps.cache ?? processCache;
+  const cacheKey = `${from}|${to}|${page}`;
+  const hit = cache.get(cacheKey);
+  if (hit && now.getTime() - hit.at < (deps.ttlMs ?? RAWG_UPCOMING_TTL_MS) && now.getTime() >= hit.at) return hit.value;
+
+  const url = new URL(RAWG_BASE);
+  url.searchParams.set('key', deps.apiKey);
+  url.searchParams.set('dates', `${from},${to}`);
+  url.searchParams.set('ordering', 'released');
+  url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
+  url.searchParams.set('page_size', String(RAWG_UPCOMING_PAGE_SIZE));
+  url.searchParams.set('page', String(page));
+  const body = await requestJson(url, deps);
+  const all = parseResults(body);
+  const env = pageEnvelope.safeParse(body);
+  const rawCount = (body as { results: unknown[] }).results.length;
+  const hasMore = env.success && env.data.next !== undefined ? env.data.next !== null && env.data.next !== '' : rawCount >= RAWG_UPCOMING_PAGE_SIZE;
+  const value: UpcomingPage = { candidates: all.filter((c) => c.releaseDate !== null), page, hasMore };
+  // Подчищаем протухшее, чтобы Map не рос.
+  for (const [k, v] of cache) if (now.getTime() - v.at >= (deps.ttlMs ?? RAWG_UPCOMING_TTL_MS)) cache.delete(k);
+  cache.set(cacheKey, { at: now.getTime(), value });
+  return value;
 }

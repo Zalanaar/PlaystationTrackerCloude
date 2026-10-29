@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GET as catalogGet } from './catalog/search/route';
+import { GET as upcomingGet } from './catalog/upcoming/route';
+import { POST as exclusionsPost } from './exclusions/route';
+import { DELETE as exclusionsDelete } from './exclusions/[gameId]/route';
 import { PUT as orderPut } from './order/route';
 import { DELETE as plannedDelete, PATCH as plannedPatch } from './planned/[id]/route';
 import { GET as plannedGet, POST as plannedPost } from './planned/route';
@@ -108,5 +111,60 @@ describe('GET /api/roadmap/catalog/search', () => {
     expect(text).toContain('catalog_unavailable');
     expect(text).not.toContain('KEY_SECRET_XYZ');
     vi.unstubAllGlobals();
+  });
+});
+
+describe('исключения из плана и предстоящие релизы (без БД)', () => {
+  it('POST exclusions: валидация тела, Origin, Content-Type', async () => {
+    for (const b of [{}, { gameId: '1' }, { gameId: 0 }, { gameId: 1.5 }, { gameId: -1 }, { gameId: 1, x: 1 }, [], '{bad']) {
+      expect((await exclusionsPost(req('POST', b))).status, JSON.stringify(b)).toBe(400);
+    }
+    expect((await exclusionsPost(req('POST', { gameId: 1 }, {}))).status).toBe(400);
+    expect((await exclusionsPost(req('POST', { gameId: 1 }, evil))).status).toBe(400);
+  });
+
+  it('DELETE exclusions/{gameId}: id и Origin', async () => {
+    const p = (gameId: string) => ({ params: Promise.resolve({ gameId }) });
+    expect((await exclusionsDelete(new Request('http://x', { method: 'DELETE' }), p('abc'))).status).toBe(400);
+    expect((await exclusionsDelete(new Request('http://x', { method: 'DELETE' }), p('0'))).status).toBe(400);
+    expect((await exclusionsDelete(new Request('http://x', { method: 'DELETE', headers: { origin: 'http://evil.example', host: 'x' } }), p('1'))).status).toBe(400);
+  });
+
+  it('PATCH planned: status unallocated принимается (алиас cancelled), мусор нет', async () => {
+    expect((await plannedPatch(req('PATCH', { status: 'wat' }), params('1'))).status).toBe(400);
+    expect((await plannedGet(new Request('http://x/api/roadmap/planned?status=wat'))).status).toBe(400);
+  });
+
+  describe('GET catalog/upcoming', () => {
+    const saved = process.env.RAWG_API_KEY;
+    afterEach(() => {
+      if (saved === undefined) delete process.env.RAWG_API_KEY;
+      else process.env.RAWG_API_KEY = saved;
+    });
+    const get = (q: string) => upcomingGet(new Request(`http://x/api/roadmap/catalog/upcoming${q}`));
+
+    it('page: мусор = 400', async () => {
+      for (const q of ['?page=0', '?page=-1', '?page=abc', '?page=1.5', '?page=99999', '?page=501']) expect((await get(q)).status, q).toBe(400);
+    });
+
+    it('нет ключа = 503 catalog_unavailable no_key', async () => {
+      delete process.env.RAWG_API_KEY;
+      const r = await get('');
+      expect(r.status).toBe(503);
+      expect((await r.json()).error).toMatchObject({ code: 'catalog_unavailable', details: { reason: 'no_key' } });
+    });
+
+    it('сбой RAWG = 503 без ключа в ответе', async () => {
+      process.env.RAWG_API_KEY = 'KEY_SECRET_UP';
+      vi.stubGlobal('fetch', async () => {
+        throw new TypeError('fetch failed https://api.rawg.io/api/games?key=KEY_SECRET_UP');
+      });
+      const r = await get('?page=3');
+      expect(r.status).toBe(503);
+      const text = await r.text();
+      expect(text).toContain('catalog_unavailable');
+      expect(text).not.toContain('KEY_SECRET_UP');
+      vi.unstubAllGlobals();
+    });
   });
 });

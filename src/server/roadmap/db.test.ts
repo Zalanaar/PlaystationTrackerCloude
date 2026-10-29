@@ -4,8 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
 import {
-  createPlanned, deletePlanned, DuplicatePlannedError, getBacklogEntries, getRoadmap, getSettings, listPlanned, NotFoundError,
-  putSettings, saveOrder, UnknownGamesError, updatePlanned, WantNeedsDateError,
+  createPlanned, deletePlanned, DuplicatePlannedError, excludeGame, getBacklogEntries, getRoadmap, getSettings, listPlanned, markPlanned, NotBacklogError, NotFoundError,
+  OrderRejectedError, putSettings, restoreGame, saveOrder, UnknownGamesError, updatePlanned, WantNeedsDateError,
 } from './db';
 import type { PlannedCreate } from './validation';
 
@@ -145,5 +145,145 @@ describe('roadmap на БД', () => {
     expect(r.progress).toMatchObject({ from: '2026-01-01', asOf: '2026-10-28', actualHours: 250 });
     expect(r.progress?.plannedHours).toBe(15); // только игры плана: Bravo 5 + Alpha 10, релиз не считается
     expect(r.progress?.status).toBe('ahead');
+  });
+
+  describe('правки после выкатки: не распределено, сервисы, предстоящие', () => {
+    const setStatus = (gameId: number, status: 'service' | 'completed' | 'backlog') =>
+      t.db.update(gameStatus).set({ status }).where(eq(gameStatus.gameId, gameId));
+
+    it('исключение: игра уходит из очереди и плана в unallocated, статус backlog остаётся, порядок чистится; идемпотентно', async () => {
+      const id = await seed();
+      await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
+      await saveOrder(t.db, [id('B'), id('A'), id('D')]);
+      await excludeGame(t.db, id('A'));
+      await excludeGame(t.db, id('A'));
+      const r = await getRoadmap(t.db, NOW);
+      expect(r.queue.map((q) => q.key)).toEqual([`g:${id('B')}`, `g:${id('D')}`]);
+      expect(r.items.map((i) => i.title)).toEqual(['Bravo']);
+      expect(r.notFit).toEqual([]);
+      expect(r.needHours.map((e) => e.title)).toEqual(['Delta']);
+      expect(r.unallocated).toEqual([
+        { key: `g:${id('A')}`, kind: 'backlog', gameId: id('A'), plannedId: null, title: 'Alpha', coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false },
+      ]);
+      const [st] = await t.db.select().from(gameStatus).where(eq(gameStatus.gameId, id('A')));
+      expect(st.status).toBe('backlog');
+      const rows = await t.db.select({ g: schema.roadmapOrder.gameId }).from(schema.roadmapOrder);
+      expect(rows.map((x) => x.g)).not.toContain(id('A'));
+    });
+
+    it('исключение: нет игры = NotFound, не бэклог = NotBacklog; unallocated не показывает скрытые и ушедшие из бэклога', async () => {
+      const id = await seed();
+      await expect(excludeGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(excludeGame(t.db, id('E'))).rejects.toBeInstanceOf(NotBacklogError);
+      await excludeGame(t.db, id('B'));
+      await setStatus(id('B'), 'completed');
+      expect((await getRoadmap(t.db, NOW)).unallocated).toEqual([]);
+    });
+
+    it('возврат: игра встаёт в конец очереди (после игр без позиции тоже), ручной порядок сохраняется', async () => {
+      const id = await seed();
+      await saveOrder(t.db, [id('B'), id('A'), id('D')]);
+      await excludeGame(t.db, id('B'));
+      // новая игра бэклога без позиции
+      const [f] = await t.db.insert(games).values({ category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }).returning({ id: games.id });
+      await t.db.insert(gameStatus).values({ gameId: f.id, status: 'backlog', statusChangedAt: new Date(NOW.getTime() + 999_000) });
+      await restoreGame(t.db, id('B'));
+      await restoreGame(t.db, id('B')); // идемпотентно
+      expect((await getBacklogEntries(t.db)).map((e) => e.title)).toEqual(['Alpha', 'Delta', 'Foxtrot', 'Bravo']);
+      expect((await getRoadmap(t.db, NOW)).unallocated).toEqual([]);
+      await expect(restoreGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('релизы: cancelled = unallocated, возврат planned; done не показывается', async () => {
+      await seed();
+      const a = await createPlanned(t.db, planned({ title: 'Релиз', releaseDate: '2026-12-01', wantAtRelease: true, hoursManual: 10 }));
+      const b = await createPlanned(t.db, planned({ title: 'Позже' }));
+      const c = await createPlanned(t.db, planned({ title: 'Готово' }));
+      await updatePlanned(t.db, a.id, { status: 'cancelled' });
+      await updatePlanned(t.db, c.id, { status: 'done' });
+      let r = await getRoadmap(t.db, NOW);
+      expect(r.unallocated.map((e) => [e.key, e.kind, e.hours])).toEqual([[`p:${a.id}`, 'release', 10]]);
+      expect(r.needHours.map((e) => e.key)).toEqual(expect.not.arrayContaining([`p:${a.id}`]));
+      await updatePlanned(t.db, a.id, { status: 'planned' });
+      r = await getRoadmap(t.db, NOW);
+      expect(r.unallocated).toEqual([]);
+      expect(r.needHours.map((e) => e.key)).toContain(`p:${b.id}`);
+    });
+
+    it('PUT order: service и исключённые отклоняются, ничего не меняется', async () => {
+      const id = await seed();
+      await saveOrder(t.db, [id('B')]);
+      await setStatus(id('A'), 'service');
+      await excludeGame(t.db, id('D'));
+      await expect(saveOrder(t.db, [id('A'), id('B')])).rejects.toMatchObject({ reason: 'service_game', ids: [id('A')] });
+      await expect(saveOrder(t.db, [id('D')])).rejects.toMatchObject({ reason: 'excluded', ids: [id('D')] });
+      await expect(saveOrder(t.db, [id('D')])).rejects.toBeInstanceOf(OrderRejectedError);
+      expect((await getBacklogEntries(t.db))[0].title).toBe('Bravo');
+    });
+
+    it('PUT order: полный порядок включая не влезшие сохраняется как есть', async () => {
+      const id = await seed();
+      await putSettings(t.db, { year: 2026, hoursPerWeek: 0.1 }); // почти нет ёмкости: игры не влезают
+      await saveOrder(t.db, [id('D'), id('B'), id('A')]);
+      const r = await getRoadmap(t.db, NOW);
+      expect(r.queue.map((q) => q.key)).toEqual([`g:${id('D')}`, `g:${id('B')}`, `g:${id('A')}`]);
+      expect(r.queue.some((q) => q.state === 'not_fit')).toBe(true);
+    });
+
+    it('прогресс: service и исключённые выпадают из игр плана (план и факт), completed остаётся', async () => {
+      const id = await seed();
+      await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
+      await saveOrder(t.db, [id('B'), id('A')]);
+      // E (playing) и F (service) и G (completed) в roadmap_order «из прошлого»
+      const [f, g] = await t.db
+        .insert(games)
+        .values([{ category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }, { category: 'ps4_game', lastSeenAt: NOW, titleId: 'G', name: 'Golf' }])
+        .returning({ id: games.id });
+      await t.db.insert(gameStatus).values([{ gameId: f.id, status: 'service' }, { gameId: g.id, status: 'completed' }]);
+      await t.db.insert(schema.roadmapOrder).values([{ gameId: f.id, position: 8 }, { gameId: g.id, position: 9 }]);
+      await t.db.insert(playtimeSnapshots).values([
+        { gameId: f.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { gameId: f.id, snapshotDate: '2026-10-28', playDurationSeconds: 100 * 3600 },
+        { gameId: g.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { gameId: g.id, snapshotDate: '2026-10-28', playDurationSeconds: 20 * 3600 },
+        { gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 3 * 3600 },
+      ]);
+      let r = await getRoadmap(t.db, NOW);
+      expect(r.progress?.actualHours).toBe(23); // Foxtrot (service) не считается; Golf (completed) и Alpha считаются
+      // исключённая игра: факт и план пропадают
+      await excludeGame(t.db, id('A'));
+      r = await getRoadmap(t.db, NOW);
+      expect(r.progress?.actualHours).toBe(20);
+    });
+
+    it('serviceGames: видимые service, last_played_at desc, лимит 50, часы с шагом 0.1; есть и при no_budget', async () => {
+      await seed();
+      const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+      const rows = Array.from({ length: 52 }, (_, i) => ({
+        ...base, titleId: `S${i}`, name: `Svc${i}`, playDurationSeconds: 3600 * 10 + 180 * i, lastPlayedAt: i === 0 ? null : new Date(NOW.getTime() - i * 3_600_000),
+        hiddenAt: i === 1 ? NOW : null,
+      }));
+      const ins = await t.db.insert(games).values(rows).returning({ id: games.id });
+      await t.db.insert(gameStatus).values(ins.map((x) => ({ gameId: x.id, status: 'service' as const })));
+      const r = await getRoadmap(t.db, NOW);
+      expect(r.status).toBe('no_budget');
+      expect(r.serviceGames).toHaveLength(50);
+      expect(r.serviceGames[0]).toEqual({ gameId: ins[2].id, title: 'Svc2', coverUrl: null, playedHours: 10.1 }); // Svc1 скрыта, Svc0 без запуска в конце
+      expect(r.serviceGames.map((x) => x.title)).not.toContain('Svc1');
+      expect(r.serviceGames.map((x) => x.title)).not.toContain('Svc0'); // 51 видимая, последняя (без запуска) за лимитом
+    });
+
+    it('markPlanned: пометки по external_id в любом статусе', async () => {
+      const a = await createPlanned(t.db, planned({ title: 'A', externalSource: 'rawg', externalId: '1' }));
+      const b = await createPlanned(t.db, planned({ title: 'B', externalSource: 'rawg', externalId: '2' }));
+      const c = await createPlanned(t.db, planned({ title: 'C', externalSource: 'rawg', externalId: '3' }));
+      await updatePlanned(t.db, b.id, { status: 'cancelled' });
+      await updatePlanned(t.db, c.id, { status: 'done' });
+      const cand = (externalId: string) => ({ externalSource: 'rawg' as const, externalId });
+      const r = await markPlanned(t.db, ['1', '2', '3', '4'].map(cand));
+      expect(r.map((x) => [x.planned, x.unallocated, x.plannedId])).toEqual([[true, false, a.id], [true, true, b.id], [true, false, c.id], [false, false, null]]);
+      expect(await markPlanned(t.db, [])).toEqual([]);
+    });
   });
 });

@@ -1479,7 +1479,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ### 17.6 Прогресс (`progress`)
 Сравнивает факт часов из `playtime_snapshots` с тем, сколько по плану должно быть сыграно к сегодняшнему дню.
-- Игры плана: игры, у которых есть строка в `roadmap_order`, плюс текущая очередь бэклога (`kind = backlog`). Строки `roadmap_order` при смене статуса игры не удаляются (в т.ч. `PUT /order` трогает только строки текущего бэклога и переданных id), поэтому начатая или пройденная игра остаётся в плане для прогресса.
+- Игры плана: игры, у которых есть строка в `roadmap_order`, плюс текущая очередь бэклога (`kind = backlog`). Из этого множества исключаются игры со статусом `service` и игры, исключённые из плана (`roadmap_excluded`, 17.12); `completed` остаются (17.11). Строки `roadmap_order` при смене статуса игры не удаляются (в т.ч. `PUT /order` трогает только строки текущего бэклога и переданных id), поэтому начатая или пройденная игра остаётся в плане для прогресса.
 - Факт: часы по снимкам (расчёт 1.6: `secondsByGame`) ТОЛЬКО по играм плана. Плановые часы тоже только по ним (`items` с `gameId` из этого множества).
 - Ограничения (связи нет, не выдумываем): релизные игры (`planned_games`) после покупки не связаны с записью в `games`, поэтому их часы в факт и план прогресса не входят; игра, ушедшая из бэклога до первого `PUT /order` и не имеющая строки в `roadmap_order`, в план прогресса не попадает; игра, ушедшая из бэклога, выпадает из `items`, поэтому её плановые часы в прогрессе пропадают, а факт остаётся.
 - Период: от `from` до `asOf`. `asOf` = ВЧЕРА по МСК (сегодняшний день в план не входит: снимок за сегодня появляется вечером), не позже 31 декабря; для прошедшего года весь год. `from` = 1 января, если первый снимок в БД раньше года; иначе день после первого снимка (до первого синка истории часов нет: 10.1).
@@ -1496,12 +1496,12 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 ```
 - `GET /api/roadmap/planned?status=planned|done|cancelled|all` (по умолчанию `all`) -> `{ "planned": [PlannedGame] }`, порядок: `release_date` asc (NULL в конце), затем `id`. Неизвестный `status` = `400`.
 - `POST` тело: `title` (обязателен), `releaseDate` (`YYYY-MM-DD` или `null`), `coverUrl` (https или `null`), `wantAtRelease` (boolean, по умолчанию `false`), `hoursManual` (число `0.1..1000` или `null`, округляется до 0.1), `externalSource` (`"rawg"`) и `externalId` (непустая строка до 64 символов) вместе или оба отсутствуют. `status` создаётся `planned`. Ответ `200` `{ "planned": PlannedGame }` (в проекте мутации тоже отвечают `200`).
-- `PATCH` тело: любое непустое подмножество `title`, `releaseDate`, `coverUrl`, `wantAtRelease`, `hoursManual`, `status`. `externalSource`/`externalId` не меняются (приходят = `400`). Итоговое состояние проверяется целиком: `wantAtRelease = true` без `releaseDate` = `400` с `details: {"reason":"want_requires_release_date"}`. Ответ `{ "planned": PlannedGame }`.
+- `PATCH` тело: любое непустое подмножество `title`, `releaseDate`, `coverUrl`, `wantAtRelease`, `hoursManual`, `status`. `status` принимает `planned` | `done` | `cancelled` | `unallocated` (`unallocated` = алиас `cancelled`, хранится и отдаётся в `PlannedGame.status` как `cancelled`). `cancelled`/`unallocated` убирает релиз из плана в блок «Не распределено» (17.12), `planned` возвращает. Тот же алиас принимает фильтр `GET /planned?status=`. `externalSource`/`externalId` не меняются (приходят = `400`). Итоговое состояние проверяется целиком: `wantAtRelease = true` без `releaseDate` = `400` с `details: {"reason":"want_requires_release_date"}`. Ответ `{ "planned": PlannedGame }`.
 - `DELETE` -> `{ "deleted": true, "id": 3 }`. Физическое удаление (данные вводились вручную; обратимо «убрать из плана» делает `status`).
 - Ошибки: `400 invalid_request` (id не положительное целое, Origin/Content-Type, тело, даты `2026-02-30` и прочие несуществующие), `404 not_found`, `409 planned_duplicate` (тот же `externalSource+externalId` уже есть, `details.id` существующей), `503 db_unavailable`.
 
 ### 17.8 `PUT /api/roadmap/order`
-Тело `{ "gameIds": [12, 40, 41] }`: полный порядок очереди бэклога от первой к последней. Целые положительные, без повторов, до 1000, id должны существовать в `games` (иначе `400 invalid_request`, `details.unknown` = список). Сервер одной транзакцией удаляет строки `roadmap_order` текущих игр бэклога и переданных id и вставляет новые (`position` = индекс в массиве); строки игр, ушедших из бэклога, сохраняются. Игры бэклога, которых нет в массиве (появились после загрузки экрана), встанут в конец. Пустой массив допустим (сброс порядка). Ответ `{ "order": [12, 40, 41] }`. Ошибки: `400`, `503`.
+Тело `{ "gameIds": [12, 40, 41] }`: полный порядок очереди бэклога от первой к последней. Целые положительные, без повторов, до 1000, id должны существовать в `games` (иначе `400 invalid_request`, `details.unknown` = список). Сервер одной транзакцией удаляет строки `roadmap_order` текущих игр бэклога и переданных id и вставляет новые (`position` = индекс в массиве); строки игр, ушедших из бэклога, сохраняются. Игры бэклога, которых нет в массиве (появились после загрузки экрана), встанут в конец. Пустой массив допустим (сброс порядка). Ответ `{ "order": [12, 40, 41] }`. Ошибки: `400`, `503`. Дополнения 17.11 и 17.12: id игр со статусом `service` и исключённых из плана отклоняются (`400`, `details.reason`). Клиент больше не показывает `not_fit` в очереди, но ОБЯЗАН присылать ПОЛНЫЙ порядок всех `g:*` из `queue` (включая `not_fit` и `need_hours`); сервер сохраняет относительный порядок как есть, пропущенные игры бэклога встанут в конец.
 
 ### 17.9 `GET /api/roadmap/catalog/search?q=...` (RAWG)
 Подсказка для формы «Добавить релиз»: ищет игру по названию во внешнем каталоге RAWG. Это подсказка, не истина: дату и обложку можно править вручную, а ручной ввод работает всегда.
@@ -1522,3 +1522,59 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ### 17.10 Применение на Neon
 `docs/release-neon-0008.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, FK и CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт новые таблицы, существующие данные не затрагивает (потери данных нет). Применяет Артём вручную в Neon SQL Editor до деплоя кода Фазы 12 (код читает новые таблицы; без них эндпоинты раздела 17 отвечают `503 db_unavailable`). Остальная часть сайта от миграции не зависит.
+
+### 17.11 Игры-сервисы (правка после выкатки)
+Статусы `backlog` и `service` взаимоисключающие (одна строка `game_status`), поэтому игра-сервис в очередь и так не попадает. Правка это закрепляет и даёт отдельный список:
+- Прогресс (17.6): `service` убирается из множества игр плана (даже если у игры осталась строка `roadmap_order`). `completed` и прочие статусы не трогаются.
+- `PUT /api/roadmap/order`: id игры со статусом `service` = `400 invalid_request`, `details: {"reason":"service_game","ids":[...]}`. Проверка после проверки на неизвестные id.
+- `GET /api/roadmap` отдаёт `serviceGames` для таблицы «Игры-сервисы: в план не берём»: видимые игры (`hidden_at` is null) со статусом `service`, порядок `last_played_at` desc (NULL в конце), затем `id`, не более 50:
+```json
+"serviceGames": [ { "gameId": 7, "title": "Fortnite", "coverUrl": "https://...", "playedHours": 312.4 } ]
+```
+`playedHours` = `play_duration_seconds / 3600`, шаг 0.1. Поле есть всегда (при `no_budget` тоже), пустой список = `[]`.
+
+### 17.12 «Не распределено» (убрать из плана)
+Решение Артёма: «убрать из плана» любую игру плана переводит её в блок «Не распределено»; оттуда её можно вернуть.
+- **Игры бэклога (`g:*`).** Новая таблица (миграция `0009_roadmap_excluded`, только добавляет):
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `game_id` | integer PK | нет | FK `games.id` ON DELETE CASCADE |
+| `created_at` | timestamptz | нет, default now() | |
+
+  Исключённая игра остаётся со статусом `backlog` в приложении, но не участвует в очереди, плане, `notFit`, `needHours`, `conflicts`, прогрессе (ни план, ни факт). При исключении строка `roadmap_order` игры удаляется. Возврат = удаление строки; игра встаёт в КОНЕЦ очереди (сервер фиксирует текущий эффективный порядок очереди в `roadmap_order` и добавляет возвращаемую игру последней). Строка для игры, ушедшей из `backlog`, остаётся и игнорируется (в `unallocated` попадает только игра со статусом `backlog`, `hidden_at` is null).
+- **Релизы (`p:*`).** Существующий `planned_games.status = 'cancelled'` = «не распределено» (в контракте и DTO `unallocated`). Миграции нет. Убрать: `PATCH /planned/{id}` `{"status":"unallocated"}` (или `"cancelled"`). Вернуть: `{"status":"planned"}`. Окончательное удаление: существующий `DELETE /planned/{id}`.
+- `POST /api/roadmap/exclusions` тело `{ "gameId": 12 }` -> `200 { "excluded": true, "gameId": 12 }`. Идемпотентно (повтор тоже `200`, порядок не меняется). Ошибки: `400 invalid_request` (тело; игра не в статусе `backlog`: `details.reason = "not_backlog"`), `404 not_found` (нет игры), `503`.
+- `DELETE /api/roadmap/exclusions/{gameId}` -> `200 { "excluded": false, "gameId": 12 }`. Идемпотентно (нет строки = тоже `200`). Ошибки: `400` (id), `404 not_found` (нет такой игры), `503`.
+- `GET /api/roadmap` отдаёт `unallocated`, всегда (при `no_budget` тоже):
+```json
+"unallocated": [
+  { "key": "g:12", "kind": "backlog", "gameId": 12, "plannedId": null, "title": "Hades", "coverUrl": "https://...",
+    "hours": 22, "hoursSource": "hltb", "releaseDate": null, "wantAtRelease": false },
+  { "key": "p:5", "kind": "planned", "gameId": null, "plannedId": 5, "title": "Новинка", "coverUrl": null,
+    "hours": null, "hoursSource": null, "releaseDate": "2027-03-01", "wantAtRelease": false }
+]
+```
+  Поля как у `Entry` (17.5). Для релиза `kind` = `release` при `wantAtRelease` с датой, иначе `planned`. Порядок: сначала игры бэклога (по `created_at` исключения desc, затем `id`), затем релизы (по `updated_at` desc, затем `id`). Для вернуть: `key` с `g:` -> `DELETE /exclusions/{gameId}`, с `p:` -> `PATCH /planned/{plannedId}` `{"status":"planned"}`.
+- `PUT /api/roadmap/order`: id исключённой игры = `400 invalid_request`, `details: {"reason":"excluded","ids":[...]}`.
+- `queue`, `items`, `notFit`, `needHours` исключённые игры и отменённые релизы не содержат (как и раньше для `cancelled`).
+
+### 17.13 `GET /api/roadmap/catalog/upcoming?page=N` (RAWG, без поиска)
+Список предстоящих релизов на год вперёд для экрана «Добавить релиз».
+- `page`: целое `>= 1`, по умолчанию 1; иначе `400 invalid_request`.
+- Запрос сервера: `GET https://api.rawg.io/api/games?key=...&dates=<сегодня МСК>,<сегодня +365 дней>&ordering=released&platforms=187,18&page_size=20&page=N` (платформы PlayStation всегда). Записи без даты (`tba`, `released = null`) пропускаются, поэтому на странице может быть меньше 20. Порядок RAWG (по дате выхода).
+- Кэш: ответ RAWG по паре (диапазон дат, страница) хранится в памяти процесса 1 час (бережём лимит 20k/мес). Ошибки не кэшируются. Пометки «в плане» считаются при каждом запросе по БД, кэшу не подвержены. На Vercel кэш живёт в пределах тёплого экземпляра функции.
+- `200`:
+```json
+{ "ok": true, "data": { "candidates": [
+  { "externalSource": "rawg", "externalId": "123456", "title": "Resident Evil Requiem", "releaseDate": "2026-11-27",
+    "coverUrl": "https://media.rawg.io/...", "platforms": ["PlayStation 5"], "playstation": true,
+    "planned": false, "unallocated": false, "plannedId": null }
+], "page": 1, "hasMore": true } }
+```
+  Кандидат как в 17.9 плюс: `planned` (есть запись `planned_games` с этим `externalSource+externalId` в ЛЮБОМ статусе), `unallocated` (запись есть и её статус `cancelled`), `plannedId` (id записи или `null`). Для `status = done` будет `planned: true, unallocated: false`. `hasMore` = у RAWG есть следующая страница.
+- Ошибки: `400 invalid_request`; `503 catalog_unavailable` с `details.reason` как в 17.9; `503 db_unavailable` (не удалось проверить пометки).
+
+### 17.14 Применение 0009 на Neon
+`docs/release-neon-0009.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, FK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт таблицу `roadmap_excluded`, потери данных нет. Применять ДО деплоя этой правки: без таблицы `GET /api/roadmap` отвечает `503 db_unavailable`.
+
