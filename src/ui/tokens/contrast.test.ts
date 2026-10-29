@@ -235,6 +235,30 @@ describe('контраст тем', () => {
       });
     });
 
+  // ---- Фаза 12: роадмап (спека, п.1). --rm-conflict-bg = --danger 22% поверх --surface-2; проверяем и поверх --surface (карточка на панели)
+  describe('роадмап: токены --rm-*', () => {
+    it('токены заданы в tokens.css и не переопределяются темами', () => {
+      for (const k of ['--rm-bar-h', '--rm-axis-h', '--rm-label-w', '--rm-row-h', '--rm-conflict-bg', '--rm-conflict-hatch']) {
+        expect(base[k], k).toBeTruthy();
+        for (const t of IDS) expect(themes[t][k], `${t} ${k}`).toBeUndefined();
+      }
+      expect(base['--rm-conflict-bg']).toBe('color-mix(in srgb, var(--danger) 22%, var(--surface-2))');
+    });
+    for (const t of IDS)
+      describe(`${t}: роадмап`, () => {
+        const danger = get(t, '--danger');
+        for (const under of ['--surface', '--surface-2']) {
+          const bg = over(danger, 0.22, get(t, under));
+          it(`--text на --rm-conflict-bg (поверх ${under}) >= 4.5`, () => expect(ratio(get(t, '--text'), bg)).toBeGreaterThanOrEqual(4.5));
+          it(`--danger на --rm-conflict-bg (поверх ${under}) >= 3`, () => expect(ratio(danger, bg)).toBeGreaterThanOrEqual(3));
+        }
+        for (const bg of ['--surface', '--bg'])
+          it(`--danger (контур, пунктир) на ${bg} >= 3`, () => expect(ratio(danger, get(t, bg))).toBeGreaterThanOrEqual(3));
+        it('--text на --surface-3 (подпись полосы очереди) >= 4.5', () => expect(ratio(get(t, '--text'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
+        it('--accent-ink на --accent (подпись релизной полосы) >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
+      });
+  });
+
   it('Night: запасное значение --tint в decor.css совпадает с themes.css', () => {
     expect(decorCss).toContain('--tint: var(--cover-tint, #b99cff);');
     expect(decorCss).toContain(`--tint-glow: ${base['--tint-glow']};`);

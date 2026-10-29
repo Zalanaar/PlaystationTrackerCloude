@@ -1,0 +1,470 @@
+// Чистая логика экрана «План»: форматирование, склейка списков ответа по key, перестановка, раскладка полос, проверка форм.
+// Только import type из server (контракт docs/api-contract.md §17).
+import type {
+  Conflict, NotFitEntry, PlanItem, PlanSegment, PlannedGameDto, Progress, QueueState, RoadmapEntry, RoadmapResponse, WeekLoad,
+} from '@/server/roadmap/types';
+import { plural } from '../format';
+
+// ---------- Числа и даты ----------
+export const BUDGET_MIN = 0.5;
+export const BUDGET_MAX = 100;
+export const BUDGET_STEP = 0.5;
+export const ROW_HOURS_MIN = 0.5;
+export const ROW_HOURS_MAX = 999;
+
+/** «12», «7,5»: как в бэклоге (от 10 ч без дробной части). */
+export function hoursNum(h: number): string {
+  const r = h >= 10 ? Math.round(h) : Math.round(h * 10) / 10;
+  return String(r).replace('.', ',');
+}
+export const hoursLabel = (h: number): string => `${hoursNum(h)} ч`;
+
+/** Поле часов: «12», «7,5», «7.5» -> число с округлением до 0,1; null при ошибке или выходе из min..max. */
+export function parseHoursField(text: string, min: number, max: number): number | null {
+  const t = text.trim().replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const n = Math.round(Number(t) * 10) / 10;
+  return n >= min && n <= max ? n : null;
+}
+export const parseBudget = (text: string): number | null => parseHoursField(text, BUDGET_MIN, BUDGET_MAX);
+export const parseRowHours = (text: string): number | null => parseHoursField(text, ROW_HOURS_MIN, ROW_HOURS_MAX);
+export const hoursFieldValue = (h: number | null | undefined): string => (h === null || h === undefined ? '' : String(h));
+
+const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+export const MONTHS_AXIS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+export const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+type Ymd = { y: number; m: number; d: number };
+export function parseYmd(iso: string): Ymd | null {
+  const r = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!r) return null;
+  const y = +r[1], m = +r[2], d = +r[3];
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d ? { y, m, d } : null;
+}
+/** Календарные дни от 1970 (без часовых поясов). */
+export function dayNumber(iso: string): number {
+  const p = parseYmd(iso);
+  return p ? Math.floor(Date.UTC(p.y, p.m - 1, p.d) / 86_400_000) : NaN;
+}
+export const isRealDate = (iso: string): boolean => parseYmd(iso) !== null;
+
+/** «3 апр.» */
+export function dayText(iso: string): string {
+  const p = parseYmd(iso);
+  return p ? `${p.d} ${MONTHS_SHORT[p.m - 1]}` : iso;
+}
+/** «3 апр. 2027» */
+export function dayYearText(iso: string): string {
+  const p = parseYmd(iso);
+  return p ? `${p.d} ${MONTHS_SHORT[p.m - 1]} ${p.y}` : iso;
+}
+/** «3 апреля» (для aria-label). */
+export function dayLong(iso: string): string {
+  const p = parseYmd(iso);
+  return p ? `${p.d} ${MONTHS_GEN[p.m - 1]}` : iso;
+}
+/** «3–17 мар.» в одном месяце, «28 февр. – 6 мар.» в разных, «3 мар.» для одного дня. */
+export function rangeText(from: string, to: string): string {
+  const a = parseYmd(from), b = parseYmd(to);
+  if (!a || !b) return `${from} – ${to}`;
+  if (from === to) return dayText(from);
+  if (a.y === b.y && a.m === b.m) return `${a.d}–${b.d} ${MONTHS_SHORT[b.m - 1]}`;
+  return `${dayText(from)} – ${dayText(to)}`;
+}
+export const weeksText = (days: number): string => `${Math.max(1, Math.ceil(days / 7))} нед.`;
+const weeksWord = (n: number) => `${n} ${plural(n, ['неделя', 'недели', 'недель'])}`;
+
+export function daysInYear(year: number): number {
+  return (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+}
+
+/** Подсказка под формой настроек: бюджет до конца года или на весь год. */
+export function budgetHint(year: number, hoursPerWeek: number | null, todayIso: string): string {
+  const today = parseYmd(todayIso);
+  const total = daysInYear(year);
+  const current = today !== null && today.y === year;
+  const days = current ? Math.max(0, dayNumber(`${year}-12-31`) - dayNumber(todayIso) + 1) : total;
+  const weeks = current ? Math.ceil(days / 7) : Math.round(total / 7);
+  const budget = hoursPerWeek === null ? null : (hoursPerWeek * days) / 7;
+  const head = current ? `Осталось ${weeks} нед.` : `${weeks} нед.`;
+  if (budget === null) return head;
+  return current ? `${head} · бюджет до конца года ≈ ${hoursLabel(budget)}` : `${head} · бюджет на год ≈ ${hoursLabel(budget)}`;
+}
+
+export function yearOptions(todayIso: string): { min: number; max: number } {
+  const y = parseYmd(todayIso)?.y ?? new Date().getFullYear();
+  return { min: y - 3, max: y + 1 };
+}
+
+// ---------- Недели и полосы ----------
+/** Индекс (0-based) недели, в которую попадает дата; до начала года = 0, после конца = последняя; -1 при пустом списке. */
+export function weekPos(weeks: readonly Pick<WeekLoad, 'from' | 'to'>[], iso: string): number {
+  if (!weeks.length) return -1;
+  if (iso < weeks[0].from) return 0;
+  for (let i = 0; i < weeks.length; i++) if (iso <= weeks[i].to) return i;
+  return weeks.length - 1;
+}
+
+/** Первая неделя каждого месяца: индекс недели, в которую попал 1-е число (янв = 0). */
+export function monthStartWeeks(weeks: readonly WeekLoad[], year: number): number[] {
+  return Array.from({ length: 12 }, (_, m) => weekPos(weeks, `${year}-${String(m + 1).padStart(2, '0')}-01`));
+}
+
+export type Lane = 'release' | 'queue';
+export type Bar = {
+  key: string; lane: Lane; item: PlanItem; seg: PlanSegment; segIndex: number; segCount: number;
+  /** колонки недель 1-based включительно */
+  startWeek: number; endWeek: number; row: number;
+};
+
+/** Полосы по сегментам; дорожки: релизы с галкой / остальное. Пересекающиеся по неделям полосы дорожки укладываются жадно по строкам. */
+export function layoutBars(items: readonly PlanItem[], weeks: readonly WeekLoad[]): { bars: Bar[]; rows: Record<Lane, number> } {
+  const raw: Omit<Bar, 'row'>[] = [];
+  for (const item of items) {
+    const lane: Lane = item.kind === 'release' ? 'release' : 'queue';
+    item.segments.forEach((seg, i) => {
+      const s = weekPos(weeks, seg.from) + 1;
+      const e = Math.max(s, weekPos(weeks, seg.to) + 1);
+      raw.push({ key: item.key, lane, item, seg, segIndex: i, segCount: item.segments.length, startWeek: s, endWeek: e });
+    });
+  }
+  raw.sort((a, b) => a.startWeek - b.startWeek || a.endWeek - b.endWeek || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) || a.segIndex - b.segIndex);
+  const bars: Bar[] = [];
+  const rows: Record<Lane, number> = { release: 0, queue: 0 };
+  for (const lane of ['release', 'queue'] as const) {
+    const last: number[] = [];
+    for (const r of raw.filter((b) => b.lane === lane)) {
+      let row = last.findIndex((end) => end < r.startWeek);
+      if (row < 0) { row = last.length; last.push(0); }
+      last[row] = r.endWeek;
+      bars.push({ ...r, row });
+    }
+    rows[lane] = last.length;
+  }
+  return { bars, rows };
+}
+
+/** Номер (1-based) конфликта для каждого ключа. */
+export function conflictNumbers(conflicts: readonly Conflict[]): Map<string, number[]> {
+  const map = new Map<string, number[]>();
+  conflicts.forEach((c, i) => {
+    for (const k of c.keys) map.set(k, [...(map.get(k) ?? []), i + 1]);
+  });
+  return map;
+}
+
+// ---------- Склейка списков по key ----------
+export type QueueRow = {
+  key: string;
+  entry: RoadmapEntry;
+  state: QueueState;
+  item: PlanItem | null;
+  notFit: NotFitEntry | null;
+  /** g:* = игра бэклога: участвует в ручном порядке */
+  movable: boolean;
+};
+type JoinSrc = Pick<RoadmapResponse, 'queue' | 'items' | 'notFit' | 'needHours'>;
+
+/** Все записи по key из items, notFit, needHours. */
+export function entryMap(d: Pick<RoadmapResponse, 'items' | 'notFit' | 'needHours'>): Map<string, RoadmapEntry> {
+  const m = new Map<string, RoadmapEntry>();
+  for (const e of d.needHours) m.set(e.key, e);
+  for (const e of d.notFit) m.set(e.key, e);
+  for (const e of d.items) m.set(e.key, e);
+  return m;
+}
+
+/** Очередь = `queue` в порядке API + запись из items/notFit/needHours. Записи без данных (no_budget/unplanned) пропускаются. */
+export function buildQueueRows(d: JoinSrc): QueueRow[] {
+  const entries = entryMap(d);
+  const items = new Map(d.items.map((i) => [i.key, i]));
+  const notFit = new Map(d.notFit.map((n) => [n.key, n]));
+  const rows: QueueRow[] = [];
+  for (const q of d.queue) {
+    const entry = entries.get(q.key);
+    if (!entry) continue;
+    rows.push({ key: q.key, entry, state: q.state, item: items.get(q.key) ?? null, notFit: notFit.get(q.key) ?? null, movable: q.key.startsWith('g:') });
+  }
+  return rows;
+}
+
+/** Применить локальный порядок g:* (ключи) поверх очереди: g:* по порядку, неизвестные в конце, остальное после. */
+export function applyOrder(rows: readonly QueueRow[], order: readonly string[] | null): QueueRow[] {
+  const movable = rows.filter((r) => r.movable);
+  const rest = rows.filter((r) => !r.movable);
+  if (!order) return [...movable, ...rest];
+  const pos = new Map(order.map((k, i) => [k, i]));
+  const sorted = movable
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => (pos.get(a.r.key) ?? 1e9) - (pos.get(b.r.key) ?? 1e9) || a.i - b.i)
+    .map((x) => x.r);
+  return [...sorted, ...rest];
+}
+
+/** gameId (число) из ключей `g:<id>`: тело PUT /api/roadmap/order. */
+export function orderGameIds(keys: readonly string[]): number[] {
+  return keys.filter((k) => k.startsWith('g:')).map((k) => Number(k.slice(2))).filter((n) => Number.isInteger(n) && n > 0);
+}
+
+// ---------- Перестановка ----------
+export function moveTo<T>(list: readonly T[], from: number, to: number): T[] {
+  if (from < 0 || from >= list.length) return [...list];
+  const next = [...list];
+  const [x] = next.splice(from, 1);
+  next.splice(Math.max(0, Math.min(next.length, to)), 0, x);
+  return next;
+}
+export const moveBy = <T>(list: readonly T[], from: number, delta: number): T[] => moveTo(list, from, from + delta);
+
+/** Индекс вставки после дропа на строку `over` с половиной `side`; null = положение не меняется. */
+export function dropTarget(from: number, over: number, side: 'before' | 'after'): number | null {
+  if (from === over) return null;
+  let to = side === 'before' ? over : over + 1;
+  if (from < to) to -= 1;
+  return to === from ? null : to;
+}
+export function dropSide(clientY: number, rect: { top: number; height: number }): 'before' | 'after' {
+  return clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+}
+
+export const sameOrder = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((k, i) => k === b[i]);
+
+export function positionText(title: string, index: number, total: number): string {
+  return `${title}: позиция ${index + 1} из ${total}`;
+}
+
+// ---------- Тексты ----------
+export function kindLabel(kind: RoadmapEntry['kind']): string {
+  return kind === 'release' ? 'релиз' : kind === 'backlog' ? 'очередь' : 'очередь, релиз без галки';
+}
+
+export function hoursSourceLabel(src: RoadmapEntry['hoursSource']): string | null {
+  return src === 'hltb' ? 'HLTB' : src === 'manual' ? 'вручную' : null;
+}
+
+export function periodText(item: PlanItem): string {
+  const segs = item.segments;
+  if (segs.length <= 1) return rangeText(item.start, item.end);
+  const head = segs.slice(0, 2).map((s) => rangeText(s.from, s.to)).join(' и ');
+  return segs.length > 2 ? `${head} и ещё ${segs.length - 2}` : head;
+}
+
+export function barLabel(b: Bar, conflicts: readonly number[]): string {
+  const it = b.item;
+  const kind = it.kind === 'release' ? `релиз, выходит ${it.releaseDate ? dayLong(it.releaseDate) : 'без даты'}` : 'очередь';
+  const pos = it.queuePosition !== null ? `, позиция ${it.queuePosition}` : '';
+  const sh = b.seg.hours;
+  const hrs = `, ${hoursNum(sh)} ${plural(Math.round(sh), ['час', 'часа', 'часов'])}`;
+  const conf = conflicts.length ? `, конфликт ${conflicts.join(', ')}` : '';
+  return `${it.title}: ${kind}, с ${dayLong(it.start)} по ${dayLong(it.end)}, ${weeksWord(Math.max(1, Math.ceil(it.days / 7)))}${hrs}${pos}${conf}`;
+}
+
+/** Заголовок и пояснение конфликта (спека п.8, шаблоны по `reason` контракта). */
+export type ExtraGames = ReadonlyMap<string, { title: string; releaseDate: string | null }>;
+
+export function conflictText(
+  c: Conflict, n: number, d: Pick<RoadmapResponse, 'items' | 'notFit' | 'needHours' | 'settings' | 'range'>, extra?: ExtraGames,
+): { title: string; body: string } {
+  const entries: Map<string, { title: string; releaseDate: string | null; hours?: number | null }> = new Map(extra ?? []);
+  for (const [k, v] of entryMap(d)) entries.set(k, v);
+  const itemsByKey = new Map(d.items.map((i) => [i.key, i]));
+  const budget = d.settings.hoursPerWeek;
+  const range = rangeText(c.from, c.to);
+  const names = c.keys.map((k) => `«${entries.get(k)?.title ?? 'игра из плана'}»`);
+  const describe = (k: string) => {
+    const e = entries.get(k);
+    const it = itemsByKey.get(k);
+    const date = e?.releaseDate ? `выходит ${dayText(e.releaseDate)}` : 'без даты';
+    const weeks = it ? `, ${weeksText(it.days)}` : '';
+    return `«${e?.title ?? 'игра из плана'}» (${date}${weeks})`;
+  };
+  if (c.reason === 'release_overlap') {
+    const list = c.keys.map(describe);
+    const joined = list.length <= 1 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} и ${list[list.length - 1]}`;
+    const last = itemsByKey.get(c.keys[c.keys.length - 1] ?? '');
+    const shift = last && last.shiftedDays > 0 ? ` Старт последней сдвинут на ${last.shiftedDays} дн.` : '';
+    const b = budget !== null ? `При ${hoursLabel(budget)} в неделю` : 'При таком бюджете';
+    return {
+      title: `Конфликт ${n}: пересечение релизов, ${range}`,
+      body: `${joined} занимают одни и те же недели. ${b} успеть в срок нельзя.${shift} Сдвинь дату, увеличь часы в неделю или сними галку «Хочу пройти на релизе» у одной из игр.`,
+    };
+  }
+  if (c.reason === 'exceeds_year_end') {
+    const k = c.keys[0];
+    const e = k ? entries.get(k) : undefined;
+    const it = k ? itemsByKey.get(k) : undefined;
+    const nf = d.notFit.find((x) => x.key === k);
+    const placed = it ? it.segments.reduce((s, x) => s + x.hours, 0) : 0;
+    const over = nf?.hoursShort ?? (e?.hours != null ? Math.max(0, Math.round((e.hours - placed) * 10) / 10) : null);
+    const need = e?.hours != null ? `, на неё нужно ${hoursLabel(e.hours)}` : '';
+    const tail = over && over > 0 ? ` За пределы года выходят ${hoursLabel(over)}.` : '';
+    return {
+      title: `Конфликт ${n}: релиз не помещается в год, ${range}`,
+      body: `${names[0] ?? '«Игра»'}${e?.releaseDate ? ` выходит ${dayText(e.releaseDate)}` : ''}${need}, а ${d.range.to.slice(0, 4)} год заканчивается ${dayText(d.range.to)}.${tail}`,
+    };
+  }
+  if (c.reason === 'starts_before_year') {
+    const k = c.keys[0];
+    const e = k ? entries.get(k) : undefined;
+    const year = d.range.from.slice(0, 4);
+    const fromYear = c.from.slice(0, 4);
+    const out = itemsByKey.get(k ?? '') ? 'В план попадает только часть внутри года, часы считаются по её дням.' : 'Окно целиком в прошлом году, в план она не попала.';
+    return {
+      title: `Конфликт ${n}: релиз вышел до начала года, ${rangeText(c.from, c.to)} ${fromYear}`,
+      body: `${names[0] ?? '«игра из плана»'}${e?.releaseDate ? ` вышла ${dayYearText(e.releaseDate)}` : ' вышла до начала года'}, а план ${year} года начинается ${dayText(d.range.from)}. ${out}`,
+    };
+  }
+  return { title: `Конфликт ${n}: план идёт вразрез, ${range}`, body: `Затронуты: ${names.join(', ')}.` };
+}
+
+export function notFitReasonText(r: NotFitEntry): string {
+  if (r.reason === 'after_year_end') return 'Выходит после конца года плана';
+  if (r.reason === 'exceeds_year_end') return 'После даты выхода не остаётся недель до конца года';
+  return 'Недели до конца года заняты';
+}
+export function notFitShortText(r: NotFitEntry): string {
+  return r.hoursShort !== null && r.hoursShort > 0 ? `не хватает ${hoursLabel(r.hoursShort)}` : 'не помещается в год';
+}
+export function totalShortHours(list: readonly NotFitEntry[]): number {
+  return Math.round(list.reduce((s, r) => s + (r.hoursShort ?? 0), 0) * 10) / 10;
+}
+
+// ---------- Прогресс ----------
+export type ProgressView =
+  | { kind: 'empty' }
+  | { kind: 'not_started'; year: number }
+  | { kind: 'past'; year: number; actual: number; planned: number }
+  | { kind: 'no_data' }
+  | { kind: 'on_track' | 'ahead' | 'behind'; diff: number; planned: number; actual: number; scale: number; tolerance: number; from: string; asOf: string };
+
+export function progressView(d: Pick<RoadmapResponse, 'progress' | 'items' | 'settings' | 'totals' | 'today'>): ProgressView {
+  const p: Progress | null = d.progress;
+  const year = d.settings.year;
+  const nowYear = parseYmd(d.today)?.y ?? year;
+  if (!p || d.items.length === 0) return { kind: 'empty' };
+  if (p.status === 'not_started' || year > nowYear) return { kind: 'not_started', year };
+  if (year < nowYear) return { kind: 'past', year, actual: p.actualHours, planned: p.plannedHours };
+  if (p.status === 'no_data') return { kind: 'no_data' };
+  const kind = p.status === 'onTrack' ? 'on_track' : p.status;
+  return {
+    kind, diff: p.diffHours, planned: p.plannedHours, actual: p.actualHours, scale: Math.max(d.totals.capacityHours, p.plannedHours, p.actualHours, 0.1),
+    tolerance: p.toleranceHours, from: p.from, asOf: p.asOf,
+  };
+}
+export const pct = (v: number, scale: number): number => Math.max(0, Math.min(100, (v / scale) * 100));
+
+// ---------- Релизы ----------
+export type ReleaseValues = {
+  title: string; noDate: boolean; date: string; coverUrl: string; hours: string; want: boolean;
+  externalId: string | null;
+};
+export type ReleaseErrors = Partial<Record<'title' | 'date' | 'cover' | 'hours' | 'want', string>>;
+
+export function validateRelease(v: ReleaseValues): ReleaseErrors {
+  const e: ReleaseErrors = {};
+  if (!v.title.trim()) e.title = 'Введи название';
+  else if (v.title.trim().length > 120) e.title = 'Название не длиннее 120 символов';
+  if (!v.noDate && v.date.trim() && !isRealDate(v.date.trim())) e.date = 'Введи дату в формате ДД.ММ.ГГГГ';
+  const hasDate = !v.noDate && isRealDate(v.date.trim());
+  if (v.want && !hasDate) e.want = 'Для галки нужна дата релиза';
+  if (v.coverUrl.trim() && !/^https:\/\/\S+$/i.test(v.coverUrl.trim())) e.cover = 'Ссылка должна начинаться с https://';
+  if (v.hours.trim() && parseRowHours(v.hours) === null) e.hours = `Введи число от ${hoursNum(ROW_HOURS_MIN)} до ${ROW_HOURS_MAX}`;
+  return e;
+}
+
+export type PlannedBody = {
+  title: string; releaseDate: string | null; coverUrl: string | null; wantAtRelease: boolean; hoursManual: number | null;
+  externalSource?: 'rawg'; externalId?: string;
+};
+export function toPlannedBody(v: ReleaseValues, withExternal: boolean): PlannedBody {
+  const hasDate = !v.noDate && isRealDate(v.date.trim());
+  const body: PlannedBody = {
+    title: v.title.trim(),
+    releaseDate: hasDate ? v.date.trim() : null,
+    coverUrl: v.coverUrl.trim() || null,
+    wantAtRelease: v.want && hasDate,
+    hoursManual: v.hours.trim() ? parseRowHours(v.hours) : null,
+  };
+  if (withExternal && v.externalId) { body.externalSource = 'rawg'; body.externalId = v.externalId; }
+  return body;
+}
+export function valuesFromPlanned(g: PlannedGameDto): ReleaseValues {
+  return {
+    title: g.title, noDate: g.releaseDate === null, date: g.releaseDate ?? '', coverUrl: g.coverUrl ?? '', hours: hoursFieldValue(g.hoursManual),
+    want: g.wantAtRelease, externalId: g.externalId,
+  };
+}
+export const emptyValues = (): ReleaseValues => ({ title: '', noDate: false, date: '', coverUrl: '', hours: '', want: false, externalId: null });
+
+/** Тело POST для отмены удаления. */
+export function recreateBody(g: PlannedGameDto): PlannedBody {
+  const b: PlannedBody = { title: g.title, releaseDate: g.releaseDate, coverUrl: g.coverUrl, wantAtRelease: g.wantAtRelease, hoursManual: g.hoursManual };
+  if (g.externalSource && g.externalId) { b.externalSource = g.externalSource; b.externalId = g.externalId; }
+  return b;
+}
+
+export function isReleased(g: Pick<PlannedGameDto, 'releaseDate'>, todayIso: string): boolean {
+  return g.releaseDate !== null && g.releaseDate <= todayIso;
+}
+export function outsideYear(releaseDate: string | null, year: number): boolean {
+  return releaseDate !== null && isRealDate(releaseDate) && !releaseDate.startsWith(`${year}-`);
+}
+
+/** Строка релиза: порядок по дате (без даты в конце), затем id. */
+export function sortPlanned(list: readonly PlannedGameDto[]): PlannedGameDto[] {
+  return [...list].sort((a, b) => (a.releaseDate ?? '9999') .localeCompare(b.releaseDate ?? '9999') || a.id - b.id);
+}
+
+// ---------- Каталог ----------
+export type CatalogCandidateView = {
+  externalSource: 'rawg'; externalId: string; title: string; releaseDate: string | null; coverUrl: string | null; platforms: string[]; playstation: boolean;
+};
+export function filterCandidates<T extends { playstation: boolean }>(list: readonly T[], onlyPlayStation: boolean): T[] {
+  return onlyPlayStation ? list.filter((c) => c.playstation) : [...list];
+}
+const PS_SHORT: Record<string, string> = { 'PlayStation 5': 'PS5', 'PlayStation 4': 'PS4', 'PlayStation 3': 'PS3', 'PlayStation 2': 'PS2', PlayStation: 'PS1', 'PS Vita': 'PS Vita' };
+export function platformsText(platforms: readonly string[]): string {
+  const ps = platforms.filter((p) => p.startsWith('PlayStation') || p === 'PS Vita');
+  const list = (ps.length ? ps : platforms).map((p) => PS_SHORT[p] ?? p);
+  const shown = list.slice(0, 4);
+  return shown.join(', ') + (list.length > 4 ? ` +${list.length - 4}` : '');
+}
+export function candidateMeta(c: Pick<CatalogCandidateView, 'releaseDate' | 'platforms'>): string {
+  const date = c.releaseDate ? dayYearText(c.releaseDate) : 'Дата не объявлена';
+  const pl = platformsText(c.platforms);
+  return pl ? `${date} · ${pl}` : date;
+}
+
+export type CatalogFailKind = 'not_configured' | 'rate_limited' | 'unavailable';
+export function catalogFail(reason: string | undefined): { kind: CatalogFailKind; text: string } {
+  if (reason === 'no_key') return { kind: 'not_configured', text: 'Поиск по каталогу не настроен. Заполни форму вручную.' };
+  if (reason === 'rate_limited') return { kind: 'rate_limited', text: 'Лимит запросов к каталогу исчерпан. Попробуй позже или заполни форму вручную.' };
+  return { kind: 'unavailable', text: 'Каталог сейчас недоступен. Заполни форму ниже вручную.' };
+}
+
+/** Текст ошибки мутации по статусу и коду. */
+export function mutationErrorText(status: number, code: string, reason?: string): string {
+  if (code === 'planned_duplicate') return 'Эта игра уже есть в плане.';
+  if (reason === 'want_requires_release_date') return 'Для галки нужна дата релиза.';
+  if (status === 404) return 'Игра не найдена. Обнови страницу.';
+  if (status === 400) return 'Сервер отклонил данные. Проверь поля.';
+  if (status === 503) return 'База данных недоступна.';
+  if (status === 401) return 'Сессия истекла. Войди заново.';
+  return 'Нет связи с сервером.';
+}
+
+// ---------- Состояние релиза в плане ----------
+export type PlannedPlanState = { kind: 'scheduled' | 'need_hours' | 'not_fit' | 'unknown'; conflicts: number[] };
+/** Что план делает с релизом/игрой `p:<id>`: стоит, нужны часы, не успеваю. */
+export function plannedPlanState(
+  id: number, d: Pick<RoadmapResponse, 'items' | 'notFit' | 'needHours' | 'conflicts'>,
+): PlannedPlanState {
+  const key = `p:${id}`;
+  const conflicts = conflictNumbers(d.conflicts).get(key) ?? [];
+  if (d.items.some((i) => i.key === key)) return { kind: 'scheduled', conflicts };
+  if (d.notFit.some((i) => i.key === key)) return { kind: 'not_fit', conflicts };
+  if (d.needHours.some((i) => i.key === key)) return { kind: 'need_hours', conflicts };
+  return { kind: 'unknown', conflicts };
+}

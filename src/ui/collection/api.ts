@@ -25,7 +25,7 @@ export function errorText(e: unknown): string {
   return 'Нет связи с сервером.';
 }
 
-async function call<T>(url: string, init?: RequestInit): Promise<T> {
+export async function call<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, { cache: 'no-store', ...init });

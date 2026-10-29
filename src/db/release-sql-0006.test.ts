@@ -36,7 +36,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 describe('docs/release-neon-0006.sql', () => {
   it('поверх 0000–0005 дважды: схема как у drizzle, журнал верный, данные целы', async () => {
     const full = new PGlite();
-    await migrate(drizzle(full), { migrationsFolder: root });
+    await migrate(drizzle(full), { migrationsFolder: folderUpTo(8) }); // 0000–0007: позднейшие миграции в сравнение не входят
 
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(6) });
@@ -61,7 +61,7 @@ describe('docs/release-neon-0006.sql', () => {
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: root });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(8);
+    expect(n.rows[0].n).toBe(journalRaw.entries.length);
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','Игра','ps4_game', now())`);
     await expect(c.exec(`update games set duration_override_hours = 0`)).rejects.toThrow();
     await expect(c.exec(`update games set hltb_main_hours = -1`)).rejects.toThrow();

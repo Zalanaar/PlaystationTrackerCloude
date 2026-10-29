@@ -16,6 +16,7 @@ import { ThemeList, ThemePicker } from './ThemePicker';
 export const NAV: readonly { href: string; label: string; icon: IconName }[] = [
   { href: '/', label: 'Коллекция', icon: 'library' },
   { href: '/backlog', label: 'Бэклог', icon: 'bookmark' },
+  { href: '/roadmap', label: 'План', icon: 'roadmap' },
   { href: '/stats', label: 'Статистика', icon: 'bar-chart' },
   { href: '/wrapped', label: 'Итоги', icon: 'sparkles' },
 ];

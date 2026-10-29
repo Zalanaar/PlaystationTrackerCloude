@@ -79,3 +79,9 @@ export function getSyncOrigin(env: Record<string, string | undefined> = process.
   if (env.NODE_ENV !== 'production') return `http://localhost:${/^\d{2,5}$/.test(env.PORT ?? '') ? env.PORT : '3000'}`;
   return null;
 }
+
+/** Ключ RAWG (Фаза 12, контракт 17.2). null = каталог не настроен, поиск отвечает catalog_unavailable. Значение не логируется. */
+export function getRawgKey(env: Record<string, string | undefined> = process.env): string | null {
+  const k = env.RAWG_API_KEY?.trim();
+  return k ? k : null;
+}
