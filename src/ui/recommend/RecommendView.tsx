@@ -295,6 +295,12 @@ export function RecommendView() {
           <span className="ps-rec-empty__ic"><Icon name="thumbs-down" size={40} /></span>
           <h2 className="ps-h3">Подсказывать нечего: все игры бэклога скрыты</h2>
           <p>Ты отметил их как неинтересные. Новые игры в бэклоге появятся здесь сразу.</p>
+          {hidden === null && (
+            <>
+              <p>Список скрытых игр пока не загрузился. Попробуй ещё раз, чтобы вернуть их.</p>
+              <button type="button" className="ps-btn" onClick={() => void loadHidden()}><Icon name="refresh" size={14} />Повторить</button>
+            </>
+          )}
         </div>
       );
     } else if (backlog === 'fail') {

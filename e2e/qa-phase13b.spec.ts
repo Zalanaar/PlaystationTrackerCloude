@@ -129,7 +129,6 @@ test.describe('QA 13b: блок «Скрытые»', () => {
     await expect(page.getByRole('button', { name: /Скрытые на сейчас/ })).toHaveCount(0);
   });
   test('все скрыты, но список скрытых недоступен (503): есть путь вернуть или хотя бы повтор', async ({ page, context, baseURL }) => {
-    test.fail(true, 'BUG-R1: открытый баг, тест снять с fail после исправления');
     const s = state(2, { hiddenIds: [1, 2], failList: true });
     await open(page, context, baseURL as string, s);
     await expect(page.getByText(/Подсказывать нечего|Подсказать пока нечего/)).toBeVisible();
