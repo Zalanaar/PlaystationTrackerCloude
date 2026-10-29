@@ -557,7 +557,10 @@ for (const width of [390, 440]) {
       await open(page, context, baseURL!);
       const cols = () => coll(page).locator('.ps-grid').first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
       expect(await cols()).toBe(2);
-      await page.getByRole('button', { name: 'Плотно' }).click();
+      // Фаза 18: сегмент вида на мобильном живёт в sheet «Фильтры»
+      await page.getByRole('button', { name: /Фильтры и сортировка/ }).click();
+      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('button', { name: 'Плотно' }).click();
+      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('button', { name: 'Готово' }).click();
       expect(await cols()).toBe(3);
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
     });

@@ -3,6 +3,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { enterSelect } from './view';
 
 const SHOTS = process.env.SHOTS_DIR;
 const nowMsk = new Date(Date.now() + 3 * 3600_000);
@@ -115,6 +116,7 @@ test.describe('Карта активности (Статистика)', () => {
     const mock = await setup(page, context, baseURL!);
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Активность' });
+    await panel.scrollIntoViewIfNeeded(); // Фаза 18: страница короче/выше, панель может быть дальше зоны подгрузки
     await expect(panel).toBeVisible();
     const grid = panel.getByRole('grid');
     await expect(grid).toBeVisible();
@@ -178,6 +180,7 @@ test.describe('Карта активности (Статистика)', () => {
     mock.activityFirst = `${THIS_YEAR - 1}-06-01`;
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Активность' });
+    await panel.scrollIntoViewIfNeeded(); // Фаза 18: страница короче/выше, панель может быть дальше зоны подгрузки
     const nav = panel.getByRole('group', { name: 'Год активности' });
     await expect(nav).toContainText(String(THIS_YEAR));
     await expect(nav.getByRole('button', { name: 'Следующий год' })).toBeDisabled();
@@ -199,6 +202,7 @@ test.describe('Карта активности (Статистика)', () => {
     mock.activityEmpty = true;
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Активность' });
+    await panel.scrollIntoViewIfNeeded(); // Фаза 18: страница короче/выше, панель может быть дальше зоны подгрузки
     await expect(panel.getByRole('heading', { name: 'Пока нет данных об активности' })).toBeVisible();
     await expect(panel.getByRole('group', { name: 'Год активности' })).toHaveCount(0);
 
@@ -224,6 +228,7 @@ test.describe('Карта активности (Статистика)', () => {
     await setup(page, context, baseURL!);
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Активность' });
+    await panel.scrollIntoViewIfNeeded(); // Фаза 18: страница короче/выше, панель может быть дальше зоны подгрузки
     await expect(panel.getByRole('grid')).toBeVisible();
     const m = await panel.locator('.ps-heat__scroll').evaluate((el) => ({ left: el.scrollLeft, sw: el.scrollWidth, cw: el.clientWidth }));
     expect(m, JSON.stringify(m)).toMatchObject({ left: 0 });
@@ -236,6 +241,7 @@ test.describe('Карта активности (Статистика)', () => {
     await setup(page, context, baseURL!);
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Активность' });
+    await panel.scrollIntoViewIfNeeded(); // Фаза 18: страница короче/выше, панель может быть дальше зоны подгрузки
     await expect(panel.getByRole('grid')).toBeVisible();
     const size = await panel.locator('.ps-heat__c[data-l="0"]').first().evaluate((el) => el.getBoundingClientRect().width);
     expect(Math.round(size)).toBe(12);
@@ -297,7 +303,7 @@ test.describe('«Ближе всего к платине» (Коллекция)'
     await expect(page.locator('#near-platinum')).toHaveCount(0);
     await page.goto('/');
     await expect(page.locator('#near-platinum')).toBeVisible();
-    await page.getByRole('button', { name: /Выбрать/ }).first().click();
+    await enterSelect(page);
     await expect(page.locator('#near-platinum')).toHaveCount(0);
 
     mock.nearPlatinum = [];

@@ -3,6 +3,7 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { setView } from './view';
 
 const SHOTS = process.env.SHOTS_DIR;
 
@@ -139,15 +140,15 @@ for (const vp of VIEWPORTS) {
       expect(badge).toBe(false);
 
       // режимы
-      await page.getByRole('button', { name: 'Плотно' }).click();
+      await setView(page, 'Плотно');
       await page.waitForTimeout(300);
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
       await shot(page, `${vp.name}-night-dense`);
-      await page.getByRole('button', { name: 'Список' }).click();
+      await setView(page, 'Список');
       await page.waitForTimeout(300);
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
       await shot(page, `${vp.name}-night-list`);
-      await page.getByRole('button', { name: 'Крупно' }).click();
+      await setView(page, 'Крупно');
 
       for (const t of ['graphite', 'ps5'] as const) {
         await theme(page, t);
@@ -196,11 +197,11 @@ test.describe('кадры мобильной хроники', () => {
       await page.evaluate(() => document.querySelector('#backlog')!.scrollIntoView());
       await page.waitForTimeout(600);
       await page.screenshot({ path: `${SHOTS}/crop${w}-backlog.png` });
-      await page.getByRole('button', { name: 'Плотно' }).click();
+      await setView(page, 'Плотно');
       await page.evaluate((t) => window.scrollTo(0, t - 20), y);
       await page.waitForTimeout(600);
       await page.screenshot({ path: `${SHOTS}/crop${w}-dense.png` });
-      await page.getByRole('button', { name: 'Список' }).click();
+      await setView(page, 'Список');
       await page.evaluate((t) => window.scrollTo(0, t - 20), y);
       await page.waitForTimeout(600);
       await page.screenshot({ path: `${SHOTS}/crop${w}-list.png` });

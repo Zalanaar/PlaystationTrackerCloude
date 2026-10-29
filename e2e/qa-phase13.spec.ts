@@ -32,7 +32,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, path =
 const noH = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 const names = (page: Page) => page.locator('.ps-rec__name').allTextContents();
 
-test.describe('QA 13: шапка 768-1023 на всех экранах (6 вкладок)', () => {
+test.describe('QA 13: шапка 768-1023 на всех экранах (4 вкладки, Фаза 18)', () => {
   for (const width of [768, 800, 820, 900, 960, 1023]) {
     for (const path of ['/recommend', '/', '/stats', '/backlog', '/roadmap', '/wrapped']) {
       test(`${width}px ${path}: элементы шапки внутри окна, подписи не обрезаны`, async ({ page, context, baseURL, isMobile }) => {
@@ -49,12 +49,12 @@ test.describe('QA 13: шапка 768-1023 на всех экранах (6 вкл
           }).map((e) => `${e.textContent?.trim() || e.getAttribute('aria-label')} r=${Math.round(e.getBoundingClientRect().right)} sw=${e.scrollWidth} cw=${e.clientWidth}`);
         }, width);
         expect(bad).toEqual([]);
-        // 6 пунктов навигации, высота шапки одна строка (нет переноса вкладок)
+        // 4 пункта навигации (Фаза 18), высота шапки одна строка (нет переноса вкладок)
         const nav = await page.evaluate(() => {
           const links = Array.from(document.querySelectorAll<HTMLElement>('header .ps-nav-item'));
           return { n: links.length, tops: new Set(links.map((l) => Math.round(l.getBoundingClientRect().top))).size };
         });
-        expect(nav).toEqual({ n: 6, tops: 1 });
+        expect(nav).toEqual({ n: 4, tops: 1 });
       });
     }
   }

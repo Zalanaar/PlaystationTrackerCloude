@@ -104,7 +104,7 @@ test.describe('/stats', () => {
     await expect(page.locator('.ps-st-bar__est')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Жанры' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Трофеи' })).toBeVisible();
-    await expect(page.locator('.ps-card__title', { hasText: 'Игра Один' })).toHaveCount(2); // март и февраль («Игры месяца»)
+    await expect(page.locator('.ps-card__title', { hasText: 'Игра Один' })).toHaveCount(1); // Фаза 18: только последний месяц с играми
     await expect(page.locator('.ps-card__title', { hasText: 'Игра Два' })).toHaveCount(1);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
   });

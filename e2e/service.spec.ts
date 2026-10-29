@@ -7,7 +7,10 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url = 
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const mock = await mockApi(page, games);
   await page.goto(url);
-  if (!url.startsWith('/triage')) await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+  if (!url.startsWith('/triage')) {
+    await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Статус' })).toBeVisible(); // скелет с h1 приходит раньше гидратации
+  }
   return mock;
 }
 
