@@ -74,6 +74,7 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
   const ops: Op[] = [];
   const changes: RestoreChange[] = [];
   const missing = new Map<string, string>();
+  const fileOrder = new Map<number, number>(); // игра -> позиция из файла (для нормализации очереди)
   const note = (section: Section, kind: 'add' | 'change', titleId: string | null, name: string, from: string | null, to: string) => {
     sections[section][kind]++;
     changes.push({ section, kind, titleId, name, from, to });
@@ -138,6 +139,7 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
     if (fg.roadmapPosition !== null) {
       if (!g) skip('roadmapOrder');
       else {
+        fileOrder.set(g.id, fg.roadmapPosition);
         const cur = orderBy.get(g.id);
         if (cur === undefined) {
           ops.push({ t: 'order', gameId: g.id, position: fg.roadmapPosition });
@@ -160,6 +162,7 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
     for (const month of fg.monthExclusions) {
       if (!g) skip('monthExclusions');
       else if (!monthSet.has(`${g.id}|${month}`)) {
+        monthSet.add(`${g.id}|${month}`); // дубль внутри файла не считаем повторно (N-5)
         ops.push({ t: 'month', gameId: g.id, month });
         note('monthExclusions', 'add', fg.titleId, name, null, month);
       } else sections.monthExclusions.unchanged++;
@@ -169,13 +172,27 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
   // планируемые игры: по externalSource+externalId, иначе по названию и дате
   const byExt = new Map(planned.filter((p) => p.externalSource && p.externalId).map((p) => [`${p.externalSource}|${p.externalId}`, p]));
   const byKey = new Map(planned.map((p) => [pk(p), p]));
+  const seenNew = new Set<string>(); // ключи уже запланированных к созданию (дубли в файле, N-5)
+  const seenUpd = new Set<number>();
   for (const fp of file.plannedGames) {
-    const cur = (fp.externalSource && fp.externalId ? byExt.get(`${fp.externalSource}|${fp.externalId}`) : undefined) ?? byKey.get(pk(fp));
+    const extKey = fp.externalSource && fp.externalId ? `${fp.externalSource}|${fp.externalId}` : null;
+    const cur = (extKey ? byExt.get(extKey) : undefined) ?? byKey.get(pk(fp));
     if (!cur) {
+      if ((extKey && seenNew.has(`e:${extKey}`)) || seenNew.has(`k:${pk(fp)}`)) {
+        sections.plannedGames.unchanged++;
+        continue;
+      }
+      if (extKey) seenNew.add(`e:${extKey}`);
+      seenNew.add(`k:${pk(fp)}`);
       ops.push({ t: 'planned', id: null, values: plannedValues(fp, null) });
       note('plannedGames', 'add', null, fp.title, null, fp.title);
       continue;
     }
+    if (seenUpd.has(cur.id)) {
+      sections.plannedGames.unchanged++;
+      continue;
+    }
+    seenUpd.add(cur.id);
     const merged = plannedValues(fp, cur);
     const same =
       merged.title === cur.title && merged.releaseDate === cur.releaseDate && merged.coverUrl === cur.coverUrl && merged.wantAtRelease === cur.wantAtRelease &&
@@ -186,6 +203,8 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
       note('plannedGames', 'change', null, fp.title, cur.title, fp.title);
     }
   }
+
+  normalizeOrder(ops, orderBy, fileOrder);
 
   // настройки плана
   if (file.roadmapSettings) {
@@ -212,6 +231,20 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
       missing: [...missing].slice(0, MISSING_LIMIT).map(([titleId, name]) => ({ titleId, name })),
     },
   };
+}
+
+/**
+ * Позиции очереди должны оставаться уникальными (N-2). Игры из файла сохраняют позиции файла; игры вне файла, чья позиция совпала
+ * с позицией игры из файла, уходят после последней позиции файла с сохранением относительного порядка. Работает только если есть изменения порядка;
+ * повторный apply ничего не меняет (после сдвига совпадений нет).
+ */
+function normalizeOrder(ops: Op[], orderBy: Map<number, number>, filePos: Map<number, number>): void {
+  if (!ops.some((o) => o.t === 'order')) return;
+  const taken = new Set(filePos.values());
+  const outside = [...orderBy].filter(([id]) => !filePos.has(id)).sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  if (!outside.some(([, pos]) => taken.has(pos))) return;
+  let next = Math.max(...taken) + 1;
+  for (const [gameId] of outside) ops.push({ t: 'order', gameId, position: next++ });
 }
 
 export type RestoreResult = RestoreReport & { applied: boolean; backupId: number | null };

@@ -252,7 +252,8 @@ export type GenerateResult =
 
 /**
  * Одна генерация (контракт 20.6): пауза -> бюджет вида -> Groq -> RAWG -> кэш. Общая для синка (`discover_auto`) и ручной кнопки (`discover_manual`).
- * Неудача Groq возвращает вызов в бюджет и увеличивает счётчик неудач подряд; `no_verified` вызов не возвращает (Groq отработал).
+ * Неудача Groq (сбой до ответа) возвращает вызов в бюджет и увеличивает счётчик неудач подряд. Если Groq ответил, вызов потрачен
+ * (`no_verified`, `rawg_unavailable`); при `rawg_unavailable` счётчик неудач не сбрасывается (подтвердить нечем), при остальном ответе сбрасывается.
  * Ошибки БД пробрасываются.
  */
 export async function generateDiscover(
@@ -278,14 +279,14 @@ export async function generateDiscover(
     await recordFailure(db, reason, now);
     return { ok: false, llm: 'error', catalog: 'ok', reason, proposed: 0, spent: false };
   }
-  await resetStreak(db, now); // Groq ответил по делу
 
   const v = await verifyProposals(proposals.slice(0, MAX_PROPOSALS), rawgKey, deps);
   if (v.failed === v.searched && v.candidates.length === 0) {
+    // Groq ответил (токены потрачены), но подтвердить нечем: вызов остаётся в бюджете, счётчик неудач не трогаем (20.4)
     logFailure('rawg_unavailable');
-    await releaseCall(db, kind, now); // подтвердить нечем: вызов не тратим
-    return { ok: false, llm: 'ok', catalog: 'unavailable', reason: 'rawg_unavailable', proposed: proposals.length, spent: false };
+    return { ok: false, llm: 'ok', catalog: 'unavailable', reason: 'rawg_unavailable', proposed: proposals.length, spent: true };
   }
+  await resetStreak(db, now); // Groq ответил по делу, RAWG доступен
   if (v.candidates.length === 0) {
     logFailure('no_verified');
     return { ok: false, llm: 'ok', catalog: 'ok', reason: 'no_verified', proposed: proposals.length, spent: true };

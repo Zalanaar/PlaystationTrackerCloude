@@ -1,5 +1,5 @@
 // Шаг синка «LLM» (контракт 20.5): фразы бэклога пачками по изменившимся фактам, ночная генерация «Нового от ИИ», бюджет и пауза.
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
@@ -78,6 +78,46 @@ describe('llmStep', () => {
     expect(screen.items.every((i) => i.reason.source === 'llm')).toBe(true);
     expect(screen.meta.llmPending).toBe(0);
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(4);
+  });
+
+  it('N-6: ошибка записи кэша в БД не возвращает вызов и не копит неудачи провайдера; пауза не пишет llm_discover_failed', async () => {
+    await seed(5);
+    const p = provider((ids) => {
+      void ids;
+      return good(ids);
+    });
+    const orig = p.complete.bind(p);
+    p.complete = async (...a: Parameters<typeof orig>) => {
+      const r = await orig(...a);
+      await t.db.execute(sql`alter table recommend_reasons rename to recommend_reasons_x`);
+      return r;
+    };
+    const c = await ctx();
+    try {
+      const r = await llmStep(c, { env: ENV, provider: p, rawgKey: null });
+      expect(r.phrasesFailed).toBe(1);
+    } finally {
+      await t.db.execute(sql`alter table recommend_reasons_x rename to recommend_reasons`);
+    }
+    expect((await getFailStreak(t.db)).streak).toBe(0);
+    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 1, phraseCalls: 1 }); // вызов потрачен
+  });
+
+  it('N-6: при паузе генерация «Нового от ИИ» не пробуется и предупреждения нет', async () => {
+    await seed(1);
+    const c = await ctx();
+    const ok = provider(good);
+    await llmStep(c, { env: ENV, provider: ok, rawgKey: 'rawg_K' }); // обнулит streak
+    await t.db.delete(recommendDiscoverCache);
+    const bad = provider(() => new LlmError('http', 'http_500'));
+    await t.db.delete(recommendReasons);
+    // три неудачи фраз подряд = пауза; seed(64) даёт 4 пачки
+    await seed(63, 100);
+    const c2 = await ctx();
+    const warn = vi.spyOn(c2, 'warn');
+    const r = await llmStep(c2, { env: ENV, provider: bad, rawgKey: 'rawg_K' });
+    expect(r.discover).toBe('skipped');
+    expect(warn.mock.calls.map((x) => x[0])).not.toContain('llm_discover_failed');
   });
 
   it('повторный синк без изменений: 0 вызовов; изменился один факт: один вызов на одну игру', async () => {

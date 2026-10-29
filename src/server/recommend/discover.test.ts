@@ -294,13 +294,13 @@ describe('getDiscover', () => {
     expect(f.state.rawgUrls).toHaveLength(0);
   });
 
-  it('RAWG недоступен: catalog unavailable, ничего не кэшируется, вызов возвращён в бюджет', async () => {
+  it('RAWG недоступен: catalog unavailable, ничего не кэшируется, вызов потрачен (N-1)', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }, { title: 'Stray' }], rawg: () => 500 });
     const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
     expect(r.items).toEqual([]);
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'unavailable' });
     expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
-    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 0, discoverManualCalls: 0 });
+    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 1, discoverManualCalls: 1 });
     expect(JSON.stringify(r)).not.toMatch(SECRETS);
   });
 
@@ -488,6 +488,23 @@ describe('диагностика llmReason', () => {
     const ok = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
     expect((await getDiscover(t.db, { refresh: true }, NOW, d(ok))).meta.llmReason).toBeNull();
     expect((await getDiscover(t.db, { refresh: true }, NOW, { ...d(ok), llm: null })).meta.llmReason).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('N-1: Groq ответил, RAWG лёг: вызов потрачен, счётчик неудач не сбрасывается, ручные обновления упираются в лимит 3', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const down = makeFetch({ proposals: [{ title: 'Hades' }], rawg: () => 500 });
+    const { recordFailure } = await import('./budget');
+    await recordFailure(t.db, 'http_500', NOW); // прежняя неудача
+    const r1 = await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    expect(r1.meta).toMatchObject({ llmReason: 'rawg_unavailable', refreshLeft: 2 });
+    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 1, discoverManualCalls: 1 });
+    expect((await getFailStreak(t.db)).streak).toBe(1); // не сброшен
+    await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    const r4 = await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    expect(down.state.groqCalls).toBe(3); // четвёртый вызов Groq не сделан
+    expect(r4.meta.refreshLeft).toBe(0);
     vi.restoreAllMocks();
   });
 

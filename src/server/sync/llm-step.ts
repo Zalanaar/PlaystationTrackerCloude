@@ -55,17 +55,26 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
     if (await isPaused(db)) break;
     if (!(await reserveCall(db, 'phrases', env.dailyLimit, now))) break;
     const batch = missing.slice(at, at + PHRASE_BATCH);
+    let fresh: Map<number, string>;
     try {
       const timeout = Math.min(deps.phraseTimeoutMs ?? PHRASES_SYNC_TIMEOUT_MS, Math.max(1000, ctx.timeLeft() - SAFETY_MS));
-      const fresh = await requestPhrases(provider, factsOf(batch), timeout);
-      await resetStreak(db, now);
-      await writeCachedReasons(db, batch, fresh, now);
-      res.phrasesGenerated += fresh.size;
+      fresh = await requestPhrases(provider, factsOf(batch), timeout);
     } catch (e) {
       lastReason = reasonOf(e);
       res.phrasesFailed++;
       await releaseCall(db, 'phrases', now);
       await recordFailure(db, lastReason, now);
+      continue;
+    }
+    // провайдер ответил: вызов потрачен; ошибка записи в БД не вина провайдера (не возвращаем вызов, не копим неудачи)
+    await resetStreak(db, now);
+    try {
+      await writeCachedReasons(db, batch, fresh, now);
+      res.phrasesGenerated += fresh.size;
+    } catch {
+      res.phrasesFailed++;
+      lastReason = 'db_error';
+      break;
     }
   }
   if (res.phrasesFailed > 0) ctx.warn('llm_phrases_failed', `LLM: фразы бэклога, ошибок ${res.phrasesFailed} (${lastReason}), игры повторятся в следующем синке.`);
@@ -77,6 +86,7 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
     res.discover = 'cached';
     return res;
   }
+  if (await isPaused(db)) return res; // пауза после неудач: генерацию не пробуем, предупреждение было бы шумом
   const left = ctx.timeLeft();
   if (left < DISCOVER_MIN_LEFT_MS) return res;
   const groqMs = Math.min(deps.discover?.groqTimeoutMs ?? 15_000, Math.floor(left * 0.4));

@@ -244,7 +244,8 @@ async function hltbCountsFor(db: AnyDb, where: SQL | undefined): Promise<HltbCou
     .select({
       found: sql<number>`(count(*) filter (where ${hltbStatusSql('found')}))::int`,
       notFound: sql<number>`(count(*) filter (where ${hltbStatusSql('not_found')}))::int`,
-      unchecked: sql<number>`(count(*) filter (where ${hltbStatusSql('unchecked')}))::int`,
+      // «Ждут проверки»: без ручной длительности и не сервисы (их шаг HLTB пропускает, 20.1)
+      unchecked: sql<number>`(count(*) filter (where ${hltbStatusSql('unchecked')} and ${games.durationOverrideHours} is null and ${gameStatus.status} is distinct from 'service'))::int`,
     })
     .from(games)
     .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))

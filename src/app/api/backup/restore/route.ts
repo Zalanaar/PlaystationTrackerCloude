@@ -1,5 +1,6 @@
 import { getDb } from '@/db';
 import { MAX_BODY_CHARS, parseBackup } from '@/server/backup/format';
+import { isDataError } from '@/server/backup/errors';
 import { applyRestore, previewRestore } from '@/server/backup/restore';
 import { fail, ok, originAllowed } from '@/server/http';
 
@@ -34,11 +35,17 @@ export async function POST(req: Request) {
       ...(f.reason === 'unsupported_version' ? { supported: [1], got: f.got } : {}),
     });
   }
+  let db: ReturnType<typeof getDb>;
   try {
-    const db = getDb();
+    db = getDb();
+  } catch {
+    return fail(503, 'db_unavailable', 'База данных недоступна.');
+  }
+  try {
     const data = mode === 'preview' ? await previewRestore(db, parsed.value) : await applyRestore(db, parsed.value);
     return ok({ mode, schemaVersion: parsed.value.schemaVersion, fileCreatedAt: parsed.value.createdAt, ...data });
-  } catch {
+  } catch (e) {
+    if (isDataError(e)) return fail(400, 'invalid_request', 'Данные файла не удалось применить, ничего не изменено.', { reason: 'apply_failed' });
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }
 }

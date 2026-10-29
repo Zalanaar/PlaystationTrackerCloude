@@ -6,6 +6,7 @@ import { sendTelegramDocument } from '@/server/notify/telegram';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
 import { buildBackup } from './export';
 import { BACKUP_APP, BACKUP_SCHEMA_VERSION, parseBackup, type BackupFile } from './format';
+import { isDataError } from './errors';
 import { applyRestore, previewRestore } from './restore';
 import { BACKUP_KIND, isBackupDue, isSundayMsk, runWeeklyBackup } from './weekly';
 
@@ -171,6 +172,58 @@ describe('backup', () => {
     expect(again.changes).toEqual([]);
   });
 
+  it('N-2: порядок очереди после восстановления остаётся с уникальными позициями, игры вне файла идут после', async () => {
+    const id = await seed(); // E: позиция 3
+    const extra = await t.db.insert(games).values([{ titleId: 'X', name: 'X', category: 'ps4_game', lastSeenAt: NOW }, { titleId: 'Y', name: 'Y', category: 'ps4_game', lastSeenAt: NOW }]).returning({ id: games.id, titleId: games.titleId });
+    const xid = extra.find((e) => e.titleId === 'X')!.id;
+    const yid = extra.find((e) => e.titleId === 'Y')!.id;
+    await t.db.delete(roadmapOrder);
+    await t.db.insert(roadmapOrder).values([{ gameId: xid, position: 0 }, { gameId: yid, position: 1 }]);
+    const file = (parseBackup({ app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), games: [
+      { titleId: 'A', name: 'A', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 0, roadmapExcluded: false, monthExclusions: [] },
+      { titleId: 'E', name: 'E', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 1, roadmapExcluded: false, monthExclusions: [] },
+    ], plannedGames: [], roadmapSettings: null }) as { ok: true; value: BackupFile }).value;
+    const pre = await previewRestore(t.db, file);
+    expect(pre.sections.roadmapOrder).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
+    await applyRestore(t.db, file, NOW);
+    const rows = await t.db.select().from(roadmapOrder);
+    const pos = new Map(rows.map((r) => [r.gameId, r.position]));
+    expect(new Set(rows.map((r) => r.position)).size).toBe(rows.length); // уникальны
+    expect([pos.get(id('A')), pos.get(id('E'))]).toEqual([0, 1]);
+    expect(pos.get(xid)!).toBeLessThan(pos.get(yid)!); // относительный порядок сохранён
+    expect(pos.get(xid)!).toBeGreaterThan(1);
+    const again = await applyRestore(t.db, file, NOW);
+    expect(again.sections.roadmapOrder).toMatchObject({ add: 0, change: 0 });
+    expect(new Map((await t.db.select().from(roadmapOrder)).map((r) => [r.gameId, r.position]))).toEqual(pos); // идемпотентно
+  });
+
+  it('N-5: дубли месяцев и планируемых игр внутри файла не завышают add и не создают копий', async () => {
+    await seed();
+    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    await wipe();
+    file.games[0].monthExclusions = ['2026-03', '2026-03'];
+    file.plannedGames = [...file.plannedGames, ...file.plannedGames];
+    const pre = await previewRestore(t.db, file);
+    expect(pre.sections.monthExclusions.add).toBe(1);
+    expect(pre.sections.plannedGames.add).toBe(2);
+    await applyRestore(t.db, file, NOW);
+    expect(await t.db.select().from(plannedGames)).toHaveLength(2);
+    const again = await applyRestore(t.db, file, NOW);
+    expect([again.sections.plannedGames.add, again.sections.plannedGames.change, again.sections.monthExclusions.add]).toEqual([0, 0, 0]);
+  });
+
+  it('N-4: нарушение CHECK внутри транзакции распознаётся как ошибка данных, транзакция откатывается', async () => {
+    await seed();
+    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    await wipe();
+    file.games[0].status = { value: 'completed', completedAt: null, droppedAt: '2026-01-01T00:00:00.000Z', statusChangedAt: NOW.toISOString() }; // в обход parse
+    const err = await applyRestore(t.db, file, NOW).then(() => null, (e: unknown) => e);
+    expect(err).not.toBeNull();
+    expect(isDataError(err)).toBe(true);
+    expect(isDataError(new Error('connection refused'))).toBe(false);
+    expect(await t.db.select().from(gameStatus)).toEqual([]);
+  });
+
   it('изменения: change показывает from/to, перед apply статусов делается копия в status_backups', async () => {
     const id = await seed();
     const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
@@ -279,8 +332,8 @@ describe('backup', () => {
     const id = await seed();
     const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
     await wipe();
-    // нарушаем уникальность planned_games.external: два файла-записи с одним externalId вставятся подряд
-    file.plannedGames = [file.plannedGames[0], { ...file.plannedGames[0], title: 'Другое название' }];
+    // нарушаем CHECK game_status уже после валидных операций (в обход parse)
+    file.games[1].status = { value: 'completed', completedAt: null, droppedAt: '2026-01-01T00:00:00.000Z', statusChangedAt: NOW.toISOString() };
     await t.db.insert(gameStatus).values({ gameId: id('D'), status: 'playing' });
     const before = await snapshot();
     await expect(applyRestore(t.db, file, NOW)).rejects.toThrow();

@@ -33,6 +33,17 @@ describe('GET /api/games: hltb', () => {
     if (!p.ok) throw new Error(p.message);
     return listGames(t.db, p.value, NOW);
   };
+  it('N-3: unchecked не считает игры с ручной длительностью и сервисы', async () => {
+    const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+    const ins = await t.db.insert(games).values([
+      { ...base, titleId: 'S', name: 'Service' },
+      { ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
+    ]).returning({ id: games.id, titleId: games.titleId });
+    await t.db.insert(gameStatus).values({ gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
+    // D и E (без hltb) остаются, S (service) и O (override) не считаются
+    expect((await list('')).hltbCounts).toEqual({ found: 1, not_found: 2, unchecked: 2 });
+  });
+
   const names = (r: { items: { title: string }[] }) => r.items.map((i) => i.title);
 
   it('фильтр по одному и нескольким статусам (ИЛИ), с остальными фильтрами И', async () => {
