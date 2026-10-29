@@ -362,3 +362,5 @@ button.ps-rm-state { cursor: pointer; }
   .ps-rm-q__item, .ps-rm-rel__item, .ps-rm-need__item, .ps-rm-over__row { border-width: 2px; }
   :focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--focus); }
 }
+
+.ps-rm-q__rel { display: inline-flex; align-items: center; justify-content: flex-end; color: var(--text-2); }

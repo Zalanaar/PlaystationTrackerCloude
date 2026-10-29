@@ -7,7 +7,7 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
-import { applyOrder, buildQueueRows, mergeVisibleOrder, orderGameIds, recreateBody, sortPlanned, upcomingBody, visibleQueue, type PlannedBody, type UpcomingCandidate } from './model';
+import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, recreateBody, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { flashElement } from './parts';
@@ -254,7 +254,7 @@ export function RoadmapView() {
 
   const extra = useMemo(() => new Map((planned ?? []).map((g) => [`p:${g.id}`, { title: g.title, releaseDate: g.releaseDate }])), [planned]);
   const fullRows = useMemo(() => (data ? applyOrder(buildQueueRows(data), order) : null), [data, order]);
-  const rows = useMemo(() => (fullRows ? visibleQueue(fullRows) : null), [fullRows]);
+  const rows = useMemo(() => (data ? buildSchedule(data, order) : null), [data, order]);
   useEffect(() => { fullKeysRef.current = (fullRows ?? []).filter((r) => r.movable).map((r) => r.key); }, [fullRows]);
   const recalculating = recalc > 0;
   const today = data?.today ?? new Date().toISOString().slice(0, 10);

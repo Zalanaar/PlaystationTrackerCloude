@@ -1,5 +1,5 @@
 // Чистая логика бэклога (Фаза 11): фильтры жанр/длительность <-> URL <-> query API (контракт 16.4), показ длительности, ручной ввод.
-import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, HltbStatus, ListSort, SortOrder } from '@/server/collection/types';
+import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, GameStatusValue, HltbStatus, ListSort, SortOrder } from '@/server/collection/types';
 import { GENRE_LABELS_RU, GENRE_NONE } from '@/shared/genres';
 
 export const BACKLOG_PAGE = 300;
@@ -144,4 +144,28 @@ export function hoursInputValue(h: number | null | undefined): string {
 /** Пометка «нет на HLTB»: игра проверена, совпадения нет (в том числе при ручной длительности, контракт 16.4). */
 export function isNotOnHltb(d: Pick<GameDuration, 'hltb'> | undefined): boolean {
   return d?.hltb.status === 'not_found';
+}
+
+// ---------- Два блока страницы «Бэклог»: бэклог и сервис ----------
+export type StatusLists<T> = { backlog: T[]; service: T[] };
+
+/** Перенос игры между блоками при смене статуса: убрать из обоих, добавить в блок нового статуса (в начало). Дельты счётчиков для `total`. */
+export function moveBetweenLists<T extends { id: number; status: GameStatusValue | null }>(
+  lists: StatusLists<T>, game: T, to: GameStatusValue | null,
+): { lists: StatusLists<T>; backlogDelta: number; serviceDelta: number } {
+  const inB = lists.backlog.some((g) => g.id === game.id);
+  const inS = lists.service.some((g) => g.id === game.id);
+  let backlog = lists.backlog.filter((g) => g.id !== game.id);
+  let service = lists.service.filter((g) => g.id !== game.id);
+  let backlogDelta = inB ? -1 : 0;
+  let serviceDelta = inS ? -1 : 0;
+  const next = { ...game, status: to };
+  if (to === 'backlog') { backlog = [next, ...backlog]; backlogDelta += 1; }
+  if (to === 'service') { service = [next, ...service]; serviceDelta += 1; }
+  return { lists: { backlog, service }, backlogDelta, serviceDelta };
+}
+
+/** Запрос блока «Сервис»: фильтры бэклога его не затрагивают. */
+export function serviceToApi(limit = BACKLOG_PAGE): URLSearchParams {
+  return new URLSearchParams({ status: 'service', sort: 'last_played', limit: String(limit), offset: '0' });
 }

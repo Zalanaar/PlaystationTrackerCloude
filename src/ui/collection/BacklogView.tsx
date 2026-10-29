@@ -14,7 +14,7 @@ import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
 import { BacklogFilters } from './BacklogFilters';
 import {
-  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, parseBacklogFilters, resetBacklogFilters, sourceLabel,
+  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, sourceLabel,
   type BacklogFilters as Filters,
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
@@ -55,6 +55,28 @@ export function BacklogView() {
   const [more, setMore] = useState(false);
   const itemsRef = useRef<GameItem[] | null>(null);
   useEffect(() => { itemsRef.current = items; }, [items]);
+  // блок «Сервис»: отдельный запрос status=service, фильтры бэклога его не затрагивают
+  const [service, setService] = useState<GameItem[] | null>(null);
+  const [serviceTotal, setServiceTotal] = useState(0);
+  const [serviceOpen, setServiceOpen] = useState(true);
+  const serviceRef = useRef<GameItem[] | null>(null);
+  useEffect(() => { serviceRef.current = service; }, [service]);
+  const serviceReq = useRef(0);
+  const loadService = useCallback(async () => {
+    const my = ++serviceReq.current;
+    try {
+      const r = await fetchGames(serviceToApi());
+      if (my !== serviceReq.current) return;
+      setService(r.items);
+      setServiceTotal(r.total);
+    } catch {
+      // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    }
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => void loadService(), 0);
+    return () => clearTimeout(t);
+  }, [loadService]);
 
   const load = useCallback(async () => {
     const my = ++reqRef.current;
@@ -111,38 +133,48 @@ export function BacklogView() {
 
   const change = useCallback(async (game: GameItem, status: GameStatusValue | null) => {
     if (game.status === status) return;
-    // игра пропадает из списка сразу; при ошибке возвращается на место
-    const before = itemsRef.current ?? [];
-    const leaves = status !== 'backlog';
-    if (leaves) {
-      setItems(before.filter((g) => g.id !== game.id));
-      setTotal((n) => Math.max(0, n - 1));
-      setOpen(null);
-    }
+    // игра переезжает между блоками сразу; при ошибке возвращается на место
+    const beforeB = itemsRef.current ?? [];
+    const beforeS = serviceRef.current ?? [];
+    const apply = (g: GameItem, to: GameStatusValue | null) => {
+      const r = moveBetweenLists({ backlog: itemsRef.current ?? [], service: serviceRef.current ?? [] }, g, to);
+      itemsRef.current = r.lists.backlog;
+      serviceRef.current = r.lists.service;
+      setItems(r.lists.backlog);
+      setService(r.lists.service);
+      setTotal((n) => Math.max(0, n + r.backlogDelta));
+      setServiceTotal((n) => Math.max(0, n + r.serviceDelta));
+    };
+    const sync = () => { void load(); void loadService(); };
+    apply(game, status);
+    setOpen(null);
     try {
       await putStatus(game.id, status);
-      if (leaves) void load();
+      sync();
       toast({
         text: `Статус изменён: ${STATUS_META[status ?? 'none'].label}`,
         action: { label: 'Отменить', run: () => void restore(game) },
       });
     } catch (e) {
-      if (leaves) {
-        setItems(before);
-        setTotal((n) => n + 1);
-      }
+      itemsRef.current = beforeB;
+      serviceRef.current = beforeS;
+      setItems(beforeB);
+      setService(beforeS);
+      void load();
+      void loadService();
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
     }
     async function restore(g: GameItem) {
       try {
-        await putStatus(g.id, 'backlog');
-        void load();
+        await putStatus(g.id, g.status);
+        apply({ ...g, status }, g.status);
+        sync();
         toast({ text: 'Статус возвращён' });
       } catch (e) {
         toast({ kind: 'error', text: `Не удалось вернуть статус. ${errorText(e)}` });
       }
     }
-  }, [load, toast]);
+  }, [load, loadService, toast]);
 
   const actions: GameActions = useMemo(() => ({
     open: (g) => setOpen(g),
@@ -194,6 +226,9 @@ export function BacklogView() {
                   <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
                     <StatusGlyph status="playing" size={14} />Начать играть
                   </button>
+                  <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'service')}>
+                    <StatusGlyph status="service" size={14} />В сервис
+                  </button>
                   <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из бэклога</button>
                 </div>
               </GameCard>
@@ -209,10 +244,41 @@ export function BacklogView() {
           </button>
         </div>
       )}
+      {service && service.length > 0 && (
+        <section className="ps-bl-service" id="service" aria-labelledby="h-bl-service" data-testid="bl-service">
+          <div className="ps-bl-service__head">
+            <h2 className="ps-h2 ps-h2--icon" id="h-bl-service">
+              <StatusGlyph status="service" size={16} />Сервис <small className="num ps-bl-service__n" data-testid="bl-service-count">{formatNumber(serviceTotal)}</small>
+            </h2>
+            <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" aria-expanded={serviceOpen} aria-controls="bl-service-list" onClick={() => setServiceOpen((v) => !v)}>
+              <Icon name={serviceOpen ? 'chevron-up' : 'chevron-down'} size={14} />{serviceOpen ? 'Свернуть' : 'Развернуть'}
+            </button>
+          </div>
+          <p className="ps-bl-service__sub">Игры-сервисы не попадают в план прохождения.</p>
+          {serviceOpen && (
+            <div id="bl-service-list">
+              <GameGrid density="comfort" label="Игры-сервисы">
+                {service.map((g) => (
+                  <GameGridItem key={g.id}>
+                    <GameCard game={g} actions={actions} selectMode={false} selected={false}>
+                      <div className="ps-quick">
+                        <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
+                          <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
+                        </button>
+                        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из сервиса</button>
+                      </div>
+                    </GameCard>
+                  </GameGridItem>
+                ))}
+              </GameGrid>
+            </div>
+          )}
+        </section>
+      )}
       <GameDialog
-        game={open ? (items?.find((g) => g.id === open.id) ?? open) : null} startEditing={false} now={now} onClose={() => setOpen(null)}
+        game={open ? (items?.find((g) => g.id === open.id) ?? service?.find((g) => g.id === open.id) ?? open) : null} startEditing={false} now={now} onClose={() => setOpen(null)}
         onStatus={(g, s) => void change(g, s)} onDate={() => {}}
-        onGameChanged={(g) => { setOpen(g); setItems((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); void load(); }}
+        onGameChanged={(g) => { setOpen(g); setItems((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); setService((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); void load(); void loadService(); }}
       />
     </div>
   );

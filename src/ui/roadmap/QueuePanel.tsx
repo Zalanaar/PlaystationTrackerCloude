@@ -5,9 +5,10 @@ import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent }
 import { Icon, StatusGlyph } from '../icons';
 import { Popover } from '../primitives/Popover';
 import {
-  conflictNumbers, dropSide, dropTarget, hoursLabel, hoursSourceLabel, moveTo, notFitShortText, periodText, positionText, weeksText, type QueueRow,
+  backlogKeys, backlogPositions, conflictNumbers, dayText, dropOrder, dropSide, hoursLabel, hoursSourceLabel, moveTo, notFitShortText, periodText, positionText, weeksText, type QueueRow,
 } from './model';
-import { reducedMotion, Thumb } from './parts';
+import { flashElement, reducedMotion, Thumb } from './parts';
+import { plural } from '../format';
 import type { Conflict } from '@/server/roadmap/types';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -20,10 +21,15 @@ function PlanCell({ row, conflicts }: { row: QueueRow; conflicts: number[] }) {
     <div className="ps-rm-q__plan">
       {state === 'not_fit' && notFit ? (
         <span className="ps-rm-state" data-tone="danger" title={`${notFitShortText(notFit)[0].toUpperCase()}${notFitShortText(notFit).slice(1)}`}><Icon name="alert" size={12} />Не успеваю</span>
+      ) : !row.movable && state === 'need_hours' && row.entry.releaseDate ? (
+        <>
+          <span className="ps-rm-state" data-tone="warning"><Icon name="clock" size={12} />Нужны часы</span>
+          <small className="num">выходит {dayText(row.entry.releaseDate)}</small>
+        </>
       ) : item ? (
         <>
           <span className="num">{periodText(item)}</span>
-          <small className="num">{weeksText(item.days)}</small>
+          <small className="num">{row.key.startsWith('p:') && item.releaseDate ? `выходит ${dayText(item.releaseDate)} · ` : ''}{weeksText(item.days)}</small>
         </>
       ) : (
         <span className="ps-rm-muted" aria-label="Нет дат">—</span>
@@ -49,7 +55,8 @@ export function QueuePanel({
   const focusReq = useRef<{ key: string; btn: Btn } | null>(null);
   const tops = useRef<Map<string, number>>(new Map());
   const nums = conflictNumbers(conflicts as Conflict[]);
-  const keys = (rows ?? []).filter((r) => r.movable).map((r) => r.key);
+  const keys = backlogKeys(rows ?? []);
+  const positions = backlogPositions(rows ?? []);
   const orderSig = (rows ?? []).map((r) => r.key).join('|');
 
   // FLIP при смене порядка + возврат фокуса на кнопку той же строки
@@ -110,7 +117,7 @@ export function QueuePanel({
     if (e.clientY < 72) window.scrollBy(0, -16);
     else if (e.clientY > window.innerHeight - 72) window.scrollBy(0, 16);
     const side = dropSide(e.clientY, e.currentTarget.getBoundingClientRect());
-    const t = dropTarget(keys.indexOf(drag), keys.indexOf(key), side);
+    const t = dropOrder(rows ?? [], drag, key, side);
     setOver((o) => {
       if (t === null) return o === null ? o : null;
       return o && o.key === key && o.side === side ? o : { key, side };
@@ -120,14 +127,13 @@ export function QueuePanel({
     if (!drag || !movable) return;
     e.preventDefault();
     const side = dropSide(e.clientY, e.currentTarget.getBoundingClientRect());
-    const from = keys.indexOf(drag);
-    const t = dropTarget(from, keys.indexOf(key), side);
     const moved = drag;
+    const next = dropOrder(rows ?? [], moved, key, side);
     clearDrag();
-    if (t === null) return;
-    onReorder(moveTo(keys, from, t));
+    if (!next) return;
+    onReorder(next);
     const title = rows?.find((r) => r.key === moved)?.entry.title ?? 'Игра';
-    setLive(positionText(title, t, keys.length));
+    setLive(positionText(title, next.indexOf(moved), keys.length));
   }
 
   const body = (() => {
@@ -153,7 +159,7 @@ export function QueuePanel({
     }
     return (
       <ol className="ps-rm-q" ref={listRef} data-dragging={drag ? 'true' : undefined} aria-busy={loading || undefined}>
-        {rows.map((r, idx) => {
+        {rows.map((r) => {
           const mi = keys.indexOf(r.key);
           const first = mi === 0;
           const last = mi === keys.length - 1;
@@ -176,20 +182,32 @@ export function QueuePanel({
               >
                 {r.movable && <Icon name="drag-handle" size={16} />}
               </span>
-              <span className="ps-rm-q__n num" aria-label={`Позиция ${idx + 1}`}>{idx + 1}</span>
+              {r.movable ? (
+                <span className="ps-rm-q__n num" aria-label={`Позиция ${positions.get(r.key)}`}>{positions.get(r.key)}</span>
+              ) : (
+                <span className="ps-rm-q__n ps-rm-q__rel" role="img" aria-label="Релиз" title="Релиз"><Icon name="calendar" size={16} /></span>
+              )}
               <Thumb url={e.coverUrl} title={e.title} w={40} h={53} />
               <div className="ps-rm-q__name">
-                <b title={e.title}><span className="ps-rm-q__pos num">№ {idx + 1}</span> {e.title}</b>
+                <b title={e.title}>{r.movable ? <span className="ps-rm-q__pos num">№ {positions.get(r.key)}</span> : null} {e.title}</b>
                 <small>
                   {e.hours !== null ? (
                     <>
                       <Icon name="clock" size={12} /><span className="num">{hoursLabel(e.hours)}</span>
-                      {src && <span className="ps-rm-src">{src}</span>}
+                      {src && <span className="ps-rm-src">{r.movable ? src : 'ручн.'}</span>}
                     </>
                   ) : (
-                    <button type="button" className="ps-rm-state" data-tone="warning" onClick={() => onNeedHours(r.key)}><Icon name="clock" size={12} />Нужны часы</button>
+                    <button
+                      type="button" className="ps-rm-state" data-tone="warning"
+                      onClick={() => {
+                        if (r.movable) { onNeedHours(r.key); return; }
+                        // релиз: поле часов в карточке блока «Релизы»
+                        const card = document.querySelector<HTMLElement>(`[data-rm-zone="releases"][data-rm-key="${r.key}"]`);
+                        flashElement(card, card?.querySelector<HTMLElement>('input[type="text"]'));
+                      }}
+                    ><Icon name="clock" size={12} />{r.movable ? 'Нужны часы' : 'Указать часы'}</button>
                   )}
-                  {!r.movable && <span className="ps-rm-tag">Релиз без галки</span>}
+                  {!r.movable && <span className="ps-rm-tag" title={e.wantAtRelease ? 'Стоит по дате выхода' : 'Без галки: идёт после бэклога, не раньше даты выхода'}><Icon name="calendar" size={12} />Релиз</span>}
                 </small>
               </div>
               <PlanCell row={r} conflicts={cn} />
@@ -232,9 +250,14 @@ export function QueuePanel({
                     trigger={(p) => <button type="button" className="ps-iconbtn ps-rm-sq ps-rm-q__more" data-act="menu" aria-label={`Ещё: ${e.title}`} {...p}><Icon name="more" size={16} /></button>}
                   >
                     {(close) => (
-                      <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); onRemove(e); }}>
-                        <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Убрать из плана</span>
-                      </button>
+                      <>
+                        <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); flashElement(document.querySelector<HTMLElement>(`[data-rm-zone="releases"][data-rm-key="${r.key}"]`)); }}>
+                          <Icon name="pencil" size={16} /><span className="ps-menu-item__label">Править</span>
+                        </button>
+                        <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => { close(); onRemove(e); }}>
+                          <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Убрать из плана</span>
+                        </button>
+                      </>
                     )}
                   </Popover>
                 </div>
@@ -249,14 +272,14 @@ export function QueuePanel({
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2 ps-h2--ic"><StatusGlyph status="backlog" size={16} />Очередь бэклога {rows && <small className="num ps-rm-cnt">{rows.length}</small>}</h2>
+        <h2 className="ps-h2 ps-h2--ic"><StatusGlyph status="backlog" size={16} />Очередь бэклога {rows && <small className="num ps-rm-cnt" title="Строк в расписании: игры бэклога и релизы">{rows.length} {plural(rows.length, ['строка', 'строки', 'строк'])}</small>}</h2>
         <span className="ps-rm-save" role="status" data-state={saveState}>
           {saveState === 'saving' && 'Сохраняю…'}
           {saveState === 'saved' && 'Сохранено'}
           {saveState === 'error' && <><Icon name="circle-alert" size={12} />Порядок не сохранён <button type="button" className="ps-link" onClick={onRetrySave}>Повторить</button></>}
         </span>
       </div>
-      <p className="ps-rm-sub">Порядок задаёт план: игры идут сверху вниз в свободные недели. Игры с галкой «Хочу пройти на релизе» в очередь не входят: они в блоке «Релизы».</p>
+      <p className="ps-rm-sub">Порядок бэклога задаёшь ты; релизы с галкой стоят по дате выхода и двигаться не могут.</p>
       <p className="ps-sr" aria-live="polite" data-testid="rm-live">{live}</p>
       {body}
     </>
