@@ -158,11 +158,11 @@ test.describe('Подскажи: выбор времени', () => {
   test('time из URL применяется; неизвестное значение заменяется на any и на сервер не уходит', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string, state(), '/recommend?time=long');
     await expect(page.getByRole('radio', { name: /^Долгая/ })).toHaveAttribute('aria-checked', 'true');
-    expect(s.calls.get).toEqual(['long']);
+    await expect.poll(() => s.calls.get).toEqual(['long']);
     const s2 = await open(page, context, baseURL as string, state(), '/recommend?time=bogus');
     await expect(page).toHaveURL(/\/recommend$/);
     await expect(cards(page)).toHaveCount(3);
-    expect(s2.calls.get).toEqual(['any']);
+    await expect.poll(() => s2.calls.get).toEqual(['any']);
   });
 
   test('быстрая смена: ответ устаревшего запроса отбрасывается, индикатор «Подбираю…»', async ({ page, context, baseURL }) => {
@@ -333,9 +333,9 @@ test.describe('Подскажи: адаптив', () => {
       await expect(bar.locator('a[aria-current="page"]')).toContainText('Подскажи');
       const over = await bar.locator('a').evaluateAll((els) => els.map((e) => {
         const t = Array.from(e.querySelectorAll('span')).find((s) => getComputedStyle(s).display !== 'none') as HTMLElement;
-        return t.scrollWidth > e.clientWidth;
+        return t.scrollWidth > e.clientWidth ? `${t.textContent}:${t.scrollWidth}>${e.clientWidth}` : '';
       }));
-      expect(over.some(Boolean)).toBe(false);
+      expect(over.filter(Boolean)).toEqual([]);
       if (w === 320) await expect(bar.getByRole('link', { name: 'Статистика' })).toContainText('Стат.');
     });
   }
