@@ -11,7 +11,8 @@ const g = (id: number, hours: number): RoadmapEntry => ({
 const plan = buildPlan({ year: 2026, hoursPerWeek: 10, backlog: [g(1, 70)], planned: [] });
 const H = 3600;
 const snaps = (list: [string, number][]) => groupSnapshots(list.map(([date, h]) => ({ gameId: 1, date, seconds: h * H })));
-const run = (today: string, first: string | null, by: ReturnType<typeof snaps>) => computeProgress({ plan, today, firstSnapshotDate: first, by, hoursPerWeek: 10 });
+let ids: ReadonlySet<number> = new Set([1]);
+const run = (today: string, first: string | null, by: ReturnType<typeof snaps>) => computeProgress({ plan, today, firstSnapshotDate: first, by, hoursPerWeek: 10, planGameIds: ids });
 
 describe('прогресс', () => {
   it('факт чуть больше плана, но в допуске: onTrack', () => {
@@ -67,6 +68,23 @@ describe('прогресс', () => {
 
   it('no_budget: прогресса нет', () => {
     const empty = buildPlan({ year: 2026, hoursPerWeek: 0, backlog: [g(1, 10)], planned: [] });
-    expect(computeProgress({ plan: empty, today: '2026-05-01', firstSnapshotDate: '2026-01-01', by: new Map(), hoursPerWeek: 0 })).toBeNull();
+    expect(computeProgress({ plan: empty, today: '2026-05-01', firstSnapshotDate: '2026-01-01', by: new Map(), hoursPerWeek: 0, planGameIds: new Set() })).toBeNull();
+  });
+
+  it('факт только по играм плана: чужая игра не считается, игра из roadmap_order (ушла из бэклога) считается', () => {
+    const other = groupSnapshots([
+      { gameId: 1, date: '2025-12-31', seconds: 0 }, { gameId: 1, date: '2026-01-10', seconds: 3 * H },
+      { gameId: 7, date: '2025-12-31', seconds: 0 }, { gameId: 7, date: '2026-01-10', seconds: 50 * H },
+    ]);
+    expect(run('2026-01-11', '2025-12-31', other)).toMatchObject({ actualHours: 3, status: 'behind' });
+    ids = new Set([1, 7]);
+    expect(run('2026-01-11', '2025-12-31', other)).toMatchObject({ actualHours: 53, status: 'ahead' });
+    ids = new Set([1]);
+  });
+
+  it('плановые часы только по играм плана', () => {
+    ids = new Set([99]);
+    expect(run('2026-01-11', '2025-12-31', snaps([['2025-12-31', 0]]))).toMatchObject({ plannedHours: 0, actualHours: 0, status: 'onTrack' });
+    ids = new Set([1]);
   });
 });

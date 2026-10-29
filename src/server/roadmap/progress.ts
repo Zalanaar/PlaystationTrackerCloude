@@ -15,6 +15,8 @@ export type ProgressInput = {
   /** Снимки по играм за год и по одному базовому снимку до года (как groupSnapshots в статистике). */
   by: Map<number, { date: string; seconds: number }[]>;
   hoursPerWeek: number;
+  /** Игры плана: games.id из roadmap_order и бэклога (17.6). Факт и план считаются только по ним. */
+  planGameIds: ReadonlySet<number>;
 };
 
 const empty = (status: Progress['status'], from: string, asOf: string): Progress => ({
@@ -41,8 +43,8 @@ export function computeProgress(i: ProgressInput): Progress | null {
   if (from === null || from > asOf) return empty('no_data', from ?? yearFrom, asOf);
 
   const actualTo = today < yearTo ? today : yearTo;
-  const actualHours = secondsToHours(sumSeconds(secondsByGame(i.by, from, actualTo)));
-  const plannedHours = round1(plannedHoursBetween(plan.items, from, asOf));
+  const actualHours = secondsToHours(sumSeconds(secondsByGame(new Map([...i.by].filter(([id]) => i.planGameIds.has(id))), from, actualTo)));
+  const plannedHours = round1(plannedHoursBetween(plan.items, from, asOf, i.planGameIds));
   const diffHours = round1(actualHours - plannedHours);
   const status = diffHours > PROGRESS_TOLERANCE_HOURS ? 'ahead' : diffHours < -PROGRESS_TOLERANCE_HOURS ? 'behind' : 'onTrack';
   return {

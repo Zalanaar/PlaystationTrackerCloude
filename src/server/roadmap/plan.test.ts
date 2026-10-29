@@ -124,17 +124,27 @@ describe('очередь бэклога', () => {
     expect(p.queue.map((q) => q.key)).toEqual(['g:1', 'g:2', 'g:3']);
   });
 
-  it('релиз прерывает игру очереди: несколько отрезков, часы по дням', () => {
-    const p = plan([bl(1, 10), bl(2, 10)], [rel(9, '2026-01-05', 7)]);
+  it('игру очереди релиз не разрывает: короткое окно пропускается, игра целиком после релиза', () => {
+    // релиз 5..11 янв; свободно 1..4 (4 дня). Игра 1 (10 ч = 7 дней) не влезает в окно 1..4 и встаёт после релиза.
+    const p = plan([bl(1, 10), bl(2, 5)], [rel(9, '2026-01-05', 7)]);
     expect(item(p, 'p:9')).toMatchObject({ start: '2026-01-05', end: '2026-01-11' });
     const g1 = item(p, 'g:1');
-    expect(g1?.segments.map((s) => [s.from, s.to, s.days])).toEqual([
-      ['2026-01-01', '2026-01-04', 4],
-      ['2026-01-12', '2026-01-14', 3],
-    ]);
-    expect(g1?.segments.reduce((n, s) => n + s.hours, 0)).toBeCloseTo(10, 0);
-    expect(g1?.days).toBe(7);
-    expect(item(p, 'g:2')?.start).toBe('2026-01-15');
+    expect(g1?.segments).toEqual([{ from: '2026-01-12', to: '2026-01-18', days: 7, hours: 10 }]);
+    // игра 2 (5 ч = 4 дня) ищет окно после предыдущей игры очереди, а не возвращается в пропущенное
+    expect(item(p, 'g:2')).toMatchObject({ start: '2026-01-19', end: '2026-01-22' });
+    for (const i of p.items) expect(i.segments).toHaveLength(1);
+  });
+
+  it('короткая игра влезает в окно перед релизом, длинная после него', () => {
+    const p = plan([bl(2, 5), bl(1, 10)], [rel(9, '2026-01-05', 7)]);
+    expect(item(p, 'g:2')).toMatchObject({ start: '2026-01-01', end: '2026-01-04' });
+    expect(item(p, 'g:1')).toMatchObject({ start: '2026-01-12', end: '2026-01-18' });
+  });
+
+  it('релиз в прошлом при занятых неделях: сдвиг и конфликт', () => {
+    const p = plan([], [rel(1, '2026-02-02', 20), rel(2, '2026-02-03', 5)]);
+    expect(p.conflicts).toEqual([{ reason: 'release_overlap', from: '2026-02-03', to: '2026-02-15', keys: ['p:1', 'p:2'] }]);
+    expect(item(p, 'p:2')?.shiftedDays).toBe(13);
   });
 
   it('не влезла в год: notFit, а следующая короткая ставится', () => {

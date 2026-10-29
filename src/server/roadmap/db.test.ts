@@ -1,4 +1,5 @@
 // Фаза 12 на PGlite: очередь бэклога, порядок, planned_games, GET /api/roadmap целиком, прогресс по снимкам.
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
@@ -70,6 +71,15 @@ describe('roadmap на БД', () => {
     expect((await getBacklogEntries(t.db)).map((e) => e.title)).toEqual(['Delta', 'Alpha', 'Bravo', 'Foxtrot']);
   });
 
+  it('строки порядка игр, ушедших из бэклога, не удаляются ни сменой статуса, ни PUT order', async () => {
+    const id = await seed();
+    await saveOrder(t.db, [id('A'), id('B')]);
+    await t.db.update(gameStatus).set({ status: 'playing' }).where(eq(gameStatus.gameId, id('A')));
+    await saveOrder(t.db, [id('B')]);
+    const rows = await t.db.select({ g: schema.roadmapOrder.gameId }).from(schema.roadmapOrder);
+    expect(rows.map((r) => r.g).sort()).toEqual([id('A'), id('B')].sort());
+  });
+
   it('порядок: неизвестные id = UnknownGamesError, ничего не меняется', async () => {
     const id = await seed();
     await saveOrder(t.db, [id('B')]);
@@ -114,7 +124,7 @@ describe('roadmap на БД', () => {
   it('GET /api/roadmap: план из БД, релиз по дате, прогресс по снимкам', async () => {
     const id = await seed();
     await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
-    await saveOrder(t.db, [id('B'), id('A')]);
+    await saveOrder(t.db, [id('B'), id('A'), id('E')]); // E (playing) остаётся в плане для прогресса
     await createPlanned(t.db, planned({ title: 'Релиз', releaseDate: '2026-01-05', wantAtRelease: true, hoursManual: 7 }));
     const cancelled = await createPlanned(t.db, planned({ title: 'Отменён', releaseDate: '2026-02-05', wantAtRelease: true, hoursManual: 7 }));
     await updatePlanned(t.db, cancelled.id, { status: 'cancelled' });
@@ -133,7 +143,7 @@ describe('roadmap на БД', () => {
     expect(r.queue).toEqual([{ key: `g:${id('B')}`, state: 'scheduled' }, { key: `g:${id('A')}`, state: 'scheduled' }, { key: `g:${id('D')}`, state: 'need_hours' }]);
     expect(r.notFit).toEqual([]);
     expect(r.progress).toMatchObject({ from: '2026-01-01', asOf: '2026-10-28', actualHours: 250 });
-    expect(r.progress?.plannedHours).toBe(22);
+    expect(r.progress?.plannedHours).toBe(15); // только игры плана: Bravo 5 + Alpha 10, релиз не считается
     expect(r.progress?.status).toBe('ahead');
   });
 });

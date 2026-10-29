@@ -30,17 +30,6 @@ export type PlanInput = {
 
 type Placed = { entry: RoadmapEntry & { hours: number }; segs: { from: number; to: number; hours: number }[]; shifted: number; queuePos: number | null };
 
-function groupSegments(days: readonly number[], hours: number): { from: number; to: number; hours: number }[] {
-  const segs: { from: number; to: number; hours: number }[] = [];
-  for (const d of days) {
-    const last = segs[segs.length - 1];
-    if (last && last.to === d - 1) last.to = d;
-    else segs.push({ from: d, to: d, hours: 0 });
-  }
-  for (const s of segs) s.hours = (hours * (s.to - s.from + 1)) / days.length;
-  return segs;
-}
-
 const cmpStr = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 export function buildPlan(input: PlanInput): Plan {
@@ -107,25 +96,35 @@ export function buildPlan(input: PlanInput): Plan {
       cursor = end;
     }
 
-    // Шаг 2: очередь по порядку занимает свободные дни; окно релиза игру прерывает (несколько отрезков).
-    const free: number[] = [];
-    for (let i = 0; i < N; i++) if (!owner[i]) free.push(i);
-    let p = 0;
+    // Шаг 2: каждая игра очереди занимает ОДИН непрерывный интервал свободных дней (окно релиза не разрывает игру).
+    // Ищем первое достаточно длинное свободное окно после предыдущей поставленной игры очереди; короткие окна пропускаем.
+    let pointer = 0;
     queueEntries.forEach((e, idx) => {
       if (!hasHours(e)) return;
       const need = queueDays(e.hours, budget);
       const notBefore = e.kind === 'planned' && e.releaseDate !== null ? Math.max(0, dayNum(e.releaseDate) - base) : 0;
-      let q = p;
-      while (q < free.length && free[q] < notBefore) q++;
-      const avail = free.length - q;
-      if (need > avail) {
-        notFit.push({ ...e, reason: 'no_capacity', hoursShort: round1((need - avail) * perDay) });
+      let start = -1;
+      let run = 0;
+      let longest = 0;
+      for (let i = Math.max(pointer, notBefore); i < N; i++) {
+        if (owner[i]) {
+          run = 0;
+          continue;
+        }
+        run++;
+        if (run > longest) longest = run;
+        if (run === need) {
+          start = i - need + 1;
+          break;
+        }
+      }
+      if (start < 0) {
+        notFit.push({ ...e, reason: 'no_capacity', hoursShort: round1((need - longest) * perDay) });
         (queueState.get(e.key) as QueueRef).state = 'not_fit';
         return;
       }
-      const days = free.slice(q, q + need);
-      p = q + need;
-      placed.push({ entry: e, segs: groupSegments(days, e.hours), shifted: 0, queuePos: idx + 1 });
+      pointer = start + need;
+      placed.push({ entry: e, segs: [{ from: start, to: start + need - 1, hours: e.hours }], shifted: 0, queuePos: idx + 1 });
     });
   } else {
     for (const q of queue) if (q.state === 'scheduled') q.state = 'unplanned';
@@ -191,11 +190,12 @@ export function buildPlan(input: PlanInput): Plan {
 }
 
 /** Часы плана за даты [from, to] включительно (равномерно по дням отрезков). */
-export function plannedHoursBetween(items: readonly PlanItem[], from: string, to: string): number {
+export function plannedHoursBetween(items: readonly PlanItem[], from: string, to: string, gameIds?: ReadonlySet<number>): number {
   const a = dayNum(from);
   const b = dayNum(to);
   let sum = 0;
   for (const it of items) {
+    if (gameIds && (it.gameId === null || !gameIds.has(it.gameId))) continue;
     for (const s of it.segments) {
       const sa = dayNum(s.from);
       const sb = dayNum(s.to);

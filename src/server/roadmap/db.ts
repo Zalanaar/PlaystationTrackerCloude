@@ -1,5 +1,5 @@
 // Чтение и запись данных роадмапа (контракт 17). Расчёт в чистых модулях, здесь только выборки и мутации.
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { effectiveDuration } from '@/server/collection/duration';
@@ -126,7 +126,9 @@ export async function saveOrder(db: AnyDb, gameIds: readonly number[]): Promise<
       if (unknown.length) throw new UnknownGamesError(unknown);
     }
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('roadmap_order'))`);
-    await tx.delete(roadmapOrder);
+    // Строки игр, ушедших из бэклога, не трогаем (по ним считается прогресс, 17.6): чистим только игры из списка и текущий бэклог.
+    const backlogIds = tx.select({ id: gameStatus.gameId }).from(gameStatus).where(eq(gameStatus.status, 'backlog'));
+    await tx.delete(roadmapOrder).where(or(inArray(roadmapOrder.gameId, backlogIds), gameIds.length ? inArray(roadmapOrder.gameId, [...gameIds]) : undefined));
     if (gameIds.length) {
       const now = new Date();
       await tx.insert(roadmapOrder).values(gameIds.map((gameId, position) => ({ gameId, position, updatedAt: now })));
@@ -190,7 +192,9 @@ export async function getRoadmap(db: AnyDb, now: Date = new Date()): Promise<Roa
   let progress = null;
   if (plan.status === 'ok' && isValidBudget(settings.hoursPerWeek)) {
     const { snapshots, first } = await getSnapshots(db, settings.year);
-    progress = computeProgress({ plan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek });
+    const ordered = await db.select({ id: roadmapOrder.gameId }).from(roadmapOrder);
+    const planGameIds = new Set<number>([...ordered.map((r) => r.id), ...backlog.flatMap((e) => (e.gameId === null ? [] : [e.gameId]))]);
+    progress = computeProgress({ plan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
   return { ...plan, settings, today, progress };
 }
