@@ -1,37 +1,37 @@
 'use client';
 
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { RoadmapResponse } from '@/server/roadmap/types';
 import { Icon } from '../icons';
 import { plural } from '../format';
 import { useIsMobile } from '../primitives/hooks';
 import {
-  barLabel, conflictNumbers, conflictText, dayNumber, dayText, hoursLabel, layoutBars, MONTHS_AXIS, MONTHS_NOM, monthStartWeeks, parseYmd,
-  rangeText, weekPos, weeksText, type Bar, type ExtraGames,
+  barLabel, conflictNumbers, conflictText, dayIndex, daySpan, dayNumber, dayText, hoursLabel, layoutBars, MONTHS_AXIS, MONTHS_NOM, monthSpans, parseYmd,
+  rangeText, spanPct, weeksText, type Bar, type ExtraGames, type Lane,
 } from './model';
 import { jumpToEntry, Spinner, Thumb } from './parts';
 
 type Tip = { bar: Bar; left: number; top: number };
 
+/** Таймлайн «Полосы»: позиция по дням года (проценты ширины), очередь одной дорожкой встык, релизы своей дорожкой. */
 function Gantt({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) => void }) {
-  const { weeks, items, conflicts, settings, today } = data;
-  const n = weeks.length;
+  const { items, conflicts, settings, today, range, months } = data;
+  const n = range.days;
   const [tip, setTip] = useState<Tip | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { bars, rows } = useMemo(() => layoutBars(items, weeks), [items, weeks]);
+  const { bars, rows } = useMemo(() => layoutBars(items, range), [items, range]);
   const nums = useMemo(() => conflictNumbers(conflicts), [conflicts]);
-  const starts = useMemo(() => monthStartWeeks(weeks, settings.year), [weeks, settings.year]);
-  const todayInYear = today >= data.range.from && today <= data.range.to;
-  const tw = todayInYear ? weekPos(weeks, today) : -1; // 0-based
-  const off = tw >= 0 ? 1 : 0; // строка ярлыка «Сегодня»
+  const spans = useMemo(() => monthSpans(months, range), [months, range]);
+  const todayInYear = today >= range.from && today <= range.to;
+  const td = todayInYear ? dayIndex(range.from, today) : -1;
+  const off = td >= 0 ? 1 : 0; // строка ярлыка «Сегодня»
   const axisRow = 1 + off;
   const relRows = Math.max(1, rows.release);
   const queRows = Math.max(1, rows.queue);
-  const relStart = axisRow + 1;
-  const queStart = relStart + relRows;
-  const lastRow = queStart + queRows - 1;
-  const rowOf = (b: Bar) => (b.lane === 'release' ? relStart : queStart) + b.row;
+  const relRow = axisRow + 1;
+  const queRow = relRow + 1;
   const curMonth = todayInYear ? (parseYmd(today)?.m ?? 0) - 1 : -1;
+  const pct = (d: number) => `${(d / n) * 100}%`;
 
   function show(bar: Bar, el: HTMLElement, delay: boolean) {
     const open = () => {
@@ -47,71 +47,73 @@ function Gantt({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) 
     setTip(null);
   }
 
-  const lane = (label: string, from: number, count: number, empty: string, has: boolean) => (
+  const track = (lane: Lane, row: number, count: number, empty: string, has: boolean, label: string) => (
     <>
-      <div className="ps-rm-g__lbl" style={{ gridColumn: 1, gridRow: `${from} / span ${count}` }}>{label}</div>
-      <div className="ps-rm-g__lane" aria-hidden="true" style={{ gridColumn: `2 / -1`, gridRow: `${from} / span ${count}` }} />
-      {!has && <p className="ps-rm-g__empty" style={{ gridColumn: '2 / -1', gridRow: from }}>{empty}</p>}
-    </>
-  );
-
-  return (
-    <div className="ps-rm-g__scroll" onKeyDown={(e) => { if (e.key === 'Escape') hide(); }}>
+      <div className="ps-rm-g__lbl" style={{ gridColumn: 1, gridRow: row }}>{label}</div>
       <div
-        className="ps-rm-g" role="group" aria-label={`Таймлайн плана на ${settings.year} год`}
-        style={{ '--n': n, gridTemplateColumns: `var(--rm-label-w) repeat(${n}, minmax(12px, 1fr))`, gridTemplateRows: `${off ? '20px ' : ''}var(--rm-axis-h) repeat(${relRows + queRows}, var(--rm-bar-h))` } as React.CSSProperties}
+        className="ps-rm-g__track" data-lane={lane} data-testid={`rm-lane-${lane}`} style={{ gridColumn: 2, gridRow: row, '--rows': count } as React.CSSProperties}
       >
-        {tw >= 0 && (
-          <div className="ps-rm-g__todayrow" aria-hidden="true" style={{ gridColumn: '2 / -1', gridRow: 1 }}>
-            <span style={{ left: `${((tw + 0.5) / n) * 100}%`, transform: `translateX(-${((tw + 0.5) / n) * 100}%)` }}>Сегодня, {dayText(today)}</span>
-          </div>
-        )}
-        {lane('Релизы', relStart, relRows, 'Релизов в плане нет', rows.release > 0)}
-        {lane('Очередь', queStart, queRows, 'Очередь пуста', rows.queue > 0)}
-        {/* текущая неделя */}
-        {tw >= 0 && <div className="ps-rm-g__now" aria-hidden="true" style={{ gridColumn: tw + 2, gridRow: `${axisRow + 1} / ${lastRow + 1}` }} />}
-        {/* месяцы: подписи оси и разделители */}
-        {starts.map((s, m) => {
-          const next = m < 11 ? starts[m + 1] : n;
-          return (
-            <Fragment key={m}>
-              <div className="ps-rm-g__month" aria-hidden="true" data-cur={m === curMonth || undefined} style={{ gridColumn: `${s + 2} / ${next + 2}`, gridRow: axisRow }}>{MONTHS_AXIS[m]}</div>
-              {m > 0 && <div className="ps-rm-g__sep" aria-hidden="true" style={{ gridColumn: s + 2, gridRow: `${axisRow + 1} / ${lastRow + 1}` }} />}
-            </Fragment>
-          );
-        })}
-        {/* конфликты: штриховка + ярлык */}
-        {conflicts.map((c, i) => {
-          if (c.to < data.range.from || c.from > data.range.to) return null; // промежуток вне года плана: только текст в списке
-          const s = weekPos(weeks, c.from) + 1;
-          const e = Math.max(s, weekPos(weeks, c.to) + 1);
-          return (
-            <div key={i} className="ps-rm-g__conf" style={{ gridColumn: `${s + 1} / ${e + 2}`, gridRow: `${axisRow + 1} / ${lastRow + 1}` }}>
-              <a className="ps-rm-g__clabel" href={`#rm-conflict-${i + 1}`}>
-                <Icon name="alert" size={14} />Конфликт {i + 1} · {rangeText(c.from, c.to)}
-              </a>
-            </div>
-          );
-        })}
-        {bars.map((b) => {
+        {!has && <p className="ps-rm-g__empty">{empty}</p>}
+        {bars.filter((b) => b.lane === lane).map((b) => {
           const cn = nums.get(b.key) ?? [];
-          const w = b.endWeek - b.startWeek + 1;
-          const wide = w >= 8;
+          const g = spanPct(b.startDay, b.endDay, n);
           return (
             <button
-              key={`${b.key}-${b.segIndex}`} type="button" className="ps-rm-bar" data-kind={b.lane} data-conflict={cn.length ? 'true' : undefined}
-              data-testid="rm-bar" data-key={b.key}
-              style={{ gridColumn: `${b.startWeek + 1} / ${b.endWeek + 2}`, gridRow: rowOf(b) }}
+              key={`${b.key}-${b.segIndex}`} type="button" className="ps-rm-bar" data-kind={b.lane} data-alt={b.lane === 'queue' ? b.alt : undefined}
+              data-conflict={cn.length ? 'true' : undefined} data-testid="rm-bar" data-key={b.key}
+              style={{ left: `${g.left}%`, width: `${g.width}%`, top: `calc(${b.row} * (var(--rm-bar-h) + 6px))` }}
               aria-label={barLabel(b, cn)}
               onClick={() => onJump(b.key)}
               onMouseEnter={(e) => show(b, e.currentTarget, true)} onMouseLeave={hide}
               onFocus={(e) => { if (e.currentTarget.matches(':focus-visible')) show(b, e.currentTarget, false); }} onBlur={hide}
             >
               <span className="ps-rm-bar__in">
-                {cn.length > 0 ? <Icon name="alert" size={14} /> : b.lane === 'release' && wide ? <Icon name="calendar" size={14} /> : null}
+                {cn.length > 0 ? <Icon name="alert" size={14} /> : b.lane === 'release' ? <Icon name="calendar" size={14} /> : null}
                 <span className="ps-rm-bar__t">{b.segIndex === 0 ? b.item.title : `… ${b.segIndex + 1}/${b.segCount}`}</span>
               </span>
             </button>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="ps-rm-g__scroll" onKeyDown={(e) => { if (e.key === 'Escape') hide(); }}>
+      <div
+        className="ps-rm-g" role="group" aria-label={`Таймлайн плана на ${settings.year} год`} data-testid="rm-gantt"
+        style={{ '--n': n, gridTemplateRows: `${off ? '20px ' : ''}var(--rm-axis-h) auto auto` } as React.CSSProperties}
+      >
+        {td >= 0 && (
+          <div className="ps-rm-g__todayrow" aria-hidden="true" style={{ gridColumn: 2, gridRow: 1 }}>
+            <span style={{ left: pct(td + 0.5), transform: `translateX(-${((td + 0.5) / n) * 100}%)` }}>Сегодня, {dayText(today)}</span>
+          </div>
+        )}
+        {/* ось месяцев по реальным границам */}
+        <div className="ps-rm-g__axis" aria-hidden="true" style={{ gridColumn: 2, gridRow: axisRow }}>
+          {spans.map((m, i) => (
+            <span key={i} className="ps-rm-g__month" data-cur={i === curMonth || undefined} style={{ left: pct(m.startDay), width: pct(m.days) }}>{MONTHS_AXIS[i]}</span>
+          ))}
+        </div>
+        {/* подложка: разделители месяцев, «сегодня», конфликты (по дням) */}
+        <div className="ps-rm-g__over" aria-hidden="true" style={{ gridColumn: 2, gridRow: `${relRow} / ${queRow + 1}` }}>
+          {spans.slice(1).map((m, i) => <i key={i} className="ps-rm-g__sep" style={{ left: pct(m.startDay) }} />)}
+          {td >= 0 && <i className="ps-rm-g__now" style={{ left: pct(td), width: `max(${(1 / n) * 100}%, 2px)` }} />}
+        </div>
+        {track('release', relRow, relRows, 'Релизов в плане нет', rows.release > 0, 'Релизы')}
+        {track('queue', queRow, queRows, 'Очередь пуста', rows.queue > 0, 'Очередь')}
+        {conflicts.map((c, i) => {
+          const sp = daySpan(range, c.from, c.to);
+          if (!sp) return null; // промежуток вне года плана: только текст в списке
+          const g = spanPct(sp.startDay, sp.endDay, n);
+          return (
+            <div key={i} className="ps-rm-g__conf" data-testid="rm-conf-band" style={{ gridColumn: 2, gridRow: `${relRow} / ${queRow + 1}` }}>
+              <span className="ps-rm-g__confin" style={{ left: `${g.left}%`, width: `${g.width}%` }}>
+                <a className="ps-rm-g__clabel" href={`#rm-conflict-${i + 1}`}>
+                  <Icon name="alert" size={14} />Конфликт {i + 1} · {rangeText(c.from, c.to)}
+                </a>
+              </span>
+            </div>
           );
         })}
       </div>

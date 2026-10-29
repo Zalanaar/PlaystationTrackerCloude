@@ -32,7 +32,34 @@ type Placed = { entry: RoadmapEntry & { hours: number }; segs: { from: number; t
 
 const cmpStr = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** Сколько не влезших игр бэклога получают пробный прогон «в конец очереди» (17.5); остальным поля = null. */
+export const MAX_END_PROBES = 50;
+
+/** План + пробные прогоны для notFit (g:*, no_capacity): влезет ли игра, если перенести её в конец очереди. */
 export function buildPlan(input: PlanInput): Plan {
+  const plan = buildPlanCore(input);
+  const probes = plan.notFit.filter((n) => n.kind === 'backlog' && n.reason === 'no_capacity');
+  if (!probes.length) return plan;
+  const before = new Set(plan.items.map((i) => i.key));
+  let used = 0;
+  plan.notFit = plan.notFit.map((n) => {
+    if (n.kind !== 'backlog' || n.reason !== 'no_capacity') return n;
+    if (used++ >= MAX_END_PROBES) return { ...n, canFitAtEnd: null, hoursShortAtEnd: null, displacesAtEnd: null };
+    const moved = input.backlog.find((e) => e.key === n.key) as RoadmapEntry;
+    const trial = buildPlanCore({ ...input, backlog: [...input.backlog.filter((e) => e.key !== n.key), moved] });
+    const stays = new Set(trial.items.map((i) => i.key));
+    const still = trial.notFit.find((x) => x.key === n.key);
+    return {
+      ...n,
+      canFitAtEnd: stays.has(n.key),
+      hoursShortAtEnd: still ? (still.hoursShort ?? 0) : 0,
+      displacesAtEnd: [...before].filter((k) => !stays.has(k)).length,
+    };
+  });
+  return plan;
+}
+
+function buildPlanCore(input: PlanInput): Plan {
   const { year } = input;
   const bounds = yearBounds(year);
   const base = dayNum(bounds.from);

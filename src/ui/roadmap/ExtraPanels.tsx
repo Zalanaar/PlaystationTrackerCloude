@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlannedGameDto, RoadmapEntry, ServiceGame } from '@/server/roadmap/types';
 import { Icon } from '../icons';
 import { ApiError, fetchUpcoming } from './api';
@@ -93,9 +93,9 @@ type Load = { state: 'loading' } | { state: 'ok' } | { state: 'fail'; kind: Cata
  * Состояние строки сверяется с актуальными списками релизов и «Не распределено».
  */
 export function UpcomingPanel({
-  planned, unallocated, onAdd, onRestore,
+  allPlanned, onAdd, onRestore,
 }: {
-  planned: PlannedGameDto[] | null; unallocated: readonly RoadmapEntry[];
+  allPlanned: PlannedGameDto[] | null;
   onAdd: (c: UpcomingCandidate) => Promise<PlannedGameDto>; onRestore: (plannedId: number) => Promise<void>;
 }) {
   const [items, setItems] = useState<UpcomingCandidate[]>([]);
@@ -128,8 +128,6 @@ export function UpcomingPanel({
     return () => clearTimeout(t);
   }, [fetchPage]);
 
-  const plannedIds = useMemo(() => (planned ? new Set(planned.map((g) => g.id)) : null), [planned]);
-  const unIds = useMemo(() => new Set(unallocated.filter((e) => e.plannedId !== null).map((e) => e.plannedId as number)), [unallocated]);
 
   async function add(c: UpcomingCandidate) {
     setBusy(c.externalId);
@@ -147,10 +145,11 @@ export function UpcomingPanel({
     }
   }
   async function restore(c: UpcomingCandidate) {
-    if (c.plannedId === null) return;
+    const id = upcomingState(c, allPlanned).plannedId;
+    if (id === null) return;
     setBusy(c.externalId);
     try {
-      await onRestore(c.plannedId);
+      await onRestore(id);
       setItems((l) => l.map((x) => (x.externalId === c.externalId ? { ...x, planned: true, unallocated: false } : x)));
       setLive(`В плане: ${c.title}`);
     } catch {
@@ -185,7 +184,7 @@ export function UpcomingPanel({
         <>
           <ul className="ps-rm-upc" data-testid="rm-upcoming" aria-label="Предстоящие релизы">
             {items.map((c) => {
-              const st = upcomingState(c, plannedIds, unIds);
+              const { state: st } = upcomingState(c, allPlanned);
               return (
                 <li key={c.externalId} className="ps-rm-upc__item" data-testid="rm-upcoming-row" data-state={st}>
                   <Thumb url={c.coverUrl} title={c.title} w={40} h={54} />

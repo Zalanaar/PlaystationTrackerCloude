@@ -238,7 +238,7 @@ describe('контраст тем', () => {
   // ---- Фаза 12: роадмап (спека, п.1). --rm-conflict-bg = --danger 22% поверх --surface-2; проверяем и поверх --surface (карточка на панели)
   describe('роадмап: токены --rm-*', () => {
     it('токены заданы в tokens.css и не переопределяются темами', () => {
-      for (const k of ['--rm-bar-h', '--rm-axis-h', '--rm-label-w', '--rm-row-h', '--rm-conflict-bg', '--rm-conflict-hatch']) {
+      for (const k of ['--rm-bar-h', '--rm-axis-h', '--rm-label-w', '--rm-row-h', '--rm-bar-alt', '--rm-conflict-bg', '--rm-conflict-hatch']) {
         expect(base[k], k).toBeTruthy();
         for (const t of IDS) expect(themes[t][k], `${t} ${k}`).toBeUndefined();
       }
@@ -254,6 +254,8 @@ describe('контраст тем', () => {
         }
         for (const bg of ['--surface', '--bg'])
           it(`--danger (контур, пунктир) на ${bg} >= 3`, () => expect(ratio(danger, get(t, bg))).toBeGreaterThanOrEqual(3));
+        it('--text на --rm-bar-alt (второй тон полос очереди) >= 4.5', () => expect(ratio(get(t, '--text'), over(get(t, '--text'), 0.1, get(t, '--surface-3')))).toBeGreaterThanOrEqual(4.5));
+        it('--rm-bar-alt отличим от --surface-3 (>= 1.05)', () => expect(ratio(over(get(t, '--text'), 0.1, get(t, '--surface-3')), get(t, '--surface-3'))).toBeGreaterThanOrEqual(1.05));
         it('--text на --surface-3 (подпись полосы очереди) >= 4.5', () => expect(ratio(get(t, '--text'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
         it('--accent-ink на --accent (подпись релизной полосы) >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
       });

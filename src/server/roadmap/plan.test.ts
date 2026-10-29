@@ -240,3 +240,73 @@ describe('нагрузка по неделям и месяцам', () => {
     expect(p.weeks[0].days).toBe(7);
   });
 });
+
+describe('notFit: пробный прогон «в конец очереди» (17.5)', () => {
+  // 10 ч/нед, 365 дней: A 300 ч = 210 дней, X 300 ч = 210 дней не влезает (свободно 155 дней), hoursShort = 55 * 10/7 = 78.6.
+  const A = bl(1, 300);
+  const X = bl(2, 300);
+  const C = bl(3, 100); // 70 дней, ставится после A (X не влезла)
+  const notFitOf = (p: ReturnType<typeof plan>, key: string) => p.notFit.find((n) => n.key === key);
+
+  it('базовый случай: X не влезла, C после неё ставится', () => {
+    const p = plan([A, X, C]);
+    expect(notFitOf(p, 'g:2')).toMatchObject({ reason: 'no_capacity', hoursShort: 78.6 });
+    expect(item(p, 'g:3')).toBeDefined();
+  });
+
+  it('(1) удаление игры ДО X уменьшает hoursShort у X', () => {
+    const without = plan([bl(1, 260), X, C]);
+    const short = notFitOf(without, 'g:2');
+    expect(short?.hoursShort).toBeLessThan(78.6);
+    expect(notFitOf(plan([X, C]), 'g:2')).toBeUndefined(); // совсем убрали A: X влезает
+  });
+
+  it('(2) удаление игры ПОСЛЕ X не меняет hoursShort; перенос в конец не помогает (проба это показывает)', () => {
+    const withC = notFitOf(plan([A, X, C]), 'g:2');
+    const withoutC = notFitOf(plan([A, X]), 'g:2');
+    expect(withoutC?.hoursShort).toBe(withC?.hoursShort);
+    expect(withoutC).toMatchObject({ canFitAtEnd: false });
+    // реально перенесли X в конец: по-прежнему не влезает, и не лучше, чем было
+    const moved = notFitOf(plan([A, C, X]), 'g:2');
+    expect(moved?.hoursShort).toBeGreaterThanOrEqual(withC?.hoursShort ?? 0);
+  });
+
+  it('(3) поля пробы: форма и displacesAtEnd', () => {
+    const n = notFitOf(plan([A, X, C]), 'g:2');
+    expect(n).toMatchObject({ canFitAtEnd: false, displacesAtEnd: 0 });
+    // после переноса C до X места под X меньше: hoursShortAtEnd >= hoursShort
+    expect(n?.hoursShortAtEnd ?? 0).toBeGreaterThanOrEqual(n?.hoursShort ?? 0);
+    expect(n?.hoursShortAtEnd).toBe(notFitOf(plan([A, C, X]), 'g:2')?.hoursShort);
+  });
+
+  it('релизы и after_year_end пробных полей не получают', () => {
+    const p = plan([], [rel(1, '2027-02-01', 5)]);
+    expect(p.notFit[0]).toEqual(expect.objectContaining({ reason: 'after_year_end' }));
+    expect('canFitAtEnd' in p.notFit[0]).toBe(false);
+  });
+
+  it('инвариант: при любом входе перенос в конец не помогает и никого не вытесняет (случайные входы)', () => {
+    let seed = 12345;
+    const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+    for (let run = 0; run < 60; run++) {
+      const backlog = Array.from({ length: 12 }, (_, i) => bl(i + 1, Math.round(rnd() * 250) + 5));
+      const planned = rnd() < 0.5 ? [rel(1, `2026-0${1 + Math.floor(rnd() * 9)}-10`, Math.round(rnd() * 60) + 5)] : [];
+      for (const n of plan(backlog, planned).notFit.filter((x) => x.reason === 'no_capacity')) {
+        expect(n.canFitAtEnd).toBe(false);
+        expect(n.displacesAtEnd).toBe(0);
+      }
+    }
+  });
+
+  it('производительность: 300 игр, много не влезших; пробы ограничены 50, остальные null', () => {
+    const backlog = Array.from({ length: 300 }, (_, i) => bl(i + 1, 20 + (i % 7) * 10));
+    const t0 = performance.now();
+    const p = plan(backlog);
+    const ms = performance.now() - t0;
+    const nf = p.notFit.filter((n) => n.reason === 'no_capacity');
+    expect(nf.length).toBeGreaterThan(60);
+    expect(nf.filter((n) => n.canFitAtEnd === null)).toHaveLength(nf.length - 50);
+    expect(nf.slice(0, 50).every((n) => typeof n.canFitAtEnd === 'boolean')).toBe(true);
+    expect(ms).toBeLessThan(2000);
+  });
+});

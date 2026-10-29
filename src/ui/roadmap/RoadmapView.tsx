@@ -7,7 +7,7 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
-import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, recreateBody, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
+import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtEnd, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { flashElement } from './parts';
@@ -24,7 +24,9 @@ export function RoadmapView() {
   const toast = useToast();
   const [data, setData] = useState<RoadmapResponse | null>(null);
   const [error, setError] = useState(false);
-  const [planned, setPlanned] = useState<PlannedGameDto[] | null>(null);
+  // все записи планируемых игр (любой статус): «Релизы» берут planned, «Предстоящие» сверяются по всем
+  const [allPlanned, setAllPlanned] = useState<PlannedGameDto[] | null>(null);
+  const planned = useMemo(() => (allPlanned ? allPlanned.filter((g) => g.status === 'planned') : null), [allPlanned]);
   const [plannedErr, setPlannedErr] = useState(false);
   const [recalc, setRecalc] = useState(0);
   const [applying, setApplying] = useState(false);
@@ -63,7 +65,7 @@ export function RoadmapView() {
     try {
       const r = await fetchPlanned();
       plannedRef.current = r.planned;
-      setPlanned(sortPlanned(r.planned));
+      setAllPlanned(sortPlanned(r.planned));
       setPlannedErr(false);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return;
@@ -161,7 +163,7 @@ export function RoadmapView() {
   const patchGame = useCallback(async (id: number, patch: Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>>): Promise<void> => {
     try {
       const r = await patchPlanned(id, patch);
-      setPlanned((l) => (l ? sortPlanned(l.map((g) => (g.id === id ? r.planned : g))) : l));
+      setAllPlanned((l) => (l ? sortPlanned(l.map((g) => (g.id === id ? r.planned : g))) : l));
       void refresh();
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сохранить. ${mutationError(e)}`, action: { label: 'Повторить', run: () => void latest.current?.patchGame(id, patch).catch(() => {}) } });
@@ -176,7 +178,7 @@ export function RoadmapView() {
       toast({ kind: 'error', text: `Не удалось удалить. ${mutationError(e)}` });
       throw e;
     }
-    setPlanned((l) => l?.filter((x) => x.id !== g.id) ?? l);
+    setAllPlanned((l) => l?.filter((x) => x.id !== g.id) ?? l);
     void refresh();
     toast({
       text: 'Игра удалена из плана', ttl: 8000,
@@ -202,7 +204,7 @@ export function RoadmapView() {
   const restoreToPlan = useCallback(async (e: PlanRef, announce = true): Promise<void> => {
     try {
       if (e.gameId !== null) await deleteExclusion(e.gameId);
-      else await patchPlanned(e.plannedId as number, { status: 'planned' });
+      else { const r = await patchPlanned(e.plannedId as number, { status: 'planned' }); setAllPlanned((l) => l?.map((g) => (g.id === r.planned.id ? r.planned : g)) ?? l); }
     } catch (err) {
       toast({ kind: 'error', text: `Не удалось вернуть в план. ${mutationError(err)}` });
       throw err;
@@ -214,18 +216,21 @@ export function RoadmapView() {
   const removeFromPlan = useCallback(async (e: PlanRef): Promise<void> => {
     try {
       if (e.gameId !== null) await postExclusion(e.gameId);
-      else await patchPlanned(e.plannedId as number, { status: 'unallocated' });
+      else { const r = await patchPlanned(e.plannedId as number, { status: 'unallocated' }); setAllPlanned((l) => l?.map((g) => (g.id === r.planned.id ? r.planned : g)) ?? l); }
     } catch (err) {
       toast({ kind: 'error', text: `Не удалось убрать из плана. ${mutationError(err)}` });
       return;
     }
-    toast({ text: 'Убрано из плана', action: { label: 'Отменить', run: () => void restoreToPlan(e, false).catch(() => {}) } });
+    const before = dataRef.current?.notFit.length ?? 0;
     await refresh();
+    const after = dataRef.current?.notFit.length ?? 0;
+    toast({ text: removedToast(before, after), action: { label: 'Отменить', run: () => void restoreToPlan(e, false).catch(() => {}) } });
   }, [refresh, restoreToPlan, toast]);
 
   const deleteUnallocated = useCallback(async (e: RoadmapEntry): Promise<void> => {
     try {
       await deletePlanned(e.plannedId as number);
+      setAllPlanned((l) => l?.filter((g) => g.id !== e.plannedId) ?? l);
     } catch (err) {
       toast({ kind: 'error', text: `Не удалось удалить. ${mutationError(err)}` });
       throw err;
@@ -237,13 +242,30 @@ export function RoadmapView() {
   // ---- предстоящие релизы: добавление без перезагрузки списка каталога ----
   const addUpcoming = useCallback(async (c: UpcomingCandidate): Promise<PlannedGameDto> => {
     const r = await postPlanned(upcomingBody(c));
+    setAllPlanned((l) => sortPlanned([...(l ?? []).filter((g) => g.id !== r.planned.id), r.planned]));
     void refresh();
     return r.planned;
   }, [refresh]);
   const restoreUpcoming = useCallback(async (plannedId: number): Promise<void> => {
-    await patchPlanned(plannedId, { status: 'planned' });
+    const r = await patchPlanned(plannedId, { status: 'planned' });
+    setAllPlanned((l) => l?.map((g) => (g.id === r.planned.id ? r.planned : g)) ?? l);
     void refresh();
   }, [refresh]);
+
+  // ---- «Поставить в конец очереди» для не влезшей игры ----
+  const moveToEnd = useCallback(async (e: RoadmapEntry): Promise<void> => {
+    const next = orderWithAtEnd(fullKeysRef.current, e.key);
+    try {
+      await putOrder(orderGameIds(next));
+    } catch (err) {
+      toast({ kind: 'error', text: `Не удалось поставить в конец очереди. ${mutationError(err)}` });
+      throw err;
+    }
+    setOrder(null);
+    await refresh();
+    const still = dataRef.current?.notFit.some((x) => x.key === e.key);
+    toast(still ? { text: 'Не влезла даже в конце очереди: осталась в «Не успеваю», часы обновлены' } : { text: 'Поставлено в конец очереди' });
+  }, [refresh, toast]);
 
   const focusNeed = useCallback((key: string) => {
     const li = document.querySelector<HTMLElement>(`[data-rm-need="${key}"]`);
@@ -252,7 +274,7 @@ export function RoadmapView() {
 
   useEffect(() => { latest.current = { load, loadPlanned, apply, patchGame, flush }; });
 
-  const extra = useMemo(() => new Map((planned ?? []).map((g) => [`p:${g.id}`, { title: g.title, releaseDate: g.releaseDate }])), [planned]);
+  const extra = useMemo(() => new Map((allPlanned ?? []).map((g) => [`p:${g.id}`, { title: g.title, releaseDate: g.releaseDate }])), [allPlanned]);
   const fullRows = useMemo(() => (data ? applyOrder(buildQueueRows(data), order) : null), [data, order]);
   const rows = useMemo(() => (data ? buildSchedule(data, order) : null), [data, order]);
   useEffect(() => { fullKeysRef.current = (fullRows ?? []).filter((r) => r.movable).map((r) => r.key); }, [fullRows]);
@@ -306,7 +328,7 @@ export function RoadmapView() {
           {data ? <TimelinePanel data={data} recalculating={recalculating} extra={extra} /> : <><h2 className="ps-h2">Таймлайн {year}</h2><div className="ps-skeleton ps-rm-sk-tl" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" id="rm-upcoming" data-area="upc" aria-label="Предстоящие релизы">
-          <UpcomingPanel planned={planned} unallocated={data?.unallocated ?? []} onAdd={addUpcoming} onRestore={restoreUpcoming} />
+          <UpcomingPanel allPlanned={allPlanned} onAdd={addUpcoming} onRestore={restoreUpcoming} />
         </section>
         <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-label="Релизы">
           <ReleasesPanel
@@ -327,7 +349,7 @@ export function RoadmapView() {
         )}
         {data && data.notFit.length > 0 && (
           <section className="ps-rm-panel" id="rm-over" data-area="over" aria-label="Не успеваю">
-            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} />
+            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveToEnd={moveToEnd} />
           </section>
         )}
         {data && (data.unallocated ?? []).length > 0 && (
