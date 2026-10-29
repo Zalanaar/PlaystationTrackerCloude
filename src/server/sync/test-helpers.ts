@@ -22,7 +22,7 @@ export async function createTestDb(): Promise<TestDb> {
     pg,
     reset: async () => {
       await client.exec(
-        'TRUNCATE roadmap_excluded, roadmap_order, roadmap_settings, planned_games, notify_log, game_month_exclusions, status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth, psn_profile RESTART IDENTITY CASCADE',
+        'TRUNCATE recommend_llm_usage, recommend_reasons, recommend_dislikes, roadmap_excluded, roadmap_order, roadmap_settings, planned_games, notify_log, game_month_exclusions, status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth, psn_profile RESTART IDENTITY CASCADE',
       );
     },
     close: () => client.close(),
