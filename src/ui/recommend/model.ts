@@ -1,4 +1,5 @@
 // Чистая логика экрана «Подскажи» (спека фазы 13, контракт §18). Без React и сети.
+import { DISLIKE_TTL_DAYS } from '@/shared/recommend';
 import { GENRE_LABELS_RU, type GenreKey } from '@/shared/genres';
 import { formatPlayTime, plural } from '../format';
 
@@ -90,7 +91,7 @@ export function updatedText(n: number): string {
 /** Размер выдачи (серверный TOP_N, §18.9). Меньше этого числа показывается пометка «Подходящих игр». */
 export const REC_COUNT = 9;
 /** Срок скрытия по умолчанию, пока сервер не вернул `ttlDays` (§18.9). */
-export const DEFAULT_TTL_DAYS = 30;
+export const DEFAULT_TTL_DAYS = DISLIKE_TTL_DAYS;
 
 export function daysText(n: number): string {
   return `${n} ${plural(n, ['день', 'дня', 'дней'])}`;
