@@ -31,7 +31,12 @@ export type CatalogDeps = {
   /** Инжектируемый fetch для тестов. */
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /** Только PlayStation: RAWG получает platforms=187,18 (PS5, PS4), фильтр на стороне каталога, а не по 10 результатам. */
+  playstationOnly?: boolean;
 };
+
+/** id платформ RAWG (GET /api/platforms): PlayStation 5 = 187, PlayStation 4 = 18. */
+export const RAWG_PLAYSTATION_PLATFORMS = '187,18';
 
 const raw = z.object({
   id: z.union([z.number(), z.string()]),
@@ -80,6 +85,7 @@ export async function searchCatalog(query: string, deps: CatalogDeps): Promise<C
   url.searchParams.set('key', deps.apiKey);
   url.searchParams.set('search', query);
   url.searchParams.set('page_size', String(RAWG_PAGE_SIZE));
+  if (deps.playstationOnly) url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), deps.timeoutMs ?? RAWG_TIMEOUT_MS);

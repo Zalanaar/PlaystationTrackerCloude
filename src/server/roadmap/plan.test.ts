@@ -59,10 +59,17 @@ describe('релизы', () => {
     expect(p.queue).toEqual([]);
   });
 
-  it('релиз, вышедший до начала года, стартует 1 января без конфликта', () => {
-    const p = plan([], [rel(1, '2025-12-30', 10)]);
-    expect(item(p, 'p:1')).toMatchObject({ start: '2026-01-01', end: '2026-01-07', shiftedDays: 0 });
-    expect(p.conflicts).toEqual([]);
+  it('релиз до начала года: окно от реальной даты, прошлая часть это конфликт starts_before_year', () => {
+    const p = plan([], [rel(1, '2025-12-30', 30)]); // 3 недели: 30.12..19.01, в 2026 остаётся 19 дней
+    expect(item(p, 'p:1')).toMatchObject({ start: '2026-01-01', end: '2026-01-19', days: 19, shiftedDays: 0 });
+    expect(item(p, 'p:1')?.segments[0].hours).toBeCloseTo(30 * 19 / 21, 1);
+    expect(p.conflicts).toEqual([{ reason: 'starts_before_year', from: '2025-12-30', to: '2025-12-31', keys: ['p:1'] }]);
+  });
+
+  it('релиз целиком в прошлом году: в план не ставится, конфликт на всё окно', () => {
+    const p = plan([], [rel(1, '2025-11-01', 10)]);
+    expect(p.items).toEqual([]);
+    expect(p.conflicts).toEqual([{ reason: 'starts_before_year', from: '2025-11-01', to: '2025-11-07', keys: ['p:1'] }]);
   });
 
   it('два релиза пересекаются: второй сдвинут, конфликт с промежутком и обеими играми', () => {

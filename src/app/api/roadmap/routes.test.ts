@@ -80,6 +80,19 @@ describe('GET /api/roadmap/catalog/search', () => {
     expect(body.error).toMatchObject({ code: 'catalog_unavailable', details: { reason: 'no_key' } });
   });
 
+  it('playstation: мусор = 400, 1 уходит в RAWG как platforms', async () => {
+    expect((await get('?q=hades&playstation=maybe')).status).toBe(400);
+    process.env.RAWG_API_KEY = 'KEY_SECRET_XYZ';
+    let seen = '';
+    vi.stubGlobal('fetch', async (u: URL) => {
+      seen = u.toString();
+      return new Response(JSON.stringify({ results: [] }));
+    });
+    expect((await get('?q=hades&playstation=1')).status).toBe(200);
+    expect(seen).toContain('platforms=187%2C18');
+    vi.unstubAllGlobals();
+  });
+
   it('с ключом: кандидаты в конверте; сбой RAWG = 503 без ключа в ответе', async () => {
     process.env.RAWG_API_KEY = 'KEY_SECRET_XYZ';
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ results: [{ id: 7, name: 'Hades II', released: '2026-05-01', platforms: [] }] })));

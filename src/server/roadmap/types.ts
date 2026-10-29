@@ -28,7 +28,7 @@ export type PlanItem = RoadmapEntry & {
   segments: PlanSegment[];
 };
 
-export type ConflictReason = 'release_overlap' | 'exceeds_year_end';
+export type ConflictReason = 'release_overlap' | 'exceeds_year_end' | 'starts_before_year';
 export type Conflict = { reason: ConflictReason; from: string; to: string; keys: string[] };
 
 export type NotFitReason = 'no_capacity' | 'exceeds_year_end' | 'after_year_end';

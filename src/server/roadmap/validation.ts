@@ -143,3 +143,11 @@ export function parseCatalogQuery(sp: URLSearchParams): Parsed<string> {
   if (q.length < CATALOG_Q_MIN || q.length > CATALOG_Q_MAX) return bad(`Запрос поиска: от ${CATALOG_Q_MIN} до ${CATALOG_Q_MAX} символов.`);
   return { ok: true, value: q };
 }
+
+/** playstation=1 (или true) включает фильтр платформ в RAWG; 0/false/пусто/нет параметра = без фильтра; прочее = ошибка. */
+export function parseCatalogPlaystation(sp: URLSearchParams): Parsed<boolean> {
+  const v = sp.get('playstation');
+  if (v === null || v === '' || v === '0' || v === 'false') return { ok: true, value: false };
+  if (v === '1' || v === 'true') return { ok: true, value: true };
+  return bad('Некорректный параметр playstation.');
+}

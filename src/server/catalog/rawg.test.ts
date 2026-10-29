@@ -41,6 +41,14 @@ describe('searchCatalog (RAWG)', () => {
     expect(r[2]).toMatchObject({ releaseDate: null, coverUrl: null, platforms: [], playstation: false });
   });
 
+  it('playstationOnly передаёт platforms=187,18 в RAWG; по умолчанию параметра нет', async () => {
+    const f = mock(async () => json(sample));
+    await searchCatalog('x', { apiKey: KEY, fetch: f, playstationOnly: true });
+    expect((f.mock.calls[0][0] as URL).searchParams.get('platforms')).toBe('187,18');
+    await searchCatalog('x', { apiKey: KEY, fetch: f });
+    expect((f.mock.calls[1][0] as URL).searchParams.has('platforms')).toBe(false);
+  });
+
   it('нет ключа: no_key, сеть не вызывается', async () => {
     const f = mock(async () => json(sample));
     expect(await reason(searchCatalog('x', { apiKey: null, fetch: f }))).toBe('no_key');

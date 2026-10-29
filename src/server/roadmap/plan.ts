@@ -70,7 +70,14 @@ export function buildPlan(input: PlanInput): Plan {
         notFit.push({ ...r, reason: 'after_year_end', hoursShort: null });
         continue;
       }
+      const len = 7 * releaseWeeks(r.hours, budget);
       const desired = Math.max(relOff, 0);
+      // Релиз до начала года: окно считается от реальной даты, часть в прошлом году это конфликт, не тихий сдвиг (17.4).
+      if (relOff < 0) {
+        const pastEnd = Math.min(-1, relOff + len - 1);
+        conflicts.push({ reason: 'starts_before_year', from: dayStr(base + relOff), to: dayStr(base + pastEnd), keys: [r.key] });
+        if (relOff + len - 1 < 0) continue; // окно целиком в прошлом году: в этот план не попадает
+      }
       const start = Math.max(desired, cursor + 1);
       if (start > desired) {
         const blockers = placedRel.filter((p) => p.end >= desired).map((p) => p.key);
@@ -80,7 +87,8 @@ export function buildPlan(input: PlanInput): Plan {
         notFit.push({ ...r, reason: 'exceeds_year_end', hoursShort: round1(r.hours) });
         continue;
       }
-      const windowEnd = start + 7 * releaseWeeks(r.hours, budget) - 1;
+      const truncatedAtStart = relOff < 0 && start === desired;
+      const windowEnd = truncatedAtStart ? relOff + len - 1 : start + len - 1;
       const end = Math.min(windowEnd, N - 1);
       const days = end - start + 1;
       if (windowEnd > N - 1) {
@@ -91,7 +99,8 @@ export function buildPlan(input: PlanInput): Plan {
         }
       }
       for (let i = start; i <= end; i++) owner[i] = true;
-      placed.push({ entry: r, segs: [{ from: start, to: end, hours: r.hours }], shifted: start - desired, queuePos: null });
+      const segHours = truncatedAtStart ? (r.hours * days) / len : r.hours;
+      placed.push({ entry: r, segs: [{ from: start, to: end, hours: segHours }], shifted: start - desired, queuePos: null });
       placedRel.push({ key: r.key, end });
       cursor = end;
     }
@@ -155,8 +164,7 @@ export function buildPlan(input: PlanInput): Plan {
     let sum = 0;
     for (const pl of placed) {
       let h = 0;
-      const total = pl.segs.reduce((n, s) => n + s.to - s.from + 1, 0);
-      for (const s of pl.segs) h += (pl.entry.hours * overlapDays(a - base, b - base, s.from, s.to)) / total;
+      for (const s of pl.segs) h += (s.hours * overlapDays(a - base, b - base, s.from, s.to)) / (s.to - s.from + 1);
       sum += h;
       if (round1(h) > 0) list.push({ key: pl.entry.key, hours: round1(h) });
     }
@@ -170,7 +178,7 @@ export function buildPlan(input: PlanInput): Plan {
     const l = load(m.from, m.to);
     return { ...m, capacityHours: round1(perDay * m.days), plannedHours: round1(l.sum), items: l.items };
   });
-  const plannedTotal = placed.reduce((n, pl) => n + pl.entry.hours, 0);
+  const plannedTotal = placed.reduce((n, pl) => n + pl.segs.reduce((m, s) => m + s.hours, 0), 0);
 
   conflicts.sort((a, b) => cmpStr(a.from, b.from) || cmpStr(a.reason, b.reason));
 
@@ -199,8 +207,7 @@ export function plannedHoursBetween(items: readonly PlanItem[], from: string, to
     for (const s of it.segments) {
       const sa = dayNum(s.from);
       const sb = dayNum(s.to);
-      // часы отрезка до округления восстановить нельзя, поэтому берём часы игры * дни отрезка / дни игры
-      sum += (it.hours as number) * (overlapDays(a, b, sa, sb) / it.days);
+      sum += (s.hours * overlapDays(a, b, sa, sb)) / s.days;
     }
   }
   return sum;
