@@ -148,7 +148,7 @@ button.ps-rm-state { cursor: pointer; }
 .ps-rm-bar__in { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 var(--sp-2); min-width: 0; overflow: hidden; border-radius: inherit; }
 .ps-rm-bar__in svg { flex: none; }
 .ps-rm-bar__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@container (max-width: 71px) { .ps-rm-bar__t { display: none; } }
+@container (max-width: 43px) { .ps-rm-bar__t { display: none; } }
 @container (max-width: 25px) { .ps-rm-bar__in svg { display: none; } }
 .ps-rm-tip { position: fixed; z-index: var(--z-popup); display: flex; flex-direction: column; gap: 2px; max-width: 280px; padding: var(--sp-2) var(--sp-3); background: var(--surface-3); border-radius: var(--r-sm); box-shadow: var(--shadow-pop); pointer-events: none; }
 .ps-rm-tip b { font: 600 13px/16px var(--font-body); color: var(--text); }
