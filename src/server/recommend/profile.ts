@@ -33,8 +33,7 @@ export type TasteProfile = {
  * обрезаем. Остальную защиту от prompt injection даёт системный промпт и JSON-обёртка (название не может выйти из строки).
  */
 export function sanitizeName(name: string): string {
-  // eslint-disable-next-line no-control-regex -- намеренно вычищаем управляющие символы из пользовательских данных
-  const s = name.replace(/[\u0000-\u001f\u007f-\u009f  ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const s = name.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
   return s.length > PROFILE_NAME_MAX ? `${s.slice(0, PROFILE_NAME_MAX - 1).trimEnd()}…` : s;
 }
 
