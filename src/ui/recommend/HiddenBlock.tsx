@@ -2,8 +2,10 @@
 
 import { forwardRef, useId, useState } from 'react';
 import { Icon } from '../icons';
-import type { DislikeItem } from './api';
 import { hiddenForText, returnsInText } from './model';
+
+/** Строка блока: общий вид для игр библиотеки и внешних игр (RAWG). */
+export type HiddenRow = { key: string; name: string; imageUrl: string | null; expiresAt: string };
 
 function Mini({ name, url }: { name: string; url: string | null }) {
   const [bad, setBad] = useState(false);
@@ -16,12 +18,12 @@ function Mini({ name, url }: { name: string; url: string | null }) {
 
 /** Сворачиваемый блок «Скрытые на сейчас · N» (§18.9). Закрыт по умолчанию; при 0 игр не рендерится снаружи. */
 export const HiddenBlock = forwardRef<HTMLButtonElement, {
-  items: readonly DislikeItem[]; ttlDays: number; now: number; open: boolean; busy: ReadonlySet<number>;
-  onToggle: () => void; onRestore: (id: number, name: string) => void;
-}>(function HiddenBlock({ items, ttlDays, now, open, busy, onToggle, onRestore }, ref) {
+  items: readonly HiddenRow[]; ttlDays: number; now: number; open: boolean; busy: ReadonlySet<string>;
+  onToggle: () => void; onRestore: (key: string, name: string) => void; id?: string;
+}>(function HiddenBlock({ items, ttlDays, now, open, busy, onToggle, onRestore, id = 'rec-hidden' }, ref) {
   const bodyId = useId();
   return (
-    <section className="ps-rec-hid" aria-label="Скрытые на сейчас" id="rec-hidden">
+    <section className="ps-rec-hid" aria-label="Скрытые на сейчас" id={id}>
       <button ref={ref} type="button" className="ps-rec-hid__btn" aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
         <Icon name="chevron-down" size={14} className="ps-rec__chev" />
         <span className="ps-rec-hid__t">Скрытые на сейчас · {items.length}</span>
@@ -31,15 +33,15 @@ export const HiddenBlock = forwardRef<HTMLButtonElement, {
         <div className="ps-rec__whyin">
           <ul className="ps-rec-hid__list">
             {items.map((it) => (
-              <li key={it.game.id} className="ps-rec-hid__row">
-                <Mini name={it.game.name} url={it.game.imageUrl} />
-                <span className="ps-rec-hid__name" title={it.game.name}>{it.game.name}</span>
+              <li key={it.key} className="ps-rec-hid__row">
+                <Mini name={it.name} url={it.imageUrl} />
+                <span className="ps-rec-hid__name" title={it.name}>{it.name}</span>
                 <small className="ps-rec-hid__back">{returnsInText(it.expiresAt, now)}</small>
                 <button
-                  type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rec-hid__ret" disabled={busy.has(it.game.id)}
-                  aria-label={`Вернуть: ${it.game.name}`} onClick={() => onRestore(it.game.id, it.game.name)}
+                  type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rec-hid__ret" disabled={busy.has(it.key)}
+                  aria-label={`Вернуть: ${it.name}`} onClick={() => onRestore(it.key, it.name)}
                 >
-                  {busy.has(it.game.id) ? <span className="ps-rec__spin" aria-hidden="true" /> : <Icon name="undo" size={14} />}
+                  {busy.has(it.key) ? <span className="ps-rec__spin" aria-hidden="true" /> : <Icon name="undo" size={14} />}
                   Вернуть
                 </button>
               </li>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ApiError, fetchSummary, putStatus } from '../collection/api';
 import { GameDialog, type GameStub } from '../collection/GameDialog';
 import type { GameItem } from '@/server/collection/types';
@@ -10,24 +10,17 @@ import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../recommend.css';
 import { deleteDislike, fetchDislikes, fetchRecommend, postDislike, type DislikeItem, type RecommendResponse } from './api';
-import { HiddenBlock } from './HiddenBlock';
-import { candidatesText, DEFAULT_TTL_DAYS, daysText, hiddenForText, llmNote, parseTime, REC_COUNT, recommendHref, TIME_OPTIONS, timeHintText, updatedText, type TimeValue } from './model';
+import { HiddenBlock, type HiddenRow } from './HiddenBlock';
+import { DEFAULT_TTL_DAYS, daysText, hiddenForText, llmNote, parseTime, REC_COUNT, recommendHref, TIME_OPTIONS, timeHintText, updatedText, type TimeValue } from './model';
 import { RecCard, RecSkeleton, type CardBusy } from './RecCard';
+import { useWide } from './useWide';
 
-const WIDE = '(min-width: 1024px)';
 const SLOW_MS = 8000;
-const subscribeWide = (cb: () => void) => {
-  const m = window.matchMedia(WIDE);
-  m.addEventListener('change', cb);
-  return () => m.removeEventListener('change', cb);
-};
-const useWide = () => useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false);
-
 type Fatal = null | 'db' | 'other';
 type HiddenList = { items: DislikeItem[]; ttlDays: number; at: number };
 
-/** Экран «Подскажи» (/recommend): до 9 игр бэклога с причиной. Выбирает расчёт на сервере, UI только показывает (спека фазы 13). */
-export function RecommendView() {
+/** Режим «Из бэклога» экрана «Подскажи»: до 9 игр бэклога с причиной. Выбирает расчёт на сервере, UI только показывает (спека фазы 13). */
+export function BacklogMode({ active, onCandidates, onTime }: { active: boolean; onCandidates: (n: number | null) => void; onTime: (t: TimeValue) => void }) {
   const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
@@ -44,7 +37,7 @@ export function RecommendView() {
   const [busy, setBusy] = useState<ReadonlyMap<number, CardBusy>>(new Map());
   const [hidden, setHidden] = useState<HiddenList | null>(null);
   const [hiddenOpen, setHiddenOpen] = useState(false);
-  const [restoring, setRestoring] = useState<ReadonlySet<number>>(new Set());
+  const [restoring, setRestoring] = useState<ReadonlySet<string>>(new Set());
   const [backlog, setBacklog] = useState<number | 'fail' | null>(null);
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null } | null>(null);
@@ -59,9 +52,10 @@ export function RecommendView() {
 
   const setTime = useCallback((t: TimeValue) => {
     timeRef.current = t;
+    onTime(t);
     setTimeState(t);
     router.replace(recommendHref(t), { scroll: false });
-  }, [router]);
+  }, [router, onTime]);
 
   const load = useCallback(async (t: TimeValue, retriedAny = false): Promise<void> => {
     const my = ++reqRef.current;
@@ -180,16 +174,17 @@ export function RecommendView() {
   }, [reload, toast, undoHide]);
 
   // «Вернуть» в блоке «Скрытые»: DELETE, затем перезапрос обоих списков
-  const restore = useCallback(async (id: number, name: string) => {
-    setRestoring((s) => new Set(s).add(id));
+  const restore = useCallback(async (key: string, name: string) => {
+    const id = Number(key);
+    setRestoring((s) => new Set(s).add(key));
     try {
       await deleteDislike(id);
       toast({ text: `«${name}» снова в подсказках` });
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) { setRestoring((s) => { const n = new Set(s); n.delete(id); return n; }); return; }
+      if (e instanceof ApiError && e.status === 401) { setRestoring((s) => { const n = new Set(s); n.delete(key); return n; }); return; }
       toast({ text: 'Не удалось вернуть игру. Повтори' });
     }
-    setRestoring((s) => { const n = new Set(s); n.delete(id); return n; });
+    setRestoring((s) => { const n = new Set(s); n.delete(key); return n; });
     reload();
   }, [reload, toast]);
 
@@ -230,6 +225,17 @@ export function RecommendView() {
   };
 
   const items = useMemo(() => data?.items ?? [], [data]);
+  const hiddenRows = useMemo<HiddenRow[]>(() => (hidden?.items ?? []).map((h) => ({ key: String(h.game.id), name: h.game.name, imageUrl: h.game.imageUrl, expiresAt: h.expiresAt })), [hidden]);
+
+  // подзаголовок «Из N игр бэклога…» рисует оболочка
+  const cand = data && !empty ? data.meta.candidates : null;
+  useEffect(() => { if (active) onCandidates(cand); }, [active, cand, onCandidates]);
+  // возврат в режим: показываем прежний ответ и тихо перезапрашиваем
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (active && !wasActive.current && dataRef.current) reload();
+    wasActive.current = active;
+  }, [active, reload]);
   const toggle = (id: number) => setExpanded((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const note = data ? llmNote(data.meta.llm) : null;
   const initial = loading && !data;
@@ -317,11 +323,7 @@ export function RecommendView() {
   }
 
   return (
-    <div className="ps-rec-page">
-      <div className="ps-pagehead ps-rec-head">
-        <h1 className="ps-h1">Подскажи</h1>
-        {data && !empty && <p className="ps-rec-sub">{candidatesText(data.meta.candidates)}</p>}
-      </div>
+    <div className="ps-rec-mode" hidden={!active}>
       {showControl && timeControl}
       <div className="ps-rec-sr" aria-live="polite">{announce}</div>
 
@@ -356,8 +358,8 @@ export function RecommendView() {
 
       {!fatal && hidden && hidden.items.length > 0 && (
         <HiddenBlock
-          ref={hidBtn} items={hidden.items} ttlDays={hidden.ttlDays} now={hidden.at} open={hiddenOpen} busy={restoring}
-          onToggle={() => setHiddenOpen((o) => !o)} onRestore={(id, name) => void restore(id, name)}
+          ref={hidBtn} items={hiddenRows} ttlDays={hidden.ttlDays} now={hidden.at} open={hiddenOpen} busy={restoring}
+          onToggle={() => setHiddenOpen((o) => !o)} onRestore={(key, name) => void restore(key, name)}
         />
       )}
 
