@@ -369,3 +369,70 @@ export const roadmapExcluded = pgTable('roadmap_excluded', {
     .references(() => games.id, { onDelete: 'cascade' }),
   createdAt: tz('created_at').notNull().defaultNow(),
 });
+
+// Фаза 13 (контракт 18.1, миграция 0010): «Подскажи». Миграция только добавляет таблицы.
+// Игры, отмеченные «Не интересно»: не попадают в рекомендации. Статус игры не меняется.
+export const recommendDislikes = pgTable('recommend_dislikes', {
+  gameId: integer('game_id')
+    .primaryKey()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  createdAt: tz('created_at').notNull().defaultNow(),
+});
+
+// Кэш фраз LLM: живёт, пока не изменился хэш сигналов; запись старше 7 суток игнорируется.
+export const recommendReasons = pgTable(
+  'recommend_reasons',
+  {
+    gameId: integer('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    signalsHash: text('signals_hash').notNull(),
+    text: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.gameId, t.signalsHash] }),
+    check('recommend_reasons_text_check', sql`char_length(${t.text}) between 1 and 400`),
+  ],
+);
+
+// Счётчик реальных вызовов LLM по суткам МСК (дневной лимит).
+export const recommendLlmUsage = pgTable(
+  'recommend_llm_usage',
+  {
+    day: date({ mode: 'string' }).primaryKey(),
+    calls: integer().notNull().default(0),
+  },
+  (t) => [check('recommend_llm_usage_calls_check', sql`${t.calls} >= 0`)],
+);
+
+// Фаза 13b (контракт 19.1, миграция 0011): «Новое от ИИ». Миграция только добавляет таблицы.
+// Кэш подтверждённых RAWG кандидатов по суткам МСК. refreshes: сколько раз за сутки использован ?refresh=1 (не больше 3).
+export const recommendDiscoverCache = pgTable(
+  'recommend_discover_cache',
+  {
+    day: date({ mode: 'string' }).primaryKey(),
+    profileHash: text('profile_hash').notNull(),
+    payload: jsonb().notNull(),
+    refreshes: integer().notNull().default(0),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [check('recommend_discover_cache_refreshes_check', sql`${t.refreshes} >= 0`)],
+);
+
+// «Не интересно» для внешних игр (RAWG). Срок как у recommend_dislikes (DISLIKE_TTL_DAYS), повторный POST продлевает.
+export const recommendExternalDislikes = pgTable(
+  'recommend_external_dislikes',
+  {
+    externalSource: text('external_source').notNull(),
+    externalId: text('external_id').notNull(),
+    title: text().notNull(),
+    coverUrl: text('cover_url'),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.externalSource, t.externalId] }),
+    check('recommend_external_dislikes_source_check', sql`${t.externalSource} = 'rawg'`),
+    check('recommend_external_dislikes_title_check', sql`char_length(${t.title}) between 1 and 200`),
+  ],
+);

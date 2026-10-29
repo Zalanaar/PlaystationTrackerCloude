@@ -85,3 +85,23 @@ export function getRawgKey(env: Record<string, string | undefined> = process.env
   const k = env.RAWG_API_KEY?.trim();
   return k ? k : null;
 }
+
+export type LlmEnv = { provider: 'gemini' | 'groq'; apiKey: string; model: string | null; dailyLimit: number };
+
+export const LLM_DEFAULT_DAILY_LIMIT = 20;
+export const LLM_MAX_DAILY_LIMIT = 200;
+
+/**
+ * Фаза 13 (контракт 18.2). null = LLM выключен (нет провайдера или ключа, неизвестный провайдер, лимит 0): работаем на шаблонах.
+ * Ключ не логируется. LLM_MODEL необязателен (смена модели без деплоя кода).
+ */
+export function getLlmEnv(env: Record<string, string | undefined> = process.env): LlmEnv | null {
+  const provider = env.LLM_PROVIDER?.trim().toLowerCase();
+  if (provider !== 'gemini' && provider !== 'groq') return null;
+  const apiKey = env.LLM_API_KEY?.trim();
+  if (!apiKey) return null;
+  const dailyLimit = intEnv(env.LLM_DAILY_LIMIT, LLM_DEFAULT_DAILY_LIMIT, 0, LLM_MAX_DAILY_LIMIT);
+  if (dailyLimit === 0) return null;
+  const model = env.LLM_MODEL?.trim();
+  return { provider, apiKey, model: model && /^[\w.:\-/]{1,80}$/.test(model) ? model : null, dailyLimit };
+}

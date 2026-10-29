@@ -325,7 +325,7 @@ test.describe('План: вёрстка', () => {
   test('вкладка «План» в навигации активна', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string);
     const nav = isMobile ? page.locator('nav.ps-tabbar') : page.locator('header nav.ps-nav');
-    await expect(nav.getByRole('link')).toHaveCount(5);
+    await expect(nav.getByRole('link')).toHaveCount(6); // фаза 13: добавлена «Подскажи»
     await expect(nav.getByRole('link', { name: 'План' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -340,8 +340,8 @@ test.describe('План: вёрстка', () => {
       }));
       await expect(page.getByTestId('rm-queue-row').first()).toBeVisible();
       expect(await noHScroll(page)).toBe(true);
-      const labels = await page.locator('nav.ps-tabbar .ps-tab span').evaluateAll((els) => els.map((e) => ({ t: e.textContent, ok: e.scrollWidth <= e.clientWidth + 1 })));
-      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Бэклог', 'План', 'Статистика', 'Итоги']);
+      const labels = await page.locator('nav.ps-tabbar .ps-tab span').evaluateAll((els) => els.filter((e) => getComputedStyle(e).display !== 'none').map((e) => ({ t: e.textContent, ok: e.scrollWidth <= e.clientWidth + 1 })));
+      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Бэклог', 'План', 'Подскажи', width === 320 ? 'Стат.' : 'Статистика', 'Итоги']);
       expect(labels.every((l) => l.ok)).toBe(true);
       await page.getByRole('button', { name: 'Добавить игру' }).click();
       expect(await noHScroll(page)).toBe(true);

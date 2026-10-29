@@ -71,6 +71,20 @@
       "when": 1793263186828,
       "tag": "0009_roadmap_excluded",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793276110945,
+      "tag": "0010_recommend",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793280590693,
+      "tag": "0011_recommend_discover",
+      "breakpoints": true
     }
   ]
 }
