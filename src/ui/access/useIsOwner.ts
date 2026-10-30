@@ -4,20 +4,39 @@ import { useEffect, useState } from 'react';
 
 /**
  * Владелец ли текущий пользователь (по /api/auth/me). Только для показа пункта меню: права проверяет сервер.
- * Ошибка или сбой сети = false (пункт не показываем). Результат кэшируется на время жизни вкладки.
+ * Ошибка или сбой сети = false (пункт не показываем). Один запрос на загрузку страницы: промис общий
+ * (StrictMode и несколько подписчиков не плодят запросы), результат кэшируется на время жизни вкладки.
+ * Тело ответа всегда дочитывается, чтобы соединение не висело.
  */
 let cached: boolean | null = null;
+let inflight: Promise<boolean> | null = null;
+
+function loadIsOwner(): Promise<boolean> {
+  if (cached !== null) return Promise.resolve(cached);
+  if (!inflight) {
+    inflight = fetch('/api/auth/me', { cache: 'no-store' })
+      .then(async (r) => {
+        if (!r.ok) {
+          await r.text().catch(() => '');
+          return false; // не кэшируем: следующая загрузка страницы спросит снова
+        }
+        const j = (await r.json().catch(() => null)) as { ok?: boolean; data?: { role?: string } } | null;
+        if (!j?.ok) return false;
+        cached = j.data?.role === 'owner';
+        return cached;
+      })
+      .catch(() => false)
+      .finally(() => { inflight = null; });
+  }
+  return inflight;
+}
 
 export function useIsOwner(): boolean {
   const [owner, setOwner] = useState<boolean>(cached ?? false);
   useEffect(() => {
-    if (cached !== null) return;
-    const ac = new AbortController();
-    fetch('/api/auth/me', { cache: 'no-store', signal: ac.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j?.ok) { cached = j.data?.role === 'owner'; setOwner(cached); } })
-      .catch(() => {});
-    return () => ac.abort();
+    let alive = true;
+    void loadIsOwner().then((v) => { if (alive) setOwner(v); });
+    return () => { alive = false; };
   }, []);
   return owner;
 }
