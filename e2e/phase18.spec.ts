@@ -433,8 +433,11 @@ test.describe('Скелеты без скачков, CLS <= 0.05 (18.4)', () => 
     m.delayList = () => 2000;
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    const sk = page.locator('.ps-skeleton').first();
-    await expect(sk).toBeVisible();
-    expect(await sk.evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
+    await expect(page.locator('.ps-skeleton').first()).toBeVisible();
+    // Скелет может быть заменён при гидратации (узел отсоединяется, getComputedStyle даёт ''), поэтому читаем стиль свежим запросом и ждём устойчивого значения.
+    await expect.poll(() => page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll('.ps-skeleton')).filter((e) => e.isConnected);
+      return els.length ? els.every((e) => getComputedStyle(e).animationName === 'none') : 'no-skeleton';
+    })).toBe(true);
   });
 });
