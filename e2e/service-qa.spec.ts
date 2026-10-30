@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, serviceGames, type G } from './collection-mock';
 import { signedSession } from './session';
+import { setView } from './view';
 
 const SHOTS = process.env.SHOTS_DIR;
 const WIDTHS = [320, 360, 390];
@@ -36,7 +37,7 @@ test('BUG-E2: Коллекция на 360px без горизонтальног�
   await mockApi(page, seed());
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Выбрать' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Фильтры и сортировка/ })).toBeVisible(); // Фаза 18: ряд 2 заменён кнопкой «Фильтры»
   await page.waitForTimeout(500);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
@@ -77,7 +78,7 @@ test.describe('QA: блок «Игры-сервисы» на узких экра
     await login(context, baseURL!);
     await mockApi(page, [...seed(), ...longTitles(serviceGames(30))]);
     await page.goto('/');
-    await page.getByRole('button', { name: /Список/ }).first().click().catch(() => undefined);
+    await setView(page, 'Список');
     const block = page.locator('#service');
     await expect(block).toBeVisible();
     expect(await blockOverflow(page, '#service')).toBe(0);

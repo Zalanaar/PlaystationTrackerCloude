@@ -3,6 +3,7 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { getAppOrigin } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
 
 const { syncRuns, psnAuth, notifyLog } = schema;
@@ -21,6 +22,21 @@ export function getTelegramEnv(env: Record<string, string | undefined> = process
   const token = env.TELEGRAM_BOT_TOKEN?.trim();
   const chatId = env.TELEGRAM_CHAT_ID?.trim();
   return token && chatId ? { token, chatId } : null;
+}
+
+/**
+ * Абсолютная ссылка на игру `{origin}/?game=<id>` (контракт 15.4). null, если APP_ORIGIN не задан или у игры нет
+ * записи в библиотеке (gameId не положительное целое): тогда ссылку не добавляем.
+ */
+export function gameLink(gameId: number | null | undefined, origin: string | null = getAppOrigin()): string | null {
+  if (!origin || gameId === null || gameId === undefined || !Number.isSafeInteger(gameId) || gameId <= 0) return null;
+  return `${origin}/?game=${gameId}`;
+}
+
+/** Строка сообщения про игру: «Название» плюс ссылка на новой строке, если она есть. Не бросает. */
+export function gameLine(title: string, gameId: number | null | undefined, origin: string | null = getAppOrigin()): string {
+  const link = gameLink(gameId, origin);
+  return link ? `${title}\n${link}` : title;
 }
 
 /** Отправка одного сообщения. Любая ошибка проглатывается (false); в консоль идёт только короткий код. */
@@ -93,6 +109,41 @@ export async function markSent(db: AnyDb, kind: string, now: Date): Promise<void
     .insert(notifyLog)
     .values({ kind, lastSentAt: now, sentOn: today })
     .onConflictDoUpdate({ target: notifyLog.kind, set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` } });
+}
+
+export type SendClaim = { claimed: boolean; prev: { lastSentAt: Date; sentOn: string } | null };
+
+/**
+ * Атомарно «занимает» отправку на сегодня (МСК): строка notify_log обновляется только если там дата раньше сегодняшней.
+ * Два параллельных вызова: claimed=true получит один (N-7). Если отправка не удалась, вызвать releaseSend(prev).
+ */
+export async function claimSend(db: AnyDb, kind: string, now: Date): Promise<SendClaim> {
+  const today = mskDateString(now);
+  const [before] = await db.select({ lastSentAt: notifyLog.lastSentAt, sentOn: notifyLog.sentOn }).from(notifyLog).where(eq(notifyLog.kind, kind)).limit(1);
+  const rows = await db
+    .insert(notifyLog)
+    .values({ kind, lastSentAt: now, sentOn: today })
+    .onConflictDoUpdate({
+      target: notifyLog.kind,
+      set: { lastSentAt: sql`excluded."last_sent_at"`, sentOn: sql`excluded."sent_on"` },
+      setWhere: sql`${notifyLog.sentOn} < excluded."sent_on"`,
+    })
+    .returning({ kind: notifyLog.kind });
+  return { claimed: rows.length > 0, prev: before ?? null };
+}
+
+/** Отменяет claimSend после неудачной отправки: возвращает прежнюю запись, чтобы следующий запуск мог повторить. */
+export async function releaseSend(db: AnyDb, kind: string, claim: SendClaim, now: Date): Promise<void> {
+  if (!claim.claimed) return;
+  try {
+    if (claim.prev) {
+      await db.update(notifyLog).set({ lastSentAt: claim.prev.lastSentAt, sentOn: claim.prev.sentOn }).where(and(eq(notifyLog.kind, kind), eq(notifyLog.lastSentAt, now)));
+    } else {
+      await db.delete(notifyLog).where(and(eq(notifyLog.kind, kind), eq(notifyLog.lastSentAt, now)));
+    }
+  } catch {
+    console.error('notify: не удалось снять отметку отправки');
+  }
 }
 
 export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age' | 'sync_missed';

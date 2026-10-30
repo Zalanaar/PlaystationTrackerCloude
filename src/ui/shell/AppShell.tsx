@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Icon, StatusGlyph, type IconName } from '../icons';
+import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
 import { Popover } from '../primitives/Popover';
 import { profileLine } from '../profile/model';
@@ -12,20 +12,10 @@ import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { SyncIndicator } from './SyncIndicator';
 import { RestoreFileDialog } from '../backup/RestoreFileDialog';
+import { NAV_TABS } from '../tokens';
+import { useSeasonOffer } from '../wrapped/useSeason';
+import { isTabActive } from './nav';
 import { ThemeList, ThemePicker } from './ThemePicker';
-
-export const NAV: readonly { href: string; label: string; icon: IconName; short?: string }[] = [
-  { href: '/', label: 'Коллекция', icon: 'library' },
-  { href: '/backlog', label: 'Бэклог', icon: 'bookmark' },
-  { href: '/roadmap', label: 'План', icon: 'roadmap' },
-  { href: '/recommend', label: 'Подскажи', icon: 'lightbulb' },
-  { href: '/stats', label: 'Статистика', icon: 'bar-chart', short: 'Стат.' },
-  { href: '/wrapped', label: 'Итоги', icon: 'sparkles' },
-];
-
-export function isActiveNav(pathname: string, href: string): boolean {
-  return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
-}
 
 function useLogout() {
   const router = useRouter();
@@ -50,6 +40,7 @@ export function AppHeader() {
   const [restore, setRestore] = useState(false);
   const { profile } = useProfile();
   const line = profile ? profileLine(profile) : null;
+  const offer = useSeasonOffer();
 
   return (
     <>
@@ -57,11 +48,18 @@ export function AppHeader() {
         <div className="ps-header__in ps-container">
           <Link href="/" className="ps-logo">PS TRACKER</Link>
           <nav className="ps-nav" aria-label="Разделы">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="ps-nav-item" aria-current={isActiveNav(pathname, n.href) ? 'page' : undefined}>
-                {n.label}
-              </Link>
-            ))}
+            {NAV_TABS.map((n) => {
+              const dot = n.id === 'stats' && offer !== null;
+              return (
+                <Link
+                  key={n.href} href={n.href} className="ps-nav-item" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
+                  aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
+                >
+                  {n.label}
+                  {dot && <span className="ps-notify-dot" aria-hidden="true" />}
+                </Link>
+              );
+            })}
           </nav>
           <div className="ps-header__right">
             <SyncIndicator />
@@ -86,10 +84,6 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
-                    <Link href="/triage" role="menuitem" className="ps-menu-item" onClick={close}>
-                      <StatusGlyph status="none" size={16} />
-                      <span className="ps-menu-item__label">Разобрать игры</span>
-                    </Link>
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
@@ -131,9 +125,6 @@ export function AppHeader() {
           <p className="ps-micro">Тема</p>
           <div role="menu" className="ps-list"><ThemeList onPick={() => setMore(false)} /></div>
           <p className="ps-micro">Аккаунт</p>
-          <Link href="/triage" className="ps-menu-item" onClick={() => setMore(false)}>
-            <StatusGlyph status="none" size={16} /><span className="ps-menu-item__label">Разобрать игры</span>
-          </Link>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
@@ -158,14 +149,24 @@ export function AppHeader() {
 
 export function TabBar() {
   const pathname = usePathname();
+  const offer = useSeasonOffer();
   return (
     <nav className="ps-tabbar" aria-label="Разделы">
-      {NAV.map((n) => (
-        <Link key={n.href} href={n.href} className="ps-tab" aria-label={n.short ? n.label : undefined} aria-current={isActiveNav(pathname, n.href) ? 'page' : undefined}>
-          <Icon name={n.icon} size={20} />
-          {n.short ? <><span className="ps-tab__full" aria-hidden="true">{n.label}</span><span className="ps-tab__short" aria-hidden="true">{n.short}</span></> : <span>{n.label}</span>}
-        </Link>
-      ))}
+      {NAV_TABS.map((n) => {
+        const dot = n.id === 'stats' && offer !== null;
+        return (
+          <Link
+            key={n.href} href={n.href} className="ps-tab" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
+            aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
+          >
+            <span className="ps-tab__ico">
+              <Icon name={n.icon} size={20} />
+              {dot && <span className="ps-notify-dot" aria-hidden="true" />}
+            </span>
+            <span>{n.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

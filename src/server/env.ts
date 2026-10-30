@@ -86,6 +86,21 @@ export function getRawgKey(env: Record<string, string | undefined> = process.env
   return k ? k : null;
 }
 
+/**
+ * Публичный origin сайта для абсолютных ссылок в Telegram (контракт 15.4). Только APP_ORIGIN (http/https);
+ * null = ссылки не добавляем. Намеренно не берёт VERCEL_URL: у preview-деплоев он не тот адрес, что открывает Артём.
+ */
+export function getAppOrigin(env: Record<string, string | undefined> = process.env): string | null {
+  const s = env.APP_ORIGIN?.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : `https://${s}`);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 export type LlmEnv = { provider: 'gemini' | 'groq'; apiKey: string; model: string | null; dailyLimit: number };
 
 export const LLM_DEFAULT_DAILY_LIMIT = 20;

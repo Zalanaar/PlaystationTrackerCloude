@@ -126,6 +126,16 @@
   --rm-bar-alt: color-mix(in srgb, var(--text) 10%, var(--surface-3)); /* второй тон соседних полос очереди */
   --rm-conflict-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--danger) 30%, transparent) 0 2px, transparent 2px 7px);
 
+  /* Фаза 18 (docs/design-system.md §8). Значения общие для всех тем */
+  --subnav-h: 44px;          /* подвкладки Бэклог · План · Подскажи */
+  --mchips-h: 44px;          /* полоса чипов месяцев (Коллекция, Статистика); чип внутри 32 (моб. 36) */
+  --mchip-h: 32px;
+  --profile-row-h: 56px;     /* профиль в одну строку, только моб. */
+  --hero-box-h: 320px;       /* высота hero целиком; моб. 304 (минимальная высота реального hero и его скелета) */
+  --chart-h: 220px;          /* область графика в панели Статистики; моб. 180 */
+  --dot-notify: 8px;         /* точка-уведомление на вкладке (Итоги года) */
+  --sk-title-block: 44px;    /* скелет под обложкой: отступ 8 + строка названия 16 + зазор 4 + строка меты 16 */
+
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
   --dur-slide: 7000ms; /* автопереход Wrapped */
@@ -169,6 +179,9 @@
     --gd-art-h: 176px; --gd-art-h-compact: 120px; --gd-cover-w: 80px; --gd-cover-over: 24px;
     --heat-cell: 12px; --heat-gap: 3px;
     --rm-row-h: 96px;
+    --mchip-h: 36px;
+    --hero-box-h: 322px;   /* измерено: hero на 360–440 с одной игрой, заголовок в одну строку (спека 304) */
+    --chart-h: 180px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }

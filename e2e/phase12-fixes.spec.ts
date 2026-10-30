@@ -273,6 +273,8 @@ test.describe('«Не успеваю»: устойчивая раскладка 
       await page.setViewportSize({ width, height: 900 });
       await open(page, context, baseURL as string, state());
       const items = page.getByTestId('rm-over-item');
+      await expect(items).toHaveCount(5); // Фаза 18: свёрнуто до 5
+      await page.getByRole('button', { name: 'Показать все 8' }).click();
       await expect(items).toHaveCount(8);
       const geo = await items.evaluateAll((els) => els.map((li) => {
         const b = li.querySelector('.ps-rm-over__tx b') as HTMLElement;

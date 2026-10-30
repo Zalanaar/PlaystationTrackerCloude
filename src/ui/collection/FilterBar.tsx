@@ -4,10 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StatusCounts } from '@/server/collection/types';
 import { formatDate, formatNumber } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
-import { useIsMobile } from '../primitives/hooks';
 import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
-import { hasActiveFilters, SORT_OPTIONS, STATUS_TABS, type Filters, type StatusTab } from './filters';
+import { filtersDot, hasActiveFilters, SORT_OPTIONS, STATUS_TABS, type Filters, type StatusTab } from './filters';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 
 const DEBOUNCE_MS = 250;
@@ -133,9 +132,7 @@ function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; on
   );
 }
 
-export function FilterBar({
-  filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup,
-}: {
+type BarProps = {
   filters: Filters; view: ViewMode; counts: StatusCounts | null;
   /** Игр с платиной (`summary.totals.platinumEarned`); null, пока сводка грузится */
   platinumCount: number | null;
@@ -147,9 +144,46 @@ export function FilterBar({
   /** Последняя копия `reset_all` (9.9a); null = нет, пункт скрыт */
   backup: BackupInfo | null;
   onRestoreBackup: () => void;
-}) {
-  const mobile = useIsMobile();
-  const [sheet, setSheet] = useState(false);
+};
+
+/** Чипы статуса и чип «Платина»: общие для десктопа и мобильного слота под hero. */
+function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps, 'filters' | 'counts' | 'platinumCount' | 'onChange'>) {
+  return (
+    <div className="ps-tabs">
+      <div className="ps-tabs__grp" role="group" aria-label="Статус">
+        {STATUS_TABS.map((t) => {
+          const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
+          const wide = t.id === 'all' || t.id === 'none';
+          return (
+            <button
+              key={t.id} type="button" className="ps-filterchip ps-chip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
+              title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
+            >
+              {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
+              <span className="ps-filterchip__t">{t.label}</span>
+              {n !== null ? <span className="ps-filterchip__n num">{formatNumber(n)}</span> : <span className="ps-filterchip__n num" style={{ display: 'inline-block', width: '2ch' }} aria-hidden="true" />}
+            </button>
+          );
+        })}
+      </div>
+      <span className="ps-tabs__sep" aria-hidden="true" />
+      <button
+        type="button" className="ps-filterchip ps-chip ps-filterchip--plat" aria-pressed={filters.platinum}
+        aria-label={platinumCount !== null ? `Платина: ${formatNumber(platinumCount)}` : 'Платина'}
+        disabled={platinumCount === 0 && !filters.platinum} title={platinumCount === 0 ? 'Платин пока нет' : undefined}
+        onClick={() => onChange({ platinum: !filters.platinum })}
+      >
+        <PlatinumIcon size={16} className="ps-filterchip__plat" />
+        <span className="ps-filterchip__t">Платина</span>
+        {platinumCount !== null ? <span className="ps-filterchip__n num">{formatNumber(platinumCount)}</span> : <span className="ps-filterchip__n num" style={{ display: 'inline-block', width: '2ch' }} aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
+
+/** Десктоп и планшет (768+): одна панель фильтров. Мобильный рендерит `MobileSearch` над hero и `MobileChips` под ним (§8.3). */
+export function FilterBar(p: BarProps) {
+  const { filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup } = p;
   const active = hasActiveFilters(filters);
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
 
@@ -163,60 +197,59 @@ export function FilterBar({
     <div className="ps-filters">
       <div className="ps-filters__row">
         <SearchBox value={filters.q} onCommit={commit} />
-        <div className="ps-tabs">
-          <div className="ps-tabs__grp" role="group" aria-label="Статус">
-            {STATUS_TABS.map((t) => {
-              const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
-              const wide = t.id === 'all' || t.id === 'none';
-              return (
-                <button
-                  key={t.id} type="button" className="ps-filterchip ps-chip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}
-                  title={t.id === 'service' ? 'Игра-сервис' : undefined} aria-pressed={filters.status === t.id} onClick={() => onChange({ status: t.id })}
-                >
-                  {t.id !== 'all' && <StatusGlyph status={t.id} size={16} />}
-                  <span className="ps-filterchip__t">{t.label}</span>
-                  {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
-                </button>
-              );
-            })}
-          </div>
-          <span className="ps-tabs__sep" aria-hidden="true" />
-          <button
-            type="button" className="ps-filterchip ps-chip ps-filterchip--plat" aria-pressed={filters.platinum}
-            aria-label={platinumCount !== null ? `Платина: ${formatNumber(platinumCount)}` : 'Платина'}
-            disabled={platinumCount === 0 && !filters.platinum} title={platinumCount === 0 ? 'Платин пока нет' : undefined}
-            onClick={() => onChange({ platinum: !filters.platinum })}
-          >
-            <PlatinumIcon size={16} className="ps-filterchip__plat" />
-            <span className="ps-filterchip__t">Платина</span>
-            {platinumCount !== null && <span className="ps-filterchip__n num">{formatNumber(platinumCount)}</span>}
-          </button>
-        </div>
-        {!mobile && <SortSelect f={filters} onChange={onChange} />}
-        {!mobile && <ViewSeg view={view} onView={onView} />}
-        {!mobile && selectBtn}
-        {active && !mobile && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        {!mobile && <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} />}
+        <StatusChips filters={filters} counts={counts} platinumCount={platinumCount} onChange={onChange} />
+        <SortSelect f={filters} onChange={onChange} />
+        <ViewSeg view={view} onView={onView} />
+        {selectBtn}
+        {active && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
+        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} />
       </div>
-      {mobile && (
-        <div className="ps-filters__row2">
-          <button type="button" className="ps-btn ps-btn--filters" onClick={() => setSheet(true)} aria-haspopup="dialog">
-            <Icon name="sliders-h" size={16} />Фильтры
-          </button>
-          <ViewSeg view={view} onView={onView} />
-          {selectBtn}
-        </div>
-      )}
+    </div>
+  );
+}
+
+/** Мобильный слот 1: поиск + кнопка «Фильтры» (sheet: сортировка, вид, выбор игр, действия с коллекцией). */
+export function MobileSearch(p: BarProps) {
+  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup } = p;
+  const [sheet, setSheet] = useState(false);
+  const active = hasActiveFilters(filters);
+  const dot = filtersDot(filters, view);
+  const commit = useCallback((q: string) => onChange({ q }), [onChange]);
+  return (
+    <div className="ps-filters ps-filters--search">
+      <div className="ps-filters__srow">
+        <SearchBox value={filters.q} onCommit={commit} />
+        <button
+          type="button" className="ps-btn ps-btn--filters ps-btn--fsheet" onClick={() => setSheet(true)} aria-haspopup="dialog"
+          aria-label={dot ? 'Фильтры и сортировка (есть изменения)' : 'Фильтры и сортировка'} data-active={dot || undefined}
+        >
+          <Icon name="sliders-h" size={20} />
+          {dot && <span className="ps-notify-dot" aria-hidden="true" />}
+        </button>
+      </div>
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
         <div className="ps-stack">
           <SortSelect f={filters} onChange={onChange} />
+          <ViewSeg view={view} onView={onView} />
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
           <div role="menu" aria-label="Коллекция" className="ps-list ps-filters__coll">
+            <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={!canSelect && !selectMode} onClick={() => { setSheet(false); onSelect(); }}>
+              <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">{selectMode ? 'Готово' : 'Выбрать игры'}</span>
+            </button>
             <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} close={() => setSheet(false)} />
           </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+/** Мобильный слот 2: чипы статусов (горизонтальный скролл) под hero, над Хроникой. */
+export function MobileChips(p: BarProps) {
+  return (
+    <div className="ps-filters ps-filters--chips">
+      <StatusChips filters={p.filters} counts={p.counts} platinumCount={p.platinumCount} onChange={p.onChange} />
     </div>
   );
 }

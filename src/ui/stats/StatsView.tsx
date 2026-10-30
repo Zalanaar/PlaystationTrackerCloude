@@ -1,12 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsGenreGame, StatsResponse } from '@/server/stats/types';
-import { ApiError, errorText, fetchStats, patchStatusDate, putHidden, putStatus } from '../collection/api';
+import { ApiError, errorText, fetchStats, patchStatusDate, putStatus } from '../collection/api';
 import { type GameActions } from '../collection/GameCard';
-import { GameDialog, type GameStub } from '../collection/GameDialog';
+import { useOpenGameFromPage } from '../collection/useGameLink';
 import { EmptyState } from '../EmptyState';
 import { formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
@@ -16,7 +17,9 @@ import { ActivityPanel } from './ActivityPanel';
 import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
-import { TopGames, TopSkeleton } from './TopGames';
+import { WrappedBanner } from './WrappedBanner';
+import { TopGames } from './TopGames';
+import { StatsDataSkeleton } from '../skeletons';
 import {
   type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
@@ -37,8 +40,6 @@ export function StatsView() {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<number[]>([]);
-  /** Окно игры: полный GameItem, если он известен, иначе заглушка (открытие из поповера жанров) */
-  const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null } | null>(null);
   const reqId = useRef(0);
 
   const load = useCallback(async (s: Selection, k: string, svc: boolean) => {
@@ -91,62 +92,34 @@ export function StatsView() {
   const setStatus = useCallback(async (g: GameItem, status: GameStatusValue | null) => {
     if (g.status === status) return;
     try {
-      const r = await putStatus(g.id, status);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
+      await putStatus(g.id, status);
       toast({ text: status === null ? 'Статус сброшен' : 'Статус изменён', action: { label: 'Отменить', run: () => void revert(g) } });
       reload();
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
     }
   }, [reload, revert, toast]);
-  const unhide = useCallback(async (g: GameItem) => {
-    try {
-      const r = await putHidden(g.id, false);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
-      toast({ text: `«${g.title}» возвращена в коллекцию` });
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось вернуть игру. ${errorText(e)}` });
-    }
-    reload();
-  }, [reload, toast]);
-  const setHidden = useCallback(async (g: GameItem, hidden: boolean) => {
-    if (!hidden) return void unhide(g);
-    try {
-      await putHidden(g.id, true);
-      setOpen(null);
-      toast({ text: `«${g.title}» убрана из коллекции`, action: { label: 'Вернуть', run: () => void unhide(g) } });
-      reload();
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось убрать игру. ${errorText(e)}` });
-    }
-  }, [reload, toast, unhide]);
-  const setDate = useCallback(async (g: GameItem, kind: 'completed' | 'dropped', iso: string) => {
-    try {
-      const r = await patchStatusDate(g.id, kind, iso);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
-      toast({ text: 'Дата завершения сохранена' });
-      reload();
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось сохранить дату. ${errorText(e)}` });
-    }
-  }, [reload, toast]);
+  const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
-    open: (g) => setOpen({ id: g.id, game: g, stub: null }),
+    open: (g) => openGameLink(g.id),
     setStatus: (g, s) => void setStatus(g, s),
     toggle: () => {},
-  }), [setStatus]);
+  }), [setStatus, openGameLink]);
 
-  const openGame = useCallback((g: GameItem) => setOpen({ id: g.id, game: g, stub: null }), []);
-  const openStub = useCallback((g: StatsGenreGame) => setOpen({ id: g.id, game: null, stub: { id: g.id, title: g.title, coverUrl: g.coverUrl } }), []);
-  const dialogGame = open
-    ? (data?.played.games[String(open.id)] ?? open.game)
-    : null;
+  const openGame = useCallback((g: GameItem) => openGameLink(g.id), [openGameLink]);
+  const openStub = useCallback((g: StatsGenreGame) => openGameLink(g.id), [openGameLink]);
+  /** Редкий трофей открывает окно игры сразу на вкладке «Трофеи» (Фаза 9.1) */
+  const openRare = useCallback((g: StatsGenreGame) => openGameLink(g.id, 'trophies'), [openGameLink]);
 
   return (
     <div className="ps-stats-page">
-      <div className="ps-pagehead">
+      <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1">Статистика</h1>
+        <Link href={`/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn">
+          <Icon name="sparkles" size={16} />Итоги {sel.year}
+        </Link>
       </div>
+      <WrappedBanner years={years} />
       <PeriodSwitch
         sel={sel} today={today} onType={(p) => go(setPeriodType(sel, p, today))}
         onPrev={prev ? () => go(prev) : null} onNext={next ? () => go(next) : null}
@@ -156,18 +129,12 @@ export function StatsView() {
           <button type="button" className="ps-btn ps-btn--primary" onClick={reload}>Повторить</button>
         </EmptyState>
       ) : !data ? (
-        <StatsSkeleton />
+        <StatsDataSkeleton />
       ) : (
         <div className="ps-st" aria-busy={loading || undefined} data-stale={loading || undefined}>
-          <Content data={data} sel={sel} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onChanged={reload} />
+          <Content data={data} sel={sel} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
         </div>
       )}
-      <GameDialog
-        game={dialogGame} stub={open?.stub ?? null} startEditing={false} now={now} onClose={() => setOpen(null)}
-        onLoaded={(g) => setOpen((o) => (o && o.id === g.id && !o.game ? { ...o, game: g } : o))}
-        onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
-        onHidden={(g, h) => void setHidden(g, h)}
-      />
     </div>
   );
 }
@@ -192,8 +159,9 @@ function PeriodSwitch({
 }
 
 function Content({
-  data, sel, today, actions, onOpenGame, onOpenStub, onChanged, withService, onWithService,
+  data, sel, today, actions, onOpenGame, onOpenStub, onOpenRare, onChanged, withService, onWithService,
 }: {
+  onOpenRare: (g: StatsGenreGame) => void;
   withService: boolean; onWithService: (v: boolean) => void;
   data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions;
   onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void; onChanged: () => void;
@@ -215,7 +183,7 @@ function Content({
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />
           <TrophiesPanel data={data} sel={sel} />
-          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenStub} withService={withService} onWithService={onWithService} />
+          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenRare} withService={withService} onWithService={onWithService} />
           <ActivityPanel key={sel.year} defaultYear={sel.year} />
           <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
         </>
@@ -394,19 +362,5 @@ function TrophiesPanel({ data, sel }: { data: StatsResponse; sel: Selection }) {
         </div>
       )}
     </Panel>
-  );
-}
-
-function StatsSkeleton() {
-  return (
-    <div className="ps-st" aria-busy="true" aria-label="Загрузка статистики">
-      <div className="ps-skeleton ps-sk-year" aria-hidden="true" />
-      <div className="ps-st-grid" aria-hidden="true">
-        <div className="ps-st-panel ps-st-panel--hours"><div className="ps-skeleton ps-st-sk" /></div>
-        <div className="ps-st-panel ps-st-panel--genres"><div className="ps-skeleton ps-st-sk" /></div>
-      </div>
-      <TopSkeleton />
-      <div className="ps-st-panel ps-st-panel--wide" aria-hidden="true"><div className="ps-skeleton ps-st-sk ps-st-sk--short" /></div>
-    </div>
   );
 }

@@ -50,7 +50,9 @@ test.describe('коллекция (desktop)', () => {
     await expect(coll(page).locator('#y2025 .ps-year__btn')).toHaveAttribute('aria-expanded', 'false');
     await expect(coll(page).locator('#y2024 .ps-year__btn')).toHaveAttribute('aria-expanded', 'false');
     // Hades: 21:30 UTC 31 декабря = 1 января 2026 по МСК; God of War: февраль 2026
-    await expect(y2026.locator('h3.ps-month')).toHaveText([/Февраль/, /Январь/]);
+    // Фаза 18: сплошная сетка вместо блоков по месяцам, ориентир по дате: чипы месяцев
+    await expect(y2026.locator('h3.ps-month')).toHaveCount(0);
+    await expect(y2026.getByRole('navigation', { name: 'Месяцы 2026' }).getByRole('button')).toHaveText([/Фев/, /Янв/]);
     await expect(y2026.locator('.ps-card__title')).toHaveText(['God of War', 'Hades']);
     await expect(y2026.locator('.ps-year__btn')).toContainText('пройдено 1');
     await expect(y2026.locator('.ps-year__btn')).toContainText('брошено 1');
@@ -327,7 +329,7 @@ test.describe('коллекция (desktop)', () => {
     await open(page, context, baseURL!);
     await coll(page).getByRole('button', { name: 'Статус: Tetris Effect' }).click();
     await page.getByRole('menuitemradio', { name: 'Пройдено' }).click();
-    await expect(coll(page).locator('#y2026 h3.ps-month')).toHaveText([/Октябрь/, /Февраль/, /Январь/]);
+    await expect(coll(page).getByRole('navigation', { name: 'Месяцы 2026' }).getByRole('button')).toHaveText([/Окт/, /Фев/, /Янв/]);
     await expect(card(page, 'Tetris Effect').locator('.ps-card__date')).toHaveText('25 окт.');
   });
 
@@ -505,10 +507,13 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   });
 
-  test('пункт меню профиля ведёт в Разбор', async ({ page, context, baseURL }) => {
+  test('«Разобрать игры» убрано из меню профиля, Разбор открывается вкладкой (Фаза 18)', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await page.getByRole('button', { name: 'Меню профиля' }).click();
-    await page.getByRole('menuitem', { name: 'Разобрать игры' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Разобрать игры' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.locator('header nav[aria-label="Разделы"]').getByRole('link', { name: 'Разбор' }).click();
     await expect(page).toHaveURL(/\/triage$/);
   });
 });
@@ -552,7 +557,10 @@ for (const width of [390, 440]) {
       await open(page, context, baseURL!);
       const cols = () => coll(page).locator('.ps-grid').first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
       expect(await cols()).toBe(2);
-      await page.getByRole('button', { name: 'Плотно' }).click();
+      // Фаза 18: сегмент вида на мобильном живёт в sheet «Фильтры»
+      await page.getByRole('button', { name: /Фильтры и сортировка/ }).click();
+      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('button', { name: 'Плотно' }).click();
+      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('button', { name: 'Готово' }).click();
       expect(await cols()).toBe(3);
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
     });

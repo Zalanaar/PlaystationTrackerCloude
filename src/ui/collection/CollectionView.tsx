@@ -9,7 +9,7 @@ import { cssUrl, formatNumber, plural, smallCoverUrl } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
-import { ProfileCard, ProfileSkeleton } from '../profile/ProfileCard';
+import { ProfileCard, ProfileRow, ProfileRowSkeleton, ProfileSkeleton } from '../profile/ProfileCard';
 import { useProfile } from '../profile/ProfileProvider';
 import { StatusMenu } from '../status';
 import { forgottenCountOf, forgottenCountText } from '../triage/forgotten';
@@ -20,9 +20,13 @@ import { ApiError, errorText, fetchGames, fetchStatusBackups, fetchSummary, patc
 import {
   blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
 } from './blocks';
-import { BlockHead, GamesFact, MonthHeader, YearHeader } from './Chronicle';
+import { BlockHead, GamesFact, YearHeader } from './Chronicle';
 import { defaultExpandedYears, emptyCounts, groupByLastPlayedYear, groupChronicle, gridCols, previewSlots } from './chronicle';
-import { FilterBar } from './FilterBar';
+import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
+import { MonthChips } from './MonthChips';
+import { anchorsByGame, flatYearGames, yearMonthChips } from './monthChips';
+import { useGameLink } from './useGameLink';
+import { AnchorsSkeleton, CollectionResultsSkeleton, HeroSkeleton } from '../skeletons';
 import {
   adjustCounts, applyPlatinum, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
   parseFilters, removeFromCounts, resetFilters, type Filters,
@@ -99,7 +103,10 @@ export function CollectionView() {
   const [more, setMore] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  // контекст окна игры, открытого из приложения (флаг «Изменить дату», снимок); сам факт «открыто» живёт в адресе ?game=
   const [open, setOpen] = useState<{ id: number; edit: boolean; snapshot: GameItem } | null>(null);
+  const [linked, setLinked] = useState<GameItem | null>(null);
+  const link = useGameLink();
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   // блок «Игры-сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
   const [serviceOpen, setServiceOpen] = useState(false);
@@ -108,6 +115,9 @@ export function CollectionView() {
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [backup, setBackup] = useState<BackupInfo | null>(null);
 
+  const linkIdRef = useRef<number | null>(null);
+  const closeLinkRef = useRef<() => void>(() => {});
+  useEffect(() => { linkIdRef.current = link.gameId; closeLinkRef.current = link.close; }, [link.gameId, link.close]);
   const poolRef = useRef<Pool | null>(null);
   useEffect(() => { poolRef.current = pool; }, [pool]);
   const reqId = useRef(0);
@@ -359,6 +369,7 @@ export function CollectionView() {
     });
     setSelected((s) => new Set([...s].filter((id) => !set.has(id))));
     setOpen((o) => (o && set.has(o.id) ? null : o));
+    if (linkIdRef.current !== null && set.has(linkIdRef.current)) closeLinkRef.current();
   }, []);
 
   /** Убрать из коллекции / вернуть одну игру (9.7). Toast «Вернуть» после скрытия. */
@@ -457,14 +468,14 @@ export function CollectionView() {
   }, [loadBackup, refresh, restoreBackup, toast]);
 
   const actions: GameActions = useMemo(() => ({
-    open: (g, edit = false) => setOpen({ id: g.id, edit, snapshot: g }),
+    open: (g, edit = false) => { setOpen({ id: g.id, edit, snapshot: g }); link.open(g.id); },
     setStatus: (g, s) => void setStatus(g, s),
     toggle: (g) => setSelected((s) => {
       const n = new Set(s);
       if (!n.delete(g.id)) n.add(g.id);
       return n;
     }),
-  }), [setStatus]);
+  }), [setStatus, link.open]); // eslint-disable-line react-hooks/exhaustive-deps -- link.open стабилен
 
   function exitSelect() {
     setSelectMode(false);
@@ -523,8 +534,31 @@ export function CollectionView() {
   const near = useMemo(() => nearItems(summary?.nearPlatinum), [summary]);
   // «Ближе всего к платине» (п.8.2): только на чистой коллекции; пока сводка грузится, вместо блока скелет
   const nearShown = nearVisible({ count: summary ? near.length : 1, chronicle: chronicleMode, status: filters.status, q: filters.q, platinum: filters.platinum, selectMode, hidden: filters.hidden });
-  const openGameCard = useCallback((g: GameItem) => setOpen({ id: g.id, edit: false, snapshot: g }), []);
-  const openGame = open ? (raw.find((g) => g.id === open.id) ?? open.snapshot) : null;
+  const linkOpen = link.open;
+  const openGameCard = useCallback((g: GameItem) => { setOpen({ id: g.id, edit: false, snapshot: g }); linkOpen(g.id); }, [linkOpen]);
+  // окно игры: из загруженного списка, из снимка (открыто из приложения) или из деталей (прямая ссылка), иначе скелет по id
+  const openId = link.gameId;
+  const ctx = open && open.id === openId ? open : null;
+  const openGame = openId !== null ? (raw.find((g) => g.id === openId) ?? ctx?.snapshot ?? (linked?.id === openId ? linked : null)) : null;
+  const openTitle = openGame?.title ?? null;
+  useEffect(() => {
+    if (!openTitle) return;
+    const prev = document.title;
+    document.title = `${openTitle} · PS Tracker`;
+    return () => { document.title = prev; };
+  }, [openTitle]);
+  // после закрытия окна фокус на h1, если вернуть его некуда (прямая ссылка)
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (openId !== null) { wasOpen.current = true; return; }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    const t = setTimeout(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body) document.getElementById('coll-title')?.focus();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [openId]);
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
 
@@ -541,14 +575,14 @@ export function CollectionView() {
   }, [art]);
 
   // ---------- вывод ----------
-  function renderGames(list: GameItem[], opts: { dateYear?: boolean; withHeader?: boolean } = {}): ReactNode {
+  function renderGames(list: GameItem[], opts: { dateYear?: boolean; withHeader?: boolean; anchors?: Map<number, string> } = {}): ReactNode {
     if (view === 'list') {
       return (
         <div className="ps-row-table" role="table" aria-label="Игры">
           {opts.withHeader && (
             <RowHeader sort={filters.sort} order={filters.order} onSort={(s) => setFilters({ sort: s, order: s === filters.sort ? ((filters.order ?? (s === 'title' ? 'asc' : 'desc')) === 'asc' ? 'desc' : 'asc') : null })} />
           )}
-          {list.map((g) => <GameRow key={g.id} game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} />)}
+          {list.map((g) => <GameRow key={g.id} game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} anchorId={opts.anchors?.get(g.id)} />)}
         </div>
       );
     }
@@ -556,7 +590,7 @@ export function CollectionView() {
       <GameGrid density={density}>
         {list.map((g) => (
           <GameGridItem key={g.id}>
-            <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear}>
+            <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear} anchorId={opts.anchors?.get(g.id)}>
               {hiddenView && !selectMode && (
                 <button type="button" className="ps-btn ps-btn--sm ps-card__restore" aria-label={`Вернуть в коллекцию: ${g.title}`} onClick={() => void setHidden(g, false)}>
                   <Icon name="undo" size={14} /><span>Вернуть в коллекцию</span>
@@ -612,13 +646,9 @@ export function CollectionView() {
                 id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
                 expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения, МСК" sectionId={`y${y.year}-body`}
               />
-              <div id={`y${y.year}-body`} hidden={!open}>
-                {open && y.months.map((m) => (
-                  <div key={m.month} className="ps-chron__month">
-                    <MonthHeader m={m} />
-                    {renderGames(m.games)}
-                  </div>
-                ))}
+              {open && yearMonthChips(y).length > 0 && <MonthChips key={y.year} year={y.year} chips={yearMonthChips(y)} />}
+              <div id={`y${y.year}-body`} className="ps-chron__body" hidden={!open}>
+                {open && renderGames(flatYearGames(y), { anchors: anchorsByGame(y) })}
               </div>
             </section>
           );
@@ -768,23 +798,30 @@ export function CollectionView() {
     setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
   }
 
+  const barProps = {
+    filters, view, counts: pool ? counts : null, platinumCount: summary ? summary.totals.platinumEarned : null, onChange: setFilters, onView: setView,
+    onReset: () => setFilters(resetFilters(filters)), selectMode, onSelect: () => (selectMode ? exitSelect() : setSelectMode(true)),
+    canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }, onResetAll: () => setResetOpen(true),
+    backup, onRestoreBackup: () => setRestoreOpen(true),
+  };
+
   return (
     <div className="ps-collection">
       <div className="ps-pagehead ps-pagehead--coll">
         <div className="ps-pagehead__main">
-          <h1 id="coll-title" className="ps-h1">Коллекция</h1>
+          <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
           <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
         </div>
-        {!summary ? (!pool ? <ProfileSkeleton /> : null) : <ProfileCard profile={summary.profile ?? null} />}
+        {!summary
+          ? (!pool ? (isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
+          : isMobile ? <ProfileRow profile={summary.profile ?? null} /> : <ProfileCard profile={summary.profile ?? null} />}
       </div>
 
-      {chronicleMode && blocks.includes('playing') && <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} />}
+      {isMobile && <MobileSearch {...barProps} />}
 
-      <FilterBar
-        filters={filters} view={view} counts={pool ? counts : null} platinumCount={summary ? summary.totals.platinumEarned : null} onChange={setFilters} onView={setView}
-        onReset={() => setFilters(resetFilters(filters))} selectMode={selectMode} onSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
-        canSelect={shownGames.length > 0} onHidden={(v) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }} onResetAll={() => setResetOpen(true)} backup={backup} onRestoreBackup={() => setRestoreOpen(true)}
-      />
+      {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && <HeroSkeleton />)}
+
+      {isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 
       {playedMode && played.years.length + (played.never.length > 0 ? 1 : 0) > 1 && (
         <nav className="ps-anchors" aria-label="Годы">
@@ -804,9 +841,11 @@ export function CollectionView() {
         </nav>
       )}
 
+      {!pool && loading && chronicleMode && filters.status === 'all' && <AnchorsSkeleton />}
+
       <section aria-labelledby="coll-title" aria-busy={loading} className="ps-results" data-loading={(loading && !!pool) || undefined}>
         {!pool && loading ? (
-          <CollectionSkeleton view={view} />
+          <CollectionResultsSkeleton list={view === 'list'} />
         ) : error && !pool ? (
           <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить коллекцию. Сохранённые данные не потеряны.">
             <button type="button" className="ps-btn ps-btn--primary" onClick={() => void loadAll(filters, PAGE)}>Обновить</button>
@@ -877,7 +916,9 @@ export function CollectionView() {
       )}
 
       <GameDialog
-        game={openGame} startEditing={open?.edit ?? false} now={now} onClose={() => setOpen(null)}
+        game={openGame} stub={openId !== null && !openGame ? { id: openId, title: '', coverUrl: null } : null}
+        initialTab={link.tab === 'trophies' ? 'trophies' : undefined} onNotFound={link.notFound} onLoaded={setLinked}
+        startEditing={ctx?.edit ?? false} now={now} onClose={() => { setOpen(null); link.close(); }}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
         onHidden={(g, h) => void setHidden(g, h)} onGameChanged={(g) => replaceGames([g])}
       />
@@ -936,24 +977,6 @@ function SyncProgress() {
       <div className="ps-bar" role="progressbar" aria-label="Прогресс синка" aria-valuemin={0} aria-valuemax={100} aria-valuenow={frac === null ? undefined : Math.round(frac * 100)}>
         <span style={{ width: `${Math.round((frac ?? 0.05) * 100)}%` }} />
       </div>
-    </div>
-  );
-}
-
-export function CollectionSkeleton({ view = 'comfort' }: { view?: ViewMode }) {
-  return (
-    <div aria-hidden="true" className="ps-blocks">
-      <div className="ps-skeleton ps-sk-hero" />
-      <div className="ps-skeleton ps-sk-year" />
-      {view === 'list' ? (
-        <div className="ps-row-table">{Array.from({ length: 10 }, (_, i) => <div key={i} className="ps-skeleton ps-sk-row" />)}</div>
-      ) : (
-        <ul className="ps-grid" data-density={view}>
-          {Array.from({ length: 12 }, (_, i) => (
-            <li key={i}><div className="ps-card ps-card--sk"><div className="ps-skeleton ps-sk-cover" /><div className="ps-skeleton ps-sk-line" /></div></li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

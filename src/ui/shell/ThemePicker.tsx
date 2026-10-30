@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { Icon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { applyTheme, themeFromAttr } from '../theme';
-import { THEMES, type ThemeId } from '../tokens';
+import { THEMES, THEME_COLORS, type ThemeId } from '../tokens';
 
 const EVENT = 'ps-theme-change';
 
@@ -25,6 +25,8 @@ export function useTheme(): [ThemeId, (id: ThemeId) => void] {
       storage: (() => { try { return localStorage; } catch { return null; } })(),
       setCookie: (c) => { document.cookie = c; },
     });
+    // theme-color браузера = --bg новой темы (§8.5)
+    document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => { m.content = THEME_COLORS[id]; });
     window.dispatchEvent(new Event(EVENT));
   };
   return [theme, set];

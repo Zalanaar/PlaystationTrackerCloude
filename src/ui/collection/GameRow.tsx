@@ -10,8 +10,8 @@ import { completionInfo, DEFAULT_ORDER } from './filters';
 import { dateMenuItem, type GameActions } from './GameCard';
 
 export function GameRow({
-  game, actions, selectMode, selected,
-}: { game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean }) {
+  game, actions, selectMode, selected, anchorId,
+}: { game: GameItem; actions: GameActions; selectMode: boolean; selected: boolean; /** id первой строки месяца в Хронике (`m2026-10`) */ anchorId?: string }) {
   const done = completionInfo(game);
   const t = game.trophies;
   const key = toKey(game.status);
@@ -20,7 +20,7 @@ export function GameRow({
   const plat = t?.platinumEarned === true;
   const genres = game.genres.map((g) => g.label).join(', ');
   return (
-    <div className="ps-row" role="row" data-selected={selected || undefined} data-status={key} data-platinum={plat || undefined}>
+    <div id={anchorId} tabIndex={anchorId ? -1 : undefined} className="ps-row" role="row" data-selected={selected || undefined} data-status={key} data-platinum={plat || undefined}>
       <div className="ps-row__game" role="cell">
         <span className="ps-row__check" aria-hidden="true" data-on={selectMode || undefined}>
           {selectMode && <span className="ps-check" data-checked={selected || undefined}>{selected && <Icon name="check" size={12} />}</span>}

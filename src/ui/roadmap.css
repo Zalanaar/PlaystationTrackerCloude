@@ -79,8 +79,8 @@ button.ps-rm-state { cursor: pointer; }
 .ps-rm-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-8) var(--sp-3); text-align: center; color: var(--text-3); }
 .ps-rm-empty h3 { color: var(--text); margin: 0; }
 .ps-rm-empty p { margin: 0; max-width: 420px; color: var(--text-2); }
-.ps-rm-sk-block { height: 120px; }
-.ps-rm-sk-tl { height: 160px; }
+.ps-rm-sk-block { height: 104px; }
+.ps-rm-sk-tl { height: 230px; }
 .ps-rm-sk-rel { height: 96px; margin-bottom: var(--sp-2); }
 .ps-rm-sk-row { height: var(--rm-row-h); margin-bottom: 6px; }
 .ps-rm-attr { margin: var(--sp-3) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }

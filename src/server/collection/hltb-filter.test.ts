@@ -44,6 +44,19 @@ describe('GET /api/games: hltb', () => {
     expect((await list('')).hltbCounts).toEqual({ found: 1, not_found: 2, unchecked: 2 });
   });
 
+  it('фильтр hltb=unchecked совпадает со счётчиком: без override и сервисов', async () => {
+    const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+    const ins = await t.db.insert(games).values([
+      { ...base, titleId: 'S', name: 'Service' },
+      { ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
+    ]).returning({ id: games.id, titleId: games.titleId });
+    await t.db.insert(gameStatus).values({ gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
+    const r = await list('hltb=unchecked&sort=title');
+    expect(names(r)).toEqual(['Delta', 'Echo']);
+    expect(r.total).toBe(r.hltbCounts.unchecked);
+    expect(names(await list('hltb=found,unchecked&sort=title'))).toEqual(['Alpha', 'Delta', 'Echo']);
+  });
+
   const names = (r: { items: { title: string }[] }) => r.items.map((i) => i.title);
 
   it('фильтр по одному и нескольким статусам (ИЛИ), с остальными фильтрами И', async () => {

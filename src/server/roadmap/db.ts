@@ -172,6 +172,34 @@ export async function getBacklogEntries(db: AnyDb): Promise<RoadmapEntry[]> {
   });
 }
 
+/**
+ * 17.6 (N-3): очередь для прогресса. Текущий бэклог плюс игры, ушедшие из него, но сохранившие строку roadmap_order
+ * (кроме сервисов и исключённых из плана). Порядок как у getBacklogEntries. Чтобы плановые часы ушедшей игры не пропадали.
+ */
+export async function getProgressQueue(db: AnyDb): Promise<RoadmapEntry[]> {
+  const rows = await db
+    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
+    .from(games)
+    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .leftJoin(roadmapOrder, eq(roadmapOrder.gameId, games.id))
+    .leftJoin(roadmapExcluded, eq(roadmapExcluded.gameId, games.id))
+    .where(
+      and(
+        isNull(games.hiddenAt),
+        isNull(roadmapExcluded.gameId),
+        or(eq(gameStatus.status, 'backlog'), and(sql`${roadmapOrder.gameId} is not null`, or(isNull(gameStatus.status), ne(gameStatus.status, 'service')))),
+      ),
+    )
+    .orderBy(sql`${roadmapOrder.position} asc nulls last`, sql`${gameStatus.statusChangedAt} asc nulls last`, asc(games.id));
+  return rows.map((r) => {
+    const d = effectiveDuration({ override: r.override, main: r.main });
+    return {
+      key: `g:${r.id}`, kind: 'backlog' as const, gameId: r.id, plannedId: null, title: r.name, coverUrl: r.imageUrl,
+      hours: d.hours, hoursSource: d.source, releaseDate: null, wantAtRelease: false,
+    };
+  });
+}
+
 /** 17.12: убрать игру бэклога из плана. Идемпотентно; строка порядка удаляется. */
 export async function excludeGame(db: AnyDb, gameId: number): Promise<void> {
   await db.transaction(async (tx) => {
@@ -275,15 +303,11 @@ export async function getRoadmap(db: AnyDb, now: Date = new Date()): Promise<Roa
   let progress = null;
   if (plan.status === 'ok' && isValidBudget(settings.hoursPerWeek)) {
     const { snapshots, first } = await getSnapshots(db, settings.year);
-    // 17.6, 17.11, 17.12: из порядка выпадают игры-сервисы и исключённые из плана; completed остаются.
-    const ordered = await db
-      .select({ id: roadmapOrder.gameId })
-      .from(roadmapOrder)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, roadmapOrder.gameId))
-      .leftJoin(roadmapExcluded, eq(roadmapExcluded.gameId, roadmapOrder.gameId))
-      .where(and(isNull(roadmapExcluded.gameId), or(isNull(gameStatus.status), ne(gameStatus.status, 'service'))));
-    const planGameIds = new Set<number>([...ordered.map((r) => r.id), ...backlog.flatMap((e) => (e.gameId === null ? [] : [e.gameId]))]);
-    progress = computeProgress({ plan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
+    // 17.6 (N-3): прогресс считается по очереди «как была»: текущий бэклог + ушедшие из него игры со строкой roadmap_order.
+    const queue = await getProgressQueue(db);
+    const progressPlan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog: queue, planned });
+    const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
+    progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
   return { ...plan, settings, today, progress, unallocated, serviceGames };
 }

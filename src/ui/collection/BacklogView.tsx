@@ -8,7 +8,6 @@ import '../backlog.css';
 import { EmptyState } from '../EmptyState';
 import { formatNumber } from '../format';
 import { Icon, StatusGlyph } from '../icons';
-import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
@@ -19,7 +18,8 @@ import {
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
 import { HltbRunner } from './HltbRunner';
-import { GameDialog } from './GameDialog';
+import { useOpenGameFromPage } from './useGameLink';
+import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
@@ -42,7 +42,6 @@ export function BacklogView() {
     setFiltersState(next);
   }, [urlKey]);
   const toast = useToast();
-  const now = useNow();
   const [items, setItems] = useState<GameItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<DurationCounts | null>(null);
@@ -51,7 +50,6 @@ export function BacklogView() {
   const [loading, setLoading] = useState(true);
   const reqRef = useRef(0);
   const [error, setError] = useState(false);
-  const [open, setOpen] = useState<GameItem | null>(null);
   const [more, setMore] = useState(false);
   const itemsRef = useRef<GameItem[] | null>(null);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -157,7 +155,6 @@ export function BacklogView() {
     };
     const sync = () => { void load(); void loadService(); };
     apply(game, status);
-    setOpen(null);
     try {
       await putStatus(game.id, status);
       sync();
@@ -186,18 +183,20 @@ export function BacklogView() {
     }
   }, [load, loadService, toast]);
 
+  const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
-    open: (g) => setOpen(g),
+    open: (g) => openGameLink(g.id),
     setStatus: (g, s) => void change(g, s),
     toggle: () => {},
-  }), [change]);
+  }), [change, openGameLink]);
 
   return (
     <div className="ps-collection">
       <div className="ps-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
-        {items && items.length > 0 && <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p>}
+        {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
       </div>
+      {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
       {(items || counts) && (
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
@@ -210,9 +209,9 @@ export function BacklogView() {
           </div>
         </nav>
       )}
-      {items && (
+      {(items || !error) && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
-          <StatusGlyph status="backlog" size={16} />Бэклог <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>
+          <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>}
         </h2>
       )}
       {error && !items ? (
@@ -220,11 +219,7 @@ export function BacklogView() {
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
       ) : !items ? (
-        <ul className="ps-grid" data-density="comfort" aria-hidden="true" aria-busy="true">
-          {Array.from({ length: 12 }, (_, i) => (
-            <li key={i}><div className="ps-card ps-card--sk"><div className="ps-skeleton ps-sk-cover" /><div className="ps-skeleton ps-sk-line" /></div></li>
-          ))}
-        </ul>
+        <div aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
       ) : items.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text="В бэклоге нет игр под выбранные фильтры.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setFilters(resetBacklogFilters(filters))}>Сбросить фильтры</button>
@@ -298,11 +293,6 @@ export function BacklogView() {
           )}
         </section>
       )}
-      <GameDialog
-        game={open ? (items?.find((g) => g.id === open.id) ?? service?.find((g) => g.id === open.id) ?? open) : null} startEditing={false} now={now} onClose={() => setOpen(null)}
-        onStatus={(g, s) => void change(g, s)} onDate={() => {}}
-        onGameChanged={(g) => { setOpen(g); setItems((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); setService((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); void load(); void loadService(); }}
-      />
     </div>
   );
 }

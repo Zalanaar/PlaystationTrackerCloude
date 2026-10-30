@@ -55,6 +55,28 @@ export const VIEW_LABELS: Record<ViewMode, string> = { comfort: 'Крупно', 
 export const COLLECTION_BLOCKS = ['playing', 'chronicle', 'backlog', 'service', 'shelved', 'unsorted'] as const;
 export type CollectionBlock = (typeof COLLECTION_BLOCKS)[number];
 
+/** Фаза 18 (docs/design-system.md §8): 4 вкладки. `match` = префиксы путей, на которых вкладка подсвечена; `href` ведёт на корень группы. */
+export const NAV_TABS = [
+  { id: 'collection', href: '/', label: 'Коллекция', icon: 'library', match: ['/'], exact: true },
+  { id: 'backlog', href: '/backlog', label: 'Бэклог', icon: 'bookmark', match: ['/backlog', '/roadmap', '/recommend'] },
+  { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped'] },
+  { id: 'triage', href: '/triage', label: 'Разбор', icon: 'list-checks', match: ['/triage'] },
+] as const;
+/** Подвкладки группы «Бэклог» (ссылки, не кнопки). */
+export const BACKLOG_SUBNAV = [
+  { href: '/backlog', label: 'Бэклог' },
+  { href: '/roadmap', label: 'План' },
+  { href: '/recommend', label: 'Подскажи' },
+] as const;
+/** Сколько строк показывает свёрнутый список («Не успеваю», «Не распределено», §8.2). */
+export const COLLAPSED_LIST_LIMIT = 5;
+/** Месяцы (МСК), когда на Статистике показан баннер «Итоги года»: декабрь и январь (в январе речь о прошлом годе). */
+export const WRAPPED_BANNER_MONTHS = [12, 1] as const;
+/** Цвет `<meta name="theme-color">` по теме = её `--bg` (§8.5). */
+export const THEME_COLORS: Record<ThemeId, string> = {
+  night: '#0e0f16', graphite: '#111113', ps1: '#cfccc4', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c',
+};
+
 /** «Разбор»: клавиши и свайпы (docs/design-system.md §4.9). */
 export const TRIAGE_KEYS: Record<string, GameStatus> = { '1': 'playing', '2': 'completed', '3': 'backlog', '4': 'dropped', '5': 'shelved', '6': 'service' };
 export const TRIAGE_SWIPE: { right: GameStatus; left: GameStatus; up: GameStatus; down: 'skip' } = { right: 'completed', left: 'dropped', up: 'backlog', down: 'skip' };

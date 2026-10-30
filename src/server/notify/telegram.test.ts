@@ -118,3 +118,24 @@ describe('notifyAfterSync (PGlite)', () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('gameLink / gameLine', () => {
+  it('абсолютная ссылка из origin; без origin или без записи в библиотеке ссылки нет', async () => {
+    const { gameLink, gameLine } = await import('./telegram');
+    expect(gameLink(42, 'https://ps.example.com')).toBe('https://ps.example.com/?game=42');
+    expect(gameLink(42, null)).toBeNull();
+    for (const bad of [null, undefined, 0, -1, 1.5, Number.NaN]) expect(gameLink(bad, 'https://x.y')).toBeNull();
+    expect(gameLine('Bloodborne', 7, 'https://x.y')).toBe('Bloodborne\nhttps://x.y/?game=7');
+    expect(gameLine('Bloodborne', null, 'https://x.y')).toBe('Bloodborne');
+    expect(gameLine('Bloodborne', 7, null)).toBe('Bloodborne');
+  });
+
+  it('getAppOrigin: нормализует, мусор и отсутствие дают null', async () => {
+    const { getAppOrigin } = await import('@/server/env');
+    expect(getAppOrigin({ APP_ORIGIN: 'https://ps.example.com/' })).toBe('https://ps.example.com');
+    expect(getAppOrigin({ APP_ORIGIN: 'ps.example.com' })).toBe('https://ps.example.com');
+    expect(getAppOrigin({ APP_ORIGIN: 'ftp://x' })).toBeNull();
+    expect(getAppOrigin({ APP_ORIGIN: '  ' })).toBeNull();
+    expect(getAppOrigin({})).toBeNull();
+  });
+});

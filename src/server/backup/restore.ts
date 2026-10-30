@@ -80,6 +80,8 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
     changes.push({ section, kind, titleId, name, from, to });
   };
 
+  const filePosition = uniqueFilePositions(file, byTitle);
+
   for (const fg of file.games) {
     const name = fg.name ?? fg.titleId;
     const g = byTitle.get(fg.titleId);
@@ -136,17 +138,18 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
       } else sections.hidden.unchanged++;
     }
     // порядок очереди
-    if (fg.roadmapPosition !== null) {
+    const position = filePosition.get(fg);
+    if (position !== undefined) {
       if (!g) skip('roadmapOrder');
       else {
-        fileOrder.set(g.id, fg.roadmapPosition);
+        fileOrder.set(g.id, position);
         const cur = orderBy.get(g.id);
         if (cur === undefined) {
-          ops.push({ t: 'order', gameId: g.id, position: fg.roadmapPosition });
-          note('roadmapOrder', 'add', fg.titleId, name, null, String(fg.roadmapPosition));
-        } else if (cur !== fg.roadmapPosition) {
-          ops.push({ t: 'order', gameId: g.id, position: fg.roadmapPosition });
-          note('roadmapOrder', 'change', fg.titleId, name, String(cur), String(fg.roadmapPosition));
+          ops.push({ t: 'order', gameId: g.id, position });
+          note('roadmapOrder', 'add', fg.titleId, name, null, String(position));
+        } else if (cur !== position) {
+          ops.push({ t: 'order', gameId: g.id, position });
+          note('roadmapOrder', 'change', fg.titleId, name, String(cur), String(position));
         } else sections.roadmapOrder.unchanged++;
       }
     }
@@ -231,6 +234,26 @@ export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestoreP
       missing: [...missing].slice(0, MISSING_LIMIT).map(([titleId, name]) => ({ titleId, name })),
     },
   };
+}
+
+/**
+ * Дубли `roadmapPosition` внутри файла (ручная правка, склейка копий): игры с одинаковой позицией идут в порядке файла,
+ * каждая следующая получает не меньше предыдущей + 1. Без дублей позиции не меняются. Игры, которых нет в БД, не учитываются.
+ */
+export function uniqueFilePositions(file: BackupFile, byTitle: ReadonlyMap<string, unknown>): Map<BackupFile['games'][number], number> {
+  const out = new Map<BackupFile['games'][number], number>();
+  for (const fg of file.games) if (fg.roadmapPosition !== null && !byTitle.has(fg.titleId)) out.set(fg, fg.roadmapPosition); // для счётчика skipped
+  const entries = file.games
+    .map((fg, idx) => ({ fg, idx }))
+    .filter((e) => e.fg.roadmapPosition !== null && byTitle.has(e.fg.titleId));
+  entries.sort((a, b) => a.fg.roadmapPosition! - b.fg.roadmapPosition! || a.idx - b.idx);
+  let prev = -1;
+  for (const { fg } of entries) {
+    const pos = Math.max(fg.roadmapPosition!, prev + 1);
+    out.set(fg, pos);
+    prev = pos;
+  }
+  return out;
 }
 
 /**

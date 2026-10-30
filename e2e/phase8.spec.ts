@@ -3,6 +3,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { enterSelect } from './view';
 
 const SHOTS = process.env.SHOTS_DIR;
 const z = { platinum: 0, gold: 0, silver: 0, bronze: 0, total: 0 };
@@ -69,30 +70,36 @@ test.describe('Фаза 8: «Игры месяца» на /stats', () => {
     const block = page.locator('section[aria-labelledby="st-played"]');
     await expect(block.getByRole('heading', { name: 'Игры месяца' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Пройдено и брошено' })).toHaveCount(0);
-    await expect(block.locator('.ps-block__cnt')).toHaveText('3'); // разных игр, не карточек
-    await expect(block.locator('h3.ps-month')).toHaveText([/Март.*1.*1.*3 игры/, /Февраль.*1 игра/]);
-
-    const march = block.locator('.ps-st-played__month').nth(0);
-    const feb = block.locator('.ps-st-played__month').nth(1);
+    // Фаза 18: показан один месяц (последний с играми), остальные выбираются чипами
+    await expect(block.locator('.ps-block__cnt')).toHaveText('3'); // игр выбранного месяца
+    await expect(block.locator('h3.ps-month')).toHaveText([/Март.*1.*1.*3 игры/]);
+    await expect(block.getByRole('button', { pressed: true })).toHaveCount(1);
+    const march = block.locator('.ps-st-played__month');
     const oneMarch = march.locator('article.ps-card').filter({ has: page.locator('[title="Игра Один"]') });
-    const oneFeb = feb.locator('article.ps-card').filter({ has: page.locator('[title="Игра Один"]') });
     await expect(oneMarch).toHaveCount(1);
-    await expect(oneFeb).toHaveCount(1);
     // март: событие «пройдена» -> фигура и дата; февраль: просто играли -> без фигуры и даты
     await expect(oneMarch.locator('.ps-card__glyph')).toHaveAttribute('title', 'Пройдена в этом месяце');
     await expect(oneMarch.locator('.ps-card__date')).toHaveText('10 мар.');
+    await expect(march.locator('article.ps-card').filter({ has: page.locator('[title="Игра Три"]') }).locator('.ps-card__glyph')).toHaveCount(0);
+    await expect(oneMarch.locator('.ps-card__meta')).toHaveText('12 ч 30 м');
+    await block.getByRole('button', { name: /^Февраль/ }).click();
+    await expect(block.locator('h3.ps-month')).toHaveText([/Февраль.*1 игра/]);
+    const feb = block.locator('.ps-st-played__month');
+    const oneFeb = feb.locator('article.ps-card').filter({ has: page.locator('[title="Игра Один"]') });
+    await expect(oneFeb).toHaveCount(1);
     await expect(oneFeb.locator('.ps-card__glyph')).toHaveCount(0);
     await expect(oneFeb.locator('.ps-card__date')).toHaveCount(0);
-    await expect(march.locator('article.ps-card').filter({ has: page.locator('[title="Игра Три"]') }).locator('.ps-card__glyph')).toHaveCount(0);
     // часы за месяц под обложкой
-    await expect(oneMarch.locator('.ps-card__meta')).toHaveText('12 ч 30 м');
     await expect(oneFeb.locator('.ps-card__meta')).toHaveText('≈ 7 ч 30 м');
     await expect(oneFeb.locator('.ps-card__meta')).toHaveAttribute('aria-label', 'примерно 7 ч 30 м за месяц');
-    await expect(oneMarch.locator('.ps-card__meta')).toBeVisible();
     // клик открывает окно игры
     await oneFeb.locator('.ps-card__hit').click();
-    await expect(page.getByRole('dialog', { name: 'Игра Один' })).toBeVisible();
+    // Фаза 18 (§8.6): /?game=1 поверх Коллекции, закрытие возвращает на /stats
+    await expect(page).toHaveURL(/\/\?game=1$/);
+    await expect(page.getByRole('dialog', { name: 'The Witcher 3: Wild Hunt' })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(page.locator('section[aria-labelledby="st-played"]')).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
     if (SHOTS) {
@@ -133,7 +140,7 @@ test.describe('Фаза 8: сброс статуса', () => {
 
   test('в режиме «Выбрать»: явная кнопка «Сбросить статус» шлёт status-bulk null', async ({ page, context, baseURL }) => {
     const mock = await openCollection(page, context, baseURL!, '/?status=completed&sort=title');
-    await page.getByRole('button', { name: 'Выбрать' }).click();
+    await enterSelect(page);
     await card(page, 'God of War').locator('.ps-card__hit').click();
     await card(page, 'Ведьмак 3: Дикая Охота').locator('.ps-card__hit').click();
     const bar = page.getByRole('region', { name: 'Выбор игр' });
@@ -278,7 +285,7 @@ test.describe('Фаза 8: скрытие игр', () => {
 
   test('режим «Выбрать»: убрать выделенные (параллельные PUT), итог в тосте, «Вернуть»', async ({ page, context, baseURL }) => {
     const mock = await openCollection(page, context, baseURL!, '/?sort=title');
-    await page.getByRole('button', { name: 'Выбрать' }).click();
+    await enterSelect(page);
     for (const t of ['Stray', 'Hades', 'Bloodborne']) await card(page, t).locator('.ps-card__hit').click();
     const bar = page.getByRole('region', { name: 'Выбор игр' });
     await expect(bar).toContainText('Выбрано 3');
@@ -301,7 +308,7 @@ test.describe('Фаза 8: скрытие игр', () => {
     const mock = await mockApi(page, games);
     await page.goto('/?hidden=1');
     await expect(coll(page).locator('article.ps-card')).toHaveCount(2);
-    await page.getByRole('button', { name: 'Выбрать' }).click();
+    await enterSelect(page);
     await page.getByRole('button', { name: 'Выбрать все (2)' }).click();
     const bar = page.getByRole('region', { name: 'Выбор игр' });
     await expect(bar.getByRole('button', { name: 'Поставить статус' })).toHaveCount(0);

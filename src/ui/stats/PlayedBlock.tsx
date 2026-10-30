@@ -1,11 +1,13 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { PlayedBlock as PlayedBlockData, PlayedGroup, PlayedItem, StatsResponse } from '@/server/stats/types';
 import { BlockHead, MonthHeader } from '../collection/Chronicle';
 import { ApiError, errorText, putMonthExclusion } from '../collection/api';
 import { GameCard, type GameActions } from '../collection/GameCard';
 import { GameGrid, GameGridItem } from '../collection/GameGrid';
+import { MONTH_CHIP_LABELS } from '../collection/monthChips';
 import { monthName } from '../format';
 import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
@@ -13,7 +15,8 @@ import { MonthActions } from './MonthActions';
 import {
   CONFLICT_TEXT, EXCLUDE_FAIL_TEXT, EXCLUDE_TOAST_TTL, RESTORE_FAIL_TEXT, excludedLabel, excludedToast, excludePlan, monthActionLabel, restoredToast, splitHours,
 } from './monthExclusion';
-import { monthHoursText, playedGamesCount, type Selection } from './model';
+import { monthHoursText, type Selection } from './model';
+import { pickPlayedMonth } from './playedMonth';
 
 const keyOf = (g: PlayedGroup, i: PlayedItem) => `${g.month}:${i.gameId}`;
 
@@ -25,7 +28,12 @@ export function PlayedBlock({
   data, sel, actions, onChanged,
 }: { data: StatsResponse; sel: Selection; actions: GameActions; onChanged: () => void }) {
   const toast = useToast();
-  const groups = data.played.groups;
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  // месяцы, в которых есть игры (или убранные игры, чтобы их можно было вернуть); показывается один выбранный
+  const groups = data.played.groups.filter((g) => g.items.length > 0 || (g.excluded?.length ?? 0) > 0);
+  const chosen = pickPlayedMonth(groups.map((g) => g.month), sel.period, params.get('m'));
   const games = data.played.games;
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   /** Ручное раскрытие строки «Убрано из месяца»; нет записи = по умолчанию (раскрыта, если в месяце не осталось игр) */
@@ -71,17 +79,35 @@ export function PlayedBlock({
   }, [onChanged, toast]);
   useEffect(() => { again.current = run; }, [run]);
 
-  if (groups.length === 0) return null;
+  if (groups.length === 0 || chosen === null) return null;
+  const pick = (month: string) => {
+    const p = new URLSearchParams(params.toString());
+    p.set('m', month);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+  };
+  const current = groups.find((g) => g.month === chosen);
   return (
-    <section className="ps-st-played" aria-labelledby="st-played">
-      <BlockHead id="st-played" title="Игры месяца" count={playedGamesCount(groups)} />
-      {groups.map((g) => {
+    <section className="ps-st-played" aria-labelledby="st-played" id="st-played-sec">
+      <BlockHead id="st-played" title="Игры месяца" count={current?.items.length ?? 0} />
+      {sel.period === 'year' && groups.length > 1 && (
+        <div className="ps-mchips ps-mchips--static" role="group" aria-label="Месяц">
+          {[...groups].sort((a, b) => b.month.localeCompare(a.month)).map((g) => (
+            <button
+              key={g.month} type="button" className="ps-chip ps-mchip" aria-pressed={g.month === chosen}
+              aria-label={`${monthName(g.monthNumber)}: ${g.items.length} ${g.items.length === 1 ? 'игра' : 'игр'}`} onClick={() => pick(g.month)}
+            >
+              {MONTH_CHIP_LABELS[g.monthNumber - 1]}<small className="num">{g.items.length}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {(current ? [current] : []).map((g) => {
         const excluded = g.excluded ?? [];
         const label = `Игры: ${monthName(g.monthNumber)}${sel.period === 'year' ? ` ${g.year}` : ''}`;
         const open = expanded[g.month] ?? g.items.length === 0;
         return (
           <div key={g.month} className="ps-st-played__month">
-            <MonthHeader id={`st-m-${g.month}`} m={{ month: g.monthNumber, completed: g.completed, dropped: g.dropped }} games={g.items.length} />
+            <MonthHeader m={{ month: g.monthNumber, completed: g.completed, dropped: g.dropped }} games={g.items.length} />
             {g.items.length > 0 ? (
               <GameGrid density="dense" label={label}>
                 {g.items.map((i) => {

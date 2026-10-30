@@ -333,7 +333,7 @@ export function RoadmapView() {
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
           <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
-          {data ? <SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /> : <div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" />}
+          {data ? <SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /> : <div className="ps-skeleton ps-rm-sk-set" aria-hidden="true" />}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">
           {data ? <ProgressPanel data={data} /> : <><h2 className="ps-h2">Прогресс</h2><div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" /></>}

@@ -464,9 +464,23 @@ test.describe('Фаза 9: окно игры', () => {
 test.describe('Фаза 9: профиль PSN', () => {
   test('блок профиля: ник, уровень, прогресс, счётчики трофеев; tier не показывается', async ({ page, context, baseURL }, info) => {
     await open(page, context, baseURL!, { profile: PROFILE });
-    const p = page.locator('.ps-profile');
+    const p = page.locator('section.ps-profile');
     await expect(p).toBeVisible();
     await expect(p.locator('.ps-profile__nick')).toHaveText('Artem_PS');
+    if (isMobile(info.project.name)) {
+      // Фаза 18: на мобильном профиль одной строкой (56): ник, «Ур. 312», платина; золото/серебро/бронза/«Всего» в меню профиля
+      await expect(p).toHaveClass(/ps-profile--row/);
+      expect(Math.round((await p.boundingBox())!.height)).toBe(56);
+      await expect(p.locator('.ps-profile__pill')).toHaveText('Ур. 312');
+      await expect(p.locator('.ps-profile__pill')).toHaveAttribute('title', '47% до 313');
+      await expect(p.getByRole('progressbar', { name: 'Прогресс до следующего уровня' })).toHaveAttribute('aria-valuenow', '47');
+      await expect(p.getByLabel('Платина 38')).toBeVisible();
+      await expect(p.getByLabel(/Золото/)).toHaveCount(0);
+      await expect(p.locator('.ps-profile__total')).toHaveCount(0);
+      await expect(p.locator('.ps-av')).toHaveCSS('width', '36px');
+      expect(await overflow(page)).toBeLessThanOrEqual(0);
+      return;
+    }
     await expect(p.locator('.ps-profile__pill')).toHaveText('Ур. 312');
     await expect(p.locator('.ps-profile__next')).toHaveText('47% до 313');
     await expect(p.getByRole('progressbar', { name: 'Прогресс до следующего уровня' })).toHaveAttribute('aria-valuenow', '47');
@@ -527,7 +541,8 @@ test.describe('Фаза 9: профиль PSN', () => {
     const menu = page.getByRole('menu');
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Artem_PS');
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Ур. 312 · 38 платин');
-    await expect(menu.getByRole('menuitem')).toHaveText([/Разобрать игры/, /Скрытые игры/, /Выйти/]);
+    await expect(menu.getByRole('menuitem').filter({ hasText: 'Разобрать игры' })).toHaveCount(0); // Фаза 18: есть вкладка «Разбор»
+    await expect(menu.getByRole('menuitem').filter({ hasText: /Скрытые игры|Выйти/ })).toHaveText([/Скрытые игры/, /Выйти/]);
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
   });

@@ -152,14 +152,12 @@ test.describe('/wrapped: выбор года', () => {
     expect(ctl.calls[ctl.calls.length - 1].searchParams.has('year')).toBe(false);
   });
 
-  test('вкладка «Итоги» ведёт сюда и активна', async ({ page, context, baseURL }, info) => {
-    await open(page, context, baseURL!, '/');
-    const link = info.project.name === 'mobile'
-      ? page.locator('a[href="/wrapped"]:visible').first()
-      : page.getByRole('navigation', { name: 'Разделы' }).getByRole('link', { name: 'Итоги' });
-    await link.click();
+  test('Итоги открываются из Статистики (кнопка «Итоги {год}»), вкладка «Статистика» активна, есть «← Статистика»', async ({ page, context, baseURL }, info) => {
+    await open(page, context, baseURL!, '/stats');
+    await page.getByRole('link', { name: /^Итоги \d{4}$/ }).click();
     await expect(page).toHaveURL(/\/wrapped/);
-    await expect(page.locator('a[href="/wrapped"][aria-current="page"]:visible').first()).toBeVisible();
+    const tabs = info.project.name === 'mobile' ? page.locator('nav.ps-tabbar') : page.locator('header nav[aria-label="Разделы"]');
+    await expect(tabs.locator('a[href="/stats"][aria-current="page"]')).toBeVisible();
   });
 
   test('503: ошибка и «Повторить»', async ({ page, context, baseURL }) => {

@@ -121,7 +121,8 @@ test.describe('Фаза 10: поповер жанров', () => {
     const pop = page.getByRole('dialog', { name: 'Игры жанра Экшен' });
     await pop.getByRole('button', { name: 'Игра 3' }).click();
     await expect(pop).toHaveCount(0);
-    // заглушка из словаря, затем полные данные игры 3 из GET /api/games/3
+    // Фаза 18 (§8.6): переход на /?game=3 (router.push), окно поверх Коллекции; полные данные игры 3 из GET /api/games/3
+    await expect(page).toHaveURL(/\/\?game=3$/);
     const dlg = page.getByRole('dialog').filter({ has: page.getByRole('tab', { name: /Обзор/ }) });
     await expect(dlg).toBeVisible();
     await expect(dlg.getByRole('heading', { level: 2, name: 'Horizon Forbidden West' })).toBeVisible();
@@ -129,17 +130,19 @@ test.describe('Фаза 10: поповер жанров', () => {
     await expect(dlg.locator('.ps-gd__tile').first()).toContainText('28 ч 17 м');
     await page.keyboard.press('Escape');
     await expect(dlg).toHaveCount(0);
-    await expect(row).toBeFocused();
+    // закрытие делает back(): возврат на /stats (страница пересоздаётся, фокус на строке жанра не сохраняется)
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(page.getByRole('heading', { name: 'Жанры' })).toBeVisible();
   });
 
   test('игра из поповера не найдена: «Игра не найдена» и «Закрыть»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await genreRow(page, 'Гонки').hover();
     await page.getByRole('dialog', { name: 'Игры жанра Гонки' }).getByRole('button', { name: 'Призрак' }).click();
-    const dlg = page.getByRole('dialog', { name: 'Игра не найдена' });
-    await expect(dlg).toBeVisible();
-    await dlg.getByRole('button', { name: 'Закрыть' }).click();
-    await expect(dlg).toHaveCount(0);
+    // Фаза 18 (§8.6): неизвестный id: тост, параметр убран из адреса, окна нет (остаёмся на «/»)
+    await expect(page.getByText('Игра не найдена. Возможно, ссылка устарела.')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).not.toHaveURL(/game=/);
   });
 
   test('жанр без игр: строка не интерактивна; жанр без часов: только число игр', async ({ page, context, baseURL }) => {
@@ -205,7 +208,12 @@ test.describe('Фаза 10: топ-10 игр', () => {
     expect(w[0]).toBeCloseTo(1, 1);
     expect(w[1]).toBeCloseTo(0.5, 1);
     await rows.nth(0).getByRole('button').click();
-    await expect(page.getByRole('dialog', { name: 'Игра Два' })).toBeVisible();
+    // Фаза 18 (§8.6): окно открывается на /?game=2 поверх Коллекции (данные игры из каталога мока), «назад» возвращает на /stats
+    await expect(page).toHaveURL(/\/\?game=2$/);
+    await expect(page.getByRole('dialog', { name: 'Ведьмак 3: Дикая Охота' })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
   test('режим «Трофеи»: очки, подсказка, счётчики без нулей, подзаголовок', async ({ page, context, baseURL }) => {
