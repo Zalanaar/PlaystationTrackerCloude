@@ -1,0 +1,35 @@
+/* Экран «Доступ» (Фаза 20.2). Только токены тем. */
+.ps-access { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 880px; }
+.ps-access__lead { margin: 0; color: var(--text-2); }
+.ps-access__add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3); }
+.ps-access__field { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1 1 240px; min-width: 0; }
+.ps-access__err { margin: 0; flex-basis: 100%; color: var(--danger); font-size: var(--fs-small); }
+.ps-access__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-access__sk { display: block; height: 96px; border-radius: var(--r-lg); }
+.ps-access__row {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) auto; gap: var(--sp-3) var(--sp-4); align-items: center;
+  padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
+}
+.ps-access__row[data-status="blocked"] { opacity: .8; }
+.ps-access__who { display: flex; flex-direction: column; min-width: 0; }
+.ps-access__email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.ps-access__who small { color: var(--text-3); }
+.ps-access__badges { display: flex; gap: var(--sp-2); justify-content: flex-end; flex-wrap: wrap; }
+.ps-access__pill { display: inline-flex; align-items: center; height: 22px; padding: 0 var(--sp-2); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-small); font-weight: 600; }
+.ps-access__pill[data-kind="owner"] { background: var(--accent); color: var(--accent-ink); }
+.ps-access__pill[data-kind="blocked"] { color: var(--danger); }
+.ps-access__pill[data-kind="invited"] { color: var(--warning); }
+.ps-access__meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-6); margin: 0; font-size: var(--fs-small); }
+.ps-access__meta div { display: flex; gap: var(--sp-2); min-width: 0; }
+.ps-access__meta dt { color: var(--text-3); }
+.ps-access__meta dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.ps-access__acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: flex-end; }
+.ps-access__acts:empty { display: none; }
+@media (max-width: 767px) {
+  .ps-access__row { grid-template-columns: minmax(0, 1fr); }
+  .ps-access__badges { justify-content: flex-start; }
+  .ps-access__acts { justify-content: stretch; }
+  .ps-access__acts .ps-btn { flex: 1 1 auto; height: var(--tap-min); }
+  .ps-access__add .ps-btn { width: 100%; height: var(--tap-min); }
+  .ps-access .ps-input { height: var(--tap-min); }
+}

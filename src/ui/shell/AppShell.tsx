@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
 import { Popover } from '../primitives/Popover';
@@ -41,6 +42,7 @@ export function AppHeader() {
   const { profile } = useProfile();
   const line = profile ? profileLine(profile) : null;
   const offer = useSeasonOffer();
+  const isOwner = useIsOwner();
 
   return (
     <>
@@ -96,6 +98,12 @@ export function AppHeader() {
                       <Icon name="upload" size={16} />
                       <span className="ps-menu-item__label">Восстановить из файла</span>
                     </button>
+                    {isOwner && (
+                      <Link href="/access" role="menuitem" className="ps-menu-item" onClick={close}>
+                        <Icon name="users" size={16} />
+                        <span className="ps-menu-item__label">Доступ</span>
+                      </Link>
+                    )}
                     <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => void logout()} disabled={busy}>
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти</span>
@@ -137,6 +145,11 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); setRestore(true); }}>
             <Icon name="upload" size={16} /><span className="ps-menu-item__label">Восстановить из файла</span>
           </button>
+          {isOwner && (
+            <Link href="/access" className="ps-menu-item" onClick={() => setMore(false)}>
+              <Icon name="users" size={16} /><span className="ps-menu-item__label">Доступ</span>
+            </Link>
+          )}
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти</span>
           </button>
