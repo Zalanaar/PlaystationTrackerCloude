@@ -65,7 +65,7 @@ test.describe('/login', () => {
   ] as const) {
     test(`?error=${code} показывает текст`, async ({ page }) => {
       await page.goto(`/login?error=${code}`);
-      await expect(page.getByRole('alert')).toContainText(text);
+      await expect(page.locator('[role=alert]:not(#__next-route-announcer__)')).toContainText(text);
     });
   }
 
@@ -77,6 +77,13 @@ test.describe('/login', () => {
     await expect(page.getByLabel('Пароль')).toBeVisible();
   });
 });
+
+// На мобильной ширине аватар скрыт: меню открывается кнопкой «Меню» (Sheet), пункты без role=menuitem.
+async function openProfileMenu(page: Page, isMobile: boolean) {
+  await page.getByRole('button', { name: isMobile ? 'Меню' : /Профиль|Меню профиля/, exact: isMobile }).click();
+}
+const accessItem = (page: Page, isMobile: boolean) =>
+  isMobile ? page.getByRole('link', { name: 'Доступ' }) : page.getByRole('menuitem', { name: 'Доступ' });
 
 test.describe('Доступ', () => {
   test('список: роли, статусы, PSN, число игр; owner без действий', async ({ page, context, baseURL }) => {
@@ -96,13 +103,13 @@ test.describe('Доступ', () => {
     const input = page.getByPlaceholder('name@gmail.com');
     await input.fill('new@example.com');
     await page.getByRole('button', { name: 'Добавить', exact: true }).click();
-    await expect(page.getByRole('alert')).toHaveText('Добавление участников пока отключено.');
+    await expect(page.locator('[role=alert]:not(#__next-route-announcer__)')).toHaveText('Добавление участников пока отключено.');
     m.post = { status: 409, code: 'user_exists' };
     await page.getByRole('button', { name: 'Добавить', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('уже в списке');
+    await expect(page.locator('[role=alert]:not(#__next-route-announcer__)')).toContainText('уже в списке');
     m.post = { status: 409, code: 'user_limit' };
     await page.getByRole('button', { name: 'Добавить', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('предел');
+    await expect(page.locator('[role=alert]:not(#__next-route-announcer__)')).toContainText('предел');
     m.post = null;
     await page.getByRole('button', { name: 'Добавить', exact: true }).click();
     await expect(page.getByTestId('access-row')).toHaveCount(4);
@@ -143,18 +150,18 @@ test.describe('Доступ', () => {
     await expect(page.getByTestId('access-row')).toHaveCount(3);
   });
 
-  test('меню профиля: «Доступ» у owner, нет у member; мобильная вёрстка без горизонтального скролла', async ({ page, context, baseURL }) => {
+  test('меню профиля: «Доступ» у owner, нет у member; мобильная вёрстка без горизонтального скролла', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string);
-    await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-    await expect(page.getByRole('menuitem', { name: 'Доступ' })).toBeVisible();
+    await openProfileMenu(page, isMobile);
+    await expect(accessItem(page, isMobile)).toBeVisible();
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 375, height: 720 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
-  test('меню профиля у member без «Доступ»', async ({ page, context, baseURL }) => {
+  test('меню профиля у member без «Доступ»', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string, { role: 'member', listStatus: 403 });
-    await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-    await expect(page.getByRole('menuitem', { name: 'Доступ' })).toHaveCount(0);
+    await openProfileMenu(page, isMobile);
+    await expect(accessItem(page, isMobile)).toHaveCount(0);
   });
 });
