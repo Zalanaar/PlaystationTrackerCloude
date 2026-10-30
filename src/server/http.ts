@@ -4,6 +4,13 @@ import { NextResponse } from 'next/server';
 export type ErrorCode =
   | 'invalid_request'
   | 'unauthorized'
+  | 'forbidden'
+  | 'user_exists'
+  | 'user_limit'
+  | 'owner_protected'
+  | 'not_blocked'
+  | 'multiuser_not_ready'
+  | 'confirm_mismatch'
   | 'invalid_credentials'
   | 'not_found'
   | 'rate_limited'

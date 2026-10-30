@@ -120,3 +120,21 @@ export function getLlmEnv(env: Record<string, string | undefined> = process.env)
   const model = env.LLM_MODEL?.trim();
   return { provider, apiKey, model: model && /^[\w.:\-/]{1,80}$/.test(model) ? model : null, dailyLimit };
 }
+
+export type GoogleEnv = { clientId: string; clientSecret: string; origin: string };
+
+/** Google OAuth (контракт 22.4/22.8). null = вход Google не настроен (вход паролем owner работает). Секрет не логируется. */
+export function getGoogleEnv(env: Record<string, string | undefined> = process.env): GoogleEnv | null {
+  const clientId = env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+  const origin = getAppOrigin(env);
+  if (!clientId || !clientSecret || !origin) return null;
+  return { clientId, clientSecret, origin };
+}
+
+export const DEFAULT_MAX_USERS = 10;
+
+/** Мультипользовательность (контракт 22.7/22.8): MULTIUSER_ENABLED=1 разрешает добавлять member; MAX_USERS (1..100, по умолчанию 10). */
+export function getMultiuserEnv(env: Record<string, string | undefined> = process.env): { enabled: boolean; maxUsers: number } {
+  return { enabled: env.MULTIUSER_ENABLED?.trim() === '1', maxUsers: intEnv(env.MAX_USERS, DEFAULT_MAX_USERS, 1, 100) };
+}

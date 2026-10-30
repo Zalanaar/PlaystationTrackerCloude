@@ -2,6 +2,14 @@
 export const IP_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
 export const GLOBAL_LIMIT = { max: 20, windowMs: 60 * 60 * 1000 };
 
+/** Лимит попыток входа через Google (контракт 22.4): счётчики независимы от пароля. */
+export const GOOGLE_IP_LIMIT = { max: 10, windowMs: 15 * 60 * 1000 };
+export const GOOGLE_GLOBAL_LIMIT = { max: 40, windowMs: 60 * 60 * 1000 };
+
+export type LimitRules = { ip: Rule; global: Rule };
+export const PASSWORD_RULES: LimitRules = { ip: IP_LIMIT, global: GLOBAL_LIMIT };
+export const GOOGLE_RULES: LimitRules = { ip: GOOGLE_IP_LIMIT, global: GOOGLE_GLOBAL_LIMIT };
+
 export type LimitResult = { limited: false } | { limited: true; retryAfterSeconds: number };
 
 type Rule = { max: number; windowMs: number };
@@ -20,9 +28,14 @@ function check(failures: readonly Date[], now: Date, rule: Rule): LimitResult {
  * @param ipFailures моменты неудачных попыток этого IP
  * @param allFailures моменты неудачных попыток всех (глобальный лимит)
  */
-export function evaluateLimit(ipFailures: readonly Date[], allFailures: readonly Date[], now: Date = new Date()): LimitResult {
-  const a = check(ipFailures, now, IP_LIMIT);
-  const b = check(allFailures, now, GLOBAL_LIMIT);
+export function evaluateLimit(
+  ipFailures: readonly Date[],
+  allFailures: readonly Date[],
+  now: Date = new Date(),
+  rules: LimitRules = PASSWORD_RULES,
+): LimitResult {
+  const a = check(ipFailures, now, rules.ip);
+  const b = check(allFailures, now, rules.global);
   if (a.limited && b.limited) return { limited: true, retryAfterSeconds: Math.max(a.retryAfterSeconds, b.retryAfterSeconds) };
   return a.limited ? a : b;
 }

@@ -33,7 +33,7 @@ function importKey(secret: string, usage: 'sign' | 'verify'): Promise<CryptoKey>
   return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
 }
 
-/** Создать токен сессии. Бросает при пустом/коротком секрете (fail closed). */
+/** Устаревший токен v:1 (только тесты совместимости; боевой код выдаёт createSessionTokenV2). Бросает при пустом/коротком секрете (fail closed). */
 export async function createSessionToken(secret: string | null | undefined, nowMs: number = Date.now()): Promise<string> {
   if (!validSecret(secret)) throw new Error('session secret is missing or too short');
   const iat = Math.floor(nowMs / 1000);
@@ -42,31 +42,98 @@ export async function createSessionToken(secret: string | null | undefined, nowM
   return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
 }
 
-/** true только для токена с верной подписью и неистёкшим сроком. Любая ошибка = false. */
+/** Подписанный JSON (HMAC-SHA256 SESSION_SECRET) для коротких служебных cookie, например pst_oauth. */
+export async function signJson(secret: string | null | undefined, data: Record<string, unknown>): Promise<string> {
+  if (!validSecret(secret)) throw new Error('session secret is missing or too short');
+  const payload = b64urlEncode(enc.encode(JSON.stringify(data)));
+  const sig = await crypto.subtle.sign('HMAC', await importKey(secret, 'sign'), enc.encode(payload));
+  return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
+}
+
+export async function verifyJson(secret: string | null | undefined, token: string | null | undefined): Promise<Record<string, unknown> | null> {
+  if (!token || !validSecret(secret)) return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const sig = b64urlDecode(parts[1]);
+  const body = b64urlDecode(parts[0]);
+  if (!sig || !body) return null;
+  try {
+    if (!(await crypto.subtle.verify('HMAC', await importKey(secret, 'verify'), sig as BufferSource, enc.encode(parts[0])))) return null;
+    const d: unknown = JSON.parse(dec.decode(body));
+    return typeof d === 'object' && d !== null && !Array.isArray(d) ? (d as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export type SessionRole = 'owner' | 'member';
+export type SessionAmr = 'google' | 'pwd';
+export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr };
+export type Session = SessionClaims & { v: 1 | 2; iat: number; exp: number };
+
+/** id владельца: так трактуется токен v:1 (выдан до Фазы 20). Поддержка v:1 удаляется в 20.3 (контракт 22.3). */
+export const LEGACY_OWNER_UID = 1;
+
+/** Токен v:2 (контракт 22.3). Бросает при пустом/коротком секрете или некорректных claims. */
+export async function createSessionTokenV2(
+  secret: string | null | undefined,
+  claims: SessionClaims,
+  nowMs: number = Date.now(),
+): Promise<string> {
+  if (!validSecret(secret)) throw new Error('session secret is missing or too short');
+  if (!Number.isInteger(claims.uid) || claims.uid <= 0) throw new Error('invalid uid');
+  const iat = Math.floor(nowMs / 1000);
+  const body = { v: 2, uid: claims.uid, role: claims.role, amr: claims.amr, iat, exp: iat + SESSION_TTL_SECONDS };
+  const payload = b64urlEncode(enc.encode(JSON.stringify(body)));
+  const sig = await crypto.subtle.sign('HMAC', await importKey(secret, 'sign'), enc.encode(payload));
+  return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
+}
+
+/** Разбор и проверка токена (v:1 и v:2): подпись, форма, срок. null при любой ошибке. Без БД. */
+export async function readSessionToken(
+  token: string | null | undefined,
+  secret: string | null | undefined,
+  nowMs: number = Date.now(),
+): Promise<Session | null> {
+  if (!token || !validSecret(secret)) return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, sig] = parts;
+  const sigBytes = b64urlDecode(sig);
+  const payloadBytes = b64urlDecode(payload);
+  if (!sigBytes || !payloadBytes) return null;
+  try {
+    // crypto.subtle.verify сравнивает подпись за постоянное время
+    const ok = await crypto.subtle.verify('HMAC', await importKey(secret, 'verify'), sigBytes as BufferSource, enc.encode(payload));
+    if (!ok) return null;
+    const data: unknown = JSON.parse(dec.decode(payloadBytes));
+    if (typeof data !== 'object' || data === null) return null;
+    const d = data as Record<string, unknown>;
+    const { v, iat, exp } = d;
+    if (typeof iat !== 'number' || typeof exp !== 'number') return null;
+    const nowS = Math.floor(nowMs / 1000);
+    if (!(nowS < exp) || iat > nowS + 60) return null;
+    if (v === 1) return { v: 1, uid: LEGACY_OWNER_UID, role: 'owner', amr: 'pwd', iat, exp };
+    if (v === 2) {
+      const { uid, role, amr } = d;
+      if (typeof uid !== 'number' || !Number.isInteger(uid) || uid <= 0) return null;
+      if (role !== 'owner' && role !== 'member') return null;
+      if (amr !== 'google' && amr !== 'pwd') return null;
+      return { v: 2, uid, role, amr, iat, exp };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** true только для токена с верной подписью и неистёкшим сроком (v:1 или v:2). Любая ошибка = false. */
 export async function verifySessionToken(
   token: string | null | undefined,
   secret: string | null | undefined,
   nowMs: number = Date.now(),
 ): Promise<boolean> {
-  if (!token || !validSecret(secret)) return false;
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payload, sig] = parts;
-  const sigBytes = b64urlDecode(sig);
-  const payloadBytes = b64urlDecode(payload);
-  if (!sigBytes || !payloadBytes) return false;
-  try {
-    // crypto.subtle.verify сравнивает подпись за постоянное время
-    const ok = await crypto.subtle.verify('HMAC', await importKey(secret, 'verify'), sigBytes as BufferSource, enc.encode(payload));
-    if (!ok) return false;
-    const data: unknown = JSON.parse(dec.decode(payloadBytes));
-    if (typeof data !== 'object' || data === null) return false;
-    const { v, iat, exp } = data as Record<string, unknown>;
-    if (v !== 1 || typeof iat !== 'number' || typeof exp !== 'number') return false;
-    return Math.floor(nowMs / 1000) < exp && iat <= Math.floor(nowMs / 1000) + 60;
-  } catch {
-    return false;
-  }
+  return (await readSessionToken(token, secret, nowMs)) !== null;
 }
 
 export function sessionCookieOptions(secure: boolean) {
