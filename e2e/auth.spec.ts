@@ -6,8 +6,10 @@ test.describe('закрытый сайт', () => {
   test('страница без cookie редиректит на /login?next=', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login\?next=%2F$/);
+    await expect(page.getByRole('link', { name: 'Войти через Google' })).toBeVisible();
+    await page.getByText('Аварийный вход владельца').click();
     await expect(page.getByLabel('Пароль')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Войти' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Войти по паролю' })).toBeVisible();
   });
 
   test('вложенный путь сохраняется в next', async ({ request }) => {

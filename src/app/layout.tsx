@@ -12,6 +12,7 @@ import '@/ui/styles/triage.css';
 import '@/ui/styles/stats.css';
 import '@/ui/styles/profile.css';
 import '@/ui/styles/plan.css';
+import '@/ui/styles/access.css';
 import './globals.css';
 import { cookies } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';
