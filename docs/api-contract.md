@@ -286,7 +286,7 @@ psn_auth (singleton), login_attempts, status_backups (самостоятельн
 ## 3. Auth
 
 ### 3.1 Механизм
-- Единственный пароль `ADMIN_PASSWORD`, пользователей нет. **Будет заменено в Фазе 20** (несколько пользователей по белому списку, своя коллекция у каждого, `plan.md` Этап 6): новый контракт входа и схемы фиксируется здесь до реализации.
+- Единственный пароль `ADMIN_PASSWORD`, пользователей нет. **Будет заменено в Фазе 20** (несколько пользователей по белому списку, своя коллекция у каждого, `plan.md` Этап 6): новый контракт входа и схемы: раздел 22.
 - Сессия: cookie `pst_session`, значение `<payload_b64url>.<signature_b64url>`.
   - `payload` = JSON `{"v":1,"iat":<unix сек>,"exp":<unix сек>}`.
   - `signature` = HMAC-SHA256(`payload_b64url`, `SESSION_SECRET`).
@@ -1899,3 +1899,171 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 Почему `'unsafe-inline'` в script-src: layout содержит inline-скрипт темы, плюс inline-бутстрап Next. Строгий CSP требует nonce из `proxy.ts` и nonce в `<script>` layout (`src/app`, вне зоны этой правки) и тогда все страницы строго динамические. Это возможный следующий шаг; сейчас CSP закрывает всё остальное (чужие скрипты по внешним URL, плагины, фреймы, внешние формы, `<base>`, XHR на чужие хосты). `img-src https:` широкий намеренно: обложки идут с CDN PSN, RAWG, HLTB и по пользовательской https-ссылке (`coverUrl` роадмапа). Report-Only не использован: отчётов некуда слать, а enforce проверен в браузере (prod-сборка, 0 нарушений).
 
 Тесты: `src/shared/security-headers.test.ts` (Vitest), `e2e/security-headers.spec.ts` (заголовки на странице, /api 401, manifest, иконка; отсутствие CSP-нарушений в консоли).
+
+## 22. Мультипользовательность (Фаза 20, подфаза 20.1)
+
+Статус: контракт на согласование, кода и миграций нет. Заменяет 3.1 (один пароль) и расширяет 3.3, 3.4, 3.5, 4.2, 5, 6. Решения Артёма (2026-10-29/30): вход Google OAuth + белый список; `ADMIN_PASSWORD` остаётся аварийным входом owner; каждый видит только свою коллекцию; цель 4–10 человек на Vercel Hobby; общего каталога игр нет (всё дублируется на пользователя); один технический NPSSO читает всех; новые пользователи подключаются по открытому профилю PSN без дружбы (проверка доступа ещё идёт, см. 22.2 и план Б).
+
+### 22.1 Таблицы: решение по каждой
+
+`user_id integer not null references allowed_users(id) on delete cascade` во всех user-scoped таблицах. Потомки игр получают собственный `user_id` и составной FK `(user_id, game_id) -> games(user_id, id)` (в `games` добавляется `unique (user_id, id)`), чтобы строка другого пользователя не могла сослаться на чужую игру. `games.id` остаётся глобальным identity, поэтому PK таблиц `game_status`, `roadmap_order`, `roadmap_excluded`, `recommend_dislikes` не меняются.
+
+| Таблица | Решение | Новые ключи / причина |
+|---|---|---|
+| `games` | user-scoped | `unique (user_id, title_id)` вместо `title_id`; индексы `concept_id`, `last_played_at` получают префикс `user_id`. Статусы, HLTB, жанры, скрытие у каждого свои |
+| `game_status` | user-scoped | PK `game_id` без изменений, + `user_id`, составной FK, индекс `(user_id, status)` |
+| `trophy_sets` | user-scoped | `earned_*`, `progress`, `trophies_synced_at` зависят от пользователя; `unique (user_id, np_communication_id)` |
+| `game_trophy_sets` | user-scoped | PK `(user_id, game_id, trophy_set_id)`; FK на `trophy_sets` по `(user_id, id)` (там `unique (user_id, id)`) |
+| `trophies` | user-scoped | `earned`/`earned_at` свои; `unique (user_id, trophy_set_id, trophy_id)` |
+| `playtime_snapshots` | user-scoped | `unique (user_id, game_id, snapshot_date)`; индекс `(user_id, snapshot_date)` |
+| `sync_runs` | user-scoped | каждый запуск относится к одному пользователю; индекс `(user_id, started_at desc)`. Частичный индекс «не больше одного `running`» остаётся глобальным (22.9): один NPSSO и лимиты PSN |
+| `psn_profile` | user-scoped | одна строка на пользователя: ключ `user_id` (раньше `id = 1`) |
+| `status_backups` | user-scoped | копия статусов одного пользователя; откат только своих |
+| `game_month_exclusions` | user-scoped | PK `(user_id, game_id, month)` |
+| `roadmap_settings` | user-scoped | одна строка на пользователя |
+| `planned_games` | user-scoped | `unique (user_id, external_source, external_id)` where not null; индекс `(user_id, status)` |
+| `roadmap_order` | user-scoped | PK `game_id`, + `user_id`; индекс `(user_id, position)` |
+| `roadmap_excluded` | user-scoped | PK `game_id`, + `user_id` |
+| `recommend_dislikes` | user-scoped | PK `game_id`, + `user_id` |
+| `recommend_reasons` | user-scoped | PK `(user_id, game_id, signals_hash)` |
+| `recommend_llm_usage` | user-scoped | PK `(user_id, day)`; лимит на пользователя, общий потолок `LLM_DAILY_LIMIT` = сумма по `day` |
+| `recommend_discover_cache` | user-scoped | PK `(user_id, day)` (профиль вкуса личный) |
+| `recommend_external_dislikes` | user-scoped | PK `(user_id, external_source, external_id)` |
+| `psn_auth` | **глобальная singleton** | один технический NPSSO/refresh token на всех; не содержит данных пользователей |
+| `recommend_llm_state` | **глобальная singleton** | `fail_streak` описывает доступность провайдера LLM, а не пользователя |
+| `login_attempts` | **глобальная** | лимит по IP до того, как известен пользователь; добавляется `kind text not null default 'password' check in ('password','google')` |
+| `notify_log` | **глобальная** | дедуп уведомлений владельцу; для пользовательских событий `kind` получает суффикс `:<user_id>` (например `sync_missed:3`); схема не меняется |
+| `allowed_users` | **новая** | 22.2 |
+
+Кэша RAWG в БД сейчас нет (запросы идут на лету), «общий кэш RAWG» из `plan.md` — только если появится позже; тогда он глобальный и без пользовательских данных.
+
+### 22.2 Новые таблицы
+
+Одна таблица `allowed_users` (отдельную `users` не вводим: пользователь существует только если он в белом списке, лишний JOIN и рассинхрон не нужны). `allowed_users.id` и есть `userId` во всей системе.
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | `userId`. Owner создаётся первым и получает `id = 1` |
+| `email` | text | нет | нормализован: trim + lower-case; точки Gmail не схлопываются |
+| `role` | text | нет, default `member` | `owner` \| `member` |
+| `status` | text | нет, default `invited` | `invited` (в списке, ещё не входил) \| `active` \| `blocked` |
+| `google_sub` | text | да | привязывается при первом входе; дальше сверяется |
+| `display_name` | text | да | из Google, только для показа |
+| `psn_online_id` | text | да | PSN ID для синка; owner копирует из `PSN_TARGET_ONLINE_ID` |
+| `psn_account_id` | text | да | accountId, найденный по `online_id` |
+| `psn_access_mode` | text | нет, default `public` | `public` (открытый профиль) \| `friend` (план Б: дружба с техаккаунтом) |
+| `psn_access_status` | text | нет, default `unchecked` | `unchecked` \| `ok` \| `private` (профиль/игры/трофеи закрыты) \| `not_found` \| `friend_required` (план Б, ждём принятия заявки) \| `unavailable` (ошибка PSN, повторить) |
+| `psn_access_checked_at` | timestamptz | да | |
+| `onboarded_at` | timestamptz | да | пользователь прошёл онбординг (первый синк завершён) |
+| `last_login_at` | timestamptz | да | |
+| `invited_by` | integer | да | FK `allowed_users(id)` on delete set null |
+| `created_at`, `updated_at` | timestamptz | нет | |
+
+Индексы и CHECK:
+- `unique (email)` (хранится уже нормализованным).
+- `unique (google_sub) where google_sub is not null`.
+- Частичный `unique ((true)) where role = 'owner'`: ровно один owner.
+- CHECK на `role`, `status`, `psn_access_mode`, `psn_access_status` (списки выше); `email ~ '^[^@\s]+@[^@\s]+$'` и `char_length(email) <= 254`; `role = 'owner' -> status <> 'blocked'`.
+- `login_attempts.kind` (22.1).
+
+Результат проверки «открытый профиль без дружбы» (вход для 22.9 и онбординга): если подтвердится, `psn_access_mode = 'public'` у всех и `friend_required` не используется. Если нет, включается план Б без смены схемы: переменная `PSN_NEW_USER_MODE=friend` ставит режим `friend` новым пользователям, онбординг показывает «Отправьте заявку в друзья аккаунту `<tech online id>`», статус `friend_required` до принятия заявки техаккаунтом (проверка при синке/по кнопке «Проверить снова»).
+
+### 22.3 Сессия
+
+| Поле | Значение |
+|---|---|
+| Cookie | `pst_session` (имя, атрибуты и `Max-Age` как в 3.1) |
+| Формат | `<payload_b64url>.<signature_b64url>`, подпись HMAC-SHA256 `SESSION_SECRET` (без изменений) |
+| Payload v2 | `{"v":2,"uid":<allowed_users.id>,"role":"owner"\|"member","amr":"google"\|"pwd","iat":..,"exp":..}` |
+| Срок | 30 дней фиксированный, без продления |
+| Совместимость | `verifySessionToken` принимает `v:1` и `v:2`. Токен `v:1` (выдан до Фазы 20) трактуется как `uid` owner (`id = 1`, `role = owner`, `amr = pwd`) и действует до своего `exp`; новые токены только `v:2`. Поддержка `v:1` удаляется в 20.3 после выкладки `0015` (максимум 30 дней жизни старых cookie) |
+| Что проверяет `proxy.ts` | только подпись, срок и форму (без БД), как сейчас |
+| Что проверяет route handler | `requireUser(req)` читает `allowed_users` по `uid`: строка есть и `status = 'active'`. `role` берётся **из БД**, а не из cookie (cookie-роль только подсказка UI). Блокировка и удаление действуют со следующего запроса |
+| Аварийный вход | `POST /api/auth/login` (3.5) без изменений по контракту, но выдаёт `v:2` для owner с `amr = pwd`; owner = единственная строка `role = 'owner'`; если её нет или она `blocked`, ответ `401 invalid_credentials` |
+| Отзыв | блокировка пользователя (мгновенно) или смена `SESSION_SECRET` (все) |
+
+Неактивный `uid` (нет строки, `blocked`): `401 unauthorized`, cookie очищается.
+
+### 22.4 Эндпоинты входа
+
+Все пути ниже открыты в `proxy.ts` без сессии (добавляются к `/api/auth/login`, `/api/auth/logout`).
+
+| Метод и путь | Поведение |
+|---|---|
+| `GET /api/auth/google?next=` | Проверка лимита (ниже). Генерирует `state` (32 случайных байта), `nonce`, PKCE `code_verifier` (S256). Ставит cookie `pst_oauth` (подписана `SESSION_SECRET`, содержит state, nonce, verifier, безопасный `next`; `HttpOnly; Secure; SameSite=Lax; Path=/api/auth/google; Max-Age=600`). 302 на `accounts.google.com` с `response_type=code`, `scope=openid email`, `redirect_uri=${APP_ORIGIN}/api/auth/google/callback`, `code_challenge`, `state`, `nonce`, `prompt=select_account`. `next` проходит `safeNext` |
+| `GET /api/auth/google/callback?code=&state=` | 1) cookie `pst_oauth` есть, подпись верна, `state` совпадает (constant-time), иначе `oauth_failed`. 2) Cookie `pst_oauth` удаляется сразу (одноразовая). 3) Обмен `code` + `code_verifier` на токены на сервере (`client_secret` только сервер). 4) Проверка `id_token`: подпись (JWKS Google), `iss`, `aud = GOOGLE_CLIENT_ID`, `exp`, `nonce`, `email_verified = true`. 5) Поиск в `allowed_users` по `google_sub`, иначе по нормализованному `email` (привязка `google_sub`; если у строки другой `google_sub`, отказ). 6) Если строка есть и `status` в (`invited`,`active`): `invited -> active`, `last_login_at`, cookie `v:2`, 302 на `next` или `/`. 7) Иначе отказ |
+| `POST /api/auth/logout` | без изменений (3.5) |
+| `GET /api/auth/me` | требует сессию. 200 `{ "ok": true, "data": { "id", "email", "displayName", "role", "amr", "psn": { "onlineId", "accessMode", "accessStatus", "checkedAt" }, "onboardedAt" } }` |
+
+Отказ без раскрытия: для email не из списка, `blocked`, неподтверждённого email и чужого `google_sub` ответ один и тот же: 302 на `/login?error=access_denied` (текст в UI: «Не удалось войти. Если вы ждёте доступ, обратитесь к владельцу»), одинаковое время ответа (все ветки проходят обмен `code` и проверку токена до сверки со списком). Ошибки протокола (нет cookie, state не совпал, ошибка Google, сеть): 302 на `/login?error=oauth_failed`. В ответах и логах нет email и причины отказа; причина пишется только в `login_attempts.kind` как неуспех. Токены Google не сохраняются (нужны только для разовой проверки личности).
+
+Лимит попыток: по IP через `login_attempts` (`kind = 'google'`, `ip_hash` как в 3.3): **10 неуспехов за 15 минут** на IP (старт `GET /api/auth/google` и callback проверяют лимит; неуспехом считается любой отказ callback), глобально **40 неуспехов за час** для `kind = 'google'`. При превышении `429 rate_limited` + `Retry-After` для старта; для callback 302 на `/login?error=rate_limited`. Счётчики `password` и `google` независимы. Транзакция и advisory lock как в 3.3. Ошибка конфигурации (нет `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`APP_ORIGIN`): `/api/auth/google` отвечает `500 config_error`, вход паролем owner работает.
+
+### 22.5 Эндпоинты «Доступ» (только owner)
+
+Проверка роли по БД (22.3). Не owner: `403 forbidden`. Все изменения только JSON + проверка `Origin` (3.4).
+
+| Метод и путь | Тело / ответ | Ошибки |
+|---|---|---|
+| `GET /api/access/users` | 200 `{ users: [{ id, email, displayName, role, status, psnOnlineId, psnAccessStatus, lastLoginAt, createdAt, gamesCount, lastSyncAt }] }`, порядок по `id` | 401, 403 |
+| `POST /api/access/users` | `{ email, role?: "member" }` (создать owner этим путём нельзя). 201 `{ user }`, статус `invited` | 400 `invalid_request` (email), 403, 409 `user_exists`, 409 `user_limit` (активных и приглашённых не больше `MAX_USERS`, по умолчанию 10), 409 `multiuser_not_ready` (пока `MULTIUSER_ENABLED` не `1`, 22.8) |
+| `PATCH /api/access/users/{id}` | `{ status?: "active"\|"blocked", psnAccessMode?: "public"\|"friend" }`. Блокировка: данные сохраняются, сессии перестают работать сразу. Разблокировка: `blocked -> active` (если ни разу не входил, `invited`) | 400, 403, 404, 409 `owner_protected` (owner нельзя блокировать) |
+| `DELETE /api/access/users/{id}` | `{ confirmEmail }` совпадает с email. Удаляет пользователя и каскадом все его данные безвозвратно. Допустим только для `blocked` или `invited`. 200 `{ deleted: true }` | 400, 403, 404, 409 `owner_protected`, 409 `not_blocked`, 400 `confirm_mismatch` |
+
+Роль пользователя после создания не меняется (смена `owner` вне контракта). Нельзя заблокировать или удалить самого себя. Любая запись в `allowed_users` пишется без логирования email в обезличенных логах приложения.
+
+Дополнения к 4.2: `403 forbidden`; `409 user_exists`, `user_limit`, `owner_protected`, `not_blocked`, `multiuser_not_ready`; `400 confirm_mismatch`.
+
+### 22.6 Слой запросов с обязательным `userId`
+
+- Единственный способ читать и писать user-scoped таблицы: `scope(userId: UserId)` в `src/server/scope/`, возвращает репозитории (`games`, `status`, `trophies`, `snapshots`, `roadmap`, `recommend`, `syncRuns`, `backups`, ...). Каждый метод внутри добавляет `user_id = $userId` (условие и в SELECT, и в UPDATE/DELETE) и подставляет `user_id` в INSERT/UPSERT (`ON CONFLICT` по составным ключам из 22.1).
+- `UserId` — branded-тип, получить его можно только из `requireUser(req)` (сессия), `forEachActiveUser()` (cron) или `asUserId(row.id)` внутри `src/server/scope/` и `src/server/auth/`. `userId` из тела, query и path запроса не принимается никогда. Без значения `UserId` код не компилируется.
+- Прямой импорт `db` и таблиц из `src/db/schema` запрещён вне `src/db/`, `src/server/scope/`, `src/server/auth/` и модулей глобальных таблиц (`psn_auth`, `login_attempts`, `notify_log`, `recommend_llm_state`). Запрет — правило ESLint `no-restricted-imports` + Vitest-тест, который сканирует исходники.
+- Параметр `{id}` в путях (`/api/games/{id}`) проверяется в слое как `where id = $id and user_id = $userId`; чужой id даёт `404 not_found`, не `403` (существование не раскрывается).
+- Чистая статистика (`src/server/stats/`, `recommend/score`, `roadmap`) принимает уже выбранные данные и `userId` не знает; выборка данных только через `scope`.
+- Тесты: два пользователя с пересекающимися `title_id`; для каждого API-роута проверка «пользователь B не видит и не меняет данные A»; тест на полноту (каждая таблица с `user_id` из 22.1 используется в `scope`, нет прямых обращений).
+- Cron и синк: `GET /api/cron/sync` берёт активных пользователей (`status = 'active'`, `psn_access_status = 'ok'`, есть `psn_online_id`) по одному, у каждого свой `sync_runs`.
+
+### 22.7 Миграция существующих данных на owner
+
+Общие правила: перед `0014` обязательны свежая резервная копия разметки (20.3), ветка Neon на момент до миграции (6, п. 6–7), согласие Артёма. Применяет Артём или оркестратор по его согласию.
+
+| Шаг | Что | Когда |
+|---|---|---|
+| 1 | **`0013_allowed_users`** (безопасная, только добавляет): `create table allowed_users` (22.2), `login_attempts.kind` с default. Существующие таблицы данных не затрагиваются, текущий код работает без изменений | сессия 2 |
+| 2 | `npm run db:bootstrap-owner`: идемпотентно вставляет owner (`id = 1`, `role = owner`, `status = active`, `email = OWNER_EMAIL`, `psn_online_id = PSN_TARGET_ONLINE_ID`, `psn_access_status = ok`); если owner уже есть, ничего не меняет. Вне SQL-миграции, чтобы e-mail не жил в репозитории | сессия 2 |
+| 3 | Код сессии 2: вход Google, `v:2`, «Доступ». Данные ещё не user-scoped, `member` добавлять нельзя: `POST /api/access/users` отвечает `409 multiuser_not_ready`, пока `MULTIUSER_ENABLED` не `1` | сессия 2 |
+| 4 | **`0014_user_id_expand`** (expand, без потери): во все user-scoped таблицы (22.1) `user_id integer not null default <owner id> references allowed_users(id) on delete cascade` (добавление с default = backfill на owner одним ALTER; `owner id` подставляется скриптом миграции из `allowed_users where role='owner'`, при отсутствии owner миграция падает). Добавляются новые составные unique/индексы/FK из 22.1 рядом со старыми (FK как `NOT VALID`, затем `VALIDATE`). Старые уникальные индексы и PK остаются, поэтому старый код продолжает работать | сессия 3 |
+| 5 | Проверка: на каждой таблице `count(*)` до и после равны; `count(*) where user_id <> <owner id>` = 0; суммы `play_duration_seconds` по снимкам, количество `game_status` и `trophies` совпадают с контрольными значениями до миграции | сессия 3 |
+| 6 | Выкладка кода со слоем `scope` (22.6), все API на `userId` | сессия 3 |
+| 7 | **`0015_user_id_contract`**: снять `default` с `user_id`; удалить старые unique по `title_id` и `np_communication_id`, `(set,trophy)`, `(game,date)`, `planned_games_external_key`; PK пяти таблиц с ключом не по `game_id` (`recommend_llm_usage`, `recommend_discover_cache`, `recommend_external_dislikes`, `psn_profile`, `roadmap_settings`) заменить на составные с `user_id`; снять singleton CHECK (`id = 1`); колонки `id` у `psn_profile` и `roadmap_settings` удалить (`-- DATA LOSS: колонка id, значение всегда 1`). Требует согласия Артёма | сессия 3, после проверки `0014` в проде |
+| 8 | `MULTIUSER_ENABLED=1` ставится только после `0015` и QA изоляции; затем можно добавлять `member` | после 20.5 |
+
+Откат:
+- `0013`: код сессии 2 откатывается деплоем предыдущей версии; `drop table allowed_users` и `drop column login_attempts.kind` безопасны (данных пользователей нет). Старые `v:1` cookie продолжают работать.
+- `0014`: аддитивна, предыдущий код работает на новой схеме (колонки имеют default, старые индексы на месте). Откат = деплой предыдущей версии; колонки можно оставить. Полный откат схемы — `drop column user_id` отдельной миграцией (потери данных нет, пока пользователь один).
+- `0015`: необратима по ограничениям. Откат = восстановление из ветки Neon/PITR, сделанной перед ней, плюс деплой предыдущей версии. Поэтому `0015` выкладывается отдельно от `0014`, после суток наблюдения.
+- Ошибка в середине `0014`: миграция в одной транзакции (DDL Postgres транзакционный), частичного состояния нет.
+
+### 22.8 Переменные окружения (дополнение к разделу 5)
+
+| Переменная | Обяз. | Описание |
+|---|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | да (для Google-входа) | уже в Vercel. Redirect URI в консоли Google: `${APP_ORIGIN}/api/auth/google/callback`. Секрет не логируется |
+| `APP_ORIGIN` | да (с Фазы 20) | был необязательным (15.4); теперь задаёт `redirect_uri` и проверку `Origin` |
+| `OWNER_EMAIL` | для `db:bootstrap-owner` | email владельца (Google-аккаунт Артёма), только сервер/CI |
+| `MULTIUSER_ENABLED` | нет, `0` | `1` разрешает добавлять `member` (22.7, шаг 8) |
+| `MAX_USERS` | нет, `10` | потолок `invited` + `active` |
+| `PSN_NEW_USER_MODE` | нет, `public` | `public` \| `friend` (план Б, 22.2) |
+| `PSN_TARGET_ONLINE_ID` | после миграции не обязательна | используется только `db:bootstrap-owner` |
+
+### 22.9 Что остаётся на сессии 2–4
+
+| Сессия | Подфаза | Объём |
+|---|---|---|
+| 2 | 20.2 | Миграция `0013`, `db:bootstrap-owner`, сессия `v:2` (+ совместимость `v:1`), `requireUser`, Google OAuth (22.4), лимиты, `/api/auth/me`, эндпоинты «Доступ» (22.5), страницы `/login` (кнопка Google) и «Доступ» (frontend), `multiuser_not_ready` |
+| 3 | 20.3 | `0014`, проверка (шаг 5), слой `scope` и перевод всех API/`stats`/`recommend`/`roadmap`/`wrapped`/`export`, ESLint-запрет, тесты утечек, `0015` |
+| 4 | 20.4 | Синк по пользователям (очередь поверх глобального «один `running`»), звенья cron, `PUT /api/me/psn` и проверка доступа к профилю (`psn_access_status`), онбординг, план Б при необходимости, лимиты LLM/RAWG/HLTB на пользователя + общий потолок, Telegram/бэкап владельцу по всем |
+| QA | 20.5 | Изоляция, роли, миграция на копии прод-данных, e2e на двух пользователях |
+
+Нерешённое для 20.4: точные коды ответа `PUT /api/me/psn` и способ проверки закрытого профиля (зависят от результата проверки открытого профиля без дружбы); период повторной проверки `unavailable`.
