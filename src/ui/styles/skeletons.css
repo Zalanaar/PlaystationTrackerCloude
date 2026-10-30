@@ -1,0 +1,82 @@
+/* Скелеты загрузки. Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+.ps-sk-cover { aspect-ratio: var(--cover-ratio); border-radius: var(--r-cover); }
+.ps-sk-line { height: 12px; width: 70%; margin-top: var(--sp-2); border-radius: var(--r-sm); }
+.ps-sk-hero { height: var(--hero-h); border-radius: var(--r-lg); }
+.ps-sk-year { height: 28px; width: 40%; border-radius: var(--r-sm); }
+.ps-sk-row { height: 56px; border-radius: 0; margin-bottom: 1px; }
+@keyframes ps-shimmer { to { background-position: -200% 0; } }
+/* ---------- Скелеты (§8.4) ---------- */
+.ps-sk-wrap { display: contents; }
+.ps-sk-hero2 { height: var(--hero-box-h); border-radius: var(--r-lg); }
+.ps-sk-profile { width: 360px; max-width: 100%; height: 80px; border-radius: var(--r-lg); }
+.ps-sk-yearrow { padding-bottom: 10px; border-bottom: var(--border-w) solid var(--border); }
+.ps-sk-year2 { display: block; width: 140px; height: 32px; border-radius: var(--r-sm); }
+.ps-sk-results { padding-top: var(--sp-4); }
+.ps-sk-title { display: block; padding-top: var(--sp-2); height: var(--sk-title-block); }
+.ps-sk-title > span { display: block; height: 16px; width: 80%; border-radius: var(--r-sm); }
+.ps-sk-title > span + span { margin-top: 4px; width: 50%; }
+.ps-sk-grid > li { display: block; }
+.ps-sk-grid[data-density="dense"] .ps-sk-cover { margin: 0; }
+.ps-sk-search { flex: 1 1 260px; max-width: 360px; min-width: 0; height: var(--control-h); border-radius: var(--r-chip); }
+.ps-sk-chip { flex: none; height: var(--control-h); border-radius: var(--r-chip); }
+.ps-sk-sort { width: 187px; height: var(--control-h); border-radius: var(--r-sm); }
+.ps-sk-view { width: 198px; height: var(--control-h); border-radius: var(--r-sm); }
+.ps-sk-select { width: 110px; height: var(--control-h); border-radius: var(--r-md); }
+.ps-sk-menu { width: 36px; height: var(--control-h); border-radius: var(--r-md); }
+.ps-sk-m { display: none; }
+.ps-sk-msearch { flex: 1 1 auto; min-width: 0; height: 40px; border-radius: var(--r-chip); }
+.ps-sk-fbtn { flex: none; width: var(--tap-min); height: 40px; border-radius: var(--r-md); }
+.ps-sk-blfilters { height: 80px; border-radius: var(--r-md); }
+.ps-sk-stat120 { display: inline-block; width: 120px; height: 20px; border-radius: var(--r-sm); }
+.ps-sk-qhead { width: 200px; height: 32px; margin-bottom: var(--sp-3); }
+.ps-sk-qrow { height: var(--rm-row-h); margin-bottom: 6px; border-radius: var(--r-md); }
+.ps-sk-seg220, .ps-sk-seg280 { display: block; height: var(--control-h); border-radius: var(--r-sm); margin-bottom: var(--sp-3); }
+.ps-sk-seg220 { width: 220px; }
+.ps-sk-seg280 { width: 280px; }
+.ps-sk-reccards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--card-gap); }
+.ps-sk-reccard { min-height: 172px; border-radius: var(--r-lg); }
+.ps-sk-switch { display: block; width: 240px; max-width: 100%; height: var(--control-h); border-radius: var(--r-sm); }
+.ps-sk-st { margin-top: var(--sp-4); }
+.ps-sk-ptitle { width: 200px; height: 24px; margin-bottom: var(--sp-5); }
+.ps-sk-chart { height: var(--chart-h); }
+.ps-sk-grow { height: 20px; margin-bottom: 8px; }
+.ps-sk-toprow { height: 56px; margin-bottom: 1px; border-radius: 0; }
+.ps-sk-troph { height: 64px; margin-bottom: var(--sp-3); }
+.ps-sk-played { display: flex; flex-direction: column; }
+.ps-sk-monthrow { display: block; width: 140px; height: 20px; margin: var(--sp-1) 0 var(--sp-3); border-radius: var(--r-sm); }
+.ps-sk-back { display: block; width: 100px; height: 36px; border-radius: var(--r-sm); }
+.ps-sk-btn200 { display: block; width: 200px; height: var(--control-h); border-radius: var(--r-md); }
+.ps-sk-tri { padding-top: 28px; }
+.ps-sk-tricover { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: var(--r-lg); }
+.ps-sk-tricenter { display: flex; flex-direction: column; gap: var(--sp-5); }
+.ps-sk-trititle { display: block; width: 100%; height: 36px; }
+.ps-sk-triacts { display: block; width: 440px; max-width: 100%; height: 52px; }
+.ps-sk-triqueue { display: block; width: 100%; height: 320px; }
+/* число скелет-карточек по колонкам: 12 / 10 / 8 / 6 (comfort), 20 / 16 / 12 / 6 (dense) */
+.ps-sk-grid[data-density="comfort"] > li:nth-child(n+13) { display: none; }
+.ps-sk-grid[data-density="dense"] > li:nth-child(n+21) { display: none; }
+@media (max-width: 1279px) {
+  .ps-sk-grid[data-density="comfort"] > li:nth-child(n+11) { display: none; }
+  .ps-sk-grid[data-density="dense"] > li:nth-child(n+17) { display: none; }
+}
+@media (max-width: 1023px) {
+  .ps-sk-grid[data-density="comfort"] > li:nth-child(n+9) { display: none; }
+  .ps-sk-grid[data-density="dense"] > li:nth-child(n+13) { display: none; }
+}
+@media (max-width: 767px) {
+  .ps-sk-grid > li:nth-child(n+7) { display: none; }
+  .ps-sk-profile { width: 100%; height: var(--profile-row-h); margin-top: var(--sp-3); }
+  .ps-sk-m { display: block; }
+  .ps-sk-d { display: none; }
+  .ps-sk-chip { height: var(--control-h); }
+  .ps-sk-blfilters { height: 202px; }
+  .ps-sk-reccards { grid-template-columns: minmax(0, 1fr); }
+  .ps-sk-toprow { height: 64px; }
+  .ps-sk-back { height: var(--tap-min); }
+  .ps-sk-tricover { width: min(100%, 320px); }
+  .ps-sk-triqueue { display: none; }
+  .ps-sk-triacts { width: 100%; height: 56px; }
+  .ps-sk-switch { max-width: 100%; }
+}
+.ps-sk-anchors > span { display: inline-block; width: 64px; height: 24px; border-radius: var(--r-chip); }

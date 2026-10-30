@@ -1,0 +1,101 @@
+/* Разбор (Triage): стопка карточек, жесты, очередь. Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+.ps-bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-bar span { display: block; height: 100%; background: var(--accent); }
+/* ---------- Разбор ---------- */
+.ps-tri { padding: var(--sp-3) 0 var(--sp-10); }
+.ps-tri__top { display: flex; align-items: center; gap: var(--sp-4); padding-top: var(--sp-3); }
+.ps-tri__pos { font: 600 13px/16px var(--font-display); white-space: nowrap; }
+.ps-pbar { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.ps-pbar i { display: block; height: 100%; background: var(--accent); }
+.ps-tri__left { color: var(--text-2); font-size: var(--fs-small); white-space: nowrap; }
+.ps-tri__exit { height: 32px; font-size: var(--fs-small); }
+.ps-tri kbd, .ps-tri__hints kbd { margin-right: 6px; padding: 0 5px; border: 1px solid var(--border-strong); border-radius: 4px; color: var(--text-2); font: 500 11px/16px var(--font-body); }
+.ps-tri__exit kbd { margin: 0 0 0 4px; }
+.ps-tri__center { min-width: 0; }
+.ps-tri__grid { display: grid; grid-template-columns: 340px minmax(0, 1fr) 220px; gap: var(--sp-10); align-items: start; padding-top: 28px; }
+.ps-tri__coverwrap { position: relative; }
+.ps-tri .ps-tri__cover { border-radius: var(--r-lg); box-shadow: 0 24px 56px rgba(0, 0, 0, .5); }
+.ps-tri__ghost { position: absolute; inset: 0; pointer-events: none; animation: ps-tri-out var(--dur-slow) var(--ease-out) forwards; }
+.ps-tri__ghost[data-dir="completed"] { animation-name: ps-tri-right; }
+.ps-tri__ghost[data-dir="dropped"] { animation-name: ps-tri-left; }
+.ps-tri__ghost[data-dir="backlog"] { animation-name: ps-tri-up; }
+.ps-tri__ghost[data-dir="skip"] { animation-name: ps-tri-down; }
+@keyframes ps-tri-out { to { opacity: 0; transform: translateX(48px) rotate(4deg); } }
+@keyframes ps-tri-right { to { opacity: 0; transform: translateX(120%) rotate(12deg); } }
+@keyframes ps-tri-left { to { opacity: 0; transform: translateX(-120%) rotate(-12deg); } }
+@keyframes ps-tri-up { to { opacity: 0; transform: translateY(-120%); } }
+@keyframes ps-tri-down { to { opacity: 0; transform: translateY(120%); } }
+.ps-tri__title { margin: var(--sp-2) 0 0; font: 700 30px/36px var(--font-display); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.ps-tri__facts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: var(--sp-3) 0 28px; color: var(--text-2); }
+.ps-tri__facts b { color: var(--text); font-weight: 600; }
+.ps-keys { display: grid; gap: var(--sp-2); max-width: 440px; }
+.ps-key { display: grid; grid-template-columns: 28px 20px 1fr auto; align-items: center; gap: var(--sp-3); width: 100%; height: 52px; padding: 0 var(--sp-4) 0 10px; background: color-mix(in srgb, var(--surface) 80%, transparent); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text); text-align: left; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-ui), background var(--dur-fast) var(--ease-ui); }
+.ps-key:hover, .ps-key:active { border-color: var(--st-x); background: color-mix(in srgb, var(--st-x) 10%, var(--surface)); }
+.ps-key kbd { display: grid; place-items: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 6px; background: var(--surface-3); color: var(--text); font: 600 13px var(--font-body); }
+.ps-key__l { font-weight: 600; }
+.ps-key__h { color: var(--text-3); font-size: var(--fs-small); }
+.ps-tri__note { margin: var(--sp-4) 0 0; color: var(--text-2); font-size: 13px; }
+.ps-tri__hints { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-5); font-size: var(--fs-small); }
+.ps-tri__hints .ps-link { color: var(--text-3); }
+.ps-tri__hints .ps-link:disabled { opacity: .5; cursor: default; }
+.ps-queue__head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ps-queue ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.ps-queue { min-width: 0; }
+.ps-queue__q { min-width: 0; display: flex; gap: 10px; align-items: center; opacity: .85; }
+.ps-queue__q:nth-child(n+4) { opacity: .5; }
+.ps-queue .ps-queue__th { width: 36px; height: 48px; aspect-ratio: auto; border-radius: 6px; flex: none; }
+.ps-queue__q > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ps-queue__t { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-queue__m { font-size: var(--fs-small); color: var(--text-3); }
+.ps-tri--done { padding-top: var(--sp-8); }
+.ps-tri__sum { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2) var(--sp-5); margin: 0; padding: 0; list-style: none; color: var(--text-2); }
+.ps-tri__sum li { display: inline-flex; align-items: center; gap: 6px; }
+.ps-tri__sum b { color: var(--text); font-weight: 600; }
+/* мобильный разбор */
+.ps-tri__m { padding-top: var(--sp-3); }
+.ps-stack3 { position: relative; aspect-ratio: var(--cover-ratio); margin: 14px var(--sp-2) 20px; }
+.ps-stack3__under { position: absolute; inset: 0; border-radius: var(--r-lg); background: var(--surface-2); transform: translateY(10px) scale(.94); opacity: .7; }
+.ps-stack3__under--2 { transform: translateY(20px) scale(.88); opacity: .4; }
+.ps-stack3__top { position: absolute; inset: 0; border-radius: var(--r-lg); overflow: hidden; background: var(--surface-3); box-shadow: var(--shadow-pop); touch-action: none; user-select: none; cursor: grab; transition: transform var(--dur-base) var(--ease-out); }
+.ps-stack3 .ps-stack3__img { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; pointer-events: none; -webkit-user-drag: none; }
+.ps-stack3__cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 56px 14px 12px; background: var(--cover-scrim); color: var(--scrim-text); text-shadow: var(--cover-shadow-text); }
+.ps-stack3__cap h2 { margin: 0; font: 700 17px/22px var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.ps-stack3__cap span { font-size: var(--fs-small); }
+.ps-tri__edges { display: flex; justify-content: space-between; gap: var(--sp-2); margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-micro); }
+.ps-tri__edges span { display: inline-flex; align-items: center; gap: 4px; }
+.ps-tri__actions { display: flex; gap: 6px; margin-top: var(--sp-5); }
+.ps-tri__actions button { display: grid; place-items: center; align-content: center; gap: 2px; flex: 1; min-width: 0; height: 56px; padding: 0; background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text-2); font-size: 10px; cursor: pointer; }
+.ps-tri__actions button:active { border-color: var(--st-x); }
+.ps-tri__row2 { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.ps-tri__row2 .ps-btn { flex: 1; height: var(--tap-min); }
+/* ---------- Адаптив ---------- */
+@media (max-width: 999px) {
+  .ps-tri__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .ps-tri__exit kbd { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-tri__ghost { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-stack3__top { transition: none; }
+}
+/* ---------- Забытые в Разборе (п.10) ---------- */
+.ps-tri__mode { margin-top: var(--sp-3); }
+.ps-tri__mode button { white-space: nowrap; }
+.ps-tri__fhint { margin: calc(-1 * var(--sp-4)) 0 var(--sp-4); max-width: 440px; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-queue__q > span.ps-queue__thw { position: relative; display: block; flex: none; }
+.ps-queue__dot {
+  position: absolute; left: 2px; bottom: 2px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--on-cover-bg); color: var(--on-cover-text);
+}
+.ps-stack3__fg {
+  position: absolute; z-index: 2; top: 12px; left: 12px; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: var(--r-pill);
+  background: var(--on-cover-bg); color: var(--on-cover-text); border: var(--border-w) solid var(--on-cover-border); font: 600 11px/14px var(--font-body);
+}
+@media (max-width: 767px) {
+  .ps-tri__mode { display: flex; width: 100%; }
+  .ps-tri__mode button { flex: 1; height: 40px; }
+}

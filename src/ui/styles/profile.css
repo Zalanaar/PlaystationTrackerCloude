@@ -1,0 +1,76 @@
+/* Аватар PSN и профиль. Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+.ps-avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; background: var(--surface-3); color: var(--text); font-weight: 700; border: 0; cursor: pointer; overflow: hidden; }
+/* ---------- Аватар PSN (§4.16) ---------- */
+.ps-av { display: inline-grid; place-items: center; flex: none; box-sizing: border-box; border-radius: 50%; overflow: hidden; background: var(--surface-3); color: var(--text); border: 2px solid var(--border-strong); }
+.ps-av__img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ps-av__ini { font: var(--fw-display) 20px/1 var(--font-display); }
+.ps-av--32 { width: 32px; height: 32px; border-width: 0; }
+.ps-av--32 .ps-av__ini { font-size: 13px; }
+.ps-av--40 { width: 40px; height: 40px; }
+.ps-av--40 .ps-av__ini { font-size: 16px; }
+.ps-av--56 { width: 56px; height: 56px; }
+.ps-av--96 { width: 96px; height: 96px; }
+.ps-av--96 .ps-av__ini { font-size: 40px; }
+/* ---------- Профиль в шапке Коллекции (§4.16.1) ---------- */
+.ps-profile { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; padding: var(--sp-3) var(--sp-4); background: color-mix(in srgb, var(--surface) 80%, transparent); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-profile__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ps-profile__nick { margin: 0; font: 600 15px/20px var(--font-display); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.ps-profile__lvl { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-profile__pill { display: inline-flex; align-items: center; height: 20px; padding: 0 var(--sp-2); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; }
+.ps-profile__next { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-profile__bar { width: 200px; max-width: 100%; height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-profile__bar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.ps-profile__tr { padding-left: var(--sp-4); border-left: var(--border-w) solid var(--border); }
+.ps-profile__cells { display: flex; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.ps-profile__cells li { display: inline-flex; align-items: center; gap: 4px; color: var(--tc); }
+.ps-profile__cells li[data-kind="platinum"] { --tc: var(--plat-text); }
+.ps-profile__cells li[data-kind="gold"] { --tc: var(--gold); }
+.ps-profile__cells li[data-kind="silver"] { --tc: var(--silver); }
+.ps-profile__cells li[data-kind="bronze"] { --tc: var(--bronze); }
+.ps-profile__cells b { color: var(--text); font: 600 14px/20px var(--font-body); }
+.ps-profile__total { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-profile--sk { pointer-events: none; }
+.ps-profile__sk-av { width: 56px; height: 56px; border-radius: 50%; flex: none; }
+.ps-profile__sk-tx { display: grid; gap: var(--sp-2); }
+.ps-profile__sk-tx span:first-child { width: 140px; height: 14px; }
+.ps-profile__sk-tx span:last-child { width: 200px; height: 6px; }
+.ps-profile__sk-tr { display: flex; gap: var(--sp-2); padding-left: var(--sp-4); }
+.ps-profile__sk-tr span { width: 36px; height: 16px; }
+@media (max-width: 767px) {
+  .ps-profile { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); margin-top: var(--sp-3); padding: var(--sp-3); }
+  .ps-profile .ps-av--56 { width: 48px; height: 48px; }
+  .ps-profile__nick { max-width: none; }
+  .ps-profile__bar { width: 100%; }
+  .ps-profile__tr { grid-column: 1 / -1; padding: var(--sp-3) 0 0; border-left: 0; border-top: var(--border-w) solid var(--border); }
+  .ps-profile__cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+  .ps-profile__cells li { flex-direction: column; gap: 2px; }
+  .ps-profile__total { margin-top: var(--sp-2); text-align: center; }
+  .ps-profile--sk { grid-template-columns: auto minmax(0, 1fr); }
+  .ps-profile__sk-tr { grid-column: 1 / -1; padding-left: 0; }
+}
+/* ---------- Меню профиля (§4.16.4) ---------- */
+.ps-profmenu .ps-pop__panel { width: 260px; background: var(--surface-3); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
+.ps-profmenu__head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); margin-bottom: var(--sp-1); border-bottom: var(--border-w) solid var(--border); }
+.ps-profmenu__head--sheet { padding: 0 0 var(--sp-3); }
+.ps-profmenu__tx { display: flex; flex-direction: column; min-width: 0; }
+.ps-profmenu__tx b { font: 600 14px/20px var(--font-body); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-profmenu__tx small { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-avatar .ps-av { display: block; width: 100%; height: 100%; }
+/* ---------- Мобильный первый экран Коллекции ---------- */
+.ps-av--36 { width: 36px; height: 36px; }
+.ps-av--36 .ps-av__ini { font-size: 15px; }
+.ps-profile--row {
+  position: relative; display: flex; align-items: center; gap: var(--sp-3); height: var(--profile-row-h); margin-top: var(--sp-3); padding: 0 var(--sp-3);
+  background: color-mix(in srgb, var(--surface) 80%, transparent); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+}
+.ps-profile--row .ps-profile__nick { flex: 1; min-width: 0; font: 600 14px/20px var(--font-display); }
+.ps-profile--row .ps-profile__pill { flex: none; }
+.ps-profile__plat { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--plat-text); }
+.ps-profile__plat b { color: var(--text); font: 600 14px/20px var(--font-body); }
+.ps-profile__rbar { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: 0; height: 3px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-profile__rbar i { display: block; height: 100%; background: var(--accent); }
+.ps-profile--row.ps-profile--sk { display: flex; }
+.ps-profile--row .ps-profile__sk-av { width: 36px; height: 36px; }
+.ps-profile__sk-nick { width: 120px; height: 14px; margin-right: auto; }
+.ps-profile__sk-pill { width: 56px; height: 20px; border-radius: var(--r-chip); }

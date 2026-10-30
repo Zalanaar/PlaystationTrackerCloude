@@ -1,0 +1,67 @@
+/* Хроника: блоки, годы и месяцы, чипы месяцев. Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+/* ---------- Блоки и хроника ---------- */
+.ps-blocks { display: flex; flex-direction: column; gap: 36px; padding-top: var(--sp-4); }
+.ps-block { min-width: 0; scroll-margin-top: calc(var(--header-h) + var(--sp-3)); }
+.ps-block__head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: 14px; }
+.ps-block__cnt { color: var(--text-3); font-size: 13px; }
+.ps-block__act { margin-left: auto; display: inline-flex; align-items: center; font-size: 13px; }
+.ps-chron { scroll-margin-top: calc(var(--header-h) + var(--sp-3)); }
+.ps-chron + .ps-chron { margin-top: var(--sp-5); }
+.ps-chron__flat { padding-top: var(--sp-4); }
+.ps-year { margin: 0; font: inherit; }
+.ps-year__btn { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 16px; width: 100%; padding: 0 0 10px; background: none; border: 0; border-bottom: var(--border-w) solid var(--border); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ps-year__btn[data-expanded="false"] { border-bottom-color: transparent; opacity: .85; }
+.ps-year__btn:hover { opacity: 1; }
+.ps-year__y { font: var(--fw-year) var(--fs-year)/var(--lh-year) var(--font-display); letter-spacing: -.02em; }
+.ps-year__btn[data-plain="true"] .ps-year__y { font-size: 20px; line-height: 24px; }
+.ps-year__k { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font: 400 14px/20px var(--font-body); white-space: nowrap; }
+.ps-year__k b { color: var(--text); font-weight: 600; }
+.ps-block-error { margin: 0; }
+.ps-year__hint, .ps-year__exp { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-month { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 20px 0 10px; color: var(--text-2); font: 600 13px/16px var(--font-body); }
+.ps-month small { display: inline-flex; flex: none; gap: 10px; color: var(--text-3); font-weight: 400; font-size: var(--fs-small); white-space: nowrap; }
+.ps-month small > span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.ps-block__note { margin: calc(-1 * var(--sp-2)) 0 var(--sp-4); color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-stamp { position: absolute; top: 18px; left: 16px; z-index: 3; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 var(--sp-3); border: 2px solid var(--st-x); border-radius: var(--r-sm); background: var(--on-cover-bg); color: var(--st-x); font: 700 13px var(--font-display); transform: rotate(-6deg); }
+@media (max-width: 767px) {
+  .ps-blocks { gap: 28px; }
+  .ps-year__y { font-size: var(--fs-year); }
+  .ps-year__k { font-size: 13px; }
+  .ps-year__more, .ps-year__hint { display: none; }
+  .ps-block__head { margin-bottom: var(--sp-3); }
+}
+.ps-block__head:has(.ps-chipbtn) { flex-wrap: wrap; }
+@media (max-width: 767px) {
+  #unsorted .ps-block__head { row-gap: var(--sp-2); }
+}
+@media (max-width: 767px) {
+  #unsorted .ps-block__act { order: 4; }
+}
+/* ---------- Чипы месяцев ---------- */
+.ps-mchips { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-2); height: var(--mchips-h); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.ps-mchips::-webkit-scrollbar { display: none; }
+.ps-chron > .ps-mchips {
+  position: sticky; top: var(--header-h); z-index: 5; margin-top: var(--sp-2); margin-bottom: var(--sp-3);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+@media (min-width: 768px) { .ps-chron > .ps-mchips { backdrop-filter: blur(8px); }
+}
+@media (max-width: 767px) { .ps-chron > .ps-mchips { background: var(--bg); }
+}
+.ps-mchips--static { position: static; margin-bottom: var(--sp-3); }
+.ps-mchips button.ps-mchip {
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: var(--mchip-h); padding: 0 var(--sp-3);
+  background: none; border: var(--border-w) solid transparent; border-radius: var(--r-chip); color: var(--text-2);
+  font: 500 var(--fs-body)/var(--lh-body) var(--font-body); white-space: nowrap; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.ps-mchips button.ps-mchip::after { content: ""; position: absolute; inset: -4px -2px; }
+.ps-mchips button.ps-mchip small { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 500; color: var(--text-3); }
+.ps-mchips button.ps-mchip:hover { background: var(--surface-2); color: var(--text); }
+.ps-mchips button.ps-mchip:focus-visible { box-shadow: var(--shadow-focus); }
+.ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); }
+.ps-mchips--sk { margin-top: var(--sp-2); margin-bottom: var(--sp-3); overflow: hidden; }
+.ps-mchip-sk { flex: none; width: 56px; height: var(--mchip-h); border-radius: var(--r-chip); }
+.ps-chron__body { padding-top: var(--sp-4); }
+.ps-mchips + .ps-chron__body { padding-top: 0; }

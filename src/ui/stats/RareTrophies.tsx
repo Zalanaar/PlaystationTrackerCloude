@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import type { RareTrophy, StatsGenreGame, StatsResponse } from '@/server/stats/types';
 import { Cover } from '../collection/Cover';
 import { Icon, PlatinumIcon } from '../icons';
-import '../phase15.css';
 import { RARE_EMPTY, RARE_SUBTITLE, rareList, rareRows, type RareRow, type RareScope } from './rare';
 
 /** Иконка трофея с запасным значком (нет адреса или не загрузилась). */
