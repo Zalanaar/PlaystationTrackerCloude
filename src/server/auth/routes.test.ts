@@ -21,6 +21,9 @@ vi.mock('./attempts', () => ({
   }),
 }));
 
+vi.mock('@/db', () => ({ getDb: () => ({}) }));
+vi.mock('./users', () => ({ getOwner: vi.fn(async () => ({ id: 1, role: 'owner', status: 'active' })) }));
+
 import { POST as login } from '@/app/api/auth/login/route';
 import { POST as logout } from '@/app/api/auth/logout/route';
 

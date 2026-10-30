@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { proxy, config as configRef } from './proxy';
-import { createSessionToken, SESSION_COOKIE } from './server/auth/session';
+import { createSessionToken, createSessionTokenV2, SESSION_COOKIE } from './server/auth/session';
 import { originAllowed } from './server/http';
 
 const SECRET = 's'.repeat(40);
@@ -141,4 +141,22 @@ describe('proxy: matcher', () => {
       expect(matches(p), p).toBe(true);
     }
   });
+
+  it('Google-вход открыт без сессии, /api/auth/me закрыт', async () => {
+    vi.stubEnv('SESSION_SECRET', SECRET);
+    for (const p of ['/api/auth/google', '/api/auth/google/callback']) {
+      const r = await proxy(req(p));
+      expect(r.status).toBe(200);
+      expect(r.headers.get('x-middleware-next')).toBe('1');
+    }
+    expect((await proxy(req('/api/auth/me'))).status).toBe(401);
+    expect((await proxy(req('/api/access/users'))).status).toBe(401);
+  });
+
+  it('cookie v:2 проходит proxy (проверка подписи без БД)', async () => {
+    vi.stubEnv('SESSION_SECRET', SECRET);
+    const t = await createSessionTokenV2(SECRET, { uid: 3, role: 'member', amr: 'google' });
+    expect((await proxy(req('/api/anything', { cookie: t }))).status).toBe(200);
+  });
+
 });
