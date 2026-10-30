@@ -13,6 +13,7 @@
     "psn:probe": "tsx --env-file-if-exists=.env scripts/psn-probe.ts",
     "psn:typecheck": "tsc --noEmit -p tsconfig.probe.json",
     "db:generate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs generate",
+    "db:bootstrap-owner": "tsx --env-file-if-exists=.env scripts/bootstrap-owner.ts",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate"
   },
   "dependencies": {

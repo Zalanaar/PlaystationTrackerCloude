@@ -14,7 +14,8 @@ function json(status: number, code: string, message: string) {
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (pathname === '/api/auth/login' || pathname === '/api/auth/logout') {
+  // Контракт 22.4: вход открыт без сессии (старт и callback Google); /api/auth/me требует сессию
+  if (pathname === '/api/auth/login' || pathname === '/api/auth/logout' || pathname === '/api/auth/google' || pathname === '/api/auth/google/callback') {
     return NextResponse.next({ headers: NO_STORE });
   }
 
