@@ -67,6 +67,10 @@ async function lowContrast(page: Page): Promise<string[]> {
         if (s.backgroundImage !== 'none') { skip = true; break; }
         const b = parse(s.backgroundColor);
         if (b && b.a >= 0.95) { bg = b; break; }
+        // фон может рисоваться псевдоэлементом ::before (PS5: pill активной подвкладки)
+        const pb = getComputedStyle(a, '::before');
+        const pbg = a.matches('.ps-subnav a[aria-current="page"]') && pb.content !== 'none' ? parse(pb.backgroundColor) : null;
+        if (pbg && pbg.a >= 0.95) { bg = pbg; break; }
       }
       if (skip || !bg) continue;
       const L1 = lum(fg), L2 = lum(bg);

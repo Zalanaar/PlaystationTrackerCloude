@@ -94,8 +94,12 @@ test.describe('Фаза 8: «Игры месяца» на /stats', () => {
     await expect(oneFeb.locator('.ps-card__meta')).toHaveAttribute('aria-label', 'примерно 7 ч 30 м за месяц');
     // клик открывает окно игры
     await oneFeb.locator('.ps-card__hit').click();
-    await expect(page.getByRole('dialog', { name: 'Игра Один' })).toBeVisible();
+    // Фаза 18 (§8.6): /?game=1 поверх Коллекции, закрытие возвращает на /stats
+    await expect(page).toHaveURL(/\/\?game=1$/);
+    await expect(page.getByRole('dialog', { name: 'The Witcher 3: Wild Hunt' })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(page.locator('section[aria-labelledby="st-played"]')).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
     if (SHOTS) {
