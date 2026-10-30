@@ -1,6 +1,7 @@
 // Схема БД строго по docs/api-contract.md, раздел 1.
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -249,8 +250,50 @@ export const loginAttempts = pgTable(
     ipHash: text('ip_hash').notNull(),
     attemptedAt: tz('attempted_at').notNull().defaultNow(),
     success: boolean().notNull(),
+    // Фаза 20 (контракт 22.1): счётчики пароля и Google независимы
+    kind: text().notNull().default('password'),
   },
-  (t) => [index('login_attempts_ip_time_idx').on(t.ipHash, t.attemptedAt.desc())],
+  (t) => [
+    index('login_attempts_ip_time_idx').on(t.ipHash, t.attemptedAt.desc()),
+    check('login_attempts_kind_check', sql`${t.kind} in ('password','google')`),
+  ],
+);
+
+// Фаза 20 (контракт 22.2): белый список = пользователи. id == userId.
+export const allowedUsers = pgTable(
+  'allowed_users',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    email: text().notNull(),
+    role: text().notNull().default('member'),
+    status: text().notNull().default('invited'),
+    googleSub: text('google_sub'),
+    displayName: text('display_name'),
+    psnOnlineId: text('psn_online_id'),
+    psnAccountId: text('psn_account_id'),
+    psnAccessMode: text('psn_access_mode').notNull().default('public'),
+    psnAccessStatus: text('psn_access_status').notNull().default('unchecked'),
+    psnAccessCheckedAt: tz('psn_access_checked_at'),
+    onboardedAt: tz('onboarded_at'),
+    lastLoginAt: tz('last_login_at'),
+    invitedBy: integer('invited_by').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'set null' }),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('allowed_users_email_key').on(t.email),
+    uniqueIndex('allowed_users_google_sub_key').on(t.googleSub).where(sql`${t.googleSub} is not null`),
+    uniqueIndex('allowed_users_single_owner_key').on(sql`(true)`).where(sql`${t.role} = 'owner'`),
+    check('allowed_users_role_check', sql`${t.role} in ('owner','member')`),
+    check('allowed_users_status_check', sql`${t.status} in ('invited','active','blocked')`),
+    check('allowed_users_psn_access_mode_check', sql`${t.psnAccessMode} in ('public','friend')`),
+    check(
+      'allowed_users_psn_access_status_check',
+      sql`${t.psnAccessStatus} in ('unchecked','ok','private','not_found','friend_required','unavailable')`,
+    ),
+    check('allowed_users_email_check', sql`${t.email} ~ '^[^@\\s]+@[^@\\s]+$' and char_length(${t.email}) <= 254`),
+    check('allowed_users_owner_not_blocked_check', sql`${t.role} <> 'owner' or ${t.status} <> 'blocked'`),
+  ],
 );
 
 // Фаза 8 (контракт 1.12): копии game_status перед сбросом всей коллекции и перед откатом. Без FK намеренно.
