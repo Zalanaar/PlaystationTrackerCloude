@@ -5,9 +5,9 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsGenreGame, StatsResponse } from '@/server/stats/types';
-import { ApiError, errorText, fetchStats, patchStatusDate, putHidden, putStatus } from '../collection/api';
+import { ApiError, errorText, fetchStats, patchStatusDate, putStatus } from '../collection/api';
 import { type GameActions } from '../collection/GameCard';
-import { GameDialog, type GameStub } from '../collection/GameDialog';
+import { useOpenGameFromPage } from '../collection/useGameLink';
 import { EmptyState } from '../EmptyState';
 import { formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
@@ -40,8 +40,6 @@ export function StatsView() {
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<number[]>([]);
-  /** Окно игры: полный GameItem, если он известен, иначе заглушка (открытие из поповера жанров) */
-  const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null; tab?: 'trophies' } | null>(null);
   const reqId = useRef(0);
 
   const load = useCallback(async (s: Selection, k: string, svc: boolean) => {
@@ -94,58 +92,24 @@ export function StatsView() {
   const setStatus = useCallback(async (g: GameItem, status: GameStatusValue | null) => {
     if (g.status === status) return;
     try {
-      const r = await putStatus(g.id, status);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
+      await putStatus(g.id, status);
       toast({ text: status === null ? 'Статус сброшен' : 'Статус изменён', action: { label: 'Отменить', run: () => void revert(g) } });
       reload();
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
     }
   }, [reload, revert, toast]);
-  const unhide = useCallback(async (g: GameItem) => {
-    try {
-      const r = await putHidden(g.id, false);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
-      toast({ text: `«${g.title}» возвращена в коллекцию` });
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось вернуть игру. ${errorText(e)}` });
-    }
-    reload();
-  }, [reload, toast]);
-  const setHidden = useCallback(async (g: GameItem, hidden: boolean) => {
-    if (!hidden) return void unhide(g);
-    try {
-      await putHidden(g.id, true);
-      setOpen(null);
-      toast({ text: `«${g.title}» убрана из коллекции`, action: { label: 'Вернуть', run: () => void unhide(g) } });
-      reload();
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось убрать игру. ${errorText(e)}` });
-    }
-  }, [reload, toast, unhide]);
-  const setDate = useCallback(async (g: GameItem, kind: 'completed' | 'dropped', iso: string) => {
-    try {
-      const r = await patchStatusDate(g.id, kind, iso);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
-      toast({ text: 'Дата завершения сохранена' });
-      reload();
-    } catch (e) {
-      toast({ kind: 'error', text: `Не удалось сохранить дату. ${errorText(e)}` });
-    }
-  }, [reload, toast]);
+  const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
-    open: (g) => setOpen({ id: g.id, game: g, stub: null }),
+    open: (g) => openGameLink(g.id),
     setStatus: (g, s) => void setStatus(g, s),
     toggle: () => {},
-  }), [setStatus]);
+  }), [setStatus, openGameLink]);
 
-  const openGame = useCallback((g: GameItem) => setOpen({ id: g.id, game: g, stub: null }), []);
-  const openStub = useCallback((g: StatsGenreGame) => setOpen({ id: g.id, game: null, stub: { id: g.id, title: g.title, coverUrl: g.coverUrl } }), []);
+  const openGame = useCallback((g: GameItem) => openGameLink(g.id), [openGameLink]);
+  const openStub = useCallback((g: StatsGenreGame) => openGameLink(g.id), [openGameLink]);
   /** Редкий трофей открывает окно игры сразу на вкладке «Трофеи» (Фаза 9.1) */
-  const openRare = useCallback((g: StatsGenreGame) => setOpen({ id: g.id, game: null, stub: { id: g.id, title: g.title, coverUrl: g.coverUrl }, tab: 'trophies' }), []);
-  const dialogGame = open
-    ? (data?.played.games[String(open.id)] ?? open.game)
-    : null;
+  const openRare = useCallback((g: StatsGenreGame) => openGameLink(g.id, 'trophies'), [openGameLink]);
 
   return (
     <div className="ps-stats-page">
@@ -171,13 +135,6 @@ export function StatsView() {
           <Content data={data} sel={sel} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
         </div>
       )}
-      <GameDialog
-        key={open ? `${open.id}:${open.tab ?? ''}` : 'closed'} initialTab={open?.tab}
-        game={dialogGame} stub={open?.stub ?? null} startEditing={false} now={now} onClose={() => setOpen(null)}
-        onLoaded={(g) => setOpen((o) => (o && o.id === g.id && !o.game ? { ...o, game: g } : o))}
-        onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
-        onHidden={(g, h) => void setHidden(g, h)}
-      />
     </div>
   );
 }

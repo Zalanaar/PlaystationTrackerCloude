@@ -71,3 +71,15 @@ export function useGameLink() {
 
   return { gameId, tab, open, close, drop, notFound };
 }
+
+/**
+ * Переход к игре со страницы, отличной от Коллекции (Статистика, Бэклог, Подскажи, Разбор): §8.6,
+ * `/?game=<id>[&tab=trophies]` через `router.push`; закрытие окна `back()` возвращает на исходную страницу.
+ */
+export function useOpenGameFromPage() {
+  const router = useRouter();
+  return useCallback((id: number, tab?: GameLinkTab) => {
+    pushedFor = id;
+    router.push(gameHref('', id, tab), { scroll: false });
+  }, [router]);
+}

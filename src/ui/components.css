@@ -948,7 +948,7 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-top__name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 }
 
-/* Tab bar на 6 ячеек (фаза 13, п.2.1): подпись 10px на всех ширинах <768, ниже 360 «Статистика» -> «Стат.» */
+/* Tab bar: подпись 10px на всех ширинах <768 */
 @media (min-width: 768px) and (max-width: 1023px) { .ps-nav-item { padding: 0 10px; } .ps-nav-item[aria-current="page"]::after { left: 10px; right: 10px; } }
 
 /* Шапка на планшете (768-1023): 5 вкладок + синк + тема + аватар не помещаются, текст синка скрыт, остаётся точка с aria-label (BUG-1 фазы 12) */

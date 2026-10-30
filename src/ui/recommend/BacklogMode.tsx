@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ApiError, fetchSummary, putStatus } from '../collection/api';
-import { GameDialog, type GameStub } from '../collection/GameDialog';
-import type { GameItem } from '@/server/collection/types';
+import { useOpenGameFromPage } from '../collection/useGameLink';
 import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../recommend.css';
@@ -39,8 +38,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [restoring, setRestoring] = useState<ReadonlySet<string>>(new Set());
   const [backlog, setBacklog] = useState<number | 'fail' | null>(null);
-  const [now] = useState(() => Date.now());
-  const [open, setOpen] = useState<{ id: number; game: GameItem | null; stub: GameStub | null } | null>(null);
+  const openGameLink = useOpenGameFromPage();
   const reqRef = useRef(0);
   const hidReq = useRef(0);
   const ttlRef = useRef(DEFAULT_TTL_DAYS);
@@ -197,19 +195,6 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
   useEffect(() => { latest.current = { load, loadHidden, start, hide };
     ttlRef.current = ttlDays; });
 
-  const openGame = (id: number, name: string, cover: string | null) => setOpen({ id, game: null, stub: { id, title: name, coverUrl: cover } });
-  const dialogGame = open?.game ?? null;
-  const setStatus = useCallback(async (g: GameItem, status: GameItem['status']) => {
-    try {
-      const r = await putStatus(g.id, status);
-      setOpen((o) => (o && o.id === g.id ? { ...o, game: r.game } : o));
-      toast({ text: 'Статус изменён' });
-      reload();
-    } catch (e) {
-      toast({ text: e instanceof ApiError && e.status === 404 ? 'Игры уже нет в библиотеке' : 'Не удалось сменить статус. Повтори' });
-    }
-  }, [reload, toast]);
-
   // стрелки/Home/End выбирают и применяют (roving tabindex)
   const onRadioKey = (e: KeyboardEvent, i: number) => {
     const n = TIME_OPTIONS.length;
@@ -345,7 +330,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
                   key={it.game.id} item={it} index={i} total={items.length} wide={wide}
                   open={expanded.has(it.game.id)} busy={busy.get(it.game.id) ?? null} locked={false}
                   onToggle={() => toggle(it.game.id)}
-                  onOpenGame={() => openGame(it.game.id, it.game.name, it.game.imageUrl)}
+                  onOpenGame={() => openGameLink(it.game.id)}
                   onStart={() => void start(it.game.id, it.game.name)}
                   onHide={() => void hide(it.game.id, it.game.name)} hideHint={hiddenForText(ttlDays)}
                 />
@@ -365,11 +350,6 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
         />
       )}
 
-      <GameDialog
-        game={dialogGame} stub={open?.stub ?? null} startEditing={false} now={now} onClose={() => setOpen(null)}
-        onLoaded={(g) => setOpen((o) => (o && o.id === g.id && !o.game ? { ...o, game: g } : o))}
-        onStatus={(g, s) => void setStatus(g, s)} onDate={() => {}}
-      />
     </div>
   );
 }

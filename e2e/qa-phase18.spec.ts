@@ -264,7 +264,6 @@ test.describe('QA 18: CLS Плана и Подскажи', () => {
   for (const [w, h] of [[1440, 900], [390, 844]] as const) {
     test(`План, ${w}`, async ({ page, context, baseURL }, info) => {
       test.skip(info.project.name === 'mobile', 'размер задаётся вручную');
-      test.fail(w === 390, 'N-1 (docs/qa/phase-18.md): CLS Плана на 390 > 0.05; снять после исправления');
       await setup(page, context, baseURL!);
       const games = Array.from({ length: 9 }, (_, i) => ({ id: 20 + i, title: `Длинная ${i + 1}`, hours: 400 }));
       await mockRoadmap(page, process.env.QA_BASE_PLAN ? baseState() : baseState({ hoursPerWeek: 0.5, games, order: games.map((g) => g.id) }));

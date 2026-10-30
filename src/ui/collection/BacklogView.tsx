@@ -8,7 +8,6 @@ import '../backlog.css';
 import { EmptyState } from '../EmptyState';
 import { formatNumber } from '../format';
 import { Icon, StatusGlyph } from '../icons';
-import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
@@ -19,7 +18,7 @@ import {
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
 import { HltbRunner } from './HltbRunner';
-import { GameDialog } from './GameDialog';
+import { useOpenGameFromPage } from './useGameLink';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 
@@ -43,7 +42,6 @@ export function BacklogView() {
     setFiltersState(next);
   }, [urlKey]);
   const toast = useToast();
-  const now = useNow();
   const [items, setItems] = useState<GameItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<DurationCounts | null>(null);
@@ -52,7 +50,6 @@ export function BacklogView() {
   const [loading, setLoading] = useState(true);
   const reqRef = useRef(0);
   const [error, setError] = useState(false);
-  const [open, setOpen] = useState<GameItem | null>(null);
   const [more, setMore] = useState(false);
   const itemsRef = useRef<GameItem[] | null>(null);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -158,7 +155,6 @@ export function BacklogView() {
     };
     const sync = () => { void load(); void loadService(); };
     apply(game, status);
-    setOpen(null);
     try {
       await putStatus(game.id, status);
       sync();
@@ -187,11 +183,12 @@ export function BacklogView() {
     }
   }, [load, loadService, toast]);
 
+  const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
-    open: (g) => setOpen(g),
+    open: (g) => openGameLink(g.id),
     setStatus: (g, s) => void change(g, s),
     toggle: () => {},
-  }), [change]);
+  }), [change, openGameLink]);
 
   return (
     <div className="ps-collection">
@@ -296,11 +293,6 @@ export function BacklogView() {
           )}
         </section>
       )}
-      <GameDialog
-        game={open ? (items?.find((g) => g.id === open.id) ?? service?.find((g) => g.id === open.id) ?? open) : null} startEditing={false} now={now} onClose={() => setOpen(null)}
-        onStatus={(g, s) => void change(g, s)} onDate={() => {}}
-        onGameChanged={(g) => { setOpen(g); setItems((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); setService((l) => l?.map((x) => (x.id === g.id ? g : x)) ?? l); void load(); void loadService(); }}
-      />
     </div>
   );
 }

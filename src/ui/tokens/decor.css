@@ -134,6 +134,14 @@
   align-self: center; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
 }
 [data-theme="ps5"] .ps-subnav a[aria-current="page"]::after { display: none; }
+/* Мобильный: ячейки равной ширины и зона нажатия на всю высоту (--tap-min); pill рисуется ::before, размеры ячейки не меняются */
+@media (max-width: 767px) {
+  [data-theme="ps5"] .ps-subnav a[aria-current="page"] { align-self: stretch; height: auto; padding: 0; background: none; isolation: isolate; }
+  [data-theme="ps5"] .ps-subnav a[aria-current="page"]::before {
+    content: ""; position: absolute; z-index: -1; left: var(--sp-2); right: var(--sp-2); top: 50%; height: 32px; transform: translateY(-50%);
+    border-radius: 999px; background: var(--accent);
+  }
+}
 [data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 [data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small { color: inherit; opacity: .65; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }

@@ -148,6 +148,7 @@
 .ps-sk-blfilters { height: 80px; border-radius: var(--r-md); }
 .ps-sk-stat120 { display: inline-block; width: 120px; height: 20px; border-radius: var(--r-sm); }
 .ps-rm-sk-set { height: 96px; }
+@media (max-width: 767px) { .ps-rm-sk-set { height: 224px; } }
 .ps-sk-qhead { width: 200px; height: 32px; margin-bottom: var(--sp-3); }
 .ps-sk-qrow { height: var(--rm-row-h); margin-bottom: 6px; border-radius: var(--r-md); }
 .ps-sk-seg220, .ps-sk-seg280 { display: block; height: var(--control-h); border-radius: var(--r-sm); margin-bottom: var(--sp-3); }
