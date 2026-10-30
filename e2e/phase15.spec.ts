@@ -57,7 +57,9 @@ const noOverflow = async (page: Page) => expect(await page.evaluate(() => docume
 
 test.describe('Редкие трофеи (Статистика)', () => {
   test('топ-5: процент с запятой, редкость, сирота без кнопки, переключатель области', async ({ page, context, baseURL }) => {
-    await setup(page, context, baseURL!, { rare: { period: RARE_PERIOD, allTime: RARE_ALL } });
+    // игра 17 должна быть в каталоге мока: иначе переход на /?game=17 (Фаза 18) даёт 404 и окно сразу закрывается
+    const horizon: G = { id: 17, title: 'Horizon Forbidden West', lastPlayedAt: '2026-10-20T18:00:00.000Z', status: 'playing', completedAt: null, droppedAt: null, playSeconds: 101853, playCount: 19 };
+    await setup(page, context, baseURL!, { rare: { period: RARE_PERIOD, allTime: RARE_ALL }, games: [...seed(), horizon] });
     await page.goto('/stats');
     const panel = page.getByRole('region', { name: 'Редкие трофеи' });
     await expect(panel).toBeVisible();
@@ -83,6 +85,9 @@ test.describe('Редкие трофеи (Статистика)', () => {
     // клик по строке открывает окно игры
     await seg.getByRole('button', { name: String(THIS_YEAR) }).click();
     await panel.locator('.ps-rare__row').first().getByRole('button').click();
+    await expect(page).toHaveURL(/\/\?game=17&tab=trophies$/);
+    await expect(page.getByRole('dialog', { name: 'Horizon Forbidden West' })).toBeVisible();
+    await page.waitForTimeout(1500); // окно не должно закрыться само (404)
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 
