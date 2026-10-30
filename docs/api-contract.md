@@ -1880,3 +1880,22 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ### 20.10 Переменные окружения
 Новых нет. Изменён смысл `LLM_DAILY_LIMIT` (общий предохранитель, 20.4). `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` теперь используются также для алерта `sync_missed` и еженедельной копии; без них эти отправки `telegram_disabled`, остальное работает.
+
+## 21. Заголовки безопасности (Фаза 19)
+
+Источник: `src/shared/security-headers.ts`, подключено в `next.config.ts` (`headers()`, source `/:path*`: страницы, `/api/*`, manifest, иконки; в том числе ответы 401/redirect из `proxy.ts`).
+
+| Заголовок | Значение |
+|---|---|
+| X-Content-Type-Options | `nosniff` |
+| Referrer-Policy | `strict-origin-when-cross-origin` |
+| X-Frame-Options | `DENY` (и `frame-ancestors 'none'` в CSP) |
+| Permissions-Policy | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
+| Strict-Transport-Security | `max-age=31536000` (без includeSubDomains и preload: домен `*.vercel.app` не наш) |
+| Content-Security-Policy | см. ниже |
+
+CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsafe-inline'`; `style-src 'self' 'unsafe-inline'`; `img-src 'self' data: blob: https:`; `font-src 'self' data:` (next/font отдаёт шрифты с нашего origin); `connect-src 'self'` (браузер ходит только в наш API, PSN/RAWG/HLTB/Groq/Telegram вызывает сервер); `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'`; `upgrade-insecure-requests`. В dev добавляются `'unsafe-eval'` и `ws:`.
+
+Почему `'unsafe-inline'` в script-src: layout содержит inline-скрипт темы, плюс inline-бутстрап Next. Строгий CSP требует nonce из `proxy.ts` и nonce в `<script>` layout (`src/app`, вне зоны этой правки) и тогда все страницы строго динамические. Это возможный следующий шаг; сейчас CSP закрывает всё остальное (чужие скрипты по внешним URL, плагины, фреймы, внешние формы, `<base>`, XHR на чужие хосты). `img-src https:` широкий намеренно: обложки идут с CDN PSN, RAWG, HLTB и по пользовательской https-ссылке (`coverUrl` роадмапа). Report-Only не использован: отчётов некуда слать, а enforce проверен в браузере (prod-сборка, 0 нарушений).
+
+Тесты: `src/shared/security-headers.test.ts` (Vitest), `e2e/security-headers.spec.ts` (заголовки на странице, /api 401, manifest, иконка; отсутствие CSP-нарушений в консоли).
