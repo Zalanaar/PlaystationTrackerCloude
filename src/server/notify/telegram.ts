@@ -3,6 +3,7 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { getAppOrigin } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
 
 const { syncRuns, psnAuth, notifyLog } = schema;
@@ -21,6 +22,21 @@ export function getTelegramEnv(env: Record<string, string | undefined> = process
   const token = env.TELEGRAM_BOT_TOKEN?.trim();
   const chatId = env.TELEGRAM_CHAT_ID?.trim();
   return token && chatId ? { token, chatId } : null;
+}
+
+/**
+ * Абсолютная ссылка на игру `{origin}/?game=<id>` (контракт 15.4). null, если APP_ORIGIN не задан или у игры нет
+ * записи в библиотеке (gameId не положительное целое): тогда ссылку не добавляем.
+ */
+export function gameLink(gameId: number | null | undefined, origin: string | null = getAppOrigin()): string | null {
+  if (!origin || gameId === null || gameId === undefined || !Number.isSafeInteger(gameId) || gameId <= 0) return null;
+  return `${origin}/?game=${gameId}`;
+}
+
+/** Строка сообщения про игру: «Название» плюс ссылка на новой строке, если она есть. Не бросает. */
+export function gameLine(title: string, gameId: number | null | undefined, origin: string | null = getAppOrigin()): string {
+  const link = gameLink(gameId, origin);
+  return link ? `${title}\n${link}` : title;
 }
 
 /** Отправка одного сообщения. Любая ошибка проглатывается (false); в консоль идёт только короткий код. */

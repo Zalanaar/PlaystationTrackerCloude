@@ -49,10 +49,11 @@ export async function proxy(req: NextRequest) {
 }
 
 // /api/* всегда проходит через proxy (первый паттерн); статика по расширению пропускается только вне /api.
+// manifest.webmanifest и иконки (icon.svg, favicon.ico, apple-icon.png, /icons/*.png) открыты: без них «На экран Домой» не работает.
 // Строки должны быть статичными (требование Next), без шаблонов.
 export const config = {
   matcher: [
     '/api/:path*',
-    '/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|otf)$).*)',
+    '/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico$|manifest\\.webmanifest$|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|otf)$).*)',
   ],
 };

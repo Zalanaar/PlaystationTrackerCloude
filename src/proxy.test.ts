@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { proxy } from './proxy';
+import { proxy, config as configRef } from './proxy';
 import { createSessionToken, SESSION_COOKIE } from './server/auth/session';
 import { originAllowed } from './server/http';
 
@@ -121,5 +121,24 @@ describe('B4: matcher', async () => {
   it('статика вне /api пропускается, страницы нет', () => {
     for (const p of ['/logo.png', '/fonts/a.woff2', '/favicon.ico', '/_next/static/x.js']) expect(matches(p)).toBe(false);
     for (const p of ['/', '/games', '/login', '/apiary.png.html']) expect(matches(p)).toBe(true);
+  });
+});
+
+describe('proxy: matcher', () => {
+  // Next компилирует matcher через path-to-regexp; для негативного lookahead достаточно якорного RegExp.
+  const config = configRef;
+  const matches = (path: string) =>
+    config.matcher.some((m) => (m === '/api/:path*' ? path === '/api' || path.startsWith('/api/') : new RegExp(`^${m}$`).test(path)));
+
+  it('манифест и иконки не проходят через proxy', () => {
+    for (const p of ['/manifest.webmanifest', '/icon.svg', '/favicon.ico', '/apple-icon.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/_next/static/a.js']) {
+      expect(matches(p), p).toBe(false);
+    }
+  });
+
+  it('страницы и любой /api/* остаются закрытыми', () => {
+    for (const p of ['/', '/login', '/games', '/api/health', '/api/manifest.webmanifest', '/api/x.png', '/manifest.webmanifest/x']) {
+      expect(matches(p), p).toBe(true);
+    }
   });
 });

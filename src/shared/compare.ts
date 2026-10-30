@@ -11,3 +11,8 @@ export function compareText(a: string, b: string): number {
   if (fx !== fy) return fx < fy ? -1 : 1;
   return x < y ? -1 : x > y ? 1 : 0;
 }
+
+/** Тай-брейк «название, затем id» для сортировок статистики, Wrapped и коллекции. */
+export function compareTitleId(a: { title: string; id: number }, b: { title: string; id: number }): number {
+  return compareText(a.title, b.title) || a.id - b.id;
+}
