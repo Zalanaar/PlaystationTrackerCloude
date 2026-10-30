@@ -404,6 +404,19 @@ describe('схема allowed_users', () => {
     await x(`insert into allowed_users (email, google_sub) values ('p@x.com','dup'), ('q@x.com',null), ('r@x.com',null)`);
     await expect(x(`insert into allowed_users (email, google_sub) values ('s@x.com','dup')`)).rejects.toThrow();
   });
+  it('runBootstrapOwner: id=1 даёт 0, id<>1 даёт 1 без email в сообщении', async () => {
+    const { runBootstrapOwner } = await import('./users');
+    const ok = await runBootstrapOwner(t.db, 'owner@x.com', null);
+    expect(ok.code).toBe(0);
+    await pgc(t).exec('TRUNCATE allowed_users CASCADE'); // без RESTART IDENTITY: следующий id = 2
+    const bad = await runBootstrapOwner(t.db, 'secret-owner@x.com', null);
+    expect(bad.code).toBe(1);
+    expect(bad.message).toContain('должен быть 1');
+    expect(bad.message).not.toContain('secret-owner');
+    const again = await runBootstrapOwner(t.db, 'secret-owner@x.com', null); // уже существующий owner с id=2
+    expect(again.code).toBe(1);
+  });
+
   it('bootstrapOwner идемпотентен', async () => {
     expect(await bootstrapOwner(t.db, 'owner@x.com', null)).toBe(false);
     expect(await bootstrapOwner(t.db, 'other@x.com', null)).toBe(false);

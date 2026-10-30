@@ -1,7 +1,7 @@
 // Запуск: npm run db:bootstrap-owner (читает .env). Идемпотентно вставляет owner из OWNER_EMAIL (контракт 22.7, шаг 2).
 // Требует применённой миграции 0013. Email и строка подключения не выводятся.
 import { getDb } from "../src/db";
-import { bootstrapOwner, getOwner, normalizeEmail } from "../src/server/auth/users";
+import { normalizeEmail, runBootstrapOwner } from "../src/server/auth/users";
 
 async function main(): Promise<number> {
   const email = normalizeEmail(process.env.OWNER_EMAIL);
@@ -10,20 +10,10 @@ async function main(): Promise<number> {
     return 1;
   }
   const db = getDb();
-  const existing = await getOwner(db);
-  if (existing) {
-    console.log(`owner уже есть (id=${existing.id}), ничего не меняю.`);
-    return 0;
-  }
   const online = process.env.PSN_TARGET_ONLINE_ID?.trim() || null;
-  const inserted = await bootstrapOwner(db, email, online);
-  if (!inserted) {
-    console.error("owner не создан: email уже занят другой строкой.");
-    return 1;
-  }
-  const created = await getOwner(db);
-  console.log(`owner создан (id=${created?.id}).`);
-  return 0;
+  const r = await runBootstrapOwner(db, email, online);
+  (r.code === 0 ? console.log : console.error)(r.message);
+  return r.code;
 }
 
 main().then(

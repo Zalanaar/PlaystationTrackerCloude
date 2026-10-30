@@ -2031,7 +2031,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 | Шаг | Что | Когда |
 |---|---|---|
 | 1 | **`0013_allowed_users`** (безопасная, только добавляет): `create table allowed_users` (22.2), `login_attempts.kind` с default. Существующие таблицы данных не затрагиваются, текущий код работает без изменений | сессия 2 |
-| 2 | `npm run db:bootstrap-owner`: идемпотентно вставляет owner (`id = 1`, `role = owner`, `status = active`, `email = OWNER_EMAIL`, `psn_online_id = PSN_TARGET_ONLINE_ID`, `psn_access_status = ok`); если owner уже есть, ничего не меняет. Вне SQL-миграции, чтобы e-mail не жил в репозитории | сессия 2 |
+| 2 | `npm run db:bootstrap-owner`: идемпотентно вставляет owner (`id = 1`, `role = owner`, `status = active`, `email = OWNER_EMAIL`, `psn_online_id = PSN_TARGET_ONLINE_ID`, `psn_access_status = ok`); если owner уже есть, ничего не меняет. После вставки и при существующем owner проверяет `owner.id = 1` (на него завязаны cookie `v:1` и backfill `0014`); иначе `exit 1` с сообщением без email. Вне SQL-миграции, чтобы e-mail не жил в репозитории. **Порядок выкладки строго: `0013` → `db:bootstrap-owner` → деплой кода**; деплой до bootstrap оставит `allowed_users` без owner и закроет вход всем | сессия 2 |
 | 3 | Код сессии 2: вход Google, `v:2`, «Доступ». Данные ещё не user-scoped, `member` добавлять нельзя: `POST /api/access/users` отвечает `409 multiuser_not_ready`, пока `MULTIUSER_ENABLED` не `1` | сессия 2 |
 | 4 | **`0014_user_id_expand`** (expand, без потери): во все user-scoped таблицы (22.1) `user_id integer not null default <owner id> references allowed_users(id) on delete cascade` (добавление с default = backfill на owner одним ALTER; `owner id` подставляется скриптом миграции из `allowed_users where role='owner'`, при отсутствии owner миграция падает). Добавляются новые составные unique/индексы/FK из 22.1 рядом со старыми (FK как `NOT VALID`, затем `VALIDATE`). Старые уникальные индексы и PK остаются, поэтому старый код продолжает работать | сессия 3 |
 | 5 | Проверка: на каждой таблице `count(*)` до и после равны; `count(*) where user_id <> <owner id>` = 0; суммы `play_duration_seconds` по снимкам, количество `game_status` и `trophies` совпадают с контрольными значениями до миграции | сессия 3 |
@@ -2050,8 +2050,8 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 | Переменная | Обяз. | Описание |
 |---|---|---|
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | да (для Google-входа) | уже в Vercel. Redirect URI в консоли Google: `${APP_ORIGIN}/api/auth/google/callback`. Секрет не логируется |
-| `APP_ORIGIN` | да (с Фазы 20) | был необязательным (15.4); теперь задаёт `redirect_uri` и проверку `Origin` |
-| `OWNER_EMAIL` | для `db:bootstrap-owner` | email владельца (Google-аккаунт Артёма), только сервер/CI |
+| `APP_ORIGIN` | да (с Фазы 20) | был необязательным (15.4); теперь задаёт `redirect_uri` и проверку `Origin`. **Должен быть единственным боевым доменом**: cookie `pst_oauth` ставится на хост начала входа, а callback идёт на `APP_ORIGIN`; вход с www/preview-хоста даст `oauth_failed` (корректный отказ, но неочевидный) |
+| `OWNER_EMAIL` | для `db:bootstrap-owner` | email владельца (Google-аккаунт Артёма), только сервер/CI. **Порядок: `0013` → `db:bootstrap-owner` → деплой** (22.7); при `owner.id <> 1` скрипт падает |
 | `MULTIUSER_ENABLED` | нет, `0` | `1` разрешает добавлять `member` (22.7, шаг 8) |
 | `MAX_USERS` | нет, `10` | потолок `invited` + `active` |
 | `PSN_NEW_USER_MODE` | нет, `public` | `public` \| `friend` (план Б, 22.2) |

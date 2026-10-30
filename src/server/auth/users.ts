@@ -196,3 +196,21 @@ export async function bootstrapOwner(db: AnyDb, email: string, psnOnlineId: stri
   return rows.length === 1;
 }
 
+/** Логика db:bootstrap-owner. owner.id обязан быть 1: на него завязан cookie v:1 (22.7). Сообщения без email. */
+export async function runBootstrapOwner(db: AnyDb, email: string, psnOnlineId: string | null): Promise<{ code: 0 | 1; message: string }> {
+  const existing = await getOwner(db);
+  if (!existing) {
+    const inserted = await bootstrapOwner(db, email, psnOnlineId);
+    if (!inserted) return { code: 1, message: 'owner не создан: email уже занят другой строкой.' };
+  }
+  const owner = existing ?? (await getOwner(db));
+  if (!owner) return { code: 1, message: 'owner не найден после вставки.' };
+  if (owner.id !== 1) {
+    return {
+      code: 1,
+      message: `owner.id = ${owner.id}, а должен быть 1 (на него завязан cookie v:1 и backfill 0014). Остановитесь: не применяйте 0014 и не деплойте, пересоздайте allowed_users или восстановите ветку Neon.`,
+    };
+  }
+  return { code: 0, message: existing ? 'owner уже есть (id=1), ничего не меняю.' : 'owner создан (id=1).' };
+}
+
