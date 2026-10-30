@@ -1,0 +1,10 @@
+/* План: кнопка «Показать все N». Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+/* ---------- План: «Показать все N» ---------- */
+.ps-rm-more { display: flex; justify-content: center; margin-top: var(--sp-3); }
+.ps-rm-more .ps-btn { height: var(--control-h); }
+@media (max-width: 767px) { .ps-rm-more .ps-btn { width: 100%; height: var(--tap-min); }
+}
+.ps-rm-sk-set { height: 96px; }
+@media (max-width: 767px) { .ps-rm-sk-set { height: 224px; }
+}

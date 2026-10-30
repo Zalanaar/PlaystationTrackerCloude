@@ -11,7 +11,6 @@ import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useMediaQuery, useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
-import '../phase15.css';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
 import { FORGOTTEN_HINT, forgottenChipText, forgottenCountOf, forgottenSpan, isForgotten, triageSegments } from './forgotten';

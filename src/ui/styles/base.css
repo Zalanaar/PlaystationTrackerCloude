@@ -1,0 +1,265 @@
+/* Основа: оболочка, типографика, кнопки, меню, шапка, навигация, окна и шторки, тосты, баннеры, ошибки и 404. Только токены. Порядок подключения файлов в src/app/layout.tsx значим для каскада. */
+
+/* Компоненты PS Tracker (направление A «Полка» + B «Хроника»). Только токены (tokens.css / themes.css), без сырых цветов. */
+.ps-app { position: relative; min-height: 100vh; }
+.ps-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ps-num { font-variant-numeric: tabular-nums; font-family: var(--font-num); }
+.ps-container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); }
+.ps-main { padding-block: var(--sp-6) var(--sp-10); }
+.ps-h1 { font: var(--fw-h1) var(--fs-h1)/var(--lh-h1) var(--font-display); letter-spacing: -.01em; margin: 0; }
+.ps-h2 { font: var(--fw-h2) var(--fs-h2)/var(--lh-h2) var(--font-display); letter-spacing: -.005em; margin: 0; }
+.ps-h2--icon { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ps-h3 { font: var(--fw-h3) var(--fs-h3)/var(--lh-h3) var(--font-display); margin: 0; }
+.ps-micro { font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); text-transform: uppercase; letter-spacing: var(--ls-micro); color: var(--text-2); margin: 0; }
+.ps-accent { color: var(--accent); }
+.ps-desktop-only { display: block; }
+.ps-mobile-only { display: none; }
+.ps-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-list { display: flex; flex-direction: column; }
+/* ---------- Кнопки, ссылки ---------- */
+.ps-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  height: var(--control-h); padding: 0 var(--sp-3); border-radius: var(--r-md);
+  background: var(--surface-2); border: var(--border-w) solid var(--border); color: var(--text);
+  font-size: var(--fs-body); font-weight: 500; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-ui), border-color var(--dur-fast) var(--ease-ui);
+}
+.ps-btn:hover:not(:disabled) { border-color: var(--border-strong); }
+.ps-btn:disabled { opacity: .6; cursor: default; }
+.ps-btn[aria-pressed="true"] { background: var(--surface-2); border-color: var(--border-strong); }
+a.ps-btn { text-decoration: none; }
+.ps-btn--primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; text-decoration: none; }
+.ps-btn--sm { height: 32px; font-size: var(--fs-small); padding: 0 var(--sp-2); }
+.ps-link--plain { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.ps-btn--ghost { background: transparent; }
+.ps-btn--outline { background: transparent; border-color: var(--accent); color: var(--accent); }
+.ps-btn--off { opacity: .6; }
+/* Опасные действия (скрыть, сбросить всё): второстепенная кнопка с текстом --danger, не первичная */
+.ps-btn--danger { color: var(--danger); }
+.ps-btn--danger:hover:not(:disabled) { border-color: var(--danger); }
+.ps-btn--icon { width: var(--control-h); padding: 0; flex: none; }
+.ps-menu-item--danger { color: var(--danger); }
+.ps-iconbtn {
+  display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-sm);
+  background: transparent; border: 0; color: var(--text-2); cursor: pointer;
+}
+.ps-iconbtn:hover { color: var(--text); background: var(--surface-2); }
+.ps-iconbtn.ps-mobile-only { display: none; }
+.ps-link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.ps-trigger { background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1); border-radius: var(--r-pill); }
+/* ---------- Шапка ---------- */
+.ps-header { position: sticky; top: 0; z-index: var(--z-header); background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: var(--border-w) solid var(--border); }
+.ps-header__in { display: flex; align-items: center; gap: var(--sp-6); min-height: var(--header-h); }
+.ps-logo { font: 700 13px/1 var(--font-display); text-transform: uppercase; letter-spacing: .14em; color: var(--text); text-decoration: none; white-space: nowrap; }
+.ps-nav { display: flex; gap: var(--sp-1); align-self: stretch; }
+.ps-nav-item {
+  position: relative; display: inline-flex; align-items: center; padding: 0 var(--sp-3);
+  color: var(--text-2); font-size: var(--fs-body); font-weight: 500; text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-ui);
+}
+.ps-nav-item:hover { color: var(--text); }
+.ps-nav-item[aria-current="page"] { color: var(--text); }
+.ps-nav-item[aria-current="page"]::after { content: ""; position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+.ps-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
+.ps-btn--sync, .ps-btn--theme { background: transparent; border-color: transparent; font-size: var(--fs-small); color: var(--text-2); }
+.ps-btn--theme { border-color: var(--border); color: var(--text-2); height: 32px; border-radius: var(--r-chip); }
+.ps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); display: inline-block; flex: none; }
+.ps-dot[data-tone="ok"] { background: var(--success); }
+.ps-dot[data-tone="warn"] { background: var(--warning); }
+.ps-dot[data-tone="bad"] { background: var(--danger); }
+.ps-dot[data-tone="busy"] { background: var(--accent); animation: ps-pulse 1.2s ease-in-out infinite; }
+@keyframes ps-pulse { 50% { opacity: .35; } }
+.ps-swatch { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border-strong); flex: none; }
+.ps-swatch__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+/* ---------- Меню, попап, окно ---------- */
+.ps-pop { position: relative; display: inline-block; }
+.ps-pop__panel {
+  position: absolute; top: calc(100% + 6px); z-index: var(--z-popup); min-width: 200px; padding: var(--sp-1);
+  background: var(--surface-2); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-md); box-shadow: var(--shadow-pop);
+  animation: ps-pop-in var(--dur-base) var(--ease-out);
+}
+.ps-pop__panel[data-align="end"] { right: 0; }
+.ps-pop__panel[data-align="start"] { left: 0; }
+@keyframes ps-pop-in { from { opacity: 0; transform: scale(.98); } }
+.ps-menu-item {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 36px; padding: 0 var(--sp-3);
+  background: none; border: 0; border-radius: var(--r-sm); color: var(--text); font: inherit; cursor: pointer; text-align: left;
+}
+.ps-menu-item--tall { min-height: 40px; }
+.ps-menu-item--sep { border-top: 1px solid var(--border); border-radius: 0; margin-top: var(--sp-1); }
+.ps-menu-item { text-decoration: none; }
+.ps-menu-item:hover:not(:disabled), .ps-menu-item[aria-checked="true"] { background: var(--surface-3); }
+.ps-menu-item__label { flex: 1; }
+.ps-menu-item__hint { display: block; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; }
+.ps-sheet-wrap { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; }
+.ps-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .6); }
+.ps-sheet {
+  position: relative; width: min(480px, calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 2 * var(--sp-6)); overflow: auto;
+  background: var(--surface); color: var(--text); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: var(--sp-4);
+}
+.ps-sheet[data-wide="true"] { width: min(720px, calc(100vw - 2 * var(--gutter))); }
+.ps-sheet__handle { display: none; }
+.ps-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.ps-sheet:focus { outline: none; }
+.ps-toasts { position: fixed; z-index: var(--z-toast); left: 50%; bottom: var(--sp-6); transform: translateX(-50%); display: flex; flex-direction: column; gap: var(--sp-2); width: min(360px, calc(100vw - 2 * var(--gutter))); }
+.ps-toast { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--surface-3); color: var(--text); border-radius: var(--r-md); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
+.ps-toast[data-kind="error"] { border-left: 4px solid var(--danger); }
+/* Тост с «Отменить»/«Вернуть» после действия в открытом окне игры должен быть доступен: над модалкой, а не под затемнением */
+:root:has(.ps-sheet-wrap) .ps-toasts, :root:has(.ps-gd) .ps-toasts { z-index: calc(var(--z-modal) + 1); }
+.ps-toast__msg { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ps-toast__msg svg { flex: none; }
+.ps-toast__action { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: var(--sp-1); }
+/* ---------- Баннеры ---------- */
+.ps-banner { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); border-left: 4px solid var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+.ps-banner[data-tone="danger"] { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
+.ps-banner__text { flex: 1; margin: 0; }
+.ps-banner__actions { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-inline-error { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-2); margin: 0; }
+.ps-hint { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--accent-soft); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-hint svg { flex: none; margin-top: 0; }
+/* Текст и затемнение поверх обложек (hero, hover-оверлей, карточка Разбора): всегда белое на тёмном скриме, не зависят от темы (PS1 светлая). */
+.ps-app { --cover-shadow-text: 0 1px 2px rgba(0, 0, 0, .6); }
+[data-status="playing"] { --st-x: var(--st-playing); }
+[data-status="completed"] { --st-x: var(--st-completed); }
+[data-status="backlog"] { --st-x: var(--st-backlog); }
+[data-status="dropped"] { --st-x: var(--st-dropped); }
+[data-status="shelved"] { --st-x: var(--st-shelved); }
+[data-status="service"] { --st-x: var(--st-service); }
+[data-status="none"] { --st-x: var(--st-none); }
+.ps-btn--filters, .ps-btn--select { flex: none; }
+.ps-input { height: var(--control-h); padding: 0 var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text); font: inherit; color-scheme: dark; }
+/* skeleton */
+.ps-skeleton { background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: ps-shimmer 1.4s linear infinite; border-radius: var(--r-md); }
+:root:has(.ps-selbar) .ps-toasts { bottom: 88px; }
+.ps-inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* ---------- Пустые состояния ---------- */
+.ps-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-12) var(--sp-4); text-align: center; background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-empty__icon { color: var(--text-3); display: inline-flex; }
+.ps-empty__text { margin: 0; max-width: 420px; color: var(--text-2); }
+.ps-empty__progress { width: min(360px, 100%); display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-sheet__sub { margin: 0 0 var(--sp-2); color: var(--text-2); font-size: 13px; }
+/* ---------- Tab bar ---------- */
+.ps-tabbar { display: none; }
+.ps-tab { position: relative; }
+@media (max-width: 767px) {
+  .ps-desktop-only { display: none; }
+  .ps-mobile-only { display: inline-grid; }
+  .ps-main { padding-block: var(--sp-5) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-5)); }
+  .ps-header__in { gap: var(--sp-3); }
+  .ps-nav { display: none; }
+  .ps-sync-text { display: none; }
+  .ps-btn--sync { padding: 0; width: var(--tap-min); height: var(--tap-min); }
+  .ps-iconbtn.ps-mobile-only { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
+}
+@media (max-width: 767px) {
+  .ps-btn--select { width: var(--control-h); padding: 0; }
+  .ps-btn__t { display: none; }
+}
+@media (max-width: 767px) {
+  .ps-banner { flex-wrap: wrap; }
+}
+@media (max-width: 767px) {
+  .ps-btn--icon { width: var(--tap-min); height: var(--tap-min); }
+}
+@media (max-width: 767px) {
+
+
+  /* список */
+}
+@media (max-width: 767px) {
+
+  .ps-tabbar {
+    position: fixed; z-index: var(--z-header); left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+    background: var(--header-bg); backdrop-filter: blur(12px); border-top: var(--border-w) solid var(--border);
+  }
+  .ps-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; padding-inline: 1px; white-space: nowrap; color: var(--text-3); text-decoration: none; font-size: 10px; font-weight: 600; }
+  .ps-tab[aria-current="page"] { color: var(--text); }
+  .ps-tab[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 50%; width: 18px; height: 3px; transform: translateX(-50%); background: var(--accent); border-radius: 2px; }
+  .ps-toasts { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3)); }
+}
+@media (max-width: 767px) {
+
+  .ps-sheet-wrap { place-items: end center; }
+  .ps-sheet, .ps-sheet[data-wide="true"] { width: 100%; max-height: 85dvh; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+  .ps-sheet__handle { display: block; width: 36px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); margin: 0 auto var(--sp-2); }
+  .ps-menu-item--tall { min-height: 48px; }
+  .ps-menu-item { min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-dot[data-tone="busy"], .ps-pop__panel, .ps-skeleton { animation: none; }
+}
+/* ---------- Игры-сервисы: раскрытие блока (design-system §4.3.1) ---------- */
+.ps-collapse { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--dur-base) var(--ease-ui), visibility 0s linear var(--dur-base); }
+.ps-collapse[data-open] { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--dur-base) var(--ease-ui), visibility 0s; }
+.ps-collapse__in { min-height: 0; overflow: hidden; }
+.ps-collapse__pad { padding: var(--row-gap) 0 var(--sp-1); }
+.ps-approx { color: var(--text-3); }
+/* Tab bar: подпись 10px на всех ширинах <768 */
+@media (min-width: 768px) and (max-width: 1023px) { .ps-nav-item { padding: 0 10px; } .ps-nav-item[aria-current="page"]::after { left: 10px; right: 10px; }
+}
+/* Шапка на планшете (768-1023): 5 вкладок + синк + тема + аватар не помещаются, текст синка скрыт, остаётся точка с aria-label (BUG-1 фазы 12) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .ps-header__in { gap: var(--sp-3); }
+  .ps-nav { gap: 0; }
+  .ps-sync-text { display: none; }
+  .ps-btn--sync { padding: 0 var(--sp-2); }
+  /* фаза 13: 6 вкладок, селект тем сжимается до кружка + chevron (подпись в aria-label) */
+  .ps-btn--theme > span:not(:first-child) { display: none; }
+  .ps-btn--theme { padding: 0 var(--sp-2); }
+}
+/* ---------- Точка-уведомление ---------- */
+.ps-notify-dot { display: inline-block; flex: none; width: var(--dot-notify); height: var(--dot-notify); border-radius: 50%; background: var(--accent); }
+.ps-nav-item .ps-notify-dot { margin-left: 4px; }
+/* ---------- Нижнее меню: 4 ячейки, полные подписи ---------- */
+.ps-tab__ico { position: relative; display: inline-flex; }
+.ps-tab__ico .ps-notify-dot { position: absolute; top: -2px; right: -6px; }
+.ps-tab:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+@media (max-width: 767px) {
+  .ps-tabbar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ps-tab { flex: 1 1 0; min-height: var(--tabbar-h); }
+}
+/* ---------- Подвкладки «Бэклог · План · Подскажи» ---------- */
+.ps-subnav { box-sizing: content-box; display: flex; gap: var(--sp-1); height: var(--subnav-h); margin-bottom: var(--sp-4); border-bottom: var(--border-w) solid var(--border); }
+.ps-subnav a {
+  position: relative; display: inline-flex; align-items: center; padding: 0 var(--sp-4); color: var(--text-2);
+  font: 500 var(--fs-body)/var(--lh-body) var(--font-body); text-decoration: none; transition: color var(--dur-fast) var(--ease-ui);
+}
+.ps-subnav a:hover { color: var(--text); }
+.ps-subnav a[aria-current="page"] { color: var(--text); }
+.ps-subnav a[aria-current="page"]::after { content: ""; position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+.ps-subnav a:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+@media (max-width: 767px) {
+  .ps-subnav { gap: 0; }
+  .ps-subnav a { flex: 1 1 0; justify-content: center; padding: 0; }
+  .ps-subnav a[aria-current="page"]::after { left: var(--sp-3); right: var(--sp-3); }
+}
+/* ---------- «← Статистика», кнопка и баннер Итогов ---------- */
+.ps-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; height: 36px; color: var(--text-2); font: 500 var(--fs-body)/var(--lh-body) var(--font-body); text-decoration: none; }
+.ps-back:hover { color: var(--text); }
+.ps-back:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+@media (max-width: 767px) {
+  .ps-back { height: var(--tap-min); }
+}
+.ps-btn.ps-btn--fsheet { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--tap-min); height: 40px; padding: 0; }
+.ps-btn--fsheet .ps-notify-dot { position: absolute; top: 6px; right: 8px; }
+@media (max-width: 767px) {
+  .ps-h1--coll { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.ps-rec-list > li { min-height: 172px; }
+/* ---------- Ошибка и 404 ---------- */
+.ps-errpage { display: grid; place-items: center; min-height: 50dvh; padding: var(--sp-6) 0; }
+.ps-errpage .ps-empty__text { max-width: 420px; }
+.ps-errpage__acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-2); }
+.ps-errpage__code { margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); user-select: text; }
+.ps-errpage h2:focus, .ps-errpage h1:focus { outline: none; }
+.ps-errpage .ps-btn { text-decoration: none; }
+.ps-nf { display: grid; place-items: center; align-content: center; justify-items: center; gap: var(--sp-3); min-height: 50dvh; padding: var(--sp-6) var(--gutter); text-align: center; }
+.ps-nf--root { position: relative; min-height: 100dvh; align-content: center; }
+.ps-nf__logo { position: absolute; top: var(--sp-5); left: var(--gutter); }
+.ps-nf__code { font: var(--fw-display) 72px/72px var(--font-display); color: var(--text-3); margin: 0; }
+.ps-nf h1 { margin: 0; font: 600 22px/28px var(--font-display); }
+.ps-nf p { margin: 0; color: var(--text-2); }
+.ps-nf .ps-btn { height: var(--control-h); text-decoration: none; }
+@media (max-width: 767px) { .ps-nf__code { font-size: 64px; line-height: 64px; } .ps-nf .ps-btn { height: var(--tap-min); }
+}

@@ -1,0 +1,169 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CollectionSummaryResponse } from '@/server/collection/types';
+import { useToast } from '../../primitives/Toast';
+import { useProfile } from '../../profile/ProfileProvider';
+import { useSync } from '../../sync/SyncProvider';
+import { forgottenCountOf } from '../../triage/forgotten';
+import { ApiError, errorText, fetchGames, fetchSummary } from '../api';
+import { blockGames, blockSort, blockStatuses, buildPlan, FULL_LIMIT, inBlock, visibleBlocks, type BlockId } from '../blocks';
+import { blockQuery, filtersToApi, isChronicleMode, type Filters } from '../filters';
+import { PAGE, PLATINUM_MAX_BATCHES, union, type Pool } from './pool';
+
+/**
+ * Загрузка данных коллекции: сводка, пул игр (хроника блоками или плоский список), подгрузка, перечитывание после синка.
+ * `onFiltersKeyChange` вызывается перед перезагрузкой при смене фильтров (сброс выбора).
+ */
+export function useCollectionData(filters: Filters, filtersKey: string, onFiltersKeyChange: () => void) {
+  const toast = useToast();
+  const sync = useSync();
+  const { publish: publishProfile } = useProfile();
+  const [summary, setSummary] = useState<CollectionSummaryResponse | null>(null);
+  const [pool, setPool] = useState<Pool | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [more, setMore] = useState(false);
+
+  const poolRef = useRef<Pool | null>(null);
+  useEffect(() => { poolRef.current = pool; }, [pool]);
+  const reqId = useRef(0);
+  const moreAbort = useRef<AbortController | null>(null);
+  const filtersRef = useRef(filters);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
+  const filtersKeyCb = useRef(onFiltersKeyChange);
+  useEffect(() => { filtersKeyCb.current = onFiltersKeyChange; }, [onFiltersKeyChange]);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const s = await fetchSummary();
+      setSummary(s);
+      publishProfile(s.profile ?? null);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      setSummaryFailed(true);
+      /* сводка необязательна: строка итогов просто не показывается */
+    }
+  }, [publishProfile]);
+
+  const loadAll = useCallback(async (f: Filters, keep: number) => {
+    const id = ++reqId.current;
+    moreAbort.current?.abort();
+    setLoading(true);
+    try {
+      let next: Pool;
+      if (isChronicleMode(f)) {
+        const plan = buildPlan(f.status, f.q, f.platinum);
+        const rs = await Promise.allSettled(plan.map((p) => fetchGames(p.query)));
+        const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
+        if (ok.length === 0) {
+          const first = rs[0];
+          if (first.status === 'rejected' && first.reason instanceof ApiError && first.reason.status === 401) return;
+          throw new Error('all blocks failed');
+        }
+        const failed = plan.filter((_, i) => rs[i].status === 'rejected').map((p) => p.block);
+        // у упавшего блока остаются ранее загруженные игры его статусов
+        const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
+        const chron = ok.find((x) => x.block === 'chronicle');
+        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount), order: f.order ?? 'desc' };
+      } else {
+        const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
+        next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount), order: f.order ?? 'desc' };
+      }
+      // чип «Платина» фильтрует на клиенте (12.6): дозагружаем выдачу пакетами, чтобы чип, карточки и «Показать ещё» были согласованы
+      if (f.platinum) {
+        const chronTotal = f.status === 'completed' ? next.counts.completed : f.status === 'dropped' ? next.counts.dropped : next.counts.completed + next.counts.dropped;
+        for (let i = 0; i < PLATINUM_MAX_BATCHES; i++) {
+          if (id !== reqId.current) return;
+          let q: URLSearchParams;
+          if (isChronicleMode(f)) {
+            if (!visibleBlocks(f.status).includes('chronicle')) break;
+            const have = blockGames(next.items, 'chronicle', f.status).length;
+            if (have >= chronTotal) break;
+            q = blockQuery(blockStatuses('chronicle', f.status), blockSort('chronicle'), f.q, { limit: FULL_LIMIT, offset: have });
+          } else {
+            if (next.items.length >= next.total) break;
+            q = filtersToApi(f, { limit: FULL_LIMIT, offset: next.items.length });
+          }
+          let r;
+          try { r = await fetchGames(q); } catch { break; }
+          if (r.items.length === 0) break;
+          next = { ...next, counts: r.counts, total: isChronicleMode(f) ? r.total : next.total, items: union([next.items, r.items]) };
+        }
+      }
+      if (id !== reqId.current) return;
+      setPool(next);
+      setError(false);
+    } catch {
+      if (id !== reqId.current) return;
+      setError(true);
+    } finally {
+      if (id === reqId.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => void loadSummary(), 0);
+    return () => clearTimeout(t);
+  }, [loadSummary]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      filtersKeyCb.current(); // выбор не должен захватывать игры из прошлой выдачи
+      void loadAll(filtersRef.current, PAGE);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [filtersKey, loadAll]);
+
+  const refresh = useCallback(() => {
+    void loadSummary();
+    void loadAll(filtersRef.current, poolRef.current?.items.length ?? 0);
+  }, [loadAll, loadSummary]);
+
+  // после завершения синка перечитываем данные
+  const lastSuccess = sync.status?.lastSuccessAt ?? null;
+  const seenSuccess = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (seenSuccess.current === undefined) {
+      seenSuccess.current = lastSuccess;
+      return;
+    }
+    if (seenSuccess.current !== lastSuccess) {
+      seenSuccess.current = lastSuccess;
+      const t = setTimeout(refresh, 0);
+      return () => clearTimeout(t);
+    }
+  }, [lastSuccess, refresh]);
+
+  /** Подгрузка: блок (хроника, целиком показанный блок) или плоский список. */
+  async function loadMore(block: BlockId | null) {
+    const p = poolRef.current;
+    if (!p) return;
+    const f = filtersRef.current;
+    const id = reqId.current;
+    moreAbort.current?.abort();
+    const ac = new AbortController();
+    moreAbort.current = ac;
+    setMore(true);
+    try {
+      let query: URLSearchParams;
+      if (block) {
+        const have = blockGames(p.items, block, f.status).length;
+        query = blockQuery(blockStatuses(block, f.status), blockSort(block), f.q, { limit: FULL_LIMIT, offset: have });
+      } else {
+        query = filtersToApi(f, { limit: PAGE, offset: p.items.length });
+      }
+      const r = await fetchGames(query, ac.signal);
+      if (id !== reqId.current || ac.signal.aborted) return;
+      setPool((l) => (l ? { ...l, counts: r.counts, total: block === 'chronicle' || !block ? r.total : l.total, items: union([l.items, r.items]) } : l));
+    } catch (e) {
+      if (id !== reqId.current || ac.signal.aborted) return;
+      toast({ kind: 'error', text: `Не удалось загрузить ещё. ${errorText(e)}` });
+    } finally {
+      if (moreAbort.current === ac) setMore(false);
+    }
+  }
+
+  return { summary, summaryFailed, pool, setPool, loading, error, more, poolRef, filtersRef, loadAll, loadMore, refresh };
+}

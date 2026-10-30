@@ -1,85 +1,40 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { CollectionSummaryResponse, GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+import type { GameStatusValue } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
-import { cssUrl, formatNumber, plural, smallCoverUrl } from '../format';
-import { Icon, StatusGlyph } from '../icons';
+import { Icon } from '../icons';
 import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
-import { useToast } from '../primitives/Toast';
 import { ProfileCard, ProfileRow, ProfileRowSkeleton, ProfileSkeleton } from '../profile/ProfileCard';
-import { useProfile } from '../profile/ProfileProvider';
-import { StatusMenu } from '../status';
-import { forgottenCountOf, forgottenCountText } from '../triage/forgotten';
-import { useSync } from '../sync/SyncProvider';
-import { buttonLabel, phaseText, progressFraction } from '../sync/status';
-import { STATUS_META, type ViewMode } from '../tokens';
-import { ApiError, errorText, fetchGames, fetchStatusBackups, fetchSummary, patchStatusDate, postBulk, postResetAll, postRestore, putHidden, putStatus } from './api';
-import {
-  blockGames, buildPlan, blockSort, inBlock, blockStatuses, FULL_LIMIT, isFull, visibleBlocks, type BlockId,
-} from './blocks';
-import { BlockHead, GamesFact, YearHeader } from './Chronicle';
-import { defaultExpandedYears, emptyCounts, groupByLastPlayedYear, groupChronicle, gridCols, previewSlots } from './chronicle';
-import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
-import { MonthChips } from './MonthChips';
-import { anchorsByGame, flatYearGames, yearMonthChips } from './monthChips';
-import { useGameLink } from './useGameLink';
 import { AnchorsSkeleton, CollectionResultsSkeleton, HeroSkeleton } from '../skeletons';
-import {
-  adjustCounts, applyPlatinum, applyStatusLocally, blockQuery, effectiveView, filtersToApi, filtersToUrl, hasActiveFilters, isChronicleMode, matchesStatusTab,
-  parseFilters, removeFromCounts, resetFilters, type Filters,
-} from './filters';
-import { GameCard, type GameActions } from './GameCard';
+import { useSync } from '../sync/SyncProvider';
+import { buttonLabel } from '../sync/status';
+import type { ViewMode } from '../tokens';
+import { BlockHead } from './Chronicle';
+import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
+import { effectiveView, filtersToUrl, parseFilters, resetFilters, type Filters } from './filters';
+import type { GameActions } from './GameCard';
 import { GameDialog } from './GameDialog';
-import { GameGrid, GameGridItem } from './GameGrid';
-import { GameRow, RowHeader } from './GameRow';
-import { mapLimit } from './limit';
+import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
+import type { RenderCtx } from './list/renderCtx';
+import { renderBlock } from './list/renderBlocks';
+import { moreBtn, renderGames } from './list/renderGames';
+import { renderPlayed } from './list/renderChronicle';
+import { SelectBar } from './list/SelectBar';
+import { SyncProgress } from './list/SyncProgress';
+import { useCollectionData } from './list/useCollectionData';
+import { useCollectionLists } from './list/useCollectionLists';
+import { useGameMutations } from './list/useGameMutations';
+import { useOpenGame } from './list/useOpenGame';
+import { usePageArt } from './list/usePageArt';
+import { useStatusBackup } from './list/useStatusBackup';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
-import { nearItems, nearVisible } from './nearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { ResetAllDialog } from './ResetAllDialog';
 import { RestoreBackupDialog } from './RestoreBackupDialog';
-import type { BackupInfo } from './FilterBar';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
-
-const PAGE = 60;
-/** Потолок дозагрузки при чипе «Платина»: 8 пакетов по 300; дальше остаётся «Показать ещё». */
-const PLATINUM_MAX_BATCHES = 8;
-const BULK_MAX = 1000; // контракт 9.6: один запрос на всё выделение
-const SERVICE_ROWS = 5;
-const SERVICE_ROWS_STEP = 10;
-/** Параллельных PUT /hidden при массовом скрытии */
-const HIDE_PARALLEL = 5;
-/** Тост с откатом массовых действий висит дольше обычного */
-const UNDO_TTL_MS = 12_000;
-const gamesWord = (n: number) => plural(n, ['игра', 'игры', 'игр']);
-
-type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
-type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[]; /** 14.4: забытых во всей коллекции */ forgotten?: number; /** порядок, с которым загружен пул: группы по годам не должны мигать до перезагрузки */ order: 'asc' | 'desc' };
-const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Игры-сервисы', shelved: 'Отложено', unsorted: 'Не разобрано' };
-
-function oldDate(g: GameItem): DateRestore | undefined {
-  if (g.status === 'completed' && g.completedAt) return { kind: 'completed', iso: g.completedAt };
-  if (g.status === 'dropped' && g.droppedAt) return { kind: 'dropped', iso: g.droppedAt };
-  return undefined;
-}
-
-function union(lists: GameItem[][]): GameItem[] {
-  const seen = new Set<number>();
-  const out: GameItem[] = [];
-  for (const l of lists) for (const g of l) if (!seen.has(g.id)) { seen.add(g.id); out.push(g); }
-  return out;
-}
-
-function scrollToId(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-}
 
 export function CollectionView() {
   const router = useRouter();
@@ -89,175 +44,26 @@ export function CollectionView() {
   const stored = useStoredView();
   const view: ViewMode = effectiveView(filters, stored);
   const filtersKey = filtersToUrl({ ...filters, view: null }).toString();
-  const toast = useToast();
   const now = useNow();
   const sync = useSync();
   const width = useViewportWidth();
-  const { publish: publishProfile } = useProfile();
+  const isMobile = useIsMobile();
 
-  const [summary, setSummary] = useState<CollectionSummaryResponse | null>(null);
-  const [pool, setPool] = useState<Pool | null>(null);
-  const [summaryFailed, setSummaryFailed] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [more, setMore] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  // контекст окна игры, открытого из приложения (флаг «Изменить дату», снимок); сам факт «открыто» живёт в адресе ?game=
-  const [open, setOpen] = useState<{ id: number; edit: boolean; snapshot: GameItem } | null>(null);
-  const [linked, setLinked] = useState<GameItem | null>(null);
-  const link = useGameLink();
-  const [toggled, setToggled] = useState<Record<string, boolean>>({});
-  // блок «Игры-сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
-  const [serviceOpen, setServiceOpen] = useState(false);
-  const [serviceRows, setServiceRows] = useState(SERVICE_ROWS);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [backup, setBackup] = useState<BackupInfo | null>(null);
 
-  const linkIdRef = useRef<number | null>(null);
-  const closeLinkRef = useRef<() => void>(() => {});
-  useEffect(() => { linkIdRef.current = link.gameId; closeLinkRef.current = link.close; }, [link.gameId, link.close]);
-  const poolRef = useRef<Pool | null>(null);
-  useEffect(() => { poolRef.current = pool; }, [pool]);
-  const reqId = useRef(0);
-  const undoRef = useRef<((g: GameItem, s: GameStatusValue | null, silent?: boolean, restore?: DateRestore) => Promise<void>) | null>(null);
-  const hideRef = useRef<((g: GameItem, hidden: boolean, silent?: boolean) => Promise<void>) | null>(null);
-  const bulkHideRef = useRef<((ids: number[], hidden: boolean, silent?: boolean) => Promise<void>) | null>(null);
-  const moreAbort = useRef<AbortController | null>(null);
-  const filtersRef = useRef(filters);
-  useEffect(() => { filtersRef.current = filters; }, [filters]);
+  const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()));
+  const { summary, summaryFailed, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
+  // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
+  const raw = useMemo(() => pool?.items ?? [], [pool]);
 
-  // ---------- загрузка ----------
-  const loadSummary = useCallback(async () => {
-    try {
-      const s = await fetchSummary();
-      setSummary(s);
-      publishProfile(s.profile ?? null);
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) return;
-      setSummaryFailed(true);
-      /* сводка необязательна: строка итогов просто не показывается */
-    }
-  }, [publishProfile]);
-
-  const loadAll = useCallback(async (f: Filters, keep: number) => {
-    const id = ++reqId.current;
-    moreAbort.current?.abort();
-    setLoading(true);
-    try {
-      let next: Pool;
-      if (isChronicleMode(f)) {
-        const plan = buildPlan(f.status, f.q, f.platinum);
-        const rs = await Promise.allSettled(plan.map((p) => fetchGames(p.query)));
-        const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
-        if (ok.length === 0) {
-          const first = rs[0];
-          if (first.status === 'rejected' && first.reason instanceof ApiError && first.reason.status === 401) return;
-          throw new Error('all blocks failed');
-        }
-        const failed = plan.filter((_, i) => rs[i].status === 'rejected').map((p) => p.block);
-        // у упавшего блока остаются ранее загруженные игры его статусов
-        const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
-        const chron = ok.find((x) => x.block === 'chronicle');
-        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount), order: f.order ?? 'desc' };
-      } else {
-        const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
-        next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount), order: f.order ?? 'desc' };
-      }
-      // чип «Платина» фильтрует на клиенте (12.6): дозагружаем выдачу пакетами, чтобы чип, карточки и «Показать ещё» были согласованы
-      if (f.platinum) {
-        const chronTotal = f.status === 'completed' ? next.counts.completed : f.status === 'dropped' ? next.counts.dropped : next.counts.completed + next.counts.dropped;
-        for (let i = 0; i < PLATINUM_MAX_BATCHES; i++) {
-          if (id !== reqId.current) return;
-          let q: URLSearchParams;
-          if (isChronicleMode(f)) {
-            if (!visibleBlocks(f.status).includes('chronicle')) break;
-            const have = blockGames(next.items, 'chronicle', f.status).length;
-            if (have >= chronTotal) break;
-            q = blockQuery(blockStatuses('chronicle', f.status), blockSort('chronicle'), f.q, { limit: FULL_LIMIT, offset: have });
-          } else {
-            if (next.items.length >= next.total) break;
-            q = filtersToApi(f, { limit: FULL_LIMIT, offset: next.items.length });
-          }
-          let r;
-          try { r = await fetchGames(q); } catch { break; }
-          if (r.items.length === 0) break;
-          next = { ...next, counts: r.counts, total: isChronicleMode(f) ? r.total : next.total, items: union([next.items, r.items]) };
-        }
-      }
-      if (id !== reqId.current) return;
-      setPool(next);
-      setError(false);
-    } catch {
-      if (id !== reqId.current) return;
-      setError(true);
-    } finally {
-      if (id === reqId.current) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => void loadSummary(), 0);
-    return () => clearTimeout(t);
-  }, [loadSummary]);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSelected(new Set()); // выбор не должен захватывать игры из прошлой выдачи
-      void loadAll(filtersRef.current, PAGE);
-    }, 0);
-    return () => clearTimeout(t);
-  }, [filtersKey, loadAll]);
-
-  const refresh = useCallback(() => {
-    void loadSummary();
-    void loadAll(filtersRef.current, poolRef.current?.items.length ?? 0);
-  }, [loadAll, loadSummary]);
-
-  // после завершения синка перечитываем данные
-  const lastSuccess = sync.status?.lastSuccessAt ?? null;
-  const seenSuccess = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (seenSuccess.current === undefined) {
-      seenSuccess.current = lastSuccess;
-      return;
-    }
-    if (seenSuccess.current !== lastSuccess) {
-      seenSuccess.current = lastSuccess;
-      const t = setTimeout(refresh, 0);
-      return () => clearTimeout(t);
-    }
-  }, [lastSuccess, refresh]);
-
-  /** Подгрузка: блок (хроника, целиком показанный блок) или плоский список. */
-  async function loadMore(block: BlockId | null) {
-    const p = poolRef.current;
-    if (!p) return;
-    const f = filtersRef.current;
-    const id = reqId.current;
-    moreAbort.current?.abort();
-    const ac = new AbortController();
-    moreAbort.current = ac;
-    setMore(true);
-    try {
-      let query: URLSearchParams;
-      if (block) {
-        const have = blockGames(p.items, block, f.status).length;
-        query = blockQuery(blockStatuses(block, f.status), blockSort(block), f.q, { limit: FULL_LIMIT, offset: have });
-      } else {
-        query = filtersToApi(f, { limit: PAGE, offset: p.items.length });
-      }
-      const r = await fetchGames(query, ac.signal);
-      if (id !== reqId.current || ac.signal.aborted) return;
-      setPool((l) => (l ? { ...l, counts: r.counts, total: block === 'chronicle' || !block ? r.total : l.total, items: union([l.items, r.items]) } : l));
-    } catch (e) {
-      if (id !== reqId.current || ac.signal.aborted) return;
-      toast({ kind: 'error', text: `Не удалось загрузить ещё. ${errorText(e)}` });
-    } finally {
-      if (moreAbort.current === ac) setMore(false);
-    }
-  }
+  const game = useOpenGame(raw);
+  const { setOpen, setLinked, link, openId, ctx, openGame, openGameCard } = game;
+  const m = useGameMutations({
+    poolRef, setPool: data.setPool, setOpen, refresh, selected, setSelected, setSelectMode, linkIdRef: game.linkIdRef, closeLinkRef: game.closeLinkRef,
+  });
+  const { setStatus, setHidden, setDate, bulk, bulkHidden, replaceGames } = m;
+  const { backup, resetOpen, setResetOpen, restoreOpen, setRestoreOpen, restoreFromMenu, resetAll } = useStatusBackup(refresh);
 
   // ---------- URL ----------
   const setFilters = useCallback((p: Partial<Filters>) => {
@@ -266,210 +72,16 @@ export function CollectionView() {
     filtersRef.current = next;
     const qs = filtersToUrl(next).toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [pathname, router]);
+  }, [filtersRef, pathname, router]);
 
   const setView = useCallback((v: ViewMode) => {
     storeView(v);
     setFilters({ view: v });
   }, [setFilters]);
 
-  // ---------- локальное состояние игр ----------
-  const replaceGames = useCallback((games: GameItem[]) => {
-    const by = new Map(games.map((g) => [g.id, g]));
-    setPool((l) => (l ? { ...l, items: l.items.map((g) => by.get(g.id) ?? g) } : l));
-    setOpen((o) => (o && by.get(o.id) ? { ...o, snapshot: by.get(o.id) as GameItem } : o));
-  }, []);
-
-  const shiftCounts = useCallback((from: GameStatusValue | null, to: GameStatusValue | null) => {
-    setPool((l) => (l ? { ...l, counts: adjustCounts(l.counts, from, to) } : l));
-  }, []);
-
-  const current = useCallback((g: GameItem): GameItem => {
-    return poolRef.current?.items.find((x) => x.id === g.id) ?? g;
-  }, []);
-
-  const setStatus = useCallback(async (game: GameItem, status: GameStatusValue | null, silent = false, restore?: DateRestore) => {
-    const prev = current(game);
-    if (prev.status === status) return;
-    replaceGames([applyStatusLocally(prev, status, new Date().toISOString())]);
-    shiftCounts(prev.status, status);
-    try {
-      const r = await putStatus(prev.id, status);
-      replaceGames([r.game]);
-      if (silent && restore && restore.kind === status && new Date(restore.iso).getTime() <= Date.now()) {
-        const have = restore.kind === 'completed' ? r.game.completedAt : r.game.droppedAt;
-        if (have !== restore.iso) {
-          try {
-            const d = await patchStatusDate(prev.id, restore.kind, restore.iso);
-            replaceGames([d.game]);
-          } catch (e) {
-            toast({ kind: 'error', text: `Статус возвращён, но дату не удалось восстановить. ${errorText(e)}` });
-          }
-        }
-      }
-      toast({
-        text: silent ? 'Статус возвращён' : status === null ? 'Статус сброшен' : `Статус изменён: ${STATUS_META[status].label}`,
-        action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true, oldDate(prev)) },
-      });
-      refresh();
-    } catch (e) {
-      replaceGames([prev]);
-      shiftCounts(status, prev.status);
-      toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
-    }
-  }, [current, refresh, replaceGames, shiftCounts, toast]);
-
-  useEffect(() => { undoRef.current = setStatus; }, [setStatus]);
-
-  const setDate = useCallback(async (game: GameItem, kind: 'completed' | 'dropped', iso: string) => {
-    const prev = current(game);
-    replaceGames([kind === 'completed' ? { ...prev, completedAt: iso } : { ...prev, droppedAt: iso }]);
-    try {
-      const r = await patchStatusDate(prev.id, kind, iso);
-      replaceGames([r.game]);
-      toast({ text: 'Дата завершения сохранена' });
-      refresh();
-    } catch (e) {
-      replaceGames([prev]);
-      toast({ kind: 'error', text: `Не удалось сохранить дату. ${errorText(e)}` });
-    }
-  }, [current, refresh, replaceGames, toast]);
-
-  const bulk = useCallback(async (status: GameStatusValue | null) => {
-    const ids = [...selected];
-    const prevs = ids.map((id) => poolRef.current?.items.find((g) => g.id === id)).filter((g): g is GameItem => !!g);
-    if (!ids.length) return;
-    const nowIso = new Date().toISOString();
-    replaceGames(prevs.map((g) => applyStatusLocally(g, status, nowIso)));
-    for (const g of prevs) shiftCounts(g.status, status);
-    try {
-      const r = await postBulk(ids, status);
-      const changed = r.changed;
-      replaceGames(r.games);
-      toast({ text: `Статус «${STATUS_META[status ?? 'none'].label}»: изменено игр ${changed} из ${ids.length}` });
-      setSelected(new Set());
-      setSelectMode(false);
-      refresh();
-    } catch (e) {
-      replaceGames(prevs);
-      for (const g of prevs) shiftCounts(status, g.status);
-      toast({ kind: 'error', text: `Массовая смена не выполнена, ничего не изменено. ${errorText(e)}` });
-    }
-  }, [refresh, replaceGames, selected, shiftCounts, toast]);
-
-  /** Игры ушли из текущей выдачи (скрыты или возвращены из «Скрытых»): убрать локально до перезагрузки. */
-  const dropFromPool = useCallback((ids: number[]) => {
-    const set = new Set(ids);
-    setPool((l) => {
-      if (!l) return l;
-      let counts = l.counts;
-      let total = l.total;
-      for (const g of l.items) if (set.has(g.id)) { counts = removeFromCounts(counts, g.status); total = Math.max(0, total - 1); }
-      return { ...l, counts, total, items: l.items.filter((g) => !set.has(g.id)) };
-    });
-    setSelected((s) => new Set([...s].filter((id) => !set.has(id))));
-    setOpen((o) => (o && set.has(o.id) ? null : o));
-    if (linkIdRef.current !== null && set.has(linkIdRef.current)) closeLinkRef.current();
-  }, []);
-
-  /** Убрать из коллекции / вернуть одну игру (9.7). Toast «Вернуть» после скрытия. */
-  const setHidden = useCallback(async (game: GameItem, hidden: boolean, silent = false) => {
-    const prev = current(game);
-    const inView = !!poolRef.current?.items.some((g) => g.id === prev.id);
-    try {
-      const r = await putHidden(prev.id, hidden);
-      if (inView) dropFromPool([prev.id]);
-      toast({
-        text: hidden ? `«${prev.title}» убрана из коллекции` : `«${prev.title}» возвращена в коллекцию`,
-        action: hidden && !silent ? { label: 'Вернуть', run: () => void hideRef.current?.(r.game, false, true) } : undefined,
-      });
-      refresh();
-    } catch (e) {
-      toast({ kind: 'error', text: `${hidden ? 'Не удалось убрать игру' : 'Не удалось вернуть игру'}. ${errorText(e)}` });
-    }
-  }, [current, dropFromPool, refresh, toast]);
-
-  useEffect(() => { hideRef.current = setHidden; }, [setHidden]);
-
-  /** Массово: PUT /hidden на каждую игру, не больше HIDE_PARALLEL одновременно; итог одним тостом. */
-  const bulkHidden = useCallback(async (ids: number[], hidden: boolean, silent = false) => {
-    if (!ids.length) return;
-    const r = await mapLimit(ids, HIDE_PARALLEL, (id) => putHidden(id, hidden));
-    const done = r.ok.map((o) => o.item);
-    dropFromPool(done);
-    const verb = hidden ? 'Убрано из коллекции' : 'Возвращено в коллекцию';
-    const undo = hidden && !silent && done.length > 0 ? { label: 'Вернуть', run: () => void bulkHideRef.current?.(done, false, true) } : undefined;
-    if (r.failed.length === 0) {
-      toast({ text: `${verb}: ${formatNumber(done.length)} ${gamesWord(done.length)}`, action: undo, ttl: undo ? UNDO_TTL_MS : undefined });
-    } else {
-      toast({
-        kind: 'error', action: undo, ttl: UNDO_TTL_MS,
-        text: `${verb}: ${formatNumber(done.length)} из ${formatNumber(ids.length)}. Не удалось: ${formatNumber(r.failed.length)}. ${errorText(r.failed[0].error)}`,
-      });
-    }
-    if (!silent) {
-      setSelected(new Set());
-      setSelectMode(false);
-    }
-    refresh();
-  }, [dropFromPool, refresh, toast]);
-
-  useEffect(() => { bulkHideRef.current = bulkHidden; }, [bulkHidden]);
-
-  /** Откат сброса всех статусов из копии (9.9). */
-  const loadBackup = useCallback(async () => {
-    try {
-      const r = await fetchStatusBackups();
-      setBackup(r.latest ? { id: r.latest.id, createdAt: r.latest.createdAt, count: r.latest.count } : null);
-    } catch {
-      /* пункт меню необязателен: без ответа он просто скрыт */
-    }
-  }, []);
-  useEffect(() => {
-    const t = setTimeout(() => void loadBackup(), 0);
-    return () => clearTimeout(t);
-  }, [loadBackup]);
-
-  const restoreBackup = useCallback(async (backupId: number) => {
-    try {
-      const r = await postRestore(backupId);
-      setBackup(null);
-      toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
-    } catch (e) {
-      toast({ kind: 'error', text: e instanceof ApiError && e.status === 404 ? 'Копия статусов не найдена, вернуть нельзя.' : `Не удалось вернуть статусы. ${errorText(e)}` });
-    }
-    refresh();
-  }, [refresh, toast]);
-
-  /** Откат из меню: ошибку показывает окно подтверждения. */
-  const restoreFromMenu = useCallback(async (backupId: number) => {
-    const r = await postRestore(backupId);
-    setRestoreOpen(false);
-    setBackup(null); // 9.9a: копия после отката остаётся на сервере, скрываем пункт сами
-    toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
-    refresh();
-  }, [refresh, toast]);
-
-  /** Сброс всех статусов (9.8). Ошибку показывает окно подтверждения. */
-  const resetAll = useCallback(async () => {
-    const r = await postResetAll();
-    setResetOpen(false);
-    if (r.backupId === null || r.reset === 0) {
-      toast({ text: 'Сбрасывать нечего: у игр нет статусов' });
-      return;
-    }
-    const backupId = r.backupId;
-    toast({
-      text: `Статусы сброшены: ${formatNumber(r.reset)} ${gamesWord(r.reset)}`, ttl: UNDO_TTL_MS,
-      action: { label: 'Вернуть', run: () => void restoreBackup(backupId) },
-    });
-    void loadBackup();
-    refresh();
-  }, [loadBackup, refresh, restoreBackup, toast]);
-
   const actions: GameActions = useMemo(() => ({
     open: (g, edit = false) => { setOpen({ id: g.id, edit, snapshot: g }); link.open(g.id); },
-    setStatus: (g, s) => void setStatus(g, s),
+    setStatus: (g, s: GameStatusValue | null) => void setStatus(g, s),
     toggle: (g) => setSelected((s) => {
       const n = new Set(s);
       if (!n.delete(g.id)) n.add(g.id);
@@ -483,318 +95,31 @@ export function CollectionView() {
   }
 
   // ---------- производные данные ----------
-  const chronicleMode = isChronicleMode(filters);
-  const active = hasActiveFilters(filters);
-  const counts = pool?.counts ?? emptyCounts();
-  // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»), all = после чипа «Платина» (фильтр на клиенте, 12.6)
-  const raw = useMemo(() => pool?.items ?? [], [pool]);
-  const all = useMemo(() => applyPlatinum(raw, filters.platinum), [raw, filters.platinum]);
-  const flat = useMemo(() => all.filter((g) => matchesStatusTab(g, filters.status)), [all, filters.status]);
-  const blocks = useMemo(() => (chronicleMode ? visibleBlocks(filters.status) : []), [chronicleMode, filters.status]);
-  const byBlock = useMemo(() => {
-    const m = {} as Record<BlockId, GameItem[]>;
-    for (const b of blocks) m[b] = blockGames(all, b, filters.status);
-    return m;
-  }, [all, blocks, filters.status]);
-  const chron = useMemo(() => groupChronicle(byBlock.chronicle ?? []), [byBlock.chronicle]);
-  const defaultOpen = useMemo(() => defaultExpandedYears(chron.years.map((y) => y.year), now), [chron.years, now]);
-  const isOpen = (key: string | number) => (filters.q.trim() ? true : toggled[String(key)] ?? (typeof key === 'number' && defaultOpen.has(key)));
-  const toggle = (key: string | number) => setToggled((t) => ({ ...t, [String(key)]: !isOpen(key) }));
-  // «По последней игре»: плоская выдача сервера, разбитая по годам последнего запуска (МСК); все группы раскрыты по умолчанию
-  const playedMode = !chronicleMode && filters.sort === 'last_played';
-  const played = useMemo(() => groupByLastPlayedYear(playedMode ? flat : [], pool?.order ?? 'desc'), [flat, pool?.order, playedMode]);
-  const isPlayedOpen = (key: string) => (filters.q.trim() ? true : toggled[`lp-${key}`] ?? true);
-  const togglePlayed = (key: string) => setToggled((t) => ({ ...t, [`lp-${key}`]: !isPlayedOpen(key) }));
-
-  const density = view === 'dense' ? 'dense' : 'comfort';
-  const cols = gridCols(width, density);
-  const visibleChron = [
-    ...chron.years.filter((y) => isOpen(y.year)).flatMap((y) => y.months.flatMap((m) => m.games)),
-    ...(isOpen('undated') ? chron.undated : []),
-  ];
-  // «Игры-сервисы»: вкладка «Сервис» раскрывает блок целиком, иначе один ряд (сетка) или несколько строк (список)
-  const serviceAll = byBlock.service ?? [];
-  const rawLoaded = (b: BlockId) => blockGames(raw, b, filters.status).length;
-  /** С чипом «Платина» счётчики сервера не про выбранную выдачу: показываем число найденных игр */
-  const shownCount = (serverCount: number, list: GameItem[]) => (filters.platinum ? list.length : serverCount);
-  const serviceFull = filters.status === 'service';
-  const serviceLimit = serviceFull ? Infinity : view === 'list' ? serviceRows : serviceOpen ? Infinity : cols;
-  const shownGames = chronicleMode
-    ? blocks.flatMap((b) => (b === 'chronicle' ? visibleChron : b === 'service' ? serviceAll.slice(0, serviceLimit) : byBlock[b]))
-    : playedMode
-      ? [...played.years.filter((y) => isPlayedOpen(String(y.year))).flatMap((y) => y.games), ...(isPlayedOpen('never') ? played.never : [])]
-      : flat;
-  const failedBlocks = pool?.failed ?? [];
-  const empty = !!pool && failedBlocks.length === 0 && (chronicleMode ? blocks.every((b) => byBlock[b].length === 0) : flat.length === 0);
-  const hiddenView = filters.hidden;
-  const noData = !!pool && pool.counts.all === 0 && !active && !error && !hiddenView;
-  const hiddenEmpty = hiddenView && !!pool && pool.counts.all === 0 && !active && !error;
+  const L = useCollectionLists({ filters, pool, raw, summary, now, view, width, selectMode, error });
+  const {
+    chronicleMode, counts, flat, blocks, byBlock, played, playedMode, density, cols, shownCount, shownGames, failedBlocks,
+    empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
+  } = L;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
-  const playing = byBlock.playing ?? [];
-  const near = useMemo(() => nearItems(summary?.nearPlatinum), [summary]);
-  // «Ближе всего к платине» (п.8.2): только на чистой коллекции; пока сводка грузится, вместо блока скелет
-  const nearShown = nearVisible({ count: summary ? near.length : 1, chronicle: chronicleMode, status: filters.status, q: filters.q, platinum: filters.platinum, selectMode, hidden: filters.hidden });
-  const linkOpen = link.open;
-  const openGameCard = useCallback((g: GameItem) => { setOpen({ id: g.id, edit: false, snapshot: g }); linkOpen(g.id); }, [linkOpen]);
-  // окно игры: из загруженного списка, из снимка (открыто из приложения) или из деталей (прямая ссылка), иначе скелет по id
-  const openId = link.gameId;
-  const ctx = open && open.id === openId ? open : null;
-  const openGame = openId !== null ? (raw.find((g) => g.id === openId) ?? ctx?.snapshot ?? (linked?.id === openId ? linked : null)) : null;
-  const openTitle = openGame?.title ?? null;
-  useEffect(() => {
-    if (!openTitle) return;
-    const prev = document.title;
-    document.title = `${openTitle} · PS Tracker`;
-    return () => { document.title = prev; };
-  }, [openTitle]);
-  // после закрытия окна фокус на h1, если вернуть его некуда (прямая ссылка)
-  const wasOpen = useRef(false);
-  useEffect(() => {
-    if (openId !== null) { wasOpen.current = true; return; }
-    if (!wasOpen.current) return;
-    wasOpen.current = false;
-    const t = setTimeout(() => {
-      const a = document.activeElement;
-      if (!a || a === document.body) document.getElementById('coll-title')?.focus();
-    }, 0);
-    return () => clearTimeout(t);
-  }, [openId]);
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
+  usePageArt(chronicleMode ? playing[0]?.coverUrl : null, isMobile);
 
-  // PS5: арт страницы (--page-art) = обложка первой игры из ленты «Играю»; на мобильном маленькая версия
-  const isMobile = useIsMobile();
-  const artSrc = chronicleMode ? playing[0]?.coverUrl : null;
-  const art = cssUrl(isMobile ? smallCoverUrl(artSrc) : artSrc);
-  useEffect(() => {
-    const root = document.querySelector<HTMLElement>('.ps-app');
-    if (!root) return;
-    if (art) root.style.setProperty('--page-art', art);
-    else root.style.removeProperty('--page-art');
-    return () => { root.style.removeProperty('--page-art'); };
-  }, [art]);
+  const renderCtx: RenderCtx = {
+    view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0,
+    more: data.more, loadMore, byBlock, chron: L.chron, played, isOpen: L.isOpen, toggle: L.toggle, isPlayedOpen: L.isPlayedOpen, togglePlayed: L.togglePlayed,
+    rawLoaded: L.rawLoaded, shownCount, serviceFull: L.serviceFull, serviceOpen: L.serviceOpen, setServiceOpen: L.setServiceOpen,
+    serviceRows: L.serviceRows, setServiceRows: L.setServiceRows,
+  };
 
-  // ---------- вывод ----------
-  function renderGames(list: GameItem[], opts: { dateYear?: boolean; withHeader?: boolean; anchors?: Map<number, string> } = {}): ReactNode {
-    if (view === 'list') {
-      return (
-        <div className="ps-row-table" role="table" aria-label="Игры">
-          {opts.withHeader && (
-            <RowHeader sort={filters.sort} order={filters.order} onSort={(s) => setFilters({ sort: s, order: s === filters.sort ? ((filters.order ?? (s === 'title' ? 'asc' : 'desc')) === 'asc' ? 'desc' : 'asc') : null })} />
-          )}
-          {list.map((g) => <GameRow key={g.id} game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} anchorId={opts.anchors?.get(g.id)} />)}
-        </div>
-      );
-    }
-    return (
-      <GameGrid density={density}>
-        {list.map((g) => (
-          <GameGridItem key={g.id}>
-            <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear} anchorId={opts.anchors?.get(g.id)}>
-              {hiddenView && !selectMode && (
-                <button type="button" className="ps-btn ps-btn--sm ps-card__restore" aria-label={`Вернуть в коллекцию: ${g.title}`} onClick={() => void setHidden(g, false)}>
-                  <Icon name="undo" size={14} /><span>Вернуть в коллекцию</span>
-                </button>
-              )}
-            </GameCard>
-          </GameGridItem>
-        ))}
-      </GameGrid>
-    );
-  }
-
-  /** Превью одним рядом: cols - 1 обложек и плитка «+N ещё». */
-  function renderPreview(list: GameItem[], total: number, tile: ReactNode): ReactNode {
-    const slots = previewSlots(total, view === 'list' ? 5 : cols);
-    const shown = list.slice(0, slots.shown);
-    if (view === 'list') {
-      return (
-        <>
-          {renderGames(shown)}
-          {slots.rest > 0 && <div className="ps-preview__more">{tile}</div>}
-        </>
-      );
-    }
-    return (
-      <GameGrid density={density}>
-        {shown.map((g) => (
-          <GameGridItem key={g.id}><GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} /></GameGridItem>
-        ))}
-        {slots.rest > 0 && <GameGridItem>{tile}</GameGridItem>}
-      </GameGrid>
-    );
-  }
-
-  const moreBtn = (block: BlockId | null, remaining: number) => remaining > 0 && (
-    <div className="ps-more">
-      <button type="button" className="ps-btn" onClick={() => void loadMore(block)} disabled={more}>
-        {more ? 'Загрузка…' : `Показать ещё (${formatNumber(remaining)})`}
-      </button>
-    </div>
-  );
-
-  function renderChronicle(): ReactNode {
-    const loaded = rawLoaded('chronicle');
-    const totalChron = filters.status === 'completed' ? counts.completed : filters.status === 'dropped' ? counts.dropped : counts.completed + counts.dropped;
-    return (
-      <>
-        {chron.years.map((y) => {
-          const open = isOpen(y.year);
-          return (
-            <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
-              <YearHeader
-                id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
-                expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения, МСК" sectionId={`y${y.year}-body`}
-              />
-              {open && yearMonthChips(y).length > 0 && <MonthChips key={y.year} year={y.year} chips={yearMonthChips(y)} />}
-              <div id={`y${y.year}-body`} className="ps-chron__body" hidden={!open}>
-                {open && renderGames(flatYearGames(y), { anchors: anchorsByGame(y) })}
-              </div>
-            </section>
-          );
-        })}
-        {chron.undated.length > 0 && (
-          <section className="ps-chron" id="undated" aria-labelledby="h-undated">
-            <YearHeader
-              id="h-undated" label="Без даты" completed={chron.undatedCompleted} dropped={chron.undatedDropped} hours={null}
-              expanded={isOpen('undated')} onToggle={() => toggle('undated')} sectionId="undated-body"
-            />
-            <div id="undated-body" hidden={!isOpen('undated')}>
-              {isOpen('undated') && <div className="ps-chron__month">{renderGames(chron.undated)}</div>}
-            </div>
-          </section>
-        )}
-        {moreBtn('chronicle', totalChron - loaded)}
-      </>
-    );
-  }
-
-  /** «По последней игре»: группы по году последнего запуска, затем «Не запускались». Подгрузка дописывает игры в последнюю группу. */
-  function renderPlayed(): ReactNode {
-    const group = (key: string, label: string, games: GameItem[], hours: number | null) => {
-      const open = isPlayedOpen(key);
-      const sid = key === 'never' ? 'never' : `y${key}`;
-      return (
-        <section key={key} className="ps-chron" id={sid} aria-labelledby={`h-${sid}`}>
-          <YearHeader
-            id={`h-${sid}`} label={label} facts={<GamesFact n={games.length} />} hours={hours}
-            expanded={open} onToggle={() => togglePlayed(key)} hint={key === 'never' ? undefined : 'последний запуск, МСК'} sectionId={`${sid}-body`}
-          />
-          <div id={`${sid}-body`} className="ps-chron__flat" hidden={!open}>
-            {open && renderGames(games, { dateYear: true, withHeader: true })}
-          </div>
-        </section>
-      );
-    };
-    return (
-      <>
-        {played.years.map((y) => group(String(y.year), String(y.year), y.games, Math.round(y.seconds / 3600)))}
-        {played.never.length > 0 && group('never', 'Не запускались', played.never, null)}
-      </>
-    );
-  }
-
-  /** Блок «Игры-сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
-  function renderService(list: GameItem[]): ReactNode {
-    const total = filters.platinum ? list.length : Math.max(counts.service, list.length);
-    const isList = view === 'list';
-    const card = (g: GameItem) => (
-      <GameGridItem key={g.id}><GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} /></GameGridItem>
-    );
-    let body: ReactNode;
-    let toggleBtn: ReactNode = null;
-    if (isList) {
-      const shown = serviceFull ? list : list.slice(0, serviceRows);
-      body = renderGames(shown);
-      if (!serviceFull) {
-        const rest = total - shown.length;
-        if (rest > 0) {
-          toggleBtn = (
-            <button type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" onClick={() => setServiceRows((n) => n + SERVICE_ROWS_STEP)}>
-              Показать ещё {formatNumber(rest)}
-            </button>
-          );
-        } else if (list.length > SERVICE_ROWS) {
-          toggleBtn = <button type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" onClick={() => setServiceRows(SERVICE_ROWS)}>Свернуть</button>;
-        }
-      }
-    } else {
-      const expanded = serviceFull || serviceOpen;
-      const rest = total - cols;
-      body = (
-        <>
-          <GameGrid density={density}>{list.slice(0, cols).map(card)}</GameGrid>
-          {list.length > cols && (
-            <div className="ps-collapse" data-open={expanded || undefined} id="service-more">
-              <div className="ps-collapse__in">
-                <div className="ps-collapse__pad"><GameGrid density={density}>{list.slice(cols).map(card)}</GameGrid></div>
-              </div>
-            </div>
-          )}
-        </>
-      );
-      if (!serviceFull && rest > 0) {
-        toggleBtn = (
-          <button
-            type="button" className="ps-btn ps-btn--ghost" data-testid="service-toggle" aria-expanded={serviceOpen} aria-controls="service-more"
-            onClick={() => setServiceOpen((o) => !o)}
-          >
-            {serviceOpen ? 'Свернуть' : `Показать ещё ${formatNumber(rest)}`}
-          </button>
-        );
-      }
-    }
-    return (
-      <section key="service" className="ps-block" id="service" aria-labelledby="h-service">
-        <BlockHead id="h-service" title="Игры-сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
-        {body}
-        {toggleBtn && <div className="ps-more ps-more--service">{toggleBtn}</div>}
-        {(serviceFull || (!isList && serviceOpen)) && moreBtn('service', counts.service - rawLoaded('service'))}
-      </section>
-    );
-  }
-
-  function renderBlock(b: BlockId): ReactNode {
-    const list = byBlock[b] ?? [];
-    if (b === 'playing') return null; // лента рисуется отдельно
-    if (b === 'chronicle') return list.length > 0 ? <div className="ps-block" key={b}>{renderChronicle()}</div> : null;
-    if (b === 'service') return list.length > 0 ? renderService(list) : null;
-    const full = isFull(b, filters.status, filters.platinum);
-    const total = shownCount(counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'], list);
-    if (list.length === 0) return null;
-    const titles: Record<string, string> = { backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Не разобрано' };
-    const id = b === 'unsorted' ? 'unsorted' : b;
-    return (
-      <section key={b} className="ps-block" id={id} aria-labelledby={`h-${id}`}>
-        <BlockHead
-          id={`h-${id}`} title={titles[b]} count={total}
-          extra={b === 'unsorted' && (pool?.forgotten ?? 0) > 0 ? (
-            <Link href="/triage?forgotten=1" className="ps-chipbtn"><Icon name="clock" size={12} />{forgottenCountText(pool?.forgotten ?? 0)}</Link>
-          ) : undefined}
-        >
-          {b === 'backlog' && <Link href="/backlog" className="ps-link ps-link--plain">Все <Icon name="arrow-right" size={14} /></Link>}
-          {b === 'unsorted' && <Link href="/triage" className="ps-btn ps-btn--primary">Разобрать по одной</Link>}
-        </BlockHead>
-        {full ? renderGames(list) : renderPreview(list, total, (
-          b === 'backlog'
-            ? <Link href="/backlog" className="ps-more-tile"><b className="num">+{formatNumber(previewSlots(total, view === 'list' ? 5 : cols).rest)}</b><span>ещё в бэклоге</span></Link>
-            : <button type="button" className="ps-more-tile" onClick={() => setFilters({ status: 'none' })}><b className="num">+{formatNumber(previewSlots(total, view === 'list' ? 5 : cols).rest)}</b><span>ещё не разобрано</span></button>
-        ))}
-        {full && moreBtn(b, counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'] - rawLoaded(b))}
-      </section>
-    );
-  }
-
-  const years = chron.years.map((y) => y.year);
-  const showAnchors = chronicleMode && filters.status === 'all' && (years.length > 0 || (byBlock.backlog?.length ?? 0) > 0 || (byBlock.service?.length ?? 0) > 0 || (byBlock.unsorted?.length ?? 0) > 0);
   function jump(e: React.MouseEvent, target: string, year?: number) {
     e.preventDefault();
-    if (year !== undefined) setToggled((t) => ({ ...t, [String(year)]: true }));
+    if (year !== undefined) L.expandYear(year);
     setTimeout(() => scrollToId(target), 30);
   }
   function jumpPlayed(e: React.MouseEvent, key: string) {
     e.preventDefault();
-    setToggled((t) => ({ ...t, [`lp-${key}`]: true }));
+    L.expandPlayed(key);
     setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
   }
 
@@ -880,7 +205,7 @@ export function CollectionView() {
                     <button type="button" className="ps-link" onClick={() => void loadAll(filtersRef.current, 0)}>Повторить</button>
                   </p>
                 )}
-                {renderBlock(b)}
+                {renderBlock(renderCtx, b)}
               </Fragment>
             ))}
           </div>
@@ -898,8 +223,8 @@ export function CollectionView() {
             ) : (
               <BlockHead title="Результаты" count={pool?.total ?? 0} />
             )}
-            {playedMode ? renderPlayed() : renderGames(flat, { dateYear: true, withHeader: true })}
-            {pool && moreBtn(null, pool.total - raw.length)}
+            {playedMode ? renderPlayed(renderCtx) : renderGames(renderCtx, flat, { dateYear: true, withHeader: true })}
+            {pool && moreBtn(renderCtx, null, pool.total - raw.length)}
           </div>
         )}
         {error && pool && (
@@ -925,58 +250,6 @@ export function CollectionView() {
 
       <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />
       <ResetAllDialog open={resetOpen} count={withStatus} onClose={() => setResetOpen(false)} onConfirm={resetAll} />
-    </div>
-  );
-}
-
-
-function SelectBar({
-  count, total, onAll, onPick, onCancel, hiddenView, onHide,
-}: {
-  count: number; total: number; onAll: () => void; onPick: (s: GameStatusValue | null) => void; onCancel: () => void;
-  /** в «Скрытых» вместо статусов одна кнопка «Вернуть в коллекцию» (статусы скрытых массово не меняются, 9.6) */
-  hiddenView: boolean; onHide: () => void;
-}) {
-  return (
-    <div className="ps-selbar" role="region" aria-label="Выбор игр">
-      <span className="ps-selbar__n">Выбрано {count}</span>
-      <button type="button" className="ps-link" onClick={onAll}>Выбрать все ({total})</button>
-      <span className="ps-section__spacer" />
-      {hiddenView ? (
-        <button type="button" className="ps-btn ps-btn--primary" disabled={!count} onClick={onHide}>
-          <Icon name="undo" size={16} />Вернуть в коллекцию
-        </button>
-      ) : (
-        <>
-          <StatusMenu onPick={onPick} label="Поставить статус" className="ps-selbar__menu">
-            <span className={`ps-btn ps-btn--primary ${count ? '' : 'ps-btn--off'}`} aria-disabled={!count}>Поставить статус<Icon name="chevron-down" size={14} /></span>
-          </StatusMenu>
-          <button type="button" className="ps-btn" aria-label="Сбросить статус" title="Сбросить статус" disabled={!count} onClick={() => onPick(null)}>
-            <Icon name="undo" size={16} /><span className="ps-btn__t">Сбросить статус</span>
-          </button>
-          <button type="button" className="ps-btn ps-btn--ghost ps-btn--danger" aria-label="Убрать из коллекции" title="Убрать из коллекции" disabled={!count} onClick={onHide}>
-            <Icon name="eye-off" size={16} /><span className="ps-btn__t">Убрать из коллекции</span>
-          </button>
-        </>
-      )}
-      <button type="button" className="ps-btn" onClick={onCancel}>Отмена</button>
-    </div>
-  );
-}
-
-function SyncProgress() {
-  const { status } = useSync();
-  const run = status?.run;
-  if (!run) return null;
-  const p = run.progress;
-  const frac = progressFraction(run);
-  const text = p && p.phase === 'games' && p.done !== null && p.total !== null ? `Загружено ${p.done} из ${p.total} игр` : phaseText(run);
-  return (
-    <div role="status" className="ps-empty__progress">
-      <p>{text}</p>
-      <div className="ps-bar" role="progressbar" aria-label="Прогресс синка" aria-valuemin={0} aria-valuemax={100} aria-valuenow={frac === null ? undefined : Math.round(frac * 100)}>
-        <span style={{ width: `${Math.round((frac ?? 0.05) * 100)}%` }} />
-      </div>
     </div>
   );
 }

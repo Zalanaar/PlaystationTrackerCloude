@@ -2,7 +2,6 @@
 
 import type { NearPlatinumItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
-import '../phase15.css';
 import { Cover } from './Cover';
 import { APPROX_HINT, anyApproximate, avgRarityText, isApproximate, nearAria, remainingGrades } from './nearPlatinum';
 

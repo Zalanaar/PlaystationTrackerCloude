@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, errorText, fetchActivity } from '../collection/api';
 import { Icon } from '../icons';
-import '../phase15.css';
 import {
   GAPS_HELP, GAPS_NOTE, HEAT_ROW_LABELS, LEGEND_TITLES, activityMode, buildHeat, initialHeatFocus, moveHeatFocus, noYearNote, streakTiles,
   totalsText, unknownNote, yearOf, yearRange, type ActivityData, type HeatCell, type HeatLayout, type StreakTile,
