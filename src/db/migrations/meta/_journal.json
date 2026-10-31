@@ -113,6 +113,13 @@
       "when": 1793442920169,
       "tag": "0015_user_id_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793458056861,
+      "tag": "0016_tour_progress",
+      "breakpoints": true
     }
   ]
 }
