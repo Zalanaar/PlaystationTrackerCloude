@@ -28,7 +28,7 @@
   color: var(--story-fg);
 }
 .ps-story__stage {
-  position: relative; overflow: hidden; outline: none; user-select: none; -webkit-user-select: none; touch-action: none;
+  position: relative; overflow: hidden; outline: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
   width: min(420px, calc((100dvh - 2 * var(--sp-4)) * 9 / 16)); min-width: 360px;
   height: min(746px, calc(100dvh - 2 * var(--sp-4))); min-height: 640px;
   border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
@@ -114,6 +114,10 @@
   .ps-story__stage { width: 100vw; height: 100dvh; min-width: 0; min-height: 0; border-radius: 0; box-shadow: none; }
   .ps-story__big { font-size: 64px; line-height: 64px; }
   .ps-wrapped-year { flex: 1 1 96px; max-width: 140px; }
+}
+/* телефон в ландшафте (ширина >= 768, высота мала): сцена по высоте экрана, без min-height 640 */
+@media (min-width: 768px) and (max-height: 640px) {
+  .ps-story__stage { height: calc(100dvh - 2 * var(--sp-2)); min-height: 0; width: min(420px, calc((100dvh - 2 * var(--sp-2)) * 9 / 16)); min-width: 0; }
 }
 @media (max-height: 700px) {
   .ps-story__body { gap: var(--sp-2); }

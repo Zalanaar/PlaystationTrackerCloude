@@ -129,7 +129,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
       <div
         ref={root} className="ps-story__stage" role="dialog" aria-modal="true" aria-label={`Итоги ${data.year}`} tabIndex={-1}
         data-slide={slide} data-index={index} data-paused={held || undefined} data-auto={auto || undefined}
-        onPointerDown={onDown} onPointerUp={(e) => finish(e, false)} onPointerCancel={(e) => finish(e, true)}
+        onContextMenu={(e) => e.preventDefault()} onPointerDown={onDown} onPointerUp={(e) => finish(e, false)} onPointerCancel={(e) => finish(e, true)}
       >
         <Backdrop data={data} id={slide} />
         <div className="ps-story__top">
