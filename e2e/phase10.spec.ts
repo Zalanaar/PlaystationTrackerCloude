@@ -135,14 +135,32 @@ test.describe('Фаза 10: поповер жанров', () => {
     await expect(page.getByRole('heading', { name: 'Жанры' })).toBeVisible();
   });
 
+  test('R-1: после закрытия окна игры фокус возвращается на строку жанра', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!);
+    const row = genreRow(page, 'Экшен');
+    await row.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    const pop = page.getByRole('dialog', { name: 'Игры жанра Экшен' });
+    await expect(pop).toBeVisible();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/\?game=/);
+    await expect(page.getByRole('dialog').filter({ has: page.getByRole('tab', { name: /Обзор/ }) })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(genreRow(page, 'Экшен')).toBeFocused();
+  });
+
   test('игра из поповера не найдена: «Игра не найдена» и «Закрыть»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await genreRow(page, 'Гонки').hover();
     await page.getByRole('dialog', { name: 'Игры жанра Гонки' }).getByRole('button', { name: 'Призрак' }).click();
-    // Фаза 18 (§8.6): неизвестный id: тост, параметр убран из адреса, окна нет (остаёмся на «/»)
+    // R-2: неизвестный id: тост, параметр убран из адреса, окна нет, возврат на исходную страницу (Статистика)
     await expect(page.getByText('Игра не найдена. Возможно, ссылка устарела.')).toBeVisible();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: /Игра/ })).toHaveCount(0);
     await expect(page).not.toHaveURL(/game=/);
+    await expect(page).toHaveURL(/\/stats/);
   });
 
   test('жанр без игр: строка не интерактивна; жанр без часов: только число игр', async ({ page, context, baseURL }) => {

@@ -11,6 +11,39 @@ import { closedHref, gameHref, GAME_NOT_FOUND_TEXT, parseGameParam, parseGameTab
  */
 let pushedFor: number | null = null;
 
+/**
+ * Элемент-источник, с которого открыли окно игры на другой странице (Статистика, Бэклог, Подскажи, Разбор).
+ * Страница пересоздаётся при `back()`, поэтому элемент ищется заново по тегу, подписи и порядковому номеру (R-1).
+ */
+export type FocusOrigin = { path: string; tag: string; label: string; nth: number };
+let focusOrigin: FocusOrigin | null = null;
+
+const labelOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+const FOCUSABLE = 'a[href],button,[role="button"],[tabindex]:not([tabindex="-1"])';
+
+function captureFocusOrigin(path: string): void {
+  focusOrigin = null;
+  let el = document.activeElement;
+  // фокус внутри поповера (миниатюры жанра): источник = раскрытый триггер поповера
+  if (el instanceof HTMLElement && el.closest('[role="dialog"]')) el = document.querySelector<HTMLElement>('[aria-haspopup][aria-expanded="true"]');
+  if (!(el instanceof HTMLElement) || el === document.body) return;
+  const target = el.matches(FOCUSABLE) ? el : el.closest<HTMLElement>(FOCUSABLE);
+  if (!target) return;
+  const label = labelOf(target);
+  const tag = target.tagName;
+  const same = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.tagName === tag && labelOf(x) === label);
+  focusOrigin = { path, tag, label, nth: Math.max(0, same.indexOf(target)) };
+}
+
+export function peekFocusOrigin(): FocusOrigin | null { return focusOrigin; }
+export function clearFocusOrigin(): void { focusOrigin = null; }
+
+/** Найти в текущем документе элемент по сохранённому источнику. */
+export function findFocusOrigin(o: FocusOrigin): HTMLElement | null {
+  const same = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.tagName === o.tag && labelOf(x) === o.label && x.getClientRects().length > 0);
+  return same[Math.min(o.nth, same.length - 1)] ?? null;
+}
+
 /** Ссылки из других страниц (Plan) помечают, что запись истории создана приложением. */
 export function markGamePushed(id: number): void {
   pushedFor = id;
@@ -54,9 +87,15 @@ export function useGameLink() {
   }, [drop, router]);
 
   const notFound = useCallback(() => {
-    drop();
+    // игру открыли из приложения (Статистика и др.): возвращаем на исходную страницу, иначе чистим адрес на месте (R-2)
+    if (idRef.current !== null && pushedFor === idRef.current) {
+      pushedFor = null;
+      router.back();
+    } else {
+      drop();
+    }
     toast({ text: GAME_NOT_FOUND_TEXT });
-  }, [drop, toast]);
+  }, [drop, router, toast]);
 
   // неверный формат id: диалог не открывается, адрес чистится, тост
   const invalid = parsed.kind === 'invalid';
@@ -78,8 +117,10 @@ export function useGameLink() {
  */
 export function useOpenGameFromPage() {
   const router = useRouter();
+  const pathname = usePathname();
   return useCallback((id: number, tab?: GameLinkTab) => {
     pushedFor = id;
+    if (pathname !== '/') captureFocusOrigin(pathname);
     router.push(gameHref('', id, tab), { scroll: false });
-  }, [router]);
+  }, [pathname, router]);
 }
