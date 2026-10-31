@@ -121,19 +121,28 @@ export function TourOverlay(props: TourOverlayProps) {
     if (!el || !el.isConnected) return;
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return;
-    const vp = { w: document.documentElement.clientWidth, h: window.innerHeight };
+    // на мобильном рамка не заходит под нижний лист: видимая область кончается у его верхнего края (кроме элементов ниже листа: нижнее меню)
+    const popTop = popRef.current?.offsetTop ?? 0; // offset*, а не rect: во время появления у листа transform
+    const vp = { w: document.documentElement.clientWidth, h: mobile && popTop > 0 && r.top < popTop ? popTop : window.innerHeight };
     const pad = px('--tour-pad', 8);
     const ringW = px('--tour-ring-w', 2);
     const box = spotBox({ x: r.left, y: r.top, w: r.width, h: r.height }, pad, px('--tap-min', 44), vp, ringW);
+    // нижнее меню под листом: кольцо начинается у нижней кромки листа, а не залезает под него
+    const popBottom = popTop + (popRef.current?.offsetHeight ?? 0);
+    if (mobile && popTop > 0 && r.top >= popTop && box.y < popBottom + ringW) {
+      const y = popBottom + ringW;
+      box.h = Math.max(0, box.h - (y - box.y));
+      box.y = y;
+    }
     const own = parseFloat(getComputedStyle(el).borderTopLeftRadius);
     const radius = Math.min(28, (Number.isFinite(own) ? own : 8) + pad);
     const next: Geo = { box, radius, gap: px('--tour-gap', 12), gutter: px('--gutter', 24) };
     setGeo((p) => (p && sameBox(p.box, box) && p.radius === radius && p.gap === next.gap && p.gutter === next.gutter ? p : next));
-  }, []);
+  }, [mobile]);
 
   useLayoutEffect(() => {
     if (view.kind === 'spot') measure();
-  }, [view, measure]);
+  }, [view, measure, popSize]);
 
   // прокрутка к элементу и пересчёт при прокрутке / ресайзе
   useEffect(() => {
@@ -155,7 +164,7 @@ export function TourOverlay(props: TourOverlayProps) {
       const r = el.getBoundingClientRect();
       const pad = px('--tour-pad', 8);
       const headerBottom = document.querySelector('header.ps-header')?.getBoundingClientRect().bottom ?? 0;
-      const popTop = popRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+      const popTop = popRef.current?.offsetTop ?? window.innerHeight;
       const area = { top: Math.max(headerBottom, 0) + pad + 2, bottom: (mobile ? popTop : window.innerHeight) - pad - 2 };
       const d = scrollDelta({ top: r.top - pad, bottom: r.bottom + pad }, area);
       if (Math.abs(d) > 1) window.scrollBy({ top: d, behavior: reducedMotion() ? 'auto' : 'smooth' });
@@ -262,7 +271,9 @@ export function TourOverlay(props: TourOverlayProps) {
 
   // фокус: при открытии на поповер, при смене шага на «Далее» (вперёд) или «Назад» (назад)
   const firstRun = useRef(true);
+  const sized = popSize !== null; // до первого замера поповер скрыт (visibility), фокус на нём невозможен
   useEffect(() => {
+    if (!sized) return;
     (document.activeElement as HTMLElement | null)?.blur?.();
     if (firstRun.current) {
       firstRun.current = false;
@@ -271,7 +282,7 @@ export function TourOverlay(props: TourOverlayProps) {
     }
     const target = dir === 'back' && backRef.current ? backRef.current : nextRef.current;
     (target ?? popRef.current)?.focus({ preventScroll: true });
-  }, [index, dir]);
+  }, [index, dir, sized]);
 
   // объявление шага (при старте не объявляется: читается диалог)
   const announcedFirst = useRef(true);
