@@ -149,7 +149,7 @@ a.ps-btn { text-decoration: none; }
   .ps-header__in { gap: var(--sp-3); }
   .ps-nav { display: none; }
   .ps-sync-text { display: none; }
-  .ps-sync-text-m { display: inline; min-width: 0; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-micro); }
+  .ps-sync-text-m { display: inline; min-width: 0; max-width: 24vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-micro); }
   .ps-btn--sync { padding: 0 var(--sp-2); gap: var(--sp-1); min-width: var(--tap-min); height: var(--tap-min); }
   .ps-btn--sync[data-tone="bad"] { color: var(--danger); }
   .ps-iconbtn.ps-mobile-only { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }

@@ -82,3 +82,16 @@ test('мобильная шапка: статус синка текстом', as
   await expect(t).toBeHidden();
   await expect(page.locator('.ps-btn--sync .ps-sync-text')).toBeVisible();
 });
+
+for (const w of [320, 360, 390]) {
+  test(`мобильная шапка: кнопка «Меню» целиком в экране при ${w} px`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: w, height: 800 });
+    await open(page, context, baseURL as string, [g(1, 'Игра')], '/backlog', 'Бэклог');
+    const box = await page.getByRole('button', { name: 'Меню', exact: true }).first().boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(w);
+    const doc = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(doc).toBeLessThanOrEqual(w);
+  });
+}
