@@ -4,7 +4,8 @@ import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
-import { gameVisible } from '@/server/collection/visibility';
+import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
+import { snapshotGameVisible, visibleGameRow } from '@/server/collection/visibility';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
 import { mskDate, mskDateString } from '@/server/stats/period';
 import { yearBounds } from './dates';
@@ -160,7 +161,7 @@ export async function getBacklogEntries(db: AnyDb, userId: UserId): Promise<Road
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .leftJoin(roadmapOrder, and(eq(roadmapOrder.gameId, games.id), eq(roadmapOrder.userId, userId)))
     .leftJoin(roadmapExcluded, and(eq(roadmapExcluded.gameId, games.id), eq(roadmapExcluded.userId, userId)))
-    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt), isNull(roadmapExcluded.gameId)))
+    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow(), isNull(roadmapExcluded.gameId)))
     .orderBy(sql`${roadmapOrder.position} asc nulls last`, asc(gameStatus.statusChangedAt), asc(games.id));
   return rows.map((r) => {
     const d = effectiveDuration({ override: r.override, main: r.main });
@@ -185,7 +186,7 @@ export async function getProgressQueue(db: AnyDb, userId: UserId): Promise<Roadm
     .where(
       and(
         eq(games.userId, userId),
-        isNull(games.hiddenAt),
+        visibleGameRow(),
         isNull(roadmapExcluded.gameId),
         or(eq(gameStatus.status, 'backlog'), and(sql`${roadmapOrder.gameId} is not null`, or(isNull(gameStatus.status), ne(gameStatus.status, 'service')))),
       ),
@@ -240,7 +241,7 @@ export async function getUnallocated(db: AnyDb, userId: UserId): Promise<Roadmap
     .from(roadmapExcluded)
     .innerJoin(games, and(eq(games.id, roadmapExcluded.gameId), eq(games.userId, userId)))
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(roadmapExcluded.userId, userId), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)))
+    .where(and(eq(roadmapExcluded.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow()))
     .orderBy(desc(roadmapExcluded.createdAt), asc(games.id));
   const fromBacklog = backlogRows.map((r): RoadmapEntry => {
     const d = effectiveDuration({ override: r.override, main: r.main });
@@ -256,7 +257,7 @@ export async function getServiceGames(db: AnyDb, userId: UserId): Promise<Servic
     .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, seconds: games.playDurationSeconds })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'service'), isNull(games.hiddenAt)))
+    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'service'), visibleGameRow()))
     .orderBy(sql`${games.lastPlayedAt} desc nulls last`, asc(games.id))
     .limit(SERVICE_GAMES_LIMIT);
   return rows.map((r) => ({ gameId: r.id, title: r.name, coverUrl: r.imageUrl, playedHours: round1(r.seconds / 3600) }));
@@ -282,15 +283,15 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, gameVisible(ps.gameId, userId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, snapshotGameVisible(ps.gameId, userId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), gameVisible(ps.gameId, userId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), snapshotGameVisible(ps.gameId, userId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
   ]);
-  return { snapshots: [...bases, ...inYear], first: first[0]?.d ?? null };
+  return { snapshots: mergeDuplicateSnapshots([...bases, ...inYear], await getDuplicateMap(db, userId)), first: first[0]?.d ?? null };
 }
 
 /** GET /api/roadmap: план на лету (17.5). */

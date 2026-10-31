@@ -25,6 +25,35 @@ export async function setGameHidden(db: AnyDb, userId: UserId, gameId: number, h
   if (!rows.length) throw new NotFoundError('Игра не найдена.');
 }
 
+/**
+ * 25.5: «Это не дубль». {id} главная: отвязываются все её дубли (или только versionId, он обязан быть её дублем);
+ * {id} сама дубль: отвязывается она. Отвязанным ставится not_duplicate = true (синк больше не склеивает). Идемпотентно.
+ */
+export async function setNotDuplicate(db: AnyDb, userId: UserId, gameId: number, versionId: number | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [g] = await tx.select({ id: games.id, of: games.duplicateOfGameId }).from(games).where(and(eq(games.id, gameId), eq(games.userId, userId))).limit(1);
+    if (!g) throw new NotFoundError('Игра не найдена.');
+    let targets: number[];
+    if (g.of !== null) targets = [g.id];
+    else {
+      const dups = await tx.select({ id: games.id }).from(games).where(and(eq(games.userId, userId), eq(games.duplicateOfGameId, gameId)));
+      const ids = dups.map((d) => d.id);
+      if (versionId !== null) {
+        // уже отвязанная версия (повтор запроса) допустима, если принадлежит пользователю и не равна другой чужой группе
+        if (ids.includes(versionId)) targets = [versionId];
+        else {
+          const [v] = await tx.select({ id: games.id, nd: games.notDuplicate, of: games.duplicateOfGameId }).from(games).where(and(eq(games.id, versionId), eq(games.userId, userId))).limit(1);
+          if (!v || !v.nd || v.of !== null) throw new NotFoundError('Игра не найдена.');
+          targets = [];
+        }
+      } else targets = ids;
+    }
+    if (targets.length) {
+      await tx.update(games).set({ duplicateOfGameId: null, notDuplicate: true }).where(and(eq(games.userId, userId), inArray(games.id, targets)));
+    }
+  });
+}
+
 /** 16.5: ручная длительность (hours) или сброс (null). Статус и остальные поля не трогаются. */
 export async function setDurationOverride(db: AnyDb, userId: UserId, gameId: number, hours: number | null): Promise<void> {
   const rows = await db.update(games).set({ durationOverrideHours: hours }).where(and(eq(games.id, gameId), eq(games.userId, userId))).returning({ id: games.id });

@@ -2,6 +2,7 @@
 // Любая ошибка HLTB = предупреждение в sync_runs.warnings, итог запуска не меняется.
 import { and, asc, count, eq, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
+import { visibleGameRow } from '@/server/collection/visibility';
 import { HltbError, capDetail, createHltbClient, type HltbClient } from '@/server/hltb/client';
 import { pickAny, searchTerms } from '@/server/hltb/normalize';
 import type { UserId } from '@/server/auth/user-id';
@@ -38,7 +39,7 @@ export const defaultHltbDeps = (): HltbDeps => ({ client: createHltbClient(), sl
 const dueWhere = (userId: UserId, now: Date, recheckBefore?: Date) =>
   and(
     eq(games.userId, userId),
-    isNull(games.hiddenAt),
+    visibleGameRow(),
     isNull(games.durationOverrideHours),
     // 20.1: любой статус, кроме service (completed/dropped тоже нужны: фильтры и «Подскажи» опираются на длительность)
     or(isNull(gameStatus.status), ne(gameStatus.status, 'service')),

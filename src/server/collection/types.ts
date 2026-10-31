@@ -43,6 +43,9 @@ export type GameTrophies = {
 
 export type GameGenre = { key: string; label: string };
 
+/** 25.4: версия-дубль главной игры. hours = собственные часы версии. */
+export type LinkedVersion = { gameId: number; title: string; platform: Platform; hours: number };
+
 export type GameItem = {
   id: number;
   title: string;
@@ -72,6 +75,10 @@ export type GameItem = {
   hiddenAt?: string | null;
   /** 16.3. Сервер присылает всегда; необязательное в типе из-за фикстур src/ui. */
   duration?: GameDuration;
+  /** 25.4: версии-дубли (только у главной, иначе []). Сервер присылает всегда; необязательное из-за фикстур src/ui. */
+  linkedVersions?: LinkedVersion[];
+  /** 25.4: id главной, если эта игра дубль (только в ответах по id дубля), иначе null. */
+  duplicateOfGameId?: number | null;
 };
 
 export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };

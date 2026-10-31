@@ -1,10 +1,11 @@
 // Чтение данных для /api/stats (контракт 10). Расчёты в чистых модулях, здесь только выборки.
-import { and, desc, eq, gte, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { getGamesByIds } from '@/server/collection/query';
-import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
+import { effectiveGameIdSql, gameVisible, snapshotGameVisible, trophySetCounted, visibleGameRow } from '@/server/collection/visibility';
+import { getDuplicateMap, mergeDuplicateSnapshots } from './duplicates';
 import { composeStats } from './compose';
 import { getEstimateInputs } from './estimate-query';
 import { applyExclusions, getMonthExclusions } from './exclusions';
@@ -24,7 +25,7 @@ const TZ = 'Europe/Moscow';
 export async function getStatsYears(db: AnyDb, userId: UserId, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
   const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
   const [snap, tr, comp, drop] = await Promise.all([
-    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(and(eq(ps.userId, userId), gameVisible(ps.gameId, userId))),
+    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(and(eq(ps.userId, userId), snapshotGameVisible(ps.gameId, userId))),
     db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.userId, userId), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId, userId))),
     db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId, userId))),
     db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId, userId))),
@@ -47,13 +48,13 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
   const toUtc = new Date(period.toUtc);
 
   // 15.1: исключения грузятся параллельно со входами оценки и накладываются чистой функцией
-  const [exclusions, rawEstimates] = await Promise.all([getMonthExclusions(db, userId), getEstimateInputs(db, userId, new Map())]);
+  const [exclusions, rawEstimates, dupMap] = await Promise.all([getMonthExclusions(db, userId), getEstimateInputs(db, userId, new Map()), getDuplicateMap(db, userId)]);
   const estimates = applyExclusions(rawEstimates, exclusions);
   const owner = db
-    .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId).as('owner_game_id') })
+    .select({ setId: gameTrophySets.trophySetId, gameId: sql<number>`min(${effectiveGameIdSql('games')})`.as('owner_game_id') })
     .from(gameTrophySets)
     .innerJoin(games, eq(games.id, gameTrophySets.gameId))
-    .where(and(eq(gameTrophySets.userId, userId), eq(games.userId, userId), isNull(games.hiddenAt)))
+    .where(and(eq(gameTrophySets.userId, userId), eq(games.userId, userId), snapshotGameVisible(games.id, userId)))
     .groupBy(gameTrophySets.trophySetId)
     .as('owner');
   const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows, rarePeriod, rareAllTime] = await Promise.all([
@@ -61,11 +62,11 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId, userId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, snapshotGameVisible(ps.gameId, userId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId, userId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), snapshotGameVisible(ps.gameId, userId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
     db
@@ -83,7 +84,7 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     db
       .select({ id: games.id, title: games.name, coverUrl: games.imageUrl, psnGenres: games.psnGenres, genresOverride: games.genresOverride })
       .from(games)
-      .where(and(eq(games.userId, userId), isNull(games.hiddenAt))),
+      .where(and(eq(games.userId, userId), visibleGameRow())),
     // 13.2: трофеи периода по играм одним запросом. Игра сета = минимальный id видимой игры (как в Итогах); сеты-сироты и сеты скрытых игр отпадают на inner join.
     db
       .select({ gameId: owner.gameId, type: trophies.type, n: sql<number>`count(*)::int` })
@@ -100,7 +101,7 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     ...completedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'completed' as const, at: r.at }] : [])),
     ...droppedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'dropped' as const, at: r.at }] : [])),
   ];
-  const snapshots: Snapshot[] = [...bases, ...inYear];
+  const snapshots: Snapshot[] = mergeDuplicateSnapshots([...bases, ...inYear], dupMap);
   // Карточки одним запросом: завершённые в периоде + все игры блока «Игры месяца» (без N+1).
   const by = groupSnapshots(snapshots);
   const firstSnapshotDate = first[0]?.d ?? null;

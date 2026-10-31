@@ -7,6 +7,7 @@ import { PsnError, safeErr, type SyncErrorReason } from '@/server/psn/errors';
 import type { PsnClient } from '@/server/psn/types';
 import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
+import { applyDuplicates } from './duplicates';
 import { hltbStep, type HltbDeps } from './hltb-step';
 import { llmStep, type LlmStepDeps } from './llm-step';
 import { tintStep, type TintDeps } from './tint';
@@ -84,6 +85,12 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
         ctx.cursor = { ...ctx.cursor, hops: ctx.cursor.hops + 1 };
         return await close({ status: 'partial', reason: 'timeout', continueNext: ctx.cursor.hops <= MAX_HOPS, hops: ctx.cursor.hops }, null);
       }
+    }
+    try {
+      await applyDuplicates(deps.db, ctx.userId);
+    } catch {
+      // склейка дублей необязательна: сбой оставляет прежние пометки
+      ctx.warn('duplicates_failed', 'Шаг склейки дублей завершился ошибкой.');
     }
     if (deps.tint) {
       try {
