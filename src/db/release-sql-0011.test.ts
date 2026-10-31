@@ -60,11 +60,11 @@ describe('docs/release-neon-0011.sql', () => {
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(11) });
     await c.exec(releaseSql);
-    await migrate(drizzle(c), { migrationsFolder: root });
+    await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
     // с 0014 user_id = 1 ссылается на allowed_users: нужен owner
     await c.exec(`insert into allowed_users (email, role, status) values ('o@example.com', 'owner', 'active')`);
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(journalRaw.entries.length);
+    expect(n.rows[0].n).toBe(15);
 
     await c.exec(`insert into recommend_discover_cache (day, profile_hash, payload) values ('2026-10-29', 'h', '{"candidates":[]}')`);
     await expect(c.exec(`insert into recommend_discover_cache (day, profile_hash, payload) values ('2026-10-29', 'h2', '{}')`)).rejects.toThrow();

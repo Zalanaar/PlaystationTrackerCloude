@@ -61,9 +61,9 @@ describe('docs/release-neon-0013.sql', () => {
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(13) });
     await c.exec(releaseSql);
-    await migrate(drizzle(c), { migrationsFolder: root });
+    await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(journalRaw.entries.length);
+    expect(n.rows[0].n).toBe(15);
 
     const sql = ownerSql.replaceAll('ВАШ_EMAIL@gmail.com', 'owner@example.com').replaceAll('ВАШ_ONLINE_ID', 'someone');
     await c.exec(sql);

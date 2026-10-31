@@ -27,14 +27,6 @@ const B = TEST_USER_2;
 async function prepare(): Promise<TestDb> {
   const t = await createTestDb();
   await t.db.execute(sql.raw(`insert into allowed_users (email, role, status, psn_online_id) values ('b@example.com', 'member', 'active', 'psnB')`));
-  for (const stmt of [
-    'drop index games_title_id_key', 'drop index trophy_sets_np_communication_id_key', 'drop index trophies_set_trophy_key',
-    'drop index playtime_snapshots_game_date_key', 'drop index planned_games_external_key',
-    'alter table psn_profile drop constraint psn_profile_singleton_check', 'alter table psn_profile drop constraint psn_profile_pkey',
-    'alter table roadmap_settings drop constraint roadmap_settings_singleton_check', 'alter table roadmap_settings drop constraint roadmap_settings_pkey',
-    'alter table recommend_llm_usage drop constraint recommend_llm_usage_pkey', 'alter table recommend_discover_cache drop constraint recommend_discover_cache_pkey',
-    'alter table recommend_external_dislikes drop constraint recommend_external_dislikes_external_source_external_id_pk',
-  ]) await t.db.execute(sql.raw(stmt));
   return t;
 }
 

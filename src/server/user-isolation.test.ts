@@ -79,23 +79,7 @@ describe('изоляция пользователей: два пользоват
     t = await createTestDb();
     holder.db = t.db;
     await t.db.execute(sql.raw(`insert into allowed_users (email, role, status, psn_online_id) values ('b@example.com', 'member', 'active', 'psnB')`));
-    // Состояние после 0015: убираем глобальные ключи, оставшиеся от 0014 рядом с составными.
-    for (const stmt of [
-      'drop index games_title_id_key',
-      'drop index trophy_sets_np_communication_id_key',
-      'drop index trophies_set_trophy_key',
-      'drop index playtime_snapshots_game_date_key',
-      'drop index planned_games_external_key',
-      'alter table psn_profile drop constraint psn_profile_singleton_check',
-      'alter table psn_profile drop constraint psn_profile_pkey',
-      'alter table roadmap_settings drop constraint roadmap_settings_singleton_check',
-      'alter table roadmap_settings drop constraint roadmap_settings_pkey',
-      'alter table recommend_llm_usage drop constraint recommend_llm_usage_pkey',
-      'alter table recommend_discover_cache drop constraint recommend_discover_cache_pkey',
-      'alter table recommend_external_dislikes drop constraint recommend_external_dislikes_external_source_external_id_pk',
-    ]) {
-      await t.db.execute(sql.raw(stmt));
-    }
+    // схема уже после 0015: глобальных ключей нет, миграции применены целиком
   });
   afterAll(() => t.close());
 

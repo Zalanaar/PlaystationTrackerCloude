@@ -28,7 +28,7 @@ const NOW = new Date('2026-10-27T10:00:00Z');
 describe('20.3 на схеме после 0014 (до 0015), один пользователь owner id=1', () => {
   let t: TestDb;
   beforeAll(async () => {
-    t = await createTestDb();
+    t = await createTestDb({ migrations: 15 }); // схема ровно после 0014 (журнал: 15 записей)
   });
   afterAll(() => t.close());
 

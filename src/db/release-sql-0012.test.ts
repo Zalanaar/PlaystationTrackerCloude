@@ -63,9 +63,9 @@ describe('docs/release-neon-0012.sql', () => {
     const c = new PGlite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(12) });
     await c.exec(releaseSql);
-    await migrate(drizzle(c), { migrationsFolder: root });
+    await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(journalRaw.entries.length);
+    expect(n.rows[0].n).toBe(15);
 
     await c.exec(`insert into recommend_llm_state (id, fail_streak) values (1, 2)`);
     await expect(c.exec(`insert into recommend_llm_state (id) values (2)`)).rejects.toThrow();

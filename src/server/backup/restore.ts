@@ -31,8 +31,10 @@ type Op =
   | { t: 'order'; gameId: number; position: number }
   | { t: 'excluded'; gameId: number }
   | { t: 'month'; gameId: number; month: string }
-  | { t: 'planned'; id: number | null; values: typeof plannedGames.$inferInsert }
+  | { t: 'planned'; id: number | null; values: PlannedValues }
   | { t: 'settings'; year: number; hoursPerWeek: number };
+
+type PlannedValues = Omit<typeof plannedGames.$inferInsert, 'userId'>;
 
 export type RestorePlan = { ops: Op[]; report: RestoreReport };
 
@@ -41,7 +43,7 @@ const sortedKey = (a: readonly string[]) => [...a].sort().join(',');
 const pk = (p: { title: string; releaseDate: string | null }) => `${p.title.trim().toLowerCase()}|${p.releaseDate ?? ''}`;
 
 /** Значения планируемой игры: пустые (null) поля файла не затирают текущие (если запись уже есть). */
-function plannedValues(fp: BackupPlanned, cur: typeof plannedGames.$inferSelect | null): typeof plannedGames.$inferInsert {
+function plannedValues(fp: BackupPlanned, cur: typeof plannedGames.$inferSelect | null): PlannedValues {
   return {
     title: fp.title,
     releaseDate: fp.releaseDate ?? cur?.releaseDate ?? null,
