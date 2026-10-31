@@ -1,6 +1,7 @@
 // Склейка для API-роутов: зависимости синка из env, запуск звена в after() и самовызов для продолжения (контракт 8.2).
 import { after } from 'next/server';
-import { getDb } from '@/db';
+import { and, eq, isNull } from 'drizzle-orm';
+import { getDb, schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { getOwnerUserId, getUserById } from '@/server/auth/users';
 import { getAccessToken } from '@/server/psn/auth';
@@ -14,6 +15,7 @@ import type { RunRow } from './context';
 import { defaultHltbDeps } from './hltb-step';
 import { defaultLlmDeps } from './llm-step';
 import { defaultTintDeps } from './tint';
+import { resolveOnlineIdFor } from './users';
 import { getRunUserId, startRun, type RunKind, type StartResult } from './runs';
 
 export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetOnlineId): SyncDeps {
@@ -37,29 +39,33 @@ export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetO
   };
 }
 
-export type LaunchResult = StartResult | { kind: 'config_error' };
+export type LaunchResult = StartResult | { kind: 'config_error' } | { kind: 'psn_not_set' } | { kind: 'psn_not_verified' } | { kind: 'user_inactive' };
 
 /**
- * Ник PSN, который читает синк пользователя: его psn_online_id. Владельцу без своего ника подходит PSN_TARGET_ONLINE_ID (старый режим),
- * остальным нет: чужой ник из env в их коллекцию попасть не должен. null = синк недоступен.
+ * Предупреждения Telegram по итогу запуска пользователя (контракт 22.13): всегда владельцу (один чат).
+ * sync_stale считается по пользователю запуска и дедуплицируется как `sync_stale:<id>` (у владельца без суффикса),
+ * остальные триггеры глобальные.
  */
-async function resolveOnlineId(db: AnyDb, userId: UserId, env: PsnEnv): Promise<string | null> {
-  const u = await getUserById(db, userId);
-  if (!u) return null;
-  const own = u.psnOnlineId?.trim();
-  if (own) return own;
-  return u.role === 'owner' ? env.targetOnlineId : null;
+async function notifyAbout(db: AnyDb, userId: UserId, opts?: Parameters<typeof notifyAfterSync>[2]): Promise<void> {
+  const owner = await getOwnerUserId(db);
+  if (!owner) return;
+  const isOwner = owner === userId;
+  const u = isOwner ? null : await getUserById(db, userId);
+  await notifyAfterSync(db, userId, { ...opts, kindSuffix: isOwner ? undefined : `:${userId}`, label: u?.psnOnlineId ?? undefined });
 }
 
-/** Уведомления Telegram остаются владельцу (20.3); обход пользователей придёт в 20.4. */
+/** Без пользователя (нет конфигурации синка): сигнал владельцу по его данным. */
 async function notifyOwner(db: AnyDb, opts?: Parameters<typeof notifyAfterSync>[2]): Promise<void> {
   const ownerId = await getOwnerUserId(db);
-  if (ownerId) await notifyAfterSync(db, ownerId, opts);
+  if (ownerId) await notifyAbout(db, ownerId, opts);
 }
 
-/** Создаёт/возобновляет запуск пользователя и планирует работу в after(). Возвращает сразу. */
+/**
+ * Создаёт/возобновляет запуск пользователя и планирует работу в after(). Возвращает сразу.
+ * Пользователь: из сессии (userId), из sync_runs при продолжении звена (continueRunId) или владелец (cron без обхода).
+ */
 export async function launchSync(o: {
-  /** Ручной синк: пользователь сессии. Не задан только у cron (20.3): тогда владелец или, при продолжении, владелец запуска из sync_runs. */
+  /** Пользователь сессии (ручной синк) или выбранный обходом cron. */
   userId?: UserId;
   kind: RunKind;
   continueRunId?: number;
@@ -79,8 +85,13 @@ export async function launchSync(o: {
   const db = getDb();
   const userId = o.userId ?? (o.continueRunId !== undefined ? await getRunUserId(db, o.continueRunId) : await getOwnerUserId(db));
   if (!userId) return o.continueRunId !== undefined ? { kind: 'not_resumable' } : { kind: 'config_error' };
-  const onlineId = await resolveOnlineId(db, userId, env);
-  if (!onlineId) return { kind: 'config_error' };
+  const user = await getUserById(db, userId);
+  if (!user) return { kind: o.continueRunId !== undefined ? 'user_inactive' : 'config_error' };
+  // blocked/invited не продолжают и не стартуют (22.13); данные запуска не трогаем
+  if (user.status !== 'active') return { kind: 'user_inactive' };
+  const resolved = resolveOnlineIdFor(user, env.targetOnlineId);
+  if (resolved.kind !== 'ok') return o.continueRunId !== undefined ? { kind: 'user_inactive' } : { kind: resolved.kind === 'not_set' ? 'psn_not_set' : 'psn_not_verified' };
+  const onlineId = resolved.onlineId;
   const started = await startRun(db, userId, { kind: o.kind, now: new Date(), continueRunId: o.continueRunId, hop: o.hop });
   if (started.kind !== 'started') return started;
 
@@ -89,18 +100,34 @@ export async function launchSync(o: {
   return started;
 }
 
+/** Первый успешный запуск пользователя завершает онбординг (22.13). Не бросает. */
+async function markOnboarded(db: AnyDb, userId: number, now: Date): Promise<void> {
+  try {
+    await db.update(schema.allowedUsers).set({ onboardedAt: now, updatedAt: now }).where(and(eq(schema.allowedUsers.id, userId), isNull(schema.allowedUsers.onboardedAt)));
+  } catch {
+    console.error('sync: не удалось отметить онбординг');
+  }
+}
+
 async function work(db: AnyDb, env: PsnEnv, run: RunRow, onlineId: string): Promise<void> {
+  const userId = asUserId(run.userId);
   try {
     const res = await runChunk(buildDeps(db, env, onlineId), run);
-    if (res.continueNext && res.hops !== undefined) await continueChain(run.id, res.hops);
+    if (res.continueNext && res.hops !== undefined) {
+      await continueChain(run.id, res.hops);
+      return;
+    }
+    if (res.status === 'success') await markOnboarded(db, run.userId, new Date());
     // 15.4: итог звена не success и не остановка по бюджету -> проверка предупреждений
-    else if (res.status !== 'success') await notifyOwner(db, { errorReason: res.reason });
+    else await notifyAbout(db, userId, { errorReason: res.reason });
   } catch (e) {
     // сюда попадает только то, что не поймал runChunk (сборка зависимостей)
     const reason = e instanceof PsnError ? e.reason : 'internal';
-    await failRun(db, asUserId(run.userId), run.id, reason, safeErr(e, [env.npsso, env.encryptionKey]), new Date()).catch(() => undefined);
-    await notifyOwner(db, { errorReason: reason });
+    await failRun(db, userId, run.id, reason, safeErr(e, [env.npsso, env.encryptionKey]), new Date()).catch(() => undefined);
+    await notifyAbout(db, userId, { errorReason: reason }).catch(() => undefined);
   }
+  // обход cron (22.13): запуск пользователя закончен окончательно (успех, сбой, отказ) -> следующий пользователь
+  if (run.kind === 'daily') await queueChain(run.userId);
 }
 
 /**
@@ -122,5 +149,22 @@ export async function continueChain(
     await res.body?.cancel();
   } catch (e) {
     console.error('sync: самовызов не удался', safeErr(e, [secret]));
+  }
+}
+
+/**
+ * Самовызов обхода: GET {origin}/api/cron/sync?queue=<id только что закончившего пользователя>.
+ * Принимающая сторона берёт следующего пользователя с большим id (каждый пользователь не больше раза за обход).
+ */
+export async function queueChain(afterUserId: number, deps: { origin?: string | null; secret?: string | null; fetchImpl?: typeof fetch } = {}): Promise<void> {
+  const secret = deps.secret === undefined ? getCronSecret() : deps.secret;
+  const origin = deps.origin === undefined ? getSyncOrigin() : deps.origin;
+  if (!secret || !origin) return;
+  try {
+    const url = new URL(`/api/cron/sync?queue=${afterUserId}`, origin);
+    const res = await (deps.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15_000), cache: 'no-store' });
+    await res.body?.cancel();
+  } catch (e) {
+    console.error('sync: самовызов обхода не удался', safeErr(e, [secret]));
   }
 }
