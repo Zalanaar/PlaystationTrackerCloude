@@ -66,8 +66,9 @@
 .ps-bl-jump {
   position: sticky; top: calc(var(--header-h) - 1px); z-index: var(--z-sticky);
   display: flex; align-items: center;
-  margin-inline: calc(var(--gutter) * -1);            /* фон на всю ширину контейнера, контент не виден по бокам */
-  padding: calc(var(--sp-2) + 1px) var(--gutter) var(--sp-2);
+  padding: calc(var(--sp-2) + 1px) var(--sp-2) var(--sp-2);
+  border-radius: var(--r-lg);                          /* скруглённая «таблетка», не полоса на всю ширину */
+  width: fit-content; max-width: 100%;
   background: color-mix(in srgb, var(--bg) 62%, transparent);   /* матовое стекло: контент под плашкой размыт, не читается */
   -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: 0 0 0 transparent;
