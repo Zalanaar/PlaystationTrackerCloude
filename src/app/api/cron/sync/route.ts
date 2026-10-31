@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/db';
-import { getCronSecret, getPsnEnv } from '@/server/env';
+import { getCronSecret, getLlmEnv, getPsnEnv, llmLimitWarning } from '@/server/env';
 import { fail } from '@/server/http';
 import { checkBearer } from '@/server/auth/password';
 import { buildCheck, recheckPending } from '@/server/auth/psn-access';
@@ -58,6 +58,10 @@ export async function GET(req: Request) {
     if (queueAfter === undefined) await recheckPending(db, buildCheck(db, env)).catch(() => 0);
 
     const users = await listSyncUsers(db, env.targetOnlineId, { afterId: queueAfter });
+    if (queueAfter === undefined) {
+      const warn = llmLimitWarning(getLlmEnv(), users.length);
+      if (warn) console.warn(`cron: ${warn}`);
+    }
     // сбой запуска одного пользователя не останавливает остальных: берём следующего
     for (const u of users) {
       try {

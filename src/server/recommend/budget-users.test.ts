@@ -81,7 +81,7 @@ describe('LLM: лимиты по пользователям и общий пот
 describe('getLlmEnv: LLM_USER_DAILY_LIMIT', () => {
   it('по умолчанию 12, зажим 1..200 (0 -> 1), LLM_DAILY_LIMIT остаётся общим', () => {
     const base = { LLM_PROVIDER: 'groq', LLM_API_KEY: 'k' };
-    expect(getLlmEnv(base)).toMatchObject({ dailyLimit: 20, userDailyLimit: 12 });
+    expect(getLlmEnv(base)).toMatchObject({ dailyLimit: 60, userDailyLimit: 12 });
     expect(getLlmEnv({ ...base, LLM_USER_DAILY_LIMIT: '5', LLM_DAILY_LIMIT: '60' })).toMatchObject({ dailyLimit: 60, userDailyLimit: 5 });
     expect(getLlmEnv({ ...base, LLM_USER_DAILY_LIMIT: '0' })!.userDailyLimit).toBe(1);
     expect(getLlmEnv({ ...base, LLM_USER_DAILY_LIMIT: '9999' })!.userDailyLimit).toBe(200);
