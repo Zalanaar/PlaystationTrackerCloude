@@ -53,6 +53,7 @@ docs/               design-system.md, api-contract.md, reference/
 - Зоны: designer — `docs/design-system.md` и токены; backend — `src/server`, `src/db`, `src/app/api`; frontend — `src/app` (страницы), `src/ui`; qa — тесты и отчёты. Чужие зоны не трогают.
 - Параллелит независимое (например designer и backend в Фазе 0).
 - Отвечает Артёму коротко, списками, риски называет прямо.
+- Миграции на прод Артём всегда применяет сам через Neon SQL Editor (не из консоли): на каждую миграцию агент готовит `docs/release-neon-NNNN.sql` (идемпотентный, с записью в журнал drizzle) и тест `src/db/release-sql-NNNN.test.ts` на PGlite. Шаги вроде `db:bootstrap-owner` тоже даём SQL-вариантом. Консольные команды Артёму не предлагать.
 - Согласие Артёма нужно на: деплой в прод, миграции с потерей данных, смену секретов, добавление платных сервисов.
 
 ## Правила кода
