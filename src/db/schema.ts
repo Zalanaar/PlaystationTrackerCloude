@@ -76,10 +76,16 @@ export const games = pgTable(
     lastSeenAt: tz('last_seen_at').notNull(),
     // Фаза 8: мягкое скрытие (9.7). Синк не трогает.
     hiddenAt: tz('hidden_at'),
+    // Фаза 23 (контракт 25.1): дубль главной игры (та же игра на другой платформе). Пишет синк и POST .../not-duplicate. not_duplicate синк не трогает.
+    duplicateOfGameId: integer('duplicate_of_game_id'),
+    notDuplicate: boolean('not_duplicate').notNull().default(false),
     createdAt: tz('created_at').notNull().defaultNow(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
+    foreignKey({ name: 'games_duplicate_of_fk', columns: [t.userId, t.duplicateOfGameId], foreignColumns: [t.userId, t.id] }),
+    index('games_user_duplicate_of_idx').on(t.userId, t.duplicateOfGameId).where(sql`${t.duplicateOfGameId} is not null`),
+    check('games_duplicate_self_check', sql`${t.duplicateOfGameId} is null or ${t.duplicateOfGameId} <> ${t.id}`),
     // составные ключи для user-scoped потомков и upsert по (user_id, title_id); глобальные title_id/concept_id/last_played_at убраны в 0015
     uniqueIndex('games_user_title_id_key').on(t.userId, t.titleId),
     uniqueIndex('games_user_id_id_key').on(t.userId, t.id),
