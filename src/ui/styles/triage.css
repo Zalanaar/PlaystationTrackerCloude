@@ -45,6 +45,9 @@
 .ps-queue__q { min-width: 0; display: flex; gap: 10px; align-items: center; opacity: .85; }
 .ps-queue__q:nth-child(n+4) { opacity: .5; }
 .ps-queue .ps-queue__th { width: 36px; height: 48px; aspect-ratio: auto; border-radius: 6px; flex: none; }
+/* Фаза 22: в узкой плитке плейсхолдер переносит название по словам (hyphens), а не режет по буквам */
+.ps-queue .ps-queue__th.ps-cover--empty { padding: 2px; font-size: var(--fs-micro); line-height: 1.1; letter-spacing: 0; }
+.ps-queue .ps-queue__th.ps-cover--empty span { -webkit-line-clamp: 3; overflow-wrap: normal; word-break: normal; hyphens: auto; }
 .ps-queue__q > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .ps-queue__t { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-queue__m { font-size: var(--fs-small); color: var(--text-3); }

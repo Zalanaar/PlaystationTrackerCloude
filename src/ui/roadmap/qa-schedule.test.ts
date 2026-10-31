@@ -59,7 +59,7 @@ describe('QA moveBetweenLists', () => {
   const g = (id: number, status: 'backlog' | 'service' | null) => ({ id, status });
   it('игра в обоих блоках: удаляется из обоих, дельты верны', () => {
     const r = moveBetweenLists({ backlog: [g(1, 'backlog')], service: [g(1, 'service')] }, g(1, 'backlog'), 'playing');
-    expect(r.lists).toEqual({ backlog: [], service: [] });
+    expect(r.lists).toEqual({ backlog: [], service: [], shelved: [] });
     expect([r.backlogDelta, r.serviceDelta]).toEqual([-1, -1]);
   });
   it('двойной вызов в сервис не плодит дубль', () => {

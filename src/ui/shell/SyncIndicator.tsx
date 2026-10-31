@@ -26,10 +26,13 @@ export function SyncIndicator() {
   );
   const age = status ? syncAge(status.lastSuccessAt, now) : null;
   const text = tone === 'busy' ? 'Синк идёт…' : tone === 'unknown' ? 'Синк: нет данных' : age ? `Синк: ${age}` : 'Синк не запускался';
+  // мобильная шапка: статус текстом (Фаза 22); при ошибке явно «Ошибка синка», на десктопе текст не меняется
+  const mobileText = tone === 'bad' ? 'Ошибка синка' : text;
   return (
     <button type="button" className="ps-btn ps-btn--sync" data-tour="sync" onClick={openPanel} aria-label={`${text}. Открыть синк`} title={text} data-tone={tone}>
       <span className="ps-dot" data-tone={tone} aria-hidden="true" />
       <span className="ps-sync-text">{text}</span>
+      <span className="ps-sync-text-m" aria-hidden="true">{mobileText}</span>
     </button>
   );
 }

@@ -147,22 +147,32 @@ export function isNotOnHltb(d: Pick<GameDuration, 'hltb'> | undefined): boolean 
 }
 
 // ---------- Два блока страницы «Бэклог»: бэклог и сервис ----------
-export type StatusLists<T> = { backlog: T[]; service: T[] };
+export type StatusLists<T> = { backlog: T[]; service: T[]; shelved?: T[] };
 
-/** Перенос игры между блоками при смене статуса: убрать из обоих, добавить в блок нового статуса (в начало). Дельты счётчиков для `total`. */
+/** Перенос игры между блоками при смене статуса: убрать из всех, добавить в блок нового статуса (в начало). Дельты счётчиков для `total`. */
 export function moveBetweenLists<T extends { id: number; status: GameStatusValue | null }>(
   lists: StatusLists<T>, game: T, to: GameStatusValue | null,
-): { lists: StatusLists<T>; backlogDelta: number; serviceDelta: number } {
+): { lists: Required<StatusLists<T>>; backlogDelta: number; serviceDelta: number; shelvedDelta: number } {
+  const shelvedIn = lists.shelved ?? [];
   const inB = lists.backlog.some((g) => g.id === game.id);
   const inS = lists.service.some((g) => g.id === game.id);
+  const inH = shelvedIn.some((g) => g.id === game.id);
   let backlog = lists.backlog.filter((g) => g.id !== game.id);
   let service = lists.service.filter((g) => g.id !== game.id);
+  let shelved = shelvedIn.filter((g) => g.id !== game.id);
   let backlogDelta = inB ? -1 : 0;
   let serviceDelta = inS ? -1 : 0;
+  let shelvedDelta = inH ? -1 : 0;
   const next = { ...game, status: to };
   if (to === 'backlog') { backlog = [next, ...backlog]; backlogDelta += 1; }
   if (to === 'service') { service = [next, ...service]; serviceDelta += 1; }
-  return { lists: { backlog, service }, backlogDelta, serviceDelta };
+  if (to === 'shelved') { shelved = [next, ...shelved]; shelvedDelta += 1; }
+  return { lists: { backlog, service, shelved }, backlogDelta, serviceDelta, shelvedDelta };
+}
+
+/** Запрос блока «Отложено»: фильтры бэклога его не затрагивают. */
+export function shelvedToApi(limit = BACKLOG_PAGE): URLSearchParams {
+  return new URLSearchParams({ status: 'shelved', sort: 'last_played', limit: String(limit), offset: '0' });
 }
 
 /** Запрос блока «Сервис»: фильтры бэклога его не затрагивают. */

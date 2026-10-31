@@ -7,6 +7,8 @@ async function open(page: Page, context: import('@playwright/test').BrowserConte
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const mock = await mockApi(page, games);
   await page.goto(url);
+  // дождаться гидратации: обработчик клавиш вешается после появления очереди/счётчика
+  if (url.startsWith('/triage')) await page.locator('.ps-queue, .ps-tri__pos').first().or(page.getByRole('heading', { name: 'Всё разобрано' })).waitFor();
   return mock;
 }
 
@@ -105,14 +107,16 @@ test.describe('Разбор (мобильный)', () => {
   });
 });
 
+const list = (page: Page) => page.locator('.ps-bl-list');
+
 test.describe('Бэклог (/backlog)', () => {
   test.beforeEach(({}, info) => { test.skip(info.project.name !== 'desktop', 'не зависит от вьюпорта'); });
 
   test('список игр бэклога, «Начать играть» убирает игру сразу', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!, '/backlog');
     await expect(page.getByRole('heading', { level: 1, name: 'Бэклог' })).toBeVisible();
-    await expect(page.locator('.ps-card__title')).toHaveText(['Stray']);
-    await page.getByRole('button', { name: 'Начать играть' }).click();
+    await expect(list(page).locator('.ps-card__title')).toHaveText(['Stray']);
+    await list(page).getByRole('button', { name: 'Начать играть' }).click();
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'playing' } });
     await expect(page.getByText('Бэклог пуст')).toBeVisible();
     await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
@@ -123,20 +127,20 @@ test.describe('Бэклог (/backlog)', () => {
 
   test('«Убрать из бэклога» сбрасывает статус, «Отменить» возвращает', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!, '/backlog');
-    await page.getByRole('button', { name: 'Убрать из бэклога' }).click();
+    await list(page).getByRole('button', { name: 'Убрать из бэклога' }).click();
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ body: { status: null } });
     await expect(page.getByText('Бэклог пуст')).toBeVisible();
     await page.getByRole('button', { name: 'Отменить' }).click();
-    await expect(page.locator('.ps-card__title')).toHaveText(['Stray']);
+    await expect(list(page).locator('.ps-card__title')).toHaveText(['Stray']);
     expect(mock.mutations.at(-1)).toMatchObject({ body: { status: 'backlog' } });
   });
 
   test('сбой смены статуса возвращает игру в список', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!, '/backlog');
     mock.failNextMutation = 503;
-    await page.getByRole('button', { name: 'Начать играть' }).click();
+    await list(page).getByRole('button', { name: 'Начать играть' }).click();
     await expect(page.getByText(/Не удалось сменить статус/)).toBeVisible();
-    await expect(page.locator('.ps-card__title')).toHaveText(['Stray']);
+    await expect(list(page).locator('.ps-card__title')).toHaveText(['Stray']);
   });
 
   test('пустой бэклог', async ({ page, context, baseURL }) => {

@@ -165,7 +165,10 @@ export function TourOverlay(props: TourOverlayProps) {
       if (!el.isConnected || isPinned(el)) return;
       const r = el.getBoundingClientRect();
       const pad = px('--tour-pad', 8);
-      const headerBottom = document.querySelector('header.ps-header')?.getBoundingClientRect().bottom ?? 0;
+      let headerBottom = document.querySelector('header.ps-header')?.getBoundingClientRect().bottom ?? 0;
+      // липкая плашка страницы (Бэклог) перекрывает верх области после прокрутки
+      const jump = document.querySelector<HTMLElement>('.ps-bl-jump');
+      if (jump && !jump.contains(el) && getComputedStyle(jump).position === 'sticky') headerBottom += jump.offsetHeight;
       const popTop = popRef.current?.offsetTop ?? window.innerHeight;
       const area = { top: Math.max(headerBottom, 0) + pad + 2, bottom: (mobile ? popTop : window.innerHeight) - pad - 2 };
       const d = scrollDelta({ top: r.top - pad, bottom: r.bottom + pad }, area);

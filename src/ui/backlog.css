@@ -10,6 +10,14 @@
 .ps-bl-genrebtn[aria-expanded="true"] svg { transform: rotate(180deg); }
 .ps-bl-list { transition: opacity var(--dur-fast) var(--ease-ui); }
 .ps-bl-list[data-loading] { opacity: .6; }
+/* Фаза 22 (1.3): карточка — колонка на всю высоту ряда, блок часов и кнопки прижаты к низу, название резервирует 2 строки.
+   Так кнопки всех карточек одного ряда стоят на одной линии при любой длине названия и без часов. */
+.ps-bl-list .ps-grid > li, #bl-service-list .ps-grid > li, #bl-shelved-list .ps-grid > li { display: flex; flex-direction: column; }
+.ps-bl-list .ps-card, #bl-service-list .ps-card, #bl-shelved-list .ps-card { flex: 1 1 auto; }
+.ps-bl-list .ps-card__title, #bl-service-list .ps-card__title, #bl-shelved-list .ps-card__title { min-height: 32px; min-height: 2lh; }
+.ps-bl-list .ps-card__extra, #bl-service-list .ps-card__extra, #bl-shelved-list .ps-card__extra { margin-top: auto; padding-top: var(--sp-2); }
+.ps-bl-list .ps-bl-dur, #bl-shelved-list .ps-bl-dur { flex-wrap: nowrap; min-height: var(--lh-small); overflow: hidden; white-space: nowrap; }
+.ps-bl-list .ps-bl-dur .ps-bl-src, #bl-shelved-list .ps-bl-dur .ps-bl-src { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .ps-bl-dur { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--sp-2); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-bl-dur svg { flex: none; color: var(--text-3); }
@@ -51,13 +59,43 @@
 .ps-bl-service__n { font-size: var(--fs-small); font-weight: 500; color: var(--text-3); margin-left: var(--sp-1); }
 .ps-bl-service__sub { margin: 0 0 var(--sp-3); font-size: var(--fs-small); color: var(--text-3); }
 
-.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--header-h) + 72px); }
+.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--header-h) + 80px); }
 .ps-bl-h:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
 .ps-bl-service .ps-bl-h { margin-top: 0; }
-.ps-bl-jump { position: sticky; top: var(--header-h); z-index: 5; display: flex; padding: var(--sp-2) 0; background: color-mix(in srgb, var(--bg) 92%, transparent); }
-.ps-bl-jump .ps-seg button { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 32px; }
-.ps-bl-jump .ps-seg b { font-weight: 600; color: var(--text); }
-@media (max-width: 767px) { .ps-bl-jump .ps-seg button { min-height: var(--tap-min); } .ps-bl-jump { top: var(--header-h); } }
+.ps-bl-jump__sentinel { height: 1px; margin-bottom: -1px; pointer-events: none; }
+.ps-bl-jump {
+  position: sticky; top: calc(var(--header-h) - 1px); z-index: var(--z-sticky);
+  display: flex; align-items: center;
+  margin-inline: calc(var(--gutter) * -1);            /* фон на всю ширину контейнера, контент не виден по бокам */
+  padding: calc(var(--sp-2) + 1px) var(--gutter) var(--sp-2);
+  background: var(--bg);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 0 0 transparent;
+  transition: box-shadow var(--dur-base) var(--ease-ui);
+}
+.ps-bl-jump[data-stuck="true"] { box-shadow: var(--shadow-sticky); }
+.ps-bl-jump__tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border: 0; border-radius: var(--r-md); max-width: 100%; }
+.ps-bl-jump__tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 var(--sp-3); min-width: 0;
+  background: transparent; border: 0; border-radius: calc(var(--r-md) - 3px);
+  color: var(--text-2); font: inherit; font-size: var(--fs-small); font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.ps-bl-jump__tab b { font-weight: 600; color: var(--text-2); }
+.ps-bl-jump__tab:hover { background: var(--surface-2); color: var(--text); }
+.ps-bl-jump__tab:hover b { color: var(--text); }
+.ps-bl-jump__tab:active { background: var(--surface-3); color: var(--text); }
+.ps-bl-jump__tab[aria-current="location"] { background: var(--surface-3); color: var(--text); font-weight: 600; }
+.ps-bl-jump__tab[aria-current="location"] b { color: var(--text); }
+.ps-bl-jump__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }   /* внутрь: лоток не обрезает кольцо */
+@media (max-width: 767px) {
+  .ps-bl-jump__tabs { display: flex; width: 100%; }
+  .ps-bl-jump__tab { flex: 1 1 0; height: var(--tap-min); padding: 0 var(--sp-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-bl-jump, .ps-bl-jump__tab { transition: none; }
+}
 
 /* Действия на карточках бэклога и сервиса: одна колонка, одинаковая высота, без переносов текста */
 .ps-bl-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
