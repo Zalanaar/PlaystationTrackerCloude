@@ -8,7 +8,7 @@
 
 ## Результаты прогонов
 - `tsc --noEmit`: чисто. `eslint .`: чисто.
-- `vitest run`: 2798 тестов зелёные (до моих добавлений). После: + route.failopen.test.ts (7), + пары контраста (945 в contrast.test.ts).
+- `vitest run`: 2798 тестов зелёные (до моих добавлений). После: + route.failopen.test.ts (6), + пары контраста (945 в contrast.test.ts).
 - e2e (desktop + mobile, свой порт 3217): tour, onboarding, triage, collection, stats, phase11-backlog, qa-phase21: 217 passed, 73 skipped (проектные skip по desktop/mobile), 0 failed. T-1 помечен `test.fail` (ожидаемое падение).
 - Мутационная проверка (10 мутантов, все убиты): `shouldAutoStartTour` (без onboardedAt, `<` -> `<=`), `markTourDone` (без max-версии), userId из сессии (PUT и GET подменены на 1), верхняя граница версии, `shownThisSession`, `ps-tour-seen`, `?game=`, `/onboarding`. Мутант «ps-tour-shown не пишется» убит новым e2e (старые e2e его не ловили).
 
