@@ -8,6 +8,7 @@ import { runChunk, type SyncDeps } from './engine';
 import { startRun } from './runs';
 import type { TintDeps } from './tint';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, trophies, syncRuns } = schema;
 const DAY1 = new Date('2026-10-27T17:00:00Z');
@@ -46,7 +47,7 @@ describe('Этап 2: синк', () => {
   });
   async function sync(tint?: TintDeps) {
     for (let i = 0; i < 30; i++) {
-      const s = await startRun(t.db, { kind: 'manual', now: new Date(clock.t) });
+      const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
       if (s.kind !== 'started') throw new Error(s.kind);
       const res = await runChunk(deps(tint), s.run);
       if (!res.continueNext) return { res, runId: s.run.id };
@@ -100,12 +101,12 @@ describe('Этап 2: синк', () => {
       await sync();
       const res = await t.db.execute(sql`select l.game_id from game_trophy_sets l join trophy_sets s on s.id = l.trophy_set_id where s.np_communication_id = ${np} limit 1`);
       const gameId = ((Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as { game_id: number }[])[0].game_id;
-      const d = await getGameDetails(t.db, gameId);
+      const d = await getGameDetails(t.db, TEST_USER, gameId);
       expect(d?.trophyList.filter((x) => x.groupId === '001')).toHaveLength(2);
       expect(d?.platinumForecast).toMatchObject({ required: 1, earned: 1, progress: 100, remaining: { total: 0 }, approximate: false, dlc: { required: 2, earned: 0, remaining: 2 } });
       // группа неизвестна: DLC считаются базой, прогноз приблизительный
       await t.db.update(trophies).set({ groupId: null }).where(eq(trophies.trophySetId, d!.trophyList[0].setId));
-      const d2 = await getGameDetails(t.db, gameId);
+      const d2 = await getGameDetails(t.db, TEST_USER, gameId);
       expect(d2?.platinumForecast).toMatchObject({ required: 3, earned: 1, approximate: true, dlc: null });
     });
   });

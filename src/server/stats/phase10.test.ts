@@ -7,7 +7,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { fileURLToPath } from 'node:url';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getStats } from './query';
 
 const { games, gameStatus, gameTrophySets, playtimeSnapshots, trophies, trophySets } = schema;
@@ -29,8 +29,8 @@ describe('getStats: жанры с играми и топ (PGlite)', () => {
     return g.id;
   };
   const snap = (gameId: number, date: string, seconds: number) => ({ gameId, snapshotDate: date, playDurationSeconds: seconds });
-  const year = () => getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
-  const month = () => getStats(t.db, { type: 'month', year: 2026, month: 10 }, NOW);
+  const year = () => getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
+  const month = () => getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
   async function set(np: string, gameIds: number[]) {
     const [s] = await t.db.insert(trophySets).values({ npCommunicationId: np, npServiceName: 'trophy', name: np }).returning();
     for (const g of gameIds) await t.db.insert(gameTrophySets).values({ gameId: g, trophySetId: s.id, source: 'title_id' });
@@ -150,12 +150,12 @@ describe('getStats: число запросов не растёт с число�
   it('5 и 120 игр дают одинаковое число запросов; в ответе топ-10 и ≤50 игр на жанр', async () => {
     const small = await seeded(5);
     small.reset();
-    await getStats(small.db, { type: 'month', year: 2026, month: 10 }, NOW);
+    await getStats(small.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     const q5 = small.count();
     await small.close();
     const big = await seeded(120);
     big.reset();
-    const r = await getStats(big.db, { type: 'month', year: 2026, month: 10 }, NOW);
+    const r = await getStats(big.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     expect(big.count()).toBe(q5);
     expect(r.top.byHours).toHaveLength(10);
     expect(r.top.byTrophies).toHaveLength(10);

@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
 import type { GenreKey } from '@/shared/genres';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { reserveCall } from './budget';
 import { getRecommendations, loadCandidates, loadHistory, writeCachedReasons } from './db';
 import { buildPrompt, factsOf, geminiProvider, groqProvider, isValidPhrase, parsePhrases, requestPhrases, templateReason } from './phrase';
@@ -239,38 +239,38 @@ describe('QA: БД, лимит, гонки, утечки', () => {
     return ins.map((g) => g.id);
   }
   const cacheFor = async () => {
-    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW, limit: 100 }).items;
-    await writeCachedReasons(t.db, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), NOW);
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db, TEST_USER), history: await loadHistory(t.db, TEST_USER), dislikedIds: new Set(), time: 'any', now: NOW, limit: 100 }).items;
+    await writeCachedReasons(t.db, TEST_USER, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), NOW);
   };
 
   it('гонка счётчика: 12 параллельных reserveCall при общем лимите 5 дают ровно 5 true и calls = 5', async () => {
-    const res = await Promise.all(Array.from({ length: 12 }, () => reserveCall(t.db, 'phrases', 5, NOW)));
+    const res = await Promise.all(Array.from({ length: 12 }, () => reserveCall(t.db, TEST_USER, 'phrases', 5, NOW)));
     expect(res.filter(Boolean)).toHaveLength(5);
     expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 5, phraseCalls: 5 });
   });
   it('экран: 8 параллельных GET не вызывают провайдера и не трогают счётчик; ответы 200', async () => {
     await seed();
-    const rs = await Promise.all(Array.from({ length: 8 }, () => getRecommendations(t.db, 'any', NOW, { llm: ENV })));
+    const rs = await Promise.all(Array.from({ length: 8 }, () => getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV })));
     expect(rs.every((r) => r.items.length === 5)).toBe(true);
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
   it('граница суток МСК: 20:59:59Z и 21:00:00Z — разные дни, счётчики независимы', async () => {
-    await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T20:59:59Z'));
-    expect(await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T20:59:59Z'))).toBe(false);
-    expect(await reserveCall(t.db, 'phrases', 1, new Date('2026-10-29T21:00:00Z'))).toBe(true);
+    await reserveCall(t.db, TEST_USER, 'phrases', 1, new Date('2026-10-29T20:59:59Z'));
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 1, new Date('2026-10-29T20:59:59Z'))).toBe(false);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 1, new Date('2026-10-29T21:00:00Z'))).toBe(true);
     const days = (await t.db.select().from(recommendLlmUsage)).map((r) => String(r.day)).sort();
     expect(days).toEqual(['2026-10-29', '2026-10-30']);
   });
   it('снижение лимита в течение суток: calls не растёт сверх, не уходит вниз', async () => {
-    for (let i = 0; i < 4; i++) await reserveCall(t.db, 'phrases', 10, NOW);
-    expect(await reserveCall(t.db, 'phrases', 2, NOW)).toBe(false);
+    for (let i = 0; i < 4; i++) await reserveCall(t.db, TEST_USER, 'phrases', 10, NOW);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 2, NOW)).toBe(false);
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(4);
   });
   it('ключ не попадает в ответ экрана, консоль и кэш', async () => {
     await seed(4);
     await cacheFor();
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => undefined));
-    const r = await getRecommendations(t.db, 'short', NOW, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'short', NOW, { llm: ENV });
     const dump = JSON.stringify([r, await t.db.select().from(recommendReasons), await t.db.select().from(recommendLlmUsage)]);
     expect(dump).not.toContain('LEAKME');
     for (const s of spies) expect(s).not.toHaveBeenCalled();
@@ -278,14 +278,14 @@ describe('QA: БД, лимит, гонки, утечки', () => {
   it('все в дизлайках и пустой бэклог: 200-форма, счётчик не растёт', async () => {
     const ids = await seed(2);
     await t.db.insert(recommendDislikes).values(ids.map((gameId) => ({ gameId })));
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
     expect(r).toEqual({ items: [], meta: { llm: 'ok', candidates: 0, time: 'any', llmPending: 0 } });
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
   it('одна игра в бэклоге: ответ из одной карточки с фразой из кэша', async () => {
     await seed(1);
     await cacheFor();
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
     expect(r.items).toHaveLength(1);
     expect(r.meta.candidates).toBe(1);
     expect(r.items[0].reason.source).toBe('llm');
@@ -301,7 +301,7 @@ describe('QA: БД, лимит, гонки, утечки', () => {
   it('мусорные данные в БД (null psn_genres, отрицательные секунды) не роняют выдачу', async () => {
     await seed(2);
     await t.db.insert(games).values({ category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'HX', name: 'Hx', psnGenres: [], playDurationSeconds: 0 });
-    const r = await getRecommendations(t.db, 'long', NOW, { llm: null });
+    const r = await getRecommendations(t.db, TEST_USER, 'long', NOW, { llm: null });
     expect(r.items.length).toBeGreaterThan(0);
   });
 });

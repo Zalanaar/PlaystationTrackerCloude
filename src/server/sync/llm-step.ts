@@ -44,16 +44,16 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
   await resetStreak(db, now); // пауза действует «до следующего синка» (20.4)
 
   // 1. Фразы всего бэклога пачками, только для изменившихся фактов
-  const [candidates, history, dislikedIds] = await Promise.all([loadCandidates(db), loadHistory(db), getDislikedIds(db, now)]);
+  const [candidates, history, dislikedIds] = await Promise.all([loadCandidates(db, ctx.userId), loadHistory(db, ctx.userId), getDislikedIds(db, ctx.userId, now)]);
   const scored = scoreBacklog({ candidates, history, dislikedIds, time: 'any', now, limit: Number.MAX_SAFE_INTEGER });
-  const cached = await readCachedReasons(db, scored.items);
+  const cached = await readCachedReasons(db, ctx.userId, scored.items);
   const missing = scored.items.filter((i) => !cached.has(i.game.id));
   const provider = deps.provider ?? createProvider({ provider: env.provider, apiKey: env.apiKey, model: env.model ?? DEFAULT_MODELS[env.provider] });
   let lastReason = '';
   for (let at = 0; at < missing.length; at += PHRASE_BATCH) {
     if (ctx.timeLeft() < LLM_MIN_LEFT_MS) break;
     if (await isPaused(db)) break;
-    if (!(await reserveCall(db, 'phrases', env.dailyLimit, now))) break;
+    if (!(await reserveCall(db, ctx.userId, 'phrases', env.dailyLimit, now))) break;
     const batch = missing.slice(at, at + PHRASE_BATCH);
     let fresh: Map<number, string>;
     try {
@@ -62,14 +62,14 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
     } catch (e) {
       lastReason = reasonOf(e);
       res.phrasesFailed++;
-      await releaseCall(db, 'phrases', now);
+      await releaseCall(db, ctx.userId, 'phrases', now);
       await recordFailure(db, lastReason, now);
       continue;
     }
     // провайдер ответил: вызов потрачен; ошибка записи в БД не вина провайдера (не возвращаем вызов, не копим неудачи)
     await resetStreak(db, now);
     try {
-      await writeCachedReasons(db, batch, fresh, now);
+      await writeCachedReasons(db, ctx.userId, batch, fresh, now);
       res.phrasesGenerated += fresh.size;
     } catch {
       res.phrasesFailed++;
@@ -82,7 +82,7 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
   // 2. «Новое от ИИ»: одна генерация в сутки (только Groq и только если есть RAWG)
   const rawgKey = deps.rawgKey === undefined ? getRawgKey() : deps.rawgKey;
   if (env.provider !== 'groq' || !rawgKey) return res;
-  if (await hasCacheForDay(db, mskDateString(now))) {
+  if (await hasCacheForDay(db, ctx.userId, mskDateString(now))) {
     res.discover = 'cached';
     return res;
   }
@@ -91,7 +91,7 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
   if (left < DISCOVER_MIN_LEFT_MS) return res;
   const groqMs = Math.min(deps.discover?.groqTimeoutMs ?? 15_000, Math.floor(left * 0.4));
   const budgetMs = Math.min(deps.discover?.budgetMs ?? 20_000, Math.max(1000, left - groqMs - SAFETY_MS));
-  const g = await generateDiscover(db, 'discover_auto', env, rawgKey, now, { ...deps.discover, groqTimeoutMs: groqMs, budgetMs });
+  const g = await generateDiscover(db, ctx.userId, 'discover_auto', env, rawgKey, now, { ...deps.discover, groqTimeoutMs: groqMs, budgetMs });
   if (g.ok) res.discover = 'generated';
   else {
     res.discover = 'failed';

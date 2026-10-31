@@ -1,7 +1,8 @@
 // Состояние одного звена синка: счётчики, предупреждения, курсор, бюджет времени.
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { asUserId, type UserId } from '@/server/auth/user-id';
 import type { PsnClient } from '@/server/psn/types';
 
 const { syncRuns } = schema;
@@ -48,6 +49,8 @@ export class RunContext {
   readonly warnings: Warning[];
   cursor: Cursor;
   private readonly deadline: number;
+  /** Владелец запуска (из sync_runs.user_id): все выборки и записи фаз ограничены им. */
+  readonly userId: UserId;
 
   constructor(
     readonly db: AnyDb,
@@ -55,6 +58,7 @@ export class RunContext {
     readonly now: () => Date,
     budgetMs: number,
   ) {
+    this.userId = asUserId(run.userId);
     this.counters = {
       gamesSeen: run.gamesSeen,
       gamesUpserted: run.gamesUpserted,
@@ -94,7 +98,7 @@ export class RunContext {
         warnings: this.warnings,
         ...extra,
       })
-      .where(eq(syncRuns.id, this.run.id));
+      .where(and(eq(syncRuns.id, this.run.id), eq(syncRuns.userId, this.userId)));
   }
 }
 

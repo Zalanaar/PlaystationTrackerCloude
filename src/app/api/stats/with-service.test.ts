@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GET as wrappedGet } from '../wrapped/route';
 import { GET } from './route';
+
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
 
 // Контракт 20.8: неверный withService = 400 до обращения к БД.
 describe('withService в /api/stats и /api/wrapped', () => {

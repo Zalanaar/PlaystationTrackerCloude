@@ -3,6 +3,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { mskDateString } from '@/server/stats/period';
 
 const { recommendLlmUsage, recommendLlmState } = schema;
@@ -22,15 +23,15 @@ const COLUMN = {
 const COLUMN_NAME = { phrases: 'phrase_calls', discover_auto: 'discover_auto_calls', discover_manual: 'discover_manual_calls' } as const;
 
 /** Атомарно занимает вызов вида `kind` на сегодня. false = достигнут потолок вида или общий предохранитель `totalLimit`. */
-export async function reserveCall(db: AnyDb, kind: LlmCallKind, totalLimit: number, now: Date): Promise<boolean> {
+export async function reserveCall(db: AnyDb, userId: UserId, kind: LlmCallKind, totalLimit: number, now: Date): Promise<boolean> {
   const col = COLUMN[kind];
   const cap = KIND_LIMITS[kind];
   if (totalLimit < 1 || cap < 1) return false;
   const rows = await db
     .insert(recommendLlmUsage)
-    .values({ day: mskDateString(now), calls: 1, [kindKey(kind)]: 1 })
+    .values({ userId, day: mskDateString(now), calls: 1, [kindKey(kind)]: 1 })
     .onConflictDoUpdate({
-      target: recommendLlmUsage.day,
+      target: [recommendLlmUsage.userId, recommendLlmUsage.day],
       set: { calls: sql`${recommendLlmUsage.calls} + 1`, [kindKey(kind)]: sql`${col} + 1` },
       setWhere: sql`${recommendLlmUsage.calls} < ${totalLimit} and ${col} < ${cap}`,
     })
@@ -43,18 +44,18 @@ function kindKey(kind: LlmCallKind): 'phraseCalls' | 'discoverAutoCalls' | 'disc
 }
 
 /** Возвращает ранее занятый вызов (неудача: провайдер не ответил по делу). Не уходит ниже нуля. */
-export async function releaseCall(db: AnyDb, kind: LlmCallKind, now: Date): Promise<void> {
+export async function releaseCall(db: AnyDb, userId: UserId, kind: LlmCallKind, now: Date): Promise<void> {
   const col = sql.raw(`"${COLUMN_NAME[kind]}"`);
   await db
     .update(recommendLlmUsage)
     .set({ calls: sql`greatest(${recommendLlmUsage.calls} - 1, 0)`, [kindKey(kind)]: sql`greatest(${col} - 1, 0)` })
     // возвращаем только занятое: двойной возврат не должен уменьшать общий счётчик
-    .where(and(eq(recommendLlmUsage.day, mskDateString(now)), sql`${col} > 0`));
+    .where(and(eq(recommendLlmUsage.userId, userId), eq(recommendLlmUsage.day, mskDateString(now)), sql`${col} > 0`));
 }
 
 /** Сколько вызовов вида уже занято сегодня. */
-export async function usedToday(db: AnyDb, kind: LlmCallKind, now: Date): Promise<number> {
-  const [r] = await db.select({ n: COLUMN[kind] }).from(recommendLlmUsage).where(eq(recommendLlmUsage.day, mskDateString(now)));
+export async function usedToday(db: AnyDb, userId: UserId, kind: LlmCallKind, now: Date): Promise<number> {
+  const [r] = await db.select({ n: COLUMN[kind] }).from(recommendLlmUsage).where(and(eq(recommendLlmUsage.userId, userId), eq(recommendLlmUsage.day, mskDateString(now))));
   return r?.n ?? 0;
 }
 

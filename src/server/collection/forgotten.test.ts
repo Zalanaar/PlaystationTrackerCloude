@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { setGameStatus } from '@/server/sync/status-rules';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { FORGOTTEN_DAYS, forgottenCutoff, isForgotten } from './forgotten';
 import { listGames } from './query';
 import { parseListQuery, type ListQuery } from './validation';
@@ -68,25 +68,25 @@ describe('GET /api/games ?forgotten=only (PGlite)', () => {
     await game('nodate', { lastPlayedAt: null });
     await game('hidden', { lastPlayedAt: ago(200), hiddenAt: NOW });
     const st = await game('withstatus', { lastPlayedAt: ago(200) });
-    await setGameStatus(t.db, st, 'backlog', NOW);
+    await setGameStatus(t.db, TEST_USER, st, 'backlog', NOW);
 
-    const r = await listGames(t.db, lq('forgotten=only&status=none&sort=title'), NOW);
+    const r = await listGames(t.db, TEST_USER, lq('forgotten=only&status=none&sort=title'), NOW);
     expect(r.items.map((g) => g.title)).toEqual(['old1', 'old2']);
     expect(r.total).toBe(2);
     expect(r.forgottenCount).toBe(2);
     expect(r.items.every((g) => isForgotten(g, NOW))).toBe(true);
 
-    const plain = await listGames(t.db, lq('status=none&q=fresh'), NOW);
+    const plain = await listGames(t.db, TEST_USER, lq('status=none&q=fresh'), NOW);
     expect(plain.items.map((g) => g.title)).toEqual(['fresh']);
     expect(plain.forgottenCount).toBe(2); // не зависит от q/status
-    expect(plain.counts).toEqual((await listGames(t.db, lq('q=fresh&forgotten=only'), NOW)).counts);
+    expect(plain.counts).toEqual((await listGames(t.db, TEST_USER, lq('q=fresh&forgotten=only'), NOW)).counts);
 
-    expect((await listGames(t.db, lq('forgotten=only&q=old1'), NOW)).items.map((g) => g.title)).toEqual(['old1']);
-    expect((await listGames(t.db, lq('forgotten=only&hidden=only'), NOW)).items).toEqual([]);
-    expect((await listGames(t.db, lq('forgotten=only&status=backlog'), NOW)).items).toEqual([]);
+    expect((await listGames(t.db, TEST_USER, lq('forgotten=only&q=old1'), NOW)).items.map((g) => g.title)).toEqual(['old1']);
+    expect((await listGames(t.db, TEST_USER, lq('forgotten=only&hidden=only'), NOW)).items).toEqual([]);
+    expect((await listGames(t.db, TEST_USER, lq('forgotten=only&status=backlog'), NOW)).items).toEqual([]);
   });
 
   it('пустая БД: forgottenCount = 0', async () => {
-    expect((await listGames(t.db, lq(), NOW)).forgottenCount).toBe(0);
+    expect((await listGames(t.db, TEST_USER, lq(), NOW)).forgottenCount).toBe(0);
   });
 });

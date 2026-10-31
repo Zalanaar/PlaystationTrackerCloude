@@ -4,12 +4,17 @@ import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { fileURLToPath } from 'node:url';
 import * as schema from '@/db/schema';
+import { asUserId } from '@/server/auth/user-id';
 import type { AnyDb } from '@/db/types';
 import type { PsnApi } from '@/server/psn/client';
 import played from '@/server/psn/__fixtures__/played-games.json';
 import trophyTitles from '@/server/psn/__fixtures__/trophy-titles.json';
 import specific from '@/server/psn/__fixtures__/specific-titles.json';
 import trophyData from '@/server/psn/__fixtures__/trophies.json';
+
+/** Владелец из createTestDb (id = 1). */
+export const TEST_USER = asUserId(1);
+export const TEST_USER_2 = asUserId(2);
 
 export type TestDb = { db: AnyDb; pg: PgliteDatabase<typeof schema>; reset: () => Promise<void>; close: () => Promise<void> };
 

@@ -3,6 +3,7 @@
 import { type AnyColumn, and, asc, count, eq, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import type { PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet } from '@/server/psn/types';
 import type { PhaseFn, RunContext } from './context';
 import { matchOrphansByName } from './link';
@@ -32,16 +33,16 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
 
   await ctx.db.transaction(async (tx) => {
     const before = new Map(
-      (await tx.select({ titleId: games.titleId, d: games.playDurationSeconds }).from(games)).map((r) => [r.titleId, r.d] as const),
+      (await tx.select({ titleId: games.titleId, d: games.playDurationSeconds }).from(games).where(eq(games.userId, ctx.userId))).map((r) => [r.titleId, r.d] as const),
     );
     let upserted = 0;
     let snapshots = 0;
     for (const part of chunks(list, GAMES_CHUNK)) {
       const rows = await tx
         .insert(games)
-        .values(part.map((g) => gameRow(g, now)))
+        .values(part.map((g) => gameRow(g, now, ctx.userId)))
         .onConflictDoUpdate({
-          target: games.titleId,
+          target: [games.userId, games.titleId],
           set: {
             conceptId: ex('concept_id'),
             name: ex('name'),
@@ -69,6 +70,7 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
         return g
           ? [
               {
+                userId: ctx.userId,
                 gameId: r.id,
                 snapshotDate: ctx.run.snapshotDate,
                 playDurationSeconds: g.playDurationSeconds,
@@ -85,7 +87,7 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
           .insert(playtimeSnapshots)
           .values(snaps)
           .onConflictDoUpdate({
-            target: [playtimeSnapshots.gameId, playtimeSnapshots.snapshotDate],
+            target: [playtimeSnapshots.userId, playtimeSnapshots.gameId, playtimeSnapshots.snapshotDate],
             set: {
               playDurationSeconds: ex('play_duration_seconds'),
               playCount: ex('play_count'),
@@ -114,7 +116,7 @@ export const gamesPhase: PhaseFn = async (ctx, psn) => {
 };
 
 /**
- * Профиль (контракт 12.1): апсёрт строки id = 1 вне транзакции игр. Ошибка не роняет синк, только предупреждение.
+ * Профиль (контракт 12.1): апсёрт строки пользователя (user_id) вне транзакции игр. Ошибка не роняет синк, только предупреждение.
  * Поля, которых PSN не дал сейчас, остаются прежними (coalesce).
  */
 export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Date): Promise<void> {
@@ -124,7 +126,7 @@ export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Da
   }
   if (!p.avatarUrl) ctx.warn('avatar_missing', `PSN не отдал адрес аватара. ${p.avatarDiag ?? 'нет данных'}`.slice(0, 500));
   const values = {
-    id: 1,
+    userId: ctx.userId,
     onlineId: p.onlineId,
     avatarUrl: p.avatarUrl,
     trophyLevel: p.trophyLevel,
@@ -142,7 +144,7 @@ export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Da
       .insert(psnProfile)
       .values(values)
       .onConflictDoUpdate({
-        target: psnProfile.id,
+        target: psnProfile.userId,
         set: {
           onlineId: ex('online_id'),
           avatarUrl: keep('avatar_url', psnProfile.avatarUrl),
@@ -161,8 +163,9 @@ export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Da
   }
 }
 
-function gameRow(g: PsnGame, now: Date): typeof games.$inferInsert {
+function gameRow(g: PsnGame, now: Date, userId: UserId): typeof games.$inferInsert {
   return {
+    userId,
     titleId: g.titleId,
     conceptId: g.conceptId,
     name: g.name,
@@ -181,7 +184,7 @@ function gameRow(g: PsnGame, now: Date): typeof games.$inferInsert {
 
 // ---------- trophy sets ----------
 /** Апсерт сетов; возвращает npCommunicationId -> id. Не трогает trophies_synced_at. */
-async function upsertSets(db: AnyDb, sets: PsnTrophySet[], now: Date): Promise<Map<string, number>> {
+async function upsertSets(db: AnyDb, userId: UserId, sets: PsnTrophySet[], now: Date): Promise<Map<string, number>> {
   const uniq = [...new Map(sets.map((s) => [s.npCommunicationId, s] as const)).values()];
   const ids = new Map<string, number>();
   for (const part of chunks(uniq, 100)) {
@@ -189,6 +192,7 @@ async function upsertSets(db: AnyDb, sets: PsnTrophySet[], now: Date): Promise<M
       .insert(trophySets)
       .values(
         part.map((s) => ({
+          userId,
           npCommunicationId: s.npCommunicationId,
           npServiceName: s.npServiceName,
           name: s.name,
@@ -208,7 +212,7 @@ async function upsertSets(db: AnyDb, sets: PsnTrophySet[], now: Date): Promise<M
         })),
       )
       .onConflictDoUpdate({
-        target: trophySets.npCommunicationId,
+        target: [trophySets.userId, trophySets.npCommunicationId],
         set: {
           npServiceName: ex('np_service_name'),
           name: ex('name'),
@@ -236,7 +240,7 @@ async function upsertSets(db: AnyDb, sets: PsnTrophySet[], now: Date): Promise<M
 export const trophySetsPhase: PhaseFn = async (ctx, psn) => {
   const sets = await psn.getTrophySets();
   await ctx.db.transaction(async (tx) => {
-    await upsertSets(tx, sets, ctx.now());
+    await upsertSets(tx, ctx.userId, sets, ctx.now());
     ctx.cursor = { ...ctx.cursor, phase: 'trophy_link', progress: undefined };
     await ctx.save(tx);
   });
@@ -248,6 +252,7 @@ export const trophySetsPhase: PhaseFn = async (ctx, psn) => {
 function pendingGamesWhere(ctx: RunContext) {
   const weekAgo = new Date(ctx.now().getTime() - RECHECK_MS);
   return and(
+    eq(games.userId, ctx.userId),
     gte(games.lastSeenAt, ctx.run.startedAt),
     or(
       isNull(games.trophyCheckedAt),
@@ -276,15 +281,15 @@ export const trophyLinkPhase: PhaseFn = async (ctx, psn) => {
     const found = await psn.findTrophySets(batch.map((g) => g.titleId));
     const now = ctx.now();
     await ctx.db.transaction(async (tx) => {
-      const idByNp = await upsertSets(tx, [...found.values()].flat(), now);
+      const idByNp = await upsertSets(tx, ctx.userId, [...found.values()].flat(), now);
       const links = batch.flatMap((g) =>
         (found.get(g.titleId) ?? []).flatMap((s) => {
           const setId = idByNp.get(s.npCommunicationId);
-          return setId === undefined ? [] : [{ gameId: g.id, trophySetId: setId, source: 'title_id' as const }];
+          return setId === undefined ? [] : [{ userId: ctx.userId, gameId: g.id, trophySetId: setId, source: 'title_id' as const }];
         }),
       );
       if (links.length) await tx.insert(gameTrophySets).values(links).onConflictDoNothing();
-      await tx.update(games).set({ trophyCheckedAt: now }).where(inArray(games.id, batch.map((g) => g.id)));
+      await tx.update(games).set({ trophyCheckedAt: now }).where(and(eq(games.userId, ctx.userId), inArray(games.id, batch.map((g) => g.id))));
       done += batch.length;
       ctx.cursor = { ...ctx.cursor, progress: { done, total: Math.max(total, done) } };
       await ctx.save(tx);
@@ -304,12 +309,13 @@ export const trophyLinkPhase: PhaseFn = async (ctx, psn) => {
 /** Игра без связей наследует сеты игр с тем же concept_id (другая платформенная версия). */
 async function linkByConcept(db: AnyDb, ctx: RunContext): Promise<void> {
   await db.execute(sql`
-    insert into game_trophy_sets (game_id, trophy_set_id, source)
-    select distinct g.id, l.trophy_set_id, 'concept'::trophy_set_link_source
+    insert into game_trophy_sets (user_id, game_id, trophy_set_id, source)
+    select distinct g.user_id, g.id, l.trophy_set_id, 'concept'::trophy_set_link_source
     from games g
-    join games sib on sib.concept_id = g.concept_id and sib.id <> g.id
-    join game_trophy_sets l on l.game_id = sib.id
-    where g.concept_id is not null
+    join games sib on sib.concept_id = g.concept_id and sib.id <> g.id and sib.user_id = g.user_id
+    join game_trophy_sets l on l.game_id = sib.id and l.user_id = g.user_id
+    where g.user_id = ${ctx.userId}
+      and g.concept_id is not null
       and g.last_seen_at >= ${ctx.run.startedAt.toISOString()}::timestamptz
       and not exists (select 1 from game_trophy_sets x where x.game_id = g.id)
     on conflict do nothing`);
@@ -320,15 +326,15 @@ async function linkOrphansByName(db: AnyDb, ctx: RunContext): Promise<void> {
   const orphans = await db
     .select({ setId: trophySets.id, name: trophySets.name })
     .from(trophySets)
-    .where(sql`not exists (select 1 from game_trophy_sets l where l.trophy_set_id = ${trophySets.id})`);
+    .where(and(eq(trophySets.userId, ctx.userId), sql`not exists (select 1 from game_trophy_sets l where l.trophy_set_id = ${trophySets.id})`));
   if (orphans.length === 0) return;
   const free = await db
     .select({ gameId: games.id, name: games.name })
     .from(games)
-    .where(sql`not exists (select 1 from game_trophy_sets l where l.game_id = ${games.id})`);
+    .where(and(eq(games.userId, ctx.userId), sql`not exists (select 1 from game_trophy_sets l where l.game_id = ${games.id})`));
   const { links, ambiguous } = matchOrphansByName(orphans, free);
   if (links.length) {
-    await db.insert(gameTrophySets).values(links.map((l) => ({ gameId: l.gameId, trophySetId: l.setId, source: 'name' as const }))).onConflictDoNothing();
+    await db.insert(gameTrophySets).values(links.map((l) => ({ userId: ctx.userId, gameId: l.gameId, trophySetId: l.setId, source: 'name' as const }))).onConflictDoNothing();
   }
   for (const id of ambiguous) ctx.warn('name_link_ambiguous', `Сет #${id}: имя совпало с несколькими играми, связь не создана.`);
 }
@@ -342,6 +348,7 @@ const localEarned = sql`(select count(*) from trophies t where t.trophy_set_id =
 function staleSetsWhere(ctx: RunContext, skipIds: number[]) {
   const dayAgo = new Date(ctx.now().getTime() - RELOAD_MISMATCH_MS);
   return and(
+    eq(trophySets.userId, ctx.userId),
     or(
       isNull(trophySets.trophiesSyncedAt),
       sql`${trophySets.lastUpdatedAt} > ${trophySets.trophiesSyncedAt}`,
@@ -385,7 +392,7 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
     const ref = { npCommunicationId: set.np, npServiceName: set.service === 'trophy2' ? ('trophy2' as const) : ('trophy' as const) };
     const earned = await psn.getEarnedTrophies(ref);
     const defs = set.have < set.defined || set.have === 0 || set.noGroup > 0 ? await psn.getTrophyDefinitions(ref) : [];
-    const rows = mergeTrophies(set.id, earned, defs, ctx.now());
+    const rows = mergeTrophies(ctx.userId, set.id, earned, defs, ctx.now());
 
     if (rows.length === 0 && set.defined > 0) {
       // пустой ответ при непустом сете: не считаем загруженным, чтобы не потерять данные
@@ -398,7 +405,7 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
           .insert(trophies)
           .values(part)
           .onConflictDoUpdate({
-            target: [trophies.trophySetId, trophies.trophyId],
+            target: [trophies.userId, trophies.trophySetId, trophies.trophyId],
             set: {
               type: ex('type'),
               groupId: sql`coalesce(${ex('group_id')}, ${trophies.groupId})`,
@@ -416,7 +423,7 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
           });
       }
       const now = ctx.now();
-      await tx.update(trophySets).set({ trophiesSyncedAt: now, updatedAt: now }).where(eq(trophySets.id, set.id));
+      await tx.update(trophySets).set({ trophiesSyncedAt: now, updatedAt: now }).where(and(eq(trophySets.id, set.id), eq(trophySets.userId, ctx.userId)));
       ctx.counters.trophySetsSynced += 1;
       ctx.counters.trophiesUpserted += rows.length;
       done += 1;
@@ -428,13 +435,14 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
   return 'done';
 };
 
-export function mergeTrophies(setId: number, earned: PsnTrophyEarned[], defs: PsnTrophyDef[], now: Date): Array<typeof trophies.$inferInsert> {
+export function mergeTrophies(userId: UserId, setId: number, earned: PsnTrophyEarned[], defs: PsnTrophyDef[], now: Date): Array<typeof trophies.$inferInsert> {
   const defById = new Map(defs.map((d) => [d.trophyId, d] as const));
   const out = new Map<number, typeof trophies.$inferInsert>();
   const base = (id: number) => out.get(id);
   for (const e of earned) {
     const d = defById.get(e.trophyId);
     out.set(e.trophyId, {
+      userId,
       trophySetId: setId,
       trophyId: e.trophyId,
       groupId: d?.groupId ?? e.groupId,
@@ -453,6 +461,7 @@ export function mergeTrophies(setId: number, earned: PsnTrophyEarned[], defs: Ps
   for (const d of defs) {
     if (base(d.trophyId)) continue;
     out.set(d.trophyId, {
+      userId,
       trophySetId: setId,
       trophyId: d.trophyId,
       groupId: d.groupId,

@@ -4,12 +4,15 @@ import { getGamesByIds } from '@/server/collection/query';
 import { parseDateBody, parseGameId } from '@/server/collection/validation';
 import { fail, ok } from '@/server/http';
 import { setStatusDate, StatusRuleError } from '@/server/sync/status-rules';
+import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Ручная правка даты завершения/броска. Контракт 9.5.
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
   const id = parseGameId((await ctx.params).id);
   if (id === null) return fail(400, 'invalid_request', 'Некорректный id игры.');
   const read = await readJsonBody(req);
@@ -18,8 +21,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
     const db = getDb();
-    await setStatusDate(db, id, p.value.date, new Date(), p.value.field);
-    const [game] = await getGamesByIds(db, [id]);
+    await setStatusDate(db, a.user.id, id, p.value.date, new Date(), p.value.field);
+    const [game] = await getGamesByIds(db, a.user.id, [id]);
     return ok({ game });
   } catch (e) {
     if (e instanceof StatusRuleError) {

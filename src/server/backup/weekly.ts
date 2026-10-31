@@ -1,5 +1,6 @@
 // Еженедельная отправка копии в Telegram (контракт 20.3). Запускается из cron watchdog. Не бросает.
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { getTelegramEnv, claimSend, lastSentOn, releaseSend, sendTelegramDocument, type TelegramEnv } from '@/server/notify/telegram';
 import { mskDate, mskDateString } from '@/server/stats/period';
 import { buildBackup } from './export';
@@ -26,7 +27,7 @@ export function isBackupDue(now: Date, lastSent: string | null): boolean {
   return dayNumber(mskDateString(now)) - dayNumber(lastSent) >= BACKUP_CATCHUP_DAYS;
 }
 
-export async function runWeeklyBackup(db: AnyDb, o: { now?: Date; env?: TelegramEnv | null; fetchImpl?: typeof fetch } = {}): Promise<BackupJobResult> {
+export async function runWeeklyBackup(db: AnyDb, userId: UserId, o: { now?: Date; env?: TelegramEnv | null; fetchImpl?: typeof fetch } = {}): Promise<BackupJobResult> {
   const now = o.now ?? new Date();
   try {
     const last = await lastSentOn(db, BACKUP_KIND);
@@ -39,7 +40,7 @@ export async function runWeeklyBackup(db: AnyDb, o: { now?: Date; env?: Telegram
     if (!claim.claimed) return 'already_sent';
     let ok = false;
     try {
-      const file = await buildBackup(db, now);
+      const file = await buildBackup(db, userId, now);
       ok = await sendTelegramDocument(
         { name: backupFileName(mskDateString(now)), content: JSON.stringify(file, null, 1), caption: `PS Tracker: резервная копия разметки, ${file.games.length} игр` },
         { env, fetchImpl: o.fetchImpl },

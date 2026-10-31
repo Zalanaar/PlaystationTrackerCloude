@@ -5,6 +5,7 @@ import { matchOrphansByName, normalizeName } from './link';
 import { computeDateEdit, computeStatusChange, setGameStatus, setStatusDate, StatusRuleError, type StatusRow } from './status-rules';
 import { mskDate } from './time';
 import { createTestDb, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const d = (s: string) => new Date(s);
 const NOW = d('2026-10-27T10:00:00Z');
@@ -81,30 +82,30 @@ describe('setGameStatus / setStatusDate (PGlite)', () => {
 
   it('полный цикл статусов с БД-ограничениями', async () => {
     const id = await game(LAST);
-    await setGameStatus(t.db, id, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, id, 'completed', NOW);
     expect((await row(id)).completedAt).toEqual(LAST);
 
     // повтор не трогает даты, даже после ручной правки
     const manual = d('2026-02-02T00:00:00Z');
-    await setStatusDate(t.db, id, manual, NOW);
-    await setGameStatus(t.db, id, 'completed', d('2026-11-01T00:00:00Z'));
+    await setStatusDate(t.db, TEST_USER, id, manual, NOW);
+    await setGameStatus(t.db, TEST_USER, id, 'completed', d('2026-11-01T00:00:00Z'));
     expect((await row(id)).completedAt).toEqual(manual);
 
-    await setGameStatus(t.db, id, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, id, 'dropped', NOW);
     const r = await row(id);
     expect(r.completedAt).toBeNull();
     expect(r.droppedAt).toEqual(LAST);
 
-    await setGameStatus(t.db, id, 'backlog', NOW);
+    await setGameStatus(t.db, TEST_USER, id, 'backlog', NOW);
     expect(await row(id)).toMatchObject({ status: 'backlog', droppedAt: null });
-    await expect(setStatusDate(t.db, id, manual)).rejects.toMatchObject({ code: 'date_not_allowed' });
+    await expect(setStatusDate(t.db, TEST_USER, id, manual)).rejects.toMatchObject({ code: 'date_not_allowed' });
 
-    await setGameStatus(t.db, id, null, NOW);
+    await setGameStatus(t.db, TEST_USER, id, null, NOW);
     expect(await row(id)).toBeUndefined();
   });
 
   it('неизвестная игра', async () => {
-    await expect(setGameStatus(t.db, 999, 'playing')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(setGameStatus(t.db, TEST_USER, 999, 'playing')).rejects.toMatchObject({ code: 'not_found' });
   });
 });
 

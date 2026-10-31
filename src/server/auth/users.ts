@@ -3,6 +3,7 @@
 import { and, asc, count, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { asUserId, type UserId } from './user-id';
 
 const { allowedUsers, games, syncRuns } = schema;
 
@@ -28,6 +29,12 @@ export async function getUserById(db: AnyDb, id: number): Promise<UserRow | null
 export async function getOwner(db: AnyDb): Promise<UserRow | null> {
   const [row] = await db.select().from(allowedUsers).where(eq(allowedUsers.role, 'owner')).limit(1);
   return row ?? null;
+}
+
+/** Id владельца (cron/watchdog/бэкап в 20.3 работают для него; обход всех пользователей в 20.4). null, если owner не создан. */
+export async function getOwnerUserId(db: AnyDb): Promise<UserId | null> {
+  const owner = await getOwner(db);
+  return owner ? asUserId(owner.id) : null;
 }
 
 export type LoginLookup = { ok: true; user: UserRow } | { ok: false };
@@ -106,28 +113,35 @@ function toAccessUser(u: UserRow, gamesCount: number, lastSyncAt: Date | null): 
   };
 }
 
-/**
- * Пока данные не user-scoped (до 0014), общая коллекция принадлежит owner: gamesCount/lastSyncAt считаются только для него,
- * у остальных 0/null. В 20.3 заменяется на выборку по user_id.
- */
-async function ownerStats(db: AnyDb): Promise<{ games: number; lastSync: Date | null }> {
-  const [g] = await db.select({ n: count() }).from(games);
-  const [s] = await db.select({ at: max(syncRuns.finishedAt) }).from(syncRuns).where(inArray(syncRuns.status, ['success', 'partial']));
-  return { games: Number(g?.n ?? 0), lastSync: s?.at ?? null };
+/** gamesCount и lastSyncAt по user_id (22.12): одним запросом на каждый показатель, группировка по пользователю. */
+async function statsByUser(db: AnyDb, ids?: number[]): Promise<Map<number, { games: number; lastSync: Date | null }>> {
+  const gameRows = await db
+    .select({ userId: games.userId, n: count() })
+    .from(games)
+    .where(ids ? inArray(games.userId, ids) : undefined)
+    .groupBy(games.userId);
+  const syncRows = await db
+    .select({ userId: syncRuns.userId, at: max(syncRuns.finishedAt) })
+    .from(syncRuns)
+    .where(and(inArray(syncRuns.status, ['success', 'partial']), ids ? inArray(syncRuns.userId, ids) : undefined))
+    .groupBy(syncRuns.userId);
+  const out = new Map<number, { games: number; lastSync: Date | null }>();
+  for (const r of gameRows) out.set(r.userId, { games: Number(r.n), lastSync: null });
+  for (const r of syncRows) out.set(r.userId, { games: out.get(r.userId)?.games ?? 0, lastSync: r.at ?? null });
+  return out;
 }
 
 export async function listAccessUsers(db: AnyDb): Promise<AccessUser[]> {
   const rows = await db.select().from(allowedUsers).orderBy(asc(allowedUsers.id));
-  const stats = rows.some((r) => r.role === 'owner') ? await ownerStats(db) : { games: 0, lastSync: null };
-  return rows.map((u) => (u.role === 'owner' ? toAccessUser(u, stats.games, stats.lastSync) : toAccessUser(u, 0, null)));
+  const stats = await statsByUser(db);
+  return rows.map((u) => toAccessUser(u, stats.get(u.id)?.games ?? 0, stats.get(u.id)?.lastSync ?? null));
 }
 
 export async function toAccessUserById(db: AnyDb, id: number): Promise<AccessUser | null> {
   const u = await getUserById(db, id);
   if (!u) return null;
-  if (u.role !== 'owner') return toAccessUser(u, 0, null);
-  const s = await ownerStats(db);
-  return toAccessUser(u, s.games, s.lastSync);
+  const s = (await statsByUser(db, [id])).get(id);
+  return toAccessUser(u, s?.games ?? 0, s?.lastSync ?? null);
 }
 
 export type CreateResult = { ok: true; id: number } | { ok: false; reason: 'exists' | 'limit' };

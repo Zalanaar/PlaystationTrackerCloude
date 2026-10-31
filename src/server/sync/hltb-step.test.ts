@@ -10,6 +10,7 @@ import { runChunk, type SyncDeps } from './engine';
 import { HLTB_BATCH, HLTB_RECHECK_MS, hltbStep, type HltbDeps } from './hltb-step';
 import { startRun } from './runs';
 import { createTestDb, fakeApi, freshState, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, gameStatus, syncRuns } = schema;
 const NOW = new Date('2026-10-28T10:00:00Z');
@@ -26,7 +27,7 @@ describe('hltbStep', () => {
 
   async function ctx(budget = 1_000_000) {
     await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.status, 'running'));
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error(s.kind);
     return new RunContext(t.db, s.run, () => NOW, budget);
   }
@@ -172,7 +173,7 @@ describe('синк с HLTB-шагом', () => {
       connect: () => connectPsn({ getAccessToken: async () => 't', onlineId: 'Target', delayMs: 0, api: fakeApi(state), sleep: async () => undefined, now: () => NOW.getTime() }),
     };
     for (let i = 0; i < 10; i++) {
-      const s = await startRun(t.db, { kind: 'manual', now: NOW });
+      const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
       if (s.kind !== 'started') throw new Error(s.kind);
       const res = await runChunk(deps, s.run);
       if (!res.continueNext) return { res, runId: s.run.id };

@@ -3,6 +3,7 @@ import { MAX_BODY_CHARS, parseBackup } from '@/server/backup/format';
 import { isDataError } from '@/server/backup/errors';
 import { applyRestore, previewRestore } from '@/server/backup/restore';
 import { fail, ok, originAllowed } from '@/server/http';
+import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,8 +11,10 @@ export const maxDuration = 30;
 
 const bad = (reason: string, extra: Record<string, unknown> = {}) => fail(400, 'invalid_request', 'Файл копии не подходит.', { reason, ...extra });
 
-// Восстановление разметки из файла: preview (что изменится) и apply. Сессию проверяет src/proxy.ts. Контракт 20.3.
+// Восстановление разметки из файла: preview (что изменится) и apply. Контракт 20.3.
 export async function POST(req: Request) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
   if (!originAllowed(req)) return fail(400, 'invalid_request', 'Некорректный запрос.');
   if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return fail(400, 'invalid_request', 'Некорректный запрос.');
   const len = Number(req.headers.get('content-length') ?? 0);
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }
   try {
-    const data = mode === 'preview' ? await previewRestore(db, parsed.value) : await applyRestore(db, parsed.value);
+    const data = mode === 'preview' ? await previewRestore(db, a.user.id, parsed.value) : await applyRestore(db, a.user.id, parsed.value);
     return ok({ mode, schemaVersion: parsed.value.schemaVersion, fileCreatedAt: parsed.value.createdAt, ...data });
   } catch (e) {
     if (isDataError(e)) return fail(400, 'invalid_request', 'Данные файла не удалось применить, ничего не изменено.', { reason: 'apply_failed' });

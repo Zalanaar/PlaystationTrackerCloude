@@ -4,6 +4,7 @@ import { and, asc, count, eq, isNull, lt, ne, notInArray, or, sql } from 'drizzl
 import { schema } from '@/db';
 import { HltbError, capDetail, createHltbClient, type HltbClient } from '@/server/hltb/client';
 import { pickAny, searchTerms } from '@/server/hltb/normalize';
+import type { UserId } from '@/server/auth/user-id';
 import type { RunContext } from './context';
 
 const { games, gameStatus } = schema;
@@ -24,8 +25,9 @@ export type HltbDeps = { client: HltbClient; sleep: (ms: number) => Promise<void
 export const defaultHltbDeps = (): HltbDeps => ({ client: createHltbClient(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)), pauseMs: HLTB_PAUSE_MS });
 
 /** recheckBefore: дополнительно берём «не найдено» (hltb_id пуст), проверенные раньше этого момента (16.7, перепроверка после смены матчера). */
-const dueWhere = (now: Date, recheckBefore?: Date) =>
+const dueWhere = (userId: UserId, now: Date, recheckBefore?: Date) =>
   and(
+    eq(games.userId, userId),
     isNull(games.hiddenAt),
     isNull(games.durationOverrideHours),
     // 20.1: любой статус, кроме service (completed/dropped тоже нужны: фильтры и «Подскажи» опираются на длительность)
@@ -39,7 +41,7 @@ const dueWhere = (now: Date, recheckBefore?: Date) =>
 
 /** Сколько игр сейчас подходит под правило шага (16.6). */
 export async function hltbRemaining(ctx: RunContext, recheckBefore?: Date): Promise<number> {
-  const [r] = await ctx.db.select({ n: count() }).from(games).leftJoin(gameStatus, eq(gameStatus.gameId, games.id)).where(dueWhere(ctx.now(), recheckBefore));
+  const [r] = await ctx.db.select({ n: count() }).from(games).leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, ctx.userId))).where(dueWhere(ctx.userId, ctx.now(), recheckBefore));
   return Number(r?.n ?? 0);
 }
 
@@ -85,8 +87,8 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
   const due = await ctx.db
     .select({ id: games.id, name: games.name, hltbId: games.hltbId, main: games.hltbMainHours, extra: games.hltbExtraHours })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(and(dueWhere(now, opts.recheckBefore), excl))
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, ctx.userId)))
+    .where(and(dueWhere(ctx.userId, now, opts.recheckBefore), excl))
     .orderBy(priority, asc(games.id))
     .limit(opts.limit ?? HLTB_BATCH);
 
@@ -165,15 +167,15 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
           hltbExtraHours: hit.extraHours ?? (same ? g.extra : null),
           hltbCheckedAt: now,
         })
-        .where(eq(games.id, g.id));
+        .where(and(eq(games.id, g.id), eq(games.userId, ctx.userId)));
     } else if (g.hltbId !== null) {
       // раньше находили, теперь нет: возможный сбой HLTB, прежние данные не стираем
-      await ctx.db.update(games).set({ hltbCheckedAt: now }).where(eq(games.id, g.id));
+      await ctx.db.update(games).set({ hltbCheckedAt: now }).where(and(eq(games.id, g.id), eq(games.userId, ctx.userId)));
     } else {
       await ctx.db
         .update(games)
         .set({ hltbId: null, hltbName: null, hltbMainHours: null, hltbExtraHours: null, hltbCheckedAt: now })
-        .where(eq(games.id, g.id));
+        .where(and(eq(games.id, g.id), eq(games.userId, ctx.userId)));
     }
   }
   const failDetail = failed > 0 ? `${lastCode}${lastDetail ? `: ${lastDetail}` : ''}` : '';

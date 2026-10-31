@@ -1,12 +1,13 @@
 // Выборка для стрика и тепловой карты (контракт 14.3): суточный агрегат дельт снимков одним запросом (строк = дней истории).
 import { sql } from 'drizzle-orm';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { buildActivity, type ActivityDay, type ActivityResponse } from './activity';
 import { mskDateString } from './period';
 
 type Row = { date: string; seconds: number | string; deltas: number | string; first: string | null };
 
-export async function getActivity(db: AnyDb, year: number, now: Date = new Date()): Promise<ActivityResponse> {
+export async function getActivity(db: AnyDb, userId: UserId, year: number, now: Date = new Date()): Promise<ActivityResponse> {
   // Дельта к предыдущему снимку той же игры (lag по всем снимкам); видимость (9.10) применяется к сумме и счётчику дельт.
   // first = min(snapshot_date) по всей БД (как hours.firstSnapshotDate, скрытие не влияет).
   const res = await db.execute(sql`
@@ -15,7 +16,8 @@ export async function getActivity(db: AnyDb, year: number, now: Date = new Date(
              p.play_duration_seconds - lag(p.play_duration_seconds) over (partition by p.game_id order by p.snapshot_date) as delta,
              g.hidden_at is null as visible
       from playtime_snapshots p
-      join games g on g.id = p.game_id
+      join games g on g.id = p.game_id and g.user_id = p.user_id
+      where p.user_id = ${userId}
     )
     select snapshot_date::text as date,
            coalesce(sum(greatest(delta, 0)) filter (where visible), 0)::int as seconds,

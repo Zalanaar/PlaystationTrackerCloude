@@ -2,12 +2,13 @@
 import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { platinumForecast, rankNearPlatinum, type NearPlatinumCandidate, type SetAgg } from './platinum';
 
 const { games, gameStatus, gameTrophySets, trophies } = schema;
 
 /** Видимые игры со статусом не dropped (без статуса тоже), топ по прогрессу к платине. Только id и прогнозы. */
-export async function getNearPlatinumCandidates(db: AnyDb, limit?: number): Promise<NearPlatinumCandidate[]> {
+export async function getNearPlatinumCandidates(db: AnyDb, userId: UserId, limit?: number): Promise<NearPlatinumCandidate[]> {
   const cnt = (cond: ReturnType<typeof sql>) => sql<number>`(count(*) filter (where ${cond}))::int`;
   // 15.3: прогноз по базовой группе (default или ещё неизвестная); DLC считается отдельно
   const base = sql`(${trophies.groupId} is null or ${trophies.groupId} = 'default')`;
@@ -36,10 +37,10 @@ export async function getNearPlatinumCandidates(db: AnyDb, limit?: number): Prom
       rateMin: sql<string | null>`min(${trophies.earnedRate}) filter (where ${remaining})`,
     })
     .from(gameTrophySets)
-    .innerJoin(games, eq(games.id, gameTrophySets.gameId))
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .innerJoin(trophies, eq(trophies.trophySetId, gameTrophySets.trophySetId))
-    .where(and(isNull(games.hiddenAt), or(isNull(gameStatus.status), ne(gameStatus.status, 'dropped'))))
+    .innerJoin(games, and(eq(games.id, gameTrophySets.gameId), eq(games.userId, userId)))
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
+    .where(and(eq(gameTrophySets.userId, userId), isNull(games.hiddenAt), or(isNull(gameStatus.status), ne(gameStatus.status, 'dropped'))))
     .groupBy(gameTrophySets.gameId, games.name, trophies.trophySetId);
 
   const num = (v: string | number | null) => (v === null ? null : Number(v));

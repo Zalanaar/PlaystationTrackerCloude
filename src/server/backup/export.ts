@@ -1,23 +1,26 @@
 // Сборка резервной копии из БД (контракт 20.3). Только чтение, фиксированное число запросов.
+import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { BACKUP_APP, BACKUP_SCHEMA_VERSION, type BackupFile, type BackupGame } from './format';
 
 const { games, gameStatus, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings } = schema;
 
 const lt = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-export async function buildBackup(db: AnyDb, now: Date = new Date()): Promise<BackupFile> {
+export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<BackupFile> {
   const [gameRows, statuses, orders, excluded, months, planned, settings] = await Promise.all([
     db
       .select({ id: games.id, titleId: games.titleId, name: games.name, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt })
-      .from(games),
-    db.select().from(gameStatus),
-    db.select().from(roadmapOrder),
-    db.select().from(roadmapExcluded),
-    db.select().from(gameMonthExclusions),
-    db.select().from(plannedGames),
-    db.select().from(roadmapSettings),
+      .from(games)
+      .where(eq(games.userId, userId)),
+    db.select().from(gameStatus).where(eq(gameStatus.userId, userId)),
+    db.select().from(roadmapOrder).where(eq(roadmapOrder.userId, userId)),
+    db.select().from(roadmapExcluded).where(eq(roadmapExcluded.userId, userId)),
+    db.select().from(gameMonthExclusions).where(eq(gameMonthExclusions.userId, userId)),
+    db.select().from(plannedGames).where(eq(plannedGames.userId, userId)),
+    db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId)),
   ]);
   const statusBy = new Map(statuses.map((s) => [s.gameId, s]));
   const orderBy = new Map(orders.map((o) => [o.gameId, o.position]));

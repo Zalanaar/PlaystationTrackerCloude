@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { dislikeGame, getRecommendations, listDislikes, loadCandidates, loadHistory, NotFoundError, resolveReasons, undislikeGame, writeCachedReasons } from './db';
 import { scoreBacklog } from './score';
 
@@ -49,7 +49,7 @@ describe('recommend на БД', () => {
 
   it('без LLM: кандидаты только видимый backlog, шаблоны, disabled; service и скрытые не участвуют', async () => {
     const id = await seed();
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(r.meta).toEqual({ llm: 'disabled', candidates: 3, time: 'any', llmPending: 0 });
     expect(r.items.map((i) => i.game.id)).not.toContain(id('C'));
     expect(r.items.map((i) => i.game.id)).not.toContain(id('S'));
@@ -64,14 +64,14 @@ describe('recommend на БД', () => {
   it('time влияет на порядок', async () => {
     const id = await seed();
     await t.db.update(games).set({ durationOverrideHours: 90 }).where(eq(games.id, id('A')));
-    const long = await getRecommendations(t.db, 'long', NOW, { llm: null });
-    const short = await getRecommendations(t.db, 'short', NOW, { llm: null });
+    const long = await getRecommendations(t.db, TEST_USER, 'long', NOW, { llm: null });
+    const short = await getRecommendations(t.db, TEST_USER, 'short', NOW, { llm: null });
     expect(long.items[0].game.id).toBe(id('A'));
     expect(short.items[0].game.id).not.toBe(id('A'));
   });
 
   it('пустой бэклог: items [], candidates 0', async () => {
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any', llmPending: 0 } });
   });
 
@@ -79,28 +79,28 @@ describe('recommend на БД', () => {
     const id = await seed();
     const [ts] = await t.db.insert(trophySets).values({ npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
     await t.db.insert(gameTrophySets).values({ gameId: id('D'), trophySetId: ts.id, source: 'manual' });
-    let r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    let r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     const sig = (gid: number) => r.items.find((i) => i.game.id === gid)!.signals.find((s) => s.key === 'platinum_close');
     expect(sig(id('D'))?.contribution).toBe(1.2); // 8/10 * 1.5
     await t.db.insert(trophies).values({ trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false });
-    r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(sig(id('D'))?.contribution).toBe(0.6);
   });
 
   it('дизлайк исключает игру, снятие возвращает; идемпотентность и 404', async () => {
     const id = await seed();
-    await dislikeGame(t.db, id('A'));
-    await dislikeGame(t.db, id('A'));
+    await dislikeGame(t.db, TEST_USER, id('A'));
+    await dislikeGame(t.db, TEST_USER, id('A'));
     expect((await t.db.select().from(recommendDislikes)).length).toBe(1);
-    let r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    let r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(r.items.map((i) => i.game.id)).not.toContain(id('A'));
     expect(r.meta.candidates).toBe(2);
-    await undislikeGame(t.db, id('A'));
-    await undislikeGame(t.db, id('A'));
-    r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    await undislikeGame(t.db, TEST_USER, id('A'));
+    await undislikeGame(t.db, TEST_USER, id('A'));
+    r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(r.meta.candidates).toBe(3);
-    await expect(dislikeGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(undislikeGame(t.db, 9999)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(dislikeGame(t.db, TEST_USER, 9999)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(undislikeGame(t.db, TEST_USER, 9999)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   const DAY = 86_400_000;
@@ -110,7 +110,7 @@ describe('recommend на БД', () => {
 
   it('TTL дизлайка: 29 и 30 суток без секунды скрывают, ровно 30 и 31 нет', async () => {
     const id = await seed();
-    const has = async () => (await getRecommendations(t.db, 'any', NOW, { llm: null })).items.some((i) => i.game.id === id('A'));
+    const has = async () => (await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).items.some((i) => i.game.id === id('A'));
     await dislikeAt(id('A'), 29);
     expect(await has()).toBe(false);
     await dislikeAt(id('A'), 30, -1000); // 29 сут 23:59:59
@@ -119,40 +119,40 @@ describe('recommend на БД', () => {
     expect(await has()).toBe(true);
     await dislikeAt(id('A'), 31);
     expect(await has()).toBe(true);
-    expect((await listDislikes(t.db, NOW)).items).toEqual([]);
+    expect((await listDislikes(t.db, TEST_USER, NOW)).items).toEqual([]);
   });
 
   it('повторный POST продлевает срок (created_at обновляется), строка одна', async () => {
     const id = await seed();
     await dislikeAt(id('A'), 29);
-    await dislikeGame(t.db, id('A'), NOW);
+    await dislikeGame(t.db, TEST_USER, id('A'), NOW);
     const rows = await t.db.select().from(recommendDislikes);
     expect(rows).toHaveLength(1);
     expect(rows[0].createdAt.getTime()).toBe(NOW.getTime());
     const later = new Date(NOW.getTime() + 10 * DAY); // старый срок уже истёк бы
-    expect((await getRecommendations(t.db, 'any', later, { llm: null })).items.some((i) => i.game.id === id('A'))).toBe(false);
+    expect((await getRecommendations(t.db, TEST_USER, 'any', later, { llm: null })).items.some((i) => i.game.id === id('A'))).toBe(false);
   });
 
   it('истёкший дизлайк возвращает игру в скоринг и счётчик кандидатов', async () => {
     const id = await seed();
     await dislikeAt(id('A'), 40);
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(r.meta.candidates).toBe(3);
     expect(r.items.map((i) => i.game.id)).toContain(id('A'));
     await dislikeAt(id('A'), 1);
-    expect((await getRecommendations(t.db, 'any', NOW, { llm: null })).meta.candidates).toBe(2);
+    expect((await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).meta.candidates).toBe(2);
   });
 
   it('listDislikes: пусто; только бэклог и не hidden; порядок hiddenAt desc, затем id; поля контракта', async () => {
     const id = await seed();
-    expect(await listDislikes(t.db, NOW)).toEqual({ items: [], ttlDays: 30 });
+    expect(await listDislikes(t.db, TEST_USER, NOW)).toEqual({ items: [], ttlDays: 30 });
     await dislikeAt(id('A'), 5);
     await dislikeAt(id('B'), 1);
     await dislikeAt(id('D'), 5); // тот же момент, что у A: порядок по id
     await dislikeAt(id('C'), 2); // hidden_at
     await dislikeAt(id('H1'), 2); // completed
     await dislikeAt(id('S'), 2); // service
-    const r = await listDislikes(t.db, NOW);
+    const r = await listDislikes(t.db, TEST_USER, NOW);
     expect(r.items.map((i) => i.game.id)).toEqual([id('B'), Math.min(id('A'), id('D')), Math.max(id('A'), id('D'))]);
     expect(r.ttlDays).toBe(30);
     expect(r.items[0]).toEqual({
@@ -163,12 +163,12 @@ describe('recommend на БД', () => {
     expect(r.items[0]).not.toHaveProperty('topGenre');
     // игра ушла из бэклога: отметка не показывается
     await t.db.update(gameStatus).set({ status: 'playing' }).where(eq(gameStatus.gameId, id('B')));
-    expect((await listDislikes(t.db, NOW)).items.map((i) => i.game.id)).not.toContain(id('B'));
+    expect((await listDislikes(t.db, TEST_USER, NOW)).items.map((i) => i.game.id)).not.toContain(id('B'));
   });
 
   it('дизлайк каскадно удаляется вместе с игрой', async () => {
     const id = await seed();
-    await dislikeGame(t.db, id('A'));
+    await dislikeGame(t.db, TEST_USER, id('A'));
     await t.db.delete(games).where(eq(games.id, id('A')));
     expect(await t.db.select().from(recommendDislikes)).toEqual([]);
   });
@@ -177,14 +177,14 @@ describe('recommend на БД', () => {
   const fill = async (at: Date = NOW) => {
     // имитация шага синка: фразы всем кандидатам из скоринга time=any
     const items = scoreBacklog({
-      candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: at, limit: 100,
+      candidates: await loadCandidates(t.db, TEST_USER), history: await loadHistory(t.db, TEST_USER), dislikedIds: new Set(), time: 'any', now: at, limit: 100,
     }).items;
-    await writeCachedReasons(t.db, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), at);
+    await writeCachedReasons(t.db, TEST_USER, items, new Map(items.map((i) => [i.game.id, `Фраза ${i.game.id}.`])), at);
   };
 
   it('экран: LLM не вызывается и счётчик не растёт; без кэша шаблон и llmPending', async () => {
     await seed();
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
     expect(r.meta).toEqual({ llm: 'ok', candidates: 3, time: 'any', llmPending: 3 });
     expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
@@ -194,7 +194,7 @@ describe('recommend на БД', () => {
     const id = await seed();
     await fill();
     for (const time of ['any', 'short', 'medium', 'long'] as const) {
-      const r = await getRecommendations(t.db, time, NOW, { llm: ENV });
+      const r = await getRecommendations(t.db, TEST_USER, time, NOW, { llm: ENV });
       expect(r.meta.llm).toBe('ok');
       expect(r.meta.llmPending).toBe(0);
       expect(r.items.every((i) => i.reason.source === 'llm' && i.reason.text === `Фраза ${i.game.id}.`)).toBe(true);
@@ -207,7 +207,7 @@ describe('recommend на БД', () => {
     await seed();
     await fill();
     const later = new Date(NOW.getTime() + 400 * 86_400_000);
-    const r = await getRecommendations(t.db, 'any', later, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', later, { llm: ENV });
     expect(r.items.every((i) => i.reason.source === 'llm')).toBe(true);
   });
 
@@ -215,20 +215,20 @@ describe('recommend на БД', () => {
     const id = await seed();
     await fill();
     await t.db.update(games).set({ durationOverrideHours: 50 }).where(eq(games.id, id('D')));
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: ENV });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
     expect(r.meta.llmPending).toBe(1);
     expect(r.items.find((i) => i.game.id === id('D'))!.reason.source).toBe('template');
     expect(r.items.filter((i) => i.reason.source === 'llm')).toHaveLength(2);
-    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW }).items;
-    await writeCachedReasons(t.db, items.filter((i) => i.game.id === id('D')), new Map([[id('D'), 'Новая.']]), NOW);
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db, TEST_USER), history: await loadHistory(t.db, TEST_USER), dislikedIds: new Set(), time: 'any', now: NOW }).items;
+    await writeCachedReasons(t.db, TEST_USER, items.filter((i) => i.game.id === id('D')), new Map([[id('D'), 'Новая.']]), NOW);
     expect((await t.db.select().from(recommendReasons).where(eq(recommendReasons.gameId, id('D')))).map((x) => x.text)).toEqual(['Новая.']);
   });
 
   it('недоступный кэш не роняет ответ: шаблоны', async () => {
     await seed();
-    const items = scoreBacklog({ candidates: await loadCandidates(t.db), history: await loadHistory(t.db), dislikedIds: new Set(), time: 'any', now: NOW }).items;
+    const items = scoreBacklog({ candidates: await loadCandidates(t.db, TEST_USER), history: await loadHistory(t.db, TEST_USER), dislikedIds: new Set(), time: 'any', now: NOW }).items;
     const db = Object.assign(Object.create(t.db), { select: () => { throw new Error('db down'); } });
-    const r = await resolveReasons(db, items, { llm: ENV });
+    const r = await resolveReasons(db, TEST_USER, items, { llm: ENV });
     expect(r.llm).toBe('ok');
     expect(r.pending).toBe(3);
     expect([...r.reasons.values()].every((x) => x.source === 'template')).toBe(true);

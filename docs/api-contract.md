@@ -1902,7 +1902,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 
 ## 22. Мультипользовательность (Фаза 20, подфаза 20.1)
 
-Статус: 20.2 реализована (миграция `0013`, вход Google, `v:2`, «Доступ»); `0014` готова (22.11), в проде не применена; `0015` и слой `scope` ещё нет. Заменяет 3.1 (один пароль) и расширяет 3.3, 3.4, 3.5, 4.2, 5, 6. Решения Артёма (2026-10-29/30): вход Google OAuth + белый список; `ADMIN_PASSWORD` остаётся аварийным входом owner; каждый видит только свою коллекцию; цель 4–10 человек на Vercel Hobby; общего каталога игр нет (всё дублируется на пользователя); один технический NPSSO читает всех; новые пользователи подключаются по открытому профилю PSN без дружбы (проверка доступа ещё идёт, см. 22.2 и план Б).
+Статус: 20.2 реализована (миграция `0013`, вход Google, `v:2`, «Доступ»); `0014` применена в проде (22.11); весь backend работает с обязательным `userId` (20.3, 22.12); `0015` ещё нет. Заменяет 3.1 (один пароль) и расширяет 3.3, 3.4, 3.5, 4.2, 5, 6. Решения Артёма (2026-10-29/30): вход Google OAuth + белый список; `ADMIN_PASSWORD` остаётся аварийным входом owner; каждый видит только свою коллекцию; цель 4–10 человек на Vercel Hobby; общего каталога игр нет (всё дублируется на пользователя); один технический NPSSO читает всех; новые пользователи подключаются по открытому профилю PSN без дружбы (проверка доступа ещё идёт, см. 22.2 и план Б).
 
 ### 22.1 Таблицы: решение по каждой
 
@@ -2016,13 +2016,14 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 
 ### 22.6 Слой запросов с обязательным `userId`
 
-- Единственный способ читать и писать user-scoped таблицы: `scope(userId: UserId)` в `src/server/scope/`, возвращает репозитории (`games`, `status`, `trophies`, `snapshots`, `roadmap`, `recommend`, `syncRuns`, `backups`, ...). Каждый метод внутри добавляет `user_id = $userId` (условие и в SELECT, и в UPDATE/DELETE) и подставляет `user_id` в INSERT/UPSERT (`ON CONFLICT` по составным ключам из 22.1).
-- `UserId` — branded-тип, получить его можно только из `requireUser(req)` (сессия), `forEachActiveUser()` (cron) или `asUserId(row.id)` внутри `src/server/scope/` и `src/server/auth/`. `userId` из тела, query и path запроса не принимается никогда. Без значения `UserId` код не компилируется.
-- Прямой импорт `db` и таблиц из `src/db/schema` запрещён вне `src/db/`, `src/server/scope/`, `src/server/auth/` и модулей глобальных таблиц (`psn_auth`, `login_attempts`, `notify_log`, `recommend_llm_state`). Запрет — правило ESLint `no-restricted-imports` + Vitest-тест, который сканирует исходники.
-- Параметр `{id}` в путях (`/api/games/{id}`) проверяется в слое как `where id = $id and user_id = $userId`; чужой id даёт `404 not_found`, не `403` (существование не раскрывается).
-- Чистая статистика (`src/server/stats/`, `recommend/score`, `roadmap`) принимает уже выбранные данные и `userId` не знает; выборка данных только через `scope`.
-- Тесты: два пользователя с пересекающимися `title_id`; для каждого API-роута проверка «пользователь B не видит и не меняет данные A»; тест на полноту (каждая таблица с `user_id` из 22.1 используется в `scope`, нет прямых обращений).
-- Cron и синк: `GET /api/cron/sync` берёт активных пользователей (`status = 'active'`, `psn_access_status = 'ok'`, есть `psn_online_id`) по одному, у каждого свой `sync_runs`.
+Реализация в 20.3 отличается от первоначального замысла (`src/server/scope/`), см. 22.12: репозитории не вводятся, обязательность `userId` обеспечена сигнатурами функций.
+
+- Каждая функция, читающая или пишущая user-scoped таблицу, принимает `userId: UserId` вторым параметром (после `db`) и добавляет `user_id = $userId` в SELECT, UPDATE и DELETE; в INSERT и upsert `user_id` пишется явно, `ON CONFLICT` идёт по составным ключам из 22.1.
+- `UserId` — branded-тип (`src/server/auth/user-id.ts`). Получают его из `requireUser(req)` (сессия), из строки БД (`sync_runs.user_id` для продолжения звена, `getOwnerUserId` для cron). `userId` из тела, query и path запроса не принимается никогда. Без значения `UserId` код не компилируется.
+- Параметр `{id}` в путях (`/api/games/{id}`, `/api/roadmap/planned/{id}` и т.д.) проверяется как `where id = $id and user_id = $userId`; чужой id даёт `404 not_found`, не `403` (существование не раскрывается).
+- Чистая статистика (`src/server/stats/`, `recommend/score`, `roadmap/plan`) принимает уже выбранные данные и `userId` не знает; выборка данных только функциями с `userId`.
+- Тесты: `src/server/user-scope.test.ts` (статический скан исходников: файл с user-scoped таблицами обязан работать с `userId`), «blocked» (каждый `route.ts` без сессии даёт 401), утечки между двумя пользователями (`src/server/user-isolation.test.ts`). Правило ESLint запрещает импорт `@/db` из страниц и UI.
+- Cron и синк: `GET /api/cron/sync` в 20.3 работает для владельца; обход активных пользователей (`status = 'active'`, `psn_access_status = 'ok'`, есть `psn_online_id`) по одному со своим `sync_runs` — 20.4.
 
 ### 22.7 Миграция существующих данных на owner
 
@@ -2083,6 +2084,19 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 - Ошибки `id_token` (подпись, `iss`, `aud`, `exp`, `nonce`) дают `oauth_failed`; неподтверждённый email, нет в списке, `blocked`, чужой `google_sub` дают `access_denied`.
 - Callback резервирует попытку `kind='google'` как неуспех до обмена кода и снимает её (`success = true`) только после выдачи сессии. Старт `GET /api/auth/google` лимит только проверяет и ничего не пишет.
 - Самоблокировка и самоудаление owner: `409 owner_protected`. Разблокировка тоже проверяет `MAX_USERS` (`409 user_limit`). Ответ `PATCH`: `200 { user }`.
-- До `0014` данные не user-scoped: `gamesCount` и `lastSyncAt` считаются по общей коллекции и показываются только у owner, у остальных `0` и `null` (заменяется в 20.3).
+- `gamesCount` и `lastSyncAt` считаются по `user_id` для каждого пользователя (20.3, см. 22.12).
 - `POST /api/auth/login` отвечает `401 invalid_credentials`, если owner в `allowed_users` нет или он `blocked`; сессия выдаётся `v:2` (`uid` = id owner, `amr = pwd`).
 - `/api/auth/me` и `/api/access/*` требуют сессию в `proxy.ts`, а `requireUser`/`requireOwner` (`src/server/auth/require-user.ts`) читают роль и статус из БД.
+
+### 22.12 Отступления и решения реализации 20.3
+
+- **Слой `scope` не вводится.** Вместо репозиториев в `src/server/scope/` каждая функция доступа к данным принимает `userId` вторым параметром (см. 22.6). Причина: объём (переписывание всех модулей и тестов под репозитории) при том же результате изоляции. Защита от пропусков: статический тест `user-scope.test.ts`, тесты утечек на двух пользователях, ESLint-запрет импорта `@/db` из UI и страниц.
+- **Все `/api/*` под `requireUser`** (закрывает B-2), кроме `/api/auth/login`, `/api/auth/logout`, `/api/auth/google*` (вход) и `/api/cron/*` (`CRON_SECRET`). `/api/health` тоже требует сессию и показывает запуски синка только пользователя сессии. `src/proxy.ts` по-прежнему отсекает запросы без подписанной cookie, `requireUser` проверяет пользователя и роль по БД.
+- **Глобальные таблицы не тронуты:** `psn_auth`, `login_attempts`, `notify_log`, `recommend_llm_state`, `allowed_users`. Ограничение «один `running` в `sync_runs`» остаётся глобальным: ручной синк пользователя B при идущем синке A получает `409 sync_in_progress`.
+- **Синк в 20.3:** ручной `POST /api/sync` запускает синк пользователя сессии и читает его `allowed_users.psn_online_id`. У владельца без своего ника используется `PSN_TARGET_ONLINE_ID`; у остальных без ника — `500 config_error` (онбординг: 20.4). Продолжение звена (`/api/cron/sync?continue=<id>`) берёт пользователя из `sync_runs.user_id`. Ежедневный cron, watchdog и еженедельная копия работают для владельца (`getOwnerUserId`); Telegram-уведомления остаются владельцу.
+- **`GET /api/wrapped`:** ник берётся из `allowed_users.psn_online_id` пользователя сессии, затем из его сохранённого профиля PSN. `PSN_TARGET_ONLINE_ID` в ответ больше не попадает.
+- **Блокировки:** advisory-локи статусов, восстановления и порядка плана берутся на пользователя (`status_backups:<id>`, `backup_restore:<id>`, `roadmap_order:<id>`).
+- **LLM-бюджет:** `recommend_llm_usage` ведётся на пользователя (ключ `(user_id, day)`), глобального потолка `LLM_DAILY_LIMIT` по сумме пользователей пока нет (20.4). `recommend_llm_state` (пауза после неудач) остаётся общей.
+- **Копия и восстановление:** `GET /api/backup`, `POST /api/backup/restore` и `status_backups` работают только с данными пользователя сессии; статусы из файла применяются только к его играм.
+- **Ограничение до `0015`:** `psn_profile` и `roadmap_settings` пока имеют PK `id` со значением по умолчанию `1`, поэтому вторая строка (второго пользователя) не вставится, пока `0015` не заменит PK на `user_id`. Аналогично старые unique `games(title_id)`, `trophy_sets(np_communication_id)`, `trophies(trophy_set_id, trophy_id)`, `playtime_snapshots(game_id, snapshot_date)`, `planned_games(external_source, external_id)` мешают двум пользователям иметь одинаковые игры. Реальный второй пользователь возможен только после `0015`; тесты изоляции моделируют состояние после `0015`, удаляя эти ключи на PGlite.
+- **Cookie `v:1` и `createSessionToken`** остаются (совместимость на 30 дней), удаляются после `0015`.

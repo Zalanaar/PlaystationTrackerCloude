@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
+
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
 
 describe('GET /api/wrapped: валидация (без БД)', () => {
   it('мусорный год = 400 invalid_request', async () => {

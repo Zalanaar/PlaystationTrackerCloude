@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { hasNoGenres } from '@/shared/genres';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { listGames } from './query';
 import { parseListQuery } from './validation';
 
@@ -57,7 +57,7 @@ describe('GET /api/games: none и genreCounts', () => {
   const list = async (q: string) => {
     const p = parseListQuery(new URLSearchParams(q));
     if (!p.ok) throw new Error(p.message);
-    return listGames(t.db, p.value, NOW);
+    return listGames(t.db, TEST_USER, p.value, NOW);
   };
   const names = (r: { items: { title: string }[] }) => r.items.map((i) => i.title);
 

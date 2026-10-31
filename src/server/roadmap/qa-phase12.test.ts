@@ -1,6 +1,6 @@
 // QA Фазы 12: адверсариальные проверки алгоритма плана, прогресса и «сегодня» по МСК.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { groupSnapshots } from '@/server/stats/hours';
 import { dayNum, weeksOfYear } from './dates';
 import { getRoadmap, putSettings, saveOrder } from './db';
@@ -181,15 +181,15 @@ describe('QA: «сегодня» по МСК на БД', () => {
   afterAll(() => t.close());
   beforeEach(() => t.reset());
   it('2026-12-31T21:30Z это уже 1 января 2027 по МСК', async () => {
-    await putSettings(t.db, { year: 2026, hoursPerWeek: 10 });
-    const r = await getRoadmap(t.db, new Date('2026-12-31T21:30:00Z'));
+    await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
+    const r = await getRoadmap(t.db, TEST_USER, new Date('2026-12-31T21:30:00Z'));
     expect(r.today).toBe('2027-01-01');
   });
   it('2026-12-31T20:59Z ещё 31 декабря', async () => {
-    const r = await getRoadmap(t.db, new Date('2026-12-31T20:59:00Z'));
+    const r = await getRoadmap(t.db, TEST_USER, new Date('2026-12-31T20:59:00Z'));
     expect(r.today).toBe('2026-12-31');
   });
   it('saveOrder([]) не падает, пустая очередь', async () => {
-    expect(await saveOrder(t.db, [])).toEqual([]);
+    expect(await saveOrder(t.db, TEST_USER, [])).toEqual([]);
   });
 });

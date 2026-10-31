@@ -2,7 +2,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { NotFoundError, setDurationOverride } from './mutations';
 import { getGamesByIds, listGames } from './query';
 import { parseListQuery } from './validation';
@@ -36,7 +36,7 @@ describe('GET /api/games: жанры и длительность', () => {
   const list = async (q: string) => {
     const p = parseListQuery(new URLSearchParams(q));
     if (!p.ok) throw new Error(p.message);
-    return listGames(t.db, p.value, NOW);
+    return listGames(t.db, TEST_USER, p.value, NOW);
   };
   const names = (r: { items: { title: string }[] }) => r.items.map((i) => i.title);
 
@@ -110,18 +110,18 @@ describe('GET /api/games: жанры и длительность', () => {
 
   it('ручной ввод и сброс: статус не меняется; сброс возвращает HLTB', async () => {
     const [b] = await t.db.select({ id: games.id }).from(games).where(eq(games.titleId, 'B'));
-    await setDurationOverride(t.db, b.id, 3);
-    let [g] = await getGamesByIds(t.db, [b.id]);
+    await setDurationOverride(t.db, TEST_USER, b.id, 3);
+    let [g] = await getGamesByIds(t.db, TEST_USER, [b.id]);
     expect(g.duration).toMatchObject({ hours: 3, source: 'manual', bucket: 'lt10' });
     expect(g.status).toBe('backlog');
-    await setDurationOverride(t.db, b.id, null);
-    [g] = await getGamesByIds(t.db, [b.id]);
+    await setDurationOverride(t.db, TEST_USER, b.id, null);
+    [g] = await getGamesByIds(t.db, TEST_USER, [b.id]);
     expect(g.duration).toMatchObject({ hours: 25, source: 'hltb', overrideHours: null });
   });
 
   it('ручной ввод у несуществующей игры = NotFoundError; CHECK не даёт 0', async () => {
-    await expect(setDurationOverride(t.db, 99999, 5)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(setDurationOverride(t.db, TEST_USER, 99999, 5)).rejects.toBeInstanceOf(NotFoundError);
     const [b] = await t.db.select({ id: games.id }).from(games);
-    await expect(setDurationOverride(t.db, b.id, 0)).rejects.toThrow();
+    await expect(setDurationOverride(t.db, TEST_USER, b.id, 0)).rejects.toThrow();
   });
 });

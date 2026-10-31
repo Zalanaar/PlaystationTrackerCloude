@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import { sendTelegramDocument } from '@/server/notify/telegram';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { buildBackup } from './export';
 import { BACKUP_APP, BACKUP_SCHEMA_VERSION, parseBackup, type BackupFile } from './format';
 import { isDataError } from './errors';
@@ -48,7 +48,7 @@ describe('backup', () => {
 
   it('выгрузка: версия, только игры с ручными данными, стабильный порядок, нет секретов и лишних полей', async () => {
     await seed();
-    const f = await buildBackup(t.db, NOW);
+    const f = await buildBackup(t.db, TEST_USER, NOW);
     expect(f).toMatchObject({ app: BACKUP_APP, schemaVersion: BACKUP_SCHEMA_VERSION, createdAt: NOW.toISOString() });
     expect(f.games.map((g) => g.titleId)).toEqual(['A', 'B', 'C', 'E']); // D без разметки не попадает
     const a = f.games[0];
@@ -68,13 +68,13 @@ describe('backup', () => {
 
   it('выгрузка проходит собственную валидацию (круг)', async () => {
     await seed();
-    const f = await buildBackup(t.db, NOW);
+    const f = await buildBackup(t.db, TEST_USER, NOW);
     const p = parseBackup(JSON.parse(JSON.stringify(f)));
     expect(p.ok).toBe(true);
   });
 
   it('пустая БД: пустой, но валидный файл', async () => {
-    const f = await buildBackup(t.db, NOW);
+    const f = await buildBackup(t.db, TEST_USER, NOW);
     expect(f.games).toEqual([]);
     expect(f.roadmapSettings).toBeNull();
     expect(parseBackup(f).ok).toBe(true);
@@ -83,7 +83,7 @@ describe('backup', () => {
   // --- валидация формата
   it('parseBackup: чужой файл, версия, поля, дубли', async () => {
     await seed();
-    const good = JSON.parse(JSON.stringify(await buildBackup(t.db, NOW))) as BackupFile;
+    const good = JSON.parse(JSON.stringify(await buildBackup(t.db, TEST_USER, NOW))) as BackupFile;
     const clone = () => JSON.parse(JSON.stringify(good)) as BackupFile;
     expect(parseBackup(null)).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup([])).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
@@ -133,11 +133,11 @@ describe('backup', () => {
   it('круг: выгрузка -> очистка -> preview -> apply восстанавливает всё один в один', async () => {
     await seed();
     const before = await snapshot();
-    const file = parseBackup(JSON.parse(JSON.stringify(await buildBackup(t.db, NOW)))) as { ok: true; value: BackupFile };
+    const file = parseBackup(JSON.parse(JSON.stringify(await buildBackup(t.db, TEST_USER, NOW)))) as { ok: true; value: BackupFile };
     await wipe();
     expect((await snapshot()).st).toEqual([]);
 
-    const pre = await previewRestore(t.db, file.value);
+    const pre = await previewRestore(t.db, TEST_USER, file.value);
     expect(pre.applied).toBe(false);
     expect(pre.sections.status).toEqual({ add: 3, change: 0, unchanged: 0, skipped: 0 });
     expect(pre.sections.duration.add).toBe(1);
@@ -154,7 +154,7 @@ describe('backup', () => {
     // preview ничего не пишет
     expect((await snapshot()).st).toEqual([]);
 
-    const res = await applyRestore(t.db, file.value, NOW);
+    const res = await applyRestore(t.db, TEST_USER, file.value, NOW);
     expect(res.applied).toBe(true);
     expect(res.sections.status.add).toBe(3);
     expect(res.backupId).toBeNull(); // статусов не было: копировать нечего
@@ -163,10 +163,10 @@ describe('backup', () => {
 
   it('идемпотентность: повторный apply даёт нули в add/change', async () => {
     await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     await wipe();
-    await applyRestore(t.db, file, NOW);
-    const again = await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
+    const again = await applyRestore(t.db, TEST_USER, file, NOW);
     for (const s of Object.values(again.sections)) expect([s.add, s.change]).toEqual([0, 0]);
     expect(again.sections.status.unchanged).toBe(3);
     expect(again.changes).toEqual([]);
@@ -183,16 +183,16 @@ describe('backup', () => {
       { titleId: 'A', name: 'A', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 0, roadmapExcluded: false, monthExclusions: [] },
       { titleId: 'E', name: 'E', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 1, roadmapExcluded: false, monthExclusions: [] },
     ], plannedGames: [], roadmapSettings: null }) as { ok: true; value: BackupFile }).value;
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.roadmapOrder).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     const rows = await t.db.select().from(roadmapOrder);
     const pos = new Map(rows.map((r) => [r.gameId, r.position]));
     expect(new Set(rows.map((r) => r.position)).size).toBe(rows.length); // уникальны
     expect([pos.get(id('A')), pos.get(id('E'))]).toEqual([0, 1]);
     expect(pos.get(xid)!).toBeLessThan(pos.get(yid)!); // относительный порядок сохранён
     expect(pos.get(xid)!).toBeGreaterThan(1);
-    const again = await applyRestore(t.db, file, NOW);
+    const again = await applyRestore(t.db, TEST_USER, file, NOW);
     expect(again.sections.roadmapOrder).toMatchObject({ add: 0, change: 0 });
     expect(new Map((await t.db.select().from(roadmapOrder)).map((r) => [r.gameId, r.position]))).toEqual(pos); // идемпотентно
   });
@@ -202,36 +202,36 @@ describe('backup', () => {
     await t.db.delete(roadmapOrder);
     const g = (titleId: string, roadmapPosition: number | null) => ({ titleId, name: titleId, status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition, roadmapExcluded: false, monthExclusions: [] });
     const file = (parseBackup({ app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), games: [g('A', 1), g('E', 1), g('ZZ_MISSING', 1), g('B', 2)], plannedGames: [], roadmapSettings: null }) as { ok: true; value: BackupFile }).value;
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.roadmapOrder).toMatchObject({ add: 3, skipped: 1 });
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     const pos = new Map((await t.db.select().from(roadmapOrder)).map((r) => [r.gameId, r.position]));
     expect([pos.get(id('A')), pos.get(id('E')), pos.get(id('B'))]).toEqual([1, 2, 3]);
-    const again = await applyRestore(t.db, file, NOW);
+    const again = await applyRestore(t.db, TEST_USER, file, NOW);
     expect(again.sections.roadmapOrder).toMatchObject({ add: 0, change: 0 });
   });
 
   it('N-5: дубли месяцев и планируемых игр внутри файла не завышают add и не создают копий', async () => {
     await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     await wipe();
     file.games[0].monthExclusions = ['2026-03', '2026-03'];
     file.plannedGames = [...file.plannedGames, ...file.plannedGames];
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.monthExclusions.add).toBe(1);
     expect(pre.sections.plannedGames.add).toBe(2);
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     expect(await t.db.select().from(plannedGames)).toHaveLength(2);
-    const again = await applyRestore(t.db, file, NOW);
+    const again = await applyRestore(t.db, TEST_USER, file, NOW);
     expect([again.sections.plannedGames.add, again.sections.plannedGames.change, again.sections.monthExclusions.add]).toEqual([0, 0, 0]);
   });
 
   it('N-4: нарушение CHECK внутри транзакции распознаётся как ошибка данных, транзакция откатывается', async () => {
     await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     await wipe();
     file.games[0].status = { value: 'completed', completedAt: null, droppedAt: '2026-01-01T00:00:00.000Z', statusChangedAt: NOW.toISOString() }; // в обход parse
-    const err = await applyRestore(t.db, file, NOW).then(() => null, (e: unknown) => e);
+    const err = await applyRestore(t.db, TEST_USER, file, NOW).then(() => null, (e: unknown) => e);
     expect(err).not.toBeNull();
     expect(isDataError(err)).toBe(true);
     expect(isDataError(new Error('connection refused'))).toBe(false);
@@ -240,12 +240,12 @@ describe('backup', () => {
 
   it('изменения: change показывает from/to, перед apply статусов делается копия в status_backups', async () => {
     const id = await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     // «после копии» разметку испортили: статус другой, длительность другая, порядок другой
     await t.db.update(gameStatus).set({ status: 'backlog', completedAt: null }).where(eq(gameStatus.gameId, id('A')));
     await t.db.update(games).set({ durationOverrideHours: 99 }).where(eq(games.id, id('A')));
     await t.db.update(roadmapOrder).set({ position: 9 });
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.status).toMatchObject({ change: 1, unchanged: 2 });
     expect(pre.changes.filter((c) => c.kind === 'change')).toEqual([
       { section: 'status', kind: 'change', titleId: 'A', name: 'Hades', from: 'backlog', to: 'completed' },
@@ -253,7 +253,7 @@ describe('backup', () => {
       { section: 'roadmapOrder', kind: 'change', titleId: 'E', name: 'Queue', from: '9', to: '3' },
     ]);
     expect(await t.db.select().from(statusBackups)).toEqual([]);
-    const res = await applyRestore(t.db, file, NOW);
+    const res = await applyRestore(t.db, TEST_USER, file, NOW);
     expect(res.backupId).not.toBeNull();
     const [b] = await t.db.select().from(statusBackups);
     expect(b).toMatchObject({ id: res.backupId, reason: 'before_file_restore' });
@@ -265,7 +265,7 @@ describe('backup', () => {
 
   it('ничего не удаляет и пустое в файле не трогает: лишние данные БД остаются', async () => {
     const id = await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     // в БД появилась разметка, которой нет в файле
     await t.db.insert(gameStatus).values({ gameId: id('D'), status: 'playing' });
     await t.db.update(games).set({ durationOverrideHours: 7 }).where(eq(games.id, id('D')));
@@ -273,7 +273,7 @@ describe('backup', () => {
     await t.db.insert(gameMonthExclusions).values({ gameId: id('B'), month: '2026-07' });
     // игра B в файле без длительности, а в БД длительность есть: остаётся
     await t.db.update(games).set({ durationOverrideHours: 4 }).where(eq(games.id, id('B')));
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     expect((await t.db.select().from(gameStatus).where(eq(gameStatus.gameId, id('D'))))[0].status).toBe('playing');
     expect((await t.db.select().from(games).where(eq(games.id, id('D'))))[0].durationOverrideHours).toBe(7);
     expect((await t.db.select().from(games).where(eq(games.id, id('B'))))[0].durationOverrideHours).toBe(4);
@@ -283,26 +283,26 @@ describe('backup', () => {
 
   it('скрытая игра остаётся скрытой с прежней датой (булево поведение)', async () => {
     const id = await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     const when = new Date('2026-09-09T09:09:09Z');
     await t.db.update(games).set({ hiddenAt: when }).where(eq(games.id, id('C')));
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.hidden).toEqual({ add: 0, change: 0, unchanged: 1, skipped: 0 });
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     expect((await t.db.select().from(games).where(eq(games.id, id('C'))))[0].hiddenAt?.toISOString()).toBe(when.toISOString());
   });
 
   it('игры, которых нет в БД: skipped и missing (до 50), остальное применяется', async () => {
     await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     const extra = Array.from({ length: 60 }, (_, i) => ({ ...file.games[3], titleId: `GONE${i}`, name: `Gone ${i}` }));
     file.games.push(...extra);
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.roadmapOrder.skipped).toBe(60);
     expect(pre.sections.status.skipped).toBe(60); // у E статус backlog есть
     expect(pre.missing).toHaveLength(50);
     expect(pre.missing[0]).toEqual({ titleId: 'GONE0', name: 'Gone 0' });
-    const res = await applyRestore(t.db, file, NOW);
+    const res = await applyRestore(t.db, TEST_USER, file, NOW);
     expect(res.sections.roadmapOrder.skipped).toBe(60);
     expect((await t.db.select().from(games)).filter((g) => g.titleId.startsWith('GONE'))).toEqual([]);
   });
@@ -314,7 +314,7 @@ describe('backup', () => {
       app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), plannedGames: [], roadmapSettings: null,
       games: rows.map((r) => ({ titleId: r.titleId, name: r.name, status: { value: 'backlog', completedAt: null, droppedAt: null, statusChangedAt: NOW.toISOString() }, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: null, roadmapExcluded: false, monthExclusions: [] })),
     };
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.status.add).toBe(130);
     expect(pre.changes).toHaveLength(100);
     expect(pre.changesTruncated).toBe(true);
@@ -332,9 +332,9 @@ describe('backup', () => {
         { title: 'manual one', releaseDate: null, coverUrl: null, wantAtRelease: false, hoursManual: null, externalSource: null, externalId: null, status: 'done' },
       ],
     };
-    const pre = await previewRestore(t.db, file);
+    const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.plannedGames).toEqual({ add: 0, change: 2, unchanged: 0, skipped: 0 });
-    await applyRestore(t.db, file, NOW);
+    await applyRestore(t.db, TEST_USER, file, NOW);
     const all = await t.db.select().from(plannedGames);
     expect(all).toHaveLength(2);
     const g = all.find((p) => p.externalId === '123')!;
@@ -344,23 +344,23 @@ describe('backup', () => {
 
   it('apply атомарен: ошибка посередине откатывает всё (в т.ч. копию статусов)', async () => {
     const id = await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     await wipe();
     // нарушаем CHECK game_status уже после валидных операций (в обход parse)
     file.games[1].status = { value: 'completed', completedAt: null, droppedAt: '2026-01-01T00:00:00.000Z', statusChangedAt: NOW.toISOString() };
     await t.db.insert(gameStatus).values({ gameId: id('D'), status: 'playing' });
     const before = await snapshot();
-    await expect(applyRestore(t.db, file, NOW)).rejects.toThrow();
+    await expect(applyRestore(t.db, TEST_USER, file, NOW)).rejects.toThrow();
     expect(await snapshot()).toEqual(before);
     expect(await t.db.select().from(statusBackups)).toEqual([]);
   });
 
   it('копии статусов: хранятся не больше BACKUPS_KEEP', async () => {
     const id = await seed();
-    const file = (parseBackup(await buildBackup(t.db, NOW)) as { ok: true; value: BackupFile }).value;
+    const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     for (let i = 0; i < 12; i++) {
       await t.db.update(gameStatus).set({ status: 'shelved' }).where(eq(gameStatus.gameId, id('E')));
-      await applyRestore(t.db, file, new Date(NOW.getTime() + i * 1000));
+      await applyRestore(t.db, TEST_USER, file, new Date(NOW.getTime() + i * 1000));
     }
     expect((await t.db.select().from(statusBackups)).length).toBe(10);
   });
@@ -401,9 +401,9 @@ describe('backup', () => {
     const f = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     const fi = f as unknown as typeof fetch;
     await t.db.insert(notifyLog).values({ kind: BACKUP_KIND, lastSentAt: new Date('2026-10-25T06:00:00Z'), sentOn: '2026-10-25' });
-    expect(await runWeeklyBackup(t.db, { now: NOW, env: ENV, fetchImpl: fi })).toBe('not_due');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: fi })).toBe('not_due');
     expect(f).not.toHaveBeenCalled();
-    expect(await runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: fi })).toBe('sent');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: SUNDAY, env: ENV, fetchImpl: fi })).toBe('sent');
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain('/sendDocument');
     const form = init.body as FormData;
@@ -412,7 +412,7 @@ describe('backup', () => {
     const sent = JSON.parse(await (form.get('document') as File).text()) as BackupFile;
     expect(parseBackup(sent).ok).toBe(true);
     expect((await t.db.select().from(notifyLog).where(eq(notifyLog.kind, BACKUP_KIND)))[0].sentOn).toBe('2026-11-01');
-    expect(await runWeeklyBackup(t.db, { now: new Date('2026-11-01T18:00:00Z'), env: ENV, fetchImpl: fi })).toBe('already_sent');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: new Date('2026-11-01T18:00:00Z'), env: ENV, fetchImpl: fi })).toBe('already_sent');
     expect(f).toHaveBeenCalledTimes(1);
   });
 
@@ -420,22 +420,22 @@ describe('backup', () => {
     await seed();
     const f = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     const fi = f as unknown as typeof fetch;
-    const r = await Promise.all([runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: fi }), runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: fi })]);
+    const r = await Promise.all([runWeeklyBackup(t.db, TEST_USER, { now: SUNDAY, env: ENV, fetchImpl: fi }), runWeeklyBackup(t.db, TEST_USER, { now: SUNDAY, env: ENV, fetchImpl: fi })]);
     expect([...r].sort()).toEqual(['already_sent', 'sent']);
     expect(f).toHaveBeenCalledTimes(1);
   });
 
   it('weekly: нет Telegram, сбой отправки (дедуп не пишется), ошибка БД, догон после пропущенной недели', async () => {
     await seed();
-    expect(await runWeeklyBackup(t.db, { now: SUNDAY, env: null })).toBe('telegram_disabled');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: SUNDAY, env: null })).toBe('telegram_disabled');
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect(await runWeeklyBackup(t.db, { now: SUNDAY, env: ENV, fetchImpl: vi.fn(async () => new Response('', { status: 500 })) as unknown as typeof fetch })).toBe('send_failed');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: SUNDAY, env: ENV, fetchImpl: vi.fn(async () => new Response('', { status: 500 })) as unknown as typeof fetch })).toBe('send_failed');
     expect(await t.db.select().from(notifyLog)).toEqual([]);
     const db = Object.assign(Object.create(t.db), { select: () => { throw new Error('db down'); } });
-    expect(await runWeeklyBackup(db, { now: SUNDAY, env: ENV })).toBe('error');
+    expect(await runWeeklyBackup(db, TEST_USER, { now: SUNDAY, env: ENV })).toBe('error');
     spy.mockRestore();
     // воскресенье пропущено (Telegram лежал): через 8 суток после прошлой отправки шлём в любой день
     await t.db.insert(notifyLog).values({ kind: BACKUP_KIND, lastSentAt: new Date('2026-10-21T06:00:00Z'), sentOn: '2026-10-21' });
-    expect(await runWeeklyBackup(t.db, { now: NOW, env: ENV, fetchImpl: vi.fn(async () => new Response('{"ok":true}', { status: 200 })) as unknown as typeof fetch })).toBe('sent');
+    expect(await runWeeklyBackup(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: vi.fn(async () => new Response('{"ok":true}', { status: 200 })) as unknown as typeof fetch })).toBe('sent');
   });
 });

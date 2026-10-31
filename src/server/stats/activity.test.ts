@@ -1,7 +1,7 @@
 // Фаза 15.4 «Стрик и тепловая карта» (контракт 14.3): чистые функции + SQL-агрегат на PGlite.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { buildActivity, dailyActivity, nextDate, prevDate, type ActivityDay } from './activity';
 import { getActivity } from './activity-query';
 import type { Snapshot } from './hours';
@@ -127,7 +127,7 @@ describe('getActivity на PGlite', () => {
   }
 
   it('нет снимков', async () => {
-    const r = await getActivity(t.db, 2026, new Date('2026-10-27T10:00:00Z'));
+    const r = await getActivity(t.db, TEST_USER, 2026, new Date('2026-10-27T10:00:00Z'));
     expect(r.firstSnapshotDate).toBeNull();
     expect(r.totals.knownDays).toBe(0);
   });
@@ -149,7 +149,7 @@ describe('getActivity на PGlite', () => {
 
     // 21:30 UTC 31 декабря = 00:30 МСК 1 января: today = 2026-01-01
     const now = new Date('2025-12-31T21:30:00Z');
-    const got = await getActivity(t.db, 2025, now);
+    const got = await getActivity(t.db, TEST_USER, 2025, now);
     const visible = snaps.filter((s) => s.gameId !== h);
     const expected = buildActivity({ rows: dailyActivity(visible), year: 2025, today: '2026-01-01', firstSnapshotDate: '2025-12-25' });
     expect(got).toEqual(expected);
@@ -157,7 +157,7 @@ describe('getActivity на PGlite', () => {
     expect(minutesOf(got, '2025-12-25')).toBeNull(); // первый день синка
     expect(minutesOf(got, '2025-12-28')).toBeNull(); // пропуск
     expect(got.streak.best.hasGaps).toBe(true);
-    const y2026 = await getActivity(t.db, 2026, now);
+    const y2026 = await getActivity(t.db, TEST_USER, 2026, now);
     expect(minutesOf(y2026, '2026-01-01')).toBe(40);
     expect(minutesOf(y2026, '2026-01-02')).toBeNull(); // будущее относительно today
   });

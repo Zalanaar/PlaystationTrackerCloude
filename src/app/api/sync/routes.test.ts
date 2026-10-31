@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as syncPost } from './route';
 import { GET as cronGet } from '../cron/sync/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const SECRET = 'c'.repeat(40);
 const bearer = { authorization: `Bearer ${SECRET}` };
 

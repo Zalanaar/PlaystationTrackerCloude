@@ -2,7 +2,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getStats } from './query';
 
 const { games, gameStatus, playtimeSnapshots, trophies, trophySets } = schema;
@@ -138,12 +138,12 @@ describe('getStats против прямого SQL (PGlite)', () => {
       ...Array.from({ length: 12 }, (_, i) => ({ type: 'month' as const, year: 2026, month: i + 1 })),
       { type: 'month', year: 2025, month: 12 },
     ];
-    const probe = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const probe = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(probe.header.hours ?? 0, 'набор данных не пустой').toBeGreaterThan(50);
     expect(probe.trophies.counts.total).toBeGreaterThan(50);
     expect(probe.header.completed + probe.header.dropped).toBeGreaterThan(3);
     for (const p of periods) {
-      const r = await getStats(t.db, p, NOW);
+      const r = await getStats(t.db, TEST_USER, p, NOW);
       const label = `${p.type} ${p.year}-${p.month}`;
       const hrs = await sqlHours(r.period.from, r.period.to);
       const covered = r.header.hours !== null;
@@ -185,14 +185,14 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T20:59:59.999Z') },
       { trophySetId: s.id, trophyId: 1, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T21:00:00.000Z') },
     ]);
-    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
-    const y26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
+    const y26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(y25.header.platinum).toBe(1);
     expect(y26.header.platinum).toBe(1);
     expect(y25.trophies.byMonth[11].platinum).toBe(1);
     expect(y26.trophies.byMonth[0].platinum).toBe(1);
-    const dec = await getStats(t.db, { type: 'month', year: 2025, month: 12 }, NOW);
-    const jan = await getStats(t.db, { type: 'month', year: 2026, month: 1 }, NOW);
+    const dec = await getStats(t.db, TEST_USER, { type: 'month', year: 2025, month: 12 }, NOW);
+    const jan = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 1 }, NOW);
     expect(dec.header.platinum + jan.header.platinum).toBe(2);
     expect(jan.header.platinum).toBe(1);
   });
@@ -205,12 +205,12 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: c, status: 'backlog' },                                                        // чужой статус: не считать
       { gameId: d, status: 'dropped', droppedAt: null },                                       // без даты
     ]);
-    const oct = await getStats(t.db, { type: 'month', year: 2026, month: 10 }, NOW);
+    const oct = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     expect(oct.header).toMatchObject({ completed: 1, dropped: 0 });
     expect(oct.finished.groups.map((g) => g.items.map((i) => i.game.id))).toEqual([[a]]);
-    const nov = await getStats(t.db, { type: 'month', year: 2026, month: 11 }, NOW);
+    const nov = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 11 }, NOW);
     expect(nov.finished.groups[0].items[0].game.id).toBe(b);
-    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(y.header).toMatchObject({ completed: 2, dropped: 0 });
   });
 
@@ -225,7 +225,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: c, snapshotDate: '2026-04-15', playDurationSeconds: 100 * 3600 }, // новая игра в апреле: единственный снимок
       { gameId: c, snapshotDate: '2026-04-20', playDurationSeconds: 101 * 3600 },
     ]);
-    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(y.hours.firstSnapshotDate).toBe('2026-03-04');
     expect(y.hours.periodPartial).toBe(true);
     expect(y.hours.byMonth.slice(0, 2)).toEqual([null, null]);
@@ -233,11 +233,11 @@ describe('getStats против прямого SQL (PGlite)', () => {
     expect(y.hours.byMonth[3]).toBe(2); // a: 1, b: max(0, 1-2)=0, c: 1
     expect(y.hours.byMonth.slice(10)).toEqual([null, null]); // будущее
     expect(y.header.hours).toBe(4); // a: 4-1=3, b: 0, c: 1
-    const feb = await getStats(t.db, { type: 'month', year: 2026, month: 2 }, NOW);
+    const feb = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 2 }, NOW);
     expect(feb.header.hours).toBeNull();
-    const mar = await getStats(t.db, { type: 'month', year: 2026, month: 3 }, NOW);
+    const mar = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 3 }, NOW);
     expect(mar.hours.periodPartial).toBe(true);
-    const may = await getStats(t.db, { type: 'month', year: 2026, month: 5 }, NOW);
+    const may = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 5 }, NOW);
     expect(may.hours.periodPartial).toBe(false);
     expect(may.header.hours).toBe(0); // охват есть, игры без изменений = 0, не null
     expect(may.genres.hasData).toBe(false);
@@ -254,7 +254,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: d, snapshotDate: '2026-09-30', playDurationSeconds: 5 }, { gameId: d, snapshotDate: '2026-10-10', playDurationSeconds: 5 },
     ]);
     await t.db.insert(gameStatus).values({ gameId: c, status: 'dropped', droppedAt: new Date('2026-10-05T10:00:00Z') });
-    const r = await getStats(t.db, { type: 'month', year: 2026, month: 10 }, NOW);
+    const r = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     const total = r.genres.items.reduce((s, i) => s + i.value, 0);
     expect(total).toBeCloseTo(3, 0);
     const by = Object.fromEntries(r.genres.items.map((i) => [i.key, i.value]));
@@ -265,11 +265,11 @@ describe('getStats против прямого SQL (PGlite)', () => {
 
   it('крайние параметры не падают: 2000/1, 2100/12, будущий год', async () => {
     for (const q of [{ type: 'month', year: 2000, month: 1 }, { type: 'month', year: 2100, month: 12 }, { type: 'year', year: 2100, month: null }] as const) {
-      const r = await getStats(t.db, q, NOW);
+      const r = await getStats(t.db, TEST_USER, q, NOW);
       expect(r.hours.byMonth).toHaveLength(12);
       expect(r.header.hours).toBeNull();
     }
-    const r = await getStats(t.db, { type: 'month', year: 2000, month: 1 }, NOW);
+    const r = await getStats(t.db, TEST_USER, { type: 'month', year: 2000, month: 1 }, NOW);
     expect(r.years).toEqual([2026]);
   });
 
@@ -279,7 +279,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: a, snapshotDate: '2026-10-31', playDurationSeconds: 0 }, { gameId: a, snapshotDate: '2026-11-01', playDurationSeconds: 3600 },
     ]);
     const now = new Date('2026-10-31T21:30:00Z');
-    const nov = await getStats(t.db, { type: 'month', year: 2026, month: 11 }, now);
+    const nov = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 11 }, now);
     expect(nov.header.hours).toBe(1);
     expect(nov.hours.byMonth[10]).toBe(1);
   });
@@ -313,7 +313,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { type: 'month', year: 2024, month: 5 },
     ];
     for (const p of periods) {
-      const r = await getStats(t.db, p, NOW);
+      const r = await getStats(t.db, TEST_USER, p, NOW);
       const label = `${p.type} ${p.year}-${p.month}`;
       const e = await sqlHoursWithEstimate(r.period.from, r.period.to);
       if (r.header.hours === null) {
@@ -336,7 +336,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
     }
     // годы: каждый год с долей оценки присутствует в years
     const estYears = new Set((await sqlEstimateRows()).map((x) => Number(x.m.slice(0, 4))));
-    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     for (const yr of estYears) expect(y.years, `year ${yr}`).toContain(yr);
   });
 
@@ -346,7 +346,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 20 * 3600 },
       { gameId: a, snapshotDate: '2026-03-20', playDurationSeconds: 23 * 3600 },
     ]);
-    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     // 3 месяца (янв, фев, март): 20 ч / 3 = 6.666.. ч; март = доля + 3 ч реальных
     expect(y.hours.estimatedByMonth.slice(0, 4)).toEqual([6.7, 6.7, 6.7, 0]);
     expect(y.header.hours).toBe(23);
@@ -354,10 +354,10 @@ describe('getStats против прямого SQL (PGlite)', () => {
     expect(y.hours.estimatedHours).toBe(20);
     expect(y.hours.byMonth[2]).toBe(9.7);
     expect(y.genres.hasData).toBe(true); // игра с оценкой считается сыгранной
-    const jan = await getStats(t.db, { type: 'month', year: 2026, month: 1 }, NOW);
+    const jan = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 1 }, NOW);
     expect(jan.header.hours).toBe(6.7); // раньше было бы null
     expect(jan.hours.periodPartial).toBe(true);
-    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+    const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
     expect(y25.header.hours).toBeNull();
     expect(y25.hours.hasEstimate).toBe(false);
   });
@@ -373,11 +373,11 @@ describe('getStats против прямого SQL (PGlite)', () => {
       { gameId: a, snapshotDate: '2026-10-28', playDurationSeconds: 22 * 3600, lastPlayedAt: new Date('2026-10-28T18:00:00Z') },
       { gameId: b, snapshotDate: '2026-10-27', playDurationSeconds: 3 * 3600, lastPlayedAt: null },
     ]);
-    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, now);
+    const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, now);
     // A: 20 ч на дек+янв = 10 ч в декабре; B: 3 ч на дек..фев = 1 ч в декабре
     expect(y25.hours.byMonth[11]).toBe(11);
     expect(y25.header.hours).toBe(11);
-    const y26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, now);
+    const y26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, now);
     expect(y26.hours.estimatedByMonth.slice(0, 3)).toEqual([11, 1, 0]);
     expect(y26.hours.byMonth[9]).toBe(2); // реальные после D0, оценки в октябре нет
     expect(y26.hours.estimatedByMonth[9]).toBe(0);

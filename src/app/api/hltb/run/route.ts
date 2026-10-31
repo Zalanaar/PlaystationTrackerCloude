@@ -3,6 +3,7 @@ import { getDb } from '@/db';
 import { fail, originAllowed } from '@/server/http';
 import { defaultHltbDeps } from '@/server/sync/hltb-step';
 import { runHltbMass } from '@/server/sync/hltb-run';
+import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,8 +12,10 @@ export const maxDuration = 60;
 // Допуск на разброс часов клиента и сервера (16.7).
 const SINCE_FUTURE_TOLERANCE_MS = 5000;
 
-// Массовая подгрузка длительности HLTB. Сессию проверяет src/proxy.ts. Контракт 16.7.
+// Массовая подгрузка длительности HLTB. Контракт 16.7.
 export async function POST(req: Request) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
   if (!originAllowed(req)) return fail(400, 'invalid_request', 'Некорректный запрос.');
   if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
     return fail(400, 'invalid_request', 'Некорректный запрос.');
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
     recheckBefore = since;
   }
   try {
-    const r = await runHltbMass({ db: getDb(), deps: defaultHltbDeps(), recheckBefore });
+    const r = await runHltbMass({ db: getDb(), userId: a.user.id, deps: defaultHltbDeps(), recheckBefore });
     if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Синк или подгрузка длительности уже идёт.', { runId: r.runId });
     return NextResponse.json({ ok: true, data: { ...r.result, warnings: r.warnings } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {

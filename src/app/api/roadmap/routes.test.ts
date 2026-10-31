@@ -8,6 +8,8 @@ import { DELETE as plannedDelete, PATCH as plannedPatch } from './planned/[id]/r
 import { GET as plannedGet, POST as plannedPost } from './planned/route';
 import { PUT as settingsPut } from './settings/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const json = { 'content-type': 'application/json' };
 const evil = { ...json, origin: 'http://evil.example', host: 'x' };
 const params = (id: string) => ({ params: Promise.resolve({ id }) });

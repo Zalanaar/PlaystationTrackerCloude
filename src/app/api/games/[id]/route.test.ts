@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
+
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 const get = (id: string) => GET(new Request(`http://x/api/games/${id}`), params(id));

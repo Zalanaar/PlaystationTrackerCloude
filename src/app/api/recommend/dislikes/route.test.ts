@@ -15,6 +15,8 @@ vi.mock('@/db', async (orig) => ({
 import { POST } from '../dislike/route';
 import { GET } from './route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 describe('GET /api/recommend/dislikes', () => {
   let t: TestDb;
   let gid = 0;
@@ -29,7 +31,7 @@ describe('GET /api/recommend/dislikes', () => {
   });
 
   it('пусто: 200 и items []', async () => {
-    const r = await GET();
+    const r = await GET(new Request('http://x/'));
     expect(r.status).toBe(200);
     expect((await r.json()).data).toEqual({ items: [], ttlDays: 30 });
   });
@@ -38,10 +40,10 @@ describe('GET /api/recommend/dislikes', () => {
     const post = () => POST(new Request('http://x/api/recommend/dislike', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gameId: gid }) }));
     expect((await post()).status).toBe(200);
     await t.db.update(schema.recommendDislikes).set({ createdAt: new Date(Date.now() - 10 * 86_400_000) });
-    const before = (await (await GET()).json()).data.items[0];
+    const before = (await (await GET(new Request('http://x/'))).json()).data.items[0];
     expect(before.game).toMatchObject({ id: gid, name: 'Alpha', genres: ['ACTION'] });
     await post();
-    const after = (await (await GET()).json()).data.items;
+    const after = (await (await GET(new Request('http://x/'))).json()).data.items;
     expect(after).toHaveLength(1);
     expect(Date.parse(after[0].hiddenAt)).toBeGreaterThan(Date.parse(before.hiddenAt) + 9 * 86_400_000);
     expect(Date.parse(after[0].expiresAt) - Date.parse(after[0].hiddenAt)).toBe(30 * 86_400_000);
@@ -49,7 +51,7 @@ describe('GET /api/recommend/dislikes', () => {
 
   it('503 без БД, текст ошибки не утекает', async () => {
     holder.db = null;
-    const r = await GET();
+    const r = await GET(new Request('http://x/'));
     expect(r.status).toBe(503);
     const text = JSON.stringify(await r.json());
     expect(text).toContain('db_unavailable');

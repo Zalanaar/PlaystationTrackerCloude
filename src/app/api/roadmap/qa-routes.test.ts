@@ -19,6 +19,8 @@ import { DELETE as plannedDelete, PATCH as plannedPatch } from './planned/[id]/r
 import { POST as plannedPost } from './planned/route';
 import { PUT as settingsPut } from './settings/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const json = { 'content-type': 'application/json' };
 const req = (method: string, body: unknown) => new Request('http://x/api/roadmap', { method, headers: json, body: JSON.stringify(body) });
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -32,7 +34,7 @@ describe('маршруты роадмапа на БД', () => {
 
   it('503 при недоступной БД на всех чтениях и мутациях, без утечки текста ошибки', async () => {
     holder.db = null;
-    for (const r of [await roadmapGet(), await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 5 })), await plannedPost(req('POST', { title: 'A' })), await orderPut(req('PUT', { gameIds: [] })), await plannedDelete(new Request('http://x', { method: 'DELETE' }), params('1'))]) {
+    for (const r of [await roadmapGet(new Request('http://x/')), await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 5 })), await plannedPost(req('POST', { title: 'A' })), await orderPut(req('PUT', { gameIds: [] })), await plannedDelete(new Request('http://x', { method: 'DELETE' }), params('1'))]) {
       expect(r.status).toBe(503);
       expect(await r.text()).not.toContain('no db');
     }
@@ -54,10 +56,10 @@ describe('маршруты роадмапа на БД', () => {
     const id = String(c.data.planned.id);
     expect((await plannedPatch(req('PATCH', { releaseDate: null }), params(id))).status).toBe(400);
     await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 10 }));
-    let plan = (await (await roadmapGet()).json()).data;
+    let plan = (await (await roadmapGet(new Request('http://x/'))).json()).data;
     expect(plan.items.map((i: { key: string }) => i.key)).toEqual([`p:${id}`]);
     expect((await plannedPatch(req('PATCH', { status: 'cancelled' }), params(id))).status).toBe(200);
-    plan = (await (await roadmapGet()).json()).data;
+    plan = (await (await roadmapGet(new Request('http://x/'))).json()).data;
     expect(plan.items).toEqual([]);
     expect(plan.notFit).toEqual([]);
   });
@@ -66,9 +68,9 @@ describe('маршруты роадмапа на БД', () => {
     const [g] = await t.db.insert(games).values({ titleId: 'X', name: 'X', category: 'ps5_native_game', lastSeenAt: new Date(), hltbMainHours: 20 }).returning({ id: games.id });
     await t.db.insert(gameStatus).values({ gameId: g.id, status: 'backlog' });
     await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 10 }));
-    const d1 = (await (await roadmapGet()).json()).data.items[0].days;
+    const d1 = (await (await roadmapGet(new Request('http://x/'))).json()).data.items[0].days;
     await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 20 }));
-    const d2 = (await (await roadmapGet()).json()).data.items[0].days;
+    const d2 = (await (await roadmapGet(new Request('http://x/'))).json()).data.items[0].days;
     expect([d1, d2]).toEqual([14, 7]);
   });
 });

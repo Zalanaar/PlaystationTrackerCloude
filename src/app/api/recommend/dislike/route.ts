@@ -3,18 +3,21 @@ import { readJsonBody } from '@/server/collection/http';
 import { fail, ok } from '@/server/http';
 import { dislikeGame, NotFoundError } from '@/server/recommend/db';
 import { parseDislikeBody } from '@/server/recommend/validation';
+import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // «Не интересно». Идемпотентно. Контракт 18.5.
 export async function POST(req: Request) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
   const read = await readJsonBody(req);
   if ('error' in read) return read.error;
   const p = parseDislikeBody(read.body);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
-    await dislikeGame(getDb(), p.value);
+    await dislikeGame(getDb(), a.user.id, p.value);
     return ok({ gameId: p.value });
   } catch (e) {
     if (e instanceof NotFoundError) return fail(404, 'not_found', 'Игра не найдена.');

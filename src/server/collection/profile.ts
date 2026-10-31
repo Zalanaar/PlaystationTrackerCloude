@@ -2,6 +2,7 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import type { PsnProfile } from './types';
 
 const { psnProfile } = schema;
@@ -23,7 +24,7 @@ export function toPsnProfile(r: ProfileRow): PsnProfile {
   };
 }
 
-export async function getPsnProfile(db: AnyDb): Promise<PsnProfile | null> {
-  const [row] = await db.select().from(psnProfile).where(eq(psnProfile.id, 1)).limit(1);
+export async function getPsnProfile(db: AnyDb, userId: UserId): Promise<PsnProfile | null> {
+  const [row] = await db.select().from(psnProfile).where(eq(psnProfile.userId, userId)).limit(1);
   return row ? toPsnProfile(row) : null;
 }

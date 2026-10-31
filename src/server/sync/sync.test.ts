@@ -8,6 +8,7 @@ import { startRun, STALE_RUN_MS, type RunKind } from './runs';
 import { getSyncStatus } from './status';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
 import { setGameStatus } from './status-rules';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, playtimeSnapshots, trophySets, trophies, gameTrophySets, syncRuns, gameStatus } = schema;
 
@@ -54,7 +55,7 @@ describe('синк на PGlite и фейковом PSN', () => {
 
   /** Один вызов: start + одно звено. */
   async function once(o: Parameters<typeof deps>[0] & { kind?: RunKind; continueRunId?: number } = {}) {
-    const s = await startRun(t.db, { kind: o.kind ?? 'manual', now: new Date(clock.t), continueRunId: o.continueRunId });
+    const s = await startRun(t.db, TEST_USER, { kind: o.kind ?? 'manual', now: new Date(clock.t), continueRunId: o.continueRunId });
     if (s.kind !== 'started') throw new Error('не стартовало: ' + s.kind);
     const res = await runChunk(deps(o), s.run);
     return { run: s.run, res, resumed: s.resumed };
@@ -218,7 +219,7 @@ describe('синк на PGlite и фейковом PSN', () => {
     const [run] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, runId));
     expect(run).toMatchObject({ status: 'failed', errorReason: 'psn_unavailable' });
     expect(run.finishedAt).not.toBeNull();
-    const st = await getSyncStatus(t.db);
+    const st = await getSyncStatus(t.db, TEST_USER);
     expect(st).toMatchObject({ running: false, psnAuth: 'ok' });
     expect(st.lastSuccessAt).not.toBeNull();
   });
@@ -234,7 +235,7 @@ describe('синк на PGlite и фейковом PSN', () => {
     });
     expect(res).toMatchObject({ status: 'failed', reason: 'auth_expired' });
     expect(await rowCounts()).toEqual(before);
-    const st = await getSyncStatus(t.db);
+    const st = await getSyncStatus(t.db, TEST_USER);
     expect(st.psnAuth).toBe('auth_expired');
     expect(st.run).toMatchObject({ status: 'failed', errorReason: 'auth_expired' });
   });
@@ -278,7 +279,7 @@ describe('синк на PGlite и фейковом PSN', () => {
     expect((await t.db.select().from(trophies)).length).toBeLessThan(9);
 
     // status отражает прогресс
-    const st = await getSyncStatus(t.db);
+    const st = await getSyncStatus(t.db, TEST_USER);
     expect(st.running).toBe(false);
     expect(st.run?.status).toBe('partial');
 
@@ -315,20 +316,20 @@ describe('синк на PGlite и фейковом PSN', () => {
     expect(a.res.continueNext).toBe(true);
     const [cur] = await t.db.select().from(syncRuns);
     await t.db.update(syncRuns).set({ cursor: { ...(cur.cursor as object), hops: 20 } }).where(eq(syncRuns.id, a.run.id));
-    const s = await startRun(t.db, { kind: 'daily', now: new Date(clock.t), continueRunId: a.run.id });
+    const s = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t), continueRunId: a.run.id });
     if (s.kind !== 'started') throw new Error();
     const res = await runChunk(deps({ budgetMs: 0 }), s.run);
     expect(res).toMatchObject({ status: 'partial', reason: 'timeout', continueNext: false });
   });
 
   it('один running: второй старт получает already_running; завис дольше 15 минут: закрывается как failed/timeout', async () => {
-    const a = await startRun(t.db, { kind: 'daily', now: new Date(clock.t) });
+    const a = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t) });
     expect(a.kind).toBe('started');
-    const b = await startRun(t.db, { kind: 'manual', now: new Date(clock.t + 60_000) });
+    const b = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t + 60_000) });
     expect(b).toMatchObject({ kind: 'already_running' });
     expect(await t.db.select().from(syncRuns)).toHaveLength(1);
 
-    const c = await startRun(t.db, { kind: 'manual', now: new Date(clock.t + STALE_RUN_MS + 60_000) });
+    const c = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t + STALE_RUN_MS + 60_000) });
     expect(c.kind).toBe('started');
     const rows = await t.db.select().from(syncRuns).orderBy(asc(syncRuns.id));
     expect(rows[0]).toMatchObject({ status: 'failed', errorReason: 'timeout' });
@@ -336,11 +337,11 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('heartbeat в курсоре защищает долгий запуск от закрытия как брошенного', async () => {
-    const a = await startRun(t.db, { kind: 'daily', now: new Date(clock.t) });
+    const a = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t) });
     if (a.kind !== 'started') throw new Error();
     const later = new Date(clock.t + 20 * 60_000);
     await t.db.update(syncRuns).set({ cursor: { phase: 'trophies', hops: 1, heartbeat: new Date(later.getTime() - 60_000).toISOString() } });
-    const b = await startRun(t.db, { kind: 'manual', now: later });
+    const b = await startRun(t.db, TEST_USER, { kind: 'manual', now: later });
     expect(b.kind).toBe('already_running');
   });
 
@@ -348,10 +349,10 @@ describe('синк на PGlite и фейковом PSN', () => {
     state.failOn.set('earned', { error: new Error('503'), times: 99 });
     const a = await once();
     expect(a.res.status).toBe('partial');
-    expect(await startRun(t.db, { kind: 'daily', now: new Date(clock.t), continueRunId: a.run.id })).toMatchObject({ kind: 'not_resumable' });
-    const b = await startRun(t.db, { kind: 'daily', now: new Date(clock.t + 7 * 3600_000) });
+    expect(await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t), continueRunId: a.run.id })).toMatchObject({ kind: 'not_resumable' });
+    const b = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t + 7 * 3600_000) });
     expect(b).toMatchObject({ kind: 'started', resumed: false });
-    expect(await startRun(t.db, { kind: 'daily', now: new Date(clock.t), continueRunId: 9999 })).toMatchObject({ kind: 'not_resumable' });
+    expect(await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t), continueRunId: 9999 })).toMatchObject({ kind: 'not_resumable' });
   });
 
   it('полученный трофей не откатывается при неполном ответе PSN; новые получения подтягиваются точечно', async () => {
@@ -398,7 +399,7 @@ describe('синк на PGlite и фейковом PSN', () => {
   it('синк не пишет в game_status', async () => {
     await full();
     const g = (await t.db.select().from(games).where(eq(games.titleId, 'CUSA00005_00')))[0];
-    await setGameStatus(t.db, g.id, 'completed', new Date(clock.t));
+    await setGameStatus(t.db, TEST_USER, g.id, 'completed', new Date(clock.t));
     const before = await t.db.select().from(gameStatus);
     clock.t = DAY2.getTime();
     await full();
@@ -424,14 +425,14 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('статус: прогресс, счётчики и конверт для running', async () => {
-    expect(await getSyncStatus(t.db)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
-    const s = await startRun(t.db, { kind: 'manual', now: new Date(clock.t) });
+    expect(await getSyncStatus(t.db, TEST_USER)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
     if (s.kind !== 'started') throw new Error();
-    const st = await getSyncStatus(t.db);
+    const st = await getSyncStatus(t.db, TEST_USER);
     expect(st.running).toBe(true);
     expect(st.run).toMatchObject({ status: 'running', phase: 'auth', progress: { step: 1, steps: 4, done: null, total: null } });
     await t.db.update(syncRuns).set({ phase: 'trophies', cursor: { phase: 'trophies', hops: 0, progress: { done: 3, total: 5 } } }).where(and(eq(syncRuns.id, s.run.id)));
-    expect((await getSyncStatus(t.db)).run?.progress).toEqual({ phase: 'trophies', step: 4, steps: 4, done: 3, total: 5 });
+    expect((await getSyncStatus(t.db, TEST_USER)).run?.progress).toEqual({ phase: 'trophies', step: 4, steps: 4, done: 3, total: 5 });
   });
 
   it('статус: totals считаются из БД', async () => {
@@ -442,7 +443,7 @@ describe('синк на PGlite и фейковом PSN', () => {
       { trophySetId: set.id, trophyId: 2, type: 'gold' },
       { trophySetId: set.id, trophyId: 3, type: 'platinum' },
     ]);
-    const st = await getSyncStatus(t.db);
+    const st = await getSyncStatus(t.db, TEST_USER);
     const gamesCount = (await t.db.select().from(schema.games)).length;
     expect(st.totals).toEqual({ games: gamesCount, trophySets: 1, trophies: 4, trophiesEarned: 2, platinumEarned: 1 });
   });

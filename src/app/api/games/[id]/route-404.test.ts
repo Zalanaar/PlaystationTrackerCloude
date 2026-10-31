@@ -7,6 +7,8 @@ vi.mock('@/server/collection/details', () => ({ getGameDetails: (...a: unknown[]
 
 import { GET } from './route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const get = (id: string) => GET(new Request(`http://x/api/games/${id}`), { params: Promise.resolve({ id }) });
 
 describe('GET /api/games/{id}: 404 без утечки существования', () => {

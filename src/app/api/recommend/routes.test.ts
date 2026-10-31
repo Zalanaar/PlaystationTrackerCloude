@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseDislikeBody, parseGameId, parseTime } from '@/server/recommend/validation';
 import { GET } from './route';
 import { POST } from './dislike/route';
 import { DELETE } from './dislike/[gameId]/route';
+
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
 
 const json = { 'content-type': 'application/json' };
 const evil = { ...json, origin: 'http://evil.example', host: 'x' };

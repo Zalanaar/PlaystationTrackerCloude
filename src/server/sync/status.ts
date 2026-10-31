@@ -2,15 +2,17 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { PHASES, parseCursor } from './context';
 import { getSyncOverdue } from './overdue';
 
 const { syncRuns, psnAuth } = schema;
 
 // Запуски kind='hltb' (контракт 16.7) в индикации синка не участвуют.
-const notHltb = ne(syncRuns.kind, 'hltb');
+const notHltbOf = (userId: UserId) => and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'));
 
-export async function getSyncStatus(db: AnyDb, now: Date = new Date()) {
+export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new Date()) {
+  const notHltb = notHltbOf(userId);
   const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastDone] = await db.select().from(syncRuns).where(and(notHltb, ne(syncRuns.status, 'running'))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastSuccess] = await db
@@ -24,12 +26,12 @@ export async function getSyncStatus(db: AnyDb, now: Date = new Date()) {
   // Один запрос: скалярные подзапросы-агрегаты, без N+1.
   const totalsRes = await db.execute(sql`
     select
-      (select count(*) from games)::int as games,
-      (select count(*) from trophy_sets)::int as trophy_sets,
+      (select count(*) from games where user_id = ${userId})::int as games,
+      (select count(*) from trophy_sets where user_id = ${userId})::int as trophy_sets,
       count(*)::int as trophies,
       (count(*) filter (where earned))::int as trophies_earned,
       (count(*) filter (where earned and type = 'platinum'))::int as platinum_earned
-    from trophies`);
+    from trophies where user_id = ${userId}`);
   const rows = (Array.isArray(totalsRes) ? totalsRes : (totalsRes as { rows: unknown[] }).rows) as Record<string, number>[];
   const tr = rows[0] ?? {};
   const totals = {
@@ -83,6 +85,6 @@ export async function getSyncStatus(db: AnyDb, now: Date = new Date()) {
     psnAuth: psnAuthState,
     psnAuthExpiresAt: auth?.refreshExpiresAt ? auth.refreshExpiresAt.toISOString() : null,
     totals,
-    overdue: await getSyncOverdue(db, now),
+    overdue: await getSyncOverdue(db, userId, now),
   };
 }
