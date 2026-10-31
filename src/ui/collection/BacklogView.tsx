@@ -13,7 +13,7 @@ import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
 import { BacklogFilters } from './BacklogFilters';
 import {
-  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, sourceLabel,
+  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, shelvedToApi, sourceLabel,
   type BacklogFilters as Filters,
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
@@ -60,6 +60,25 @@ export function BacklogView() {
   const serviceRef = useRef<GameItem[] | null>(null);
   useEffect(() => { serviceRef.current = service; }, [service]);
   const serviceReq = useRef(0);
+  // блок «Отложено»: отдельный запрос status=shelved
+  const [shelved, setShelved] = useState<GameItem[] | null>(null);
+  const [shelvedTotal, setShelvedTotal] = useState(0);
+  const [shelvedOpen, setShelvedOpen] = useState(true);
+  const shelvedRef = useRef<GameItem[] | null>(null);
+  useEffect(() => { shelvedRef.current = shelved; }, [shelved]);
+  const shelvedReq = useRef(0);
+  // вкладка блока не пропадает, если он был виден в этой сессии
+  const [seenShelved, setSeenShelved] = useState(false);
+  const showShelved = !!shelved && (shelvedTotal > 0 || shelved.length > 0 || seenShelved);
+  const showService = !!service && service.length > 0;
+  if (!seenShelved && shelved && (shelved.length > 0 || shelvedTotal > 0)) setSeenShelved(true);
+  // липкая плашка: сентинел + IntersectionObserver даёт data-stuck, scroll-spy даёт aria-current
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  const [activeTab, setActiveTab] = useState('h-bl-main');
+  const spyLock = useRef(false);
+  const spyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (spyTimer.current) clearTimeout(spyTimer.current); }, []);
   // прокрутка к заголовку блока: ниже шапки и липкой панели переключателя (высоты меряем, на мобильном они другие)
   const jumpTo = (id: string) => {
     const el = document.getElementById(id);
@@ -69,7 +88,27 @@ export function BacklogView() {
     const top = window.scrollY + el.getBoundingClientRect().top - Math.max(0, headerH) - navH - 8;
     window.scrollTo({ top: Math.max(0, top), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     el.focus({ preventScroll: true });
+    // клик ставит вкладку активной сразу; пока идёт прокрутка, scroll-spy её не перебивает
+    setActiveTab(id);
+    spyLock.current = true;
+    if (spyTimer.current) clearTimeout(spyTimer.current);
+    spyTimer.current = setTimeout(() => { spyLock.current = false; }, 900);
   };
+  const loadShelved = useCallback(async () => {
+    const my = ++shelvedReq.current;
+    try {
+      const r = await fetchGames(shelvedToApi());
+      if (my !== shelvedReq.current) return;
+      setShelved(r.items);
+      setShelvedTotal(r.total);
+    } catch {
+      // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    }
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => void loadShelved(), 0);
+    return () => clearTimeout(t);
+  }, [loadShelved]);
   const loadService = useCallback(async () => {
     const my = ++serviceReq.current;
     try {
@@ -144,16 +183,20 @@ export function BacklogView() {
     // игра переезжает между блоками сразу; при ошибке возвращается на место
     const beforeB = itemsRef.current ?? [];
     const beforeS = serviceRef.current ?? [];
+    const beforeH = shelvedRef.current ?? [];
     const apply = (g: GameItem, to: GameStatusValue | null) => {
-      const r = moveBetweenLists({ backlog: itemsRef.current ?? [], service: serviceRef.current ?? [] }, g, to);
+      const r = moveBetweenLists({ backlog: itemsRef.current ?? [], service: serviceRef.current ?? [], shelved: shelvedRef.current ?? [] }, g, to);
       itemsRef.current = r.lists.backlog;
       serviceRef.current = r.lists.service;
+      shelvedRef.current = r.lists.shelved;
       setItems(r.lists.backlog);
       setService(r.lists.service);
+      setShelved(r.lists.shelved);
+      setShelvedTotal((n) => Math.max(0, n + r.shelvedDelta));
       setTotal((n) => Math.max(0, n + r.backlogDelta));
       setServiceTotal((n) => Math.max(0, n + r.serviceDelta));
     };
-    const sync = () => { void load(); void loadService(); };
+    const sync = () => { void load(); void loadService(); void loadShelved(); };
     apply(game, status);
     try {
       await putStatus(game.id, status);
@@ -165,10 +208,13 @@ export function BacklogView() {
     } catch (e) {
       itemsRef.current = beforeB;
       serviceRef.current = beforeS;
+      shelvedRef.current = beforeH;
       setItems(beforeB);
       setService(beforeS);
+      setShelved(beforeH);
       void load();
       void loadService();
+      void loadShelved();
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
     }
     async function restore(g: GameItem) {
@@ -181,7 +227,7 @@ export function BacklogView() {
         toast({ kind: 'error', text: `Не удалось вернуть статус. ${errorText(e)}` });
       }
     }
-  }, [load, loadService, toast]);
+  }, [load, loadService, loadShelved, toast]);
 
   const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
@@ -189,6 +235,48 @@ export function BacklogView() {
     setStatus: (g, s) => void change(g, s),
     toggle: () => {},
   }), [change, openGameLink]);
+
+  const tabs = [
+    { id: 'h-bl-main', label: 'Бэклог', n: total, on: true },
+    { id: 'h-bl-shelved', label: 'Отложено', n: shelvedTotal, on: showShelved },
+    { id: 'h-bl-service', label: 'Сервис', n: serviceTotal, on: showService },
+  ].filter((t) => t.on);
+  const showJump = tabs.length >= 2;
+  const tabIds = tabs.map((t) => t.id).join(',');
+
+  useEffect(() => {
+    if (!showJump) return;
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 56;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting), { rootMargin: `-${h}px 0px 0px 0px` });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [showJump]);
+
+  useEffect(() => {
+    if (!showJump) return;
+    const ids = tabIds.split(',');
+    const onScroll = () => {
+      if (spyLock.current) return;
+      const headerH = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+      const navH = document.querySelector<HTMLElement>('[data-testid="bl-jump"]')?.offsetHeight ?? 0;
+      const line = Math.max(0, headerH) + navH + 16;
+      let cur = ids[0];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= line) cur = id;
+      }
+      if (window.scrollY <= 0) cur = ids[0];
+      setActiveTab(cur);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    const onEnd = () => { spyLock.current = false; onScroll(); };
+    window.addEventListener('scrollend', onEnd);
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); window.removeEventListener('scrollend', onEnd); };
+  }, [showJump, tabIds]);
 
   return (
     <div className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
@@ -201,13 +289,19 @@ export function BacklogView() {
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       )}
       <HltbRunner onFinished={() => void load()} />
-      {service && service.length > 0 && (
-        <nav className="ps-bl-jump" aria-label="Блоки страницы" data-testid="bl-jump">
-          <div className="ps-seg">
-            <button type="button" onClick={() => jumpTo('h-bl-main')}>Бэклог <b className="num">{formatNumber(total)}</b></button>
-            <button type="button" onClick={() => jumpTo('h-bl-service')}>Сервис <b className="num">{formatNumber(serviceTotal)}</b></button>
-          </div>
-        </nav>
+      {showJump && (
+        <>
+          <div className="ps-bl-jump__sentinel" ref={sentinelRef} aria-hidden="true" />
+          <nav className="ps-bl-jump" aria-label="Блоки страницы" data-testid="bl-jump" data-stuck={stuck ? 'true' : 'false'}>
+            <div className="ps-bl-jump__tabs">
+              {tabs.map((t) => (
+                <button key={t.id} type="button" className="ps-bl-jump__tab" aria-current={activeTab === t.id ? 'location' : undefined} onClick={() => jumpTo(t.id)}>
+                  {t.label} <b className="num">{formatNumber(t.n)}</b>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </>
       )}
       {(items || !error) && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
@@ -262,7 +356,49 @@ export function BacklogView() {
           </button>
         </div>
       )}
-      {service && service.length > 0 && (
+      {showShelved && shelved && (
+        <section className="ps-bl-service" id="shelved" aria-labelledby="h-bl-shelved" data-testid="bl-shelved">
+          <div className="ps-bl-service__head">
+            <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-shelved" tabIndex={-1}>
+              <StatusGlyph status="shelved" size={16} />Отложено <small className="num ps-bl-service__n" data-testid="bl-shelved-count">{formatNumber(shelvedTotal)}</small>
+            </h2>
+            <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" aria-expanded={shelvedOpen} aria-controls="bl-shelved-list" onClick={() => setShelvedOpen((v) => !v)}>
+              <Icon name={shelvedOpen ? 'chevron-up' : 'chevron-down'} size={14} />{shelvedOpen ? 'Свернуть' : 'Развернуть'}
+            </button>
+          </div>
+          <p className="ps-bl-service__sub">Отложено на потом. В бэклог и план эти игры не входят.</p>
+          {shelvedOpen && (
+            <div id="bl-shelved-list">
+              {shelved.length === 0 ? (
+                <EmptyState icon={<StatusGlyph status="shelved" size={40} />} title="Отложенных игр нет" text="Поставь игре статус «Отложено» в меню карточки, и она появится здесь." />
+              ) : (
+                <GameGrid density="comfort" label="Отложенные игры">
+                  {shelved.map((g) => (
+                    <GameGridItem key={g.id}>
+                      <GameCard game={g} actions={actions} selectMode={false} selected={false}>
+                        <p className="ps-bl-dur num" data-testid="bl-duration" data-source={g.duration?.source ?? undefined}>
+                          <Icon name="clock" size={12} />
+                          <span aria-label={g.duration?.hours != null ? `Длительность ${durationText(g.duration)}` : 'Длительность неизвестна'}>{durationText(g.duration)}</span>
+                          {sourceLabel(g.duration?.source ?? null) && <span className="ps-bl-src" data-source={g.duration?.source ?? undefined}>{sourceLabel(g.duration?.source ?? null)}</span>}
+                        </p>
+                        <div className="ps-bl-actions">
+                          <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
+                            <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
+                          </button>
+                          <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'playing')}>
+                            <StatusGlyph status="playing" size={14} />Начать играть
+                          </button>
+                        </div>
+                      </GameCard>
+                    </GameGridItem>
+                  ))}
+                </GameGrid>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+      {showService && service && (
         <section className="ps-bl-service" id="service" aria-labelledby="h-bl-service" data-testid="bl-service">
           <div className="ps-bl-service__head">
             <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-service" tabIndex={-1}>

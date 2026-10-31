@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   backlogSortId, backlogToApi, backlogToUrl, DEFAULT_BACKLOG, durationText, formatHours, hltbStatusText, hoursInputValue, parseBacklogFilters,
   genreCount, parseHoursInput, resetBacklogFilters, sourceLabel, toggleValue,
-  moveBetweenLists, serviceToApi,
+  moveBetweenLists, serviceToApi, shelvedToApi,
 } from './backlog';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -133,6 +133,23 @@ describe('moveBetweenLists: блоки бэклога и сервиса', () => 
     const r = moveBetweenLists(lists, lists.backlog[1], 'playing');
     expect(r.lists.backlog.map((g) => g.id)).toEqual([1]);
     expect(r.lists.service.map((g) => g.id)).toEqual([3]);
+  });
+  it('бэклог -> отложено и отложено -> играю/бэклог', () => {
+    type S = G | { id: number; status: 'shelved' };
+    const l = { backlog: lists.backlog as S[], service: [] as S[], shelved: [{ id: 7, status: 'shelved' }] as S[] };
+    const a = moveBetweenLists(l, l.backlog[0], 'shelved');
+    expect(a.lists.shelved.map((g) => g.id)).toEqual([1, 7]);
+    expect([a.backlogDelta, a.serviceDelta, a.shelvedDelta]).toEqual([-1, 0, 1]);
+    const b = moveBetweenLists(l, l.shelved[0], 'backlog');
+    expect(b.lists.backlog.map((g) => g.id)).toEqual([7, 1, 2]);
+    expect([b.backlogDelta, b.shelvedDelta]).toEqual([1, -1]);
+    const c = moveBetweenLists(l, l.shelved[0], 'playing');
+    expect(c.lists.shelved).toEqual([]);
+    expect(c.lists.backlog).toHaveLength(2);
+    expect(c.shelvedDelta).toBe(-1);
+  });
+  it('запрос отложенных без фильтров бэклога', () => {
+    expect(shelvedToApi(50).toString()).toBe('status=shelved&sort=last_played&limit=50&offset=0');
   });
   it('запрос сервиса без фильтров бэклога', () => {
     expect(serviceToApi(50).toString()).toBe('status=service&sort=last_played&limit=50&offset=0');

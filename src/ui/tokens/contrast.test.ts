@@ -324,6 +324,22 @@ describe('контраст тем', () => {
     expect(decorCss).toMatch(/\[data-theme="ps5"\] \.ps-filterchip--plat\[aria-pressed="true"\] \{[^}]*var\(--plat-fill\)/);
   });
 
+  // Фаза 22 (design-system §11.4): липкая плашка Бэклога, лоток --surface, вкладки на --surface-2/--surface-3
+  describe('липкая плашка Бэклога (§11)', () => {
+    for (const t of IDS) {
+      it(`${t}: --text-2 на --surface >= 4.5`, () => expect(ratio(get(t, '--text-2'), get(t, '--surface'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text на --surface-2 >= 4.5`, () => expect(ratio(get(t, '--text'), get(t, '--surface-2'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text на --surface-3 >= 4.5`, () => expect(ratio(get(t, '--text'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --focus на --surface >= 3 (нетекстовый)`, () => expect(ratio(get(t, '--focus'), get(t, '--surface'))).toBeGreaterThanOrEqual(3));
+    }
+    it('токены --shadow-sticky и --z-sticky только в tokens.css', () => {
+      expect(base['--z-sticky']).toBe('5');
+      expect(base['--shadow-sticky']).toContain('var(--shadow-alpha) + .15');
+      expect(themesCss).not.toContain('--shadow-sticky');
+      expect(themesCss).not.toContain('--z-sticky');
+    });
+  });
+
   // PS3: 12 пар градиента. Текст --text-3 на верхнем цвете и на среднем цвете под волной (волна + линии, худший случай белый .11)
   describe('ps3: градиент по месяцам', () => {
     for (let m = 1; m <= 12; m++)
