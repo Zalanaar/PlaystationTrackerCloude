@@ -1,10 +1,12 @@
 // Типы ответа GET /api/stats (раздел 10 docs/api-contract.md). Только типы.
 import type { GameItem } from '@/server/collection/types';
 
-export type StatsPeriodType = 'year' | 'month';
+export type StatsPeriodType = 'year' | 'month' | 'all';
+export type BoundedPeriodType = 'year' | 'month';
 
-export type StatsPeriod = {
-  type: StatsPeriodType;
+/** Период с границами (год или месяц). */
+export type BoundedPeriod = {
+  type: BoundedPeriodType;
   year: number;
   month: number | null;
   /** Даты МСК, включительно. */
@@ -14,6 +16,33 @@ export type StatsPeriod = {
   fromUtc: string;
   toUtc: string;
 };
+
+/** Период «всё время» (26.1): границы = первая/последняя даты данных, null, если данных нет. year = текущий год МСК. */
+export type AllPeriod = {
+  type: 'all';
+  year: number;
+  month: null;
+  from: string | null;
+  to: string | null;
+  fromUtc: string | null;
+  toUtc: string | null;
+};
+
+export type StatsPeriod = BoundedPeriod | AllPeriod;
+
+/** «Когда ты играешь» (26.3): трофеи по часам суток (24) и дням недели (пн..вс) по МСК. */
+export type PlayPattern = {
+  byHour: number[];
+  byWeekday: number[];
+  total: number;
+  peakHour: number | null;
+  peakWeekday: number | null;
+  label: string;
+  hasData: boolean;
+};
+
+/** Часы года при period=all (26.1), десятые доли часа. */
+export type HoursYear = { year: number; hours: number; estimatedHours: number; measuredHours: number };
 
 export type TrophyCountsByType = { platinum: number; gold: number; silver: number; bronze: number; total: number };
 
@@ -99,6 +128,10 @@ export type StatsResponse = {
     hasEstimate: boolean;
     firstSnapshotDate: string | null;
     periodPartial: boolean;
+    /** 26.1, только при period=all: часы по годам по возрастанию, без пропусков. */
+    byYear?: HoursYear[];
+    /** 26.1, только при period=all: header.hours - sum(byYear.hours), десятые. */
+    unattributed?: number;
   };
   genres: {
     hasData: boolean;
@@ -109,9 +142,20 @@ export type StatsResponse = {
   top: StatsTop;
   /** 14.1: топ-5 самых редких полученных трофеев за период и за всё время. */
   rareTrophies: { period: RareTrophy[]; allTime: RareTrophy[] };
-  trophies: { counts: TrophyCountsByType; byMonth: (TrophyCountsByType & { month: number })[] };
+  trophies: {
+    counts: TrophyCountsByType;
+    byMonth: (TrophyCountsByType & { month: number })[];
+    /** 26.1, только при period=all. */
+    byYear?: (TrophyCountsByType & { year: number })[];
+  };
   /** Устарело для экрана Статистики с Фазы 8 (используйте played); сохраняется для совместимости. */
-  finished: { groups: FinishedGroup[] };
+  finished: {
+    groups: FinishedGroup[];
+    /** 26.1, только при period=all. */
+    byYear?: { year: number; completed: number; dropped: number }[];
+  };
   /** «Игры месяца»: игра в каждом месяце, где в неё играли или её завершили/бросили. */
   played: PlayedBlock;
+  /** 26.3: сервер присылает всегда (необязательно в типе из-за фикстур src/ui). */
+  playPattern?: PlayPattern;
 };

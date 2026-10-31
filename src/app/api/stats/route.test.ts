@@ -11,6 +11,17 @@ describe('GET /api/stats: валидация (без БД)', () => {
       expect((await r.json()).error.code).toBe('invalid_request');
     }
   });
+  it('period=all: year и month игнорируются, но мусорный period и withService дают 400', async () => {
+    for (const q of ['period=ALL', 'period=all2', 'period=all&withService=x']) {
+      const r = await GET(new Request(`http://x/api/stats?${q}`));
+      expect(r.status, q).toBe(400);
+    }
+    const prev = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    const r = await GET(new Request('http://x/api/stats?period=all&year=abc&month=99')); // прошло валидацию, упало на БД
+    if (prev !== undefined) process.env.DATABASE_URL = prev;
+    expect(r.status).toBe(503);
+  });
   it('сбой БД = 503 db_unavailable', async () => {
     const prev = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;

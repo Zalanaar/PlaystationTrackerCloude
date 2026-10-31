@@ -5,12 +5,13 @@ import { aggregateGenresWithGames, type GenreGame, type GenreGameInfo } from './
 import { groupFinished, type FinishedEvent } from './finished';
 import { calcHours, groupSnapshots, type EstimateInput, type HoursCalc, type Snapshot } from './hours';
 import { groupPlayed } from './played';
-import type { RareTrophy, StatsPeriod, StatsResponse, StatsTop } from './types';
+import { buildPlayPattern, type PatternCell } from './play-pattern';
+import type { BoundedPeriod, RareTrophy, StatsResponse, StatsTop } from './types';
 import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import { aggregateTrophies, type EarnedTrophy } from './trophies';
 
 export type StatsInput = {
-  period: StatsPeriod;
+  period: BoundedPeriod;
   /** Сегодняшняя дата МСК, YYYY-MM-DD. */
   today: string;
   years: number[];
@@ -36,6 +37,8 @@ export type StatsInput = {
   rareTrophies?: { period: RareTrophy[]; allTime: RareTrophy[] };
   /** 15.1: игры, убранные из месяцев (estimates уже содержат excludedMonths). */
   exclusions?: MonthExclusions;
+  /** 26.3: ячейки (час, день недели МСК) трофеев периода. */
+  patternCells?: readonly PatternCell[];
 };
 
 export function composeStats(i: StatsInput): StatsResponse {
@@ -92,5 +95,6 @@ export function composeStats(i: StatsInput): StatsResponse {
     trophies: { counts, byMonth },
     finished: { groups },
     played: groupPlayed({ by, estimates: i.estimates, period, finishedEvents: i.finishedEvents, gameById: i.gameById, exclusions: i.exclusions }),
+    playPattern: buildPlayPattern(i.patternCells ?? []),
   };
 }

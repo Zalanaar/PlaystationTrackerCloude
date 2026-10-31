@@ -6,12 +6,12 @@ import type { FinishedEvent } from './finished';
 import type { MonthExclusions } from './exclusions';
 import { estimateByMonth, estimateRangeMonths, gameSecondsInRange, secondsToHours, type EstimateInput } from './hours';
 import { mskDate, monthRange } from './period';
-import type { PlayedBlock, PlayedItem, StatsPeriod } from './types';
+import type { PlayedBlock, PlayedItem, BoundedPeriod } from './types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Месяцы периода: год = 1..12, месяц = один. */
-export function periodMonths(period: Pick<StatsPeriod, 'type' | 'year' | 'month'>): number[] {
+export function periodMonths(period: Pick<BoundedPeriod, 'type' | 'year' | 'month'>): number[] {
   return period.type === 'month' && period.month !== null ? [period.month] : Array.from({ length: 12 }, (_, i) => i + 1);
 }
 
@@ -87,7 +87,7 @@ export function excludedPlayed(args: {
 export function groupPlayed(args: {
   by: Map<number, { date: string; seconds: number }[]>;
   estimates: readonly EstimateInput[];
-  period: Pick<StatsPeriod, 'type' | 'year' | 'month'>;
+  period: Pick<BoundedPeriod, 'type' | 'year' | 'month'>;
   /** События завершения/броска внутри периода. */
   finishedEvents: readonly FinishedEvent[];
   gameById: ReadonlyMap<number, GameItem>;
@@ -174,7 +174,7 @@ export function groupPlayed(args: {
 export function playedGameIds(args: {
   by: Map<number, { date: string; seconds: number }[]>;
   estimates: readonly EstimateInput[];
-  period: Pick<StatsPeriod, 'type' | 'year' | 'month'>;
+  period: Pick<BoundedPeriod, 'type' | 'year' | 'month'>;
   finishedEvents: readonly FinishedEvent[];
   exclusions?: MonthExclusions;
 }): number[] {

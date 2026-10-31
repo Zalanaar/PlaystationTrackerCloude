@@ -27,6 +27,7 @@ async function seeded(nGames: number) {
     insert into playtime_snapshots (user_id, game_id, snapshot_date, play_duration_seconds)
     select 1, g.id, d::date, 3600 * 5 + (extract(epoch from d - timestamp '2025-10-28') / 86400)::int * (g.id % 7) * 60
     from games g, generate_series(timestamp '2025-10-28', timestamp '2026-10-27', interval '1 day') d;
+    update games g set play_duration_seconds = (select max(play_duration_seconds) from playtime_snapshots p where p.game_id = g.id);
     insert into game_status (user_id, game_id, status, completed_at)
     select 1, id, 'completed', timestamptz '2026-01-15' + (id || ' days')::interval from games where id % 5 = 0;
   `);
@@ -50,6 +51,30 @@ describe('производительность getStats (PGlite)', () => {
     expect(r.played.groups).toHaveLength(10); // янв..окт
     expect(r.played.groups[0].items.length).toBeGreaterThan(150);
     // PGlite в памяти медленнее Postgres; порог с большим запасом, ловит только квадратичный регресс
+    expect(ms).toBeLessThan(5000);
+    await big.close();
+  }, 60_000);
+
+  it('period=all (26.1): 214 игр x 365 снимков, число запросов как у 5 игр, укладывается в бюджет', async () => {
+    const small = await seeded(5);
+    small.reset();
+    await getStats(small.db, TEST_USER, { type: 'all', year: 2026, month: null }, NOW);
+    const smallQueries = small.count();
+    await small.close();
+
+    const big = await seeded(214);
+    big.reset();
+    const t0 = performance.now();
+    const r = await getStats(big.db, TEST_USER, { type: 'all', year: 2026, month: null }, NOW);
+    const ms = performance.now() - t0;
+    expect(big.count()).toBe(smallQueries);
+    expect(r.period.type).toBe('all');
+    expect(r.hours.byYear?.length).toBeGreaterThanOrEqual(2); // 2025 и 2026
+    const sumT = (r.hours.byYear ?? []).reduce((a, y) => a + Math.round(y.hours * 10), 0) + Math.round((r.hours.unattributed ?? 0) * 10);
+    expect(sumT).toBe(Math.round((r.header.hours ?? 0) * 10));
+    expect(r.header.completed).toBe(42); // id % 5 = 0 из 214
+    expect(r.top.byHours.length).toBe(10);
+    // бюджет: PGlite в памяти медленнее Postgres, порог с запасом ловит только квадратичный регресс
     expect(ms).toBeLessThan(5000);
     await big.close();
   }, 60_000);
