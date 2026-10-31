@@ -56,7 +56,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     note: null, noteMobile: null,
   }),
   s({
-    id: 'triage', route: '/triage', target: 'triage-actions', targetMobile: 'triage-stack', place: 'bottom', title: 'Разбор',
+    id: 'triage', route: '/triage', target: 'triage-actions', targetMobile: 'triage-buttons', place: 'bottom', title: 'Разбор',
     text: 'Новые игры из загрузки идут по одной. Клавиши 1–6 ставят статус, пробел пропускает.',
     textMobile: 'Свайп вправо: пройдено, влево: брошено, вверх: бэклог, вниз: пропустить. Кнопки статусов под карточкой.',
     note: 'Всё разобрано. Новые игры появятся после следующей загрузки.', noteMobile: null,

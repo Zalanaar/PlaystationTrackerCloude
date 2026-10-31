@@ -303,7 +303,7 @@ export function TourOverlay(props: TourOverlayProps) {
   let side: string = step.place;
   if (mode === 'spot' && geo && !mobile) {
     if (popSize) {
-      const p = placePopover(geo.box, popSize, { w: document.documentElement.clientWidth, h: window.innerHeight }, step.place, geo.gap, geo.gutter);
+      const p = placePopover(geo.box, popSize, { w: document.documentElement.clientWidth, h: window.innerHeight }, foundId === 'triage-buttons' ? 'top' : step.place, geo.gap, geo.gutter);
       popStyle = { left: p.left, top: p.top };
       side = p.side;
     } else popStyle = { visibility: 'hidden' };
@@ -323,7 +323,7 @@ export function TourOverlay(props: TourOverlayProps) {
       {mode === 'spot' && <div className="ps-tour__spot" aria-hidden="true" style={spotStyle} />}
       <section
         ref={popRef} className="ps-tour__pop" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={textId} tabIndex={-1}
-        data-place={side} data-last={last || undefined} style={popStyle}
+        data-place={side} data-step={step.id} data-last={last || undefined} style={popStyle}
       >
         <div className="ps-tour__bar" aria-hidden="true"><i style={{ width: `${((index + 1) / TOUR_TOTAL) * 100}%` }} /></div>
         <header className="ps-tour__head">

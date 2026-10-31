@@ -341,7 +341,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
   const style = drag ? { transform: `translate(${drag.dx}px, ${drag.dy}px) rotate(${drag.dx / 20}deg)`, transition: 'none' } : undefined;
   return (
     <div className="ps-tri__m">
-      <div className="ps-stack3" data-tour="triage-stack">
+      <div className="ps-stack3">
         <div className="ps-stack3__under" />
         <div className="ps-stack3__under ps-stack3__under--2" />
         {next && <span className="ps-sr">Дальше: {next.title}</span>}
@@ -368,7 +368,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
         <span>вниз: пропуск</span>
         <span>вправо<StatusGlyph status="completed" size={12} /></span>
       </p>
-      <div className="ps-tri__actions" role="group" aria-label="Статус игры">
+      <div className="ps-tri__actions" data-tour="triage-buttons" role="group" aria-label="Статус игры">
         {MOBILE_KEYS.map(([, s]) => (
           <button key={s} type="button" data-status={s} onClick={() => onAct(s)} aria-label={STATUS_META[s as StatusKey].label}>
             <StatusGlyph status={s} size={20} />

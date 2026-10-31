@@ -36,16 +36,16 @@ describe('выбор шага и варианта', () => {
   });
 
   it('кандидаты якоря: свой, затем запасной другого варианта, без дублей', () => {
-    expect(anchorCandidates(step('triage'), false)).toEqual(['triage-actions', 'triage-stack']);
-    expect(anchorCandidates(step('triage'), true)).toEqual(['triage-stack', 'triage-actions']);
+    expect(anchorCandidates(step('triage'), false)).toEqual(['triage-actions', 'triage-buttons']);
+    expect(anchorCandidates(step('triage'), true)).toEqual(['triage-buttons', 'triage-actions']);
     expect(anchorCandidates(step('nav'), true)).toEqual(['nav']);
     expect(anchorCandidates(step('window'), false)).toEqual([]);
   });
 
   it('текст под запасной якорь берётся из другого варианта', () => {
     expect(textForAnchor(step('triage'), false, 'triage-actions')).toMatch(/Клавиши 1–6/);
-    expect(textForAnchor(step('triage'), false, 'triage-stack')).toMatch(/Свайп/);
-    expect(textForAnchor(step('triage'), true, 'triage-stack')).toMatch(/Свайп/);
+    expect(textForAnchor(step('triage'), false, 'triage-buttons')).toMatch(/Свайп/);
+    expect(textForAnchor(step('triage'), true, 'triage-buttons')).toMatch(/Свайп/);
   });
 
   it('маршруты: когда нужна навигация и какой маркер ждать', () => {

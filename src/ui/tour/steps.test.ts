@@ -23,7 +23,7 @@ describe('конфиг шагов тура (design-system §10.6)', () => {
     const m = Object.fromEntries(TOUR_STEPS.map((s) => [s.id, s.targetMobile]));
     expect(m.status).toBe('game-card');
     expect(m.filters).toBe('filters-btn');
-    expect(m.triage).toBe('triage-stack');
+    expect(m.triage).toBe('triage-buttons');
     expect(m.sync).toBe('menu-more');
     expect(m.theme).toBe('menu-more');
   });
