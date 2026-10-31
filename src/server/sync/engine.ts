@@ -9,6 +9,7 @@ import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from '.
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
 import { applyDuplicates } from './duplicates';
 import { hltbStep, type HltbDeps } from './hltb-step';
+import { discoverStep, type DiscoverStepDeps } from './discover-step';
 import { llmStep, type LlmStepDeps } from './llm-step';
 import { tintStep, type TintDeps } from './tint';
 
@@ -30,6 +31,8 @@ export type SyncDeps = {
   hltb?: HltbDeps;
   /** Шаг «LLM» (20.5): фразы бэклога и «Новое от ИИ» после HLTB. Нет = шаг отключён (тесты). */
   llm?: LlmStepDeps;
+  /** Шаг «У тебя нет» (Фаза 30, 30.4) после LLM: подборка игр вне библиотеки из RAWG раз в сутки. Нет = шаг отключён (тесты). */
+  discover?: DiscoverStepDeps;
 };
 
 export type ChunkResult = {
@@ -114,6 +117,14 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
       } catch {
         // фразы и подборка необязательны (есть шаблоны): ошибка шага не влияет на итог синка
         ctx.warn('llm_failed', 'Шаг LLM завершился ошибкой.');
+      }
+    }
+    if (deps.discover) {
+      try {
+        await discoverStep(ctx, deps.discover);
+      } catch {
+        // подборка необязательна (экран покажет прежнюю или пустое состояние): ошибка шага не влияет на итог синка
+        ctx.warn('discover_step_failed', 'Шаг «У тебя нет» завершился ошибкой.');
       }
     }
     return await close({ status: 'success', reason: null, continueNext: false }, null, true);

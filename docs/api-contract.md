@@ -2310,3 +2310,78 @@ Fail-open: если БД недоступна или таблицы ещё не�
 - 200: `{"ok":true,"data":{"game":{ GameItem игры {id} уже без отвязанных версий }}}`.
 - 400 `invalid_request`: id не число, тело не JSON-объект или `versionId` не целое. 404 `not_found`: нет игры, чужая игра (то же тело, что у несуществующей), `versionId` не её дубль. 503 `db_unavailable`.
 Отменить это действие в API нельзя (синк не вернёт склейку). Риск склейки разных игр с общим `concept_id` лечится этой кнопкой.
+
+## Фаза 30. «У тебя нет»: предложения игр вне библиотеки
+
+Решение Артёма 2026-10-31 убрало «Новое от ИИ» (раздел 19: Groq придумывал названия, RAWG их проверял). Фаза 30 возвращает режим «вне библиотеки» по другой модели: **кандидатов выбирает каталог RAWG и правила, а не LLM**. LLM только формулирует причину (одна фраза на карточку), при выключенном LLM или сбое причина шаблонная. Название, жанры, обложка, рейтинг и платформы берутся только из RAWG, выдумать игру модель не может. Раздел 19 остаётся удалённым, его роуты и тексты не возвращаются; здесь новая схема ответа.
+
+### 30.1 Схема: миграций нет
+Переиспользуются таблицы 13b, схема Drizzle и БД не меняются.
+- `recommend_discover_cache (user_id, day)`: `day` сутки МСК, `profile_hash` = первые 32 hex sha256 от списка фасетов (30.3), `payload` jsonb, `refreshes` не используется (всегда 0), `created_at`. Один ряд на пользователя и сутки.
+- `recommend_external_dislikes (user_id, external_source = 'rawg', external_id, title, cover_url, created_at)`: «Не интересно», срок `DISLIKE_TTL_DAYS` (30 суток), повтор продлевает.
+- `provider_usage (user_id, day, 'rawg')`: счётчик запросов RAWG (раздел 24).
+- `recommend_llm_usage.discover_auto_calls`: счётчик вида `discover` (потолок 1 вызов в сутки на пользователя; общий `calls`, `LLM_USER_DAILY_LIMIT` и `LLM_DAILY_LIMIT` действуют как раньше). Колонка раньше не использовалась (значения 13b в ней нет, всегда 0).
+- Все выборки и записи с `user_id` (запрос без него = баг).
+
+Форма `payload` (внутреннее, клиенту не отдаётся как есть): `{ version: 1, complete: boolean, fetched: string[], pool: PoolEntry[], candidates: StoredCandidate[] }`. `fetched` = уже опрошенные фасеты суток (`genres:action`, `tags:horror`, `all`), `pool` = отобранные записи RAWG (до 120), `candidates` = ранжированные, до 24 штук, с причиной. `complete = false`, пока не опрошены все фасеты (лимит RAWG, нехватка времени звена, сбой): следующий синк в те же сутки добирает только недостающее.
+
+### 30.2 `GET /api/recommend/discover`
+Сессия. Только чтение: ни RAWG, ни LLM не вызываются, ответ быстрый. Подборку создаёт ночной синк (30.4). Параметров нет (лишние игнорируются).
+
+`200 { ok: true, data: DiscoverResponse }`:
+```
+DiscoverResponse = { items: DiscoverItem[]; meta: DiscoverMeta }
+DiscoverItem = {
+  externalSource: 'rawg'; externalId: string; title: string;
+  releaseDate: string | null;            // YYYY-MM-DD, уже вышла
+  coverUrl: string | null;               // https, из RAWG
+  platforms: ('PS5' | 'PS4')[];          // только PlayStation
+  genres: GenreKey[];                    // жанры RAWG, сведённые к GenreKey (shared/genres); может быть []
+  rating: number | null;                 // пользовательский рейтинг RAWG 0..5, один знак
+  metacritic: number | null;             // 1..100
+  rawgUrl: string | null;                // https://rawg.io/games/<slug> (ссылка-атрибуция на карточке)
+  reason: { text: string; source: 'llm' | 'template' };
+  planned: boolean; plannedId: number | null;   // есть отменённая запись Плана (planned/done в выдачу не попадают)
+}
+DiscoverMeta = {
+  catalog: 'ok' | 'unavailable';         // unavailable: нет RAWG_API_KEY или RAWG_DAILY_LIMIT = 0
+  generatedAt: string | null;            // ISO, когда собрана подборка
+  stale: boolean;                        // подборка не за сегодняшние сутки МСК
+  partial: boolean;                      // не все фасеты опрошены (лимит RAWG, время, сбой)
+  reason: 'not_generated' | 'no_candidates' | null;
+  total: number;                         // кандидатов в подборке до фильтра выдачи
+  limit: number;                         // 12
+}
+```
+- Выдача: из `candidates` последней подборки (за сегодня, иначе за любые прошлые сутки, `stale = true`) убираются игры библиотеки, активные записи Плана и «Не интересно», остаётся до 12 по убыванию `score`. Фильтр действует в момент чтения: добавленная в библиотеку/План и скрытая игра исчезают сразу, не дожидаясь пересчёта.
+- Пустая выдача: нет подборки = `items: []`, `reason: 'not_generated'` (синк ещё не считал); подборка есть, всё отфильтровано = `reason: 'no_candidates'`; `catalog: 'unavailable'` = `items: []`, `reason: null`, подборка не читается.
+- Ошибки: `401`, `503 db_unavailable` (БД). Сбои RAWG и LLM ошибкой HTTP не бывают (это синк, не запрос).
+
+### 30.3 Кандидаты и ранжирование (`src/server/recommend/discover.ts`, чистая часть `discover-rank.ts`)
+- Профиль вкуса: история пользователя (`loadHistory`: видимые completed/playing/dropped, дубли склеены по Фазе 23) -> `genreStats` и `affinityOf` как в «Подскажи». Фасеты запроса = до 3 жанров с наибольшим affinity > 0, не «наказанные» (`penalized`), у которых есть соответствие в RAWG, плюс общий фасет `all` (топ без жанра) всегда последним. Соответствие жанров: ACTION `genres=action`, ADVENTURE `adventure`, ROLE_PLAYING_GAMES `role-playing-games-rpg`, SHOOTER `shooter`, RACING `racing`, SIMULATION `simulation`, FIGHTING `fighting`, ARCADE `arcade`, CASUAL `casual`, STRATEGY `strategy`, PUZZLE `puzzle`, FAMILY `family`, HORROR `tags=horror` (жанра в RAWG нет); MUSIC_RHYTHM, PARTY, OTHER без фасета. Пустая история = только `all`.
+- Запрос RAWG на страницу: `platforms=187,18` (PS5, PS4), фасет, `metacritic=75,100` (порог `RAWG_DISCOVER_MIN_METACRITIC`), `ordering=-metacritic`, `exclude_additions=true`, `page_size=40`. Запись принимается, если вышла (`released` не позже сегодняшнего МСК), есть PS5 или PS4 и `metacritic >= 75`.
+- Исключения кандидатов (при сборке и повторно при чтении): любая игра библиотеки пользователя, в том числе скрытая и дубль Фазы 23; активная запись Плана (`planned`/`done`, по `externalId` и названию); неистёкшее «Не интересно». Совпадение с библиотекой: равенство ключей после нормализации (`normalizeTitle`; `normalizeGameName` без скобок и меток PS4/PS5; отбрасывание слов издания `edition`, `complete`, `definitive`, `deluxe`, `ultimate`, `goty`, `remastered`...) или `titleMatches` (сходство ≥ 0.9 при одинаковых номерах частей) с `games.name` или `games.hltb_name`.
+- Страниц на фасет: 1; если после исключений осталось меньше 6, и RAWG говорит `next`, добираются 2-я и 3-я. Не больше 8 запросов RAWG за запуск шага.
+- `score = 0.6 * affinity + 0.4 * quality`, где `affinity` = максимум affinity по жанрам кандидата (жанров с соответствием нет = 0), `quality = (metacritic - 75) / 25` в [0, 1]. Кандидат, все известные жанры которого «наказаны», отбрасывается. Тай-брейк: `metacritic` убыв., `externalId` возр. В `candidates` попадает до 24 лучших, дубли по `externalId` и ключу названия схлопываются.
+- Причина-шаблон: «Похожа на «A» и «B», жанр «Z».» (A, B = до двух игр истории пользователя, пересекающихся по жанру с кандидатом, по часам убыв.; Z = жанр с наибольшим affinity среди жанров кандидата). Одна похожая: «Похожа на «A», жанр «Z».». Нет похожих, есть жанр: «Жанр «Z» тебе заходит, Metacritic N.». Ничего: «Высоко оценена на PlayStation: Metacritic N.».
+
+### 30.4 Шаг синка «У тебя нет» (`src/server/sync/discover-step.ts`)
+- Идёт после шага LLM в конце успешного звена, не фаза курсора. Ошибка шага = предупреждение `discover_step_failed`, итог запуска не меняется. Выполняется на пользователя запуска (`ctx.userId`).
+- Нет `RAWG_API_KEY` или `RAWG_DAILY_LIMIT = 0`: шаг молча пропускается. Подборка за сегодня `complete = true`: пропуск (раз в сутки). Иначе опрашиваются недостающие фасеты по одной странице на запрос; перед каждым запросом проверяется `ctx.timeLeft() >= 10 с` (иначе остановка, `partial`) и занимается слот `provider_usage` (24.2). Исчерпание лимита = остановка шага, предупреждение `discover_limit`; сбой фасета (сеть, 5xx, мусор) = фасет остаётся недобранным, предупреждение `discover_failed` с причиной (`timeout`, `network`, `http_error`, `rate_limited`, `bad_response`), остальные фасеты продолжаются.
+- После опроса пул ранжируется, подборка пишется в `recommend_discover_cache` на сегодня (если есть хоть один кандидат; иначе прежняя подборка не затирается). Данные прежних суток не удаляются.
+- Причины: когда подборка `complete`, LLM включён (раздел 20, `LLM_PROVIDER` + `LLM_API_KEY`), не на паузе и свободен слот вида `discover` (1 вызов в сутки): один вызов на все (до 24) карточки. Модель получает только факты RAWG и названия до двух игр библиотеки на карточку; отвечает `{"reasons":[{"id":<число>,"text":"..."}]}`. Принимается фраза строкой до 140 символов без ссылок и без названий других кандидатов; остальные остаются шаблонными. Сбой, таймаут, мусор: вызов возвращается в бюджет, учитывается в `fail_streak` (пауза 20.4), все причины шаблонные (`source: 'template'`), повтор LLM для этой подборки в те же сутки не делается. LLM никогда не выбирает и не меняет состав игр.
+- Лимиты RAWG: каждый реальный HTTP-запрос считается в `provider_usage` (`RAWG_USER_DAILY_LIMIT`, `RAWG_DAILY_LIMIT`), см. 24.2. Штатный расход: до 8 запросов на пользователя в сутки.
+
+### 30.5 «Не интересно» для внешней игры
+- `POST /api/recommend/discover/dislike`, тело `{ "externalSource": "rawg", "externalId": "3328", "title": "...", "coverUrl": "https://..." | null }` (все поля обязательны, лишние = 400). Идемпотентно, повтор продлевает срок. Сессия, `Content-Type: application/json`, проверка Origin. `200 { ok, data: { externalId } }`. Ошибки: `400 invalid_request`, `503 db_unavailable`. `externalId` 1..64 без пробелов и `/ ? # % \`, `title` 1..200, `coverUrl` https до 2048 или `null`.
+- `DELETE /api/recommend/discover/dislike/{externalId}`: снимает отметку, идемпотентно, проверка Origin. `200 { ok, data: { externalId } }`.
+- Отметка скрывает игру в `GET /api/recommend/discover` сразу, на 30 суток; следующий пересчёт её тоже не вернёт.
+
+### 30.6 «В План»
+Отдельного роута нет: экран вызывает существующий `POST /api/roadmap/planned` (17.7) с `{ title, releaseDate, coverUrl, externalSource: 'rawg', externalId, wantAtRelease: false }`. `409 planned_duplicate` экран считает успехом (игра уже в Плане). Игра с активной записью Плана перестаёт попадать в выдачу.
+
+### 30.7 Изоляция, секреты, проверки
+- `user_id` во всех запросах шага и роутов (охранный тест `user-scope`); подборка, дизлайки и счётчики одного пользователя не видны другому.
+- `RAWG_API_KEY` и `LLM_API_KEY` только из env, не попадают в ответы, кэш, предупреждения и логи; URL с ключом в ошибки не пишется (`CatalogError` содержит только причину).
+- Новых переменных окружения нет. RAWG free tier 20 000/мес.: штатный расход шага до 8 запросов на пользователя в сутки, под потолками `RAWG_USER_DAILY_LIMIT` (60) и `RAWG_DAILY_LIMIT` (300).
+- Тесты: `src/server/recommend/discover*.test.ts`, `src/server/sync/discover-step.test.ts`, `src/app/api/recommend/discover/*.test.ts`. Обязательные: ни одной игры библиотеки (в том числе скрытой, дубля и с другим написанием) в выдаче; работа при выключенном и падающем LLM; лимиты RAWG и LLM-вида; изоляция двух пользователей.

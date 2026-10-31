@@ -173,3 +173,84 @@ export async function getUpcoming(page: number, deps: UpcomingDeps): Promise<Upc
   cache.set(cacheKey, { at: now.getTime(), value });
   return value;
 }
+
+// --- «У тебя нет» (Фаза 30, контракт «Фаза 30»): каталог лучших PS5/PS4 игр по жанру или общий
+
+export const RAWG_DISCOVER_PAGE_SIZE = 40;
+export const RAWG_DISCOVER_MIN_METACRITIC = 75;
+
+export type DiscoverRaw = CatalogCandidate & {
+  slug: string | null;
+  /** Метки платформ только PS5/PS4 (в таком порядке). */
+  psPlatforms: ('PS5' | 'PS4')[];
+  /** Слаги жанров RAWG (`action`, `role-playing-games-rpg`...). */
+  genreSlugs: string[];
+  tagSlugs: string[];
+  /** Пользовательский рейтинг RAWG 0..5 или null. */
+  rating: number | null;
+  metacritic: number | null;
+};
+
+export type DiscoverFacet = { kind: 'genres' | 'tags'; slug: string } | null;
+export type DiscoverPage = { results: DiscoverRaw[]; hasMore: boolean };
+
+const rawDiscover = raw.extend({
+  slug: z.string().nullable().optional(),
+  genres: z.array(z.object({ slug: z.string() })).nullable().optional(),
+  tags: z.array(z.object({ slug: z.string() })).nullable().optional(),
+  rating: z.number().nullable().optional(),
+  metacritic: z.number().nullable().optional(),
+});
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/** Разбор страницы выдачи. Кривая запись пропускается, неожиданная форма всей страницы = bad_response. */
+export function parseDiscoverPage(body: unknown): DiscoverPage {
+  const env = envelope.safeParse(body);
+  if (!env.success) throw new CatalogError('bad_response');
+  const base = parseResults(body);
+  const byId = new Map(base.map((c) => [c.externalId, c]));
+  const results: DiscoverRaw[] = [];
+  for (const item of env.data.results) {
+    const r = rawDiscover.safeParse(item);
+    if (!r.success) continue;
+    const c = byId.get(String(r.data.id).trim());
+    if (!c) continue;
+    const slugs = (r.data.platforms ?? []).map((p) => p.platform.slug ?? '');
+    const psPlatforms: ('PS5' | 'PS4')[] = [];
+    if (slugs.includes('playstation5')) psPlatforms.push('PS5');
+    if (slugs.includes('playstation4')) psPlatforms.push('PS4');
+    const mc = r.data.metacritic;
+    const rt = r.data.rating;
+    results.push({
+      ...c,
+      slug: r.data.slug && SLUG_RE.test(r.data.slug) ? r.data.slug : null,
+      psPlatforms,
+      genreSlugs: (r.data.genres ?? []).map((g) => g.slug),
+      tagSlugs: (r.data.tags ?? []).map((g) => g.slug),
+      rating: typeof rt === 'number' && rt > 0 && rt <= 5 ? Math.round(rt * 10) / 10 : null,
+      metacritic: typeof mc === 'number' && Number.isInteger(mc) && mc > 0 && mc <= 100 ? mc : null,
+    });
+  }
+  const next = pageEnvelope.safeParse(body);
+  const hasMore = next.success && next.data.next !== undefined ? next.data.next !== null && next.data.next !== '' : false;
+  return { results, hasMore };
+}
+
+/** Одна страница лучших PS5/PS4 игр: жанр или метка (`facet`) либо общий топ (`null`), метакритик не ниже порога, без DLC. */
+export async function discoverCatalog(facet: DiscoverFacet, page: number, deps: CatalogDeps): Promise<DiscoverPage> {
+  if (!deps.apiKey) throw new CatalogError('no_key');
+  const url = new URL(RAWG_BASE);
+  url.searchParams.set('key', deps.apiKey);
+  url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
+  if (facet) {
+    if (!SLUG_RE.test(facet.slug)) throw new CatalogError('bad_response');
+    url.searchParams.set(facet.kind, facet.slug);
+  }
+  url.searchParams.set('metacritic', `${RAWG_DISCOVER_MIN_METACRITIC},100`);
+  url.searchParams.set('ordering', '-metacritic');
+  url.searchParams.set('exclude_additions', 'true');
+  url.searchParams.set('page_size', String(RAWG_DISCOVER_PAGE_SIZE));
+  url.searchParams.set('page', String(page));
+  return parseDiscoverPage(await requestJson(url, deps));
+}

@@ -15,7 +15,7 @@ describe('budget', () => {
   const row = async () => (await t.db.select().from(recommendLlmUsage))[0];
 
   it('потолок фраз 8 в сутки', async () => {
-    expect(KIND_LIMITS).toEqual({ phrases: 8 });
+    expect(KIND_LIMITS).toEqual({ phrases: 8, discover: 1 });
     const res: boolean[] = [];
     for (let i = 0; i < 12; i++) res.push(await reserveCall(t.db, TEST_USER, 'phrases', 100, NOW));
     expect(res.filter(Boolean)).toHaveLength(8);
