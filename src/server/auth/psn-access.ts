@@ -36,8 +36,25 @@ export type PsnState = {
 };
 
 export async function getPsnState(db: AnyDb, userId: UserId): Promise<PsnState | null> {
-  const u = await getUserById(db, userId);
+  let u = await getUserById(db, userId);
   if (!u) return null;
+  // W-1: success-запуск есть, а onboarded_at не проставлен (сбой UPDATE, запуск до 20.4) -> дозаполняем, иначе member застрянет на онбординге
+  if (!u.onboardedAt) {
+    try {
+      const [ok] = await db
+        .select({ id: syncRuns.id })
+        .from(syncRuns)
+        .where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'success'), ne(syncRuns.kind, 'hltb')))
+        .limit(1);
+      if (ok) {
+        const now = new Date();
+        await db.update(allowedUsers).set({ onboardedAt: now, updatedAt: now }).where(and(eq(allowedUsers.id, userId), isNull(allowedUsers.onboardedAt)));
+        u = { ...u, onboardedAt: now };
+      }
+    } catch {
+      // состояние читается и без отметки; следующий запрос повторит попытку
+    }
+  }
   const [run] = await db
     .select()
     .from(syncRuns)

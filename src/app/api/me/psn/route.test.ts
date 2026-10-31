@@ -6,7 +6,7 @@ import { resetTestSession, testSession } from '@/server/auth/test-require-user';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
 import type { AccessCheck } from '@/server/psn/access';
 
-const { allowedUsers, games } = schema;
+const { allowedUsers, games, syncRuns } = schema;
 const holder: { db: TestDb['db'] | null } = { db: null };
 vi.mock('@/db', async (orig) => ({
   ...(await orig<typeof import('@/db')>()),
@@ -45,7 +45,9 @@ beforeEach(async () => {
   testSession.userId = M;
   testSession.role = 'member';
   check.mockReset();
+  await t.db.delete(syncRuns).where(eq(syncRuns.userId, M));
   await t.db.delete(games).where(eq(games.userId, M));
+  await t.db.update(allowedUsers).set({ onboardedAt: null }).where(eq(allowedUsers.id, M));
   await t.db.update(allowedUsers).set({ psnOnlineId: null, psnAccountId: null, psnAccessMode: 'public', psnAccessStatus: 'unchecked', psnAccessCheckedAt: null }).where(eq(allowedUsers.id, M));
   await t.db.update(allowedUsers).set({ psnOnlineId: null, psnAccountId: null, psnAccessStatus: 'unchecked', psnAccessCheckedAt: null }).where(eq(allowedUsers.id, 1));
 });
@@ -55,6 +57,29 @@ describe('GET /api/me/psn', () => {
     const r = await GET(new Request('http://x/api/me/psn'));
     expect(r.status).toBe(200);
     expect((await r.json()).data).toMatchObject({ onlineId: null, accessStatus: 'unchecked', accessMode: 'public', canStartSync: false, onboardedAt: null, sync: null });
+  });
+
+  it('W-1: есть success-запуск, onboarded_at пуст -> GET проставляет его (member не застревает)', async () => {
+    await t.db.insert(syncRuns).values({ userId: M, kind: 'manual', status: 'success', snapshotDate: '2026-10-30' });
+    const r = await GET(new Request('http://x/api/me/psn'));
+    const iso = (await r.json()).data.onboardedAt;
+    expect(iso).not.toBeNull();
+    expect((await row(M)).onboardedAt?.toISOString()).toBe(iso);
+  });
+
+  it('W-1: failed/hltb-запуски онбординг не завершают', async () => {
+    await t.db.insert(syncRuns).values([
+      { userId: M, kind: 'manual', status: 'failed', snapshotDate: '2026-10-30' },
+      { userId: M, kind: 'hltb', status: 'success', snapshotDate: '2026-10-30' },
+    ]);
+    expect((await (await GET(new Request('http://x/api/me/psn'))).json()).data.onboardedAt).toBeNull();
+    expect((await row(M)).onboardedAt).toBeNull();
+  });
+
+  it('W-1: success чужого пользователя не считается', async () => {
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'manual', status: 'success', snapshotDate: '2026-10-30' });
+    expect((await (await GET(new Request('http://x/api/me/psn'))).json()).data.onboardedAt).toBeNull();
+    await t.db.delete(syncRuns).where(eq(syncRuns.userId, 1));
   });
 
   it('без сессии: 401', async () => {
