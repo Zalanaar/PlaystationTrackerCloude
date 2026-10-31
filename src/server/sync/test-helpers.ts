@@ -39,6 +39,10 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
   const client = new PGlite();
   const pg = drizzle(client, { schema });
   await migrate(pg, { migrationsFolder: migrationsFolder(opts.migrations) });
+  // срезы журнала (до 0016) всё равно получают колонки тура: схема drizzle в коде их уже выбирает, а 0016 к срезу 0015 ортогональна
+  if (opts.migrations !== undefined) {
+    await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS tour_version integer, ADD COLUMN IF NOT EXISTS tour_completed_at timestamp with time zone');
+  }
   // с 0014 у всех данных user_id = 1 (owner): строка должна существовать, reset() её не трогает
   await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`);
   return {
