@@ -477,3 +477,20 @@ test.describe('/wrapped: телефон в ландшафте 844x390', () => {
     expect(close.y + close.height).toBeLessThanOrEqual(390);
   });
 });
+
+// QA хвостов 2026-10-31: ландшафт телефонов с шириной < 768 (iPhone SE 667x375, 5/SE1 568x320): медиа-правило ландшафта начинается с 768.
+for (const s of [{ w: 667, h: 375 }, { w: 568, h: 320 }]) {
+  test.describe(`/wrapped: телефон в ландшафте ${s.w}x${s.h}`, () => {
+    test.use({ viewport: { width: s.w, height: s.h }, hasTouch: true, isMobile: true });
+
+    test('сцена помещается по высоте, закрытие доступно', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!);
+      await watch(page);
+      const b = (await page.locator('.ps-story__stage').boundingBox())!;
+      expect(b.y, 'сцена не выше экрана сверху').toBeGreaterThanOrEqual(-1);
+      expect(b.y + b.height, `сцена ${Math.round(b.height)}px выше экрана ${s.h}px`).toBeLessThanOrEqual(s.h + 1);
+      const close = (await page.getByRole('button', { name: 'Закрыть итоги' }).boundingBox())!;
+      expect(close.y + close.height).toBeLessThanOrEqual(s.h);
+    });
+  });
+}
