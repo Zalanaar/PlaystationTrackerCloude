@@ -164,6 +164,29 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
     expect(g.btns.bottom).toBeLessThanOrEqual(g.pop.top + 1.5);
   });
 
+  test('§10.4: низкий экран 360x520, шаг 7: кольцо не пересекает лист, иначе center без отверстия и без фразы про кнопки', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'только мобильный');
+    await page.setViewportSize({ width: 360, height: 520 });
+    await open(page, context, baseURL!);
+    await expect(page.locator('.ps-card').first()).toBeVisible();
+    await startFromMenu(page);
+    await goStep(page, 7);
+    await page.waitForTimeout(1800);
+    const mode = await page.locator('.ps-tour').getAttribute('data-mode');
+    if (mode === 'spot') {
+      const g = await page.evaluate(() => {
+        const s = document.querySelector('.ps-tour__spot')!.getBoundingClientRect();
+        const p = document.querySelector('.ps-tour__pop')!.getBoundingClientRect();
+        return { sb: s.bottom, pt: p.top };
+      });
+      expect(g.sb).toBeLessThanOrEqual(g.pt + 1.5);
+    } else {
+      expect(mode).toBe('center');
+      await expect(page.locator('.ps-tour__spot')).toHaveCount(0);
+      await expect(page.locator('.ps-tour__text')).not.toContainText('Кнопки статусов');
+    }
+  });
+
   test('мобильный ландшафт 640x360: кнопки листа в экране и доступны, текст прокручивается', async ({ page, context, baseURL }) => {
     test.skip(!isMobile(page), 'только мобильный');
     await page.setViewportSize({ width: 640, height: 360 });

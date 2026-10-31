@@ -75,6 +75,8 @@ export function TourOverlay(props: TourOverlayProps) {
   const [kb, setKb] = useState(0);
   const [sr, setSr] = useState('');
   const [scrolling, setScrolling] = useState(false);
+  /** Шаг, для которого кольцо пересекается с поповером (§10.4, шаг 7): показываем center без отверстия */
+  const [forced, setForced] = useState<number | null>(null);
 
   const setView = useCallback((v: View) => setViewState((p) => (sameView(p, v) ? p : v)), []);
   const cb = useRef({ onNext, onPrev, onSkip, last, first });
@@ -188,6 +190,23 @@ export function TourOverlay(props: TourOverlayProps) {
     };
   }, [view, index, mobile, measure]);
 
+  // ---------- шаг 7: кольцо и поповер не пересекаются, иначе center без отверстия (§10.4) ----------
+  const foundNow = view.kind === 'spot' ? view.foundId : null;
+  useEffect(() => {
+    if (foundNow !== 'triage-buttons' || forced === index) return;
+    const t = setTimeout(() => {
+      const el = elRef.current;
+      const pop = popRef.current;
+      if (!el || !pop || !el.isConnected) return;
+      const pad = px('--tour-pad', 8);
+      const a = el.getBoundingClientRect();
+      const b = pop.getBoundingClientRect();
+      const hit = a.left - pad < b.right && a.right + pad > b.left && a.top - pad < b.bottom && a.bottom + pad > b.top;
+      if (hit) setForced(index);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [foundNow, index, forced, popSize, geo, mobile]);
+
   // ---------- размер поповера ----------
   useLayoutEffect(() => {
     const pop = popRef.current;
@@ -293,9 +312,10 @@ export function TourOverlay(props: TourOverlayProps) {
   }, [index, mobile]);
 
   // ---------- вывод ----------
-  const mode = view.kind === 'spot' && geo ? 'spot' : view.kind === 'loading' ? 'loading' : 'center';
+  const isForced = forced === index && foundNow === 'triage-buttons';
+  const mode = view.kind === 'spot' && geo && !isForced ? 'spot' : view.kind === 'loading' ? 'loading' : 'center';
   const foundId = view.kind === 'spot' ? view.foundId : null;
-  const text = mode === 'loading' ? '' : textForAnchor(step, mobile, foundId);
+  const text = mode === 'loading' ? '' : isForced ? textForAnchor(step, mobile, foundId).replace(/\s*Кнопки статусов под карточкой\.?/, '') : textForAnchor(step, mobile, foundId);
   const note = view.kind === 'center' && view.note ? variantFor(step, mobile).note : null;
   const loadingText = step.route === '*' ? 'Открываем раздел…' : `Открываем раздел «${ROUTE_LABEL[step.route]}»…`;
 
