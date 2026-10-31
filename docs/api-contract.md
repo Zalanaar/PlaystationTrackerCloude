@@ -1902,7 +1902,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 
 ## 22. Мультипользовательность (Фаза 20, подфаза 20.1)
 
-Статус: 20.2 реализована (миграция `0013`, вход Google, `v:2`, «Доступ»); `0014`/`0015` и слой `scope` ещё нет. Заменяет 3.1 (один пароль) и расширяет 3.3, 3.4, 3.5, 4.2, 5, 6. Решения Артёма (2026-10-29/30): вход Google OAuth + белый список; `ADMIN_PASSWORD` остаётся аварийным входом owner; каждый видит только свою коллекцию; цель 4–10 человек на Vercel Hobby; общего каталога игр нет (всё дублируется на пользователя); один технический NPSSO читает всех; новые пользователи подключаются по открытому профилю PSN без дружбы (проверка доступа ещё идёт, см. 22.2 и план Б).
+Статус: 20.2 реализована (миграция `0013`, вход Google, `v:2`, «Доступ»); `0014` готова (22.11), в проде не применена; `0015` и слой `scope` ещё нет. Заменяет 3.1 (один пароль) и расширяет 3.3, 3.4, 3.5, 4.2, 5, 6. Решения Артёма (2026-10-29/30): вход Google OAuth + белый список; `ADMIN_PASSWORD` остаётся аварийным входом owner; каждый видит только свою коллекцию; цель 4–10 человек на Vercel Hobby; общего каталога игр нет (всё дублируется на пользователя); один технический NPSSO читает всех; новые пользователи подключаются по открытому профилю PSN без дружбы (проверка доступа ещё идёт, см. 22.2 и план Б).
 
 ### 22.1 Таблицы: решение по каждой
 
@@ -2067,6 +2067,16 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 | QA | 20.5 | Изоляция, роли, миграция на копии прод-данных, e2e на двух пользователях |
 
 Нерешённое для 20.4: точные коды ответа `PUT /api/me/psn` и способ проверки закрытого профиля (зависят от результата проверки открытого профиля без дружбы); период повторной проверки `unavailable`.
+
+### 22.11 Уточнения реализации `0014` (20.3)
+
+- `user_id integer not null default 1 references allowed_users(id) on delete cascade` в 19 таблицах (список в 22.1). Литерал `1` вместо подстановки id скриптом: `db:bootstrap-owner` гарантирует `owner.id = 1`. Первый блок миграции проверяет это: данные есть, а owner `id = 1` нет — `RAISE EXCEPTION` до любых изменений (пустая БД проходит).
+- Внешние ключи добавлены обычными (без `NOT VALID` + `VALIDATE`): данные малы, миграция идёт одной пакетной выполняемой партией; идемпотентный вариант `docs/release-neon-0014.sql` проверяет `pg_constraint` по имени.
+- Составные FK `(user_id, game_id) -> games(user_id, id)` стоят у `game_status`, `game_trophy_sets`, `playtime_snapshots`, `game_month_exclusions`, `roadmap_order`, `roadmap_excluded`, `recommend_dislikes`, `recommend_reasons`; `(user_id, trophy_set_id) -> trophy_sets(user_id, id)` у `game_trophy_sets` и `trophies`. Для них созданы `unique (user_id, id)` в `games` и `trophy_sets`.
+- Чтобы слой `scope` мог между `0014` и `0015` писать `ON CONFLICT` по финальным ключам, рядом со старыми PK добавлены unique: `psn_profile(user_id)`, `roadmap_settings(user_id)`, `recommend_llm_usage(user_id, day)`, `recommend_discover_cache(user_id, day)`, `recommend_external_dislikes(user_id, external_source, external_id)`. У `psn_profile.id` и `roadmap_settings.id` добавлен `default 1`: код `scope` колонку `id` не передаёт (до `0015` она заполняется сама, после — удалена).
+- Старые PK `game_trophy_sets (game_id, trophy_set_id)` и `game_month_exclusions (game_id, month)` не меняются (`game_id` глобален, составной PK избыточен).
+- Контрольные значения до и после: `docs/release-neon-0014-check.sql` (счётчики, суммы часов и трофеев). Тест `src/db/release-sql-0014.test.ts`.
+- Тесты, которые создают данные, должны сначала вставить owner (`createTestDb` делает это сам).
 
 ### 22.10 Уточнения реализации 20.2
 

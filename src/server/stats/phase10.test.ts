@@ -132,6 +132,7 @@ describe('getStats: число запросов не растёт с число�
     const client = new PGlite();
     const db = drizzle(client, { schema, logger: { logQuery: () => void queries++ } });
     await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
+    await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await client.exec(`
       insert into games (title_id, name, category, last_seen_at, psn_genres)
       select 'X' || i, 'Game ' || i, 'ps5_native_game', now(), array['ACTION','ADVENTURE'] from generate_series(1, ${nGames}) i;

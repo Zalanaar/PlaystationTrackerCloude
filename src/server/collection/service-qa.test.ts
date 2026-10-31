@@ -42,6 +42,7 @@ describe('миграция 0001 (service)', () => {
     const db = drizzle(pg, { schema: fullSchema });
     await migrate(db, { migrationsFolder: MIG });
     await migrate(db, { migrationsFolder: MIG });
+    await pg.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await db.insert(fullSchema.games).values({ titleId: 'CUSA1_00', name: 'A', category: 'ps4_game', lastSeenAt: NOW });
     await db.insert(fullSchema.gameStatus).values({ gameId: 1, status: 'service' });
     await pg.close();

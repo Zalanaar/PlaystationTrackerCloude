@@ -17,6 +17,8 @@ export async function createTestDb(): Promise<TestDb> {
   const client = new PGlite();
   const pg = drizzle(client, { schema });
   await migrate(pg, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
+  // с 0014 у всех данных user_id = 1 (owner): строка должна существовать, reset() её не трогает
+  await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`);
   return {
     db: pg as unknown as AnyDb,
     pg,

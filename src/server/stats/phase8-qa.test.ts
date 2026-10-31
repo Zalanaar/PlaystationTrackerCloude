@@ -229,6 +229,7 @@ describe('QA риск: размер /api/stats с played на 214 играх', (
     const client = new PGlite();
     const db = drizzle(client, { schema: fullSchema });
     await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
+    await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await client.exec(`
       insert into games (title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres, image_url)
       select 'CUSA' || lpad(i::text, 5, '0') || '_00', 'Очень длинное название игры номер ' || i, 'ps5_native_game', now(),

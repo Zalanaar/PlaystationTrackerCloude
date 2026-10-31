@@ -6,7 +6,7 @@ import type { PsnProfile } from './types';
 
 const { psnProfile } = schema;
 
-export type ProfileRow = typeof psnProfile.$inferSelect;
+export type ProfileRow = Omit<typeof psnProfile.$inferSelect, 'userId'> & { userId?: number };
 
 /** Строка БД -> ответ API. Счётчики трофеев целиком null, если нет ни одного из четырёх. */
 export function toPsnProfile(r: ProfileRow): PsnProfile {

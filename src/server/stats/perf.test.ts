@@ -17,6 +17,7 @@ async function seeded(nGames: number) {
   const db = drizzle(client, { schema, logger: { logQuery: () => void queries++ } });
   await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
   // данные одним SQL: nGames игр, ежедневные снимки с 2025-10-28 по 2026-10-27, часть игр завершена
+  await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
   await client.exec(`
     insert into games (title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres)
     select 'CUSA' || i, 'Game ' || i, 'ps5_native_game', now(), timestamptz '2024-01-01' + (i || ' days')::interval,
