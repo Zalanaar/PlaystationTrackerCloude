@@ -154,6 +154,15 @@ const days = (ms: number) => Math.max(1, Math.floor(ms / DAY_MS));
 /** Подпись пользователя в предупреждениях владельцу (только ник PSN, без email). */
 const forUser = (label?: string): string => (label ? `\nПользователь: ${label.slice(0, 40)}.` : '');
 
+/**
+ * W-5: подсказка зависит от того, чей синк. У владельца причина обычно в cron/NPSSO. У участника (есть подпись) синк других мог пройти:
+ * чаще профиль закрыт или пропала дружба с техаккаунтом, тогда cron и NPSSO ни при чём.
+ */
+const checkHint = (label?: string, vercel = false): string =>
+  label
+    ? 'Вероятно, профиль PSN пользователя закрыт или нет дружбы с техническим аккаунтом. Если синк не идёт и у остальных, проверьте cron и NPSSO.'
+    : `Проверьте cron${vercel ? ' на Vercel' : ''} и NPSSO.`;
+
 export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string } = {}): string {
   switch (kind) {
     case 'auth_expired':
@@ -161,10 +170,10 @@ export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string
     case 'npsso_invalid':
       return `PS Tracker: PSN отклонил NPSSO, синк остановлен. Замените PSN_NPSSO на Vercel.\n${DOC}`;
     case 'sync_stale':
-      return `PS Tracker: синк не выполнялся успешно уже ${days(o.ageMs ?? STALE_SYNC_MS)} сут. Проверьте cron и NPSSO.${forUser(o.label)}\n${DOC}`;
+      return `PS Tracker: синк не выполнялся успешно уже ${days(o.ageMs ?? STALE_SYNC_MS)} сут. ${checkHint(o.label)}${forUser(o.label)}\n${DOC}`;
     case 'sync_missed': {
       const h = Math.max(1, Math.floor((o.ageMs ?? 0) / 3_600_000));
-      return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). Проверьте cron на Vercel и NPSSO.${forUser(o.label)}\n${DOC}`;
+      return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). ${checkHint(o.label, true)}${forUser(o.label)}\n${DOC}`;
     }
     case 'token_age':
       return `PS Tracker: токены PSN не обновлялись ${days(o.ageMs ?? TOKEN_AGE_MS)} сут., refresh живёт около 10 суток. Возможно, скоро понадобится новый NPSSO.\n${DOC}`;
