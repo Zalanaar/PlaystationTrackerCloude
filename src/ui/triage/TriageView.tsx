@@ -166,6 +166,7 @@ export function TriageView() {
   }, [act, doSkip, doUndo, router]);
 
   // ---------- вывод ----------
+  const render = () => {
   if (error && !state) {
     return (
       <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить очередь. Попробуй ещё раз.">
@@ -230,6 +231,10 @@ export function TriageView() {
       )}
     </div>
   );
+  };
+  // маркер готовности страницы для тура (design-system §10.7); обёртка не влияет на вёрстку
+  const ready = (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
+  return <div className="ps-tour-page" data-tour-page="triage" data-tour-ready={String(!!ready)}>{render()}</div>;
 }
 
 function TriageSkeleton() {
@@ -269,7 +274,7 @@ function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canU
         <h2 className="ps-tri__title" title={game.title}>{game.title}</h2>
         <Facts game={game} />
         {isForgotten(game, now) && <p className="ps-tri__fhint">{FORGOTTEN_HINT}</p>}
-        <div className="ps-keys" role="group" aria-label="Статус игры">
+        <div className="ps-keys" data-tour="triage-actions" role="group" aria-label="Статус игры">
           {STATUS_KEYS.map(([k, s]) => (
             <button key={s} type="button" className="ps-key" data-status={s} onClick={() => onAct(s)} aria-keyshortcuts={k} title={s === 'service' ? 'Игра-сервис: вне хроники и бэклога' : undefined}>
               <kbd>{k}</kbd>
@@ -336,7 +341,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
   const style = drag ? { transform: `translate(${drag.dx}px, ${drag.dy}px) rotate(${drag.dx / 20}deg)`, transition: 'none' } : undefined;
   return (
     <div className="ps-tri__m">
-      <div className="ps-stack3">
+      <div className="ps-stack3" data-tour="triage-stack">
         <div className="ps-stack3__under" />
         <div className="ps-stack3__under ps-stack3__under--2" />
         {next && <span className="ps-sr">Дальше: {next.title}</span>}

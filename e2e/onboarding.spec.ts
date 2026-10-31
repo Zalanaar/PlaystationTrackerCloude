@@ -185,7 +185,8 @@ test.describe('онбординг: шаг 3', () => {
     // после завершения backend проставляет onboardedAt
     setPsn(m, { onboardedAt: '2026-10-31T10:05:00.000Z' });
     await expect(page.getByTestId('ob-done')).toContainText('Загружено игр: 214', { timeout: 15000 });
-    await page.getByRole('button', { name: 'Открыть Разбор' }).click();
+    await expect(page.getByRole('button', { name: 'Начать тур' })).toBeVisible();
+    await page.getByRole('button', { name: 'Пропустить, открыть Разбор' }).click();
     await page.waitForURL('**/triage');
   });
 

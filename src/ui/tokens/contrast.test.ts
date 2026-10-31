@@ -263,6 +263,54 @@ describe('контраст тем', () => {
       });
   });
 
+  // ---- Фаза 21: тур (design-system §10.1). Новые пары: кольцо над белой обложкой под --tour-dim, текст/кнопки/прогресс в поповере
+  describe('тур: токены --tour-*', () => {
+    it('токены заданы в tokens.css; из тем переопределяется только --tour-dim (PS1)', () => {
+      for (const k of ['--z-tour', '--tour-dim', '--tour-ring', '--tour-ring-w', '--tour-pad', '--tour-gap', '--tour-pop-w', '--tour-pop-w-center', '--tour-pop-bg', '--tour-pop-border', '--tour-dur', '--tour-kb'])
+        expect(base[k], k).toBeTruthy();
+      expect(base['--tour-ring']).toBe('var(--on-scrim)');
+      expect(base['--tour-pop-bg']).toBe('var(--surface-2)');
+      expect(base['--tour-pop-border']).toBe('var(--border-strong)');
+      for (const t of IDS)
+        for (const k of Object.keys(themes[t]).filter((x) => x.startsWith('--tour-'))) expect(`${t} ${k}`).toBe(`ps1 --tour-dim`);
+    });
+    it('tour.css без сырых цветов (hex, rgb, hsl)', () => {
+      const css = read('../styles/tour.css');
+      expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+      expect(css).not.toMatch(/\b(rgba?|hsla?)\(/);
+    });
+    for (const t of IDS)
+      describe(`${t}: тур`, () => {
+        const dim = parseColor(resolve(merged(t), '--tour-dim'));
+        const ring = get(t, '--tour-ring');
+        const pop = get(t, '--tour-pop-bg');
+        it('--tour-dim: ожидаемая альфа (.52 у PS1, .62 у остальных)', () => expect(dim.a).toBe(t === 'ps1' ? 0.52 : 0.62));
+        it('кольцо белое', () => expect(ring).toBe('#ffffff'));
+        it('--tour-pop-bg = --surface-2, рамка = --border-strong', () => {
+          expect(pop).toBe(get(t, '--surface-2'));
+          expect(get(t, '--tour-pop-border')).toBe(get(t, '--border-strong'));
+        });
+        // Белая обложка под затемнением: худший фон для белого кольца. Порог нетекстовых элементов 3
+        it('кольцо на затемнённой белой обложке >= 3', () => expect(ratio(ring, over(dim.hex, dim.a, '#ffffff'))).toBeGreaterThanOrEqual(3));
+        it('кольцо на затемнённом --bg/--surface страницы >= 3', () => {
+          for (const bg of ['--bg', '--surface', '--surface-2']) expect(ratio(ring, over(dim.hex, dim.a, get(t, bg)))).toBeGreaterThanOrEqual(3);
+        });
+        for (const fg of ['--text', '--text-2'])
+          for (const bg of [pop])
+            it(`${fg} на поповере >= 4.5`, () => expect(ratio(get(t, fg), bg)).toBeGreaterThanOrEqual(4.5));
+        it('--accent-ink на --accent (кнопка «Далее») >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
+        it('--accent (прогресс, info) на поповере >= 4.5, на --surface-3 (дорожка) >= 4.5', () => {
+          expect(ratio(get(t, '--accent'), pop)).toBeGreaterThanOrEqual(4.5);
+          expect(ratio(get(t, '--accent'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5);
+        });
+        it('--success (иконка «Готово») на поповере >= 4.5', () => expect(ratio(get(t, '--success'), pop)).toBeGreaterThanOrEqual(4.5));
+        it('рамка поповера на странице под затемнением различима >= 1.2', () => {
+          // рамка нужна, чтобы отделить поповер от затемнённой страницы; фон поповера против затемнённой белой обложки
+          expect(ratio(pop, over(dim.hex, dim.a, '#ffffff'))).toBeGreaterThanOrEqual(1.2);
+        });
+      });
+  });
+
   it('Night: запасное значение --tint в decor.css совпадает с themes.css', () => {
     expect(decorCss).toContain('--tint: var(--cover-tint, #b99cff);');
     expect(decorCss).toContain(`--tint-glow: ${base['--tint-glow']};`);

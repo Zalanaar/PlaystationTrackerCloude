@@ -47,7 +47,7 @@ function SearchBox({ value, onCommit }: { value: string; onCommit: (q: string) =
   }, []);
 
   return (
-    <div className="ps-search">
+    <div className="ps-search" data-tour="search">
       <Icon name="search" size={16} className="ps-search__icon" />
       <input
         ref={ref} type="search" className="ps-search__input" placeholder="Поиск игры…" aria-label="Поиск игры" value={text} maxLength={100}
@@ -149,7 +149,7 @@ type BarProps = {
 /** Чипы статуса и чип «Платина»: общие для десктопа и мобильного слота под hero. */
 function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps, 'filters' | 'counts' | 'platinumCount' | 'onChange'>) {
   return (
-    <div className="ps-tabs">
+    <div className="ps-tabs" data-tour="filters">
       <div className="ps-tabs__grp" role="group" aria-label="Статус">
         {STATUS_TABS.map((t) => {
           const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
@@ -220,7 +220,7 @@ export function MobileSearch(p: BarProps) {
       <div className="ps-filters__srow">
         <SearchBox value={filters.q} onCommit={commit} />
         <button
-          type="button" className="ps-btn ps-btn--filters ps-btn--fsheet" onClick={() => setSheet(true)} aria-haspopup="dialog"
+          type="button" className="ps-btn ps-btn--filters ps-btn--fsheet" data-tour="filters-btn" onClick={() => setSheet(true)} aria-haspopup="dialog"
           aria-label={dot ? 'Фильтры и сортировка (есть изменения)' : 'Фильтры и сортировка'} data-active={dot || undefined}
         >
           <Icon name="sliders-h" size={20} />

@@ -298,6 +298,9 @@ export const allowedUsers = pgTable(
     psnAccessStatus: text('psn_access_status').notNull().default('unchecked'),
     psnAccessCheckedAt: tz('psn_access_checked_at'),
     onboardedAt: tz('onboarded_at'),
+    // Фаза 21 (контракт 23.2): версия тура, пройденная или пропущенная пользователем
+    tourVersion: integer('tour_version'),
+    tourCompletedAt: tz('tour_completed_at'),
     lastLoginAt: tz('last_login_at'),
     invitedBy: integer('invited_by').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'set null' }),
     createdAt: tz('created_at').notNull().defaultNow(),

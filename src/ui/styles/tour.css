@@ -1,0 +1,80 @@
+/* Тур по сайту (design-system §10). Только токены, без сырых цветов; декор тем не добавляется. */
+.ps-tour-page { display: contents; }
+html.ps-tour-lock { overscroll-behavior: none; }
+
+.ps-tour { position: fixed; inset: 0; z-index: var(--z-tour); overflow: clip; pointer-events: auto; touch-action: none; overscroll-behavior: contain; }
+.ps-tour:not([data-mode="spot"]) { display: grid; place-items: center; padding: var(--gutter); }
+.ps-tour__dim { position: absolute; inset: 0; background: var(--tour-dim); opacity: 0; transition: opacity var(--tour-dur) var(--ease-in-out); }
+.ps-tour:not([data-mode="spot"]) .ps-tour__dim { opacity: 1; }
+
+.ps-tour__spot {
+  position: fixed; left: 0; top: 0; pointer-events: none; will-change: transform;
+  box-shadow: 0 0 0 var(--tour-ring-w) var(--tour-ring), 0 0 0 100vmax var(--tour-dim);
+  transition: transform var(--tour-dur) var(--ease-in-out), width var(--tour-dur) var(--ease-in-out), height var(--tour-dur) var(--ease-in-out), border-radius var(--tour-dur) var(--ease-in-out);
+}
+.ps-tour[data-scrolling] .ps-tour__spot { transition: none; }
+
+.ps-tour__pop {
+  position: relative; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-3); touch-action: pan-y;
+  width: min(var(--tour-pop-w-center), calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--sp-4); background: var(--tour-pop-bg); color: var(--text); border: var(--border-w) solid var(--tour-pop-border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-pop); animation: ps-tour-in var(--tour-dur) var(--ease-out);
+}
+.ps-tour[data-mode="spot"] .ps-tour__pop { position: fixed; width: min(var(--tour-pop-w), calc(100vw - 2 * var(--gutter))); }
+.ps-tour__pop:focus-visible { box-shadow: var(--shadow-pop), var(--shadow-focus); }
+
+.ps-tour__bar { height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; flex: none; }
+.ps-tour__bar > i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-ui); }
+.ps-tour__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex: none; }
+.ps-tour__count { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-tour__skip { font-size: var(--fs-small); min-height: var(--control-h); padding-inline: var(--sp-2); border-radius: var(--r-sm); }
+
+.ps-tour__body { display: flex; flex-direction: column; gap: var(--sp-2); min-height: 0; overflow: auto; animation: ps-tour-fade var(--dur-fast) var(--ease-out); }
+.ps-tour__ico { color: var(--accent); flex: none; }
+.ps-tour__ico--ok { color: var(--success); }
+.ps-tour__title { margin: 0; font: var(--fw-h2) var(--fs-h2)/var(--lh-h2) var(--font-display); color: var(--text); }
+.ps-tour__text { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+.ps-tour__note { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-tour__wait { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-tour__spin { color: var(--accent); flex: none; animation: ps-tour-spin 1s linear infinite; }
+
+.ps-tour__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); flex: none; }
+.ps-tour__foot .ps-btn { min-width: 88px; }
+.ps-tour__ph { flex: 1 1 auto; }
+.ps-tour__foot > .ps-btn:first-child:not(.ps-btn--primary) { margin-right: auto; }
+.ps-tour__foot .ps-btn[aria-disabled="true"] { opacity: .6; cursor: default; }
+.ps-tour__pop[data-last] .ps-tour__foot > .ps-btn:first-child { margin-right: 0; }
+.ps-tour__pop[data-last] .ps-tour__foot > .ps-btn:nth-child(2) { margin-right: auto; }
+
+@keyframes ps-tour-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ps-tour-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ps-tour-spin { to { transform: rotate(360deg); } }
+
+/* Мобильный: нижний лист над нижним меню (§10.4) */
+@media (max-width: 767px) {
+  .ps-tour:not([data-mode="spot"]) { display: block; padding: 0; }
+  .ps-tour__pop, .ps-tour[data-mode="spot"] .ps-tour__pop {
+    position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); top: auto; width: auto;
+    max-height: min(52dvh, 360px); border-width: var(--border-w) 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding-inline: max(var(--gutter), env(safe-area-inset-left), env(safe-area-inset-right));
+  }
+  .ps-tour[data-kb] .ps-tour__pop { bottom: var(--tour-kb); max-height: 40dvh; }
+  .ps-tour__foot { display: grid; grid-template-columns: 1fr 2fr; }
+  .ps-tour__foot .ps-btn { height: var(--tap-min); min-width: 0; margin-right: 0 !important; }
+  .ps-tour__skip { min-width: var(--tap-min); min-height: var(--tap-min); display: inline-flex; align-items: center; justify-content: flex-end; }
+  .ps-tour__pop[data-last] .ps-tour__foot { grid-template-columns: 1fr 1fr; }
+  .ps-tour__pop[data-last] .ps-tour__foot > .ps-btn--primary { grid-column: 1 / -1; grid-row: 1; }
+}
+/* Ландшафт на телефоне: лист ниже, текст прокручивается */
+@media (max-width: 767px) and (max-height: 480px) {
+  .ps-tour__pop, .ps-tour[data-mode="spot"] .ps-tour__pop { max-height: 50dvh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-tour__dim, .ps-tour__spot, .ps-tour__pop, .ps-tour__body, .ps-tour__bar > i { transition: none; animation: none; }
+  .ps-tour__spin { animation: none; }
+}
+@media (forced-colors: active) {
+  .ps-tour__spot { box-shadow: none; outline: 2px solid Highlight; }
+  .ps-tour__pop { border: 1px solid CanvasText; }
+}

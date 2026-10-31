@@ -144,8 +144,21 @@
   --ease-ui: var(--ease-out);
   --hover-lift: -3px;  /* translateY обложки при hover */
 
+  /* Тур по сайту (Фаза 21, docs/design-system.md §10). Цвета только через существующие токены; тема меняет только --tour-dim */
+  --tour-dim: rgba(8, 9, 14, .62);          /* затемнение вокруг прожектора; PS1 (светлая) слабее. Белое кольцо на нём не ниже 3:1 на любом фоне под ним */
+  --tour-ring: var(--on-scrim);             /* кольцо прожектора: белое во всех темах (стоит на затемнении, не на странице) */
+  --tour-ring-w: 2px;
+  --tour-pad: 8px;                          /* зазор между элементом и кольцом; моб. 6 */
+  --tour-gap: 12px;                         /* зазор между кольцом и поповером (десктоп) */
+  --tour-pop-w: 360px;                      /* ширина поповера на десктопе; моб. нижний лист на всю ширину */
+  --tour-pop-w-center: 420px;               /* шаг без элемента (по центру) */
+  --tour-pop-bg: var(--surface-2);          /* на нём разрешены только --text и --text-2 (запас контраста в §2.4) */
+  --tour-pop-border: var(--border-strong);
+  --tour-dur: var(--dur-slow);              /* перелёт прожектора и появление поповера; reduced-motion: 0 */
+  --tour-kb: 0px;                           /* высота экранной клавиатуры, выставляет скрипт тура из visualViewport */
+
   /* z-index */
-  --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-story: 90;
+  --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90;
 
   /* Тени (цвета темой не меняются, интенсивность через --shadow-alpha) */
   --shadow-alpha: 0.45;
@@ -182,6 +195,7 @@
     --mchip-h: 36px;
     --hero-box-h: 322px;   /* измерено: hero на 360–440 с одной игрой, заголовок в одну строку (спека 304) */
     --chart-h: 180px;
+    --tour-pad: 6px;
   }
   [data-density="dense"] { --card-gap: 8px; --glyph-badge: 20px; }
 }

@@ -14,6 +14,7 @@ import '@/ui/styles/profile.css';
 import '@/ui/styles/plan.css';
 import '@/ui/styles/access.css';
 import '@/ui/styles/onboarding.css';
+import '@/ui/styles/tour.css';
 import './globals.css';
 import { cookies } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';

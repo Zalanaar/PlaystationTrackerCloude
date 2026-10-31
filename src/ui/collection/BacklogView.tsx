@@ -191,7 +191,7 @@ export function BacklogView() {
   }), [change, openGameLink]);
 
   return (
-    <div className="ps-collection">
+    <div className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
         {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
@@ -229,7 +229,7 @@ export function BacklogView() {
           <Link href="/" className="ps-btn ps-btn--primary">К коллекции</Link>
         </EmptyState>
       ) : (
-        <div className="ps-bl-list" aria-busy={loading || undefined} data-loading={loading || undefined}>
+        <div className="ps-bl-list" data-tour="backlog-list" aria-busy={loading || undefined} data-loading={loading || undefined}>
         <GameGrid density="comfort" label="Игры в бэклоге">
           {items.map((g) => (
             <GameGridItem key={g.id}>

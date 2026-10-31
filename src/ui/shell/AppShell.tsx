@@ -11,6 +11,7 @@ import { profileLine } from '../profile/model';
 import { useProfile } from '../profile/ProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
+import { useTour } from '../tour/TourProvider';
 import { SyncIndicator } from './SyncIndicator';
 import { RestoreFileDialog } from '../backup/RestoreFileDialog';
 import { NAV_TABS } from '../tokens';
@@ -43,13 +44,14 @@ export function AppHeader() {
   const line = profile ? profileLine(profile) : null;
   const offer = useSeasonOffer();
   const isOwner = useIsOwner();
+  const { start: startTour } = useTour();
 
   return (
     <>
       <header className="ps-header">
         <div className="ps-header__in ps-container">
           <Link href="/" className="ps-logo">PS TRACKER</Link>
-          <nav className="ps-nav" aria-label="Разделы">
+          <nav className="ps-nav" aria-label="Разделы" data-tour="nav">
             {NAV_TABS.map((n) => {
               const dot = n.id === 'stats' && offer !== null;
               return (
@@ -86,6 +88,10 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
+                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); startTour(); }}>
+                      <Icon name="circle-help" size={16} />
+                      <span className="ps-menu-item__label">Как пользоваться</span>
+                    </button>
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
@@ -112,7 +118,7 @@ export function AppHeader() {
                 )}
               </Popover>
             </div>
-            <button type="button" className="ps-iconbtn ps-mobile-only" aria-label="Меню" onClick={() => setMore(true)}>
+            <button type="button" className="ps-iconbtn ps-mobile-only" data-tour="menu-more" aria-label="Меню" onClick={() => setMore(true)}>
               <Icon name="more" size={22} />
             </button>
           </div>
@@ -133,6 +139,9 @@ export function AppHeader() {
           <p className="ps-micro">Тема</p>
           <div role="menu" className="ps-list"><ThemeList onPick={() => setMore(false)} /></div>
           <p className="ps-micro">Аккаунт</p>
+          <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
+            <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>
+          </button>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
@@ -164,7 +173,7 @@ export function TabBar() {
   const pathname = usePathname();
   const offer = useSeasonOffer();
   return (
-    <nav className="ps-tabbar" aria-label="Разделы">
+    <nav className="ps-tabbar" aria-label="Разделы" data-tour="nav">
       {NAV_TABS.map((n) => {
         const dot = n.id === 'stats' && offer !== null;
         return (

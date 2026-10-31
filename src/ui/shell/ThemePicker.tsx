@@ -66,7 +66,7 @@ export function ThemePicker() {
     <Popover
       align="end"
       trigger={(p) => (
-        <button type="button" className="ps-btn ps-btn--theme" aria-label={`Тема: ${cur.label}`} {...p}>
+        <button type="button" className="ps-btn ps-btn--theme" data-tour="theme" aria-label={`Тема: ${cur.label}`} {...p}>
           <Swatch attr={cur.attr} />
           <span>{cur.label}</span>
           <Icon name="chevron-down" size={14} />
