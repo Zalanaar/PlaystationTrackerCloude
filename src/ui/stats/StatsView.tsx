@@ -112,10 +112,10 @@ export function StatsView() {
   const openRare = useCallback((g: StatsGenreGame) => openGameLink(g.id, 'trophies'), [openGameLink]);
 
   return (
-    <div className="ps-stats-page">
+    <div className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1">Статистика</h1>
-        <Link href={`/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn">
+        <Link href={`/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
           <Icon name="sparkles" size={16} />Итоги {sel.year}
         </Link>
       </div>
@@ -144,7 +144,7 @@ function PeriodSwitch({
 }: { sel: Selection; today: { year: number; month: number }; onType: (p: PeriodType) => void; onPrev: (() => void) | null; onNext: (() => void) | null }) {
   const unit = sel.period === 'year' ? 'год' : 'месяц';
   return (
-    <div className="ps-st-switch">
+    <div className="ps-st-switch" data-tour="stats-period">
       <div className="ps-seg" role="group" aria-label="Период">
         <button type="button" aria-pressed={sel.period === 'year'} onClick={() => onType('year')}>Год</button>
         <button type="button" aria-pressed={sel.period === 'month'} onClick={() => onType('month')}>Месяц</button>

@@ -2185,7 +2185,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 
 ### 23.2 Схема (миграция `0016_tour_progress`, expand)
 
-Две nullable-колонки в `allowed_users`, без default, без CHECK, существующие строки не меняются:
+Две nullable-колонки в `allowed_users`, без default, без CHECK. Drizzle-миграция `0016` данные не трогает; отметку существующих пользователей делает только `release-neon-0016.sql` (23.3):
 
 | Колонка | Тип | Null | Описание |
 |---|---|---|---|
@@ -2202,7 +2202,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 `{ "ok": true, "data": { "version": 1, "completedVersion": 0 | 1 | ..., "shouldAutoStart": true | false } }`
 - `version` = текущий `TOUR_VERSION`.
 - `completedVersion` = `tour_version ?? 0`.
-- `shouldAutoStart = (role = 'owner' OR onboarded_at IS NOT NULL) AND completedVersion < version`. Member без завершённого онбординга тур автоматически не получает (онбординг сам ведёт пользователя); owner онбординга не проходит, поэтому для него условие по `onboarded_at` не требуется. Ручной запуск тура из UI от `shouldAutoStart` не зависит.
+- `shouldAutoStart = onboarded_at IS NOT NULL AND completedVersion < version`. Роль не учитывается: owner без онбординга автозапуска не получает. Решение продакта: существующим пользователям тур не навязываем, он доступен только вручную (меню «Как пользоваться»); поэтому `release-neon-0016.sql` один раз (в запуске, добавляющем колонку) ставит всем существующим строкам `tour_version = 1`, `tour_completed_at = now()`. Автозапуск получают только пользователи, созданные после выкладки и прошедшие онбординг (или когда `TOUR_VERSION` повысят). Ручной запуск тура из UI от `shouldAutoStart` не зависит.
 
 **`PUT /api/me/tour`** тело `{ "done": true, "version": <целое> }` -> 200, тот же формат данных, что у GET (уже с новым `completedVersion` и `shouldAutoStart`).
 - Запись: `tour_version = greatest(coalesce(tour_version, 0), version)`, `tour_completed_at = now()` только если значение выросло. Идемпотентно: повтор с той же или меньшей версией ничего не меняет и тоже отвечает 200. Версию вниз не откатить.

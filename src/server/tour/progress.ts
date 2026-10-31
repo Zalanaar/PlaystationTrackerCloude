@@ -9,16 +9,16 @@ const { allowedUsers } = schema;
 
 export type TourState = { version: number; completedVersion: number; shouldAutoStart: boolean };
 
-function toState(row: { role: string; onboardedAt: Date | null; tourVersion: number | null }): TourState {
+function toState(row: { onboardedAt: Date | null; tourVersion: number | null }): TourState {
   const completedVersion = row.tourVersion ?? 0;
   return {
     version: TOUR_VERSION,
     completedVersion,
-    shouldAutoStart: shouldAutoStartTour({ role: row.role === 'owner' ? 'owner' : 'member', onboardedAt: row.onboardedAt, completedVersion }),
+    shouldAutoStart: shouldAutoStartTour({ onboardedAt: row.onboardedAt, completedVersion }),
   };
 }
 
-const cols = { role: allowedUsers.role, onboardedAt: allowedUsers.onboardedAt, tourVersion: allowedUsers.tourVersion };
+const cols = { onboardedAt: allowedUsers.onboardedAt, tourVersion: allowedUsers.tourVersion };
 
 /** null, если пользователя нет. */
 export async function getTourState(db: AnyDb, userId: UserId): Promise<TourState | null> {

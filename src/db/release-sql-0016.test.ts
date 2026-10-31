@@ -51,7 +51,7 @@ describe('docs/release-neon-0016.sql', () => {
     expect(journalRaw.entries[E - 1].tag).toBe('0015_user_id_contract');
   });
 
-  it('поверх 0000–0015 дважды: схема как у drizzle, журнал верный, данные целы, колонки пустые, check «до/после»', async () => {
+  it('поверх 0000–0015 дважды: схема как у drizzle, журнал верный, данные целы, существующим tour_version = 1, check «до/после»', async () => {
     const full = new PGlite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(E + 1) });
     const c = await after0015();
@@ -63,7 +63,7 @@ describe('docs/release-neon-0016.sql', () => {
     await c.exec(releaseSql);
     expect(await schemaDump(c)).toEqual(once);
     expect(once).toEqual(await schemaDump(full));
-    expect((await users()).rows).toEqual(usersBefore);
+    expect((await users()).rows).toEqual(usersBefore); // id/email/role/status/onboarded не изменились
 
     const after = (await c.query<{ t: string; n: number }>(checkSql)).rows;
     const data = (rows: typeof after) => rows.filter((r) => !r.t.startsWith('zz_'));
@@ -71,8 +71,9 @@ describe('docs/release-neon-0016.sql', () => {
     expect(Number(before.find((r) => r.t === 'zz_tour_columns')?.n)).toBe(0);
     expect(Number(after.find((r) => r.t === 'zz_tour_columns')?.n)).toBe(2);
 
-    const nulls = await c.query<{ n: number }>(`select count(*)::int as n from allowed_users where tour_version is null and tour_completed_at is null`);
-    expect(nulls.rows[0].n).toBe(2);
+    // существующим (owner и member) проставлено tour_version = 1, tour_completed_at не пуст
+    const marked = await c.query<{ n: number }>(`select count(*)::int as n from allowed_users where tour_version = 1 and tour_completed_at is not null`);
+    expect(marked.rows[0].n).toBe(2);
 
     const e = journalRaw.entries[E];
     const hash = createHash('sha256').update(readFileSync(join(root, `${e.tag}.sql`), 'utf8')).digest('hex');
@@ -89,6 +90,15 @@ describe('docs/release-neon-0016.sql', () => {
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(E + 1) });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
     expect(n.rows[0].n).toBe(E + 1);
+  });
+
+  it('повторный запуск не трогает пользователей, созданных после выкладки', async () => {
+    const c = await after0015();
+    await c.exec(releaseSql);
+    await c.exec(`insert into allowed_users (email, role, status) values ('new@example.com', 'member', 'active')`);
+    await c.exec(releaseSql);
+    const r = await c.query<{ tour_version: number | null }>(`select tour_version from allowed_users where email = 'new@example.com'`);
+    expect(r.rows[0].tour_version).toBeNull();
   });
 
   it('без allowed_users скрипт останавливается с понятной ошибкой', async () => {

@@ -66,8 +66,14 @@ describe('GET /api/me/tour', () => {
     expect((await (await get()).json()).data.completedVersion).toBe(TOUR_VERSION);
   });
 
-  it('owner без onboarded_at: автозапуск по роли', async () => {
+  it('owner без onboarded_at: автозапуска нет (тур только вручную)', async () => {
     as(1, 'owner');
+    expect((await (await get()).json()).data).toEqual({ version: TOUR_VERSION, completedVersion: 0, shouldAutoStart: false });
+  });
+
+  it('повышение версии тура: прошедшему старую версию после онбординга снова автозапуск', async () => {
+    as(A, 'member');
+    await t.db.update(allowedUsers).set({ onboardedAt: new Date(), tourVersion: TOUR_VERSION - 1 }).where(eq(allowedUsers.id, A));
     expect((await (await get()).json()).data.shouldAutoStart).toBe(true);
   });
 

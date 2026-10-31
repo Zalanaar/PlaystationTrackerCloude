@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '../icons';
+import { queueTourStart, skipTourSilently } from '../tour/api';
 import {
   STEP_NAMES, checkActions, checkFromStatus, deriveStep, gamesSeen, mapPutError, phaseLabel, progressPercent, shouldAutoStart,
   syncErrorText, syncView, validateNick, type Action, type CheckResult, type PsnState, type Step, type SyncSlice,
@@ -494,8 +495,8 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
         <h2 className="ps-ob__h2">Готово</h2>
         <p className="ps-ob__rtext">{seen !== null ? `Загружено игр: ${seen}. ` : ''}Осталось разобрать, что вы уже прошли, а что бросили.</p>
         <div className="ps-ob__acts">
-          <button type="button" className="ps-btn ps-btn--primary" onClick={() => router.push('/triage')}>Открыть Разбор</button>
-          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => router.push('/')}>К коллекции</button>
+          <button type="button" className="ps-btn ps-btn--primary" onClick={() => { queueTourStart(); router.push('/'); }}>Начать тур</button>
+          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { skipTourSilently(); router.push('/triage'); }}>Пропустить, открыть Разбор</button>
         </div>
       </div>
     );

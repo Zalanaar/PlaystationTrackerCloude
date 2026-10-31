@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import type { GameStatusValue } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
@@ -35,6 +35,7 @@ import { ResetAllDialog } from './ResetAllDialog';
 import { RestoreBackupDialog } from './RestoreBackupDialog';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
+import { useTourCardAnchors } from '../tour/anchors';
 
 export function CollectionView() {
   const router = useRouter();
@@ -49,9 +50,11 @@ export function CollectionView() {
   const width = useViewportWidth();
   const isMobile = useIsMobile();
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  useTourCardAnchors(rootRef, selectMode);
   const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()));
   const { summary, summaryFailed, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
   // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
@@ -131,7 +134,7 @@ export function CollectionView() {
   };
 
   return (
-    <div className="ps-collection">
+    <div ref={rootRef} className="ps-collection" data-tour-page="collection" data-tour-ready={String(!!pool || !!error || !loading)}>
       <div className="ps-pagehead ps-pagehead--coll">
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>

@@ -9,7 +9,7 @@ import { isSubnavActive } from './nav';
 export function BacklogSubnav() {
   const pathname = usePathname();
   return (
-    <nav className="ps-subnav" aria-label="Раздел бэклога">
+    <nav className="ps-subnav" aria-label="Раздел бэклога" data-tour="backlog-subnav">
       {BACKLOG_SUBNAV.map((s) => (
         <Link key={s.href} href={s.href} aria-current={isSubnavActive(pathname, s.href) ? 'page' : undefined}>{s.label}</Link>
       ))}
