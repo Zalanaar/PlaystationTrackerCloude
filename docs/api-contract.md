@@ -2023,7 +2023,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 - Параметр `{id}` в путях (`/api/games/{id}`, `/api/roadmap/planned/{id}` и т.д.) проверяется как `where id = $id and user_id = $userId`; чужой id даёт `404 not_found`, не `403` (существование не раскрывается).
 - Чистая статистика (`src/server/stats/`, `recommend/score`, `roadmap/plan`) принимает уже выбранные данные и `userId` не знает; выборка данных только функциями с `userId`.
 - Тесты: `src/server/user-scope.test.ts` (статический скан исходников: файл с user-scoped таблицами обязан работать с `userId`), «blocked» (каждый `route.ts` без сессии даёт 401), утечки между двумя пользователями (`src/server/user-isolation.test.ts`). Правило ESLint запрещает импорт `@/db` из страниц и UI.
-- Cron и синк: `GET /api/cron/sync` в 20.3 работает для владельца; обход активных пользователей (`status = 'active'`, `psn_access_status = 'ok'`, есть `psn_online_id`) по одному со своим `sync_runs` — 20.4.
+- Cron и синк: `GET /api/cron/sync` в 20.3 работает для владельца; обход активных пользователей (`status = 'active'`, `psn_access_status = 'ok'`, есть `psn_online_id`) по одному со своим `sync_runs` — 20.4, см. 22.13.
 
 ### 22.7 Миграция существующих данных на owner
 
@@ -2067,7 +2067,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 | 4 | 20.4 | Синк по пользователям (очередь поверх глобального «один `running`»), звенья cron, `PUT /api/me/psn` и проверка доступа к профилю (`psn_access_status`), онбординг, план Б при необходимости, лимиты LLM/RAWG/HLTB на пользователя + общий потолок, Telegram/бэкап владельцу по всем |
 | QA | 20.5 | Изоляция, роли, миграция на копии прод-данных, e2e на двух пользователях |
 
-Нерешённое для 20.4: точные коды ответа `PUT /api/me/psn` и способ проверки закрытого профиля (зависят от результата проверки открытого профиля без дружбы); период повторной проверки `unavailable`.
+Решено в 20.4: коды `PUT /api/me/psn`, способ проверки закрытого профиля и период повторной проверки `unavailable` — 22.13.
 
 ### 22.11 Уточнения реализации `0014` (20.3)
 
@@ -2096,7 +2096,76 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 - **Синк в 20.3:** ручной `POST /api/sync` запускает синк пользователя сессии и читает его `allowed_users.psn_online_id`. У владельца без своего ника используется `PSN_TARGET_ONLINE_ID`; у остальных без ника — `500 config_error` (онбординг: 20.4). Продолжение звена (`/api/cron/sync?continue=<id>`) берёт пользователя из `sync_runs.user_id`. Ежедневный cron, watchdog и еженедельная копия работают для владельца (`getOwnerUserId`); Telegram-уведомления остаются владельцу.
 - **`GET /api/wrapped`:** ник берётся из `allowed_users.psn_online_id` пользователя сессии, затем из его сохранённого профиля PSN. `PSN_TARGET_ONLINE_ID` в ответ больше не попадает.
 - **Блокировки:** advisory-локи статусов, восстановления и порядка плана берутся на пользователя (`status_backups:<id>`, `backup_restore:<id>`, `roadmap_order:<id>`).
-- **LLM-бюджет:** `recommend_llm_usage` ведётся на пользователя (ключ `(user_id, day)`), глобального потолка `LLM_DAILY_LIMIT` по сумме пользователей пока нет (20.4). `recommend_llm_state` (пауза после неудач) остаётся общей.
+- **LLM-бюджет:** `recommend_llm_usage` ведётся на пользователя (ключ `(user_id, day)`), общий потолок `LLM_DAILY_LIMIT` по сумме пользователей добавлен в 20.4 (22.13). `recommend_llm_state` (пауза после неудач) остаётся общей.
 - **Копия и восстановление:** `GET /api/backup`, `POST /api/backup/restore` и `status_backups` работают только с данными пользователя сессии; статусы из файла применяются только к его играм.
 - **Ограничение до `0015`:** `psn_profile` и `roadmap_settings` пока имеют PK `id` со значением по умолчанию `1`, поэтому вторая строка (второго пользователя) не вставится, пока `0015` не заменит PK на `user_id`. Аналогично старые unique `games(title_id)`, `trophy_sets(np_communication_id)`, `trophies(trophy_set_id, trophy_id)`, `playtime_snapshots(game_id, snapshot_date)`, `planned_games(external_source, external_id)` мешают двум пользователям иметь одинаковые игры. Реальный второй пользователь возможен только после `0015`; тесты изоляции моделируют состояние после `0015`, удаляя эти ключи на PGlite.
 - **Cookie `v:1` и `createSessionToken`** остаются (совместимость на 30 дней), удаляются после `0015`.
+
+### 22.13 Синк, доступ к PSN и лимиты по пользователям (Фаза 20.4)
+
+Работает на схеме после `0014` и после `0015`; миграций 20.4 не требует (RAWG/HLTB-счётчики: см. «Открытое» ниже).
+
+**Кто попадает в обход.** Пользователь «подходит для синка», если `status = 'active'`, `psn_access_status = 'ok'` и есть `psn_online_id`. Владелец без своего ника подходит всегда и читает `PSN_TARGET_ONLINE_ID` (22.12). Любой другой без ника или без `ok` в обход не попадает.
+
+**Cron `GET /api/cron/sync` (Bearer `CRON_SECRET`).** Параметры: ничего (старт обхода), `continue=<runId>&hop=<N>` (звено, как раньше), `queue=<N>` (следующий пользователь, N = номер шага обхода, 1..100). Пользователь всегда берётся из БД, не из запроса.
+- Старт обхода: сначала повторная проверка доступа для `unavailable` и `friend_required` (не больше 5 пользователей, не чаще раза в 6 ч на пользователя), затем запуск `daily` для первого подходящего по `id` (владелец, `id = 1`, идёт первым). Ответ как раньше: `202 { started: true, resumed, runId }`; `200 { started: false, reason: 'already_running' | 'not_resumable' | 'user_inactive' | 'queue_empty' }`.
+- Следующий пользователь: когда `daily`-запуск закончился окончательно (success/failed, не «остановка по бюджету»), сервер самовызовом (`continueChain`-канал, тот же Bearer, origin из env) зовёт `?queue=<N+1>`. Берётся первый подходящий пользователь, у которого за сегодня (МСК) нет завершённого (`success` или `failed`) запуска не-`hltb`. Недоделанный `partial` подбирается и продолжается. Если запуск пользователя не удалось стартовать (исключение), берётся следующий. Сбой одного пользователя (ошибка PSN, `failed`) обход не останавливает: его запуск закрыт `failed`, дальше идёт следующий.
+- У каждого пользователя свой `sync_runs` (kind `daily`); глобальный «один `running`» (22.12) сохраняется, поэтому пользователи идут строго друг за другом; каждый укладывается в звенья по `SYNC_TIME_BUDGET_MS` как раньше.
+- `continue` проверяет пользователя запуска: `status <> 'active'` (blocked/invited) или нет подходящего ника -> `200 { started: false, reason: 'user_inactive' }`, запуск не возобновляется (данные не трогаются).
+- Если самовызов недоступен (нет origin/secret), остальные пользователи синкаются кнопкой или завтрашним cron; риск зафиксирован в отчёте 20.4.
+
+**Ручной синк `POST /api/sync` (пользователь сессии).** Новые ответы вместо `500 config_error` для пользователя без ника (N-2): `409 psn_not_set` («Укажите ник PSN, чтобы запустить синк.»), `409 psn_not_verified` (ник есть, `psn_access_status <> 'ok'`: «Доступ к профилю PSN не подтверждён. Проверьте ник и откройте профиль.»). `500 config_error` остаётся только для отсутствия серверных настроек PSN или owner.
+
+**Состояние и ввод ника.**
+
+| Метод и путь | Тело / ответ |
+|---|---|
+| `GET /api/me/psn` | 200 `{ onlineId, accessMode, accessStatus, checkedAt, canStartSync, onboardedAt, sync }`. `canStartSync = onlineId задан и accessStatus = 'ok'`. `sync` = последний не-`hltb` запуск пользователя `{ id, kind, status, phase, startedAt, finishedAt }` или `null` |
+| `PUT /api/me/psn` | JSON + проверка `Origin`. Тело `{ onlineId?: string }`; без `onlineId` перепроверяется сохранённый (кнопка «Проверить снова»). Ник: trim, 3..16 символов, `^[A-Za-z][A-Za-z0-9_-]{2,15}$`. 200 `{ onlineId, accessMode, accessStatus: 'ok', checkedAt, canStartSync: true }` |
+
+Проверка идёт только через `src/server/psn/` техническим NPSSO (`PSN_NEW_USER_MODE=public`): профиль по нику -> `accountId`, затем одна страница игр (`getUserPlayedGames`, limit 1) и одна страница трофейных сетов. Токены и NPSSO не логируются. Результат пишется в `allowed_users`: `psn_access_status`, `psn_access_checked_at`, `psn_online_id`, `psn_account_id`.
+
+| Статус HTTP / `error.code` | Когда | `psn_access_status` |
+|---|---|---|
+| 200 | профиль, игры, трофеи читаются | `ok` |
+| 400 `invalid_request` | не JSON, не тот Origin, `onlineId` не строка / не подходит под шаблон / нет ни тела, ни сохранённого ника | не меняется |
+| 409 `psn_id_taken` | этот ник (без учёта регистра) уже у другого пользователя | не меняется |
+| 409 `psn_account_locked` | у пользователя уже есть игры, а ник указывает на другой аккаунт PSN (накладывать чужие игры на коллекцию нельзя; переименование того же аккаунта разрешено) | не меняется |
+| 422 `psn_not_found` | профиля с таким ником нет | `not_found` |
+| 422 `psn_private` | профиль найден, но игры/трофеи закрыты | `private` (при `psn_access_mode = 'friend'`: `friend_required`, код ответа `psn_friend_required`) |
+| 429 `rate_limited` + `Retry-After` | предыдущая проверка этого пользователя была меньше 30 с назад | не меняется |
+| 503 `psn_unavailable` | PSN вернул ошибку/лимит, токен технического аккаунта не принят | `unavailable` (если у пользователя уже был рабочий `ok` с другим ником, статус и ник не затираются) |
+| 500 `config_error` | нет серверных настроек PSN | не меняется |
+
+Ник записывается при любом результате проверки (кроме 400/409/429/500), кроме случая, когда сменой ника перезаписывался бы рабочий `ok`-ник неудачной проверкой: тогда сохранённое состояние не меняется. Повторная проверка `unavailable`: автоматически при каждом старте cron-обхода, но не чаще чем раз в 6 ч на пользователя; вручную: PUT (с паузой 30 с). `private` и `not_found` автоматически не перепроверяются (нужно действие пользователя). После успешной проверки пользователь запускает первый синк обычным `POST /api/sync`. `onboarded_at` ставится при первом завершённом `success` запуске пользователя (синк ручной или cron).
+
+**Лимиты LLM.** `recommend_llm_usage` остаётся на пользователя `(user_id, day)`. Три уровня: потолок по виду вызова на пользователя (`phrases` 8, `discover_auto` 1, `discover_manual` 3, как раньше); `LLM_USER_DAILY_LIMIT` (по умолчанию 12, 1..200) — всего вызовов в сутки на пользователя; `LLM_DAILY_LIMIT` — общий потолок: сумма `calls` по всем пользователям за сутки МСК (раньше был потолок на единственного пользователя; при нескольких пользователях задавайте не меньше `число_пользователей × 12`). Занятие вызова атомарное (транзакция с advisory lock): один запрос проверяет вид, пользователя и сумму. `recommend_llm_state` (пауза после неудач) общая.
+
+**Telegram и копия (всё владельцу, по всем пользователям).**
+- Watchdog `sync_missed`: проверка по каждому подходящему пользователю; дедуп в `notify_log` по `kind` (`sync_missed` у owner, `sync_missed:<user_id>` у остальных), текст дополняется «Пользователь: <ник PSN>». `GET /api/cron/watchdog` ответ: `sync` (результат owner, как раньше), `users: [{ userId, isOverdue, ageHours, alert }]`, `backup`. Без owner в БД: `500 config_error`, в Telegram уходит «owner не найден» (раз в сутки, `kind = 'owner_missing'`).
+- После неудачного звена: `sync_stale` считается по пользователю запуска (`sync_stale:<id>` у не-owner); `auth_expired`, `npsso_invalid`, `token_age` глобальные (технический NPSSO один).
+- Еженедельная копия: по файлу на каждого активного пользователя, владельцу в тот же чат; `kind = backup_weekly` у owner, `backup_weekly:<id>` у остальных; подпись содержит ник PSN.
+
+**Открытое.** Лимиты RAWG и HLTB по пользователям: счётчикам нужна таблица, миграцию 20.4 не создаёт. Сейчас: HLTB ограничен структурой (пачка `HLTB_BATCH` на синк пользователя, пересмотр раз в 30 дней, ручной запуск под единственным слотом `running`); RAWG вне ночного шага вызывается только запросами пользователя (поиск/«скоро выходят») и подтверждением «Нового от ИИ» (оно уже за LLM-лимитом). Предложение для `0016`: `provider_usage(user_id, day, provider, calls)`.
+
+### 22.14 Реализация `0015_user_id_contract` (20.3)
+
+Миграция `src/db/migrations/0015_user_id_contract.sql`, для прода `docs/release-neon-0015.sql` (идемпотентный, пишет в журнал drizzle, в конце флаги `true`), контрольные значения `docs/release-neon-0015-check.sql`, откат `docs/release-neon-0015-rollback.sql`. Тесты: `src/db/release-sql-0015.test.ts`, `src/server/post-0015-sync.test.ts`; состояние «ровно после 0014» проверяет `src/server/post-0014-compat.test.ts` (`createTestDb({ migrations: 15 })`).
+
+Что меняется (данные строк не меняются, не удаляются):
+- **PK `user_id`** у `psn_profile` и `roadmap_settings`; колонки `id` удалены вместе со singleton CHECK (`-- DATA LOSS`: значение всегда 1; в SQL-миграции это `DROP COLUMN`).
+- **Составные PK:** `recommend_llm_usage (user_id, day)`, `recommend_discover_cache (user_id, day)`, `recommend_external_dislikes (user_id, external_source, external_id)`, `recommend_reasons (user_id, game_id, signals_hash)`.
+- **Удалены глобальные unique:** `games_title_id_key`, `trophy_sets_np_communication_id_key`, `trophies_set_trophy_key`, `playtime_snapshots_game_date_key`, `planned_games_external_key`; дубли PK как unique (`psn_profile_user_key`, `roadmap_settings_user_key`, `recommend_llm_usage_user_day_key`, `recommend_discover_cache_user_day_key`, `recommend_external_dislikes_user_key`).
+- **Удалены индексы без `user_id`, замененные префиксными из 0014:** `game_status_status_idx`, `games_concept_id_idx`, `games_last_played_at_idx`, `planned_games_status_idx`, `playtime_snapshots_date_idx`, `roadmap_order_position_idx`, `sync_runs_started_at_idx`, `trophies_earned_at_idx`. `sync_runs_one_running_idx` (глобальный «один running») остаётся.
+- **`user_id` без `DEFAULT 1`** во всех 19 таблицах (NOT NULL остаётся с 0014): INSERT без `user_id` падает, молча приписать строку owner нельзя.
+- Не меняются: `game_trophy_sets (game_id, trophy_set_id)`, `game_month_exclusions (game_id, month)`, PK `game_id` у `game_status`, `roadmap_order`, `roadmap_excluded`, `recommend_dislikes` (22.11, `game_id` глобален); глобальные таблицы (22.12).
+
+**Решение B-1 (`recommend_reasons`).** PK = `(user_id, game_id, signals_hash)` как в 22.1, `ON CONFLICT` в `src/server/recommend/db.ts` целится в `(user_id, game_id, signals_hash)`. Причина: при PK `(game_id, signals_hash)` upsert с чужим `user_id` превратился бы в UPDATE чужой строки без ошибки (составной FK не срабатывает, `user_id` в конфликтной строке не меняется); с `user_id` в ключе такой запрос становится вставкой и падает на составном FK. Окно выкладки: скрипт `0015` -> деплой кода. Между ними прод-код 20.3 пишет кэш фраз с target по старому PK и получает ошибку, которую шаг LLM синка превращает в предупреждение (фразы не кэшируются, данные и остальной синк не страдают). Если код выкатили раньше миграции: то же самое в обратную сторону.
+
+**Проверка всех `ON CONFLICT`:** цели совпадают с ключами после 0015 (`games (user_id, title_id)`, `playtime_snapshots (user_id, game_id, snapshot_date)`, `trophy_sets (user_id, np_communication_id)`, `trophies (user_id, trophy_set_id, trophy_id)`, `psn_profile (user_id)`, `roadmap_settings (user_id)`, `recommend_llm_usage`/`recommend_discover_cache (user_id, day)`, `recommend_external_dislikes (user_id, source, id)`, `recommend_reasons (user_id, game_id, signals_hash)`; по PK `game_id`: `game_status`, `roadmap_order`, `recommend_dislikes`; глобальные: `notify_log.kind`, `psn_auth.id`, `recommend_llm_state.id`; остальные `onConflictDoNothing` без target).
+
+**Совместимость кода и схемы.** Код 20.3 (прод на момент написания) пишет `user_id` явно везде и работает на схемах после 0014 и после 0015 (кроме кэша фраз, см. выше). Код 20.3 до слоя `userId` (до PR #19) на схеме после 0015 не работает.
+
+**Откат.** Откат кода без обратной SQL после 0015 невозможен: старый код вставляет в `psn_profile`/`roadmap_settings` колонку `id` и не передаёт `user_id` (default снят). `docs/release-neon-0015-rollback.sql` возвращает схему 0014 (колонки `id` со значением 1, старые PK/unique/индексы, `DEFAULT 1`) и убирает запись 0015 из журнала без потери данных, но только пока данные принадлежат одному пользователю (`user_id = 1`); при данных второго пользователя скрипт останавливается до изменений, остаётся восстановление из ветки Neon `before-0015` или PITR. После отката нужно выкатить предыдущую версию кода (до коммита 0015); новый код на схеме 0014 только не кэширует фразы «Подскажи».
+
+**Порядок выкладки:** копия разметки (16.3) -> ветка Neon `before-0015` -> `release-neon-0015-check.sql` («до») -> `release-neon-0015.sql` -> `release-neon-0015-check.sql` («после») -> деплой кода -> сутки наблюдения -> `MULTIUSER_ENABLED=1` только после QA изоляции (22.7, шаг 8).
