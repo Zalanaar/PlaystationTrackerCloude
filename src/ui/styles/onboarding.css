@@ -1,0 +1,82 @@
+/* Онбординг /onboarding (Фаза 20.4, design-system §9). Только токены тем. */
+.ps-ob { padding-block: var(--sp-8) var(--sp-10); }
+.ps-ob__wrap { max-width: 520px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--sp-4); }
+.ps-ob__head { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-ob__h1 { margin: 0; font: var(--fw-h1) var(--fs-h1)/var(--lh-h1) var(--font-display); color: var(--text); }
+.ps-ob__lead { margin: 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-ob__stepper { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-ob__segs { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-1); }
+.ps-ob__seg { height: 4px; border-radius: var(--r-pill); background: var(--surface-3); }
+.ps-ob__seg[data-on] { background: var(--accent); }
+.ps-ob__steptext { margin: 0; color: var(--text-3); font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); }
+.ps-ob__steptext-name { display: inline; }
+.ps-ob__panel {
+  padding: var(--sp-6); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  animation: ps-ob-in var(--dur-base) var(--ease-out);
+}
+.ps-ob__h2 { margin: 0; font: var(--fw-h2) var(--fs-h2)/var(--lh-h2) var(--font-display); color: var(--text); }
+.ps-ob__h2:focus, .ps-ob__result:focus { outline: none; }
+.ps-ob__h2:focus-visible, .ps-ob__result:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+.ps-ob__field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ps-ob__label { color: var(--text); font-size: var(--fs-body); font-weight: 500; }
+.ps-ob__input { width: 100%; }
+.ps-ob__input[aria-invalid="true"] { border-color: var(--danger); }
+.ps-ob__hint { margin: 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-ob__err { margin: 0; display: flex; gap: var(--sp-1); align-items: flex-start; color: var(--danger); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-ob__err svg { flex: none; margin-top: 1px; }
+.ps-ob__info { display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-3); border-radius: var(--r-md); background: var(--accent-soft); color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-ob__info svg { flex: none; margin-top: 2px; color: var(--accent); }
+.ps-ob__info p { margin: 0; }
+.ps-ob__chip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.ps-ob__nick { display: inline-flex; align-items: center; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-body); font-weight: 600; overflow-wrap: anywhere; }
+.ps-ob__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ps-ob__acts .ps-btn { height: var(--control-h); padding-inline: var(--sp-4); }
+
+/* Результат проверки / состояния: фон от семантического цвета, полоса слева (как баннеры §4.13) */
+.ps-ob__result {
+  --ob-tone: var(--text-2);
+  display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-4); border-radius: var(--r-md);
+  background: var(--surface-2); border-left: 4px solid var(--ob-tone);
+}
+.ps-ob__result[data-tone="danger"] { --ob-tone: var(--danger); background: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
+.ps-ob__result[data-tone="warning"] { --ob-tone: var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+.ps-ob__result[data-tone="success"] { --ob-tone: var(--success); background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
+.ps-ob__result > svg { flex: none; color: var(--ob-tone); }
+.ps-ob__rbody { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ps-ob__rtitle { margin: 0; color: var(--text); font-size: 15px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.ps-ob__rtext { margin: 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-ob__list { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-ob__spin { animation: ps-ob-spin 1s linear infinite; }
+.ps-ob__sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* Шаг 3 */
+.ps-ob__bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; position: relative; }
+.ps-ob__bar-fill { height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width var(--dur-base) var(--ease-out); }
+.ps-ob__bar[data-indeterminate] .ps-ob__bar-fill { position: absolute; width: 40%; animation: ps-ob-slide 1.4s var(--ease-out) infinite; }
+.ps-ob__prog { display: flex; justify-content: space-between; gap: var(--sp-3); color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-ob__prog span:last-child { color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ps-ob__sk { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-ob__sk .ps-skeleton { display: block; }
+.ps-ob__done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
+.ps-ob__done > svg { color: var(--success); }
+
+@keyframes ps-ob-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ps-ob-spin { to { transform: rotate(360deg); } }
+@keyframes ps-ob-slide { from { left: -40%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .ps-ob__panel { animation: none; }
+  .ps-ob__spin { animation: none; }
+  .ps-ob__bar-fill { transition: none; }
+  .ps-ob__bar[data-indeterminate] .ps-ob__bar-fill { animation: none; left: 0; }
+}
+
+@media (max-width: 767px) {
+  .ps-ob { padding-block: var(--sp-4) var(--sp-8); }
+  .ps-ob__panel { padding: var(--sp-4); }
+  .ps-ob__steptext-name { display: none; }
+  .ps-ob__input { height: var(--tap-min); font-size: 16px; }
+  .ps-ob__acts { flex-direction: column; }
+  .ps-ob__acts .ps-btn { width: 100%; height: var(--tap-min); }
+  .ps-ob__chip .ps-btn { height: var(--tap-min); }
+}
