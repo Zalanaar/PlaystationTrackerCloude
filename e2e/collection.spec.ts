@@ -34,7 +34,7 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Horizon Forbidden West');
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('28 ч 17 м');
     // блоки в порядке: хроника, бэклог, отложено, не разобрано
-    await expect(coll(page).locator('h2')).toHaveText([/^2026/, /^2025/, /^2024/, /^Бэклог/, /^Отложено/, /^Не разобрано/]);
+    await expect(coll(page).locator('h2')).toHaveText([/^Сейчас/, /^2026/, /^2025/, /^2024/, /^Бэклог/, /^Отложено/, /^Не разобрано/]);
     await expect(tab(page, /^Все/)).toContainText('10');
     await expect(tab(page, /Пройдено/)).toContainText('3');
     await expect(tab(page, /Брошено/)).toContainText('2');

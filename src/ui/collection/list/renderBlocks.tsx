@@ -78,7 +78,16 @@ export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
 export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
   const { view, cols, filters, counts, byBlock, forgotten, setFilters, shownCount, rawLoaded } = c;
   const list = byBlock[b] ?? [];
-  if (b === 'playing') return null; // лента рисуется отдельно
+  if (b === 'playing') {
+    // hero «Играю» остаётся сверху; здесь те же игры обычными карточками, до годов (Фаза 22, 1.2). Пустой блок не показываем.
+    if (filters.status !== 'all' || list.length === 0) return null;
+    return (
+      <section key={b} className="ps-block" id="now" aria-labelledby="h-now" data-testid="now-block">
+        <BlockHead id="h-now" title="Сейчас" count={shownCount(counts.playing, list)} icon={<StatusGlyph status="playing" size={16} />} />
+        {renderGames(c, list)}
+      </section>
+    );
+  }
   if (b === 'chronicle') return list.length > 0 ? <div className="ps-block" key={b}>{renderChronicle(c)}</div> : null;
   if (b === 'service') return list.length > 0 ? renderService(c, list) : null;
   const full = isFull(b, filters.status, filters.platinum);
