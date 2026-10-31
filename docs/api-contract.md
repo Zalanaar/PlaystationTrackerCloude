@@ -1976,7 +1976,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 | Формат | `<payload_b64url>.<signature_b64url>`, подпись HMAC-SHA256 `SESSION_SECRET` (без изменений) |
 | Payload v2 | `{"v":2,"uid":<allowed_users.id>,"role":"owner"\|"member","amr":"google"\|"pwd","iat":..,"exp":..}` |
 | Срок | 30 дней фиксированный, без продления |
-| Совместимость | `verifySessionToken` принимает `v:1` и `v:2`. Токен `v:1` (выдан до Фазы 20) трактуется как `uid` owner (`id = 1`, `role = owner`, `amr = pwd`) и действует до своего `exp`; новые токены только `v:2`. Поддержка `v:1` удаляется в 20.3 после выкладки `0015` (максимум 30 дней жизни старых cookie) |
+| Совместимость | `verifySessionToken` принимает только `v:2`. Токен `v:1` (выдан до Фазы 20) не принимается с коммита после `0015` (контракт 22.12): пользователь попадает на `/login` и входит заново (Google или аварийный пароль owner). `createSessionToken` (v:1) удалён |
 | Что проверяет `proxy.ts` | только подпись, срок и форму (без БД), как сейчас |
 | Что проверяет route handler | `requireUser(req)` читает `allowed_users` по `uid`: строка есть и `status = 'active'`. `role` берётся **из БД**, а не из cookie (cookie-роль только подсказка UI). Блокировка и удаление действуют со следующего запроса |
 | Аварийный вход | `POST /api/auth/login` (3.5) без изменений по контракту, но выдаёт `v:2` для owner с `amr = pwd`; owner = единственная строка `role = 'owner'`; если её нет или она `blocked`, ответ `401 invalid_credentials` |
@@ -2099,7 +2099,7 @@ CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsaf
 - **LLM-бюджет:** `recommend_llm_usage` ведётся на пользователя (ключ `(user_id, day)`), общий потолок `LLM_DAILY_LIMIT` по сумме пользователей добавлен в 20.4 (22.13). `recommend_llm_state` (пауза после неудач) остаётся общей.
 - **Копия и восстановление:** `GET /api/backup`, `POST /api/backup/restore` и `status_backups` работают только с данными пользователя сессии; статусы из файла применяются только к его играм.
 - **Ограничение до `0015` (снято миграцией `0015`, 22.14):** `psn_profile` и `roadmap_settings` пока имеют PK `id` со значением по умолчанию `1`, поэтому вторая строка (второго пользователя) не вставится, пока `0015` не заменит PK на `user_id`. Аналогично старые unique `games(title_id)`, `trophy_sets(np_communication_id)`, `trophies(trophy_set_id, trophy_id)`, `playtime_snapshots(game_id, snapshot_date)`, `planned_games(external_source, external_id)` мешают двум пользователям иметь одинаковые игры. Реальный второй пользователь возможен только после `0015`; тесты изоляции моделируют состояние после `0015`, удаляя эти ключи на PGlite.
-- **Cookie `v:1` и `createSessionToken`** остаются (совместимость на 30 дней), удаляются после `0015`.
+- **Cookie `v:1` и `createSessionToken` удалены** (отдельный коммит после `0015`, закрывает N-3): `readSessionToken` читает только `v:2`, старая cookie `v:1` даёт `401`/редирект на `/login`. `e2e/session.ts` выдаёт `v:2` owner. Побочный эффект выкладки: единственная активная сессия, выданная до Фазы 20.2, перестаёт работать (вход заново).
 
 ### 22.13 Синк, доступ к PSN и лимиты по пользователям (Фаза 20.4)
 

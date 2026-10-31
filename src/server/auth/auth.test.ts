@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { b64urlEncode, createSessionToken, SESSION_TTL_SECONDS, verifySessionToken } from './session';
+import { b64urlEncode, createSessionTokenV2, SESSION_TTL_SECONDS, verifySessionToken } from './session';
 import { checkBearer, checkPassword, hashIp, secureEqual } from './password';
 import { evaluateLimit } from './limiter';
 import { getAuthEnv, getCronSecret, getSessionSecret } from '../env';
@@ -8,6 +8,7 @@ import { safeNext } from '../http';
 const SECRET = 'a'.repeat(32);
 const OTHER = 'b'.repeat(32);
 const NOW = Date.UTC(2026, 9, 27, 12, 0, 0);
+const createSessionToken = (secret: string | null | undefined, nowMs?: number) => createSessionTokenV2(secret, { uid: 1, role: 'owner', amr: 'pwd' }, nowMs);
 
 describe('session cookie', () => {
   it('подписанный токен проходит проверку', async () => {
@@ -26,7 +27,7 @@ describe('session cookie', () => {
   it('изменённый payload или подпись отвергаются', async () => {
     const t = await createSessionToken(SECRET, NOW);
     const [p, s] = t.split('.');
-    const forged = b64urlEncode(new TextEncoder().encode(JSON.stringify({ v: 1, iat: 0, exp: 9999999999 })));
+    const forged = b64urlEncode(new TextEncoder().encode(JSON.stringify({ v: 2, uid: 1, role: 'owner', amr: 'pwd', iat: 0, exp: 9999999999 })));
     expect(await verifySessionToken(`${forged}.${s}`, SECRET, NOW)).toBe(false);
     expect(await verifySessionToken(`${p}.${s.slice(0, -2)}AA`, SECRET, NOW)).toBe(false);
   });
