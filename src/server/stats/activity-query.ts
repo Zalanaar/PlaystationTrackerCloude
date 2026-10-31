@@ -14,9 +14,10 @@ export async function getActivity(db: AnyDb, userId: UserId, year: number, now: 
     with d as (
       select p.snapshot_date,
              p.play_duration_seconds - lag(p.play_duration_seconds) over (partition by p.game_id order by p.snapshot_date) as delta,
-             g.hidden_at is null as visible
+             (g.hidden_at is null and pg.hidden_at is null) as visible
       from playtime_snapshots p
       join games g on g.id = p.game_id and g.user_id = p.user_id
+      left join games pg on pg.id = g.duplicate_of_game_id and pg.user_id = g.user_id
       where p.user_id = ${userId}
     )
     select snapshot_date::text as date,

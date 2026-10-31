@@ -1,14 +1,15 @@
 // Чтение данных для /api/wrapped (контракт 11). Расчёты в calc.ts/compose.ts, здесь только выборки.
 import { toHttps } from '@/shared/https-url';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, lt, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { getPsnProfile } from '@/server/collection/profile';
 import { getGamesByIds } from '@/server/collection/query';
-import { gameVisible, trophySetCounted } from '@/server/collection/visibility';
+import { effectiveGameIdSql, gameVisible, snapshotGameVisible, trophySetCounted, visibleGameRow } from '@/server/collection/visibility';
 import type { FinishedEvent } from '@/server/stats/finished';
 import type { GenreGame } from '@/server/stats/genre-stats';
+import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import { getEstimateInputs } from '@/server/stats/estimate-query';
 import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { mskDateString, mskMidnightUtc, ymd } from '@/server/stats/period';
@@ -35,7 +36,7 @@ export async function getWrappedYears(db: AnyDb, userId: UserId, currentYear: nu
       prev: sql<number | null>`lag(${ps.playDurationSeconds}) over (partition by ${ps.gameId} order by ${ps.snapshotDate})`.as('prev'),
     })
     .from(ps)
-    .where(and(eq(ps.userId, userId), gameVisible(ps.gameId, userId)))
+    .where(and(eq(ps.userId, userId), snapshotGameVisible(ps.gameId, userId)))
     .as('with_prev');
   const perYear = db
     .select({
@@ -82,11 +83,11 @@ export async function getWrapped(db: AnyDb, userId: UserId, year: number, online
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId, userId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, snapshotGameVisible(ps.gameId, userId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId, userId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), snapshotGameVisible(ps.gameId, userId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: min(ps.snapshotDate) }).from(ps).where(eq(ps.userId, userId)),
     db.select({ type: trophies.type, earnedAt: trophies.earnedAt }).from(trophies).where(earnedInYear),
@@ -110,7 +111,7 @@ export async function getWrapped(db: AnyDb, userId: UserId, year: number, online
       .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
       .from(gameStatus)
       .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId, userId))),
-    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(and(eq(games.userId, userId), isNull(games.hiddenAt))),
+    db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(and(eq(games.userId, userId), visibleGameRow())),
     getPsnProfile(db, userId),
     getRareTrophies(db, userId, { fromUtc, toUtc }, undefined, opts.withService === true),
   ]);
@@ -119,9 +120,10 @@ export async function getWrapped(db: AnyDb, userId: UserId, year: number, online
   const setIds = [...new Set(platRows.map((r) => r.setId))];
   const links = setIds.length
     ? await db
-        .select({ setId: gameTrophySets.trophySetId, gameId: min(gameTrophySets.gameId) })
+        .select({ setId: gameTrophySets.trophySetId, gameId: sql<number>`min(${effectiveGameIdSql('games')})` })
         .from(gameTrophySets)
-        .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.trophySetId, setIds), gameVisible(gameTrophySets.gameId, userId)))
+        .innerJoin(games, and(eq(games.id, gameTrophySets.gameId), eq(games.userId, userId)))
+        .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.trophySetId, setIds), snapshotGameVisible(gameTrophySets.gameId, userId)))
         .groupBy(gameTrophySets.trophySetId)
     : [];
   const gameBySet = new Map(links.map((l) => [l.setId, l.gameId]));
@@ -131,7 +133,7 @@ export async function getWrapped(db: AnyDb, userId: UserId, year: number, online
     ...droppedRows.flatMap((r) => (r.at ? [{ gameId: r.gameId, kind: 'dropped' as const, at: r.at }] : [])),
   ];
 
-  const snapshots: Snapshot[] = [...bases, ...inYear];
+  const snapshots: Snapshot[] = mergeDuplicateSnapshots([...bases, ...inYear], await getDuplicateMap(db, userId));
   // Карточки (GameItem) грузим только для нужных игр: топ по часам (с запасом на ничью на границе топа), завершённые, игры платин.
   const yearSeconds = calcHours({ by: groupSnapshots(snapshots), estimates, period: { from: yearFrom, to: yearTo }, year, firstSnapshotDate: null, today }).seconds;
   const ranked = [...yearSeconds.entries()].sort((a, b) => b[1] - a[1]);

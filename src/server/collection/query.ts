@@ -12,6 +12,7 @@ import type {
   GenreCounts,
   GameItem,
   GameTrophies,
+  LinkedVersion,
   GamesListResponse,
   Platform,
   StatusCounts,
@@ -20,7 +21,7 @@ import { forgottenCutoff } from './forgotten';
 import { getNearPlatinumCandidates } from './platinum-query';
 import { getPsnProfile } from './profile';
 import type { ListQuery } from './validation';
-import { trophySetCounted } from './visibility';
+import { trophySetCounted, visibleGameRow } from './visibility';
 
 const { games, gameStatus, gameTrophySets, trophySets, trophies } = schema;
 
@@ -29,17 +30,31 @@ export const PLAYING_LIMIT = 20;
 export const SERVICES_LIMIT = 50;
 const TZ = 'Europe/Moscow';
 
+/** 25.3: часы карточки = свои + часы всех её дублей. */
+export const effectiveSecondsSql = sql<number>`(${games.playDurationSeconds} + coalesce((select sum(d."play_duration_seconds") from "games" d where d."user_id" = ${games.userId} and d."duplicate_of_game_id" = ${games.id}), 0))::int`;
+
 const PLATFORM: Record<string, Platform> = { ps4_game: 'PS4', ps5_native_game: 'PS5', pspc_game: 'PC' };
 
 /** Дата «для года» = дата завершения: completed_at, иначе dropped_at (без fallback на last_played_at); год по Москве. */
 const yearDate = sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt})`;
 const yearExpr = sql<number | null>`extract(year from (${yearDate} at time zone ${TZ}))::int`;
 
+/** 25.3: связи «главная игра -> трофейный сет» без повторов: сеты версий-дублей относятся к главной, общий сет считается один раз. */
+export function effectiveSetLinks(db: AnyDb, userId: UserId) {
+  return db
+    .selectDistinct({ gameId: sql<number>`coalesce(${games.duplicateOfGameId}, ${games.id})`.as('link_game_id'), trophySetId: gameTrophySets.trophySetId })
+    .from(gameTrophySets)
+    .innerJoin(games, and(eq(games.id, gameTrophySets.gameId), eq(games.userId, userId)))
+    .where(eq(gameTrophySets.userId, userId))
+    .as('egts');
+}
+
 function trophyAgg(db: AnyDb, userId: UserId) {
+  const links = effectiveSetLinks(db, userId);
   const sumOf = (col: AnyColumn) => sql<number>`coalesce(sum(${col}), 0)::int`;
   return db
     .select({
-      gameId: gameTrophySets.gameId,
+      gameId: links.gameId,
       dB: sumOf(trophySets.definedBronze).as('d_bronze'),
       dS: sumOf(trophySets.definedSilver).as('d_silver'),
       dG: sumOf(trophySets.definedGold).as('d_gold'),
@@ -49,10 +64,9 @@ function trophyAgg(db: AnyDb, userId: UserId) {
       eG: sumOf(trophySets.earnedGold).as('e_gold'),
       eP: sumOf(trophySets.earnedPlatinum).as('e_platinum'),
     })
-    .from(gameTrophySets)
-    .innerJoin(trophySets, and(eq(trophySets.id, gameTrophySets.trophySetId), eq(trophySets.userId, userId)))
-    .where(eq(gameTrophySets.userId, userId))
-    .groupBy(gameTrophySets.gameId)
+    .from(links)
+    .innerJoin(trophySets, and(eq(trophySets.id, links.trophySetId), eq(trophySets.userId, userId)))
+    .groupBy(links.gameId)
     .as('tr');
 }
 
@@ -85,6 +99,7 @@ type Row = DurationRow & {
   completedAt: Date | null;
   droppedAt: Date | null;
   hiddenAt: Date | null;
+  duplicateOfGameId: number | null;
   tr: { dB: number; dS: number; dG: number; dP: number; eB: number; eS: number; eG: number; eP: number } | null;
 };
 
@@ -128,6 +143,8 @@ export function toGameItem(r: Row): GameItem {
     genres: effectiveGenres(r.psnGenres, r.genresOverride).map((key) => ({ key, label: GENRE_LABELS_RU[key] })),
     hiddenAt: r.hiddenAt ? r.hiddenAt.toISOString() : null,
     duration: buildDuration(r),
+    linkedVersions: [],
+    duplicateOfGameId: r.duplicateOfGameId,
   };
 }
 
@@ -143,13 +160,14 @@ function itemsQuery(db: AnyDb, userId: UserId) {
       category: games.category,
       psnGenres: games.psnGenres,
       genresOverride: games.genresOverride,
-      playSeconds: games.playDurationSeconds,
+      playSeconds: effectiveSecondsSql,
       playCount: games.playCount,
       lastPlayedAt: games.lastPlayedAt,
       status: gameStatus.status,
       completedAt: gameStatus.completedAt,
       droppedAt: gameStatus.droppedAt,
       hiddenAt: games.hiddenAt,
+      duplicateOfGameId: games.duplicateOfGameId,
       durationOverrideHours: games.durationOverrideHours,
       hltbId: games.hltbId,
       hltbName: games.hltbName,
@@ -174,12 +192,32 @@ function normalizeRow(r: Omit<Row, 'tr'> & { tr: Row['tr']; hasTr: boolean }): R
   return { ...rest, tr: hasTr ? r.tr : null };
 }
 
+/** 25.4: дописывает linkedVersions главным играм одним запросом. Порядок и остальные поля не меняются. */
+export async function attachLinkedVersions(db: AnyDb, userId: UserId, items: GameItem[]): Promise<GameItem[]> {
+  const ids = items.map((g) => g.id);
+  if (!ids.length) return items;
+  const rows = await db
+    .select({ of: games.duplicateOfGameId, id: games.id, name: games.name, category: games.category, sec: games.playDurationSeconds })
+    .from(games)
+    .where(and(eq(games.userId, userId), inArray(games.duplicateOfGameId, ids)))
+    .orderBy(desc(games.playDurationSeconds), asc(games.id));
+  if (!rows.length) return items;
+  const by = new Map<number, LinkedVersion[]>();
+  for (const r of rows) {
+    if (r.of === null) continue;
+    const arr = by.get(r.of) ?? [];
+    arr.push({ gameId: r.id, title: r.name, platform: PLATFORM[r.category] ?? 'PS4', hours: Math.round(r.sec / 360) / 10 });
+    by.set(r.of, arr);
+  }
+  return items.map((g) => ({ ...g, linkedVersions: by.get(g.id) ?? [] }));
+}
+
 /** Игры по списку id (для ответов мутаций и карточек статистики), порядок по id. Видимость не фильтрует: вызывающий передаёт нужные id. */
 export async function getGamesByIds(db: AnyDb, userId: UserId, ids: number[]): Promise<GameItem[]> {
   if (!ids.length) return [];
   const { q } = itemsQuery(db, userId);
   const rows = await q.where(and(eq(games.userId, userId), inArray(games.id, ids))).orderBy(asc(games.id));
-  return rows.map((r) => toGameItem(normalizeRow(r as never)));
+  return attachLinkedVersions(db, userId, rows.map((r) => toGameItem(normalizeRow(r as never))));
 }
 
 export function emptyCounts(): StatusCounts {
@@ -202,7 +240,7 @@ async function statusCounts(db: AnyDb, userId: UserId, where: SQL | undefined): 
 }
 
 /** Только видимые игры (контракт 9.10). */
-export const visibleGames = isNull(games.hiddenAt);
+export const visibleGames = visibleGameRow();
 
 /** 14.4: забытая игра (видимая, без статуса, playtime > 0, последний запуск раньше now - 90 суток). Нужен leftJoin game_status. */
 export function forgottenSql(now: Date): SQL {
@@ -274,7 +312,7 @@ async function durationCounts(db: AnyDb, userId: UserId, where: SQL | undefined)
 }
 
 export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
-  const scope = and(eq(games.userId, userId), p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames);
+  const scope = and(eq(games.userId, userId), p.hiddenOnly ? and(isNotNull(games.hiddenAt), isNull(games.duplicateOfGameId)) : visibleGames);
   const textYear: (SQL | undefined)[] = [
     scope,
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
@@ -296,7 +334,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
   const earnedAll = sql`(${tr.eB} + ${tr.eS} + ${tr.eG} + ${tr.eP})`;
   const sortKeys: Record<ListQuery['sort'], SQL[]> = {
     last_played: [sql`${games.lastPlayedAt} ${dir} nulls last`],
-    hours: [sql`${games.playDurationSeconds} ${dir}`],
+    hours: [sql`${effectiveSecondsSql} ${dir}`],
     title: [sql`lower(${games.name}) ${dir}`],
     trophies_progress: [sql`${progress} ${dir} nulls last`, sql`${earnedAll} ${dir} nulls last`],
     completed_at: [sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}) ${dir} nulls last`],
@@ -331,7 +369,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
   ]);
 
   return {
-    items: rows.map((r) => toGameItem(normalizeRow(r as never))),
+    items: await attachLinkedVersions(db, userId, rows.map((r) => toGameItem(normalizeRow(r as never)))),
     total: totalRows[0]?.n ?? 0,
     limit: p.limit,
     offset: p.offset,
@@ -351,7 +389,7 @@ export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<C
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
   const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile, near] = await Promise.all([
     db
-      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
+      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${effectiveSecondsSql}), 0)::float8` })
       .from(games)
       .where(and(eq(games.userId, userId), visibleGames)),
     db
@@ -385,9 +423,12 @@ export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<C
       platinumEarned: trophyTotals[0]?.plat ?? 0,
     },
     counts,
-    playing: playingRows.map((r) => toGameItem(normalizeRow(r as never))),
-    services: serviceRows.map((r) => toGameItem(normalizeRow(r as never))),
-    continue: continueRows.map((r) => toGameItem(normalizeRow(r as never))),
+    ...(await (async () => {
+      const [playing, services, cont] = await Promise.all(
+        [playingRows, serviceRows, continueRows].map((rs) => attachLinkedVersions(db, userId, rs.map((r) => toGameItem(normalizeRow(r as never))))),
+      );
+      return { playing, services, continue: cont };
+    })()),
     nearPlatinum: near.flatMap((c) => {
       const game = nearById.get(c.gameId);
       return game ? [{ game, forecast: c.forecast }] : [];

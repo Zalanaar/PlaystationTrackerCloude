@@ -1,6 +1,7 @@
 // Выборки, кэш фраз, счётчик лимита и дизлайки «Подскажи» (контракт 18). Расчёт в score.ts, тексты в phrase.ts.
-import { and, desc, asc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, asc, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
+import { visibleGameRow } from '@/server/collection/visibility';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
@@ -33,7 +34,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
     })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)));
+    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow()));
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const [sums, dlc] = await Promise.all([
@@ -72,7 +73,7 @@ export async function loadHistory(db: AnyDb, userId: UserId): Promise<HistoryGam
     .select({ id: games.id, status: gameStatus.status, psn: games.psnGenres, override: games.genresOverride, seconds: games.playDurationSeconds })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(games.userId, userId), inArray(gameStatus.status, ['completed', 'playing', 'dropped']), isNull(games.hiddenAt)));
+    .where(and(eq(games.userId, userId), inArray(gameStatus.status, ['completed', 'playing', 'dropped']), visibleGameRow()));
   return rows.map((r) => ({ id: r.id, status: r.status as HistoryGame['status'], genres: effectiveGenres(r.psn, r.override), playSeconds: r.seconds }));
 }
 
@@ -152,7 +153,7 @@ export async function listDislikes(db: AnyDb, userId: UserId, now: Date = new Da
     .from(recommendDislikes)
     .innerJoin(games, and(eq(games.id, recommendDislikes.gameId), eq(games.userId, userId)))
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(recommendDislikes.userId, userId), gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)))
+    .where(and(eq(recommendDislikes.userId, userId), gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)), eq(gameStatus.status, 'backlog'), visibleGameRow()))
     .orderBy(desc(recommendDislikes.createdAt), asc(games.id));
   return {
     items: rows.map((r) => ({

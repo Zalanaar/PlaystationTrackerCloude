@@ -9,6 +9,7 @@ import { STATUS_META } from '../../tokens';
 import { DurationEditor } from '../DurationEditor';
 import { doneLabel, lastPlayedText } from '../details';
 import { completionInfo, dateInputToIso, isoToDateInput } from '../filters';
+import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
 import type { DialogHandlers } from './types';
 
@@ -22,7 +23,7 @@ function Kv({ label, children, className }: { label: string; children: React.Rea
 }
 
 export function Overview({
-  game, details, loading, startEditing, now, onStatus, onDate, onHidden, onGameChanged,
+  game, details, loading, startEditing, now, onStatus, onDate, onHidden, onGameChanged, onNotDuplicate,
 }: {
   game: GameItem; details: GameDetailsResponse | null; loading: boolean; startEditing: boolean; now: number;
 } & DialogHandlers) {
@@ -91,6 +92,8 @@ export function Overview({
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
       )}
+
+      {onNotDuplicate && <LinkedVersions game={game} onSplit={onNotDuplicate} />}
 
       {onGameChanged && game.duration && <DurationEditor key={game.id} game={game} onChanged={onGameChanged} />}
 

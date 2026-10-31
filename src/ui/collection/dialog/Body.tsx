@@ -8,6 +8,7 @@ import { StatusChip, StatusMenu } from '../../status';
 import { Cover } from '../Cover';
 import { artMode, DETAIL_TABS, detailSubtitle, detailTiles, nextTab, type DetailTab } from '../details';
 import { platinumEarnedAt } from '../trophies';
+import { linkedVersionsOf } from '../linked';
 import { useGameDetails } from '../useGameDetails';
 import { Art } from './Art';
 import { Overview } from './Overview';
@@ -16,7 +17,7 @@ import { TrophiesTab } from './TrophiesTab';
 import type { DialogHandlers, GameStub } from './types';
 
 export function Body({
-  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, initialTab, onNotFound,
+  id, titleId, game: gameProp, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, onNotDuplicate, initialTab, onNotFound,
 }: {
   initialTab?: DetailTab; onNotFound?: () => void;
   id: number; titleId: string; game: GameItem | null; stub: GameStub | null; startEditing: boolean; now: number;
@@ -24,7 +25,7 @@ export function Body({
   onLoaded?: (g: GameItem) => void;
 } & DialogHandlers) {
   // перечитываем детали при смене статуса или даты (statusChangedAt)
-  const refreshKey = `${gameProp?.status ?? ''}|${gameProp?.completedAt ?? ''}|${gameProp?.droppedAt ?? ''}`;
+  const refreshKey = `${gameProp?.status ?? ''}|${gameProp?.completedAt ?? ''}|${gameProp?.droppedAt ?? ''}|${linkedVersionsOf(gameProp).map((v) => v.gameId).join(',')}`;
   const { state, retry } = useGameDetails(id, refreshKey);
   const details = state.kind === 'ok' ? state.data : null;
   const game = gameProp ?? details?.game ?? null;
@@ -144,7 +145,7 @@ export function Body({
 
       <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" data-tab={tab} tabIndex={0}>
         {tab === 'overview'
-          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} />
+          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} />
           : <TrophiesTab state={state} onRetry={retry} />}
       </div>
     </div>

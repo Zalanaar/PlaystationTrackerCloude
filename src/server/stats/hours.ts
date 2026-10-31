@@ -123,7 +123,7 @@ export function estimateSecondsByGame(inputs: readonly EstimateInput[], from: st
   for (const inp of inputs) {
     let sum = 0;
     for (const [k, v] of estimateByMonth(inp)) if (k >= fromKey && k <= toKey) sum += v;
-    if (sum > 0) out.set(inp.gameId, sum);
+    if (sum > 0) out.set(inp.gameId, (out.get(inp.gameId) ?? 0) + sum);
   }
   return out;
 }

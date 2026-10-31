@@ -1,5 +1,5 @@
 // Детали игры для окна (контракт 12.5): GameItem + даты + список трофеев всех сетов игры. Три запроса, без N+1.
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
@@ -57,7 +57,7 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
       .limit(1)
       .then((m) => [m[0]] as const),
     db
-      .select({
+      .selectDistinct({
         setId: trophies.trophySetId,
         trophyId: trophies.trophyId,
         groupId: trophies.groupId,
@@ -73,7 +73,9 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
       })
       .from(gameTrophySets)
       .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
-      .where(and(eq(gameTrophySets.gameId, id), eq(gameTrophySets.userId, userId)))
+      .innerJoin(games, and(eq(games.id, gameTrophySets.gameId), eq(games.userId, userId)))
+      // 25.3: трофеи всей группы (сама игра и её дубли); сет, привязанный к нескольким версиям, не задваивается (distinct)
+      .where(and(eq(gameTrophySets.userId, userId), or(eq(games.id, id), eq(games.duplicateOfGameId, id))))
       .orderBy(asc(trophies.trophySetId), asc(trophies.trophyId)),
   ]);
   if (!game || !meta) return null;

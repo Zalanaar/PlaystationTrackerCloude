@@ -1,14 +1,18 @@
 // Выборка для «ближе всего к платине» (контракт 14.2, базовая группа: 15.3): одна сгруппированная выборка по (игра, сет), расчёт в platinum.ts.
 import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
+import { effectiveSetLinks } from './query';
+import { visibleGameRow } from './visibility';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { platinumForecast, rankNearPlatinum, type NearPlatinumCandidate, type SetAgg } from './platinum';
 
-const { games, gameStatus, gameTrophySets, trophies } = schema;
+const { games, gameStatus, trophies } = schema;
 
 /** Видимые игры со статусом не dropped (без статуса тоже), топ по прогрессу к платине. Только id и прогнозы. */
 export async function getNearPlatinumCandidates(db: AnyDb, userId: UserId, limit?: number): Promise<NearPlatinumCandidate[]> {
+  // 25.3: сеты версий-дублей относятся к главной, общий сет один раз
+  const links = effectiveSetLinks(db, userId);
   const cnt = (cond: ReturnType<typeof sql>) => sql<number>`(count(*) filter (where ${cond}))::int`;
   // 15.3: прогноз по базовой группе (default или ещё неизвестная); DLC считается отдельно
   const base = sql`(${trophies.groupId} is null or ${trophies.groupId} = 'default')`;
@@ -16,7 +20,7 @@ export async function getNearPlatinumCandidates(db: AnyDb, userId: UserId, limit
   const remaining = sql`${base} and not ${trophies.earned} and ${trophies.type} <> 'platinum'`;
   const rows = await db
     .select({
-      gameId: gameTrophySets.gameId,
+      gameId: links.gameId,
       title: games.name,
       setId: trophies.trophySetId,
       pD: cnt(sql`${trophies.type} = 'platinum'`),
@@ -36,12 +40,12 @@ export async function getNearPlatinumCandidates(db: AnyDb, userId: UserId, limit
       rateCount: sql<number>`(count(${trophies.earnedRate}) filter (where ${remaining}))::int`,
       rateMin: sql<string | null>`min(${trophies.earnedRate}) filter (where ${remaining})`,
     })
-    .from(gameTrophySets)
-    .innerJoin(games, and(eq(games.id, gameTrophySets.gameId), eq(games.userId, userId)))
+    .from(links)
+    .innerJoin(games, and(eq(games.id, links.gameId), eq(games.userId, userId)))
     .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
-    .where(and(eq(gameTrophySets.userId, userId), isNull(games.hiddenAt), or(isNull(gameStatus.status), ne(gameStatus.status, 'dropped'))))
-    .groupBy(gameTrophySets.gameId, games.name, trophies.trophySetId);
+    .innerJoin(trophies, and(eq(trophies.trophySetId, links.trophySetId), eq(trophies.userId, userId)))
+    .where(and(visibleGameRow(), or(isNull(gameStatus.status), ne(gameStatus.status, 'dropped'))))
+    .groupBy(links.gameId, games.name, trophies.trophySetId);
 
   const num = (v: string | number | null) => (v === null ? null : Number(v));
   const byGame = new Map<number, { title: string; sets: SetAgg[] }>();
