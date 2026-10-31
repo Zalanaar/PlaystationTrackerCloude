@@ -54,6 +54,13 @@ const P: Record<string, ReactNode> = {
   'chevron-left': <path d="m15 18-6-6 6-6" />,
   'chevron-right': <path d="m9 18 6-6-6-6" />,
   users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.870" /><path d="M16 3.130a4 4 0 0 1 0 7.750" /></>,
+  'user-x': <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="m17 8 5 5" /><path d="m22 8-5 5" /></>,
+  'user-plus': <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6" /><path d="M22 11h-6" /></>,
+  lock: <><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>,
+  'shield-alert': <><path d="M20 13c0 5-3.500 7.500-7.700 8.900a1 1 0 0 1-.6 0C7.500 20.500 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.500-1.200 6.200-2.700a1.200 1.200 0 0 1 1.600 0C14.500 3.800 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4" /><path d="M12 16h.01" /></>,
+  timer: <><path d="M10 2h4" /><path d="M12 14l3-3" /><circle cx="12" cy="14" r="8" /></>,
+  'cloud-off': <><path d="m2 2 20 20" /><path d="M5.800 5.800A7 7 0 0 0 7 19h10a4.500 4.500 0 0 0 1.600-.3" /><path d="M21.500 15.900A4.500 4.500 0 0 0 17.500 9H16a7 7 0 0 0-8.200-3.700" /></>,
+  loader: <><path d="M12 2v4" /><path d="m16.200 7.800 2.900-2.900" /><path d="M18 12h4" /><path d="m16.200 16.200 2.900 2.900" /><path d="M12 18v4" /><path d="m4.900 19.100 2.900-2.900" /><path d="M2 12h4" /><path d="m4.900 4.900 2.900 2.900" /></>,
   'circle-help': <><circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></>,
 };
 
