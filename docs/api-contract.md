@@ -2310,3 +2310,147 @@ Fail-open: если БД недоступна или таблицы ещё не�
 - 200: `{"ok":true,"data":{"game":{ GameItem игры {id} уже без отвязанных версий }}}`.
 - 400 `invalid_request`: id не число, тело не JSON-объект или `versionId` не целое. 404 `not_found`: нет игры, чужая игра (то же тело, что у несуществующей), `versionId` не её дубль. 503 `db_unavailable`.
 Отменить это действие в API нельзя (синк не вернёт склейку). Риск склейки разных игр с общим `concept_id` лечится этой кнопкой.
+
+## 26. Статистика и Итоги «за всё время», «Когда ты играешь» (Фазы 25–26)
+
+Миграций нет: схема БД не меняется. Все изменения только добавляют поля; ответы `year` и `month` (10.1, 11.1) не меняются ни в одном существующем поле. Типы: `src/server/stats/types.ts`, `src/server/wrapped/types.ts` (во frontend только `import type`). Новые поля в типах необязательные (фикстуры `src/ui`), сервер присылает их всегда там, где указано.
+
+### 26.1 `GET /api/stats?period=all` (Фаза 25)
+
+`period` принимает `year | month | all`. При `period=all` параметры `year` и `month` **игнорируются** (в том числе мусорные: `period=all&year=abc` это `200`). Остальной мусор по-прежнему `400 invalid_request` (неизвестный `period`, плохой `withService`).
+
+**`period` в ответе.** `{ "type": "all", "year": <текущий год МСК>, "month": null, "from": "2019-03-02" | null, "to": "2026-10-27" | null, "fromUtc": ... | null, "toUtc": ... | null }`. `year` для `all` это текущий год по Москве (поле остаётся числом, чтобы не ломать типы), смысла не несёт. `from` / `to`: первая и последняя даты данных пользователя по МСК. Источники: `playtime_snapshots.snapshot_date`, `trophies.earned_at` (только засчитанные), `game_status.completed_at` / `dropped_at`, `games.first_played_at` / `last_played_at` (видимые игры). Данных нет совсем: `from`, `to`, `fromUtc`, `toUtc` равны `null`. Иначе `fromUtc` = полночь МСК `from`, `toUtc` = полночь МСК следующего за `to` дня (`toUtc` исключается). Тип `StatsPeriod` теперь объединение: у `type: "all"` четыре поля границ могут быть `null`.
+
+**Какие блоки как заполняются при `all`.** Форма ответа та же, что у `year` (UI не проверяет на undefined), плюс новые поля:
+
+```json
+{ "ok": true, "data": {
+  "period": { "type": "all", "year": 2026, "month": null, "from": "2019-03-02", "to": "2026-10-27",
+              "fromUtc": "2019-03-01T21:00:00.000Z", "toUtc": "2026-10-27T21:00:00.000Z" },
+  "years": [2026, 2025, 2024],
+  "header": { "completed": 41, "dropped": 9, "hours": 2840.5, "platinum": 33 },
+  "hours": {
+    "byMonth": [null, null, null, null, null, null, null, null, null, null, null, null],
+    "estimatedByMonth": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "estimatedHours": 410.3, "hasEstimate": true,
+    "firstSnapshotDate": "2026-03-04", "periodPartial": true,
+    "byYear": [
+      { "year": 2024, "hours": 900.1, "estimatedHours": 900.1, "measuredHours": 0 },
+      { "year": 2025, "hours": 1200.0, "estimatedHours": 300.0, "measuredHours": 900.0 },
+      { "year": 2026, "hours": 700.4, "estimatedHours": 0, "measuredHours": 700.4 }
+    ],
+    "unattributed": 40.0
+  },
+  "genres": { "hasData": true, "items": [ { "key": "ACTION", "label": "Экшен", "value": 52.5, "gameIds": [17] } ], "games": { "17": { "id": 17, "title": "...", "coverUrl": null } } },
+  "top": { "byHours": [ { "game": { "...": "GameItem" }, "hours": 310.2, "estimated": false } ], "byTrophies": [ { "game": { "...": "GameItem" }, "points": 1200, "counts": { "platinum": 1, "gold": 3, "silver": 9, "bronze": 20, "total": 33 } } ] },
+  "rareTrophies": { "period": [ "= allTime" ], "allTime": [ "RareTrophy по 14.1" ] },
+  "trophies": {
+    "counts": { "platinum": 33, "gold": 120, "silver": 300, "bronze": 800, "total": 1253 },
+    "byMonth": [ { "month": 1, "platinum": 0, "gold": 0, "silver": 0, "bronze": 0, "total": 0 } ],
+    "byYear": [ { "year": 2024, "platinum": 10, "gold": 40, "silver": 100, "bronze": 300, "total": 450 } ]
+  },
+  "finished": { "groups": [], "byYear": [ { "year": 2024, "completed": 12, "dropped": 3 } ] },
+  "played": { "games": {}, "groups": [] },
+  "playPattern": { "byHour": [0, 0, "... 24 числа"], "byWeekday": [0, 0, 0, 0, 0, 0, 0], "total": 1253, "peakHour": 22, "peakWeekday": 5, "label": "по времени трофеев", "hasData": true }
+} }
+```
+
+| Поле | Правило при `all` |
+|---|---|
+| `years` | как в 10.1 (годы с данными по убыванию, текущий год всегда) |
+| `header.hours` | **сумма PSN `playDuration` по видимым играм**: `games.play_duration_seconds` каждой видимой игры (не скрыта, не дубль) плюс `play_duration_seconds` всех её дублей (Фаза 23, 25.3; то же выражение, что `GameItem.playSeconds`: дубль в суммы входит ровно один раз, через главную). Округление до 0.1. `null`, если у пользователя нет видимых игр |
+| `header.completed` / `dropped` | число видимых игр со `status = completed` / `dropped` и непустой датой (`completed_at` / `dropped_at`), без ограничения периодом |
+| `header.platinum` | число платин с `earned_at`, равно `trophies.counts.platinum` |
+| `hours.byYear` | по возрастанию года, **без пропусков**: от самого раннего года из `years` до текущего года МСК (в том числе годы с нулями). `hours` = `measuredHours + estimatedHours` (в десятых долях, без накопления погрешности). `measuredHours`: реальные часы года по снимкам (формула 1.6 для периода «год»: `S_end - S_base`, отрицательная дельта = 0, дубли слиты в главную как в 25.3). `estimatedHours`: оценочная часть года (оценка 1.6 по месяцам года, с учётом исключённых месяцев 15.1, оценка дубля относится к главной). UI рисует `estimatedHours` штриховкой «оценка» |
+| `hours.unattributed` | часы, которые нельзя отнести к годам: `header.hours - sum(byYear[].hours)`, в десятых долях. Это игры без снимков, игры с часами до первого снимка и без `first_played_at` (оценки нет), ручное расхождение `games.play_duration_seconds` и последнего снимка, скачки PSN вниз. Может быть и **отрицательным** (PSN уменьшил время, а в годах уже учтён прирост; у игры, чья оценка шла по одному исключённому месяцу, наоборот плюс). Обычно близок к `0` |
+| **Инвариант** | `sum(hours.byYear[].hours) + hours.unattributed == header.hours` (с точностью до 0.1 float; считается в целых десятых). Если `header.hours = null`: `byYear` по нулям (или `[]`), `unattributed = 0` |
+| `hours.estimatedHours` / `hasEstimate` | сумма `byYear[].estimatedHours` / `> 0` |
+| `hours.byMonth` | 12 `null` (при `all` не используется) , `estimatedByMonth` 12 нулей |
+| `hours.firstSnapshotDate` | как в 10.1. `periodPartial = true`, если `firstSnapshotDate = null`, либо есть оценочные часы (`estimatedHours > 0`), либо `unattributed != 0` (UI показывает плашку «часть часов оценка / не по снимкам») |
+| `trophies.counts` | все засчитанные трофеи с `earned = true` и `earned_at` (без периода), как в 10.1 по фильтрам видимости и сетов-сирот |
+| `trophies.byYear` | по возрастанию года, без пропусков (диапазон как у `hours.byYear`, года по МСК). Платина по годам = `byYear[].platinum`. `sum(byYear[].X) == counts.X` |
+| `trophies.byMonth` | 12 нулевых элементов (форма сохраняется) |
+| `finished.byYear` | `[{year, completed, dropped}]`, диапазон лет как у `hours.byYear`; год по МСК по `completed_at` / `dropped_at`, те же правила, что `header.completed/dropped`. `sum(completed) == header.completed`. `finished.groups` при `all` всегда `[]` |
+| `genres` | топ-8, веса 1/N (1.9, 10.1). Игры: видимые игры с часами `> 0` (PSN, как `header.hours`) **или** со статусом `completed` / `dropped` когда-либо. `gameIds` по часам игры по убыванию |
+| `top.byHours` | топ-10 видимых игр по **суммарным** часам PSN (с дублями, `effectiveSeconds`), порядок `top.ts`: часы по убыванию, `lower(title)`, `id`. `estimated` всегда `false` (это суммарные часы PSN, не оценка) |
+| `top.byTrophies` | по очкам всех полученных трофеев (13.2 без периода) |
+| `rareTrophies` | `period` = `allTime` (одна выборка, 14.1, включая трофеи без даты) |
+| `played` | `{ games: {}, groups: [] }` (блок «Игры месяца» только для года/месяца) |
+
+**Что не меняется.** `period=year` и `period=month`: ни одно существующее поле не изменено. Новые поля для них: только `playPattern` (26.3). `hours.byYear`, `hours.unattributed`, `trophies.byYear`, `finished.byYear` присутствуют **только** при `period.type = "all"`.
+
+**Скорость.** Число запросов к БД не зависит от числа игр и снимков: снимки не грузятся целиком, берутся строки «первый снимок игры» и «последний снимок игры в каждом году» (из них та же формула 1.6 даёт часы по годам), трофеи агрегируются в SQL. Покрыто `perf.test.ts`.
+
+**Изоляция.** Все запросы с `user_id` из сессии (как в остальной статистике, 22.6); тест на утечки между двумя пользователями.
+
+### 26.2 `GET /api/wrapped?year=all` (Фаза 26)
+
+Выбрано `year=all` (а не `period=all`): параметр один, и он уже выбирает «что показывать». `year`: целое 2000..2100 **или** строка `all`; остальное `400 invalid_request` (`year=ALL`, `year=all2`, пустая строка = нет параметра = текущий год).
+
+Новые поля ответа (всегда присутствуют, форма `empty` сохраняется):
+| Поле | Значение |
+|---|---|
+| `scope` | `"year"` или `"all"` |
+| `allTimeAvailable` | `true`, если у пользователя есть хоть какие-то данные для набора «всё время» (`mode` ответа `year=all` был бы `story`). Для карточки «Всё время» в выборе года; присутствует в ответах и `year`, и `all` |
+| `allTime` | `null` при `scope = "year"`; при `all` объект (ниже) |
+| `playPattern` | блок 26.3 для года или всего времени |
+| `year` | при `all` текущий год МСК (число, как `period.year` в 26.1), смысла не несёт |
+| `period` | при `all`: `{from, to, fromUtc, toUtc}` как в 26.1 (поля могут быть `null`) |
+
+`allTime` при `scope = "all"`:
+```json
+{
+  "firstGame": { "hasData": true, "at": "2016-05-09T17:00:00.000Z", "source": "first_played", "game": { "...": "GameItem" } },
+  "hoursByYear": { "hasData": true, "total": 2840.5, "unattributed": 40.0, "byYear": [ { "year": 2025, "hours": 1200.0, "estimatedHours": 300.0, "measuredHours": 900.0 } ] },
+  "platinumByYear": { "hasData": true, "total": 33, "items": [ { "year": 2024, "count": 10 } ] },
+  "busiestYear": { "hasData": true, "year": 2025, "hours": 1200.0, "estimated": true },
+  "topGenre": { "hasData": true, "key": "ACTION", "label": "Экшен", "value": 52.5 }
+}
+```
+| Поле | Правило |
+|---|---|
+| `firstGame` | видимая игра с самой ранней датой первого запуска: `min(games.first_played_at)` главной и её дублей (`source: "first_played"`, `at` = эта дата). Если ни у одной игры даты нет: игра самого раннего полученного трофея по `earned_at` (`source: "first_trophy"`, `at` = `earned_at`; игра сета = минимальный id видимой игры, сет-сирота игры не даёт). Нет ни того ни другого: `hasData: false`, `at: null`, `source: null`, `game: null`. Игры без `first_played_at` в первую очередь не участвуют (PSN не отдал дату). Честное ограничение: `first_played_at` это то, что PSN помнит о первом запуске, у старых игр оно может быть позже реального |
+| `hoursByYear` | то же, что `hours.byYear` / `unattributed` / `header.hours` из 26.1 (одна функция расчёта), `hasData = total > 0` |
+| `platinumByYear` | платины по `earned_at` по годам МСК, диапазон лет как у `hoursByYear`, `total` = сумма, `hasData = total > 0` |
+| `busiestYear` | год с максимальным `hours` в `hoursByYear.byYear` (ничья: более ранний), `hours` его часы, `estimated = estimatedHours > 0` в этом году. `hasData = false`, `year = null`, `hours = 0`, если часов нет |
+| `topGenre` | первый жанр из `genres.items` (топ-1 за все годы); `hasData = false` и `key`/`label` `null`, `value` `0`, если жанров нет |
+
+Остальные блоки при `all` (форма как в 11.1, но за все годы):
+- `hours`: `total` = `header.hours` из 26.1, `days = round(total/24, 1)`, `byMonth` 12 `null`, `estimatedByMonth` 12 нулей, `estimatedHours`/`hasEstimate` как в 26.1, `topMonth = null`, `hasData = total > 0`.
+- `topGames`: топ-5 по суммарным часам PSN (как `top.byHours`, `estimated: false`, `rank`, `seconds` суммарные).
+- `longestGame`: игра №1 из `topGames` (самая долгая за всё время), `playCount = game.playCount`; пусто = `hasData: false`, `game: null`.
+- `genres`: топ-3 (правила 26.1).
+- `trophies`: `counts` все; `platinum.first/last/rarest` по всем платинам; `rare` = `rareTrophies.allTime` (топ-5).
+- `finished`: `completed.count` / `dropped.count` как `header` из 26.1, `items: []` (списки слайдами «за всё время» не показываются), `busiestMonth: null`, `hasData = count сумма > 0`.
+- `mode`: `empty`, если одновременно нет часов, трофеев и завершённых/брошенных (`emptyState.syncStartedOn` как в 11.1).
+- `slides` при `all` (порядок фиксирован): `start`, `firstGame` (если `allTime.firstGame.hasData`), `hours` (если `hours.hasData`), `platinumYears` (если `platinumByYear.hasData`), `busiestYear` (если `busiestYear.hasData`), `genres` (если `genres.hasData`), `longestGame` (если `longestGame.hasData`), `playPattern` (если `playPattern.hasData`), `final`. `topGames`, `finished`, `trophies` в наборе «всё время» не показываются. `empty`: `["empty"]`.
+- `slides` при `year`: порядок 11.1; **новое**: `playPattern` ставится сразу после `trophies` (если `playPattern.hasData`; при `hasData = false` слайда нет, поэтому у существующих годов без паттерна `slides` не меняется). Новые идентификаторы в `WrappedSlideId`: `firstGame`, `platinumYears`, `busiestYear`, `playPattern`.
+
+Эндпоинт для года не меняется. `years` в ответе остаётся списком лет; кнопка «Всё время» зависит от `allTimeAvailable`.
+
+### 26.3 «Когда ты играешь»: `playPattern` (Фаза 26)
+
+Распределение **полученных трофеев** по времени суток и дню недели по **Europe/Moscow** (UTC+3 без перехода на летнее время, как везде). Это не игровое время: PSN отдаёт время только трофеев, поэтому подпись `label: "по времени трофеев"`.
+
+```json
+{ "byHour": [3, 0, 0, "... всего 24 числа, индекс = час МСК 0..23"],
+  "byWeekday": [20, 15, 10, 8, 30, 55, 40],
+  "total": 178, "peakHour": 22, "peakWeekday": 5,
+  "label": "по времени трофеев", "hasData": true }
+```
+| Поле | Правило |
+|---|---|
+| `byHour` | ровно 24 числа, индекс = час `0..23` по МСК. Трофей в 23:59:59 МСК идёт в 23, в 00:00:00 МСК уже в 0 следующего дня (событие 21:00:00Z это 00:00 МСК следующих суток) |
+| `byWeekday` | ровно 7 чисел, индекс 0 = понедельник .. 6 = воскресенье (ISO). День недели считается по дате МСК (не UTC): 21:30Z субботы это воскресенье 00:30 МСК |
+| `total` | число трофеев в периоде: `sum(byHour) == sum(byWeekday) == total == trophies.counts.total` того же периода (те же фильтры: `earned`, есть `earned_at`, видимость сетов) |
+| `peakHour` / `peakWeekday` | индекс максимума (ничья: меньший индекс); `null`, если `total = 0` |
+| `label` | константа `"по времени трофеев"` |
+| `hasData` | `total >= 20` (порог `PLAY_PATTERN_MIN_TOTAL`); иначе `false`: UI скрывает блок/слайд (мало данных, паттерн был бы шумом). Массивы всё равно присылаются |
+
+Где присутствует: `GET /api/stats` для `period` `year` / `month` / `all` (по периоду ответа; при `month` это только трофеи месяца) и `GET /api/wrapped` (для года и для `all`). Пустой период: нули, `total: 0`, пики `null`, `hasData: false`.
+
+### 26.4 Решения и риски
+
+- Часы «за всё время» берутся из текущего `games.play_duration_seconds`, а не из последнего снимка: сумма совпадает с числом на карточках коллекции. Разницу со снимками честно показывает `unattributed`.
+- Годы часов до первого синка это только оценка 1.6 (месячная, по `first_played_at`..`last_played_at`); штриховка «оценка» в UI обязательна.
+- Паттерн времени по трофеям смещён в сторону игр с трофеями и в сторону моментов, когда трофеи синхронизировались с PS (PSN хранит время получения, но старые трофеи могут быть выданы пачкой при синхронизации консоли).
