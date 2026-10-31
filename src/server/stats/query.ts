@@ -25,7 +25,6 @@ import type { StatsQuery } from './validation';
 export { getStatsYears };
 
 const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies } = schema;
-const TZ = 'Europe/Moscow';
 
 /** Ответ с границами периода (year/month): `period.from/to` строки. */
 export type BoundedStatsResponse = Omit<StatsResponse, 'period'> & { period: BoundedPeriod };
@@ -33,7 +32,7 @@ export type BoundedStatsResponse = Omit<StatsResponse, 'period'> & { period: Bou
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery & { type: 'year' | 'month' }, now?: Date): Promise<BoundedStatsResponse>;
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now?: Date): Promise<StatsResponse>;
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Date = new Date()): Promise<StatsResponse> {
-  if (q.type === 'all') return getStatsAll(db, userId, now);
+  if (q.type === 'all') return getStatsAll(db, userId, now, q.withService === true);
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const period = resolvePeriod(q.type, q.year, q.month);

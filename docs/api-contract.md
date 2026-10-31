@@ -2391,7 +2391,7 @@ Fail-open: если БД недоступна или таблицы ещё не�
 | Поле | Значение |
 |---|---|
 | `scope` | `"year"` или `"all"` |
-| `allTimeAvailable` | `true`, если у пользователя есть хоть какие-то данные для набора «всё время» (`mode` ответа `year=all` был бы `story`). Для карточки «Всё время» в выборе года; присутствует в ответах и `year`, и `all` |
+| `allTimeAvailable` | `true`, если у пользователя есть данные для набора «всё время». При `scope = "all"` точно (`mode = story`); при `scope = "year"` приближённо: хоть у одного года из `years` `hasData = true` (11.1). Для карточки «Всё время» в выборе года, присутствует в обоих ответах |
 | `allTime` | `null` при `scope = "year"`; при `all` объект (ниже) |
 | `playPattern` | блок 26.3 для года или всего времени |
 | `year` | при `all` текущий год МСК (число, как `period.year` в 26.1), смысла не несёт |
@@ -2426,7 +2426,7 @@ Fail-open: если БД недоступна или таблицы ещё не�
 - `slides` при `all` (порядок фиксирован): `start`, `firstGame` (если `allTime.firstGame.hasData`), `hours` (если `hours.hasData`), `platinumYears` (если `platinumByYear.hasData`), `busiestYear` (если `busiestYear.hasData`), `genres` (если `genres.hasData`), `longestGame` (если `longestGame.hasData`), `playPattern` (если `playPattern.hasData`), `final`. `topGames`, `finished`, `trophies` в наборе «всё время» не показываются. `empty`: `["empty"]`.
 - `slides` при `year`: порядок 11.1; **новое**: `playPattern` ставится сразу после `trophies` (если `playPattern.hasData`; при `hasData = false` слайда нет, поэтому у существующих годов без паттерна `slides` не меняется). Новые идентификаторы в `WrappedSlideId`: `firstGame`, `platinumYears`, `busiestYear`, `playPattern`.
 
-Эндпоинт для года не меняется. `years` в ответе остаётся списком лет; кнопка «Всё время» зависит от `allTimeAvailable`.
+`withService` (17.2/20.8) влияет только на `rare` (как в годовом наборе). Эндпоинт для года не меняется. `years` в ответе остаётся списком лет; кнопка «Всё время» зависит от `allTimeAvailable`.
 
 ### 26.3 «Когда ты играешь»: `playPattern` (Фаза 26)
 

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, isNotNull, max, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
-import { effectiveSecondsSql, getGamesByIds } from '@/server/collection/query';
+import { getGamesByIds } from '@/server/collection/query';
 import type { GameItem } from '@/server/collection/types';
 import { effectiveGameIdSql, gameVisible, snapshotGameVisible, trophySetCounted, visibleGameRow } from '@/server/collection/visibility';
 import { allPeriod, calcHoursByYear, composeStatsAll, topIds, type AllGameRow, type FinishedYearRow, type HoursByYearResult, type TrophyYearRow } from './all-time';
@@ -22,19 +22,26 @@ const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies } = s
 // Литерал, а не параметр: выражение в SELECT и GROUP BY должно совпадать дословно.
 const MSK = sql.raw(`'Europe/Moscow'`);
 
+/**
+ * 25.3: часы карточки = свои + часы её дублей. Имена столбцов с таблицей явно: drizzle в списке SELECT одной таблицы
+ * печатает их без префикса, и подзапрос по дублям тогда смотрел бы на самого себя.
+ */
+export const effectiveSecondsQualified = sql<number>`("games"."play_duration_seconds" + coalesce((select sum(d."play_duration_seconds") from "games" d where d."user_id" = "games"."user_id" and d."duplicate_of_game_id" = "games"."id"), 0))::int`;
+
 const asDate = (v: unknown): Date | null => (v === null || v === undefined ? null : v instanceof Date ? v : new Date(String(v)));
 
 export type AllTimeData = {
   response: StatsResponse;
   hours: HoursByYearResult;
   games: AllGameRow[];
+  patternCells: PatternCell[];
   /** первая/последняя даты данных МСК */
   first: string | null;
   last: string | null;
 };
 
-/** Всё, что нужно и Статистике, и Итогам «за всё время». gameById: карточки топов; extraIds: ещё карточки (например игра первого запуска). */
-export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Date(), extraIds: () => number[] = () => []): Promise<AllTimeData & { gameById: Map<number, GameItem> }> {
+/** Всё, что нужно и Статистике, и Итогам «за всё время». gameById: карточки игр из топов. */
+export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false): Promise<AllTimeData & { gameById: Map<number, GameItem> }> {
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const [exclusions, rawEstimates, dup] = await Promise.all([getMonthExclusions(db, userId), getEstimateInputs(db, userId, new Map()), getDuplicateMap(db, userId)]);
@@ -67,7 +74,7 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
       .orderBy(ps.gameId, snapYear, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
     db
-      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${effectiveSecondsSql}), 0)::float8` })
+      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${effectiveSecondsQualified}), 0)::float8` })
       .from(games)
       .where(and(eq(games.userId, userId), visibleGameRow())),
     db
@@ -87,7 +94,7 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
         coverUrl: games.imageUrl,
         psnGenres: games.psnGenres,
         genresOverride: games.genresOverride,
-        seconds: effectiveSecondsSql,
+        seconds: effectiveSecondsQualified,
         status: gameStatus.status,
       })
       .from(games)
@@ -99,7 +106,7 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
       .innerJoin(owner, eq(owner.setId, trophies.trophySetId))
       .where(and(eq(trophies.userId, userId), eq(trophies.earned, true)))
       .groupBy(owner.gameId, trophies.type),
-    getRareTrophies(db, userId, null, undefined, false),
+    getRareTrophies(db, userId, null, undefined, withService),
     getPlayPatternCells(db, userId, null),
     // границы данных (первая и последняя даты)
     db.select({ lo: min(ps.snapshotDate), hi: max(ps.snapshotDate) }).from(ps).where(snapVisible),
@@ -149,7 +156,6 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
   const last = dates[dates.length - 1] ?? null;
 
   const ids = new Set<number>(topIds(gameList, byGame));
-  for (const id of extraIds()) ids.add(id);
   const items = await getGamesByIds(db, userId, [...ids]);
   const gameById = new Map(items.map((g) => [g.id, g]));
   const response = composeStatsAll({
@@ -163,11 +169,11 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
     trophiesByGame: byGame,
     gameById,
     rare,
-    patternCells: cells as PatternCell[],
+    patternCells: cells,
   });
-  return { response, hours, games: gameList, first, last, gameById };
+  return { response, hours, games: gameList, patternCells: cells, first, last, gameById };
 }
 
-export async function getStatsAll(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<StatsResponse> {
-  return (await loadAllTime(db, userId, now)).response;
+export async function getStatsAll(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false): Promise<StatsResponse> {
+  return (await loadAllTime(db, userId, now, withService)).response;
 }
