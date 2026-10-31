@@ -44,6 +44,7 @@
 .ps-chron > .ps-mchips {
   position: sticky; top: var(--header-h); z-index: 5; margin-top: var(--sp-2); margin-bottom: var(--sp-3);
   padding-inline: var(--sp-2); border-radius: var(--r-lg);
+  width: fit-content; max-width: 100%;   /* полоса кончается по последнему чипу; если месяцев много — скролл внутри */
   background: color-mix(in srgb, var(--bg) 62%, transparent);   /* матовое стекло, как плашка Бэклога */
   -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
 }
