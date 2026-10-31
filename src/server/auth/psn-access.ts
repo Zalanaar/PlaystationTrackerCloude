@@ -36,8 +36,25 @@ export type PsnState = {
 };
 
 export async function getPsnState(db: AnyDb, userId: UserId): Promise<PsnState | null> {
-  const u = await getUserById(db, userId);
+  let u = await getUserById(db, userId);
   if (!u) return null;
+  // W-1: success-запуск есть, а onboarded_at не проставлен (сбой UPDATE, запуск до 20.4) -> дозаполняем, иначе member застрянет на онбординге
+  if (!u.onboardedAt) {
+    try {
+      const [ok] = await db
+        .select({ id: syncRuns.id })
+        .from(syncRuns)
+        .where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'success'), ne(syncRuns.kind, 'hltb')))
+        .limit(1);
+      if (ok) {
+        const now = new Date();
+        await db.update(allowedUsers).set({ onboardedAt: now, updatedAt: now }).where(and(eq(allowedUsers.id, userId), isNull(allowedUsers.onboardedAt)));
+        u = { ...u, onboardedAt: now };
+      }
+    } catch {
+      // состояние читается и без отметки; следующий запрос повторит попытку
+    }
+  }
   const [run] = await db
     .select()
     .from(syncRuns)
@@ -86,8 +103,8 @@ async function applyCheck(db: AnyDb, u: UserRow, onlineId: string, r: AccessChec
   return status;
 }
 
-/** PUT /api/me/psn. input не задан = перепроверка сохранённого ника. */
-export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | undefined, check: CheckFn, now: Date = new Date()): Promise<SetPsnResult> {
+/** PUT /api/me/psn. input не задан = перепроверка сохранённого ника. ownerOnlineId = PSN_TARGET_ONLINE_ID (ник владельца для не-owner занят). */
+export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | undefined, check: CheckFn, now: Date = new Date(), ownerOnlineId: string | null = null): Promise<SetPsnResult> {
   const u = await getUserById(db, userId);
   if (!u) return { kind: 'invalid' };
   const onlineId = (input ?? u.psnOnlineId ?? '').trim();
@@ -97,6 +114,8 @@ export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | un
     const wait = u.psnAccessCheckedAt.getTime() + ACCESS_COOLDOWN_MS - now.getTime();
     if (wait > 0) return { kind: 'rate_limited', retryAfterSec: Math.ceil(wait / 1000) };
   }
+  // W-6: ник владельца из PSN_TARGET_ONLINE_ID занят, даже если в allowed_users у владельца ник ещё не записан
+  if (u.role !== 'owner' && ownerOnlineId && ownerOnlineId.trim().toLowerCase() === onlineId.toLowerCase()) return { kind: 'taken' };
   const [dup] = await db
     .select({ id: allowedUsers.id })
     .from(allowedUsers)

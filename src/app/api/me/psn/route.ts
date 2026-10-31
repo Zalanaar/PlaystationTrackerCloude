@@ -45,7 +45,7 @@ export async function PUT(req: Request) {
   if (!env) return fail(500, 'config_error', 'Не заданы настройки PSN.');
   try {
     const db = getDb();
-    const r = await setPsnAccess(db, a.user.id, b.onlineId, buildCheck(db, env));
+    const r = await setPsnAccess(db, a.user.id, b.onlineId, buildCheck(db, env), new Date(), env.targetOnlineId);
     switch (r.kind) {
       case 'ok':
         return NextResponse.json({ ok: true, data: r.state }, { headers: NO_STORE });

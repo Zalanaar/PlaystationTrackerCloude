@@ -103,7 +103,8 @@ export function getAppOrigin(env: Record<string, string | undefined> = process.e
 
 export type LlmEnv = { provider: 'gemini' | 'groq'; apiKey: string; model: string | null; dailyLimit: number; /** вызовов на пользователя в сутки (22.13); нет = 12 */ userDailyLimit?: number };
 
-export const LLM_DEFAULT_DAILY_LIMIT = 20;
+/** Без LLM_DAILY_LIMIT: хватает 5 пользователям по 12 вызовов (22.13, W-3). */
+export const LLM_DEFAULT_DAILY_LIMIT = 60;
 export const LLM_MAX_DAILY_LIMIT = 200;
 export const LLM_DEFAULT_USER_DAILY_LIMIT = 12;
 
@@ -139,4 +140,15 @@ export const DEFAULT_MAX_USERS = 10;
 /** Мультипользовательность (контракт 22.7/22.8): MULTIUSER_ENABLED=1 разрешает добавлять member; MAX_USERS (1..100, по умолчанию 10). */
 export function getMultiuserEnv(env: Record<string, string | undefined> = process.env): { enabled: boolean; maxUsers: number } {
   return { enabled: env.MULTIUSER_ENABLED?.trim() === '1', maxUsers: intEnv(env.MAX_USERS, DEFAULT_MAX_USERS, 1, 100) };
+}
+
+/**
+ * W-3 (22.13): общий потолок LLM меньше `пользователи x LLM_USER_DAILY_LIMIT` — владелец (идёт первым) съест бюджет, остальным не хватит.
+ * Возвращает текст предупреждения или null. Без секретов, пригоден для лога.
+ */
+export function llmLimitWarning(llm: Pick<LlmEnv, 'dailyLimit' | 'userDailyLimit'> | null, activeUsers: number): string | null {
+  if (!llm) return null;
+  const need = activeUsers * (llm.userDailyLimit ?? LLM_DEFAULT_USER_DAILY_LIMIT);
+  if (llm.dailyLimit >= need) return null;
+  return `LLM_DAILY_LIMIT=${llm.dailyLimit} меньше нужного ${need} (${activeUsers} польз. x ${llm.userDailyLimit ?? LLM_DEFAULT_USER_DAILY_LIMIT}): последним в обходе LLM не хватит`;
 }

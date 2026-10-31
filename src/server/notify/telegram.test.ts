@@ -139,3 +139,16 @@ describe('gameLink / gameLine', () => {
     expect(getAppOrigin({})).toBeNull();
   });
 });
+
+describe('W-5: текст для участника', () => {
+  it('sync_missed и sync_stale с подписью подсказывают про закрытый профиль, без неё остаётся про cron и NPSSO', () => {
+    for (const k of ['sync_missed', 'sync_stale'] as const) {
+      const member = messageFor(k, { ageMs: 40 * 3_600_000, label: 'Nick_X' });
+      expect(member).toContain('профиль PSN пользователя закрыт');
+      expect(member).toContain('Пользователь: Nick_X');
+      const owner = messageFor(k, { ageMs: 40 * 3_600_000 });
+      expect(owner).toContain('Проверьте cron');
+      expect(owner).not.toContain('профиль PSN пользователя');
+    }
+  });
+});
