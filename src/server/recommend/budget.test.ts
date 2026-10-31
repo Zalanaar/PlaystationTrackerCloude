@@ -14,26 +14,20 @@ describe('budget', () => {
   beforeEach(() => t.reset());
   const row = async () => (await t.db.select().from(recommendLlmUsage))[0];
 
-  it('потолки видов: фразы 8, ночная генерация 1, ручных 3', async () => {
-    expect(KIND_LIMITS).toEqual({ phrases: 8, discover_auto: 1, discover_manual: 3 });
-    const ok = async (kind: 'phrases' | 'discover_auto' | 'discover_manual', n: number) => {
-      const res: boolean[] = [];
-      for (let i = 0; i < n; i++) res.push(await reserveCall(t.db, TEST_USER, kind, 100, NOW));
-      return res.filter(Boolean).length;
-    };
-    expect(await ok('phrases', 12)).toBe(8);
-    expect(await ok('discover_auto', 3)).toBe(1);
-    expect(await ok('discover_manual', 5)).toBe(3);
-    expect(await row()).toMatchObject({ calls: 12, phraseCalls: 8, discoverAutoCalls: 1, discoverManualCalls: 3 });
+  it('потолок фраз 8 в сутки', async () => {
+    expect(KIND_LIMITS).toEqual({ phrases: 8 });
+    const res: boolean[] = [];
+    for (let i = 0; i < 12; i++) res.push(await reserveCall(t.db, TEST_USER, 'phrases', 100, NOW));
+    expect(res.filter(Boolean)).toHaveLength(8);
+    expect(await row()).toMatchObject({ calls: 8, phraseCalls: 8, discoverAutoCalls: 0, discoverManualCalls: 0 });
   });
 
-  it('общий предохранитель ограничивает сумму по всем видам', async () => {
+  it('общий предохранитель ограничивает сумму вызовов', async () => {
     expect(await reserveCall(t.db, TEST_USER, 'phrases', 3, NOW)).toBe(true);
     expect(await reserveCall(t.db, TEST_USER, 'phrases', 3, NOW)).toBe(true);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_manual', 3, NOW)).toBe(true);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_auto', 3, NOW)).toBe(false);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 3, NOW)).toBe(true);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 3, NOW)).toBe(false);
     expect((await row()).calls).toBe(3);
-    expect((await row()).discoverAutoCalls).toBe(0);
   });
 
   it('лимит 0 ничего не выдаёт', async () => {
@@ -42,27 +36,29 @@ describe('budget', () => {
   });
 
   it('возврат неудачного вызова освобождает слот; ниже нуля не уходит; чужие сутки не трогает', async () => {
-    await reserveCall(t.db, TEST_USER, 'discover_manual', 20, NOW);
     await reserveCall(t.db, TEST_USER, 'phrases', 20, NOW);
-    await releaseCall(t.db, TEST_USER, 'discover_manual', NOW);
-    await releaseCall(t.db, TEST_USER, 'discover_manual', NOW);
-    expect(await row()).toMatchObject({ calls: 1, discoverManualCalls: 0, phraseCalls: 1 });
-    expect(await usedToday(t.db, TEST_USER, 'discover_manual', NOW)).toBe(0);
-    expect(await usedToday(t.db, TEST_USER, 'phrases', NOW)).toBe(1);
+    await reserveCall(t.db, TEST_USER, 'phrases', 20, NOW);
+    await releaseCall(t.db, TEST_USER, 'phrases', NOW);
+    expect(await row()).toMatchObject({ calls: 1, phraseCalls: 1 });
+    await releaseCall(t.db, TEST_USER, 'phrases', NOW);
+    await releaseCall(t.db, TEST_USER, 'phrases', NOW);
+    expect(await row()).toMatchObject({ calls: 0, phraseCalls: 0 });
+    expect(await usedToday(t.db, TEST_USER, 'phrases', NOW)).toBe(0);
+    await reserveCall(t.db, TEST_USER, 'phrases', 20, NOW);
     await releaseCall(t.db, TEST_USER, 'phrases', new Date('2026-10-30T09:00:00Z')); // другие сутки: строки нет
     expect(await usedToday(t.db, TEST_USER, 'phrases', NOW)).toBe(1);
   });
 
   it('граница суток МСК: счётчики независимы', async () => {
-    expect(await reserveCall(t.db, TEST_USER, 'discover_auto', 5, new Date('2026-10-29T20:59:59Z'))).toBe(true);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_auto', 5, new Date('2026-10-29T20:59:59Z'))).toBe(false);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_auto', 5, new Date('2026-10-29T21:00:00Z'))).toBe(true);
+    for (let i = 0; i < 8; i++) await reserveCall(t.db, TEST_USER, 'phrases', 50, new Date('2026-10-29T20:59:59Z'));
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 50, new Date('2026-10-29T20:59:59Z'))).toBe(false);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 50, new Date('2026-10-29T21:00:00Z'))).toBe(true);
   });
 
-  it('гонка: 20 параллельных ручных вызовов дают ровно 3', async () => {
-    const res = await Promise.all(Array.from({ length: 20 }, () => reserveCall(t.db, TEST_USER, 'discover_manual', 50, NOW)));
-    expect(res.filter(Boolean)).toHaveLength(3);
-    expect((await row()).discoverManualCalls).toBe(3);
+  it('гонка: 20 параллельных вызовов дают ровно 8', async () => {
+    const res = await Promise.all(Array.from({ length: 20 }, () => reserveCall(t.db, TEST_USER, 'phrases', 50, NOW)));
+    expect(res.filter(Boolean)).toHaveLength(8);
+    expect((await row()).phraseCalls).toBe(8);
   });
 
   it('серия неудач: 3 подряд = пауза, причина сохраняется, успех и сброс синка обнуляют', async () => {

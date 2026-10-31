@@ -42,8 +42,6 @@ import { getNearPlatinumCandidates } from '@/server/collection/platinum-query';
 import { getPsnProfile } from '@/server/collection/profile';
 import { parseListQuery } from '@/server/collection/validation';
 import { dislikeGame, getRecommendations, listDislikes, loadCandidates, NotFoundError as RecNotFound, undislikeGame } from '@/server/recommend/db';
-import { getDiscover } from '@/server/recommend/discover';
-import { dislikeExternal, listExternalDislikes, undislikeExternal } from '@/server/recommend/discover-dislikes';
 import { reserveCall, usedToday } from '@/server/recommend/budget';
 import {
   createPlanned, deletePlanned, excludeGame, getBacklogEntries, getRoadmap, getServiceGames, getSettings, getUnallocated, listPlanned,
@@ -63,7 +61,7 @@ import { BulkMissingError, setGameStatus, setGamesStatusBulk, setStatusDate, Sta
 import { getWrapped } from '@/server/wrapped/query';
 import { listAccessUsers } from '@/server/auth/users';
 
-const { games, gameStatus, playtimeSnapshots, trophySets, trophies, gameTrophySets, plannedGames, roadmapSettings, roadmapOrder, roadmapExcluded, psnProfile, syncRuns, statusBackups, recommendDiscoverCache, gameMonthExclusions } = schema;
+const { games, gameStatus, playtimeSnapshots, trophySets, trophies, gameTrophySets, plannedGames, roadmapSettings, roadmapOrder, roadmapExcluded, psnProfile, syncRuns, statusBackups, gameMonthExclusions } = schema;
 
 const NOW = new Date('2026-10-27T10:00:00Z');
 const A = TEST_USER;
@@ -121,11 +119,7 @@ describe('изоляция пользователей: два пользоват
     await t.db.insert(psnProfile).values({ userId: u, onlineId: `Nick ${m}` });
     await t.db.insert(syncRuns).values({ userId: u, kind: 'daily', status: 'success', snapshotDate: '2026-10-26', startedAt: NOW, finishedAt: NOW, gamesSeen: u === A ? 11 : 22 });
     const [bk] = await t.db.insert(statusBackups).values({ userId: u, reason: 'reset_all', payload: [{ gameId: same.id, status: 'playing', completedAt: null, droppedAt: null, statusChangedAt: NOW.toISOString() }] }).returning({ id: statusBackups.id });
-    await t.db.insert(recommendDiscoverCache).values({
-      userId: u, day: '2026-10-27', profileHash: 'h', payload: { proposed: 1, candidates: [{ externalSource: 'rawg', externalId: '9', title: `Disc ${m}`, releaseDate: null, coverUrl: null, platforms: ['PS5'], reason: 'r' }] },
-    });
     await dislikeGame(t.db, u, only.id, NOW);
-    await dislikeExternal(t.db, u, { externalSource: 'rawg', externalId: '55', title: `Ext ${m}`, coverUrl: null }, NOW);
     await t.db.insert(gameMonthExclusions).values({ userId: u, gameId: same.id, month: '2026-02' });
     ids[u] = { same: same.id, only: only.id, planned: pl.id, backupId: bk.id, set: set.id };
   }
@@ -162,8 +156,6 @@ describe('изоляция пользователей: два пользоват
       candidates: () => loadCandidates(t.db, u),
       recommend: () => getRecommendations(t.db, u, 'any', NOW, { llm: null }),
       dislikes: () => listDislikes(t.db, u, NOW),
-      externalDislikes: () => listExternalDislikes(t.db, u, NOW),
-      discover: () => getDiscover(t.db, u, { refresh: false }, NOW, { llm: { provider: 'groq', apiKey: 'k', model: null, dailyLimit: 5 }, rawgKey: 'r' }),
       backup: () => buildBackup(t.db, u, NOW),
       latestBackup: () => getLatestResetBackup(t.db, u),
       syncStatus: () => getSyncStatus(t.db, u, NOW),
@@ -176,7 +168,7 @@ describe('изоляция пользователей: два пользоват
       for (const [name, fn] of Object.entries(readers(u))) {
         const json = JSON.stringify(await fn(), (_k, v) => (v instanceof Set ? [...v] : v));
         expect(json, `${name} утёк ${other(u)}`).not.toContain(other(u));
-        if (['listGames', 'summary', 'planned', 'profile', 'backup', 'discover', 'externalDislikes'].includes(name)) {
+        if (['listGames', 'summary', 'planned', 'profile', 'backup'].includes(name)) {
           expect(json, `${name} без своих данных`).toContain(mark(u));
         }
       }
@@ -222,18 +214,17 @@ describe('изоляция пользователей: два пользоват
     expect(JSON.stringify([await listGames(t.db, A, q(), NOW), await buildBackup(t.db, A, NOW)])).toBe(before);
   });
 
-  it('массовые операции B (сброс, настройки, порядок, внешние дизлайки) не трогают данные A', async () => {
-    const before = JSON.stringify([await listGames(t.db, A, q(), NOW), await buildBackup(t.db, A, NOW), await getRoadmap(t.db, A, NOW), await listExternalDislikes(t.db, A, NOW), await listDislikes(t.db, A, NOW)]);
+  it('массовые операции B (сброс, настройки, порядок, дизлайки) не трогают данные A', async () => {
+    const before = JSON.stringify([await listGames(t.db, A, q(), NOW), await buildBackup(t.db, A, NOW), await getRoadmap(t.db, A, NOW), await listDislikes(t.db, A, NOW)]);
     await saveOrder(t.db, B, [ids[B].only]);
     await excludeGame(t.db, B, ids[B].only);
     const reset = await resetAllStatuses(t.db, B, NOW);
     expect(reset.reset).toBe(2);
     await putSettings(t.db, B, { year: 2027, hoursPerWeek: 3 });
-    await undislikeExternal(t.db, B, '55');
     await undislikeGame(t.db, B, ids[B].only);
     await applyRestore(t.db, B, parseOk(await buildBackup(t.db, A, NOW)), NOW);
     // B получил собственные backup/статусы, A без изменений
-    expect(JSON.stringify([await listGames(t.db, A, q(), NOW), await buildBackup(t.db, A, NOW), await getRoadmap(t.db, A, NOW), await listExternalDislikes(t.db, A, NOW), await listDislikes(t.db, A, NOW)])).toBe(before);
+    expect(JSON.stringify([await listGames(t.db, A, q(), NOW), await buildBackup(t.db, A, NOW), await getRoadmap(t.db, A, NOW), await listDislikes(t.db, A, NOW)])).toBe(before);
     expect((await getSettings(t.db, A, NOW)).hoursPerWeek).toBe(5);
     expect((await getLatestResetBackup(t.db, A)).latest?.id).toBe(ids[A].backupId);
     expect((await getLatestResetBackup(t.db, B)).latest?.id).not.toBe(ids[A].backupId);
