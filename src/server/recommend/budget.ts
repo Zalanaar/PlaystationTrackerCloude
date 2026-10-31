@@ -22,21 +22,36 @@ const COLUMN = {
 } as const;
 const COLUMN_NAME = { phrases: 'phrase_calls', discover_auto: 'discover_auto_calls', discover_manual: 'discover_manual_calls' } as const;
 
-/** Атомарно занимает вызов вида `kind` на сегодня. false = достигнут потолок вида или общий предохранитель `totalLimit`. */
-export async function reserveCall(db: AnyDb, userId: UserId, kind: LlmCallKind, totalLimit: number, now: Date): Promise<boolean> {
+/** Потолок вызовов пользователя за сутки по умолчанию (= сумма потолков видов). */
+export const DEFAULT_USER_DAILY_LIMIT = 12;
+/** Ключ advisory-блокировки проверки общего потолка (22.13). */
+const BUDGET_LOCK = 7204003;
+
+/**
+ * Атомарно занимает вызов вида `kind` на сегодня. false = достигнут потолок вида, потолок пользователя `userLimit`
+ * или общий потолок `totalLimit` (сумма calls по всем пользователям за сутки, контракт 22.13).
+ * Проверка и запись идут в одной транзакции под advisory-локом: параллельные синки и запросы не перешагнут общий потолок.
+ */
+export async function reserveCall(db: AnyDb, userId: UserId, kind: LlmCallKind, totalLimit: number, now: Date, userLimit: number = DEFAULT_USER_DAILY_LIMIT): Promise<boolean> {
   const col = COLUMN[kind];
   const cap = KIND_LIMITS[kind];
-  if (totalLimit < 1 || cap < 1) return false;
-  const rows = await db
-    .insert(recommendLlmUsage)
-    .values({ userId, day: mskDateString(now), calls: 1, [kindKey(kind)]: 1 })
-    .onConflictDoUpdate({
-      target: [recommendLlmUsage.userId, recommendLlmUsage.day],
-      set: { calls: sql`${recommendLlmUsage.calls} + 1`, [kindKey(kind)]: sql`${col} + 1` },
-      setWhere: sql`${recommendLlmUsage.calls} < ${totalLimit} and ${col} < ${cap}`,
-    })
-    .returning({ calls: recommendLlmUsage.calls });
-  return rows.length > 0;
+  if (totalLimit < 1 || userLimit < 1 || cap < 1) return false;
+  const day = mskDateString(now);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${BUDGET_LOCK})`);
+    const [sum] = await tx.select({ n: sql<number>`coalesce(sum(${recommendLlmUsage.calls}), 0)::int` }).from(recommendLlmUsage).where(eq(recommendLlmUsage.day, day));
+    if (Number(sum?.n ?? 0) >= totalLimit) return false;
+    const rows = await tx
+      .insert(recommendLlmUsage)
+      .values({ userId, day, calls: 1, [kindKey(kind)]: 1 })
+      .onConflictDoUpdate({
+        target: [recommendLlmUsage.userId, recommendLlmUsage.day],
+        set: { calls: sql`${recommendLlmUsage.calls} + 1`, [kindKey(kind)]: sql`${col} + 1` },
+        setWhere: sql`${recommendLlmUsage.calls} < ${userLimit} and ${col} < ${cap}`,
+      })
+      .returning({ calls: recommendLlmUsage.calls });
+    return rows.length > 0;
+  });
 }
 
 function kindKey(kind: LlmCallKind): 'phraseCalls' | 'discoverAutoCalls' | 'discoverManualCalls' {

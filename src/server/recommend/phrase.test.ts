@@ -197,7 +197,7 @@ describe('getLlmEnv', () => {
     expect(getLlmEnv({ LLM_PROVIDER: 'groq', LLM_API_KEY: 'k', LLM_DAILY_LIMIT: '0' })).toBeNull();
   });
   it('лимит по умолчанию 20, зажим 0..200, модель с проверкой', () => {
-    expect(getLlmEnv({ LLM_PROVIDER: 'Groq', LLM_API_KEY: ' k ' })).toEqual({ provider: 'groq', apiKey: 'k', model: null, dailyLimit: 20 });
+    expect(getLlmEnv({ LLM_PROVIDER: 'Groq', LLM_API_KEY: ' k ' })).toEqual({ provider: 'groq', apiKey: 'k', model: null, dailyLimit: 20, userDailyLimit: 12 });
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_DAILY_LIMIT: '9999' })!.dailyLimit).toBe(200);
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_DAILY_LIMIT: 'abc' })!.dailyLimit).toBe(20);
     expect(getLlmEnv({ LLM_PROVIDER: 'gemini', LLM_API_KEY: 'k', LLM_MODEL: 'gemini-x.1' })!.model).toBe('gemini-x.1');
