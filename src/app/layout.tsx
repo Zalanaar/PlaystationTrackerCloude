@@ -16,7 +16,7 @@ import '@/ui/styles/access.css';
 import '@/ui/styles/onboarding.css';
 import '@/ui/styles/tour.css';
 import './globals.css';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';
 import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
 import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
@@ -40,10 +40,12 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Тема из cookie уже в серверной разметке (без мигания); inline-скрипт добирает localStorage и чинит alias.
   const theme = normalizeTheme((await cookies()).get(THEME_STORAGE_KEY)?.value);
+  // nonce CSP из proxy.ts (контракт 21): без него (прямой рендер, тесты) скрипт темы идёт без nonce
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="ru" suppressHydrationWarning data-theme={attrForTheme(theme) ?? undefined} data-xmb-month={xmbMonth()} className={`${inter.variable} ${unbounded.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         <div className="ps-app min-h-screen">{children}</div>

@@ -161,4 +161,26 @@ describe('proxy: matcher', () => {
     expect((await proxy(req('/api/anything', { cookie: t }))).status).toBe(200);
   });
 
+  it('CSP с nonce на каждом ответе (пропуск, 401, редирект), nonce свой на запрос и нет unsafe-inline в script-src', async () => {
+    vi.stubEnv('SESSION_SECRET', SECRET);
+    vi.stubEnv('CRON_SECRET', CRON);
+    const t = await createSessionToken(SECRET);
+    const rs = [await proxy(req('/', { cookie: t })), await proxy(req('/')), await proxy(req('/api/x')), await proxy(req('/login')), await proxy(req('/api/cron/sync'))];
+    const nonces = new Set<string>();
+    for (const r of rs) {
+      const csp = r.headers.get('content-security-policy')!;
+      const script = csp.split('; ').find((d) => d.startsWith('script-src'))!;
+      const m = /'nonce-([A-Za-z0-9+/=]+)'/.exec(script);
+      expect(m, script).not.toBeNull();
+      expect(script).not.toContain('unsafe-inline');
+      nonces.add(m![1]);
+    }
+    expect(nonces.size).toBe(rs.length);
+    // запрос к странице получает тот же nonce в заголовках (x-nonce и CSP) для Next и layout
+    const pass = rs[0];
+    const nonce = /'nonce-([^']+)'/.exec(pass.headers.get('content-security-policy')!)![1];
+    expect(pass.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
+    expect(pass.headers.get('x-middleware-request-content-security-policy')).toContain(`'nonce-${nonce}'`);
+  });
+
 });

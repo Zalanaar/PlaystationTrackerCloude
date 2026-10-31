@@ -415,3 +415,82 @@ test.describe('/wrapped: оценочные часы (§4.12)', () => {
     await expect(page.locator('.ps-story__body')).toContainText('данных нет');
   });
 });
+
+// Фаза 17.3 (хвосты): тач и iOS-подобная среда в Итогах. Эмуляция Chromium (hasTouch, isMobile, iPhone-размеры): настоящий WebKit/iPhone не проверялся.
+const cdps = new WeakMap<Page, Awaited<ReturnType<BrowserContext['newCDPSession']>>>();
+async function touch(page: Page, type: 'touchStart' | 'touchMove' | 'touchEnd', x?: number, y?: number) {
+  let cdp = cdps.get(page);
+  if (!cdp) { cdp = await page.context().newCDPSession(page); cdps.set(page, cdp); }
+  await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: x!, y: y! }] });
+}
+
+test.describe('/wrapped: тач, iPhone 390x844', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
+
+  test('сцена на весь экран, тап по краям листает, свайп листает, удержание ставит паузу', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!);
+    await watch(page);
+    const b = (await page.locator('.ps-story__stage').boundingBox())!;
+    expect(Math.round(b.width)).toBe(390);
+    expect(Math.round(b.height)).toBe(844);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // тап справа: вперёд, слева: назад
+    await page.touchscreen.tap(b.x + b.width * 0.8, b.y + b.height * 0.5);
+    await expect.poll(() => idx(page)).toBe(1);
+    await page.touchscreen.tap(b.x + b.width * 0.1, b.y + b.height * 0.5);
+    await expect.poll(() => idx(page)).toBe(0);
+    // свайп влево: вперёд
+    const y = b.y + b.height * 0.5;
+    await touch(page, 'touchStart', b.x + 300, y);
+    await touch(page, 'touchMove', b.x + 200, y);
+    await touch(page, 'touchMove', b.x + 90, y);
+    await touch(page, 'touchEnd');
+    await expect.poll(() => idx(page)).toBe(1);
+    // удержание: пауза, отпускание снимает
+    await touch(page, 'touchStart', b.x + 200, y);
+    await expect(page.locator('.ps-story__stage')).toHaveAttribute('data-paused', 'true', { timeout: 2000 });
+    expect(await idx(page)).toBe(1);
+    await touch(page, 'touchEnd');
+    await expect(page.locator('.ps-story__stage')).not.toHaveAttribute('data-paused', 'true');
+  });
+
+  test('долгое нажатие не вызывает системное меню iOS (touch-callout none) и выделение', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!);
+    await watch(page);
+    const css = await page.locator('.ps-story__stage').evaluate((e) => { const c = getComputedStyle(e) as CSSStyleDeclaration & { webkitTouchCallout?: string }; return { callout: c.webkitTouchCallout ?? 'none', sel: c.userSelect, ta: c.touchAction }; });
+    expect(css.callout).toBe('none');
+    expect(css.sel).toBe('none');
+    expect(css.ta).toBe('none');
+  });
+});
+
+test.describe('/wrapped: телефон в ландшафте 844x390', () => {
+  test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+
+  test('сцена помещается в экран, закрытие и прогресс-бар доступны', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!);
+    await watch(page);
+    const b = (await page.locator('.ps-story__stage').boundingBox())!;
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.y + b.height).toBeLessThanOrEqual(390 + 1);
+    const close = (await page.getByRole('button', { name: 'Закрыть итоги' }).boundingBox())!;
+    expect(close.y + close.height).toBeLessThanOrEqual(390);
+  });
+});
+
+// QA хвостов 2026-10-31: ландшафт телефонов с шириной < 768 (iPhone SE 667x375, 5/SE1 568x320): медиа-правило ландшафта начинается с 768.
+for (const s of [{ w: 667, h: 375 }, { w: 568, h: 320 }]) {
+  test.describe(`/wrapped: телефон в ландшафте ${s.w}x${s.h}`, () => {
+    test.use({ viewport: { width: s.w, height: s.h }, hasTouch: true, isMobile: true });
+
+    test('сцена помещается по высоте, закрытие доступно', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!);
+      await watch(page);
+      const b = (await page.locator('.ps-story__stage').boundingBox())!;
+      expect(b.y, 'сцена не выше экрана сверху').toBeGreaterThanOrEqual(-1);
+      expect(b.y + b.height, `сцена ${Math.round(b.height)}px выше экрана ${s.h}px`).toBeLessThanOrEqual(s.h + 1);
+      const close = (await page.getByRole('button', { name: 'Закрыть итоги' }).boundingBox())!;
+      expect(close.y + close.height).toBeLessThanOrEqual(s.h);
+    });
+  });
+}

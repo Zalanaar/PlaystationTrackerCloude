@@ -1,5 +1,6 @@
 // Фазы синка (контракт 8.1). Каждая единица работы = транзакция; курсор и счётчики пишутся в ней же.
 // Только апсерты и вставки ON CONFLICT: повторный прогон даёт те же данные. Удалений нет.
+import { toHttps } from '@/shared/https-url';
 import { type AnyColumn, and, asc, count, eq, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
@@ -128,7 +129,7 @@ export async function saveProfile(ctx: RunContext, p: PsnProfile | null, now: Da
   const values = {
     userId: ctx.userId,
     onlineId: p.onlineId,
-    avatarUrl: p.avatarUrl,
+    avatarUrl: toHttps(p.avatarUrl),
     trophyLevel: p.trophyLevel,
     trophyProgress: p.trophyProgress,
     trophyTier: p.trophyTier,

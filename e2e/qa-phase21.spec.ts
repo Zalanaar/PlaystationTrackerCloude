@@ -130,9 +130,7 @@ test.describe('QA 21: темы, движение, forced colors', () => {
 test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
   test('планшет 768x1024: шаг 7 (Разбор) подсвечивает элемент, поповер не перекрывает кольцо', async ({ page, context, baseURL }) => {
     test.skip(isMobile(page), 'используется десктопный проект с viewport 768');
-    // Известный дефект T-1 (docs/qa/phase-21.md): на планшете 768–999 якорь Разбора = вся стопка, свободной стороны нет, поповер ложится на кольцо.
-    // test.fail: тест станет красным, когда дефект исправят, и его нужно будет перевести в обычный.
-    test.fail();
+    // T-1 исправлен: якорь `triage-buttons` (ряд кнопок), поповер сверху.
     await page.setViewportSize({ width: 768, height: 1024 });
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
@@ -147,6 +145,46 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
     const e = 1.5;
     expect(g.pop.x < g.spot.x + g.spot.w - e && g.pop.x + g.pop.w > g.spot.x + e && g.pop.y < g.spot.y + g.spot.h - e && g.pop.y + g.pop.h > g.spot.y + e).toBe(false);
     console.log('ПЛАНШЕТ шаг 7 текст:', g.text);
+  });
+
+  test('N-1: мобильный 360x640, шаг 7: кольцо вокруг кнопок статусов выше листа, не пересекается с ним', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'только мобильный');
+    await page.setViewportSize({ width: 360, height: 640 });
+    await open(page, context, baseURL!);
+    await expect(page.locator('.ps-card').first()).toBeVisible();
+    await startFromMenu(page);
+    await goStep(page, 7);
+    await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot', { timeout: 6000 });
+    await page.waitForTimeout(900);
+    const g = await page.evaluate(() => {
+      const r = (e: Element | null) => { const b = e!.getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; };
+      return { spot: r(document.querySelector('.ps-tour__spot')), pop: r(document.querySelector('.ps-tour__pop')), btns: r(document.querySelector('[data-tour="triage-buttons"]')) };
+    });
+    expect(g.spot.bottom).toBeLessThanOrEqual(g.pop.top + 1.5);
+    expect(g.btns.bottom).toBeLessThanOrEqual(g.pop.top + 1.5);
+  });
+
+  test('§10.4: низкий экран 360x520, шаг 7: кольцо не пересекает лист, иначе center без отверстия и без фразы про кнопки', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'только мобильный');
+    await page.setViewportSize({ width: 360, height: 520 });
+    await open(page, context, baseURL!);
+    await expect(page.locator('.ps-card').first()).toBeVisible();
+    await startFromMenu(page);
+    await goStep(page, 7);
+    await page.waitForTimeout(1800);
+    const mode = await page.locator('.ps-tour').getAttribute('data-mode');
+    if (mode === 'spot') {
+      const g = await page.evaluate(() => {
+        const s = document.querySelector('.ps-tour__spot')!.getBoundingClientRect();
+        const p = document.querySelector('.ps-tour__pop')!.getBoundingClientRect();
+        return { sb: s.bottom, pt: p.top };
+      });
+      expect(g.sb).toBeLessThanOrEqual(g.pt + 1.5);
+    } else {
+      expect(mode).toBe('center');
+      await expect(page.locator('.ps-tour__spot')).toHaveCount(0);
+      await expect(page.locator('.ps-tour__text')).not.toContainText('Кнопки статусов');
+    }
   });
 
   test('мобильный ландшафт 640x360: кнопки листа в экране и доступны, текст прокручивается', async ({ page, context, baseURL }) => {

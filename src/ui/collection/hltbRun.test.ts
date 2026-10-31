@@ -99,6 +99,13 @@ describe('runHltbLoop', () => {
     }
   });
 
+  it('предупреждение hltb_limit при errors даёт причину «дневной лимит»', async () => {
+    const w = { code: 'hltb_limit', message: 'лимит' };
+    const r = await runHltbLoop({ ...base, run: script(resp({ remaining: 4, done: true, stopReason: 'errors', warnings: [w] })).run });
+    expect(r.end).toEqual({ kind: 'halted', reason: 'limit' });
+    expect(hltbEndMessage(r).text).toContain('Достигнут дневной лимит HLTB.');
+  });
+
   it('complete с failed > 0 даёт предупреждение', async () => {
     const r = await runHltbLoop({ ...base, run: script(resp({ processed: 2, found: 1, notFound: 1, failed: 1, done: true, stopReason: 'complete' })).run });
     expect(hltbEndMessage(r)).toEqual({ tone: 'warn', text: 'Готово. Проверено 2: найдено 1, не найдено 1, ошибок 1.' });

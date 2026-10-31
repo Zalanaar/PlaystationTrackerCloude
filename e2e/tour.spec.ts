@@ -86,7 +86,7 @@ async function settled(page: Page, anchor: string | null) {
 }
 
 const ANCHORS_DESKTOP = ['nav', 'game-card', 'card-status', 'search', 'filters', null, 'triage-actions', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'sync', 'theme', null];
-const ANCHORS_MOBILE = ['nav', 'game-card', 'game-card', 'search', 'filters-btn', null, 'triage-stack', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'menu-more', 'menu-more', null];
+const ANCHORS_MOBILE = ['nav', 'game-card', 'game-card', 'search', 'filters-btn', null, 'triage-buttons', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'menu-more', 'menu-more', null];
 const PATHS = ['/', '/', '/', '/', '/', '/', '/triage', '/backlog', '/backlog', '/stats', '/stats'];
 
 test.describe('тур: полный проход', () => {

@@ -1,7 +1,7 @@
 // Массовая подгрузка длительности с HLTB (контракт 16.7): цикл POST /api/hltb/run на клиенте, чистая функция с подменяемым вызовом.
 
 export type HltbRunWarning = { code: string; message: string };
-export type HltbStopReason = 'complete' | 'budget' | 'errors' | 'empty' | 'no_time';
+export type HltbStopReason = 'complete' | 'budget' | 'errors' | 'empty' | 'no_time' | 'limit';
 export type HltbRunResponse = {
   processed: number; found: number; notFound: number; failed: number; remaining: number; done: boolean; stopReason: HltbStopReason; warnings: HltbRunWarning[];
 };
@@ -70,7 +70,7 @@ export async function runHltbLoop(o: HltbLoopOptions): Promise<HltbLoopResult> {
     totals.remaining = r.remaining;
     for (const w of r.warnings ?? []) if (!warnings.some((x) => x.code === w.code && x.message === w.message)) warnings.push(w);
     o.onProgress?.({ ...totals });
-    if (r.done) return result(r.remaining > 0 && r.stopReason !== 'complete' ? { kind: 'halted', reason: r.stopReason } : { kind: 'complete' });
+    if (r.done) return result(r.remaining > 0 && r.stopReason !== 'complete' ? { kind: 'halted', reason: r.stopReason !== 'limit' && warnings.some((x) => x.code === 'hltb_limit') ? 'limit' : r.stopReason } : { kind: 'complete' });
   }
   return result({ kind: 'limit' });
 }
@@ -81,6 +81,7 @@ const STOP_TEXT: Record<HltbStopReason, string> = {
   errors: 'HLTB несколько раз подряд вернул ошибку',
   empty: 'HLTB вернул пустой ответ на все запросы',
   no_time: 'не хватило времени на запрос',
+  limit: 'Достигнут дневной лимит HLTB',
 };
 
 /** Итоговая строка: что нашли, что нет, сколько ошибок. */
@@ -103,7 +104,7 @@ export function hltbEndMessage(r: HltbLoopResult): { tone: 'ok' | 'warn' | 'erro
     case 'limit':
       return { tone: 'warn', text: `Достигнут лимит запросов за один запуск. ${sum} Запустите ещё раз, чтобы продолжить.` };
     case 'halted':
-      return { tone: 'warn', text: `Остановлено: ${STOP_TEXT[r.end.reason]}. ${sum} Осталось ${r.totals.remaining ?? 0}, повторите позже.` };
+      return { tone: 'warn', text: `${r.end.reason === 'limit' ? STOP_TEXT.limit : `Остановлено: ${STOP_TEXT[r.end.reason]}`}. ${sum} Осталось ${r.totals.remaining ?? 0}, повторите позже.` };
     case 'error':
       if (r.end.status === 409) return { tone: 'warn', text: `Синк уже идёт, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
       if (r.end.status === 503) return { tone: 'error', text: `База данных недоступна, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };

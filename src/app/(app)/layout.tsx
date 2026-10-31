@@ -2,6 +2,7 @@ import { redirectToOnboardingIfNeeded } from './onboarding-guard';
 import { ToastProvider } from '@/ui/primitives/Toast';
 import { ProfileProvider } from '@/ui/profile/ProfileProvider';
 import { AppHeader, TabBar } from '@/ui/shell/AppShell';
+import { FocusReturn } from '@/ui/shell/FocusReturn';
 import { SyncBanner } from '@/ui/shell/SyncBanner';
 import { TourProvider } from '@/ui/tour/TourProvider';
 import { SyncProvider } from '@/ui/sync/SyncProvider';
@@ -14,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <ToastProvider>
         <ProfileProvider>
           <TourProvider>
+            <FocusReturn />
             <AppHeader />
             <SyncBanner />
             <main className="ps-main ps-container">{children}</main>

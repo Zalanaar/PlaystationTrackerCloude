@@ -35,6 +35,8 @@ export type CatalogDeps = {
   timeoutMs?: number;
   /** Только PlayStation: RAWG получает platforms=187,18 (PS5, PS4), фильтр на стороне каталога, а не по 10 результатам. */
   playstationOnly?: boolean;
+  /** Вызывается перед каждым реальным запросом (кэш не считается). false = лимит исчерпан, запрос не уходит (контракт 24.2). */
+  reserve?: () => Promise<boolean>;
 };
 
 /** id платформ RAWG (GET /api/platforms): PlayStation 5 = 187, PlayStation 4 = 18. */
@@ -88,6 +90,7 @@ export function mapResults(body: unknown): CatalogCandidate[] {
 
 /** Один запрос к RAWG: таймаут, лимит размера, разбор JSON. Ошибки только CatalogError без URL и ключа. */
 async function requestJson(url: URL, deps: CatalogDeps): Promise<unknown> {
+  if (deps.reserve && !(await deps.reserve())) throw new CatalogError('rate_limited');
   const doFetch = deps.fetch ?? fetch;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), deps.timeoutMs ?? RAWG_TIMEOUT_MS);
