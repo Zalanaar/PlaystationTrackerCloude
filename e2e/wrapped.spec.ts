@@ -136,7 +136,7 @@ test.describe('/wrapped: выбор года', () => {
   test('карточки годов, приглушённый год, год в URL, запрос с годом', async ({ page, context, baseURL }) => {
     const ctl = await open(page, context, baseURL!);
     await expect(page.getByRole('heading', { name: 'Итоги', level: 1 })).toBeVisible();
-    const cards = page.locator('button.ps-wrapped-year');
+    const cards = page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)');
     await expect(cards).toHaveCount(3);
     await expect(cards.nth(0)).toHaveAttribute('aria-pressed', 'true');
     await expect(cards.nth(2)).toContainText('нет данных');
@@ -148,7 +148,7 @@ test.describe('/wrapped: выбор года', () => {
     await expect.poll(() => ctl.calls[ctl.calls.length - 1].searchParams.get('year')).toBe(String(Y_TROPHY));
     // мусор в URL не уходит в API
     await page.goto('/wrapped?year=abc');
-    await expect(page.locator('button.ps-wrapped-year')).toHaveCount(3);
+    await expect(page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)')).toHaveCount(3);
     expect(ctl.calls[ctl.calls.length - 1].searchParams.has('year')).toBe(false);
   });
 
@@ -168,7 +168,7 @@ test.describe('/wrapped: выбор года', () => {
     await expect(page.getByRole('button', { name: 'Смотреть итоги' })).toHaveCount(0);
     ctl.fail = null;
     await page.getByRole('button', { name: 'Повторить' }).click();
-    await expect(page.locator('.ps-wrapped-year')).toHaveCount(3);
+    await expect(page.locator('.ps-wrapped-year:not(.ps-wrapped-year--all)')).toHaveCount(3);
     await expect(page.getByRole('button', { name: 'Смотреть итоги' })).toBeEnabled();
   });
 });

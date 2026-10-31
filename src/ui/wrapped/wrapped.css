@@ -147,3 +147,70 @@
 .ps-rares__tx small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--story-fg-dim); }
 .ps-rares__pct2 { font: var(--fw-display) 20px/24px var(--font-display); }
 @media (max-width: 767px) { .ps-rares__pct { font-size: 56px; line-height: 56px; } }
+
+/* ---------- «Всё время» и «Когда ты играешь» (Фаза 26, спека §12.7, §12.8) ---------- */
+.ps-wrapped-year--all { width: 128px; }
+.ps-wrapped-year--all:disabled { cursor: default; opacity: .7; }
+.ps-wrapped-year__row { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ps-wrapped-year__t { font: var(--fw-year) 14px/20px var(--font-display); }
+.ps-wrapped-year--all .ps-wrapped-year__n { font-variant-numeric: tabular-nums; }
+
+.ps-story__small { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--story-fg-dim); }
+.ps-story__label--soft { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ps-story__title--xl { font-size: 40px; line-height: 44px; overflow-wrap: break-word; word-break: normal; }
+.ps-story__gtitle--2 { -webkit-line-clamp: 2; font: var(--fw-display) 22px/28px var(--font-display); }
+.ps-story__rise--cover { animation-name: ps-story-cover; }
+@keyframes ps-story-cover { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+.ps-story[data-reduced] .ps-story__rise--cover { animation: none; }
+.ps-story__genre--lg { height: 36px; background: var(--story-track); }
+.ps-story__genre-fill--grow { background: var(--story-fg); opacity: .85; animation: ps-story-grow 700ms ease-out both; transform-origin: left; }
+@keyframes ps-story-grow { from { transform: scaleX(0); } to { transform: none; } }
+.ps-story[data-reduced] .ps-story__genre-fill--grow { animation: none; }
+
+/* платины по годам */
+.ps-plat__big { align-items: center; }
+.ps-plat__ic { color: var(--plat-1); flex: none; }
+.ps-plat__rows { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.ps-plat__row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); height: 32px; }
+.ps-plat__y { font: 400 14px/20px var(--font-body); color: var(--story-fg-dim); }
+.ps-plat__track { display: block; height: 12px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .2); overflow: hidden; }
+.ps-plat__track i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--plat-fill); transform-origin: left; animation: ps-story-grow 600ms ease-out both; }
+.ps-plat__n { min-width: 2ch; text-align: right; font: 600 14px/20px var(--font-body); color: var(--story-fg); }
+.ps-story[data-reduced] .ps-plat__track i { animation: none; }
+
+/* самый игровой год */
+.ps-busy__h { margin: 0; font: var(--fw-display) 26px/32px var(--font-display); }
+.ps-busy__bars { display: flex; align-items: flex-end; gap: 4px; height: 72px; padding-bottom: 18px; box-sizing: content-box; }
+.ps-busy__slot { position: relative; flex: 1 1 0; display: flex; align-items: flex-end; height: 100%; min-width: 0; }
+.ps-busy__slot i { display: block; width: 100%; border-radius: 2px 2px 0 0; background: rgba(255, 255, 255, .35); }
+.ps-busy__slot[data-leader] i { background: #fff; box-shadow: inset 0 3px 0 var(--story-fg); }
+.ps-busy__slot small { position: absolute; top: 100%; left: 50%; margin-top: 4px; translate: -50% 0; font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--story-fg-dim); white-space: nowrap; }
+
+/* когда ты играешь */
+.ps-pps { gap: var(--sp-3); }
+.ps-pps__title { font-size: 26px; line-height: 32px; }
+.ps-pps__peak { font: var(--fw-display) 72px/72px var(--font-display); letter-spacing: -.04em; }
+.ps-pps__chart { display: flex; flex-direction: column; gap: 4px; }
+.ps-pps__bars { display: flex; align-items: flex-end; gap: 2px; height: 96px; border-bottom: 1px solid rgba(255, 255, 255, .3); }
+.ps-pps__chart[data-kind="weekdays"] .ps-pps__bars { height: 56px; gap: 8px; }
+.ps-pps__slot { flex: 1 1 0; display: flex; align-items: flex-end; height: 100%; min-width: 0; }
+.ps-pps__slot i { display: block; width: 100%; background: rgba(255, 255, 255, .35); border-radius: 2px 2px 0 0; transform-origin: bottom; animation: ps-story-up var(--dur-slow) ease-out both; }
+.ps-pps__slot i[data-peak] { background: #fff; box-shadow: inset 0 3px 0 var(--story-fg); }
+@keyframes ps-story-up { from { transform: scaleY(0); } to { transform: none; } }
+.ps-pps__chart[data-rm] .ps-pps__slot i, .ps-story[data-reduced] .ps-pps__slot i { animation: none; }
+.ps-pps__lbls { display: flex; justify-content: space-between; }
+.ps-pps__lbls small { flex: 1 1 0; font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--story-fg-dim); text-align: left; }
+.ps-pps__chart[data-kind="weekdays"] .ps-pps__lbls small { text-align: center; }
+.ps-pps__lbls small[data-peak] { color: var(--story-fg); font-weight: 600; }
+.ps-pps__fav { margin: 0; font: 400 14px/20px var(--font-body); color: var(--story-fg); }
+.ps-pps__cap { margin-top: var(--sp-1); }
+
+@media (max-width: 767px) {
+  .ps-wrapped-year--all { flex: 1 1 128px; max-width: 160px; }
+  .ps-plat__row { height: 28px; }
+  .ps-pps__peak { font-size: 64px; line-height: 64px; }
+}
+@media (max-height: 700px) {
+  .ps-pps__bars { height: 72px; }
+  .ps-pps__peak { font-size: 56px; line-height: 56px; }
+}

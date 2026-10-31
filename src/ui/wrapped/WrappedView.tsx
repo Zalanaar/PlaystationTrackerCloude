@@ -8,7 +8,7 @@ import './wrapped.css';
 import { ApiError, errorText, fetchWrapped } from '../collection/api';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
-import { parseYearParam } from './model';
+import { allRangeText, parseScopeParam } from './model';
 import { hideSeason, seasonYear } from './season';
 import { WrappedStory } from './WrappedStory';
 
@@ -18,11 +18,12 @@ export function WrappedView() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const urlYear = parseYearParam(params.get('year'));
+  const urlYear = parseScopeParam(params.get('year'));
   const key = String(urlYear ?? 'current');
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<WrappedResponse['years']>([]);
+  const [allInfo, setAllInfo] = useState<{ available: boolean; range: string | null } | null>(null);
   const [open, setOpen] = useState(false);
   const reqId = useRef(0);
 
@@ -32,12 +33,14 @@ export function WrappedView() {
     if (y !== null) hideSeason(y);
   }, []);
 
-  const load = useCallback(async (y: number | null, k: string) => {
+  const load = useCallback(async (y: number | 'all' | null, k: string) => {
     const id = ++reqId.current;
     try {
       const data = await fetchWrapped(y);
       if (id !== reqId.current) return;
       setYears(data.years);
+      // карточка «Всё время»: доступность и диапазон лет берём из любого ответа (контракт 26.2)
+      setAllInfo({ available: data.allTimeAvailable ?? data.years.some((y) => y.hasData), range: allRangeText(data) });
       setLoaded({ key: k, data });
     } catch (e) {
       if (id !== reqId.current) return;
@@ -55,8 +58,9 @@ export function WrappedView() {
   const data = fresh && 'data' in fresh ? fresh.data : null;
   const failed = fresh && 'error' in fresh ? fresh.error : null;
   const selected = urlYear ?? (loaded && 'data' in loaded ? loaded.data.year : null);
+  const isAll = urlYear === 'all';
 
-  const pick = (y: number) => router.replace(`${pathname}?year=${y}`, { scroll: false });
+  const pick = (y: number | 'all') => router.replace(`${pathname}?year=${y}`, { scroll: false });
 
   return (
     <div className="ps-wrapped-page">
@@ -80,9 +84,16 @@ export function WrappedView() {
               </div>
             ) : (
               <div className="ps-wrapped-years" role="group" aria-label="Год">
+                <button
+                  type="button" className="ps-wrapped-year ps-wrapped-year--all" aria-pressed={isAll}
+                  data-nodata={allInfo?.available === false || undefined} disabled={allInfo?.available === false} onClick={() => pick('all')}
+                >
+                  <span className="ps-wrapped-year__row"><Icon name="infinity" size={16} /><span className="ps-wrapped-year__t">Всё время</span></span>
+                  <span className="ps-wrapped-year__n">{allInfo?.available === false ? 'нет данных' : (allInfo?.range ?? '')}</span>
+                </button>
                 {years.map((y) => (
                   <button
-                    key={y.year} type="button" className="ps-wrapped-year" aria-pressed={selected === y.year}
+                    key={y.year} type="button" className="ps-wrapped-year" aria-pressed={!isAll && selected === y.year}
                     data-nodata={!y.hasData || undefined} onClick={() => pick(y.year)}
                   >
                     <span className="ps-wrapped-year__y ps-num">{y.year}</span>
@@ -98,7 +109,7 @@ export function WrappedView() {
               onClick={() => setOpen(true)}
             >
               <Icon name="play" size={16} />
-              Смотреть итоги
+              {isAll ? 'Смотреть итоги за всё время' : 'Смотреть итоги'}
             </button>
           </div>
         </>

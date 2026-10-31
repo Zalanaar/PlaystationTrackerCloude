@@ -54,7 +54,7 @@ const stageEl = (page: Page) => page.locator('.ps-story__stage');
 test.describe('wrapped QA: стресс', () => {
   test('страница выбора года: 12 карточек, длинные данные, нет горизонтального скролла', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/wrapped');
-    await expect(page.locator('button.ps-wrapped-year')).toHaveCount(12);
+    await expect(page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)')).toHaveCount(12);
     expect(await noHScroll(page)).toBe(true);
   });
 
@@ -100,7 +100,7 @@ test.describe('wrapped QA: стресс', () => {
     for (const q of ['abc', '1999', '2101', '-5', '2026.5', '', '20260', '%00', '99999999999999999999', '2026&year=1', '٢٠٢٦']) {
       calls.length = 0;
       await page.goto(`/wrapped?year=${q}`);
-      await expect(page.locator('button.ps-wrapped-year').first()).toBeVisible();
+      await expect(page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)').first()).toBeVisible();
       for (const c of calls) expect(c.searchParams.get('year') === null || /^\d{4}$/.test(c.searchParams.get('year')!), `year=${q} -> ${c.search}`).toBe(true);
       await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
     }
@@ -188,13 +188,13 @@ test.describe('wrapped QA: сбой сети', () => {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: stress(Number(u.searchParams.get('year') ?? 2026)) }) });
     });
     await page.goto('/wrapped');
-    await expect(page.locator('button.ps-wrapped-year')).toHaveCount(12);
+    await expect(page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)')).toHaveCount(12);
     fail = true;
-    await page.locator('button.ps-wrapped-year').nth(3).click();
+    await page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)').nth(3).click();
     await expect(page.getByText('Что-то пошло не так')).toBeVisible();
     fail = false;
     await page.getByRole('button', { name: 'Повторить' }).click();
-    await expect(page.locator('button.ps-wrapped-year').nth(3)).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('button.ps-wrapped-year:not(.ps-wrapped-year--all)').nth(3)).toHaveAttribute('aria-pressed', 'true');
     expect(years[years.length - 1]).toBe('2023');
     await expect(page.getByRole('button', { name: 'Смотреть итоги' })).toBeEnabled();
   });
