@@ -1269,11 +1269,11 @@ a11y:
 ### 11.2 Что не так сейчас и решение
 | Проблема | Решение |
 |---|---|
-| фон `color-mix(--bg 92%, transparent)`: контент просвечивает | фон `var(--bg)` сплошной (во всех темах `--bg` непрозрачный цвет; арт Activity и градиент Wave лежат слоем позади, плашка их перекрывает) |
+| фон `color-mix(--bg 92%, transparent)`: контент просвечивает | **Решение Артёма 2026-10-31:** матовое стекло — `color-mix(in srgb, var(--bg) 62%, transparent)` + `backdrop-filter: blur(18px) saturate(1.2)`; сплошной чёрный фон отклонён. Контент под плашкой размыт и не читается |
 | `.ps-seg` с рамкой и `--surface-2` выглядит как кнопка | рамки нет (`border: 0`), сегменты на «лотке» `--surface` без обводки, активный сегмент залит `--surface-3` |
 | тень нужна только при прилипании | `data-stuck="true"` ставит frontend (11.4), без него тени нет |
 | между шапкой и плашкой возможен шов в 1px (шапка полупрозрачная) | `top: calc(var(--header-h) - 1px)` и `padding-top` +1px |
-Blur: `backdrop-filter: blur(12px)` оставлен по плану, при сплошном фоне визуально нейтрален (страховка, если фон когда-то станет полупрозрачным). Префикс `-webkit-backdrop-filter` обязателен (Safari).
+Blur: `backdrop-filter: blur(18px) saturate(1.2)` — основной эффект плашки (см. решение выше). Префикс `-webkit-backdrop-filter` обязателен (Safari).
 
 ### 11.3 Структура и поведение
 ```
@@ -1299,8 +1299,8 @@ Blur: `backdrop-filter: blur(12px)` оставлен по плану, при с�
   display: flex; align-items: center;
   margin-inline: calc(var(--gutter) * -1);            /* фон на всю ширину контейнера, контент не виден по бокам */
   padding: calc(var(--sp-2) + 1px) var(--gutter) var(--sp-2);
-  background: var(--bg);
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: 0 0 0 transparent;
   transition: box-shadow var(--dur-base) var(--ease-ui);
 }
