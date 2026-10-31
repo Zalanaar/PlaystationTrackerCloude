@@ -20,6 +20,8 @@ export type G = {
   override?: number | null;
   hltbName?: string | null;
   hltbChecked?: boolean;
+  /** Фаза 23: связанные версии главной игры */
+  linked?: { gameId: number; title: string; platform: 'PS4' | 'PS5'; hours: number }[];
 };
 
 /** Трофей в ответе GET /api/games/{id} (12.5) */
@@ -117,6 +119,7 @@ function item(g: G) {
     bannerUrl: g.bannerUrl ?? null,
     tint: g.tint ?? null,
     hiddenAt: g.hiddenAt ?? null,
+    linkedVersions: g.linked ?? [],
   };
 }
 
@@ -391,6 +394,13 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const g = m.games.find((x) => x.id === id) as G;
     if (b.hidden === true && !g.hiddenAt) g.hiddenAt = new Date().toISOString();
     if (b.hidden === false) g.hiddenAt = null;
+    return { game: item(g) };
+  }));
+  await page.route(/\/api\/games\/\d+\/not-duplicate$/, (route) => mutate(route, () => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/not-duplicate/)?.[1]);
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return NOT_FOUND;
+    g.linked = [];
     return { game: item(g) };
   }));
   const snapshot = () => visible().filter((g) => g.status).map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));

@@ -17,7 +17,7 @@ const subscribeNoop = () => () => {};
  * Данные шапки и плиток берутся из `game`; список трофеев и даты приходят из GET /api/games/{id}.
  */
 export function GameDialog({
-  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, initialTab, onNotFound,
+  game, stub, startEditing, now, onClose, onStatus, onDate, onHidden, onLoaded, onGameChanged, onNotDuplicate, initialTab, onNotFound,
 }: {
   /** Вкладка при открытии (`?tab=trophies`, редкий трофей) */
   initialTab?: DetailTab;
@@ -41,7 +41,7 @@ export function GameDialog({
       {(titleId) => (
         <Body
           key={`${target.id}:${startEditing}`} id={target.id} titleId={titleId} game={game} stub={stub ?? null} startEditing={startEditing} now={now}
-          onClose={onClose} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onLoaded={onLoaded} onGameChanged={onGameChanged}
+          onClose={onClose} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onLoaded={onLoaded} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate}
           initialTab={initialTab} onNotFound={onNotFound}
         />
       )}

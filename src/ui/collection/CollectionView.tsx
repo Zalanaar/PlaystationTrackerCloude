@@ -249,6 +249,7 @@ export function CollectionView() {
         startEditing={ctx?.edit ?? false} now={now} onClose={() => { setOpen(null); link.close(); }}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
         onHidden={(g, h) => void setHidden(g, h)} onGameChanged={(g) => replaceGames([g])}
+        onNotDuplicate={(g) => { replaceGames([g]); refresh(); }}
       />
 
       <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />

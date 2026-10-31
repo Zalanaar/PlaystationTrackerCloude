@@ -85,6 +85,10 @@ export type MonthExclusionResponse = {
 export const putMonthExclusion = (id: number, month: string, excluded: boolean) =>
   call<MonthExclusionResponse>(`/api/games/${id}/month-exclusions`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ month, excluded }) });
 
+/** «Это не дубль» (Фаза 23): версия перестаёт склеиваться с главной. Ответ: обновлённая игра. */
+export const postNotDuplicate = (id: number) =>
+  call<GameMutationResponse>(`/api/games/${id}/not-duplicate`, { method: 'POST', headers: JSON_HEADERS, body: '{}' });
+
 /** Мягкое удаление из коллекции и возврат (9.7). */
 export const putHidden = (id: number, hidden: boolean) =>
   call<GameMutationResponse>(`/api/games/${id}/hidden`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ hidden }) });
