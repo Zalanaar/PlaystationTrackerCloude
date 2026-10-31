@@ -1,4 +1,6 @@
 // Типы ответов раздела 9 docs/api-contract.md. Только типы: frontend импортирует через `import type`.
+import type { GameHistory } from './history';
+export type { GameHistory, HistoryWeek } from './history';
 export type GameStatusValue = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type StatusFilterValue = GameStatusValue | 'none';
 export type Platform = 'PS4' | 'PS5' | 'PC';
@@ -199,4 +201,6 @@ export type GameDetailsResponse = {
   trophyList: GameTrophyItem[];
   /** 14.2: null, если платины нет, она получена или трофеи сета не загружены. */
   platinumForecast: PlatinumForecast | null;
+  /** 26.1: история по неделям МСК. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
+  history?: GameHistory | null;
 };
