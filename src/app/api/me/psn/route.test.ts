@@ -90,6 +90,18 @@ describe('GET /api/me/psn', () => {
 });
 
 describe('PUT /api/me/psn', () => {
+  it('W-6: ник из PSN_TARGET_ONLINE_ID занят для member (без учёта регистра), PSN не вызывается; владелец свой ник ставит', async () => {
+    const r = await put({ onlineId: 'targetowner' });
+    expect(r.status).toBe(409);
+    expect((await r.json()).error.code).toBe('psn_id_taken');
+    expect(check).not.toHaveBeenCalled();
+    expect((await row(M)).psnOnlineId).toBeNull();
+    testSession.userId = 1;
+    testSession.role = 'owner';
+    check.mockResolvedValue({ status: 'ok', accountId: 'acc-owner' });
+    expect((await put({ onlineId: 'TargetOwner' })).status).toBe(200);
+  });
+
   it('ok: 200, ник и accountId записаны, canStartSync', async () => {
     check.mockResolvedValue({ status: 'ok', accountId: 'acc-1' });
     const r = await put({ onlineId: ' Member_Psn ' });

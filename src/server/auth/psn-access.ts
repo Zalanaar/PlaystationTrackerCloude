@@ -103,8 +103,8 @@ async function applyCheck(db: AnyDb, u: UserRow, onlineId: string, r: AccessChec
   return status;
 }
 
-/** PUT /api/me/psn. input не задан = перепроверка сохранённого ника. */
-export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | undefined, check: CheckFn, now: Date = new Date()): Promise<SetPsnResult> {
+/** PUT /api/me/psn. input не задан = перепроверка сохранённого ника. ownerOnlineId = PSN_TARGET_ONLINE_ID (ник владельца для не-owner занят). */
+export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | undefined, check: CheckFn, now: Date = new Date(), ownerOnlineId: string | null = null): Promise<SetPsnResult> {
   const u = await getUserById(db, userId);
   if (!u) return { kind: 'invalid' };
   const onlineId = (input ?? u.psnOnlineId ?? '').trim();
@@ -114,6 +114,8 @@ export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | un
     const wait = u.psnAccessCheckedAt.getTime() + ACCESS_COOLDOWN_MS - now.getTime();
     if (wait > 0) return { kind: 'rate_limited', retryAfterSec: Math.ceil(wait / 1000) };
   }
+  // W-6: ник владельца из PSN_TARGET_ONLINE_ID занят, даже если в allowed_users у владельца ник ещё не записан
+  if (u.role !== 'owner' && ownerOnlineId && ownerOnlineId.trim().toLowerCase() === onlineId.toLowerCase()) return { kind: 'taken' };
   const [dup] = await db
     .select({ id: allowedUsers.id })
     .from(allowedUsers)
