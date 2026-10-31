@@ -2,6 +2,7 @@
 import { dailyActivity, nextDate } from '@/server/stats/activity';
 import { estimateByMonth, estimateDateWindow, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { mskDateString } from '@/server/stats/period';
+import { dayNumber, fromDayNumber, weekStartOf } from '@/shared/week';
 
 export type HistoryWeek = {
   /** Понедельник недели (МСК), YYYY-MM-DD. */
@@ -25,15 +26,7 @@ export type GameHistory = {
 
 export const MAX_HISTORY_WEEKS = 52;
 
-const dayNumber = (date: string): number => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86_400_000;
-const fromDayNumber = (n: number): string => new Date(n * 86_400_000).toISOString().slice(0, 10);
-
-/** Понедельник недели (пн..вс) для даты МСК YYYY-MM-DD. 1970-01-01 был четвергом. */
-export function weekStartOf(date: string): string {
-  const n = dayNumber(date);
-  const dow = (((n + 3) % 7) + 7) % 7; // 0 = понедельник
-  return fromDayNumber(n - dow);
-}
+export { weekStartOf };
 
 /** Следующая неделя (+7 дней). */
 const addWeek = (weekStart: string): string => fromDayNumber(dayNumber(weekStart) + 7);

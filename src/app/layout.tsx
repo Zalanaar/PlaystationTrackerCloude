@@ -8,6 +8,7 @@ import '@/ui/styles/collection.css';
 import '@/ui/styles/chronicle.css';
 import '@/ui/styles/skeletons.css';
 import '@/ui/styles/game-dialog.css';
+import '@/ui/styles/game-history.css';
 import '@/ui/styles/triage.css';
 import '@/ui/styles/stats.css';
 import '@/ui/styles/profile.css';

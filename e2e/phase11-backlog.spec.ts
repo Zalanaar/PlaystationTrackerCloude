@@ -149,6 +149,7 @@ test.describe('Ручной ввод длительности', () => {
     const mock = await open(page, context, baseURL as string);
     await page.getByRole('button', { name: 'Открыть: Браво Хоррор' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click(); // Фаза 34: блок свёрнут до строки
     await expect(dlg.getByTestId('duration-hltb')).toContainText('Найдено: Bravo Horror');
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 12 ч');
     await expect(dlg.getByRole('button', { name: 'Сбросить ручное значение' })).toHaveCount(0);
@@ -181,6 +182,7 @@ test.describe('Ручной ввод длительности', () => {
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(1);
     await page.getByRole('button', { name: 'Открыть: Дельта Гонки' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click();
     await expect(dlg.getByTestId('duration-hltb')).toHaveText('На HLTB не найдено');
     await dlg.getByLabel('Своя оценка, часов').fill('5');
     await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
@@ -194,6 +196,7 @@ test.describe('Ручной ввод длительности', () => {
     const mock = await open(page, context, baseURL as string);
     await page.getByRole('button', { name: 'Открыть: Альфа Экшен' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click();
     await dlg.getByLabel('Своя оценка, часов').fill('15');
     mock.failNextMutation = 503;
     await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
