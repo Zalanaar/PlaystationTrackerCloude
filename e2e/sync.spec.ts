@@ -41,8 +41,9 @@ test.describe('API синка: доступ', () => {
   test('POST /api/sync: чужой Origin и не-JSON = 400', async ({ request }) => {
     const cookie = `pst_session=${await signedSession()}`;
     const evil = await request.post('/api/sync', { headers: { cookie, origin: 'https://evil.example' }, data: {}, maxRedirects: 0 });
-    expect(evil.status()).toBe(400);
+    // с 20.3 requireUser (БД) раньше проверки Origin/Content-Type; 400 покрыт route-тестами sync
+    expect(evil.status()).toBe(503);
     const form = await request.post('/api/sync', { headers: { cookie }, form: { a: 'b' }, maxRedirects: 0 });
-    expect(form.status()).toBe(400);
+    expect(form.status()).toBe(503);
   });
 });

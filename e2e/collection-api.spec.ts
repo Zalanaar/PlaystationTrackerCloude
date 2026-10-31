@@ -50,17 +50,20 @@ test.describe('API коллекции без БД', () => {
       ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: [1, 'a'], status: 'backlog' })],
       ['POST', '/api/games/status-bulk', json, JSON.stringify({ ids: [1] })],
     ];
+    // С Фазы 20.3 requireUser читает пользователя из БД раньше валидации: без БД в e2e все ответы 503 db_unavailable.
+    // Сами проверки Origin, Content-Type и тела (400 invalid_request) покрыты route-тестами с подменой requireUser.
     for (const [method, path, headers, data] of cases) {
       const r = await ctx.fetch(path, { method, headers, data });
-      expect(r.status(), `${method} ${path} ${data.slice(0, 40)}`).toBe(400);
-      expect((await r.json()).error.code).toBe('invalid_request');
+      expect(r.status(), `${method} ${path} ${data.slice(0, 40)}`).toBe(503);
+      expect((await r.json()).error.code).toBe('db_unavailable');
     }
   });
 
   test('GET /api/games: граничные параметры', async ({ playwright, baseURL }) => {
     const ctx = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `pst_session=${await signedSession()}` } });
     const bad = ['status=zzz', 'status=playing,zzz', 'year=1999', 'year=2101', 'year=2026.5', 'year=-1', 'sort=zzz', 'order=up', 'limit=0', 'limit=301', 'limit=-1', 'offset=-1', 'offset=abc', `q=${'я'.repeat(101)}`];
-    for (const q of bad) expect((await ctx.get(`/api/games?${q}`)).status(), q).toBe(400);
+    // валидация параметров (400) покрыта route-тестами; в e2e без БД requireUser отвечает раньше (20.3)
+    for (const q of bad) expect((await ctx.get(`/api/games?${q}`)).status(), q).toBe(503);
     // валидные параметры доходят до БД (503, в e2e её нет), а не отсекаются валидацией
     const good = ['', 'status=none', 'status=playing,none,playing', 'year=2000', 'year=2100', 'limit=300', 'limit=1', `q=${'я'.repeat(100)}`, 'q=%25', 'q=%20', 'sort=completed_at&order=asc', 'unknown=1'];
     for (const q of good) expect((await ctx.get(`/api/games?${q}`)).status(), q).toBe(503);
