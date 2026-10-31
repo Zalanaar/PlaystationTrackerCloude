@@ -22,14 +22,10 @@ import {
 
 const tz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 
-// Фаза 20.3 (контракт 22.7, миграция 0014 «expand»): владелец пользовательской строки.
-// default 1 = owner (db:bootstrap-owner гарантирует id = 1): так старый код, не знающий про user_id, продолжает работать.
-// Слой src/server/scope/ всегда передаёт user_id явно. default снимается миграцией 0015.
-const OWNER_USER_ID = 1;
+// Фаза 20 (контракт 22.1, миграция 0015 «contract»): владелец пользовательской строки. Без default: код передаёт user_id явно.
 const userIdCol = () =>
   integer('user_id')
     .notNull()
-    .default(OWNER_USER_ID)
     .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' });
 
 export const gameStatusValue = pgEnum('game_status_value', ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service']);
@@ -84,10 +80,7 @@ export const games = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('games_title_id_key').on(t.titleId),
-    index('games_concept_id_idx').on(t.conceptId),
-    index('games_last_played_at_idx').on(t.lastPlayedAt.desc().nullsLast()),
-    // 0014: составные ключи для user-scoped потомков и upsert по (user_id, title_id)
+    // составные ключи для user-scoped потомков и upsert по (user_id, title_id); глобальные title_id/concept_id/last_played_at убраны в 0015
     uniqueIndex('games_user_title_id_key').on(t.userId, t.titleId),
     uniqueIndex('games_user_id_id_key').on(t.userId, t.id),
     index('games_user_concept_id_idx').on(t.userId, t.conceptId),
@@ -115,7 +108,6 @@ export const gameStatus = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    index('game_status_status_idx').on(t.status),
     index('game_status_user_status_idx').on(t.userId, t.status),
     foreignKey({ name: 'game_status_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
     index('game_status_completed_at_idx').on(t.completedAt).where(sql`${t.completedAt} is not null`),
@@ -150,7 +142,6 @@ export const trophySets = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('trophy_sets_np_communication_id_key').on(t.npCommunicationId),
     uniqueIndex('trophy_sets_user_np_key').on(t.userId, t.npCommunicationId),
     uniqueIndex('trophy_sets_user_id_id_key').on(t.userId, t.id),
     check('trophy_sets_progress_check', sql`${t.progress} between 0 and 100`),
@@ -203,11 +194,9 @@ export const trophies = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('trophies_set_trophy_key').on(t.trophySetId, t.trophyId),
     uniqueIndex('trophies_user_set_trophy_key').on(t.userId, t.trophySetId, t.trophyId),
     index('trophies_user_earned_at_idx').on(t.userId, t.earnedAt).where(sql`${t.earnedAt} is not null`),
     foreignKey({ name: 'trophies_user_set_fk', columns: [t.userId, t.trophySetId], foreignColumns: [trophySets.userId, trophySets.id] }).onDelete('cascade'),
-    index('trophies_earned_at_idx').on(t.earnedAt).where(sql`${t.earnedAt} is not null`),
     index('trophies_set_earned_idx').on(t.trophySetId, t.earned),
     check('trophies_earned_at_check', sql`${t.earned} = true or ${t.earnedAt} is null`),
   ],
@@ -235,7 +224,6 @@ export const syncRuns = pgTable(
     warnings: jsonb(),
   },
   (t) => [
-    index('sync_runs_started_at_idx').on(t.startedAt.desc()),
     index('sync_runs_user_started_at_idx').on(t.userId, t.startedAt.desc()),
     // не больше одного одновременного запуска
     uniqueIndex('sync_runs_one_running_idx').on(sql`(true)`).where(sql`${t.status} = 'running'`),
@@ -258,8 +246,6 @@ export const playtimeSnapshots = pgTable(
     syncRunId: integer('sync_run_id').references(() => syncRuns.id, { onDelete: 'set null' }),
   },
   (t) => [
-    uniqueIndex('playtime_snapshots_game_date_key').on(t.gameId, t.snapshotDate),
-    index('playtime_snapshots_date_idx').on(t.snapshotDate),
     uniqueIndex('playtime_snapshots_user_game_date_key').on(t.userId, t.gameId, t.snapshotDate),
     index('playtime_snapshots_user_date_idx').on(t.userId, t.snapshotDate),
     foreignKey({ name: 'playtime_snapshots_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
@@ -346,12 +332,10 @@ export const statusBackups = pgTable(
   (t) => [index('status_backups_user_created_idx').on(t.userId, t.createdAt.desc())],
 );
 
-// Фаза 9 (контракт 12.1): профиль PSN-аккаунта, ровно одна строка (id = 1). Токенов здесь нет.
+// Фаза 9 (контракт 12.1): профиль PSN-аккаунта, одна строка на пользователя (PK user_id, 0015). Токенов здесь нет.
 export const psnProfile = pgTable(
   'psn_profile',
   {
-    // до 0015 id остаётся PK со значением 1 (default: код слоя scope его не передаёт); 0015 заменяет PK на user_id
-    id: smallint().primaryKey().default(1),
     userId: userIdCol(),
     onlineId: text('online_id').notNull(),
     avatarUrl: text('avatar_url'),
@@ -364,7 +348,7 @@ export const psnProfile = pgTable(
     earnedBronze: integer('earned_bronze'),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
-  (t) => [check('psn_profile_singleton_check', sql`${t.id} = 1`), uniqueIndex('psn_profile_user_key').on(t.userId)],
+  (t) => [primaryKey({ columns: [t.userId] })],
 );
 
 // Этап 2 (контракт 15.1): исключение игры из месяца статистики. month = 'YYYY-MM' (МСК). Синк не трогает.
@@ -393,19 +377,17 @@ export const notifyLog = pgTable('notify_log', {
 });
 
 // Фаза 12 (контракт 17.1): роадмап бэклога. Миграция 0008 только добавляет таблицы.
-// Настройки плана, ровно одна строка (id = 1).
+// Настройки плана, одна строка на пользователя (PK user_id, 0015).
 export const roadmapSettings = pgTable(
   'roadmap_settings',
   {
-    id: smallint().primaryKey().default(1),
     userId: userIdCol(),
     year: smallint().notNull(),
     hoursPerWeek: doublePrecision('hours_per_week').notNull(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    check('roadmap_settings_singleton_check', sql`${t.id} = 1`),
-    uniqueIndex('roadmap_settings_user_key').on(t.userId),
+    primaryKey({ columns: [t.userId] }),
     check('roadmap_settings_year_check', sql`${t.year} >= 2000 and ${t.year} <= 2100`),
     check('roadmap_settings_hours_check', sql`${t.hoursPerWeek} > 0 and ${t.hoursPerWeek} <= 168`),
   ],
@@ -429,10 +411,6 @@ export const plannedGames = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('planned_games_external_key')
-      .on(t.externalSource, t.externalId)
-      .where(sql`${t.externalId} is not null`),
-    index('planned_games_status_idx').on(t.status),
     uniqueIndex('planned_games_user_external_key')
       .on(t.userId, t.externalSource, t.externalId)
       .where(sql`${t.externalId} is not null`),
@@ -457,7 +435,6 @@ export const roadmapOrder = pgTable(
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    index('roadmap_order_position_idx').on(t.position),
     index('roadmap_order_user_position_idx').on(t.userId, t.position),
     foreignKey({ name: 'roadmap_order_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
     check('roadmap_order_position_check', sql`${t.position} >= 0`),
@@ -504,7 +481,8 @@ export const recommendReasons = pgTable(
     createdAt: tz('created_at').notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.gameId, t.signalsHash] }),
+    // 0015: PK с user_id (контракт 22.1): upsert с чужим user_id станет вставкой и упадёт на составном FK, а не перезапишет чужую строку
+    primaryKey({ columns: [t.userId, t.gameId, t.signalsHash] }),
     foreignKey({ name: 'recommend_reasons_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
     check('recommend_reasons_text_check', sql`char_length(${t.text}) between 1 and 400`),
   ],
@@ -514,7 +492,7 @@ export const recommendReasons = pgTable(
 export const recommendLlmUsage = pgTable(
   'recommend_llm_usage',
   {
-    day: date({ mode: 'string' }).primaryKey(),
+    day: date({ mode: 'string' }).notNull(),
     userId: userIdCol(),
     // Всего за сутки (общий предохранитель LLM_DAILY_LIMIT). С Этапа 5 (контракт 20.4) ниже счётчики по видам вызова.
     calls: integer().notNull().default(0),
@@ -523,7 +501,7 @@ export const recommendLlmUsage = pgTable(
     discoverManualCalls: integer('discover_manual_calls').notNull().default(0),
   },
   (t) => [
-    uniqueIndex('recommend_llm_usage_user_day_key').on(t.userId, t.day),
+    primaryKey({ columns: [t.userId, t.day] }),
     check('recommend_llm_usage_calls_check', sql`${t.calls} >= 0`),
     check('recommend_llm_usage_phrase_calls_check', sql`${t.phraseCalls} >= 0`),
     check('recommend_llm_usage_discover_auto_calls_check', sql`${t.discoverAutoCalls} >= 0`),
@@ -549,7 +527,7 @@ export const recommendLlmState = pgTable(
 export const recommendDiscoverCache = pgTable(
   'recommend_discover_cache',
   {
-    day: date({ mode: 'string' }).primaryKey(),
+    day: date({ mode: 'string' }).notNull(),
     userId: userIdCol(),
     profileHash: text('profile_hash').notNull(),
     payload: jsonb().notNull(),
@@ -557,7 +535,7 @@ export const recommendDiscoverCache = pgTable(
     createdAt: tz('created_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('recommend_discover_cache_user_day_key').on(t.userId, t.day),
+    primaryKey({ columns: [t.userId, t.day] }),
     check('recommend_discover_cache_refreshes_check', sql`${t.refreshes} >= 0`),
   ],
 );
@@ -574,8 +552,7 @@ export const recommendExternalDislikes = pgTable(
     createdAt: tz('created_at').notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.externalSource, t.externalId] }),
-    uniqueIndex('recommend_external_dislikes_user_key').on(t.userId, t.externalSource, t.externalId),
+    primaryKey({ columns: [t.userId, t.externalSource, t.externalId] }),
     check('recommend_external_dislikes_source_check', sql`${t.externalSource} = 'rawg'`),
     check('recommend_external_dislikes_title_check', sql`char_length(${t.title}) between 1 and 200`),
   ],

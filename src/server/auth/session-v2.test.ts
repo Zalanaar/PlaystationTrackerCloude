@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSessionToken, createSessionTokenV2, readSessionToken, SESSION_TTL_SECONDS, signJson, verifyJson, verifySessionToken, b64urlEncode } from './session';
+import { createSessionTokenV2, readSessionToken, SESSION_TTL_SECONDS, signJson, verifyJson, verifySessionToken, b64urlEncode } from './session';
 import { evaluateLimit, GOOGLE_RULES } from './limiter';
 
 const SECRET = 's'.repeat(40);
@@ -59,17 +59,13 @@ describe('сессия v:2', () => {
   });
 });
 
-describe('совместимость v:1', () => {
-  it('v:1 читается как owner (uid 1, pwd) и действует до своего exp', async () => {
-    const t = await createSessionToken(SECRET, NOW);
-    expect(await readSessionToken(t, SECRET, NOW)).toMatchObject({ v: 1, uid: 1, role: 'owner', amr: 'pwd' });
-    expect(await verifySessionToken(t, SECRET, NOW)).toBe(true);
-    expect(await readSessionToken(t, SECRET, NOW + SESSION_TTL_SECONDS * 1000)).toBeNull();
-  });
-
-  it('v:1 с лишними uid/role игнорирует их (нельзя повысить/сменить пользователя)', async () => {
-    const t = await forge({ v: 1, uid: 9, role: 'member', iat: NOW / 1000, exp: NOW / 1000 + 100 });
-    expect(await readSessionToken(t, SECRET, NOW)).toMatchObject({ uid: 1, role: 'owner' });
+describe('v:1 удалён (после 0015, контракт 22.3)', () => {
+  it('токен v:1 с верной подписью не принимается ни readSessionToken, ни verifySessionToken', async () => {
+    const t = await forge({ v: 1, iat: NOW / 1000, exp: NOW / 1000 + 100 });
+    expect(await readSessionToken(t, SECRET, NOW)).toBeNull();
+    expect(await verifySessionToken(t, SECRET, NOW)).toBe(false);
+    const withClaims = await forge({ v: 1, uid: 1, role: 'owner', amr: 'pwd', iat: NOW / 1000, exp: NOW / 1000 + 100 });
+    expect(await readSessionToken(withClaims, SECRET, NOW)).toBeNull();
   });
 });
 

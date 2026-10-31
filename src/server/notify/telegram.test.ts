@@ -54,7 +54,7 @@ describe('notifyAfterSync (PGlite)', () => {
   beforeEach(() => t.reset());
 
   const run = (status: 'success' | 'failed', finishedAt: Date) =>
-    t.db.insert(syncRuns).values({ kind: 'daily', status, snapshotDate: '2026-10-20', startedAt: finishedAt, finishedAt });
+    t.db.insert(syncRuns).values({ userId: 1, kind: 'daily', status, snapshotDate: '2026-10-20', startedAt: finishedAt, finishedAt });
 
   it('без env ничего не пишет и не шлёт', async () => {
     const f = okFetch();

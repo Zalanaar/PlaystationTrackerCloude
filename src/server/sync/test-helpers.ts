@@ -2,6 +2,9 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from '@/db/schema';
 import { asUserId } from '@/server/auth/user-id';
@@ -18,10 +21,24 @@ export const TEST_USER_2 = asUserId(2);
 
 export type TestDb = { db: AnyDb; pg: PgliteDatabase<typeof schema>; reset: () => Promise<void>; close: () => Promise<void> };
 
-export async function createTestDb(): Promise<TestDb> {
+/** Папка миграций, обрезанная до первых count записей журнала (проверка состояния прода между миграциями). */
+function migrationsFolder(count?: number): string {
+  const root = fileURLToPath(new URL('../../db/migrations', import.meta.url));
+  if (count === undefined) return root;
+  const journal = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as { entries: { tag: string }[] };
+  const dir = mkdtempSync(join(tmpdir(), 'testdb-'));
+  mkdirSync(join(dir, 'meta'));
+  const entries = journal.entries.slice(0, count);
+  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
+  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journal, entries }));
+  return dir;
+}
+
+/** opts.migrations: сколько миграций применить (по умолчанию все); 15 = схема ровно после 0014. */
+export async function createTestDb(opts: { migrations?: number } = {}): Promise<TestDb> {
   const client = new PGlite();
   const pg = drizzle(client, { schema });
-  await migrate(pg, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
+  await migrate(pg, { migrationsFolder: migrationsFolder(opts.migrations) });
   // с 0014 у всех данных user_id = 1 (owner): строка должна существовать, reset() её не трогает
   await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`);
   return {

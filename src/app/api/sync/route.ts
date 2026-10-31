@@ -18,6 +18,9 @@ export async function POST(req: Request) {
   try {
     const r = await launchSync({ userId: a.user.id, kind: 'manual' });
     if (r.kind === 'config_error') return fail(500, 'config_error', 'Не заданы настройки PSN.');
+    if (r.kind === 'psn_not_set') return fail(409, 'psn_not_set', 'Укажите ник PSN, чтобы запустить синк.');
+    if (r.kind === 'psn_not_verified') return fail(409, 'psn_not_verified', 'Доступ к профилю PSN не подтверждён. Проверьте ник и откройте профиль.');
+    if (r.kind === 'user_inactive') return fail(401, 'unauthorized', 'Требуется вход.');
     if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Синк уже идёт.', { runId: r.runId });
     if (r.kind === 'not_resumable') return fail(500, 'internal_error', 'Не удалось запустить синк.');
     const { run, resumed } = r;

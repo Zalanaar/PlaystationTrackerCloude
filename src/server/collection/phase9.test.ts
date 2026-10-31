@@ -12,7 +12,7 @@ const { games, trophySets, gameTrophySets, trophies, psnProfile } = schema;
 const NOW = new Date('2026-10-27T10:00:00Z');
 
 const profileRow = (o: Partial<ProfileRow> = {}): ProfileRow => ({
-  id: 1, onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png', trophyLevel: 312, trophyProgress: 47, trophyTier: 7,
+  userId: 1, onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png', trophyLevel: 312, trophyProgress: 47, trophyTier: 7,
   earnedPlatinum: 38, earnedGold: 410, earnedSilver: 1100, earnedBronze: 2800, updatedAt: NOW, ...o,
 });
 
@@ -60,7 +60,7 @@ describe('Фаза 9 на PGlite', () => {
   let n = 0;
   const game = async (name: string, o: Partial<typeof games.$inferInsert> = {}) => {
     n += 1;
-    const [g] = await t.db.insert(games).values({ titleId: `P9_${n}`, name, category: 'ps5_native_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `P9_${n}`, name, category: 'ps5_native_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   };
 
@@ -73,7 +73,7 @@ describe('Фаза 9 на PGlite', () => {
 
   it('summary.profile: null без синка, объект после', async () => {
     expect((await getCollectionSummary(t.db, TEST_USER)).profile).toBeNull();
-    await t.db.insert(psnProfile).values({ id: 1, onlineId: 'Artem_PS', trophyLevel: 5 });
+    await t.db.insert(psnProfile).values({ userId: 1, onlineId: 'Artem_PS', trophyLevel: 5 });
     const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.profile).toEqual({ onlineId: 'Artem_PS', avatarUrl: null, level: 5, levelProgress: null, tier: null, trophies: null });
   });
@@ -81,7 +81,7 @@ describe('Фаза 9 на PGlite', () => {
   it('wrapped.profile.avatarUrl из psn_profile; onlineId: env, иначе профиль', async () => {
     let w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.profile).toEqual({ onlineId: null, avatarUrl: null });
-    await t.db.insert(psnProfile).values({ id: 1, onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png' });
+    await t.db.insert(psnProfile).values({ userId: 1, onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png' });
     w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.profile).toEqual({ onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png' });
     w = await getWrapped(t.db, TEST_USER, 2026, 'env_id', NOW);
@@ -101,20 +101,20 @@ describe('Фаза 9 на PGlite', () => {
     const [s1, s2] = await t.db
       .insert(trophySets)
       .values([
-        { npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 's1', definedPlatinum: 1 },
-        { npCommunicationId: 'NPWR2', npServiceName: 'trophy', name: 's2' },
+        { userId: 1, npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 's1', definedPlatinum: 1 },
+        { userId: 1, npCommunicationId: 'NPWR2', npServiceName: 'trophy', name: 's2' },
       ])
       .returning();
     const other = await game('Other');
     await t.db.insert(gameTrophySets).values([
-      { gameId: a, trophySetId: s2.id, source: 'title_id' },
-      { gameId: a, trophySetId: s1.id, source: 'title_id' },
-      { gameId: other, trophySetId: s2.id, source: 'title_id' },
+      { userId: 1, gameId: a, trophySetId: s2.id, source: 'title_id' },
+      { userId: 1, gameId: a, trophySetId: s1.id, source: 'title_id' },
+      { userId: 1, gameId: other, trophySetId: s2.id, source: 'title_id' },
     ]);
     await t.db.insert(trophies).values([
-      { trophySetId: s2.id, trophyId: 0, type: 'bronze', name: 'B0' },
-      { trophySetId: s1.id, trophyId: 1, type: 'gold', name: 'secret', detail: 'd', hidden: true },
-      { trophySetId: s1.id, trophyId: 0, type: 'platinum', name: 'Plat', earned: true, earnedAt: new Date('2026-10-05T18:42:11Z'), rarity: 0, earnedRate: '2.40' },
+      { userId: 1, trophySetId: s2.id, trophyId: 0, type: 'bronze', name: 'B0' },
+      { userId: 1, trophySetId: s1.id, trophyId: 1, type: 'gold', name: 'secret', detail: 'd', hidden: true },
+      { userId: 1, trophySetId: s1.id, trophyId: 0, type: 'platinum', name: 'Plat', earned: true, earnedAt: new Date('2026-10-05T18:42:11Z'), rarity: 0, earnedRate: '2.40' },
     ]);
     await setGameStatus(t.db, TEST_USER, a, 'backlog');
     await t.db.update(games).set({ hiddenAt: NOW }).where(eq(games.id, a));

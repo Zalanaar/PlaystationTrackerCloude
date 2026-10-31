@@ -17,7 +17,7 @@ describe('getWrapped (PGlite)', () => {
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
 
@@ -34,27 +34,27 @@ describe('getWrapped (PGlite)', () => {
     const b = await game(2, { psnGenres: ['PUZZLE'] });
     const c = await game(3);
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 3600 },
-      { gameId: a, snapshotDate: '2026-10-20', playDurationSeconds: 3600 * 11 },
-      { gameId: b, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-      { gameId: b, snapshotDate: '2026-04-01', playDurationSeconds: 3600 * 3 },
-      { gameId: c, snapshotDate: '2025-12-31', playDurationSeconds: 100 },
-      { gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 100 },
+      { userId: 1, gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-10-20', playDurationSeconds: 3600 * 11 },
+      { userId: 1, gameId: b, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+      { userId: 1, gameId: b, snapshotDate: '2026-04-01', playDurationSeconds: 3600 * 3 },
+      { userId: 1, gameId: c, snapshotDate: '2025-12-31', playDurationSeconds: 100 },
+      { userId: 1, gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 100 },
     ]);
     await t.db.insert(gameStatus).values([
-      { gameId: a, status: 'completed', completedAt: new Date('2025-12-31T21:00:00Z') }, // 1 янв 2026 МСК
-      { gameId: b, status: 'dropped', droppedAt: new Date('2025-12-31T20:59:59Z') }, // 2025
+      { userId: 1, gameId: a, status: 'completed', completedAt: new Date('2025-12-31T21:00:00Z') }, // 1 янв 2026 МСК
+      { userId: 1, gameId: b, status: 'dropped', droppedAt: new Date('2025-12-31T20:59:59Z') }, // 2025
     ]);
-    const [s1] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'Set A' }).returning();
-    const [s2] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR2', npServiceName: 'trophy', name: 'Orphan' }).returning();
-    await t.db.insert(gameTrophySets).values([{ gameId: a, trophySetId: s1.id, source: 'api' as never }]).catch(async () => {
-      await t.db.execute(sql`insert into game_trophy_sets (game_id, trophy_set_id, source) select ${a}, ${s1.id}, e.enumlabel::trophy_set_link_source from pg_enum e join pg_type ty on ty.oid = e.enumtypid where ty.typname = 'trophy_set_link_source' limit 1`);
+    const [s1] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'Set A' }).returning();
+    const [s2] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR2', npServiceName: 'trophy', name: 'Orphan' }).returning();
+    await t.db.insert(gameTrophySets).values([{ userId: 1, gameId: a, trophySetId: s1.id, source: 'api' as never }]).catch(async () => {
+      await t.db.execute(sql`insert into game_trophy_sets (user_id, game_id, trophy_set_id, source) select 1, ${a}, ${s1.id}, e.enumlabel::trophy_set_link_source from pg_enum e join pg_type ty on ty.oid = e.enumtypid where ty.typname = 'trophy_set_link_source' limit 1`);
     });
     await t.db.insert(trophies).values([
-      { trophySetId: s1.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-03-01T00:00:00Z'), earnedRate: '4.30', rarity: 1, name: 'P' },
-      { trophySetId: s2.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-09-01T00:00:00Z'), earnedRate: '1.20' },
-      { trophySetId: s2.id, trophyId: 1, type: 'gold', earned: true, earnedAt: new Date('2025-12-31T20:59:59Z') },
-      { trophySetId: s2.id, trophyId: 2, type: 'gold', earned: true, earnedAt: new Date('2025-12-31T21:00:00Z') },
+      { userId: 1, trophySetId: s1.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-03-01T00:00:00Z'), earnedRate: '4.30', rarity: 1, name: 'P' },
+      { userId: 1, trophySetId: s2.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-09-01T00:00:00Z'), earnedRate: '1.20' },
+      { userId: 1, trophySetId: s2.id, trophyId: 1, type: 'gold', earned: true, earnedAt: new Date('2025-12-31T20:59:59Z') },
+      { userId: 1, trophySetId: s2.id, trophyId: 2, type: 'gold', earned: true, earnedAt: new Date('2025-12-31T21:00:00Z') },
     ]);
 
     const w = await getWrapped(t.db, TEST_USER, 2026, 'artem', NOW);

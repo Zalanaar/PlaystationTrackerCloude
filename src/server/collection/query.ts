@@ -360,7 +360,7 @@ export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<C
         plat: sql<number>`(count(*) filter (where ${trophies.earned} and ${trophies.type} = 'platinum'))::int`,
       })
       .from(trophies)
-      .where(and(eq(trophies.userId, userId), trophySetCounted(trophies.trophySetId))),
+      .where(and(eq(trophies.userId, userId), trophySetCounted(trophies.trophySetId, userId))),
     statusCounts(db, userId, visibleGames),
     itemsQuery(db, userId).q.where(and(eq(games.userId, userId), visibleGames, eq(gameStatus.status, 'playing'))).orderBy(...byRecent).limit(PLAYING_LIMIT),
     itemsQuery(db, userId).q.where(and(eq(games.userId, userId), visibleGames, eq(gameStatus.status, 'service'))).orderBy(...byRecent).limit(SERVICES_LIMIT),

@@ -43,8 +43,8 @@ describe('миграция 0001 (service)', () => {
     await migrate(db, { migrationsFolder: MIG });
     await migrate(db, { migrationsFolder: MIG });
     await pg.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
-    await db.insert(fullSchema.games).values({ titleId: 'CUSA1_00', name: 'A', category: 'ps4_game', lastSeenAt: NOW });
-    await db.insert(fullSchema.gameStatus).values({ gameId: 1, status: 'service' });
+    await db.insert(fullSchema.games).values({ userId: 1, titleId: 'CUSA1_00', name: 'A', category: 'ps4_game', lastSeenAt: NOW });
+    await db.insert(fullSchema.gameStatus).values({ userId: 1, gameId: 1, status: 'service' });
     await pg.close();
   });
 });
@@ -58,14 +58,14 @@ describe('статус service: БД и API-логика', () => {
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${String(n).padStart(3, '0')}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${String(n).padStart(3, '0')}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
 
   it('CHECK: у service нельзя хранить completed_at / dropped_at', async () => {
     const a = await game(1);
-    await expect(t.db.insert(gameStatus).values({ gameId: a, status: 'service', completedAt: NOW })).rejects.toThrow();
-    await expect(t.db.insert(gameStatus).values({ gameId: a, status: 'service', droppedAt: NOW })).rejects.toThrow();
+    await expect(t.db.insert(gameStatus).values({ userId: 1, gameId: a, status: 'service', completedAt: NOW })).rejects.toThrow();
+    await expect(t.db.insert(gameStatus).values({ userId: 1, gameId: a, status: 'service', droppedAt: NOW })).rejects.toThrow();
   });
 
   it('смена из/в service: даты ставятся/обнуляются, повтор не трогает, статус-дата 409', async () => {

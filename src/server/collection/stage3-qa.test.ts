@@ -14,7 +14,7 @@ describe('QA этап 3 (PGlite)', () => {
   beforeAll(async () => { t = await createTestDb(); });
   afterAll(() => t.close());
   beforeEach(() => t.reset());
-  const mk = async (n: number) => (await t.db.insert(games).values({ titleId: `Q${n}`, name: `Q${n}`, category: 'ps4_game', lastSeenAt: NOW }).returning())[0].id;
+  const mk = async (n: number) => (await t.db.insert(games).values({ userId: 1, titleId: `Q${n}`, name: `Q${n}`, category: 'ps4_game', lastSeenAt: NOW }).returning())[0].id;
   const rows = () => t.db.select().from(gameStatus).orderBy(asc(gameStatus.gameId));
 
   it('reset -> restore -> restore повторно идемпотентен; вторая reset_all даёт новую «последнюю» копию', async () => {
@@ -37,7 +37,7 @@ describe('QA этап 3 (PGlite)', () => {
   });
 
   it('массовая смена: ровно 1000 за раз и 250+ атомарно', async () => {
-    await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ titleId: `B${i}`, name: `b${i}`, category: 'ps4_game', lastSeenAt: NOW })));
+    await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ userId: 1, titleId: `B${i}`, name: `b${i}`, category: 'ps4_game', lastSeenAt: NOW })));
     const ids = (await t.db.select({ id: games.id }).from(games)).map((g) => g.id);
     expect(await setGamesStatusBulk(t.db, TEST_USER, ids, 'backlog', NOW)).toBe(1000);
     expect(await rows()).toHaveLength(1000);

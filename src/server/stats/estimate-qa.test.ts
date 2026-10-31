@@ -137,7 +137,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
 
@@ -156,12 +156,12 @@ describe('Статистика и Итоги: одинаковые часы, с�
       for (let t0 = start; t0 <= Date.UTC(2026, 9, 27); t0 += DAY) {
         if (rand() < 0.4) continue;
         sec += rand() < 0.5 ? 0 : Math.floor(rand() * 4000);
-        rows.push({ gameId: id, snapshotDate: new Date(t0).toISOString().slice(0, 10), playDurationSeconds: sec });
+        rows.push({ userId: 1, gameId: id, snapshotDate: new Date(t0).toISOString().slice(0, 10), playDurationSeconds: sec });
       }
     });
     for (let i = 0; i < rows.length; i += 500) await t.db.insert(playtimeSnapshots).values(rows.slice(i, i + 500));
     // 3 игры-сервиса: статус не должен убирать часы
-    for (const id of ids.slice(0, 3)) await t.db.insert(gameStatus).values({ gameId: id, status: 'service' });
+    for (const id of ids.slice(0, 3)) await t.db.insert(gameStatus).values({ userId: 1, gameId: id, status: 'service' });
 
     for (const year of [2021, 2022, 2023, 2024, 2025, 2026, 2027]) {
       const s = await getStats(t.db, TEST_USER, { type: 'year', year, month: null }, NOW);
@@ -196,8 +196,8 @@ describe('Статистика и Итоги: одинаковые часы, с�
     const a = await game(1, { psnGenres: ['PUZZLE'], firstPlayedAt: new Date('2025-02-10T12:00:00Z'), lastPlayedAt: new Date('2025-04-10T12:00:00Z') });
     const b = await game(2, { psnGenres: ['RACING'], firstPlayedAt: null });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
-      { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
+      { userId: 1, gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
     ]);
     const s25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
     expect(s25.genres.items.map((g) => g.key)).toEqual(['PUZZLE']);
@@ -213,9 +213,9 @@ describe('Статистика и Итоги: одинаковые часы, с�
     const a = await game(1, { firstPlayedAt: new Date('2026-04-10T12:00:00Z'), lastPlayedAt: new Date('2026-08-01T00:00:00Z') });
     const old = await game(2, { firstPlayedAt: null });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: old, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
-      { gameId: a, snapshotDate: '2026-08-10', playDurationSeconds: 5 * 3600 },
-      { gameId: a, snapshotDate: '2026-08-20', playDurationSeconds: 7 * 3600 },
+      { userId: 1, gameId: old, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-08-10', playDurationSeconds: 5 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-08-20', playDurationSeconds: 7 * 3600 },
     ]);
     const s = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     // апр..авг = 5 месяцев по 1 ч, август + 2 ч реальных
@@ -228,7 +228,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
   it('КРАЙ: крошечный S0 (меньше числа месяцев): years[].hasData и mode Итогов', async () => {
     // 5 секунд игры за 75 месяцев: доли 0, остаток 5 с в последний месяц
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
-    await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 5 });
+    await t.db.insert(playtimeSnapshots).values({ userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 5 });
     const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     for (const y of base.years) {
       const w = await getWrapped(t.db, TEST_USER, y.year, null, NOW);
@@ -238,7 +238,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
 
   it('КРАЙ: игра 1 минута за 6 лет (доля года < 0.05 ч): years.hasData vs mode', async () => {
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
-    await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 60 });
+    await t.db.insert(playtimeSnapshots).values({ userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 60 });
     const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     for (const y of base.years) {
       const w = await getWrapped(t.db, TEST_USER, y.year, null, NOW);
@@ -249,7 +249,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
   it('граница округления: год с оценкой 179 с не с данными, 180 с (0.1 ч) с данными', async () => {
     // два месяца 2025-12 и 2026-01: S0 = 359 -> доли 179 и 180
     const a = await game(1, { firstPlayedAt: new Date('2025-12-10T12:00:00Z'), lastPlayedAt: new Date('2026-01-04T00:00:00Z') });
-    await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-01-05', playDurationSeconds: 359 });
+    await t.db.insert(playtimeSnapshots).values({ userId: 1, gameId: a, snapshotDate: '2026-01-05', playDurationSeconds: 359 });
     const y = (await getWrapped(t.db, TEST_USER, 2026, null, NOW)).years;
     expect(y.find((v) => v.year === 2025)?.hasData ?? false).toBe(false);
     expect(y.find((v) => v.year === 2026)?.hasData).toBe(true);
@@ -260,7 +260,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
 
   it('sql-сверка: сумма оценки по всем месяцам игры равна S0 (нет потерь остатка)', async () => {
     const a = await game(1, { firstPlayedAt: new Date('2025-01-31T20:59:59Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
-    await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 100003 });
+    await t.db.insert(playtimeSnapshots).values({ userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 100003 });
     let tot = 0;
     for (const y of [2025, 2026]) {
       const s = await getStats(t.db, TEST_USER, { type: 'year', year: y, month: null }, NOW);

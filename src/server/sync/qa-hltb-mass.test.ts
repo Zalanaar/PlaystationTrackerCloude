@@ -48,8 +48,8 @@ describe('QA массовый запуск', () => {
   beforeEach(() => t.reset());
   const mkDeps = (search: HltbClient['search']): HltbDeps => ({ client: { search }, sleep: async () => undefined });
   async function add(name: string, status: 'backlog' | null = 'backlog', extra: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `T-${name}`, name, category: 'ps5_native_game', lastSeenAt: T0, ...extra }).returning({ id: games.id });
-    if (status) await t.db.insert(gameStatus).values({ gameId: g.id, status });
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `T-${name}`, name, category: 'ps5_native_game', lastSeenAt: T0, ...extra }).returning({ id: games.id });
+    if (status) await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status });
     return g.id;
   }
 
@@ -98,7 +98,7 @@ describe('QA массовый запуск', () => {
   });
 
   it('убитая функция: running от hltb блокирует синк до 15 минут, потом закрывается как timeout (не навсегда)', async () => {
-    await t.db.insert(syncRuns).values({ kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
     const early = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(T0.getTime() + 60_000) });
     expect(early.kind).toBe('already_running');
     const late = await runHltbMass({ userId: TEST_USER, db: t.db, deps: mkDeps(async () => []), now: () => new Date(T0.getTime() + STALE_RUN_MS + 1000) });
@@ -124,7 +124,7 @@ describe('QA массовый запуск', () => {
 
   // L-1: для kind='hltb' порог 2 минуты, heartbeat после каждой пачки.
   const hltbRow = (heartbeat: Date) =>
-    t.db.insert(syncRuns).values({ kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: heartbeat.toISOString() } });
+    t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: heartbeat.toISOString() } });
   const at = (ms: number) => new Date(T0.getTime() + ms);
 
   it('L-1: hltb-запись блокирует слот в 1 минуту', async () => {
@@ -148,7 +148,7 @@ describe('QA массовый запуск', () => {
   });
 
   it('L-1: порог синка не меняется (running manual живёт до 15 минут)', async () => {
-    await t.db.insert(syncRuns).values({ kind: 'manual', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'auth', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'manual', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'auth', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
     expect((await startRun(t.db, TEST_USER, { kind: 'daily', now: at(HLTB_STALE_RUN_MS + 1000) })).kind).toBe('already_running');
     expect((await startRun(t.db, TEST_USER, { kind: 'daily', now: at(STALE_RUN_MS + 1000) })).kind).toBe('started');
   });

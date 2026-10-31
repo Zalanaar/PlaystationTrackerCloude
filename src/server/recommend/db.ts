@@ -100,7 +100,7 @@ export async function writeCachedReasons(db: AnyDb, userId: UserId, items: reado
     await db
       .insert(recommendReasons)
       .values({ userId, gameId: i.game.id, signalsHash: hash, text, createdAt: now })
-      .onConflictDoUpdate({ target: [recommendReasons.gameId, recommendReasons.signalsHash], set: { text, createdAt: now } });
+      .onConflictDoUpdate({ target: [recommendReasons.userId, recommendReasons.gameId, recommendReasons.signalsHash], set: { text, createdAt: now } });
     await db.delete(recommendReasons).where(and(eq(recommendReasons.userId, userId), eq(recommendReasons.gameId, i.game.id), ne(recommendReasons.signalsHash, hash)));
   }
 }

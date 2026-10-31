@@ -44,8 +44,8 @@ describe('runHltbMass', () => {
   }
   async function add(n: number, status: 'backlog' | 'completed' | 'service' = 'backlog') {
     for (let i = 0; i < n; i++) {
-      const [g] = await t.db.insert(games).values({ titleId: `T${i}-${status}`, name: `Game ${i} ${status}`, category: 'ps5_native_game', lastSeenAt: T0 }).returning({ id: games.id });
-      await t.db.insert(gameStatus).values({ gameId: g.id, status });
+      const [g] = await t.db.insert(games).values({ userId: 1, titleId: `T${i}-${status}`, name: `Game ${i} ${status}`, category: 'ps5_native_game', lastSeenAt: T0 }).returning({ id: games.id });
+      await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status });
     }
   }
   const found: HltbClient['search'] = async (term) => [cand(Number(term.match(/\d+/)?.[0] ?? 1) + 1000, term)];
@@ -101,7 +101,7 @@ describe('runHltbMass', () => {
     expect((await t.db.select().from(syncRuns)).filter((x) => x.kind === 'hltb')).toHaveLength(0);
     // и обратно: идущий hltb блокирует синк
     await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.status, 'running'));
-    await t.db.insert(syncRuns).values({ kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0 });
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0 });
     expect((await startRun(t.db, TEST_USER, { kind: 'manual', now: T0 })).kind).toBe('already_running');
   });
 
@@ -138,9 +138,9 @@ describe('runHltbMass', () => {
 
   it('recheckNotFound: берёт только прежние not_found до since, найденные и ручные не трогает', async () => {
     const old = new Date(T0.getTime() - 86400_000);
-    const [nf] = await t.db.insert(games).values({ titleId: 'a', name: 'Gothic Classic', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old }).returning({ id: games.id });
-    const [ok] = await t.db.insert(games).values({ titleId: 'b', name: 'Hades', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old, hltbId: 5, hltbMainHours: 20 }).returning({ id: games.id });
-    const [man] = await t.db.insert(games).values({ titleId: 'c', name: 'Manual', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old, durationOverrideHours: 3 }).returning({ id: games.id });
+    const [nf] = await t.db.insert(games).values({ userId: 1, titleId: 'a', name: 'Gothic Classic', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old }).returning({ id: games.id });
+    const [ok] = await t.db.insert(games).values({ userId: 1, titleId: 'b', name: 'Hades', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old, hltbId: 5, hltbMainHours: 20 }).returning({ id: games.id });
+    const [man] = await t.db.insert(games).values({ userId: 1, titleId: 'c', name: 'Manual', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old, durationOverrideHours: 3 }).returning({ id: games.id });
     const asked: string[] = [];
     const { deps, now } = mk(async (term) => (asked.push(term), [cand(77, 'Gothic')]));
     const plain = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });

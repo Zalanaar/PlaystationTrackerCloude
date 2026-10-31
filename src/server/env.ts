@@ -101,13 +101,14 @@ export function getAppOrigin(env: Record<string, string | undefined> = process.e
   }
 }
 
-export type LlmEnv = { provider: 'gemini' | 'groq'; apiKey: string; model: string | null; dailyLimit: number };
+export type LlmEnv = { provider: 'gemini' | 'groq'; apiKey: string; model: string | null; dailyLimit: number; /** вызовов на пользователя в сутки (22.13); нет = 12 */ userDailyLimit?: number };
 
 export const LLM_DEFAULT_DAILY_LIMIT = 20;
 export const LLM_MAX_DAILY_LIMIT = 200;
+export const LLM_DEFAULT_USER_DAILY_LIMIT = 12;
 
 /**
- * Фаза 13 (контракт 18.2). null = LLM выключен (нет провайдера или ключа, неизвестный провайдер, лимит 0): работаем на шаблонах.
+ * Фаза 13 (контракт 18.2); LLM_DAILY_LIMIT с Фазы 20.4 — общий потолок по сумме пользователей (22.13). null = LLM выключен (нет провайдера или ключа, неизвестный провайдер, лимит 0): работаем на шаблонах.
  * Ключ не логируется. LLM_MODEL необязателен (смена модели без деплоя кода).
  */
 export function getLlmEnv(env: Record<string, string | undefined> = process.env): LlmEnv | null {
@@ -117,8 +118,9 @@ export function getLlmEnv(env: Record<string, string | undefined> = process.env)
   if (!apiKey) return null;
   const dailyLimit = intEnv(env.LLM_DAILY_LIMIT, LLM_DEFAULT_DAILY_LIMIT, 0, LLM_MAX_DAILY_LIMIT);
   if (dailyLimit === 0) return null;
+  const userDailyLimit = intEnv(env.LLM_USER_DAILY_LIMIT, LLM_DEFAULT_USER_DAILY_LIMIT, 1, LLM_MAX_DAILY_LIMIT);
   const model = env.LLM_MODEL?.trim();
-  return { provider, apiKey, model: model && /^[\w.:\-/]{1,80}$/.test(model) ? model : null, dailyLimit };
+  return { provider, apiKey, model: model && /^[\w.:\-/]{1,80}$/.test(model) ? model : null, dailyLimit, userDailyLimit };
 }
 
 export type GoogleEnv = { clientId: string; clientSecret: string; origin: string };

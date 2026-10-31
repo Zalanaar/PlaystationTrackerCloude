@@ -32,8 +32,8 @@ describe('API копии разметки', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
   async function seed() {
-    const [g] = await t.db.insert(games).values({ titleId: 'A', name: 'Hades', category: 'ps5_native_game', lastSeenAt: new Date(), durationOverrideHours: 12 }).returning({ id: games.id });
-    await t.db.insert(gameStatus).values({ gameId: g.id, status: 'completed', completedAt: new Date('2026-03-02T19:10:00Z') });
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: 'A', name: 'Hades', category: 'ps5_native_game', lastSeenAt: new Date(), durationOverrideHours: 12 }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status: 'completed', completedAt: new Date('2026-03-02T19:10:00Z') });
     return g.id;
   }
 
@@ -129,7 +129,7 @@ describe('API копии разметки', () => {
     vi.stubEnv('CRON_SECRET', SECRET);
     vi.stubEnv('TELEGRAM_BOT_TOKEN', '');
     vi.stubEnv('TELEGRAM_CHAT_ID', '');
-    await t.db.insert(syncRuns).values({ kind: 'daily', status: 'success', snapshotDate: '2026-01-01', startedAt: new Date('2026-01-01T20:00:00Z'), finishedAt: new Date('2026-01-01T20:05:00Z') });
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'daily', status: 'success', snapshotDate: '2026-01-01', startedAt: new Date('2026-01-01T20:00:00Z'), finishedAt: new Date('2026-01-01T20:05:00Z') });
     const r = await watchdogGet(cron(`Bearer ${SECRET}`));
     expect(r.status).toBe(200);
     const data = (await r.json()).data;
@@ -143,7 +143,7 @@ describe('API копии разметки', () => {
     vi.stubEnv('TELEGRAM_CHAT_ID', '42');
     const f = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     vi.stubGlobal('fetch', f);
-    await t.db.insert(syncRuns).values({ kind: 'daily', status: 'success', snapshotDate: '2026-01-01', startedAt: new Date('2026-01-01T20:00:00Z'), finishedAt: new Date('2026-01-01T20:05:00Z') });
+    await t.db.insert(syncRuns).values({ userId: 1, kind: 'daily', status: 'success', snapshotDate: '2026-01-01', startedAt: new Date('2026-01-01T20:00:00Z'), finishedAt: new Date('2026-01-01T20:05:00Z') });
     const r = await watchdogGet(cron(`Bearer ${SECRET}`));
     const text = JSON.stringify(await r.json());
     expect(text).toContain('"alert":"sent"');

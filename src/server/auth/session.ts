@@ -33,15 +33,6 @@ function importKey(secret: string, usage: 'sign' | 'verify'): Promise<CryptoKey>
   return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
 }
 
-/** Устаревший токен v:1 (только тесты совместимости; боевой код выдаёт createSessionTokenV2). Бросает при пустом/коротком секрете (fail closed). */
-export async function createSessionToken(secret: string | null | undefined, nowMs: number = Date.now()): Promise<string> {
-  if (!validSecret(secret)) throw new Error('session secret is missing or too short');
-  const iat = Math.floor(nowMs / 1000);
-  const payload = b64urlEncode(enc.encode(JSON.stringify({ v: 1, iat, exp: iat + SESSION_TTL_SECONDS })));
-  const sig = await crypto.subtle.sign('HMAC', await importKey(secret, 'sign'), enc.encode(payload));
-  return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
-}
-
 /** Подписанный JSON (HMAC-SHA256 SESSION_SECRET) для коротких служебных cookie, например pst_oauth. */
 export async function signJson(secret: string | null | undefined, data: Record<string, unknown>): Promise<string> {
   if (!validSecret(secret)) throw new Error('session secret is missing or too short');
@@ -69,10 +60,7 @@ export async function verifyJson(secret: string | null | undefined, token: strin
 export type SessionRole = 'owner' | 'member';
 export type SessionAmr = 'google' | 'pwd';
 export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr };
-export type Session = SessionClaims & { v: 1 | 2; iat: number; exp: number };
-
-/** id владельца: так трактуется токен v:1 (выдан до Фазы 20). Поддержка v:1 удаляется после 0015 (контракт 22.3, 22.12). */
-export const LEGACY_OWNER_UID = 1;
+export type Session = SessionClaims & { v: 2; iat: number; exp: number };
 
 /** Токен v:2 (контракт 22.3). Бросает при пустом/коротком секрете или некорректных claims. */
 export async function createSessionTokenV2(
@@ -89,7 +77,7 @@ export async function createSessionTokenV2(
   return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
 }
 
-/** Разбор и проверка токена (v:1 и v:2): подпись, форма, срок. null при любой ошибке. Без БД. */
+/** Разбор и проверка токена (только v:2; v:1 удалён после 0015, контракт 22.3): подпись, форма, срок. null при любой ошибке. Без БД. */
 export async function readSessionToken(
   token: string | null | undefined,
   secret: string | null | undefined,
@@ -113,7 +101,6 @@ export async function readSessionToken(
     if (typeof iat !== 'number' || typeof exp !== 'number') return null;
     const nowS = Math.floor(nowMs / 1000);
     if (!(nowS < exp) || iat > nowS + 60) return null;
-    if (v === 1) return { v: 1, uid: LEGACY_OWNER_UID, role: 'owner', amr: 'pwd', iat, exp };
     if (v === 2) {
       const { uid, role, amr } = d;
       if (typeof uid !== 'number' || !Number.isInteger(uid) || uid <= 0) return null;
@@ -127,7 +114,7 @@ export async function readSessionToken(
   }
 }
 
-/** true только для токена с верной подписью и неистёкшим сроком (v:1 или v:2). Любая ошибка = false. */
+/** true только для токена с верной подписью и неистёкшим сроком (v:2). Любая ошибка = false. */
 export async function verifySessionToken(
   token: string | null | undefined,
   secret: string | null | undefined,

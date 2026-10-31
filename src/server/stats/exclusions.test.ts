@@ -119,9 +119,9 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
   async function seedGame(o: { first: string; last: string; seconds: number }) {
     const [g] = await t.db
       .insert(schema.games)
-      .values({ titleId: 'CUSA1', name: 'A', category: 'ps5_native_game', lastSeenAt: new Date(), firstPlayedAt: new Date(o.first), lastPlayedAt: new Date(o.last) })
+      .values({ userId: 1, titleId: 'CUSA1', name: 'A', category: 'ps5_native_game', lastSeenAt: new Date(), firstPlayedAt: new Date(o.first), lastPlayedAt: new Date(o.last) })
       .returning();
-    await t.db.insert(schema.playtimeSnapshots).values({ gameId: g.id, snapshotDate: '2026-10-27', playDurationSeconds: o.seconds, lastPlayedAt: new Date(o.last) });
+    await t.db.insert(schema.playtimeSnapshots).values({ userId: 1, gameId: g.id, snapshotDate: '2026-10-27', playDurationSeconds: o.seconds, lastPlayedAt: new Date(o.last) });
     return g.id;
   }
 
@@ -153,7 +153,7 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
 
   it('реальные часы не двигаются: byMonth тот же, игра уходит из items месяца в excluded', async () => {
     const id = await seedGame({ first: '2026-10-01T12:00:00Z', last: '2026-10-20T12:00:00Z', seconds: 0 });
-    await t.db.insert(schema.playtimeSnapshots).values({ gameId: id, snapshotDate: '2026-10-28', playDurationSeconds: 5 * H });
+    await t.db.insert(schema.playtimeSnapshots).values({ userId: 1, gameId: id, snapshotDate: '2026-10-28', playDurationSeconds: 5 * H });
     const q = { type: 'month' as const, year: 2026, month: 10 };
     const now = new Date('2026-10-28T10:00:00Z');
     const before = await getStats(t.db, TEST_USER, q, now);

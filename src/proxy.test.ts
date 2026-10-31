@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { proxy, config as configRef } from './proxy';
-import { createSessionToken, createSessionTokenV2, SESSION_COOKIE } from './server/auth/session';
+import { createSessionTokenV2, SESSION_COOKIE } from './server/auth/session';
 import { originAllowed } from './server/http';
+
+const createSessionToken = (secret: string, nowMs?: number) => createSessionTokenV2(secret, { uid: 1, role: 'owner', amr: 'pwd' }, nowMs); // owner, pwd
 
 const SECRET = 's'.repeat(40);
 const CRON = 'c'.repeat(40);

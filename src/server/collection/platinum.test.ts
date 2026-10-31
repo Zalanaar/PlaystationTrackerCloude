@@ -78,14 +78,14 @@ describe('прогноз платины на PGlite', () => {
   let n = 0;
   async function gameWithSet(name: string, earned: number, total: number, o: { platinumEarned?: boolean; hidden?: boolean; noPlatinum?: boolean } = {}) {
     n++;
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}`, name, category: 'ps5_native_game', lastSeenAt: NOW, hiddenAt: o.hidden ? NOW : null }).returning();
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name, definedBronze: total, earnedBronze: earned, definedPlatinum: o.noPlatinum ? 0 : 1, earnedPlatinum: o.platinumEarned ? 1 : 0 }).returning();
-    await t.db.insert(gameTrophySets).values({ gameId: g.id, trophySetId: s.id, source: 'title_id' });
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}`, name, category: 'ps5_native_game', lastSeenAt: NOW, hiddenAt: o.hidden ? NOW : null }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name, definedBronze: total, earnedBronze: earned, definedPlatinum: o.noPlatinum ? 0 : 1, earnedPlatinum: o.platinumEarned ? 1 : 0 }).returning();
+    await t.db.insert(gameTrophySets).values({ userId: 1, gameId: g.id, trophySetId: s.id, source: 'title_id' });
     const rows: (typeof trophies.$inferInsert)[] = [];
-    if (!o.noPlatinum) rows.push({ trophySetId: s.id, trophyId: 0, type: 'platinum', earned: !!o.platinumEarned, earnedAt: o.platinumEarned ? NOW : null, earnedRate: '3.00' });
+    if (!o.noPlatinum) rows.push({ userId: 1, trophySetId: s.id, trophyId: 0, type: 'platinum', earned: !!o.platinumEarned, earnedAt: o.platinumEarned ? NOW : null, earnedRate: '3.00' });
     for (let i = 1; i <= total; i++) {
       const got = i <= earned;
-      rows.push({ trophySetId: s.id, trophyId: i, type: 'bronze', earned: got, earnedAt: got ? NOW : null, earnedRate: got ? '60.00' : `${i}.50`, hidden: !got && i === total });
+      rows.push({ userId: 1, trophySetId: s.id, trophyId: i, type: 'bronze', earned: got, earnedAt: got ? NOW : null, earnedRate: got ? '60.00' : `${i}.50`, hidden: !got && i === total });
     }
     await t.db.insert(trophies).values(rows);
     return g.id;

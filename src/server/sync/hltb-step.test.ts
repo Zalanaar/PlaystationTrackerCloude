@@ -34,9 +34,9 @@ describe('hltbStep', () => {
   async function add(name: string, o: Partial<typeof games.$inferInsert> = {}, status?: 'backlog' | 'completed' | 'service' | 'playing' | 'dropped' | 'shelved') {
     const [g] = await t.db
       .insert(games)
-      .values({ titleId: `T-${name}`, name, category: 'ps5_native_game', lastSeenAt: NOW, ...o })
+      .values({ userId: 1, titleId: `T-${name}`, name, category: 'ps5_native_game', lastSeenAt: NOW, ...o })
       .returning({ id: games.id });
-    if (status) await t.db.insert(gameStatus).values({ gameId: g.id, status: status });
+    if (status) await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status: status });
     return g.id;
   }
   const row = async (id: number) => (await t.db.select().from(games).where(eq(games.id, id)))[0];

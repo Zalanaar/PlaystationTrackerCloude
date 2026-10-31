@@ -53,7 +53,7 @@ export async function llmStep(ctx: RunContext, deps: LlmStepDeps): Promise<LlmSt
   for (let at = 0; at < missing.length; at += PHRASE_BATCH) {
     if (ctx.timeLeft() < LLM_MIN_LEFT_MS) break;
     if (await isPaused(db)) break;
-    if (!(await reserveCall(db, ctx.userId, 'phrases', env.dailyLimit, now))) break;
+    if (!(await reserveCall(db, ctx.userId, 'phrases', env.dailyLimit, now, env.userDailyLimit))) break;
     const batch = missing.slice(at, at + PHRASE_BATCH);
     let fresh: Map<number, string>;
     try {

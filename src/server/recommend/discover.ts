@@ -268,7 +268,7 @@ export async function generateDiscover(
 ): Promise<GenerateResult> {
   if (await isPaused(db)) return { ok: false, llm: 'error', catalog: 'ok', reason: 'paused', proposed: 0, spent: false };
   const profile = buildProfile(await loadProfileGames(db, userId));
-  if (!(await reserveCall(db, userId, kind, env.dailyLimit, now))) return { ok: false, llm: 'limit', catalog: 'ok', reason: null, proposed: 0, spent: false };
+  if (!(await reserveCall(db, userId, kind, env.dailyLimit, now, env.userDailyLimit))) return { ok: false, llm: 'limit', catalog: 'ok', reason: null, proposed: 0, spent: false };
 
   const provider = deps.provider ?? createProvider({ provider: 'groq', apiKey: env.apiKey, model: env.model ?? DEFAULT_MODELS.groq }, deps.fetch);
   let proposals: Proposal[];

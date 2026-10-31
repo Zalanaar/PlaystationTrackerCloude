@@ -234,8 +234,8 @@ describe('QA: БД, лимит, гонки, утечки', () => {
 
   async function seed(n = 5) {
     const base = { category: 'ps5_native_game', lastSeenAt: NOW };
-    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ ...base, titleId: `T${i}`, name: `Игра${i}${'абвгд'[i % 5]}ъ`, psnGenres: ['ACTION'] }))).returning({ id: games.id });
-    await t.db.insert(gameStatus).values(ins.map((g) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: NOW })));
+    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ userId: 1, ...base, titleId: `T${i}`, name: `Игра${i}${'абвгд'[i % 5]}ъ`, psnGenres: ['ACTION'] }))).returning({ id: games.id });
+    await t.db.insert(gameStatus).values(ins.map((g) => ({ userId: 1, gameId: g.id, status: 'backlog' as const, statusChangedAt: NOW })));
     return ins.map((g) => g.id);
   }
   const cacheFor = async () => {
@@ -277,7 +277,7 @@ describe('QA: БД, лимит, гонки, утечки', () => {
   });
   it('все в дизлайках и пустой бэклог: 200-форма, счётчик не растёт', async () => {
     const ids = await seed(2);
-    await t.db.insert(recommendDislikes).values(ids.map((gameId) => ({ gameId })));
+    await t.db.insert(recommendDislikes).values(ids.map((gameId) => ({ userId: 1, gameId })));
     const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
     expect(r).toEqual({ items: [], meta: { llm: 'ok', candidates: 0, time: 'any', llmPending: 0 } });
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
@@ -293,14 +293,14 @@ describe('QA: БД, лимит, гонки, утечки', () => {
   it('удаление игры каскадно чистит кэш фраз и дизлайк', async () => {
     const ids = await seed(3);
     await cacheFor();
-    await t.db.insert(recommendDislikes).values({ gameId: ids[0] });
+    await t.db.insert(recommendDislikes).values({ userId: 1, gameId: ids[0] });
     await t.db.delete(games).where(eq(games.id, ids[0]));
     expect((await t.db.select().from(recommendReasons)).some((r) => r.gameId === ids[0])).toBe(false);
     expect(await t.db.select().from(recommendDislikes)).toEqual([]);
   });
   it('мусорные данные в БД (null psn_genres, отрицательные секунды) не роняют выдачу', async () => {
     await seed(2);
-    await t.db.insert(games).values({ category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'HX', name: 'Hx', psnGenres: [], playDurationSeconds: 0 });
+    await t.db.insert(games).values({ userId: 1, category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'HX', name: 'Hx', psnGenres: [], playDurationSeconds: 0 });
     const r = await getRecommendations(t.db, TEST_USER, 'long', NOW, { llm: null });
     expect(r.items.length).toBeGreaterThan(0);
   });

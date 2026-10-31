@@ -27,10 +27,10 @@ describe('GET /api/games: жанры и длительность', () => {
       { titleId: 'E', name: 'Echo', psnGenres: ['ACTION'] },
       { titleId: 'F', name: 'Foxtrot', psnGenres: ['UNIQUE'], hltbId: null, hltbCheckedAt: NOW },
     ];
-    const ins = await t.db.insert(games).values(rows.map((r) => ({ ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
+    const ins = await t.db.insert(games).values(rows.map((r) => ({ userId: 1, ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
     const id = (k: string) => ins.find((x) => x.titleId === k)!.id;
-    await t.db.insert(gameStatus).values(['A', 'B', 'C', 'D', 'E'].map((k) => ({ gameId: id(k), status: 'backlog' as const })));
-    await t.db.insert(gameStatus).values({ gameId: id('F'), status: 'playing' });
+    await t.db.insert(gameStatus).values(['A', 'B', 'C', 'D', 'E'].map((k) => ({ userId: 1, gameId: id(k), status: 'backlog' as const })));
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: id('F'), status: 'playing' });
   });
 
   const list = async (q: string) => {

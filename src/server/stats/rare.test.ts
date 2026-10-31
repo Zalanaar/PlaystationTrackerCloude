@@ -53,17 +53,17 @@ describe('getRareTrophies на PGlite', () => {
   let n = 0;
   async function game(o: Partial<typeof games.$inferInsert> = {}) {
     n++;
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
   async function set(gameIds: number[], name = 'Set') {
     n++;
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name }).returning();
-    for (const id of gameIds) await t.db.insert(gameTrophySets).values({ gameId: id, trophySetId: s.id, source: 'title_id' });
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name }).returning();
+    for (const id of gameIds) await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id, trophySetId: s.id, source: 'title_id' });
     return s.id;
   }
   async function trophy(setId: number, trophyId: number, earnedAt: string | null, rate: string | null, o: Partial<typeof trophies.$inferInsert> = {}) {
-    await t.db.insert(trophies).values({ trophySetId: setId, trophyId, type: 'gold', name: `T${trophyId}`, earned: true, earnedAt: earnedAt ? new Date(earnedAt) : null, earnedRate: rate, ...o });
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: setId, trophyId, type: 'gold', name: `T${trophyId}`, earned: true, earnedAt: earnedAt ? new Date(earnedAt) : null, earnedRate: rate, ...o });
   }
 
   it('граница года по МСК, сирота, скрытый сет, без процента, без даты, не полученный', async () => {

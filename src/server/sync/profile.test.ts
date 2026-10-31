@@ -43,7 +43,7 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
     const rows = await t.db.select().from(psnProfile);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      id: 1, onlineId: 'Target', avatarUrl: 'https://img.example/av-xl.png',
+      userId: 1, onlineId: 'Target', avatarUrl: 'https://img.example/av-xl.png',
       trophyLevel: 312, trophyProgress: 47, trophyTier: 7,
       earnedPlatinum: 38, earnedGold: 410, earnedSilver: 1100, earnedBronze: 2800,
     });

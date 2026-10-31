@@ -23,26 +23,26 @@ describe('backup', () => {
 
   async function seed() {
     const ins = await t.db.insert(games).values([
-      { titleId: 'A', name: 'Hades', category: 'ps5_native_game', lastSeenAt: NOW, durationOverrideHours: 22.5, genresOverride: ['ACTION'] },
-      { titleId: 'B', name: 'Bloodborne', category: 'ps4_game', lastSeenAt: NOW },
-      { titleId: 'C', name: 'Hidden', category: 'ps4_game', lastSeenAt: NOW, hiddenAt: new Date('2026-05-01T00:00:00Z') },
-      { titleId: 'D', name: 'Чистая игра без разметки', category: 'ps4_game', lastSeenAt: NOW },
-      { titleId: 'E', name: 'Queue', category: 'ps4_game', lastSeenAt: NOW },
+      { userId: 1, titleId: 'A', name: 'Hades', category: 'ps5_native_game', lastSeenAt: NOW, durationOverrideHours: 22.5, genresOverride: ['ACTION'] },
+      { userId: 1, titleId: 'B', name: 'Bloodborne', category: 'ps4_game', lastSeenAt: NOW },
+      { userId: 1, titleId: 'C', name: 'Hidden', category: 'ps4_game', lastSeenAt: NOW, hiddenAt: new Date('2026-05-01T00:00:00Z') },
+      { userId: 1, titleId: 'D', name: 'Чистая игра без разметки', category: 'ps4_game', lastSeenAt: NOW },
+      { userId: 1, titleId: 'E', name: 'Queue', category: 'ps4_game', lastSeenAt: NOW },
     ]).returning({ id: games.id, titleId: games.titleId });
     const id = (k: string) => ins.find((x) => x.titleId === k)!.id;
     await t.db.insert(gameStatus).values([
-      { gameId: id('A'), status: 'completed', completedAt: new Date('2026-03-02T19:10:00Z'), statusChangedAt: new Date('2026-03-02T19:11:00Z') },
-      { gameId: id('B'), status: 'dropped', droppedAt: new Date('2026-04-01T10:00:00Z') },
-      { gameId: id('E'), status: 'backlog' },
+      { userId: 1, gameId: id('A'), status: 'completed', completedAt: new Date('2026-03-02T19:10:00Z'), statusChangedAt: new Date('2026-03-02T19:11:00Z') },
+      { userId: 1, gameId: id('B'), status: 'dropped', droppedAt: new Date('2026-04-01T10:00:00Z') },
+      { userId: 1, gameId: id('E'), status: 'backlog' },
     ]);
-    await t.db.insert(roadmapOrder).values([{ gameId: id('E'), position: 3 }]);
-    await t.db.insert(roadmapExcluded).values([{ gameId: id('B') }]);
-    await t.db.insert(gameMonthExclusions).values([{ gameId: id('A'), month: '2026-03' }, { gameId: id('A'), month: '2026-02' }]);
+    await t.db.insert(roadmapOrder).values([{ userId: 1, gameId: id('E'), position: 3 }]);
+    await t.db.insert(roadmapExcluded).values([{ userId: 1, gameId: id('B') }]);
+    await t.db.insert(gameMonthExclusions).values([{ userId: 1, gameId: id('A'), month: '2026-03' }, { userId: 1, gameId: id('A'), month: '2026-02' }]);
     await t.db.insert(plannedGames).values([
-      { title: 'GTA VI', releaseDate: '2026-11-19', wantAtRelease: true, hoursManual: 40, externalSource: 'rawg', externalId: '123', coverUrl: 'https://media.rawg.io/a.jpg' },
-      { title: 'Manual One', status: 'cancelled' },
+      { userId: 1, title: 'GTA VI', releaseDate: '2026-11-19', wantAtRelease: true, hoursManual: 40, externalSource: 'rawg', externalId: '123', coverUrl: 'https://media.rawg.io/a.jpg' },
+      { userId: 1, title: 'Manual One', status: 'cancelled' },
     ]);
-    await t.db.insert(roadmapSettings).values({ id: 1, year: 2026, hoursPerWeek: 8 });
+    await t.db.insert(roadmapSettings).values({ userId: 1, year: 2026, hoursPerWeek: 8 });
     return id;
   }
 
@@ -174,11 +174,11 @@ describe('backup', () => {
 
   it('N-2: порядок очереди после восстановления остаётся с уникальными позициями, игры вне файла идут после', async () => {
     const id = await seed(); // E: позиция 3
-    const extra = await t.db.insert(games).values([{ titleId: 'X', name: 'X', category: 'ps4_game', lastSeenAt: NOW }, { titleId: 'Y', name: 'Y', category: 'ps4_game', lastSeenAt: NOW }]).returning({ id: games.id, titleId: games.titleId });
+    const extra = await t.db.insert(games).values([{ userId: 1, titleId: 'X', name: 'X', category: 'ps4_game', lastSeenAt: NOW }, { userId: 1, titleId: 'Y', name: 'Y', category: 'ps4_game', lastSeenAt: NOW }]).returning({ id: games.id, titleId: games.titleId });
     const xid = extra.find((e) => e.titleId === 'X')!.id;
     const yid = extra.find((e) => e.titleId === 'Y')!.id;
     await t.db.delete(roadmapOrder);
-    await t.db.insert(roadmapOrder).values([{ gameId: xid, position: 0 }, { gameId: yid, position: 1 }]);
+    await t.db.insert(roadmapOrder).values([{ userId: 1, gameId: xid, position: 0 }, { userId: 1, gameId: yid, position: 1 }]);
     const file = (parseBackup({ app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), games: [
       { titleId: 'A', name: 'A', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 0, roadmapExcluded: false, monthExclusions: [] },
       { titleId: 'E', name: 'E', status: null, durationOverrideHours: null, genresOverride: null, hiddenAt: null, roadmapPosition: 1, roadmapExcluded: false, monthExclusions: [] },
@@ -267,10 +267,10 @@ describe('backup', () => {
     const id = await seed();
     const file = (parseBackup(await buildBackup(t.db, TEST_USER, NOW)) as { ok: true; value: BackupFile }).value;
     // в БД появилась разметка, которой нет в файле
-    await t.db.insert(gameStatus).values({ gameId: id('D'), status: 'playing' });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: id('D'), status: 'playing' });
     await t.db.update(games).set({ durationOverrideHours: 7 }).where(eq(games.id, id('D')));
-    await t.db.insert(plannedGames).values({ title: 'Новая после копии', status: 'planned' });
-    await t.db.insert(gameMonthExclusions).values({ gameId: id('B'), month: '2026-07' });
+    await t.db.insert(plannedGames).values({ userId: 1, title: 'Новая после копии', status: 'planned' });
+    await t.db.insert(gameMonthExclusions).values({ userId: 1, gameId: id('B'), month: '2026-07' });
     // игра B в файле без длительности, а в БД длительность есть: остаётся
     await t.db.update(games).set({ durationOverrideHours: 4 }).where(eq(games.id, id('B')));
     await applyRestore(t.db, TEST_USER, file, NOW);
@@ -308,7 +308,7 @@ describe('backup', () => {
   });
 
   it('список изменений обрезается на 100, счётчики полные', async () => {
-    const rows = Array.from({ length: 130 }, (_, i) => ({ titleId: `X${i}`, name: `Game ${i}`, category: 'ps4_game', lastSeenAt: NOW }));
+    const rows = Array.from({ length: 130 }, (_, i) => ({ userId: 1, titleId: `X${i}`, name: `Game ${i}`, category: 'ps4_game', lastSeenAt: NOW }));
     await t.db.insert(games).values(rows);
     const file: BackupFile = {
       app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), plannedGames: [], roadmapSettings: null,
@@ -322,8 +322,8 @@ describe('backup', () => {
 
   it('планируемые: совпадение по externalId обновляет, по названию и дате тоже, пустые поля не затираются', async () => {
     await t.db.insert(plannedGames).values([
-      { title: 'Old title', releaseDate: '2026-11-19', wantAtRelease: false, hoursManual: 55, externalSource: 'rawg', externalId: '123', status: 'planned', coverUrl: 'https://c/x.jpg' },
-      { title: 'Manual One', status: 'planned', hoursManual: 12 },
+      { userId: 1, title: 'Old title', releaseDate: '2026-11-19', wantAtRelease: false, hoursManual: 55, externalSource: 'rawg', externalId: '123', status: 'planned', coverUrl: 'https://c/x.jpg' },
+      { userId: 1, title: 'Manual One', status: 'planned', hoursManual: 12 },
     ]);
     const file: BackupFile = {
       app: BACKUP_APP, schemaVersion: 1, createdAt: NOW.toISOString(), games: [], roadmapSettings: null,
@@ -348,7 +348,7 @@ describe('backup', () => {
     await wipe();
     // нарушаем CHECK game_status уже после валидных операций (в обход parse)
     file.games[1].status = { value: 'completed', completedAt: null, droppedAt: '2026-01-01T00:00:00.000Z', statusChangedAt: NOW.toISOString() };
-    await t.db.insert(gameStatus).values({ gameId: id('D'), status: 'playing' });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: id('D'), status: 'playing' });
     const before = await snapshot();
     await expect(applyRestore(t.db, TEST_USER, file, NOW)).rejects.toThrow();
     expect(await snapshot()).toEqual(before);

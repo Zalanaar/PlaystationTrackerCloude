@@ -29,20 +29,20 @@ describe('коллекция (PGlite)', () => {
     n += 1;
     const [g] = await t.db
       .insert(games)
-      .values({ titleId: `CUSA${n}_00`, name, category: 'ps4_game', lastSeenAt: NOW, ...o })
+      .values({ userId: 1, titleId: `CUSA${n}_00`, name, category: 'ps4_game', lastSeenAt: NOW, ...o })
       .returning();
     return g.id;
   }
   async function trophySet(gameId: number | null, np: string, def: [number, number, number, number], earned: [number, number, number, number]) {
     const [s] = await t.db
       .insert(trophySets)
-      .values({
+      .values({ userId: 1,
         npCommunicationId: np, npServiceName: 'trophy', name: np,
         definedBronze: def[0], definedSilver: def[1], definedGold: def[2], definedPlatinum: def[3],
         earnedBronze: earned[0], earnedSilver: earned[1], earnedGold: earned[2], earnedPlatinum: earned[3],
       })
       .returning();
-    if (gameId !== null) await t.db.insert(gameTrophySets).values({ gameId, trophySetId: s.id, source: 'title_id' });
+    if (gameId !== null) await t.db.insert(gameTrophySets).values({ userId: 1, gameId, trophySetId: s.id, source: 'title_id' });
     return s.id;
   }
   const names = async (qs = '') => (await listGames(t.db, TEST_USER, lq(qs))).items.map((i) => i.title);
@@ -250,10 +250,10 @@ describe('коллекция (PGlite)', () => {
     const s1 = await trophySet(pl1, 'S1', [1, 0, 0, 1], [1, 0, 0, 1]);
     const s2 = await trophySet(null, 'S2', [1, 0, 0, 0], [1, 0, 0, 0]);
     await t.db.insert(trophies).values([
-      { trophySetId: s1, trophyId: 0, type: 'platinum', earned: true, earnedAt: NOW },
-      { trophySetId: s1, trophyId: 1, type: 'bronze', earned: true, earnedAt: NOW },
-      { trophySetId: s1, trophyId: 2, type: 'bronze', earned: false },
-      { trophySetId: s2, trophyId: 0, type: 'bronze', earned: true, earnedAt: NOW },
+      { userId: 1, trophySetId: s1, trophyId: 0, type: 'platinum', earned: true, earnedAt: NOW },
+      { userId: 1, trophySetId: s1, trophyId: 1, type: 'bronze', earned: true, earnedAt: NOW },
+      { userId: 1, trophySetId: s1, trophyId: 2, type: 'bronze', earned: false },
+      { userId: 1, trophySetId: s2, trophyId: 0, type: 'bronze', earned: true, earnedAt: NOW },
     ]);
     const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.totals).toEqual({ games: 7, playSeconds: 10800, hours: 3, trophiesEarned: 3, platinumEarned: 1 });
@@ -326,7 +326,7 @@ describe('коллекция (PGlite)', () => {
 
     it('1000 id за один вызов, одна транзакция', async () => {
       const ids: number[] = [];
-      await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ titleId: `BULK${i}`, name: `g${i}`, category: 'ps4_game', lastSeenAt: NOW })));
+      await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ userId: 1, titleId: `BULK${i}`, name: `g${i}`, category: 'ps4_game', lastSeenAt: NOW })));
       for (const r of await t.db.select({ id: games.id }).from(games)) ids.push(r.id);
       expect(await setGamesStatusBulk(t.db, TEST_USER, ids, 'shelved', NOW)).toBe(1000);
       expect((await listGames(t.db, TEST_USER, lq('status=shelved&limit=300'))).total).toBe(1000);

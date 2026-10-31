@@ -20,6 +20,14 @@ export type ErrorCode =
   | 'planned_duplicate'
   | 'catalog_unavailable'
   | 'config_error'
+  | 'psn_not_set'
+  | 'psn_not_verified'
+  | 'psn_id_taken'
+  | 'psn_account_locked'
+  | 'psn_not_found'
+  | 'psn_private'
+  | 'psn_friend_required'
+  | 'psn_unavailable'
   | 'internal_error'
   | 'db_unavailable';
 

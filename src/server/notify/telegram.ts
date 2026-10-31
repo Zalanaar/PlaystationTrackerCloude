@@ -151,17 +151,20 @@ export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'toke
 
 const days = (ms: number) => Math.max(1, Math.floor(ms / DAY_MS));
 
-export function messageFor(kind: NotifyKind, o: { ageMs?: number } = {}): string {
+/** Подпись пользователя в предупреждениях владельцу (только ник PSN, без email). */
+const forUser = (label?: string): string => (label ? `\nПользователь: ${label.slice(0, 40)}.` : '');
+
+export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string } = {}): string {
   switch (kind) {
     case 'auth_expired':
       return `PS Tracker: PSN отклонил токен обновления, синк остановлен. Нужен новый NPSSO.\n${DOC}`;
     case 'npsso_invalid':
       return `PS Tracker: PSN отклонил NPSSO, синк остановлен. Замените PSN_NPSSO на Vercel.\n${DOC}`;
     case 'sync_stale':
-      return `PS Tracker: синк не выполнялся успешно уже ${days(o.ageMs ?? STALE_SYNC_MS)} сут. Проверьте cron и NPSSO.\n${DOC}`;
+      return `PS Tracker: синк не выполнялся успешно уже ${days(o.ageMs ?? STALE_SYNC_MS)} сут. Проверьте cron и NPSSO.${forUser(o.label)}\n${DOC}`;
     case 'sync_missed': {
       const h = Math.max(1, Math.floor((o.ageMs ?? 0) / 3_600_000));
-      return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). Проверьте cron на Vercel и NPSSO.\n${DOC}`;
+      return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). Проверьте cron на Vercel и NPSSO.${forUser(o.label)}\n${DOC}`;
     }
     case 'token_age':
       return `PS Tracker: токены PSN не обновлялись ${days(o.ageMs ?? TOKEN_AGE_MS)} сут., refresh живёт около 10 суток. Возможно, скоро понадобится новый NPSSO.\n${DOC}`;
@@ -172,6 +175,10 @@ export type NotifyAfterSyncOpts = {
   now?: Date;
   /** Причина, с которой только что завершилось звено (failed). */
   errorReason?: string | null;
+  /** Суффикс ключа дедупа для пользовательских событий (sync_stale:<id>, контракт 22.1); у владельца пусто. */
+  kindSuffix?: string;
+  /** Подпись пользователя в тексте (ник PSN). */
+  label?: string;
   env?: TelegramEnv | null;
   fetchImpl?: typeof fetch;
 };
@@ -190,12 +197,14 @@ export async function notifyAfterSync(db: AnyDb, userId: UserId, o: NotifyAfterS
     if (!trigger) return null;
 
     const today = mskDateString(now);
-    const prev = await lastSentOn(db, trigger.kind);
+    // sync_stale относится к пользователю, остальные триггеры глобальные (один технический NPSSO)
+    const key = trigger.kind === 'sync_stale' ? `${trigger.kind}${o.kindSuffix ?? ''}` : trigger.kind;
+    const prev = await lastSentOn(db, key);
     if (prev && prev >= today) return null;
 
-    const sent = await sendTelegram(messageFor(trigger.kind, { ageMs: trigger.ageMs }), { env, fetchImpl: o.fetchImpl });
+    const sent = await sendTelegram(messageFor(trigger.kind, { ageMs: trigger.ageMs, label: trigger.kind === 'sync_stale' ? o.label : undefined }), { env, fetchImpl: o.fetchImpl });
     if (!sent) return null;
-    await markSent(db, trigger.kind, now);
+    await markSent(db, key, now);
     return trigger.kind;
   } catch {
     console.error('notify: проверка уведомлений не выполнена');

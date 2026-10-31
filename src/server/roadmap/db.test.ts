@@ -27,7 +27,7 @@ describe('roadmap на БД', () => {
 
   /** Игры A..E; backlog у A,B,C(скрыта),D; E playing. Возвращает id по ключу. */
   async function seed() {
-    const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+    const base = { userId: 1, category: 'ps5_native_game', lastSeenAt: NOW };
     const ins = await t.db
       .insert(games)
       .values([
@@ -41,11 +41,11 @@ describe('roadmap на БД', () => {
     const id = (k: string) => ins.find((x) => x.titleId === k)!.id;
     const at = (m: number) => new Date(NOW.getTime() + m * 60_000);
     await t.db.insert(gameStatus).values([
-      { gameId: id('D'), status: 'backlog', statusChangedAt: at(0) },
-      { gameId: id('A'), status: 'backlog', statusChangedAt: at(1) },
-      { gameId: id('B'), status: 'backlog', statusChangedAt: at(2) },
-      { gameId: id('C'), status: 'backlog', statusChangedAt: at(3) },
-      { gameId: id('E'), status: 'playing' },
+      { userId: 1, gameId: id('D'), status: 'backlog', statusChangedAt: at(0) },
+      { userId: 1, gameId: id('A'), status: 'backlog', statusChangedAt: at(1) },
+      { userId: 1, gameId: id('B'), status: 'backlog', statusChangedAt: at(2) },
+      { userId: 1, gameId: id('C'), status: 'backlog', statusChangedAt: at(3) },
+      { userId: 1, gameId: id('E'), status: 'playing' },
     ]);
     return id;
   }
@@ -62,8 +62,8 @@ describe('roadmap на БД', () => {
     expect(await saveOrder(t.db, TEST_USER, [id('B'), id('E'), id('A')])).toEqual([id('B'), id('E'), id('A')]);
     expect((await getBacklogEntries(t.db, TEST_USER)).map((e) => e.title)).toEqual(['Bravo', 'Alpha', 'Delta']);
     // новая игра в бэклоге
-    const [f] = await t.db.insert(games).values({ category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }).returning({ id: games.id });
-    await t.db.insert(gameStatus).values({ gameId: f.id, status: 'backlog', statusChangedAt: new Date(NOW.getTime() + 999_000) });
+    const [f] = await t.db.insert(games).values({ userId: 1, category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: f.id, status: 'backlog', statusChangedAt: new Date(NOW.getTime() + 999_000) });
     expect((await getBacklogEntries(t.db, TEST_USER)).map((e) => e.title)).toEqual(['Bravo', 'Alpha', 'Delta', 'Foxtrot']);
     // замена целиком, пустой список сбрасывает
     await saveOrder(t.db, TEST_USER, [id('D')]);
@@ -144,8 +144,8 @@ describe('roadmap на БД', () => {
     await updatePlanned(t.db, TEST_USER, cancelled.id, { status: 'cancelled' });
     // снимки: игра E, до года 100 ч, к 28 октября 100 + 250 ч
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: id('E'), snapshotDate: '2025-12-31', playDurationSeconds: 100 * 3600 },
-      { gameId: id('E'), snapshotDate: '2026-10-28', playDurationSeconds: 350 * 3600 },
+      { userId: 1, gameId: id('E'), snapshotDate: '2025-12-31', playDurationSeconds: 100 * 3600 },
+      { userId: 1, gameId: id('E'), snapshotDate: '2026-10-28', playDurationSeconds: 350 * 3600 },
     ]);
     const r = await getRoadmap(t.db, TEST_USER, NOW);
     expect(r.status).toBe('ok');
@@ -199,8 +199,8 @@ describe('roadmap на БД', () => {
       await saveOrder(t.db, TEST_USER, [id('B'), id('A'), id('D')]);
       await excludeGame(t.db, TEST_USER, id('B'));
       // новая игра бэклога без позиции
-      const [f] = await t.db.insert(games).values({ category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }).returning({ id: games.id });
-      await t.db.insert(gameStatus).values({ gameId: f.id, status: 'backlog', statusChangedAt: new Date(NOW.getTime() + 999_000) });
+      const [f] = await t.db.insert(games).values({ userId: 1, category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }).returning({ id: games.id });
+      await t.db.insert(gameStatus).values({ userId: 1, gameId: f.id, status: 'backlog', statusChangedAt: new Date(NOW.getTime() + 999_000) });
       await restoreGame(t.db, TEST_USER, id('B'));
       await restoreGame(t.db, TEST_USER, id('B')); // идемпотентно
       expect((await getBacklogEntries(t.db, TEST_USER)).map((e) => e.title)).toEqual(['Alpha', 'Delta', 'Foxtrot', 'Bravo']);
@@ -251,17 +251,17 @@ describe('roadmap на БД', () => {
       // E (playing) и F (service) и G (completed) в roadmap_order «из прошлого»
       const [f, g] = await t.db
         .insert(games)
-        .values([{ category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }, { category: 'ps4_game', lastSeenAt: NOW, titleId: 'G', name: 'Golf' }])
+        .values([{ userId: 1, category: 'ps4_game', lastSeenAt: NOW, titleId: 'F', name: 'Foxtrot' }, { userId: 1, category: 'ps4_game', lastSeenAt: NOW, titleId: 'G', name: 'Golf' }])
         .returning({ id: games.id });
-      await t.db.insert(gameStatus).values([{ gameId: f.id, status: 'service' }, { gameId: g.id, status: 'completed' }]);
-      await t.db.insert(schema.roadmapOrder).values([{ gameId: f.id, position: 8 }, { gameId: g.id, position: 9 }]);
+      await t.db.insert(gameStatus).values([{ userId: 1, gameId: f.id, status: 'service' }, { userId: 1, gameId: g.id, status: 'completed' }]);
+      await t.db.insert(schema.roadmapOrder).values([{ userId: 1, gameId: f.id, position: 8 }, { userId: 1, gameId: g.id, position: 9 }]);
       await t.db.insert(playtimeSnapshots).values([
-        { gameId: f.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: f.id, snapshotDate: '2026-10-28', playDurationSeconds: 100 * 3600 },
-        { gameId: g.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: g.id, snapshotDate: '2026-10-28', playDurationSeconds: 20 * 3600 },
-        { gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 3 * 3600 },
+        { userId: 1, gameId: f.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: f.id, snapshotDate: '2026-10-28', playDurationSeconds: 100 * 3600 },
+        { userId: 1, gameId: g.id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: g.id, snapshotDate: '2026-10-28', playDurationSeconds: 20 * 3600 },
+        { userId: 1, gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 3 * 3600 },
       ]);
       let r = await getRoadmap(t.db, TEST_USER, NOW);
       expect(r.progress?.actualHours).toBe(23); // Foxtrot (service) не считается; Golf (completed) и Alpha считаются
@@ -276,8 +276,8 @@ describe('roadmap на БД', () => {
       await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
       await saveOrder(t.db, TEST_USER, [id('A'), id('B')]); // A 10 ч, B 5 ч
       await t.db.insert(playtimeSnapshots).values([
-        { gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 10 * 3600 },
+        { userId: 1, gameId: id('A'), snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: id('A'), snapshotDate: '2026-10-28', playDurationSeconds: 10 * 3600 },
       ]);
       const before = (await getRoadmap(t.db, TEST_USER, NOW)).progress!;
       await setGameStatus(t.db, TEST_USER, id('A'), 'completed', NOW);
@@ -290,13 +290,13 @@ describe('roadmap на БД', () => {
 
     it('serviceGames: видимые service, last_played_at desc, лимит 50, часы с шагом 0.1; есть и при no_budget', async () => {
       await seed();
-      const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+      const base = { userId: 1, category: 'ps5_native_game', lastSeenAt: NOW };
       const rows = Array.from({ length: 52 }, (_, i) => ({
         ...base, titleId: `S${i}`, name: `Svc${i}`, playDurationSeconds: 3600 * 10 + 180 * i, lastPlayedAt: i === 0 ? null : new Date(NOW.getTime() - i * 3_600_000),
         hiddenAt: i === 1 ? NOW : null,
       }));
       const ins = await t.db.insert(games).values(rows).returning({ id: games.id });
-      await t.db.insert(gameStatus).values(ins.map((x) => ({ gameId: x.id, status: 'service' as const })));
+      await t.db.insert(gameStatus).values(ins.map((x) => ({ userId: 1, gameId: x.id, status: 'service' as const })));
       const r = await getRoadmap(t.db, TEST_USER, NOW);
       expect(r.status).toBe('no_budget');
       expect(r.serviceGames).toHaveLength(50);
@@ -318,7 +318,7 @@ describe('roadmap на БД', () => {
     });
 
     it('после исключения GET /roadmap пересчитывает notFit (без кэша): игра ДО не влезшей освобождает место, игра ПОСЛЕ нет', async () => {
-      const base = { category: 'ps5_native_game', lastSeenAt: NOW };
+      const base = { userId: 1, category: 'ps5_native_game', lastSeenAt: NOW };
       const ins = await t.db
         .insert(games)
         .values([
@@ -327,7 +327,7 @@ describe('roadmap на БД', () => {
           { ...base, titleId: 'R', name: 'Third', hltbMainHours: 100 },
         ])
         .returning({ id: games.id });
-      await t.db.insert(gameStatus).values(ins.map((g, i) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() + i) })));
+      await t.db.insert(gameStatus).values(ins.map((g, i) => ({ userId: 1, gameId: g.id, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() + i) })));
       await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
       const [p, q, r3] = ins.map((g) => g.id);
       await saveOrder(t.db, TEST_USER, [p, q, r3]);

@@ -122,7 +122,7 @@ describe('getActivity на PGlite', () => {
   beforeEach(() => t.reset());
 
   async function game(name: string, hidden = false) {
-    const [g] = await t.db.insert(games).values({ titleId: name, name, category: 'ps5_native_game', lastSeenAt: new Date(), hiddenAt: hidden ? new Date() : null }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: name, name, category: 'ps5_native_game', lastSeenAt: new Date(), hiddenAt: hidden ? new Date() : null }).returning();
     return g.id;
   }
 
@@ -145,7 +145,7 @@ describe('getActivity на PGlite', () => {
       sb += d.endsWith('27') ? -50 : 600;
       snaps.push({ gameId: a, date: d, seconds: sa }, { gameId: b, date: d, seconds: Math.max(0, sb) }, { gameId: h, date: d, seconds: 99999 + d.length * Number(d.slice(8)) });
     }
-    await t.db.insert(playtimeSnapshots).values(snaps.map((s) => ({ gameId: s.gameId, snapshotDate: s.date, playDurationSeconds: s.seconds })));
+    await t.db.insert(playtimeSnapshots).values(snaps.map((s) => ({ userId: 1, gameId: s.gameId, snapshotDate: s.date, playDurationSeconds: s.seconds })));
 
     // 21:30 UTC 31 декабря = 00:30 МСК 1 января: today = 2026-01-01
     const now = new Date('2025-12-31T21:30:00Z');

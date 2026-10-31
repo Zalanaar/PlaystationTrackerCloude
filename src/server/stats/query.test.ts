@@ -15,7 +15,7 @@ describe('getStats (PGlite)', () => {
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
 
@@ -31,20 +31,20 @@ describe('getStats (PGlite)', () => {
     const a = await game(1, { psnGenres: ['ACTION'] });
     const b = await game(2, { psnGenres: ['PUZZLE', 'ADVENTURE'] });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 3600 },
-      { gameId: a, snapshotDate: '2026-10-31', playDurationSeconds: 3600 * 4 },
-      { gameId: b, snapshotDate: '2026-10-20', playDurationSeconds: 7200 },
+      { userId: 1, gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-10-31', playDurationSeconds: 3600 * 4 },
+      { userId: 1, gameId: b, snapshotDate: '2026-10-20', playDurationSeconds: 7200 },
     ]);
     // 21:59 UTC = 00:59 МСК 1 ноября -> ноябрь; 20:59 UTC = 23:59 МСК 31 октября -> октябрь
     await t.db.insert(gameStatus).values([
-      { gameId: a, status: 'completed', completedAt: new Date('2026-10-31T21:59:00Z') },
-      { gameId: b, status: 'dropped', droppedAt: new Date('2026-10-31T20:59:00Z') },
+      { userId: 1, gameId: a, status: 'completed', completedAt: new Date('2026-10-31T21:59:00Z') },
+      { userId: 1, gameId: b, status: 'dropped', droppedAt: new Date('2026-10-31T20:59:00Z') },
     ]);
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'x' }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'x' }).returning();
     await t.db.insert(trophies).values([
-      { trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T20:59:00Z') },
-      { trophySetId: s.id, trophyId: 1, type: 'gold', earned: true, earnedAt: new Date('2026-06-01T00:00:00Z') },
-      { trophySetId: s.id, trophyId: 2, type: 'bronze', earned: true, earnedAt: null },
+      { userId: 1, trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T20:59:00Z') },
+      { userId: 1, trophySetId: s.id, trophyId: 1, type: 'gold', earned: true, earnedAt: new Date('2026-06-01T00:00:00Z') },
+      { userId: 1, trophySetId: s.id, trophyId: 2, type: 'bronze', earned: true, earnedAt: null },
     ]);
 
     const oct = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);

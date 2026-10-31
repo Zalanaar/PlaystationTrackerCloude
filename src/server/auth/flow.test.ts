@@ -1,6 +1,6 @@
 // Интеграция входа Google и «Доступ»: PGlite со всеми миграциями, Google мокается через global fetch и свою пару RSA-ключей.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSign, generateKeyPairSync } from 'node:crypto';
+import { createHmac, createSign, generateKeyPairSync } from 'node:crypto';
 import { type TestDb } from '@/server/sync/test-helpers';
 
 import type { PGlite } from '@electric-sql/pglite';
@@ -25,7 +25,7 @@ const { GET: me } = await import('@/app/api/auth/me/route');
 const { POST: login } = await import('@/app/api/auth/login/route');
 const { GET: listUsers, POST: addUser } = await import('@/app/api/access/users/route');
 const { PATCH: patchUser, DELETE: delUser } = await import('@/app/api/access/users/[id]/route');
-const { createSessionTokenV2, createSessionToken, SESSION_COOKIE } = await import('./session');
+const { createSessionTokenV2, SESSION_COOKIE } = await import('./session');
 const { resetJwksCache, OAUTH_COOKIE } = await import('./google');
 const { bootstrapOwner } = await import('./users');
 
@@ -247,14 +247,14 @@ describe('requireUser и роли (/api/auth/me)', () => {
     expect((await get(await createSessionTokenV2(SECRET, { uid: 3, role: 'member', amr: 'google' }))).status).toBe(401);
     expect((await get(await createSessionTokenV2(SECRET, { uid: 99, role: 'member', amr: 'google' }))).status).toBe(401);
   });
-  it('старая cookie v:1 работает как owner', async () => {
-    const r = await get(await createSessionToken(SECRET));
-    expect(r.status).toBe(200);
-    expect((await r.json()).data).toMatchObject({ id: 1, role: 'owner', email: 'owner@x.com' });
+  it('старая cookie v:1 больше не принимается (удалена после 0015)', async () => {
+    const payload = Buffer.from(JSON.stringify({ v: 1, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+    const sig = createHmac('sha256', SECRET).update(payload).digest('base64url');
+    expect((await get(`${payload}.${sig}`)).status).toBe(401);
   });
-  it('v:1 при заблокированном/отсутствующем owner не проходит', async () => {
+  it('v:2 владельца при отсутствующем owner не проходит', async () => {
     await pgc(t).exec('TRUNCATE allowed_users RESTART IDENTITY CASCADE');
-    expect((await get(await createSessionToken(SECRET))).status).toBe(401);
+    expect((await get(await createSessionTokenV2(SECRET, { uid: 1, role: 'owner', amr: 'pwd' }))).status).toBe(401);
   });
 });
 

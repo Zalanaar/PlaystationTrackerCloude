@@ -38,7 +38,7 @@ describe('QA Фаза 8 (PGlite)', () => {
     n++;
     const [g] = await t.db
       .insert(games)
-      .values({ titleId: `QA${n}_00`, name: `QA ${n}`, category: 'ps5_native_game', lastSeenAt: NOW, psnGenres: ['ACTION'], ...o })
+      .values({ userId: 1, titleId: `QA${n}_00`, name: `QA ${n}`, category: 'ps5_native_game', lastSeenAt: NOW, psnGenres: ['ACTION'], ...o })
       .returning();
     return g.id;
   }
@@ -48,8 +48,8 @@ describe('QA Фаза 8 (PGlite)', () => {
       // первый запуск дек 2025, игра янв 2026, первый снимок 27.10.2026, затем игра в окт 2026 (синк перезаписал games.last_played_at)
       const id = await game({ firstPlayedAt: D('2025-12-10T18:00:00Z'), lastPlayedAt: D('2026-10-28T10:00:00Z'), playDurationSeconds: 22 * H });
       await t.db.insert(ps).values([
-        { gameId: id, snapshotDate: '2026-10-27', playDurationSeconds: 20 * H, lastPlayedAt: l0 },
-        { gameId: id, snapshotDate: '2026-10-28', playDurationSeconds: 22 * H, lastPlayedAt: D('2026-10-28T10:00:00Z') },
+        { userId: 1, gameId: id, snapshotDate: '2026-10-27', playDurationSeconds: 20 * H, lastPlayedAt: l0 },
+        { userId: 1, gameId: id, snapshotDate: '2026-10-28', playDurationSeconds: 22 * H, lastPlayedAt: D('2026-10-28T10:00:00Z') },
       ]);
       return id;
     }
@@ -97,18 +97,18 @@ describe('QA Фаза 8 (PGlite)', () => {
       const b = await game({ firstPlayedAt: D('2026-02-05T10:00:00Z'), name: 'B' });
       const c = await game({ name: 'C' });
       await t.db.insert(ps).values([
-        { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 9 * H + 7, lastPlayedAt: D('2026-03-01T10:00:00Z') },
-        { gameId: a, snapshotDate: '2026-03-31', playDurationSeconds: 11 * H + 1000 },
-        { gameId: a, snapshotDate: '2026-04-02', playDurationSeconds: 12 * H + 2500 },
-        { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 3 * H + 13, lastPlayedAt: D('2026-02-20T10:00:00Z') },
-        { gameId: b, snapshotDate: '2026-04-30', playDurationSeconds: 5 * H + 333 },
+        { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 9 * H + 7, lastPlayedAt: D('2026-03-01T10:00:00Z') },
+        { userId: 1, gameId: a, snapshotDate: '2026-03-31', playDurationSeconds: 11 * H + 1000 },
+        { userId: 1, gameId: a, snapshotDate: '2026-04-02', playDurationSeconds: 12 * H + 2500 },
+        { userId: 1, gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 3 * H + 13, lastPlayedAt: D('2026-02-20T10:00:00Z') },
+        { userId: 1, gameId: b, snapshotDate: '2026-04-30', playDurationSeconds: 5 * H + 333 },
         // C: только снимки без прироста, брошена в апреле (21:30 UTC 31 марта = 00:30 МСК 1 апреля)
-        { gameId: c, snapshotDate: '2026-03-04', playDurationSeconds: 1 * H },
-        { gameId: c, snapshotDate: '2026-04-10', playDurationSeconds: 1 * H },
+        { userId: 1, gameId: c, snapshotDate: '2026-03-04', playDurationSeconds: 1 * H },
+        { userId: 1, gameId: c, snapshotDate: '2026-04-10', playDurationSeconds: 1 * H },
       ]);
       await t.db.insert(gameStatus).values([
-        { gameId: a, status: 'completed', completedAt: D('2026-04-02T10:00:00Z') },
-        { gameId: c, status: 'dropped', droppedAt: D('2026-03-31T21:30:00Z') },
+        { userId: 1, gameId: a, status: 'completed', completedAt: D('2026-04-02T10:00:00Z') },
+        { userId: 1, gameId: c, status: 'dropped', droppedAt: D('2026-03-31T21:30:00Z') },
       ]);
       const r = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
       for (const g of r.played.groups) {
@@ -195,9 +195,9 @@ describe('QA Фаза 8 (PGlite)', () => {
       const b = await game({ lastPlayedAt: D('2026-06-01T10:00:00Z') });
       const c = await game();
       await t.db.insert(gameStatus).values([
-        { gameId: a, status: 'completed', completedAt: D('2024-02-29T23:59:59.123Z'), statusChangedAt: D('2026-01-01T00:00:00Z') },
-        { gameId: b, status: 'dropped', droppedAt: D('2025-12-31T21:00:00Z'), statusChangedAt: D('2026-02-01T00:00:00Z') },
-        { gameId: c, status: 'shelved', statusChangedAt: D('2026-03-01T00:00:00Z') },
+        { userId: 1, gameId: a, status: 'completed', completedAt: D('2024-02-29T23:59:59.123Z'), statusChangedAt: D('2026-01-01T00:00:00Z') },
+        { userId: 1, gameId: b, status: 'dropped', droppedAt: D('2025-12-31T21:00:00Z'), statusChangedAt: D('2026-02-01T00:00:00Z') },
+        { userId: 1, gameId: c, status: 'shelved', statusChangedAt: D('2026-03-01T00:00:00Z') },
       ]);
       const snap = async () =>
         (await t.db.select().from(gameStatus).orderBy(asc(gameStatus.gameId))).map((r) => ({
@@ -231,16 +231,16 @@ describe('QA риск: размер /api/stats с played на 214 играх', (
     await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
     await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await client.exec(`
-      insert into games (title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres, image_url)
-      select 'CUSA' || lpad(i::text, 5, '0') || '_00', 'Очень длинное название игры номер ' || i, 'ps5_native_game', now(),
+      insert into games (user_id, title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres, image_url)
+      select 1, 'CUSA' || lpad(i::text, 5, '0') || '_00', 'Очень длинное название игры номер ' || i, 'ps5_native_game', now(),
              timestamptz '2024-01-01' + (i || ' days')::interval, timestamptz '2026-10-01' + (i % 25 || ' days')::interval,
              array['ACTION','ROLE_PLAYING_GAMES'], 'https://image.api.playstation.com/vulcan/ap/rnd/202301/0000/abcdefghijklmnopqrstuvwx' || i || '.png'
       from generate_series(1, 214) i;
-      insert into playtime_snapshots (game_id, snapshot_date, play_duration_seconds, last_played_at)
-      select g.id, d::date, 3600 * 5 + (extract(epoch from d - timestamp '2025-10-28') / 86400)::int * 60, g.last_played_at
+      insert into playtime_snapshots (user_id, game_id, snapshot_date, play_duration_seconds, last_played_at)
+      select 1, g.id, d::date, 3600 * 5 + (extract(epoch from d - timestamp '2025-10-28') / 86400)::int * 60, g.last_played_at
       from games g, generate_series(timestamp '2025-10-28', timestamp '2026-10-27', interval '1 day') d;
-      insert into game_status (game_id, status, completed_at)
-      select id, 'completed', timestamptz '2026-01-15' + (id || ' days')::interval from games where id % 5 = 0;
+      insert into game_status (user_id, game_id, status, completed_at)
+      select 1, id, 'completed', timestamptz '2026-01-15' + (id || ' days')::interval from games where id % 5 = 0;
     `);
     const adb = db as unknown as AnyDb;
     const t0 = Date.now();

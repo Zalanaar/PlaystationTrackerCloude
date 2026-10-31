@@ -94,9 +94,9 @@ describe('docs/release-neon-0014.sql', () => {
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(14) });
     await seed(c);
     await c.exec(releaseSql);
-    await migrate(drizzle(c), { migrationsFolder: root });
+    await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(n.rows[0].n).toBe(journalRaw.entries.length);
+    expect(n.rows[0].n).toBe(15);
 
     await c.exec(`insert into allowed_users (email, role, status) values ('m@example.com', 'member', 'active')`); // id = 2
     // тот же title_id у другого пользователя разрешён только с составным ключом, пока старый unique(title_id) жив — нет (до 0015)

@@ -32,15 +32,15 @@ describe('Фаза 8 (PGlite)', () => {
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
     const [g] = await t.db
       .insert(games)
-      .values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW, ...o })
+      .values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW, ...o })
       .returning();
     return g.id;
   }
   async function trophySet(n: number, gameIds: number[], earned: { type: 'platinum' | 'gold'; at: string }[]) {
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name: `S${n}` }).returning();
-    for (const gameId of gameIds) await t.db.insert(gameTrophySets).values({ gameId, trophySetId: s.id, source: 'title_id' });
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name: `S${n}` }).returning();
+    for (const gameId of gameIds) await t.db.insert(gameTrophySets).values({ userId: 1, gameId, trophySetId: s.id, source: 'title_id' });
     if (earned.length) {
-      await t.db.insert(trophies).values(earned.map((e, i) => ({ trophySetId: s.id, trophyId: i, type: e.type, earned: true, earnedAt: new Date(e.at) })));
+      await t.db.insert(trophies).values(earned.map((e, i) => ({ userId: 1, trophySetId: s.id, trophyId: i, type: e.type, earned: true, earnedAt: new Date(e.at) })));
     }
     return s.id;
   }
@@ -107,11 +107,11 @@ describe('Фаза 8 (PGlite)', () => {
       const b = await game(2, { psnGenres: ['PUZZLE'], firstPlayedAt: new Date('2026-01-10T10:00:00Z') });
       for (const id of [a, b]) {
         await t.db.insert(playtimeSnapshots).values([
-          { gameId: id, snapshotDate: '2026-03-04', playDurationSeconds: 10 * 3600, lastPlayedAt: new Date('2026-02-01T10:00:00Z') },
-          { gameId: id, snapshotDate: '2026-03-10', playDurationSeconds: 12 * 3600 },
+          { userId: 1, gameId: id, snapshotDate: '2026-03-04', playDurationSeconds: 10 * 3600, lastPlayedAt: new Date('2026-02-01T10:00:00Z') },
+          { userId: 1, gameId: id, snapshotDate: '2026-03-10', playDurationSeconds: 12 * 3600 },
         ]);
       }
-      await t.db.insert(gameStatus).values({ gameId: b, status: 'completed', completedAt: new Date('2026-03-10T10:00:00Z') });
+      await t.db.insert(gameStatus).values({ userId: 1, gameId: b, status: 'completed', completedAt: new Date('2026-03-10T10:00:00Z') });
       await trophySet(1, [b], [{ type: 'platinum', at: '2026-03-10T10:00:00Z' }]);
       await trophySet(2, [a, b], [{ type: 'platinum', at: '2026-03-11T10:00:00Z' }]);
       await trophySet(3, [], [{ type: 'gold', at: '2026-03-12T10:00:00Z' }]);
@@ -266,7 +266,7 @@ describe('Фаза 8 (PGlite)', () => {
       await game(1);
       const { backupId } = await resetAllStatuses(t.db, TEST_USER, NOW);
       expect(backupId).toBeNull();
-      await t.db.insert(statusBackups).values({ reason: 'before_restore', payload: [] });
+      await t.db.insert(statusBackups).values({ userId: 1, reason: 'before_restore', payload: [] });
       expect(await getLatestResetBackup(t.db, TEST_USER)).toEqual({ latest: null });
     });
 
