@@ -1887,7 +1887,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ## 21. Заголовки безопасности (Фаза 19)
 
-Источник: `src/shared/security-headers.ts`, подключено в `next.config.ts` (`headers()`, source `/:path*`: страницы, `/api/*`, manifest, иконки; в том числе ответы 401/redirect из `proxy.ts`).
+Источник: `src/shared/security-headers.ts`. Заголовки кроме CSP отдаёт `next.config.ts` (`headers()`, source `/:path*`: страницы, `/api/*`, manifest, иконки). CSP страниц и `/api/*` (включая 401/redirect) с nonce ставит `src/proxy.ts` (с хвоста 20.5). Файлы вне matcher proxy (manifest, иконки) получают в `next.config.ts` строгий `default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'`.
 
 | Заголовок | Значение |
 |---|---|
@@ -1898,11 +1898,11 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 | Strict-Transport-Security | `max-age=31536000` (без includeSubDomains и preload: домен `*.vercel.app` не наш) |
 | Content-Security-Policy | см. ниже |
 
-CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'unsafe-inline'`; `style-src 'self' 'unsafe-inline'`; `img-src 'self' data: blob: https:`; `font-src 'self' data:` (next/font отдаёт шрифты с нашего origin); `connect-src 'self'` (браузер ходит только в наш API, PSN/RAWG/HLTB/Groq/Telegram вызывает сервер); `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'`; `upgrade-insecure-requests`. В dev добавляются `'unsafe-eval'` и `ws:`.
+CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'nonce-<на запрос>'` (без `'unsafe-inline'`); `style-src 'self' 'unsafe-inline'`; `img-src 'self' data: blob: https:`; `font-src 'self' data:` (next/font отдаёт шрифты с нашего origin); `connect-src 'self'` (браузер ходит только в наш API, PSN/RAWG/HLTB/Groq/Telegram вызывает сервер); `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'`; `upgrade-insecure-requests`. В dev добавляются `'unsafe-eval'` и `ws:`.
 
-Почему `'unsafe-inline'` в script-src: layout содержит inline-скрипт темы, плюс inline-бутстрап Next. Строгий CSP требует nonce из `proxy.ts` и nonce в `<script>` layout (`src/app`, вне зоны этой правки) и тогда все страницы строго динамические. Это возможный следующий шаг; сейчас CSP закрывает всё остальное (чужие скрипты по внешним URL, плагины, фреймы, внешние формы, `<base>`, XHR на чужие хосты). `img-src https:` широкий намеренно: обложки идут с CDN PSN, RAWG, HLTB и по пользовательской https-ссылке (`coverUrl` роадмапа). Report-Only не использован: отчётов некуда слать, а enforce проверен в браузере (prod-сборка, 0 нарушений).
+Nonce (хвост 20.5): `proxy.ts` на каждый запрос генерирует nonce (base64 от `crypto.randomUUID()`), кладёт CSP в ответ и в заголовки запроса (`Content-Security-Policy`, `x-nonce`); Next ставит nonce на свои inline-скрипты и теги `<script src>`, `src/app/layout.tsx` читает `x-nonce` и ставит его на inline-скрипт темы. Цена: все страницы и так динамические (корневой layout читает cookie темы), поэтому статического кэша HTML нет и терять нечего; `style-src 'unsafe-inline'` оставлен (inline-стили React и next/font). CSP без nonce (`buildCsp()` без аргументов) остаётся для тестов и отката. Ответ `/api/*` тоже несёт CSP с nonce (безвредно).
 
-Тесты: `src/shared/security-headers.test.ts` (Vitest), `e2e/security-headers.spec.ts` (заголовки на странице, /api 401, manifest, иконка; отсутствие CSP-нарушений в консоли).
+Тесты: `src/shared/security-headers.test.ts`, `src/proxy.test.ts` (nonce на каждом ответе, свой на запрос; Vitest), `e2e/security-headers.spec.ts` (заголовки на странице, /api 401, manifest, иконка; nonce совпадает с nonce inline-скриптов; тема под nonce; отсутствие CSP-нарушений в консоли).
 
 ## 22. Мультипользовательность (Фаза 20, подфаза 20.1)
 

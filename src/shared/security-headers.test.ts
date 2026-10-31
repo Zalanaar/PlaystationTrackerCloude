@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCsp, securityHeaders } from './security-headers';
+import { STATIC_ASSET_CSP, baseSecurityHeaders, buildCsp, securityHeaders } from './security-headers';
 import nextConfig from '../../next.config';
 
 const get = (h: { key: string; value: string }[], k: string) => h.find((x) => x.key === k)?.value;
@@ -21,10 +21,23 @@ describe('security headers', () => {
     expect(csp).toContain('img-src');
     expect(buildCsp({ dev: true })).toContain("'unsafe-eval'");
   });
-  it('next.config отдаёт заголовки для всех путей, в том числе /api', async () => {
+  it('CSP с nonce: script-src без unsafe-inline, nonce на месте; без nonce прежний вариант', () => {
+    const csp = buildCsp({ nonce: 'abc123==' });
+    const script = csp.split('; ').find((d) => d.startsWith('script-src'))!;
+    expect(script).toBe("script-src 'self' 'nonce-abc123=='");
+    expect(script).not.toContain('unsafe-inline');
+    expect(buildCsp({ nonce: 'x', dev: true })).toContain("'unsafe-eval'");
+    expect(buildCsp().split('; ').find((d) => d.startsWith('script-src'))).toContain("'unsafe-inline'");
+  });
+  it('baseSecurityHeaders без CSP (его ставит proxy)', () => {
+    expect(baseSecurityHeaders().map((x) => x.key)).not.toContain('Content-Security-Policy');
+    expect(STATIC_ASSET_CSP).toContain("default-src 'none'");
+  });
+  it('next.config: базовые заголовки на все пути, строгий CSP на статике вне proxy', async () => {
     const rules = await nextConfig.headers!();
-    expect(rules).toHaveLength(1);
     expect(rules[0]!.source).toBe('/:path*');
-    expect(rules[0]!.headers.map((x) => x.key)).toContain('Content-Security-Policy');
+    expect(rules[0]!.headers.map((x) => x.key)).not.toContain('Content-Security-Policy');
+    expect(rules[0]!.headers.map((x) => x.key)).toContain('Strict-Transport-Security');
+    for (const r of rules.slice(1)) expect(r.headers).toEqual([{ key: 'Content-Security-Policy', value: STATIC_ASSET_CSP }]);
   });
 });
