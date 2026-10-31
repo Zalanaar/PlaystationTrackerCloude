@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barPercent, candidatesText, genresLine, hoursText, llmNote, parseTime, recommendHref, scoreText, signedContribution, updatedText, daysLeft, hiddenForText, returnsInText } from './model';
+import { barPercent, candidatesText, genresLine, hoursText, llmNote, parseTime, recommendHref, scoreText, signedContribution, updatedText, pendingNote, daysLeft, hiddenForText, returnsInText } from './model';
 
 describe('recommend model', () => {
   it('parseTime: неизвестное = any', () => {
@@ -63,5 +63,14 @@ describe('recommend model', () => {
     expect(daysLeft('2026-10-29T10:30:00.000Z', now)).toBe(1);
     expect(daysLeft('2026-10-28T10:00:00.000Z', now)).toBe(1);
     expect(returnsInText('2026-11-10T09:00:00.000Z', now)).toBe('вернётся через 12 дн.');
+  });
+});
+
+describe('pendingNote', () => {
+  it('пометка про ночной синк только при ожидающих фразах и рабочем ИИ', () => {
+    expect(pendingNote(3, 'ok')).toMatch(/ночного синка/);
+    expect(pendingNote(0, 'ok')).toBeNull();
+    expect(pendingNote(3, 'disabled')).toBeNull();
+    expect(pendingNote(undefined, 'ok')).toBeNull();
   });
 });

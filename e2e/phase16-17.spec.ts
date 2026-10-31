@@ -136,31 +136,6 @@ test.describe('Подскажи после 16.4', () => {
     await expect(page.getByText('Из 37 игр бэклога')).toBeVisible();
     await expect(page.getByTestId('rec-pending')).toHaveCount(0);
   });
-  test('«Новое от ИИ» not_generated: пояснение и кнопка обновления с остатком', async ({ page, context, baseURL }) => {
-    await setup(page, context, baseURL!);
-    await page.route(/\/api\/recommend\/dislikes$/, (r) => r.fulfill(ok({ items: [], ttlDays: 30 })));
-    await page.route(/\/api\/recommend\/discover\/dislikes$/, (r) => r.fulfill(ok({ items: [], ttlDays: 30 })));
-    await page.route(/\/api\/recommend\/discover(\?.*)?$/, (r) => r.fulfill(ok({
-      items: [], meta: { llm: 'ok', llmReason: 'not_generated', catalog: 'ok', cached: false, generatedAt: null, refreshLeft: 3, verified: 0, proposed: 0 },
-    })));
-    await page.goto('/recommend?mode=discover');
-    await expect(page.getByText('Подборка появится после ночного синка или по кнопке обновления')).toBeVisible();
-    await expect(page.getByText('Осталось 3 из 3 обновлений за сегодня')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Обновить подборку' })).toBeEnabled();
-  });
-  test('refresh при paused: прежняя подборка и пояснение про паузу', async ({ page, context, baseURL }) => {
-    await setup(page, context, baseURL!);
-    await page.route(/\/api\/recommend\/dislikes$/, (r) => r.fulfill(ok({ items: [], ttlDays: 30 })));
-    await page.route(/\/api\/recommend\/discover\/dislikes$/, (r) => r.fulfill(ok({ items: [], ttlDays: 30 })));
-    const item = { externalSource: 'rawg', externalId: '1', title: 'Portal 2', releaseDate: '2011-04-19', coverUrl: null, platforms: ['PlayStation 3'], reason: 'Подойдёт.', planned: false, plannedId: null };
-    await page.route(/\/api\/recommend\/discover(\?.*)?$/, (r) => {
-      const refresh = new URL(r.request().url()).searchParams.get('refresh');
-      return r.fulfill(ok({ items: [item], meta: { llm: refresh ? 'error' : 'ok', llmReason: refresh ? 'paused' : null, catalog: 'ok', cached: true, generatedAt: '2026-10-28T10:00:00.000Z', refreshLeft: 3, verified: 1, proposed: 1 } }));
-    });
-    await page.goto('/recommend?mode=discover');
-    await page.getByRole('button', { name: /Обновить подборку/ }).click();
-    await expect(page.getByText(/приостановлен после нескольких неудач/)).toBeVisible();
-  });
 });
 
 test.describe('Редкие трофеи: игры-сервисы', () => {

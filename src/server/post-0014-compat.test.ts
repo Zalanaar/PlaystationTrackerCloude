@@ -11,7 +11,6 @@ import { parseListQuery } from '@/server/collection/validation';
 import { resetAllStatuses, restoreStatuses } from '@/server/collection/mutations';
 import { connectPsn } from '@/server/psn/client';
 import { dislikeGame, getRecommendations } from '@/server/recommend/db';
-import { dislikeExternal } from '@/server/recommend/discover-dislikes';
 import { reserveCall, usedToday } from '@/server/recommend/budget';
 import { createPlanned, excludeGame, getRoadmap, putSettings, saveOrder, updatePlanned } from '@/server/roadmap/db';
 import { setMonthExclusion } from '@/server/stats/exclusions';
@@ -107,8 +106,6 @@ describe('20.3 на схеме после 0014 (до 0015), один польз�
     const [any] = await t.db.select().from(games).limit(1);
     await dislikeGame(t.db, U, any.id, NOW);
     await dislikeGame(t.db, U, any.id, NOW);
-    await dislikeExternal(t.db, U, { externalSource: 'rawg', externalId: '5', title: 'X', coverUrl: null }, NOW);
-    await dislikeExternal(t.db, U, { externalSource: 'rawg', externalId: '5', title: 'X2', coverUrl: null }, NOW);
     expect(await reserveCall(t.db, U, 'phrases', 10, NOW)).toBe(true);
     expect(await reserveCall(t.db, U, 'phrases', 10, NOW)).toBe(true);
     expect(await usedToday(t.db, U, 'phrases', NOW)).toBe(2);

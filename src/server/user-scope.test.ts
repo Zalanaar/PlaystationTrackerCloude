@@ -51,7 +51,7 @@ describe('охрана изоляции пользователей (статич
   it('скан находит исходники и таблицы (проверка, что тест не пустой)', () => {
     expect(files.length).toBeGreaterThan(80);
     const touching = files.filter((f) => usedTables(readFileSync(f, 'utf8')).length > 0);
-    expect(touching.length).toBeGreaterThan(30);
+    expect(touching.length).toBeGreaterThan(25); // было 30: модуль «Новое от ИИ» удалён 2026-10-31
   });
 
   it('каждый файл с user-scoped таблицами содержит userId (кроме allowlist с причиной)', () => {

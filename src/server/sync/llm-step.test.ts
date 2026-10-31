@@ -1,4 +1,4 @@
-// Шаг синка «LLM» (контракт 20.5): фразы бэклога пачками по изменившимся фактам, ночная генерация «Нового от ИИ», бюджет и пауза.
+// Шаг синка «LLM» (контракт 20.5): фразы бэклога пачками по изменившимся фактам, бюджет и пауза.
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
@@ -8,13 +8,13 @@ import { getRecommendations } from '@/server/recommend/db';
 import { LlmError, type PhraseProvider } from '@/server/recommend/phrase';
 import { RunContext } from './context';
 import { runChunk, type SyncDeps } from './engine';
-import { DISCOVER_MIN_LEFT_MS, LLM_MIN_LEFT_MS, llmStep, PHRASE_BATCH } from './llm-step';
+import { LLM_MIN_LEFT_MS, llmStep, PHRASE_BATCH } from './llm-step';
 import { startRun } from './runs';
 import { createTestDb, fakeApi, freshState, type TestDb } from './test-helpers';
 import { connectPsn } from '@/server/psn/client';
 import { TEST_USER } from '@/server/sync/test-helpers';
 
-const { games, gameStatus, recommendReasons, recommendLlmUsage, recommendDiscoverCache, syncRuns } = schema;
+const { games, gameStatus, recommendReasons, recommendLlmUsage, syncRuns } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z');
 const ENV: LlmEnv = { provider: 'groq', apiKey: 'gsk_STEP_SECRET', model: null, dailyLimit: 20 };
 
@@ -58,7 +58,7 @@ describe('llmStep', () => {
     await seed(3);
     const p = provider(good);
     const r = await llmStep(await ctx(), { env: null, provider: p });
-    expect(r).toEqual({ phrasesGenerated: 0, phrasesFailed: 0, discover: 'skipped' });
+    expect(r).toEqual({ phrasesGenerated: 0, phrasesFailed: 0 });
     expect(p.calls).toBe(0);
   });
 
@@ -66,7 +66,7 @@ describe('llmStep', () => {
     await seed(64);
     const p = provider(good);
     const c = await ctx();
-    const r = await llmStep(c, { env: ENV, provider: p, rawgKey: null });
+    const r = await llmStep(c, { env: ENV, provider: p});
     expect(PHRASE_BATCH).toBe(16);
     expect(p.calls).toBe(4);
     expect(p.users.map((u) => (JSON.parse(u) as { games: unknown[] }).games.length)).toEqual([16, 16, 16, 16]);
@@ -81,7 +81,7 @@ describe('llmStep', () => {
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(4);
   });
 
-  it('N-6: ошибка записи кэша в БД не возвращает вызов и не копит неудачи провайдера; пауза не пишет llm_discover_failed', async () => {
+  it('N-6: ошибка записи кэша в БД не возвращает вызов и не копит неудачи провайдера', async () => {
     await seed(5);
     const p = provider((ids) => {
       void ids;
@@ -95,7 +95,7 @@ describe('llmStep', () => {
     };
     const c = await ctx();
     try {
-      const r = await llmStep(c, { env: ENV, provider: p, rawgKey: null });
+      const r = await llmStep(c, { env: ENV, provider: p});
       expect(r.phrasesFailed).toBe(1);
     } finally {
       await t.db.execute(sql`alter table recommend_reasons_x rename to recommend_reasons`);
@@ -104,32 +104,15 @@ describe('llmStep', () => {
     expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 1, phraseCalls: 1 }); // вызов потрачен
   });
 
-  it('N-6: при паузе генерация «Нового от ИИ» не пробуется и предупреждения нет', async () => {
-    await seed(1);
-    const c = await ctx();
-    const ok = provider(good);
-    await llmStep(c, { env: ENV, provider: ok, rawgKey: 'rawg_K' }); // обнулит streak
-    await t.db.delete(recommendDiscoverCache);
-    const bad = provider(() => new LlmError('http', 'http_500'));
-    await t.db.delete(recommendReasons);
-    // три неудачи фраз подряд = пауза; seed(64) даёт 4 пачки
-    await seed(63, 100);
-    const c2 = await ctx();
-    const warn = vi.spyOn(c2, 'warn');
-    const r = await llmStep(c2, { env: ENV, provider: bad, rawgKey: 'rawg_K' });
-    expect(r.discover).toBe('skipped');
-    expect(warn.mock.calls.map((x) => x[0])).not.toContain('llm_discover_failed');
-  });
-
   it('повторный синк без изменений: 0 вызовов; изменился один факт: один вызов на одну игру', async () => {
     const ids = await seed(20);
-    await llmStep(await ctx(), { env: ENV, provider: provider(good), rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: provider(good)});
     const again = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: again, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: again});
     expect(again.calls).toBe(0);
     await t.db.update(games).set({ durationOverrideHours: 77 }).where(eq(games.id, ids[3]));
     const one = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: one, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: one});
     expect(one.calls).toBe(1);
     expect((JSON.parse(one.users[0]) as { games: { id: number }[] }).games.map((g) => g.id)).toEqual([ids[3]]);
     expect(await cached()).toBe(20); // старая запись игры заменена, а не добавлена
@@ -137,11 +120,11 @@ describe('llmStep', () => {
 
   it('фразы не зависят от «давности»: через полгода кэш прежний, вызовов нет', async () => {
     await seed(5);
-    await llmStep(await ctx(), { env: ENV, provider: provider(good), rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: provider(good)});
     const later = provider(good);
     const s = await t.db.insert(syncRuns).values({ userId: 1, kind: 'manual', status: 'success', snapshotDate: '2027-04-29' }).returning();
     const c = new RunContext(t.db, s[0], () => new Date('2027-04-29T09:00:00Z'), 1_000_000);
-    await llmStep(c, { env: ENV, provider: later, rawgKey: null });
+    await llmStep(c, { env: ENV, provider: later});
     expect(later.calls).toBe(0);
   });
 
@@ -149,7 +132,7 @@ describe('llmStep', () => {
     await seed(64);
     const bad = provider(() => new LlmError('http', 'http_500'));
     const c = await ctx();
-    const r = await llmStep(c, { env: ENV, provider: bad, rawgKey: null });
+    const r = await llmStep(c, { env: ENV, provider: bad});
     expect(bad.calls).toBe(3); // 4-ю пачку не начинаем: пауза
     expect(r.phrasesFailed).toBe(3);
     expect(await cached()).toBe(0);
@@ -159,7 +142,7 @@ describe('llmStep', () => {
     expect((await getFailStreak(t.db)).streak).toBe(3);
     // следующий синк сбрасывает паузу и пробует снова
     const ok = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: ok, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: ok});
     expect(ok.calls).toBe(4);
     expect(await cached()).toBe(64);
     expect((await getFailStreak(t.db)).streak).toBe(0);
@@ -168,17 +151,17 @@ describe('llmStep', () => {
   it('обрезанный ответ (truncated) = неудача, причина в предупреждении', async () => {
     await seed(3);
     const c = await ctx();
-    await llmStep(c, { env: ENV, provider: provider(() => new LlmError('bad_response', 'truncated')), rawgKey: null });
+    await llmStep(c, { env: ENV, provider: provider(() => new LlmError('bad_response', 'truncated'))});
     expect(c.warnings[0].message).toContain('truncated');
   });
 
   it('частично валидный ответ: валидные в кэше, остальные повторятся', async () => {
     const ids = await seed(4);
     const p = provider((got) => JSON.stringify({ reasons: got.map((id, k) => ({ id, text: k < 2 ? 'см. https://evil.example' : `Фраза ${id}.` })) }));
-    await llmStep(await ctx(), { env: ENV, provider: p, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: p});
     expect(await cached()).toBe(2);
     const p2 = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: p2, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: p2});
     expect(p2.calls).toBe(1);
     expect((JSON.parse(p2.users[0]) as { games: unknown[] }).games).toHaveLength(2);
     expect(ids.length).toBe(4);
@@ -187,17 +170,17 @@ describe('llmStep', () => {
   it('потолок фраз в сутки (8 вызовов) и общий предохранитель', async () => {
     await seed(200);
     const p = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: p, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: p});
     expect(p.calls).toBe(8);
     const p2 = provider(good);
-    await llmStep(await ctx(), { env: { ...ENV, dailyLimit: 1 }, provider: p2, rawgKey: null });
+    await llmStep(await ctx(), { env: { ...ENV, dailyLimit: 1 }, provider: p2});
     expect(p2.calls).toBe(0); // сегодня 8 уже занято
   });
 
   it('мало времени: пачка не начинается', async () => {
     await seed(4);
     const p = provider(good);
-    await llmStep(await ctx(LLM_MIN_LEFT_MS - 1), { env: ENV, provider: p, rawgKey: null });
+    await llmStep(await ctx(LLM_MIN_LEFT_MS - 1), { env: ENV, provider: p});
     expect(p.calls).toBe(0);
   });
 
@@ -205,7 +188,7 @@ describe('llmStep', () => {
     const ids = await seed(3);
     await t.db.insert(schema.recommendDislikes).values({ userId: 1, gameId: ids[0], createdAt: NOW });
     const p = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: p, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: p});
     expect((JSON.parse(p.users[0]) as { games: { id: number }[] }).games.map((g) => g.id).sort()).toEqual([ids[1], ids[2]].sort());
   });
 
@@ -213,54 +196,9 @@ describe('llmStep', () => {
     await seed(3);
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => undefined));
     const c = await ctx();
-    await llmStep(c, { env: ENV, provider: provider(() => new Error('upstream gsk_STEP_SECRET denied')), rawgKey: null });
+    await llmStep(c, { env: ENV, provider: provider(() => new Error('upstream gsk_STEP_SECRET denied'))});
     expect(JSON.stringify([c.warnings, await t.db.select().from(recommendReasons), await t.db.select().from(recommendLlmUsage)])).not.toContain('gsk_STEP_SECRET');
     for (const s of spies) expect(JSON.stringify(s.mock.calls)).not.toContain('gsk_STEP_SECRET');
-    vi.restoreAllMocks();
-  });
-
-  // --- «Новое от ИИ»
-  const rawg = { key: 'rawg_KEY' };
-  const discoverFetch = (proposals: string[]) => {
-    const st = { groq: 0 };
-    const f = (async (input: RequestInfo | URL) => {
-      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
-      if (url.hostname === 'api.groq.com') {
-        st.groq++;
-        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ games: proposals.map((title) => ({ title, year: 2020, reason: `Причина ${title}.` })) }) } }] }), { status: 200 });
-      }
-      const q = url.searchParams.get('search') ?? '';
-      return new Response(JSON.stringify({ results: [{ id: q.length, name: q, released: '2020-01-01', platforms: [{ platform: { name: 'PlayStation 5', slug: 'playstation5' } }] }] }), { status: 200 });
-    }) as typeof fetch;
-    return Object.assign(f, { st });
-  };
-
-  it('«Новое от ИИ»: одна генерация в сутки в синке; повторный синк использует кэш', async () => {
-    const f = discoverFetch(['Hades', 'Stray']);
-    const c1 = await ctx();
-    const r1 = await llmStep(c1, { env: ENV, provider: provider(good), rawgKey: rawg.key, discover: { fetch: f } });
-    expect(r1.discover).toBe('generated');
-    expect(f.st.groq).toBe(1);
-    expect((await t.db.select().from(recommendDiscoverCache)).map((r) => r.day)).toEqual(['2026-10-29']);
-    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ discoverAutoCalls: 1, discoverManualCalls: 0 });
-    const r2 = await llmStep(await ctx(), { env: ENV, provider: provider(good), rawgKey: rawg.key, discover: { fetch: f } });
-    expect(r2.discover).toBe('cached');
-    expect(f.st.groq).toBe(1);
-  });
-
-  it('«Новое от ИИ»: без RAWG, не Groq или мало времени генерации нет; сбой = предупреждение, вызов возвращён', async () => {
-    const f = discoverFetch(['Hades']);
-    expect((await llmStep(await ctx(), { env: ENV, provider: provider(good), rawgKey: null, discover: { fetch: f } })).discover).toBe('skipped');
-    expect((await llmStep(await ctx(), { env: { ...ENV, provider: 'gemini' }, provider: provider(good), rawgKey: 'k', discover: { fetch: f } })).discover).toBe('skipped');
-    expect((await llmStep(await ctx(DISCOVER_MIN_LEFT_MS - 1), { env: ENV, provider: provider(good), rawgKey: 'k', discover: { fetch: f } })).discover).toBe('skipped');
-    expect(f.st.groq).toBe(0);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const broken = (async () => new Response('x', { status: 500 })) as unknown as typeof fetch;
-    const c = await ctx();
-    const r = await llmStep(c, { env: ENV, provider: provider(good), rawgKey: 'k', discover: { fetch: broken } });
-    expect(r.discover).toBe('failed');
-    expect(c.warnings.map((w) => w.code)).toContain('llm_discover_failed');
-    expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ discoverAutoCalls: 0 });
     vi.restoreAllMocks();
   });
 
@@ -268,7 +206,7 @@ describe('llmStep', () => {
     await seed(2);
     for (let i = 0; i < 3; i++) await recordFailure(t.db, 'http_500', NOW);
     const p = provider(good);
-    await llmStep(await ctx(), { env: ENV, provider: p, rawgKey: null });
+    await llmStep(await ctx(), { env: ENV, provider: p});
     expect(p.calls).toBe(1);
     await resetStreak(t.db, NOW);
   });
@@ -306,14 +244,14 @@ describe('шаг LLM в runChunk', () => {
 
   it('с deps.llm фразы создаются в конце успешного звена', async () => {
     await backlogGame();
-    const { res } = await run({ env: ENV, provider: provider(good), rawgKey: null });
+    const { res } = await run({ env: ENV, provider: provider(good)});
     expect(res.status).toBe('success');
     expect(await t.db.select().from(recommendReasons)).toHaveLength(1);
   });
 
   it('сбой провайдера не меняет итог синка: success и предупреждение', async () => {
     await backlogGame();
-    const { res, row } = await run({ env: ENV, provider: provider(() => new LlmError('timeout')), rawgKey: null });
+    const { res, row } = await run({ env: ENV, provider: provider(() => new LlmError('timeout'))});
     expect(res.status).toBe('success');
     expect(JSON.stringify(row.warnings)).toContain('llm_phrases_failed');
   });

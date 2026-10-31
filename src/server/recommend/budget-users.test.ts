@@ -35,8 +35,7 @@ describe('LLM: лимиты по пользователям и общий пот
     expect(await reserveCall(t.db, U2, 'phrases', 3, NOW)).toBe(true);
     // сумма = 3 = потолок
     expect(await reserveCall(t.db, U3, 'phrases', 3, NOW)).toBe(false);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_manual', 3, NOW)).toBe(false);
-    expect(await reserveCall(t.db, U2, 'discover_auto', 3, NOW)).toBe(false);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 3, NOW)).toBe(false);
     const byUser = Object.fromEntries((await rows()).map((r) => [r.userId, r.calls]));
     expect(byUser).toEqual({ 1: 2, 2: 1 });
   });
@@ -51,9 +50,9 @@ describe('LLM: лимиты по пользователям и общий пот
 
   it('LLM_USER_DAILY_LIMIT: пользователь не выбирает больше своего лимита, остальным остаётся общий пул', async () => {
     expect(await reserveCall(t.db, TEST_USER, 'phrases', 100, NOW, 2)).toBe(true);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_manual', 100, NOW, 2)).toBe(true);
-    expect(await reserveCall(t.db, TEST_USER, 'discover_auto', 100, NOW, 2)).toBe(false);
-    expect(await reserveCall(t.db, U2, 'discover_auto', 100, NOW, 2)).toBe(true);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 100, NOW, 2)).toBe(true);
+    expect(await reserveCall(t.db, TEST_USER, 'phrases', 100, NOW, 2)).toBe(false);
+    expect(await reserveCall(t.db, U2, 'phrases', 100, NOW, 2)).toBe(true);
   });
 
   it('возврат вызова одного пользователя освобождает общий пул и не трогает чужой счётчик', async () => {

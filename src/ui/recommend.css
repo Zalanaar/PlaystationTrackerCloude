@@ -141,60 +141,14 @@
 }
 @media (min-width: 1024px) and (max-width: 1279px) { .ps-rec-seg button { padding: 0 var(--sp-3); } }
 
-/* ---- Фаза 13b: режимы и «Новое от ИИ» (спека 15) ---- */
+/* ---- Экран «Подскажи»: контейнер режима ---- */
 .ps-rec-mode { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); }
 .ps-rec-mode[hidden] { display: none; }
-.ps-rec-modes { align-self: flex-start; max-width: 100%; }
-.ps-rec-modes button { height: 44px; padding: 0 var(--sp-4); font-size: 13px; line-height: 16px; font-weight: 600; }
-.ps-rec-modes button[aria-checked="true"] { background: var(--surface-3); color: var(--text); }
-
-.ps-rec-pick { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; min-width: 0; }
-.ps-rec-pick__when { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
-.ps-rec-refresh { min-height: var(--control-h); }
-.ps-rec-refresh__left { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
-
-.ps-rec--discover[data-leaving] { opacity: 0; transition: opacity var(--dur-base) var(--ease-out); pointer-events: none; }
-.ps-rec__mediabox { display: block; min-width: 0; border-radius: var(--r-cover); }
-.ps-rec__name--plain { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--text); }
-.ps-rec__date { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; color: var(--text-3); }
-.ps-rec__date small { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
-.ps-rec__source { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
-.ps-rec__source a { display: inline-flex; align-items: center; gap: 2px; color: var(--text-2); text-decoration: underline; }
-.ps-rec__source a:hover { color: var(--text); }
-.ps-rec__planned:disabled { cursor: default; }
-.ps-rec__planlink { align-self: center; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); text-decoration: underline; }
-.ps-rec__planlink:hover { color: var(--text); }
-
-.ps-rec-prog { display: flex; flex-direction: column; gap: var(--sp-2); padding: 20px; min-width: 0; }
-.ps-rec-prog[data-compact] { padding: 12px; }
-.ps-rec-prog__bar { position: relative; display: block; height: 4px; overflow: hidden; background: var(--surface-3); border-radius: var(--r-pill); }
-.ps-rec-prog__bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); border-radius: var(--r-pill); animation: ps-rec-run 1.4s var(--ease-out) infinite; }
-.ps-rec-prog__stage { margin: 0; font-size: 14px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; }
-.ps-rec-prog__hint { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
-@keyframes ps-rec-run { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 
 @media (max-width: 767px) {
-  .ps-rec-modes { display: flex; align-self: stretch; }
-  .ps-rec-modes button { flex: 1 1 0; min-width: 0; height: 48px; padding: 0 var(--sp-1); border-radius: var(--r-chip); }
-  .ps-rec-pick { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
-  .ps-rec-refresh { width: 100%; justify-content: center; min-height: var(--tap-min); }
-  .ps-rec-prog { padding: 16px; }
-  .ps-rec-prog[data-compact] { padding: 12px; }
   .ps-rec-empty { padding: 24px; }
   .ps-rec-empty .ps-btn { width: 100%; min-height: var(--tap-min); }
-  .ps-rec__planlink { flex: 1 1 100%; }
 }
-@media (min-width: 1024px) {
-  .ps-rec__mediabox { width: 100%; border-radius: var(--r-md); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ps-rec-prog__bar::after { animation: none; left: 35%; }
-  .ps-rec--discover[data-leaving] { transition: none; }
-}
-@media (prefers-contrast: more) {
-  .ps-rec-prog__bar { border: var(--border-w) solid var(--border-strong); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ps-rec-list[data-fade], .ps-rec__spin { animation: none; }
   .ps-rec__chev, .ps-rec__whybody, .ps-rec__whyin { transition: none; }

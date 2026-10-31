@@ -8,21 +8,19 @@ import { mskDateString } from '@/server/stats/period';
 
 const { recommendLlmUsage, recommendLlmState } = schema;
 
-export type LlmCallKind = 'phrases' | 'discover_auto' | 'discover_manual';
+export type LlmCallKind = 'phrases';
 
 /** Потолок вызовов вида за сутки. Общий предохранитель (LLM_DAILY_LIMIT) проверяется отдельно по `calls`. */
-export const KIND_LIMITS: Readonly<Record<LlmCallKind, number>> = { phrases: 8, discover_auto: 1, discover_manual: 3 };
+export const KIND_LIMITS: Readonly<Record<LlmCallKind, number>> = { phrases: 8 };
 /** Столько неудач подряд ставят LLM на паузу до следующего синка. */
 export const FAIL_STREAK_PAUSE = 3;
 
 const COLUMN = {
   phrases: recommendLlmUsage.phraseCalls,
-  discover_auto: recommendLlmUsage.discoverAutoCalls,
-  discover_manual: recommendLlmUsage.discoverManualCalls,
 } as const;
-const COLUMN_NAME = { phrases: 'phrase_calls', discover_auto: 'discover_auto_calls', discover_manual: 'discover_manual_calls' } as const;
+const COLUMN_NAME = { phrases: 'phrase_calls' } as const;
 
-/** Потолок вызовов пользователя за сутки по умолчанию (= сумма потолков видов). */
+/** Потолок вызовов пользователя за сутки по умолчанию (запас над потолком фраз). */
 export const DEFAULT_USER_DAILY_LIMIT = 12;
 /** Ключ advisory-блокировки проверки общего потолка (22.13). */
 const BUDGET_LOCK = 7204003;
@@ -43,10 +41,10 @@ export async function reserveCall(db: AnyDb, userId: UserId, kind: LlmCallKind, 
     if (Number(sum?.n ?? 0) >= totalLimit) return false;
     const rows = await tx
       .insert(recommendLlmUsage)
-      .values({ userId, day, calls: 1, [kindKey(kind)]: 1 })
+      .values({ userId, day, calls: 1, [kindKey()]: 1 })
       .onConflictDoUpdate({
         target: [recommendLlmUsage.userId, recommendLlmUsage.day],
-        set: { calls: sql`${recommendLlmUsage.calls} + 1`, [kindKey(kind)]: sql`${col} + 1` },
+        set: { calls: sql`${recommendLlmUsage.calls} + 1`, [kindKey()]: sql`${col} + 1` },
         setWhere: sql`${recommendLlmUsage.calls} < ${userLimit} and ${col} < ${cap}`,
       })
       .returning({ calls: recommendLlmUsage.calls });
@@ -54,8 +52,8 @@ export async function reserveCall(db: AnyDb, userId: UserId, kind: LlmCallKind, 
   });
 }
 
-function kindKey(kind: LlmCallKind): 'phraseCalls' | 'discoverAutoCalls' | 'discoverManualCalls' {
-  return kind === 'phrases' ? 'phraseCalls' : kind === 'discover_auto' ? 'discoverAutoCalls' : 'discoverManualCalls';
+function kindKey(): 'phraseCalls' {
+  return 'phraseCalls'; // колонки discover_*_calls в БД остались (не используются), счётчик ведётся только для фраз
 }
 
 /** Возвращает ранее занятый вызов (неудача: провайдер не ответил по делу). Не уходит ниже нуля. */
@@ -63,7 +61,7 @@ export async function releaseCall(db: AnyDb, userId: UserId, kind: LlmCallKind, 
   const col = sql.raw(`"${COLUMN_NAME[kind]}"`);
   await db
     .update(recommendLlmUsage)
-    .set({ calls: sql`greatest(${recommendLlmUsage.calls} - 1, 0)`, [kindKey(kind)]: sql`greatest(${col} - 1, 0)` })
+    .set({ calls: sql`greatest(${recommendLlmUsage.calls} - 1, 0)`, [kindKey()]: sql`greatest(${col} - 1, 0)` })
     // возвращаем только занятое: двойной возврат не должен уменьшать общий счётчик
     .where(and(eq(recommendLlmUsage.userId, userId), eq(recommendLlmUsage.day, mskDateString(now)), sql`${col} > 0`));
 }
