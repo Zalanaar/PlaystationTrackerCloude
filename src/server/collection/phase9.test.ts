@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import { setGameStatus } from '@/server/sync/status-rules';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from '@/server/wrapped/query';
 import { getGameDetails, toTrophyItem, type TrophyRow } from './details';
 import { toPsnProfile, type ProfileRow } from './profile';
@@ -67,31 +67,31 @@ describe('Фаза 9 на PGlite', () => {
   it('GameItem.bannerUrl', async () => {
     const a = await game('A', { bannerUrl: 'https://b/a.jpg' });
     const b = await game('B');
-    const items = await getGamesByIds(t.db, [a, b]);
+    const items = await getGamesByIds(t.db, TEST_USER, [a, b]);
     expect(items.map((i) => i.bannerUrl)).toEqual(['https://b/a.jpg', null]);
   });
 
   it('summary.profile: null без синка, объект после', async () => {
-    expect((await getCollectionSummary(t.db)).profile).toBeNull();
+    expect((await getCollectionSummary(t.db, TEST_USER)).profile).toBeNull();
     await t.db.insert(psnProfile).values({ id: 1, onlineId: 'Artem_PS', trophyLevel: 5 });
-    const s = await getCollectionSummary(t.db);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.profile).toEqual({ onlineId: 'Artem_PS', avatarUrl: null, level: 5, levelProgress: null, tier: null, trophies: null });
   });
 
   it('wrapped.profile.avatarUrl из psn_profile; onlineId: env, иначе профиль', async () => {
-    let w = await getWrapped(t.db, 2026, null, NOW);
+    let w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.profile).toEqual({ onlineId: null, avatarUrl: null });
     await t.db.insert(psnProfile).values({ id: 1, onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png' });
-    w = await getWrapped(t.db, 2026, null, NOW);
+    w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.profile).toEqual({ onlineId: 'Artem_PS', avatarUrl: 'https://a/xl.png' });
-    w = await getWrapped(t.db, 2026, 'env_id', NOW);
+    w = await getWrapped(t.db, TEST_USER, 2026, 'env_id', NOW);
     expect(w.profile.onlineId).toBe('env_id');
   });
 
   it('GET details: нет игры = null; игра без сетов', async () => {
-    expect(await getGameDetails(t.db, 9999)).toBeNull();
+    expect(await getGameDetails(t.db, TEST_USER, 9999)).toBeNull();
     const a = await game('A', { firstPlayedAt: new Date('2024-03-01T10:00:00Z') });
-    const d = await getGameDetails(t.db, a);
+    const d = await getGameDetails(t.db, TEST_USER, a);
     expect(d).toMatchObject({ firstPlayedAt: '2024-03-01T10:00:00.000Z', statusChangedAt: null, trophyList: [] });
     expect(d?.game.id).toBe(a);
   });
@@ -116,10 +116,10 @@ describe('Фаза 9 на PGlite', () => {
       { trophySetId: s1.id, trophyId: 1, type: 'gold', name: 'secret', detail: 'd', hidden: true },
       { trophySetId: s1.id, trophyId: 0, type: 'platinum', name: 'Plat', earned: true, earnedAt: new Date('2026-10-05T18:42:11Z'), rarity: 0, earnedRate: '2.40' },
     ]);
-    await setGameStatus(t.db, a, 'backlog');
+    await setGameStatus(t.db, TEST_USER, a, 'backlog');
     await t.db.update(games).set({ hiddenAt: NOW }).where(eq(games.id, a));
 
-    const d = await getGameDetails(t.db, a);
+    const d = await getGameDetails(t.db, TEST_USER, a);
     expect(d?.trophyList.map((x) => [x.setId, x.trophyId])).toEqual([[s1.id, 0], [s1.id, 1], [s2.id, 0]]);
     expect(d?.trophyList[1]).toMatchObject({ name: null, detail: null, hidden: true });
     expect(d?.trophyList[0]).toMatchObject({ type: 'platinum', earned: true, rarity: 0, earnedRate: 2.4 });

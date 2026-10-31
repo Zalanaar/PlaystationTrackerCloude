@@ -7,6 +7,8 @@ vi.mock('@/server/sync/hltb-run', () => ({ runHltbMass: (o: unknown) => runHltbM
 
 import { POST } from './route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const NOW = new Date('2026-10-28T10:00:00Z');
 const req = (body: unknown) =>
   new Request('http://localhost/api/hltb/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

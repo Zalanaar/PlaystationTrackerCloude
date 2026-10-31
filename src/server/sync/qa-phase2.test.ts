@@ -9,6 +9,7 @@ import { connectPsn } from '@/server/psn/client';
 import { runChunk, type SyncDeps } from './engine';
 import { startRun } from './runs';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, gameStatus, syncRuns, psnAuth, playtimeSnapshots, trophies } = schema;
 const KEY = Buffer.alloc(32, 3).toString('base64');
@@ -50,7 +51,7 @@ describe('QA фаза 2', () => {
     ...over,
   });
   async function run(over: Partial<SyncDeps> = {}, continueRunId?: number) {
-    const s = await startRun(t.db, { kind: 'manual', now: new Date(clock), continueRunId });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock), continueRunId });
     if (s.kind !== 'started') throw new Error(s.kind);
     return { s, res: await runChunk(deps(over), s.run) };
   }
@@ -127,7 +128,7 @@ describe('QA фаза 2', () => {
   });
 
   it('гонка: три одновременных старта дают ровно один running', async () => {
-    const r = await Promise.all([1, 2, 3].map(() => startRun(t.db, { kind: 'manual', now: new Date(clock) })));
+    const r = await Promise.all([1, 2, 3].map(() => startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock) })));
     expect(r.filter((x) => x.kind === 'started')).toHaveLength(1);
     expect(r.filter((x) => x.kind === 'already_running')).toHaveLength(2);
     expect(await t.db.select().from(syncRuns)).toHaveLength(1);

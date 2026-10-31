@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GET as listGet } from './route';
 import { POST as bulkPost } from './status-bulk/route';
 import { PUT as statusPut } from './[id]/status/route';
@@ -6,6 +6,8 @@ import { PATCH as datePatch } from './[id]/status-date/route';
 import { PUT as hiddenPut } from './[id]/hidden/route';
 import { POST as resetAllPost } from './status-reset-all/route';
 import { POST as restorePost } from './status-restore/route';
+
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
 
 const json = { 'content-type': 'application/json' };
 const params = (id: string) => ({ params: Promise.resolve({ id }) });

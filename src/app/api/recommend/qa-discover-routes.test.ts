@@ -17,6 +17,8 @@ import { DELETE } from './discover/dislike/[externalId]/route';
 import { POST } from './discover/dislike/route';
 import { GET as LIST } from './discover/dislikes/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const json = { 'content-type': 'application/json' };
 const post = (body: unknown, headers: Record<string, string> = json) =>
   POST(new Request('http://x/api/recommend/discover/dislike', { method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) }));
@@ -49,7 +51,7 @@ describe('QA 13b: discover dislike API', () => {
   it('coverUrl null и https проходят; запись сохраняется как есть', async () => {
     expect((await post({ ...ok, coverUrl: null })).status).toBe(200);
     expect((await post({ ...ok, externalId: '2' })).status).toBe(200);
-    const list = (await (await LIST()).json()).data;
+    const list = (await (await LIST(new Request('http://x/'))).json()).data;
     expect(list.items.map((i: { coverUrl: string | null }) => i.coverUrl).sort()).toEqual(['https://media.rawg.io/a.jpg', null]);
   });
 
@@ -105,7 +107,7 @@ describe('QA 13b: discover dislike API', () => {
       { externalSource: 'rawg', externalId: 'old', title: 'Old', createdAt: new Date(Date.now() - 30 * d - 1000) },
       { externalSource: 'rawg', externalId: 'fresh', title: 'Fresh', createdAt: new Date(Date.now() - 29 * d) },
     ]);
-    const data = (await (await LIST()).json()).data;
+    const data = (await (await LIST(new Request('http://x/'))).json()).data;
     expect(data.items.map((i: { externalId: string }) => i.externalId)).toEqual(['fresh']);
     expect(data.ttlDays).toBe(30);
   });
@@ -114,7 +116,7 @@ describe('QA 13b: discover dislike API', () => {
     expect((await del('a b')).status).toBe(400);
     expect((await del('%00')).status).toBe(400);
     holder.db = null;
-    for (const r of [await post(ok), await del('1'), await LIST()]) {
+    for (const r of [await post(ok), await del('1'), await LIST(new Request('http://x/'))]) {
       expect(r.status).toBe(503);
       const text = JSON.stringify(await r.json());
       expect(text).toContain('db_unavailable');

@@ -12,7 +12,7 @@ import { NotFoundError, resetAllStatuses, restoreStatuses, setGameHidden } from 
 import { getCollectionSummary, listGames } from '@/server/collection/query';
 import { parseListQuery } from '@/server/collection/validation';
 import { BulkMissingError, setGameStatus, setGamesStatusBulk } from '@/server/sync/status-rules';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getStats } from './query';
 
 const { games, gameStatus, playtimeSnapshots: ps, statusBackups } = schema;
@@ -56,7 +56,7 @@ describe('QA Фаза 8 (PGlite)', () => {
 
     it('часы делятся на дек 2025 + янв 2026; октябрь = реальная дельта', async () => {
       const id = await trails(D('2026-01-15T18:00:00Z'));
-      const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+      const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
       expect(y25.hours.byMonth[11]).toBe(10);
       expect(y25.header.hours).toBe(10);
       expect(y25.hours.estimatedHours).toBe(10);
@@ -64,7 +64,7 @@ describe('QA Фаза 8 (PGlite)', () => {
       expect(y25.played.groups[0].items[0]).toMatchObject({ hours: 10, estimated: true, finished: null });
       expect(y25.years).toEqual([2026, 2025]);
 
-      const y26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+      const y26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
       expect(y26.hours.byMonth[0]).toBe(10);
       expect(y26.hours.byMonth.slice(1, 9)).toEqual([null, null, null, null, null, null, null, null]);
       expect(y26.hours.byMonth[9]).toBe(2);
@@ -77,15 +77,15 @@ describe('QA Фаза 8 (PGlite)', () => {
 
     it('L0 = 31.12.2025 21:30 UTC (00:30 МСК 1 янв) относится к январю 2026', async () => {
       await trails(D('2025-12-31T21:30:00Z'));
-      const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+      const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
       expect(y25.hours.byMonth[11]).toBe(10);
-      const y26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+      const y26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
       expect(y26.hours.byMonth[0]).toBe(10);
     });
 
     it('L0 в снимке NULL: fallback на games.last_played_at (диапазон дек 2025..окт 2026)', async () => {
       await trails(null);
-      const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+      const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
       // 11 месяцев: floor(20h/11)
       expect(y25.hours.estimatedByMonth[11]).toBe(Math.round(Math.floor((20 * H) / 11) / 360) / 10);
     });
@@ -110,7 +110,7 @@ describe('QA Фаза 8 (PGlite)', () => {
         { gameId: a, status: 'completed', completedAt: D('2026-04-02T10:00:00Z') },
         { gameId: c, status: 'dropped', droppedAt: D('2026-03-31T21:30:00Z') },
       ]);
-      const r = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+      const r = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
       for (const g of r.played.groups) {
         const sum = g.items.reduce((s, i) => s + i.hours, 0);
         expect(Math.abs(sum - (r.hours.byMonth[g.monthNumber - 1] ?? 0)), g.month).toBeLessThanOrEqual(0.1 * g.items.length);
@@ -130,10 +130,10 @@ describe('QA Фаза 8 (PGlite)', () => {
         expect.arrayContaining([[a, true], [b, true]]),
       );
 
-      const m = await getStats(t.db, { type: 'month', year: 2026, month: 4 }, NOW);
+      const m = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 4 }, NOW);
       expect(m.played.groups).toHaveLength(1);
       expect(m.played.groups[0].items.map((i) => i.gameId)).toEqual(apr?.items.map((i) => i.gameId));
-      const empty = await getStats(t.db, { type: 'month', year: 2026, month: 8 }, NOW);
+      const empty = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 8 }, NOW);
       expect(empty.played.groups).toEqual([]);
     });
   });
@@ -143,49 +143,49 @@ describe('QA Фаза 8 (PGlite)', () => {
       const p = await game({ lastPlayedAt: D('2026-10-01T10:00:00Z'), playDurationSeconds: 5 * H });
       const none = await game({ lastPlayedAt: D('2026-10-02T10:00:00Z') });
       const bl = await game();
-      await setGameStatus(t.db, p, 'playing', NOW);
-      await setGameStatus(t.db, bl, 'backlog', NOW);
-      for (const id of [p, none, bl]) await setGameHidden(t.db, id, true, NOW);
+      await setGameStatus(t.db, TEST_USER, p, 'playing', NOW);
+      await setGameStatus(t.db, TEST_USER, bl, 'backlog', NOW);
+      for (const id of [p, none, bl]) await setGameHidden(t.db, TEST_USER, id, true, NOW);
 
-      const s = await getCollectionSummary(t.db);
+      const s = await getCollectionSummary(t.db, TEST_USER);
       expect(s.playing).toEqual([]);
       expect(s.counts.playing).toBe(0);
       expect(s.totals.games).toBe(0);
       expect(s.continue).toEqual([]);
       for (const q of ['status=playing', 'status=none', 'status=backlog', '']) {
-        const l = await listGames(t.db, lq(q));
+        const l = await listGames(t.db, TEST_USER, lq(q));
         expect(l.items, q).toEqual([]);
         expect(l.total, q).toBe(0);
       }
-      expect((await listGames(t.db, lq('hidden=only'))).total).toBe(3);
+      expect((await listGames(t.db, TEST_USER, lq('hidden=only'))).total).toBe(3);
 
       // статус скрытой игры сохраняется; повторное скрытие не меняет hidden_at
-      await setGameHidden(t.db, p, true, D('2027-01-01T00:00:00Z'));
+      await setGameHidden(t.db, TEST_USER, p, true, D('2027-01-01T00:00:00Z'));
       const [row] = await t.db.select().from(games).where(eq(games.id, p));
       expect(row.hiddenAt?.toISOString()).toBe(NOW.toISOString());
-      await setGameHidden(t.db, p, false, NOW);
-      const back = await getCollectionSummary(t.db);
+      await setGameHidden(t.db, TEST_USER, p, false, NOW);
+      const back = await getCollectionSummary(t.db, TEST_USER);
       expect(back.playing.map((g) => g.id)).toEqual([p]);
     });
 
     it('status-bulk со скрытой игрой и status=null: 404, видимая не сброшена', async () => {
       const a = await game();
       const b = await game();
-      await setGameStatus(t.db, a, 'backlog', NOW);
-      await setGameStatus(t.db, b, 'backlog', NOW);
-      await setGameHidden(t.db, b, true, NOW);
-      await expect(setGamesStatusBulk(t.db, [a, b], null, NOW)).rejects.toBeInstanceOf(BulkMissingError);
+      await setGameStatus(t.db, TEST_USER, a, 'backlog', NOW);
+      await setGameStatus(t.db, TEST_USER, b, 'backlog', NOW);
+      await setGameHidden(t.db, TEST_USER, b, true, NOW);
+      await expect(setGamesStatusBulk(t.db, TEST_USER, [a, b], null, NOW)).rejects.toBeInstanceOf(BulkMissingError);
       expect((await t.db.select().from(gameStatus)).length).toBe(2);
     });
   });
 
   describe('8.3 сброс всех и откат', () => {
     it('0 статусов (и только у скрытых): backupId null, статусы скрытых целы', async () => {
-      expect(await resetAllStatuses(t.db, NOW)).toEqual({ backupId: null, reset: 0 });
+      expect(await resetAllStatuses(t.db, TEST_USER, NOW)).toEqual({ backupId: null, reset: 0 });
       const h = await game();
-      await setGameStatus(t.db, h, 'completed', NOW);
-      await setGameHidden(t.db, h, true, NOW);
-      expect(await resetAllStatuses(t.db, NOW)).toEqual({ backupId: null, reset: 0 });
+      await setGameStatus(t.db, TEST_USER, h, 'completed', NOW);
+      await setGameHidden(t.db, TEST_USER, h, true, NOW);
+      expect(await resetAllStatuses(t.db, TEST_USER, NOW)).toEqual({ backupId: null, reset: 0 });
       expect((await t.db.select().from(gameStatus)).map((r) => r.gameId)).toEqual([h]);
       expect(await t.db.select().from(statusBackups)).toEqual([]);
     });
@@ -204,22 +204,22 @@ describe('QA Фаза 8 (PGlite)', () => {
           g: r.gameId, s: r.status, c: r.completedAt?.toISOString() ?? null, d: r.droppedAt?.toISOString() ?? null, ch: r.statusChangedAt.toISOString(),
         }));
       const orig = await snap();
-      const reset = await resetAllStatuses(t.db, NOW);
+      const reset = await resetAllStatuses(t.db, TEST_USER, NOW);
       expect(reset.reset).toBe(3);
       expect(await snap()).toEqual([]);
       // после сброса пользователь поставил новый статус, затем «Вернуть»
-      await setGameStatus(t.db, c, 'playing', NOW);
-      const r1 = await restoreStatuses(t.db, reset.backupId as number, NOW);
+      await setGameStatus(t.db, TEST_USER, c, 'playing', NOW);
+      const r1 = await restoreStatuses(t.db, TEST_USER, reset.backupId as number, NOW);
       expect(r1).toMatchObject({ restored: 3, skipped: 0 });
       expect(await snap()).toEqual(orig);
       // откат отката: возвращает состояние «c = playing»
-      await restoreStatuses(t.db, r1.backupId, NOW);
+      await restoreStatuses(t.db, TEST_USER, r1.backupId, NOW);
       expect((await snap()).map((x) => [x.g, x.s])).toEqual([[c, 'playing']]);
 
-      for (let i = 0; i < 12; i++) await restoreStatuses(t.db, r1.backupId + 1 + i, NOW).catch(() => undefined);
+      for (let i = 0; i < 12; i++) await restoreStatuses(t.db, TEST_USER, r1.backupId + 1 + i, NOW).catch(() => undefined);
       const left = await t.db.select({ id: statusBackups.id, reason: statusBackups.reason }).from(statusBackups);
       expect(left.length).toBe(10);
-      await expect(restoreStatuses(t.db, reset.backupId as number, NOW)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(restoreStatuses(t.db, TEST_USER, reset.backupId as number, NOW)).rejects.toBeInstanceOf(NotFoundError);
     });
   });
 });
@@ -229,6 +229,7 @@ describe('QA риск: размер /api/stats с played на 214 играх', (
     const client = new PGlite();
     const db = drizzle(client, { schema: fullSchema });
     await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../db/migrations', import.meta.url)) });
+    await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await client.exec(`
       insert into games (title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres, image_url)
       select 'CUSA' || lpad(i::text, 5, '0') || '_00', 'Очень длинное название игры номер ' || i, 'ps5_native_game', now(),
@@ -243,9 +244,9 @@ describe('QA риск: размер /api/stats с played на 214 играх', (
     `);
     const adb = db as unknown as AnyDb;
     const t0 = Date.now();
-    const year = await getStats(adb, { type: 'year', year: 2026, month: null }, D('2026-10-27T12:00:00Z'));
+    const year = await getStats(adb, TEST_USER, { type: 'year', year: 2026, month: null }, D('2026-10-27T12:00:00Z'));
     const ms = Date.now() - t0;
-    const month = await getStats(adb, { type: 'month', year: 2026, month: 10 }, D('2026-10-27T12:00:00Z'));
+    const month = await getStats(adb, TEST_USER, { type: 'month', year: 2026, month: 10 }, D('2026-10-27T12:00:00Z'));
     const bytes = (x: unknown) => Buffer.byteLength(JSON.stringify({ ok: true, data: x }));
     const playedItems = year.played.groups.reduce((s, g) => s + g.items.length, 0);
     console.log(`[QA size] year=${bytes(year)} B gzip=${(await import("node:zlib")).gzipSync(JSON.stringify(year)).length} B (played items=${playedItems}, played=${bytes(year.played)} B, finished=${bytes(year.finished)} B, ${ms} ms); month=${bytes(month)} B`);

@@ -12,6 +12,7 @@ import { DISCOVER_MIN_LEFT_MS, LLM_MIN_LEFT_MS, llmStep, PHRASE_BATCH } from './
 import { startRun } from './runs';
 import { createTestDb, fakeApi, freshState, type TestDb } from './test-helpers';
 import { connectPsn } from '@/server/psn/client';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, gameStatus, recommendReasons, recommendLlmUsage, recommendDiscoverCache, syncRuns } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z');
@@ -40,7 +41,7 @@ describe('llmStep', () => {
 
   async function ctx(budget = 1_000_000) {
     await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.status, 'running'));
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error(s.kind);
     return new RunContext(t.db, s.run, () => NOW, budget);
   }
@@ -74,7 +75,7 @@ describe('llmStep', () => {
     expect(await cached()).toBe(64);
     expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 4, phraseCalls: 4 });
     // экран: фразы из кэша, счётчик не растёт
-    const screen = await getRecommendations(t.db, 'short', NOW, { llm: ENV });
+    const screen = await getRecommendations(t.db, TEST_USER, 'short', NOW, { llm: ENV });
     expect(screen.items.every((i) => i.reason.source === 'llm')).toBe(true);
     expect(screen.meta.llmPending).toBe(0);
     expect((await t.db.select().from(recommendLlmUsage))[0].calls).toBe(4);
@@ -284,7 +285,7 @@ describe('шаг LLM в runChunk', () => {
     connect: () => connectPsn({ getAccessToken: async () => 'tok', onlineId: 'x', delayMs: 0, api: fakeApi(freshState()), sleep: async () => undefined }),
   });
   async function run(llm?: SyncDeps['llm']) {
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error(s.kind);
     const res = await runChunk(mk(llm), s.run);
     const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, s.run.id));

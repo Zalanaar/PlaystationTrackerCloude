@@ -3,6 +3,7 @@
 import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { CatalogError, searchCatalog, RAWG_TIMEOUT_MS } from '@/server/catalog/rawg';
 import { getLlmEnv, getRawgKey, type LlmEnv } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
@@ -80,7 +81,7 @@ export function buildDiscoverPrompt(profile: TasteProfile): { system: string; us
 
 // --- данные
 
-async function loadProfileGames(db: AnyDb): Promise<ProfileGame[]> {
+async function loadProfileGames(db: AnyDb, userId: UserId): Promise<ProfileGame[]> {
   // service и скрытые (hidden_at) в профиль не попадают.
   const rows = await db
     .select({
@@ -88,8 +89,8 @@ async function loadProfileGames(db: AnyDb): Promise<ProfileGame[]> {
       seconds: games.playDurationSeconds, completedAt: gameStatus.completedAt,
     })
     .from(games)
-    .innerJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(and(inArray(gameStatus.status, ['completed', 'playing', 'dropped']), isNull(games.hiddenAt)));
+    .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), inArray(gameStatus.status, ['completed', 'playing', 'dropped']), isNull(games.hiddenAt)));
   return rows.map((r) => ({
     id: r.id, name: r.name, status: r.status as ProfileGame['status'], genres: effectiveGenres(r.psn, r.override),
     playSeconds: r.seconds, completedAt: r.completedAt,
@@ -103,13 +104,13 @@ function toPayload(v: unknown): DiscoverPayload {
   return { proposed: typeof o.proposed === 'number' ? o.proposed : 0, candidates: Array.isArray(o.candidates) ? o.candidates : [] };
 }
 
-async function readCache(db: AnyDb, day: string): Promise<CacheRow | null> {
-  const [r] = await db.select().from(recommendDiscoverCache).where(eq(recommendDiscoverCache.day, day));
+async function readCache(db: AnyDb, userId: UserId, day: string): Promise<CacheRow | null> {
+  const [r] = await db.select().from(recommendDiscoverCache).where(and(eq(recommendDiscoverCache.userId, userId), eq(recommendDiscoverCache.day, day)));
   return r ? { ...r, payload: toPayload(r.payload) } : null;
 }
 
-async function readLatestCache(db: AnyDb): Promise<CacheRow | null> {
-  const [r] = await db.select().from(recommendDiscoverCache).where(gt(recommendDiscoverCache.day, FAILURE_DAY)).orderBy(desc(recommendDiscoverCache.day)).limit(1);
+async function readLatestCache(db: AnyDb, userId: UserId): Promise<CacheRow | null> {
+  const [r] = await db.select().from(recommendDiscoverCache).where(and(eq(recommendDiscoverCache.userId, userId), gt(recommendDiscoverCache.day, FAILURE_DAY))).orderBy(desc(recommendDiscoverCache.day)).limit(1);
   return r ? { ...r, payload: toPayload(r.payload) } : null;
 }
 
@@ -118,12 +119,12 @@ function logFailure(reason: string): void {
   console.warn('[recommend/discover] ' + reason);
 }
 
-async function writeCache(db: AnyDb, day: string, hash: string, payload: DiscoverPayload, now: Date): Promise<void> {
+async function writeCache(db: AnyDb, userId: UserId, day: string, hash: string, payload: DiscoverPayload, now: Date): Promise<void> {
   await db
     .insert(recommendDiscoverCache)
-    .values({ day, profileHash: hash, payload, refreshes: 0, createdAt: now })
+    .values({ userId, day, profileHash: hash, payload, refreshes: 0, createdAt: now })
     .onConflictDoUpdate({
-      target: recommendDiscoverCache.day,
+      target: [recommendDiscoverCache.userId, recommendDiscoverCache.day],
       set: { profileHash: hash, payload, createdAt: now },
     });
 }
@@ -200,14 +201,14 @@ export async function verifyProposals(proposals: readonly Proposal[], rawgKey: s
 
 // --- выдача (19.5)
 
-async function serve(db: AnyDb, payload: DiscoverPayload, meta: Omit<DiscoverMeta, 'verified' | 'proposed' | 'llmReason'> & { llmReason?: string | null }, now: Date): Promise<DiscoverResponse> {
+async function serve(db: AnyDb, userId: UserId, payload: DiscoverPayload, meta: Omit<DiscoverMeta, 'verified' | 'proposed' | 'llmReason'> & { llmReason?: string | null }, now: Date): Promise<DiscoverResponse> {
   const [owned, planned, disliked] = await Promise.all([
-    db.select({ name: games.name, hltb: games.hltbName }).from(games), // любой статус, включая скрытые
-    db.select({ id: plannedGames.id, title: plannedGames.title, source: plannedGames.externalSource, extId: plannedGames.externalId, status: plannedGames.status }).from(plannedGames),
+    db.select({ name: games.name, hltb: games.hltbName }).from(games).where(eq(games.userId, userId)), // любой статус, включая скрытые
+    db.select({ id: plannedGames.id, title: plannedGames.title, source: plannedGames.externalSource, extId: plannedGames.externalId, status: plannedGames.status }).from(plannedGames).where(eq(plannedGames.userId, userId)),
     db
       .select({ extId: recommendExternalDislikes.externalId })
       .from(recommendExternalDislikes)
-      .where(and(eq(recommendExternalDislikes.externalSource, 'rawg'), gt(recommendExternalDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)))),
+      .where(and(eq(recommendExternalDislikes.userId, userId), eq(recommendExternalDislikes.externalSource, 'rawg'), gt(recommendExternalDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)))),
   ]);
   const ownedNames = new Set<string>();
   for (const o of owned) {
@@ -242,8 +243,8 @@ const emptyMeta = (llm: LlmMeta, catalog: 'ok' | 'unavailable', refreshLeft: num
 });
 
 /** Есть ли кэш «Нового от ИИ» за сутки (шаг синка не генерирует второй раз). */
-export async function hasCacheForDay(db: AnyDb, day: string): Promise<boolean> {
-  return !!(await readCache(db, day));
+export async function hasCacheForDay(db: AnyDb, userId: UserId, day: string): Promise<boolean> {
+  return !!(await readCache(db, userId, day));
 }
 
 export type GenerateResult =
@@ -258,6 +259,7 @@ export type GenerateResult =
  */
 export async function generateDiscover(
   db: AnyDb,
+  userId: UserId,
   kind: Extract<LlmCallKind, 'discover_auto' | 'discover_manual'>,
   env: LlmEnv,
   rawgKey: string,
@@ -265,8 +267,8 @@ export async function generateDiscover(
   deps: DiscoverDeps = {},
 ): Promise<GenerateResult> {
   if (await isPaused(db)) return { ok: false, llm: 'error', catalog: 'ok', reason: 'paused', proposed: 0, spent: false };
-  const profile = buildProfile(await loadProfileGames(db));
-  if (!(await reserveCall(db, kind, env.dailyLimit, now))) return { ok: false, llm: 'limit', catalog: 'ok', reason: null, proposed: 0, spent: false };
+  const profile = buildProfile(await loadProfileGames(db, userId));
+  if (!(await reserveCall(db, userId, kind, env.dailyLimit, now))) return { ok: false, llm: 'limit', catalog: 'ok', reason: null, proposed: 0, spent: false };
 
   const provider = deps.provider ?? createProvider({ provider: 'groq', apiKey: env.apiKey, model: env.model ?? DEFAULT_MODELS.groq }, deps.fetch);
   let proposals: Proposal[];
@@ -275,7 +277,7 @@ export async function generateDiscover(
   } catch (e) {
     const reason = e instanceof LlmError ? e.detail : 'network';
     logFailure(reason);
-    await releaseCall(db, kind, now);
+    await releaseCall(db, userId, kind, now);
     await recordFailure(db, reason, now);
     return { ok: false, llm: 'error', catalog: 'ok', reason, proposed: 0, spent: false };
   }
@@ -292,7 +294,7 @@ export async function generateDiscover(
     return { ok: false, llm: 'ok', catalog: 'ok', reason: 'no_verified', proposed: proposals.length, spent: true };
   }
   const payload: DiscoverPayload = { proposed: proposals.length, candidates: v.candidates };
-  await writeCache(db, mskDateString(now), profileHash(profile), payload, now);
+  await writeCache(db, userId, mskDateString(now), profileHash(profile), payload, now);
   return { ok: true, payload };
 }
 
@@ -300,27 +302,27 @@ export async function generateDiscover(
  * GET /api/recommend/discover (19.6, 20.6). Ошибки БД пробрасываются (503 в роуте). Сбои Groq и RAWG уходят в meta.
  * Без refresh Groq НЕ вызывается: кэш за сегодня, иначе последний за любые сутки. refresh=1 = ручная генерация (до 3 в сутки).
  */
-export async function getDiscover(db: AnyDb, opts: { refresh: boolean }, now: Date = new Date(), deps: DiscoverDeps = {}): Promise<DiscoverResponse> {
+export async function getDiscover(db: AnyDb, userId: UserId, opts: { refresh: boolean }, now: Date = new Date(), deps: DiscoverDeps = {}): Promise<DiscoverResponse> {
   const env = deps.llm === undefined ? getLlmEnv() : deps.llm;
   const rawgKey = deps.rawgKey === undefined ? getRawgKey() : deps.rawgKey;
   const day = mskDateString(now);
-  const refreshLeft = Math.max(0, REFRESH_PER_DAY - (await usedToday(db, 'discover_manual', now)));
+  const refreshLeft = Math.max(0, REFRESH_PER_DAY - (await usedToday(db, userId, 'discover_manual', now)));
 
   if (!env || env.provider !== 'groq') return { items: [], meta: emptyMeta('disabled', rawgKey ? 'ok' : 'unavailable', refreshLeft) };
   if (!rawgKey) return { items: [], meta: emptyMeta('ok', 'unavailable', refreshLeft) };
 
-  const last = (await readCache(db, day)) ?? (await readLatestCache(db));
+  const last = (await readCache(db, userId, day)) ?? (await readLatestCache(db, userId));
   const fromCache = (row: CacheRow, llm: LlmMeta, catalog: 'ok' | 'unavailable', left: number, llmReason: string | null = null) =>
-    serve(db, row.payload, { llm, llmReason, catalog, cached: true, generatedAt: row.createdAt.toISOString(), refreshLeft: left }, now);
+    serve(db, userId, row.payload, { llm, llmReason, catalog, cached: true, generatedAt: row.createdAt.toISOString(), refreshLeft: left }, now);
   const fallback = async (llm: LlmMeta, catalog: 'ok' | 'unavailable', left: number, reason: string | null): Promise<DiscoverResponse> =>
     last ? fromCache(last, llm, catalog, left, reason) : { items: [], meta: emptyMeta(llm, catalog, left, reason) };
 
   if (!opts.refresh) return fallback('ok', 'ok', refreshLeft, last ? null : 'not_generated');
   if (refreshLeft === 0) return fallback('ok', 'ok', 0, last ? null : 'not_generated'); // лимит ручных обновлений: кэш, Groq не трогаем
 
-  const g = await generateDiscover(db, 'discover_manual', env, rawgKey, now, deps);
+  const g = await generateDiscover(db, userId, 'discover_manual', env, rawgKey, now, deps);
   if (g.ok) {
-    return serve(db, g.payload, { llm: 'ok', catalog: 'ok', cached: false, generatedAt: now.toISOString(), refreshLeft: refreshLeft - 1 }, now);
+    return serve(db, userId, g.payload, { llm: 'ok', catalog: 'ok', cached: false, generatedAt: now.toISOString(), refreshLeft: refreshLeft - 1 }, now);
   }
   const left = g.spent ? refreshLeft - 1 : refreshLeft;
   if (g.reason === 'no_verified') return { items: [], meta: { ...emptyMeta('ok', 'ok', left, 'no_verified'), proposed: g.proposed } };

@@ -5,6 +5,7 @@ import { connectPsn } from '@/server/psn/client';
 import { runChunk, type SyncDeps } from './engine';
 import { startRun } from './runs';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, psnProfile, syncRuns } = schema;
 const NOW = new Date('2026-10-27T17:00:00Z');
@@ -30,7 +31,7 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
       connectPsn({ getAccessToken: async () => 'tok', onlineId: 'Target', delayMs: 0, api: fakeApi(state), sleep: async () => undefined, now: () => NOW.getTime() }),
   });
   async function run() {
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error('не стартовало');
     const res = await runChunk(deps(), s.run);
     const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, s.run.id));
@@ -53,7 +54,7 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
   it('PSN не дал avatarUrls и trophySummary: прежние значения остаются, синк успешен', async () => {
     await run();
     const api = { ...fakeApi(state), getProfileFromUserName: (async () => ({ profile: { accountId: '1234567890', onlineId: 'Target2' } })) as never };
-    const s = await startRun(t.db, { kind: 'manual', now: new Date('2026-10-28T17:00:00Z') });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date('2026-10-28T17:00:00Z') });
     if (s.kind !== 'started') throw new Error('не стартовало');
     const res = await runChunk(
       { ...deps(), connect: () => connectPsn({ getAccessToken: async () => 'tok', onlineId: 'Target', delayMs: 0, api, sleep: async () => undefined }) },
@@ -66,7 +67,7 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
 
   it('профиль без onlineId: предупреждение, синк не падает, игры записаны', async () => {
     const api = { ...fakeApi(state), getProfileFromUserName: (async () => ({ profile: { accountId: '1234567890' } })) as never };
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error('не стартовало');
     const res = await runChunk(
       { ...deps(), connect: () => connectPsn({ getAccessToken: async () => 'tok', onlineId: 'Target', delayMs: 0, api, sleep: async () => undefined }) },
@@ -93,7 +94,7 @@ describe('синк: профиль PSN и banner_url (контракт 12.1)', (
   });
 
   async function runWith(api: ReturnType<typeof fakeApi>) {
-    const s = await startRun(t.db, { kind: 'manual', now: NOW });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: NOW });
     if (s.kind !== 'started') throw new Error('не стартовало');
     const res = await runChunk({ ...deps(), connect: () => connectPsn({ getAccessToken: async () => 'tok', onlineId: 'Target', delayMs: 0, api, sleep: async () => undefined }) }, s.run);
     const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, s.run.id));

@@ -61,6 +61,8 @@ describe('docs/release-neon-0011.sql', () => {
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(11) });
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: root });
+    // с 0014 user_id = 1 ссылается на allowed_users: нужен owner
+    await c.exec(`insert into allowed_users (email, role, status) values ('o@example.com', 'owner', 'active')`);
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
     expect(n.rows[0].n).toBe(journalRaw.entries.length);
 

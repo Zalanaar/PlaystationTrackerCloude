@@ -2,11 +2,12 @@
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import type { PsnProfile } from './types';
 
 const { psnProfile } = schema;
 
-export type ProfileRow = typeof psnProfile.$inferSelect;
+export type ProfileRow = Omit<typeof psnProfile.$inferSelect, 'userId'> & { userId?: number };
 
 /** Строка БД -> ответ API. Счётчики трофеев целиком null, если нет ни одного из четырёх. */
 export function toPsnProfile(r: ProfileRow): PsnProfile {
@@ -23,7 +24,7 @@ export function toPsnProfile(r: ProfileRow): PsnProfile {
   };
 }
 
-export async function getPsnProfile(db: AnyDb): Promise<PsnProfile | null> {
-  const [row] = await db.select().from(psnProfile).where(eq(psnProfile.id, 1)).limit(1);
+export async function getPsnProfile(db: AnyDb, userId: UserId): Promise<PsnProfile | null> {
+  const [row] = await db.select().from(psnProfile).where(eq(psnProfile.userId, userId)).limit(1);
   return row ? toPsnProfile(row) : null;
 }

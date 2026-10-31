@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { setGameStatus } from '@/server/sync/status-rules';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getGameDetails } from './details';
 import { platinumForecast, rankNearPlatinum, setAggsFromTrophies, type NearPlatinumCandidate } from './platinum';
 import { getCollectionSummary } from './query';
@@ -96,14 +96,14 @@ describe('прогноз платины на PGlite', () => {
     const noPlat = await gameWithSet('N', 1, 2, { noPlatinum: true });
     const got = await gameWithSet('P', 10, 10, { platinumEarned: true });
     const hid = await gameWithSet('H', 1, 2, { hidden: true });
-    const d = await getGameDetails(t.db, a);
+    const d = await getGameDetails(t.db, TEST_USER, a);
     expect(d?.platinumForecast).toEqual({
       setId: 1, required: 10, earned: 8, progress: 80, remaining: { gold: 0, silver: 0, bronze: 2, total: 2 }, remainingHidden: 1,
       avgEarnedRate: 10, minEarnedRate: 9.5, ratesKnown: 2, platinumEarnedRate: 3, approximate: true, dlc: null,
     });
-    expect((await getGameDetails(t.db, noPlat))?.platinumForecast).toBeNull();
-    expect((await getGameDetails(t.db, got))?.platinumForecast).toBeNull();
-    expect((await getGameDetails(t.db, hid))?.platinumForecast).not.toBeNull();
+    expect((await getGameDetails(t.db, TEST_USER, noPlat))?.platinumForecast).toBeNull();
+    expect((await getGameDetails(t.db, TEST_USER, got))?.platinumForecast).toBeNull();
+    expect((await getGameDetails(t.db, TEST_USER, hid))?.platinumForecast).not.toBeNull();
   });
 
   it('сводка nearPlatinum: без dropped/скрытых/0 полученных/полученной платины; порядок; совпадает с окном игры', async () => {
@@ -114,15 +114,15 @@ describe('прогноз платины на PGlite', () => {
     await gameWithSet('Z', 0, 10);
     await gameWithSet('P', 10, 10, { platinumEarned: true });
     const done = await gameWithSet('C', 1, 1);
-    await setGameStatus(t.db, dropped, 'dropped', NOW);
-    await setGameStatus(t.db, a, 'completed', NOW);
-    const s = await getCollectionSummary(t.db);
+    await setGameStatus(t.db, TEST_USER, dropped, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, a, 'completed', NOW);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.nearPlatinum.map((x) => x.game.id)).toEqual([done, b, a]);
-    const fromDetails = (await getGameDetails(t.db, b))?.platinumForecast;
+    const fromDetails = (await getGameDetails(t.db, TEST_USER, b))?.platinumForecast;
     expect(s.nearPlatinum[1].forecast).toEqual(fromDetails);
   });
 
   it('пустая БД: nearPlatinum = []', async () => {
-    expect((await getCollectionSummary(t.db)).nearPlatinum).toEqual([]);
+    expect((await getCollectionSummary(t.db, TEST_USER)).nearPlatinum).toEqual([]);
   });
 });

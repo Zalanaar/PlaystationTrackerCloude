@@ -1,7 +1,8 @@
 // Детали игры для окна (контракт 12.5): GameItem + даты + список трофеев всех сетов игры. Три запроса, без N+1.
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
 import type { GameDetailsResponse, GameTrophyItem } from './types';
@@ -45,14 +46,14 @@ export function toTrophyItem(r: TrophyRow): GameTrophyItem {
 }
 
 /** null, если игры нет. Скрытые игры отдаются (hiddenAt не null). */
-export async function getGameDetails(db: AnyDb, id: number): Promise<GameDetailsResponse | null> {
+export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Promise<GameDetailsResponse | null> {
   const [[game], [meta], rows] = await Promise.all([
-    getGamesByIds(db, [id]).then((g) => [g[0]] as const),
+    getGamesByIds(db, userId, [id]).then((g) => [g[0]] as const),
     db
       .select({ firstPlayedAt: games.firstPlayedAt, statusChangedAt: gameStatus.statusChangedAt })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-      .where(eq(games.id, id))
+      .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.id, id), eq(games.userId, userId)))
       .limit(1)
       .then((m) => [m[0]] as const),
     db
@@ -71,8 +72,8 @@ export async function getGameDetails(db: AnyDb, id: number): Promise<GameDetails
         earnedRate: trophies.earnedRate,
       })
       .from(gameTrophySets)
-      .innerJoin(trophies, eq(trophies.trophySetId, gameTrophySets.trophySetId))
-      .where(eq(gameTrophySets.gameId, id))
+      .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
+      .where(and(eq(gameTrophySets.gameId, id), eq(gameTrophySets.userId, userId)))
       .orderBy(asc(trophies.trophySetId), asc(trophies.trophyId)),
   ]);
   if (!game || !meta) return null;

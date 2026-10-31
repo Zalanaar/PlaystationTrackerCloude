@@ -1,7 +1,7 @@
 // Контракт 16.4: фильтр hltb=found|not_found|unchecked и hltbCounts (PGlite).
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { listGames } from './query';
 import { parseListQuery } from './validation';
 
@@ -31,7 +31,7 @@ describe('GET /api/games: hltb', () => {
   const list = async (q: string) => {
     const p = parseListQuery(new URLSearchParams(q));
     if (!p.ok) throw new Error(p.message);
-    return listGames(t.db, p.value, NOW);
+    return listGames(t.db, TEST_USER, p.value, NOW);
   };
   it('N-3: unchecked не считает игры с ручной длительностью и сервисы', async () => {
     const base = { category: 'ps5_native_game', lastSeenAt: NOW };

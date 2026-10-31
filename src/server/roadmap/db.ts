@@ -2,6 +2,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
 import { gameVisible } from '@/server/collection/visibility';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
@@ -36,20 +37,18 @@ export class OrderRejectedError extends Error {
 }
 export class NotBacklogError extends Error {}
 
-const SETTINGS_ID = 1;
-
-export async function getSettings(db: AnyDb, now: Date = new Date()): Promise<SettingsView> {
-  const [row] = await db.select().from(roadmapSettings).where(eq(roadmapSettings.id, SETTINGS_ID));
+export async function getSettings(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<SettingsView> {
+  const [row] = await db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
   if (!row) return { year: mskDate(now).year, hoursPerWeek: null, configured: false };
   return { year: row.year, hoursPerWeek: row.hoursPerWeek, configured: true };
 }
 
-export async function putSettings(db: AnyDb, v: { year: number; hoursPerWeek: number }): Promise<SettingsView> {
+export async function putSettings(db: AnyDb, userId: UserId, v: { year: number; hoursPerWeek: number }): Promise<SettingsView> {
   const now = new Date();
   await db
     .insert(roadmapSettings)
-    .values({ id: SETTINGS_ID, year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now })
-    .onConflictDoUpdate({ target: roadmapSettings.id, set: { year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now } });
+    .values({ userId, year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now })
+    .onConflictDoUpdate({ target: roadmapSettings.userId, set: { year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now } });
   return { year: v.year, hoursPerWeek: v.hoursPerWeek, configured: true };
 }
 
@@ -69,11 +68,11 @@ const toDto = (r: PlannedRow): PlannedGameDto => ({
   updatedAt: r.updatedAt.toISOString(),
 });
 
-export async function listPlanned(db: AnyDb, status: PlannedGameStatus | 'all'): Promise<PlannedGameDto[]> {
+export async function listPlanned(db: AnyDb, userId: UserId, status: PlannedGameStatus | 'all'): Promise<PlannedGameDto[]> {
   const rows = await db
     .select()
     .from(plannedGames)
-    .where(status === 'all' ? undefined : eq(plannedGames.status, status))
+    .where(and(eq(plannedGames.userId, userId), status === 'all' ? undefined : eq(plannedGames.status, status)))
     .orderBy(sql`${plannedGames.releaseDate} asc nulls last`, asc(plannedGames.id));
   return rows.map(toDto);
 }
@@ -87,16 +86,16 @@ function isUniqueViolation(e: unknown): boolean {
   return false;
 }
 
-export async function createPlanned(db: AnyDb, v: PlannedCreate): Promise<PlannedGameDto> {
+export async function createPlanned(db: AnyDb, userId: UserId, v: PlannedCreate): Promise<PlannedGameDto> {
   if (v.externalSource !== null && v.externalId !== null) {
     const [dup] = await db
       .select({ id: plannedGames.id })
       .from(plannedGames)
-      .where(and(eq(plannedGames.externalSource, v.externalSource), eq(plannedGames.externalId, v.externalId)));
+      .where(and(eq(plannedGames.userId, userId), eq(plannedGames.externalSource, v.externalSource), eq(plannedGames.externalId, v.externalId)));
     if (dup) throw new DuplicatePlannedError(dup.id);
   }
   try {
-    const [row] = await db.insert(plannedGames).values(v).returning();
+    const [row] = await db.insert(plannedGames).values({ ...v, userId }).returning();
     return toDto(row);
   } catch (e) {
     if (isUniqueViolation(e)) throw new DuplicatePlannedError(null);
@@ -104,9 +103,9 @@ export async function createPlanned(db: AnyDb, v: PlannedCreate): Promise<Planne
   }
 }
 
-export async function updatePlanned(db: AnyDb, id: number, patch: PlannedPatch): Promise<PlannedGameDto> {
+export async function updatePlanned(db: AnyDb, userId: UserId, id: number, patch: PlannedPatch): Promise<PlannedGameDto> {
   return db.transaction(async (tx) => {
-    const [cur] = await tx.select().from(plannedGames).where(eq(plannedGames.id, id)).for('update');
+    const [cur] = await tx.select().from(plannedGames).where(and(eq(plannedGames.id, id), eq(plannedGames.userId, userId))).for('update');
     if (!cur) throw new NotFoundError('Игра не найдена.');
     const want = patch.wantAtRelease ?? cur.wantAtRelease;
     const date = patch.releaseDate !== undefined ? patch.releaseDate : cur.releaseDate;
@@ -114,54 +113,54 @@ export async function updatePlanned(db: AnyDb, id: number, patch: PlannedPatch):
     const [row] = await tx
       .update(plannedGames)
       .set({ ...patch, updatedAt: new Date() })
-      .where(eq(plannedGames.id, id))
+      .where(and(eq(plannedGames.id, id), eq(plannedGames.userId, userId)))
       .returning();
     return toDto(row);
   });
 }
 
-export async function deletePlanned(db: AnyDb, id: number): Promise<void> {
-  const rows = await db.delete(plannedGames).where(eq(plannedGames.id, id)).returning({ id: plannedGames.id });
+export async function deletePlanned(db: AnyDb, userId: UserId, id: number): Promise<void> {
+  const rows = await db.delete(plannedGames).where(and(eq(plannedGames.id, id), eq(plannedGames.userId, userId))).returning({ id: plannedGames.id });
   if (!rows.length) throw new NotFoundError('Игра не найдена.');
 }
 
 /** 17.8: полная замена порядка очереди одной транзакцией. Неизвестные id = UnknownGamesError. */
-export async function saveOrder(db: AnyDb, gameIds: readonly number[]): Promise<number[]> {
+export async function saveOrder(db: AnyDb, userId: UserId, gameIds: readonly number[]): Promise<number[]> {
   return db.transaction(async (tx) => {
     if (gameIds.length) {
-      const found = await tx.select({ id: games.id }).from(games).where(inArray(games.id, [...gameIds]));
+      const found = await tx.select({ id: games.id }).from(games).where(and(eq(games.userId, userId), inArray(games.id, [...gameIds])));
       const have = new Set(found.map((r) => r.id));
       const unknown = gameIds.filter((id) => !have.has(id));
       if (unknown.length) throw new UnknownGamesError(unknown);
       const service = await tx
         .select({ id: gameStatus.gameId })
         .from(gameStatus)
-        .where(and(inArray(gameStatus.gameId, [...gameIds]), eq(gameStatus.status, 'service')));
+        .where(and(eq(gameStatus.userId, userId), inArray(gameStatus.gameId, [...gameIds]), eq(gameStatus.status, 'service')));
       if (service.length) throw new OrderRejectedError('service_game', gameIds.filter((id) => service.some((r) => r.id === id)));
-      const excluded = await tx.select({ id: roadmapExcluded.gameId }).from(roadmapExcluded).where(inArray(roadmapExcluded.gameId, [...gameIds]));
+      const excluded = await tx.select({ id: roadmapExcluded.gameId }).from(roadmapExcluded).where(and(eq(roadmapExcluded.userId, userId), inArray(roadmapExcluded.gameId, [...gameIds])));
       if (excluded.length) throw new OrderRejectedError('excluded', gameIds.filter((id) => excluded.some((r) => r.id === id)));
     }
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('roadmap_order'))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`roadmap_order:${userId}`}))`);
     // Строки игр, ушедших из бэклога, не трогаем (по ним считается прогресс, 17.6): чистим только игры из списка и текущий бэклог.
-    const backlogIds = tx.select({ id: gameStatus.gameId }).from(gameStatus).where(eq(gameStatus.status, 'backlog'));
-    await tx.delete(roadmapOrder).where(or(inArray(roadmapOrder.gameId, backlogIds), gameIds.length ? inArray(roadmapOrder.gameId, [...gameIds]) : undefined));
+    const backlogIds = tx.select({ id: gameStatus.gameId }).from(gameStatus).where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'backlog')));
+    await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.userId, userId), or(inArray(roadmapOrder.gameId, backlogIds), gameIds.length ? inArray(roadmapOrder.gameId, [...gameIds]) : undefined)));
     if (gameIds.length) {
       const now = new Date();
-      await tx.insert(roadmapOrder).values(gameIds.map((gameId, position) => ({ gameId, position, updatedAt: now })));
+      await tx.insert(roadmapOrder).values(gameIds.map((gameId, position) => ({ userId, gameId, position, updatedAt: now })));
     }
     return [...gameIds];
   });
 }
 
 /** Очередь бэклога: видимые игры со статусом backlog; сначала ручной порядок, затем без позиции по дате попадания в бэклог. */
-export async function getBacklogEntries(db: AnyDb): Promise<RoadmapEntry[]> {
+export async function getBacklogEntries(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
   const rows = await db
     .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
     .from(games)
-    .innerJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .leftJoin(roadmapOrder, eq(roadmapOrder.gameId, games.id))
-    .leftJoin(roadmapExcluded, eq(roadmapExcluded.gameId, games.id))
-    .where(and(eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt), isNull(roadmapExcluded.gameId)))
+    .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .leftJoin(roadmapOrder, and(eq(roadmapOrder.gameId, games.id), eq(roadmapOrder.userId, userId)))
+    .leftJoin(roadmapExcluded, and(eq(roadmapExcluded.gameId, games.id), eq(roadmapExcluded.userId, userId)))
+    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt), isNull(roadmapExcluded.gameId)))
     .orderBy(sql`${roadmapOrder.position} asc nulls last`, asc(gameStatus.statusChangedAt), asc(games.id));
   return rows.map((r) => {
     const d = effectiveDuration({ override: r.override, main: r.main });
@@ -176,15 +175,16 @@ export async function getBacklogEntries(db: AnyDb): Promise<RoadmapEntry[]> {
  * 17.6 (N-3): очередь для прогресса. Текущий бэклог плюс игры, ушедшие из него, но сохранившие строку roadmap_order
  * (кроме сервисов и исключённых из плана). Порядок как у getBacklogEntries. Чтобы плановые часы ушедшей игры не пропадали.
  */
-export async function getProgressQueue(db: AnyDb): Promise<RoadmapEntry[]> {
+export async function getProgressQueue(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
   const rows = await db
     .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .leftJoin(roadmapOrder, eq(roadmapOrder.gameId, games.id))
-    .leftJoin(roadmapExcluded, eq(roadmapExcluded.gameId, games.id))
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .leftJoin(roadmapOrder, and(eq(roadmapOrder.gameId, games.id), eq(roadmapOrder.userId, userId)))
+    .leftJoin(roadmapExcluded, and(eq(roadmapExcluded.gameId, games.id), eq(roadmapExcluded.userId, userId)))
     .where(
       and(
+        eq(games.userId, userId),
         isNull(games.hiddenAt),
         isNull(roadmapExcluded.gameId),
         or(eq(gameStatus.status, 'backlog'), and(sql`${roadmapOrder.gameId} is not null`, or(isNull(gameStatus.status), ne(gameStatus.status, 'service')))),
@@ -201,62 +201,62 @@ export async function getProgressQueue(db: AnyDb): Promise<RoadmapEntry[]> {
 }
 
 /** 17.12: убрать игру бэклога из плана. Идемпотентно; строка порядка удаляется. */
-export async function excludeGame(db: AnyDb, gameId: number): Promise<void> {
+export async function excludeGame(db: AnyDb, userId: UserId, gameId: number): Promise<void> {
   await db.transaction(async (tx) => {
     const [row] = await tx
       .select({ status: gameStatus.status })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-      .where(eq(games.id, gameId));
+      .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.id, gameId), eq(games.userId, userId)));
     if (!row) throw new NotFoundError('Игра не найдена.');
     if (row.status !== 'backlog') throw new NotBacklogError();
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('roadmap_order'))`);
-    await tx.insert(roadmapExcluded).values({ gameId }).onConflictDoNothing();
-    await tx.delete(roadmapOrder).where(eq(roadmapOrder.gameId, gameId));
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`roadmap_order:${userId}`}))`);
+    await tx.insert(roadmapExcluded).values({ userId, gameId }).onConflictDoNothing();
+    await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.gameId, gameId), eq(roadmapOrder.userId, userId)));
   });
 }
 
 /** 17.12: вернуть игру в план. Встаёт в конец очереди: текущий порядок фиксируется в roadmap_order, игра добавляется последней. Идемпотентно. */
-export async function restoreGame(db: AnyDb, gameId: number): Promise<void> {
+export async function restoreGame(db: AnyDb, userId: UserId, gameId: number): Promise<void> {
   await db.transaction(async (tx) => {
-    const [g] = await tx.select({ id: games.id }).from(games).where(eq(games.id, gameId));
+    const [g] = await tx.select({ id: games.id }).from(games).where(and(eq(games.id, gameId), eq(games.userId, userId)));
     if (!g) throw new NotFoundError('Игра не найдена.');
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('roadmap_order'))`);
-    const removed = await tx.delete(roadmapExcluded).where(eq(roadmapExcluded.gameId, gameId)).returning({ id: roadmapExcluded.gameId });
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`roadmap_order:${userId}`}))`);
+    const removed = await tx.delete(roadmapExcluded).where(and(eq(roadmapExcluded.gameId, gameId), eq(roadmapExcluded.userId, userId))).returning({ id: roadmapExcluded.gameId });
     if (!removed.length) return;
-    const queue = (await getBacklogEntries(tx)).flatMap((e) => (e.gameId === null ? [] : [e.gameId]));
+    const queue = (await getBacklogEntries(tx, userId)).flatMap((e) => (e.gameId === null ? [] : [e.gameId]));
     if (!queue.includes(gameId)) return; // игра ушла из бэклога: порядок не трогаем
     const ids = [...queue.filter((id) => id !== gameId), gameId];
-    await tx.delete(roadmapOrder).where(inArray(roadmapOrder.gameId, ids));
+    await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.userId, userId), inArray(roadmapOrder.gameId, ids)));
     const now = new Date();
-    await tx.insert(roadmapOrder).values(ids.map((id, position) => ({ gameId: id, position, updatedAt: now })));
+    await tx.insert(roadmapOrder).values(ids.map((id, position) => ({ userId, gameId: id, position, updatedAt: now })));
   });
 }
 
 /** 17.12: «Не распределено»: исключённые игры бэклога, затем отменённые релизы. */
-export async function getUnallocated(db: AnyDb): Promise<RoadmapEntry[]> {
+export async function getUnallocated(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
   const backlogRows = await db
     .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
     .from(roadmapExcluded)
-    .innerJoin(games, eq(games.id, roadmapExcluded.gameId))
-    .innerJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(and(eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)))
+    .innerJoin(games, and(eq(games.id, roadmapExcluded.gameId), eq(games.userId, userId)))
+    .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(roadmapExcluded.userId, userId), eq(gameStatus.status, 'backlog'), isNull(games.hiddenAt)))
     .orderBy(desc(roadmapExcluded.createdAt), asc(games.id));
   const fromBacklog = backlogRows.map((r): RoadmapEntry => {
     const d = effectiveDuration({ override: r.override, main: r.main });
     return { key: `g:${r.id}`, kind: 'backlog', gameId: r.id, plannedId: null, title: r.name, coverUrl: r.imageUrl, hours: d.hours, hoursSource: d.source, releaseDate: null, wantAtRelease: false };
   });
-  const rows = await db.select().from(plannedGames).where(eq(plannedGames.status, 'cancelled')).orderBy(desc(plannedGames.updatedAt), asc(plannedGames.id));
+  const rows = await db.select().from(plannedGames).where(and(eq(plannedGames.userId, userId), eq(plannedGames.status, 'cancelled'))).orderBy(desc(plannedGames.updatedAt), asc(plannedGames.id));
   return [...fromBacklog, ...rows.map(plannedEntry)];
 }
 
 /** 17.11: видимые игры-сервисы для таблицы «в план не берём». */
-export async function getServiceGames(db: AnyDb): Promise<ServiceGame[]> {
+export async function getServiceGames(db: AnyDb, userId: UserId): Promise<ServiceGame[]> {
   const rows = await db
     .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, seconds: games.playDurationSeconds })
     .from(games)
-    .innerJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(and(eq(gameStatus.status, 'service'), isNull(games.hiddenAt)))
+    .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'service'), isNull(games.hiddenAt)))
     .orderBy(sql`${games.lastPlayedAt} desc nulls last`, asc(games.id))
     .limit(SERVICE_GAMES_LIMIT);
   return rows.map((r) => ({ gameId: r.id, title: r.name, coverUrl: r.imageUrl, playedHours: round1(r.seconds / 3600) }));
@@ -270,41 +270,41 @@ const plannedEntry = (r: PlannedRow): RoadmapEntry => {
   };
 };
 
-export async function getPlannedEntries(db: AnyDb): Promise<RoadmapEntry[]> {
-  const rows = await db.select().from(plannedGames).where(eq(plannedGames.status, 'planned')).orderBy(asc(plannedGames.id));
+export async function getPlannedEntries(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
+  const rows = await db.select().from(plannedGames).where(and(eq(plannedGames.userId, userId), eq(plannedGames.status, 'planned'))).orderBy(asc(plannedGames.id));
   return rows.map(plannedEntry);
 }
 
 /** Снимки видимых игр за год + по одному базовому снимку до года (как в статистике) и самая ранняя дата снимка. */
-async function getSnapshots(db: AnyDb, year: number): Promise<{ snapshots: Snapshot[]; first: string | null }> {
+async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ snapshots: Snapshot[]; first: string | null }> {
   const { from, to } = yearBounds(year);
   const [inYear, bases, first] = await Promise.all([
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, gameVisible(ps.gameId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, gameVisible(ps.gameId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(lt(ps.snapshotDate, from), gameVisible(ps.gameId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), gameVisible(ps.gameId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
-    db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps),
+    db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
   ]);
   return { snapshots: [...bases, ...inYear], first: first[0]?.d ?? null };
 }
 
 /** GET /api/roadmap: план на лету (17.5). */
-export async function getRoadmap(db: AnyDb, now: Date = new Date()): Promise<RoadmapResponse> {
+export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<RoadmapResponse> {
   const today = mskDateString(now);
   const [settings, backlog, planned, unallocated, serviceGames] = await Promise.all([
-    getSettings(db, now), getBacklogEntries(db), getPlannedEntries(db), getUnallocated(db), getServiceGames(db),
+    getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId),
   ]);
   const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
   let progress = null;
   if (plan.status === 'ok' && isValidBudget(settings.hoursPerWeek)) {
-    const { snapshots, first } = await getSnapshots(db, settings.year);
+    const { snapshots, first } = await getSnapshots(db, userId, settings.year);
     // 17.6 (N-3): прогресс считается по очереди «как была»: текущий бэклог + ушедшие из него игры со строкой roadmap_order.
-    const queue = await getProgressQueue(db);
+    const queue = await getProgressQueue(db, userId);
     const progressPlan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog: queue, planned });
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
@@ -315,13 +315,13 @@ export async function getRoadmap(db: AnyDb, now: Date = new Date()): Promise<Roa
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };
 
 /** 17.13: пометки «уже в плане» по planned_games.external_id (любой статус; cancelled = unallocated). */
-export async function markPlanned<T extends { externalSource: 'rawg'; externalId: string }>(db: AnyDb, candidates: readonly T[]): Promise<(T & PlannedMark)[]> {
+export async function markPlanned<T extends { externalSource: 'rawg'; externalId: string }>(db: AnyDb, userId: UserId, candidates: readonly T[]): Promise<(T & PlannedMark)[]> {
   const ids = candidates.map((c) => c.externalId);
   const rows = ids.length
     ? await db
         .select({ id: plannedGames.id, externalId: plannedGames.externalId, status: plannedGames.status })
         .from(plannedGames)
-        .where(and(eq(plannedGames.externalSource, 'rawg'), inArray(plannedGames.externalId, ids)))
+        .where(and(eq(plannedGames.userId, userId), eq(plannedGames.externalSource, 'rawg'), inArray(plannedGames.externalId, ids)))
     : [];
   const byId = new Map(rows.map((r) => [r.externalId, r]));
   return candidates.map((c) => {

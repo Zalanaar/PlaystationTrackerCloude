@@ -71,7 +71,7 @@ export type SessionAmr = 'google' | 'pwd';
 export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr };
 export type Session = SessionClaims & { v: 1 | 2; iat: number; exp: number };
 
-/** id владельца: так трактуется токен v:1 (выдан до Фазы 20). Поддержка v:1 удаляется в 20.3 (контракт 22.3). */
+/** id владельца: так трактуется токен v:1 (выдан до Фазы 20). Поддержка v:1 удаляется после 0015 (контракт 22.3, 22.12). */
 export const LEGACY_OWNER_UID = 1;
 
 /** Токен v:2 (контракт 22.3). Бросает при пустом/коротком секрете или некорректных claims. */

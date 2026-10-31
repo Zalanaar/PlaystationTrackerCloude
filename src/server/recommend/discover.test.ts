@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getFailStreak, isPaused, resetStreak } from './budget';
 import { generateDiscover, getDiscover, runLimited, type DiscoverDeps } from './discover';
 import { dislikeExternal, listExternalDislikes, undislikeExternal } from './discover-dislikes';
@@ -109,7 +109,7 @@ describe('getDiscover', () => {
       ],
       rawg: (q) => (q === 'Pc Only Game' ? [rg(9, 'Pc Only Game', '2019-01-01', [{ platform: { name: 'PC', slug: 'pc' } }])] : catalog(q)),
     });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.items.map((i) => i.title)).toEqual(['Hades']);
     expect(r.items[0]).toMatchObject({ externalSource: 'rawg', externalId: '1', releaseDate: '2020-09-17', platforms: ['PlayStation 5'], reason: 'Быстрый экшен.', planned: false, plannedId: null });
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'ok', cached: false, refreshLeft: 2, verified: 1, proposed: 4 });
@@ -121,7 +121,7 @@ describe('getDiscover', () => {
   it('Groq: JSON-режим, температура <= 0.7, ключ в заголовке; в промпт не попадают service, скрытые и id', async () => {
     await seedLibrary();
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     const c = f.state.groqBodies[0];
     expect(c.body.response_format).toEqual({ type: 'json_object' });
     expect(c.body.temperature).toBeLessThanOrEqual(0.7);
@@ -137,7 +137,7 @@ describe('getDiscover', () => {
     const [g] = await t.db.insert(games).values({ ...base, titleId: 'E', name: evil, psnGenres: ['ACTION'], playDurationSeconds: 3600 }).returning({ id: games.id });
     await t.db.insert(gameStatus).values({ gameId: g.id, status: 'completed', completedAt: NOW });
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     const [sys, user] = f.state.groqBodies[0].body.messages.map((m) => m.content);
     expect(sys).toContain('ДАННЫЕ');
     expect(sys).not.toContain('ИГНОРИРУЙ');
@@ -168,7 +168,7 @@ describe('getDiscover', () => {
       'Fresh Game': rg(18, 'Fresh Game'),
     };
     const f = makeFetch({ proposals: Object.keys(all).map((title) => ({ title })), rawg: echoRawg(all) });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.items.map((i) => i.title)).toEqual(['Cancelled One', 'Fresh Game']);
     expect(r.items[0]).toMatchObject({ planned: true, plannedId: cancelled.id });
     expect(r.items[1]).toMatchObject({ planned: false, plannedId: null });
@@ -183,7 +183,7 @@ describe('getDiscover', () => {
       props.push({ title: `Game Number ${i}` });
     }
     const f = makeFetch({ proposals: props, rawg: echoRawg(all) });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.items).toHaveLength(9);
     expect(r.items[0].title).toBe('Game Number 1');
     expect(r.meta).toMatchObject({ verified: 12, proposed: 12 });
@@ -191,12 +191,12 @@ describe('getDiscover', () => {
 
   it('скрытые «Не интересно» с TTL: неистёкшие убираются, истёкшие возвращаются', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }, { title: 'Stray' }], rawg: catalog });
-    await dislikeExternal(t.db, { externalSource: 'rawg', externalId: '1', title: 'Hades', coverUrl: null }, NOW);
-    const r1 = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    await dislikeExternal(t.db, TEST_USER, { externalSource: 'rawg', externalId: '1', title: 'Hades', coverUrl: null }, NOW);
+    const r1 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r1.items.map((i) => i.title)).toEqual(['Stray']);
     // через 31 сутки отметка истекла
     await t.db.update(recommendExternalDislikes).set({ createdAt: new Date(NOW.getTime() - 31 * 86_400_000) });
-    const r2 = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r2 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r2.items.map((i) => i.title)).toEqual(['Hades', 'Stray']);
   });
 
@@ -204,23 +204,23 @@ describe('getDiscover', () => {
     await seedLibrary();
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
     // кэша нет вообще: пусто, причина not_generated, сеть не тронута
-    const none = await getDiscover(t.db, { refresh: false }, NOW, deps(f));
+    const none = await getDiscover(t.db, TEST_USER, { refresh: false }, NOW, deps(f));
     expect(none.items).toEqual([]);
     expect(none.meta).toMatchObject({ llm: 'ok', llmReason: 'not_generated', cached: false, refreshLeft: 3 });
     expect(f.state.groqCalls).toBe(0);
     expect(f.state.rawgUrls).toHaveLength(0);
     // ночной синк (auto) создаёт кэш; экран читает его сколько угодно раз
-    const g = await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
+    const g = await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
     expect(g.ok).toBe(true);
     for (let i = 0; i < 3; i++) {
-      const r = await getDiscover(t.db, { refresh: false }, new Date(NOW.getTime() + i * 3600_000), deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: false }, new Date(NOW.getTime() + i * 3600_000), deps(f));
       expect(r.meta).toMatchObject({ llm: 'ok', llmReason: null, cached: true, generatedAt: NOW.toISOString(), refreshLeft: 3, verified: 1, proposed: 1 });
       expect(r.items).toHaveLength(1);
     }
     // профиль изменился, следующие сутки: всё равно кэш (генерация только в синке или по кнопке)
     const [n] = await t.db.insert(games).values({ ...base, titleId: 'N', name: 'New Completed', psnGenres: ['ACTION'], playDurationSeconds: 3600 }).returning({ id: games.id });
     await t.db.insert(gameStatus).values({ gameId: n.id, status: 'completed', completedAt: NOW });
-    const next = await getDiscover(t.db, { refresh: false }, new Date('2026-10-30T09:00:00Z'), deps(f));
+    const next = await getDiscover(t.db, TEST_USER, { refresh: false }, new Date('2026-10-30T09:00:00Z'), deps(f));
     expect(next.items).toHaveLength(1);
     expect(f.state.groqCalls).toBe(1);
   });
@@ -228,42 +228,42 @@ describe('getDiscover', () => {
   it('refresh = ручная генерация: не больше 3 в сутки, потом кэш с refreshLeft 0 без вызова Groq', async () => {
     await seedLibrary();
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f)); // ночная
+    await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f)); // ночная
     const left: number[] = [];
-    for (let i = 0; i < 5; i++) left.push((await getDiscover(t.db, { refresh: true }, NOW, deps(f))).meta.refreshLeft);
+    for (let i = 0; i < 5; i++) left.push((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f))).meta.refreshLeft);
     expect(left).toEqual([2, 1, 0, 0, 0]);
     expect(f.state.groqCalls).toBe(4); // 1 ночная + 3 ручных
-    const last = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const last = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(last.meta).toMatchObject({ llm: 'ok', cached: true, refreshLeft: 0 });
     expect(last.items).toHaveLength(1);
-    expect((await getDiscover(t.db, { refresh: false }, NOW, deps(f))).meta).toMatchObject({ cached: true, refreshLeft: 0 });
+    expect((await getDiscover(t.db, TEST_USER, { refresh: false }, NOW, deps(f))).meta).toMatchObject({ cached: true, refreshLeft: 0 });
     const [u] = await t.db.select().from(recommendLlmUsage).where(eq(recommendLlmUsage.day, '2026-10-29'));
     expect(u).toMatchObject({ calls: 4, discoverAutoCalls: 1, discoverManualCalls: 3, phraseCalls: 0 });
   });
 
   it('ночная генерация: не больше одной в сутки (вид discover_auto)', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    expect((await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f))).ok).toBe(true);
-    const second = await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
+    expect((await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f))).ok).toBe(true);
+    const second = await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
     expect(second).toMatchObject({ ok: false, llm: 'limit' });
     expect(f.state.groqCalls).toBe(1);
-    expect((await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, new Date('2026-10-30T09:00:00Z'), deps(f))).ok).toBe(true);
+    expect((await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, new Date('2026-10-30T09:00:00Z'), deps(f))).ok).toBe(true);
   });
 
   it('refresh без кэша за сутки = ручная генерация, refreshLeft 2', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.meta).toMatchObject({ cached: false, refreshLeft: 2 });
   });
 
   it('общий предохранитель LLM_DAILY_LIMIT: исчерпан -> meta.llm=limit и последний кэш за любые сутки; без кэша пусто', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
     const lim = { ...LLM, dailyLimit: 1 };
-    const yesterday = await getDiscover(t.db, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(f, { llm: lim }));
+    const yesterday = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(f, { llm: lim }));
     expect(yesterday.items).toHaveLength(1);
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: lim }));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: lim }));
     expect(r.meta.llm).toBe('ok'); // сегодня лимит 1 ещё свободен
-    const limited = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: lim }));
+    const limited = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: lim }));
     expect(limited.meta).toMatchObject({ llm: 'limit', cached: true });
     expect(limited.items).toHaveLength(1);
     expect(f.state.groqCalls).toBe(2);
@@ -274,7 +274,7 @@ describe('getDiscover', () => {
   it('лимит без какого-либо кэша: items []', async () => {
     await t.db.insert(recommendLlmUsage).values({ day: '2026-10-29', calls: 5 });
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: { ...LLM, dailyLimit: 5 } }));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: { ...LLM, dailyLimit: 5 } }));
     expect(r.items).toEqual([]);
     expect(r.meta.llm).toBe('limit');
     expect(f.state.groqCalls).toBe(0);
@@ -283,11 +283,11 @@ describe('getDiscover', () => {
   it('disabled: нет Groq (другой провайдер, null) -> items [] без сети; нет ключа RAWG -> catalog unavailable', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
     for (const llm of [null, { ...LLM, provider: 'gemini' as const }]) {
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm }));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm }));
       expect(r.items).toEqual([]);
       expect(r.meta.llm).toBe('disabled');
     }
-    const noKey = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { rawgKey: null }));
+    const noKey = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { rawgKey: null }));
     expect(noKey.items).toEqual([]);
     expect(noKey.meta.catalog).toBe('unavailable');
     expect(f.state.groqCalls).toBe(0);
@@ -296,7 +296,7 @@ describe('getDiscover', () => {
 
   it('RAWG недоступен: catalog unavailable, ничего не кэшируется, вызов потрачен (N-1)', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }, { title: 'Stray' }], rawg: () => 500 });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.items).toEqual([]);
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'unavailable' });
     expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
@@ -306,7 +306,7 @@ describe('getDiscover', () => {
 
   it('ничего не подтверждено: 200, items [], в кэш не пишем', async () => {
     const f = makeFetch({ proposals: [{ title: 'Выдумка Раз' }, { title: 'Выдумка Два' }], rawg: () => [] });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(r.items).toEqual([]);
     expect(r.meta).toMatchObject({ llm: 'ok', catalog: 'ok', verified: 0, proposed: 2 });
     expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
@@ -316,9 +316,9 @@ describe('getDiscover', () => {
 
   it('сбой Groq (HTTP 500, мусор): meta.llm=error, вчерашний кэш остаётся; ключ не течёт', async () => {
     const good = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    await getDiscover(t.db, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(good));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(good));
     for (const bad of [makeFetch({ groqStatus: 500 }), makeFetch({ groqRaw: 'не json вообще' }), makeFetch({ groqRaw: '{"games":[]}' })]) {
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(bad));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(bad));
       expect(r.meta).toMatchObject({ llm: 'error', cached: true });
       expect(r.items.map((i) => i.title)).toEqual(['Hades']);
       expect(JSON.stringify(r)).not.toMatch(SECRETS);
@@ -327,7 +327,7 @@ describe('getDiscover', () => {
 
   it('ключи не попадают в кэш и ответ', async () => {
     const f = makeFetch({ proposals: [{ title: 'Hades' }], rawg: catalog });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(JSON.stringify(r)).not.toMatch(SECRETS);
     expect(JSON.stringify(await t.db.select().from(recommendDiscoverCache))).not.toMatch(SECRETS);
   });
@@ -340,7 +340,7 @@ describe('getDiscover', () => {
       props.push({ title: `Game Number ${i}` });
     }
     const f = makeFetch({ proposals: props, rawg: echoRawg(all), rawgDelayMs: 5 });
-    await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     expect(f.state.rawgUrls).toHaveLength(12);
     expect(f.state.maxActive).toBe(3);
   });
@@ -353,7 +353,7 @@ describe('getDiscover', () => {
       props.push({ title: `Game Number ${i}` });
     }
     const f = makeFetch({ proposals: props, rawg: echoRawg(all), rawgDelayMs: 25 });
-    const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { budgetMs: 60, concurrency: 1 }));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { budgetMs: 60, concurrency: 1 }));
     expect(f.state.rawgUrls.length).toBeLessThan(12);
     expect(r.meta.verified).toBeGreaterThan(0);
     expect(r.meta.verified).toBeLessThan(12);
@@ -372,19 +372,19 @@ describe('пауза после 3 неудач подряд (20.4)', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const bad = makeFetch({ groqStatus: 500 });
     for (let i = 0; i < 3; i++) {
-      const r = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + i * 60_000), d(bad));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + i * 60_000), d(bad));
       expect(r.meta).toMatchObject({ llm: 'error', llmReason: 'http_500', refreshLeft: 3 });
     }
     expect(bad.state.groqCalls).toBe(3);
     expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 0, discoverManualCalls: 0 });
-    const paused = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 4 * 60_000), d(bad));
+    const paused = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + 4 * 60_000), d(bad));
     expect(paused.meta).toMatchObject({ llm: 'error', llmReason: 'paused' });
     expect(bad.state.groqCalls).toBe(3);
-    expect((await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 90 * 60_000), d(bad))).meta.llmReason).toBe('paused');
+    expect((await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + 90 * 60_000), d(bad))).meta.llmReason).toBe('paused');
     // синк сбрасывает паузу
     await resetStreak(t.db, NOW);
     const good = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
-    const ok = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 95 * 60_000), d(good));
+    const ok = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + 95 * 60_000), d(good));
     expect(ok.items).toHaveLength(1);
     expect((await getFailStreak(t.db)).streak).toBe(0);
     vi.restoreAllMocks();
@@ -394,7 +394,7 @@ describe('пауза после 3 неудач подряд (20.4)', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const bad = makeFetch({ groqStatus: 500 });
     const good = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
-    for (const f of [bad, bad, good, bad, bad]) await getDiscover(t.db, { refresh: true }, NOW, d(f));
+    for (const f of [bad, bad, good, bad, bad]) await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(f));
     expect((await getFailStreak(t.db)).streak).toBe(2);
     expect(await isPaused(t.db)).toBe(false);
     vi.restoreAllMocks();
@@ -402,11 +402,11 @@ describe('пауза после 3 неудач подряд (20.4)', () => {
 
   it('0 подтверждённых (no_verified) не считается неудачей LLM; старый кэш остаётся доступным', async () => {
     const good = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
-    await getDiscover(t.db, { refresh: true }, new Date('2026-10-28T09:00:00Z'), d(good));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, new Date('2026-10-28T09:00:00Z'), d(good));
     const empty = makeFetch({ proposals: [{ title: 'Выдумка Раз' }], rawg: () => [] });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     for (let i = 0; i < 4; i++) {
-      const r = await getDiscover(t.db, { refresh: true }, NOW, d(empty));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(empty));
       if (i < 3) expect(r.meta.llmReason).toBe('no_verified');
     }
     expect((await getFailStreak(t.db)).streak).toBe(0);
@@ -420,7 +420,7 @@ describe('пауза после 3 неудач подряд (20.4)', () => {
       bodies.push(JSON.parse(String(init?.body)));
       return new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{"games":[{"title":"Hades","yea' } }] }), { status: 200 });
     }) as unknown as typeof fetch;
-    const r = await getDiscover(t.db, { refresh: true }, NOW, { llm: LLM, rawgKey: RAWG_KEY, fetch: f });
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, { llm: LLM, rawgKey: RAWG_KEY, fetch: f });
     expect(r.meta).toMatchObject({ llm: 'error', llmReason: 'truncated', refreshLeft: 3 });
     expect(bodies[0].max_tokens).toBe(4000);
     expect((await getFailStreak(t.db)).streak).toBe(1);
@@ -430,7 +430,7 @@ describe('пауза после 3 неудач подряд (20.4)', () => {
   it('промпт просит 12 игр и reason до 120 символов; лишнее сверх 12 обрезается', async () => {
     const f = makeFetch({ proposals: Array.from({ length: 15 }, (_, i) => ({ title: `Game ${i}` })), rawg: () => [] });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const r = await getDiscover(t.db, { refresh: true }, NOW, d(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(f));
     const sys = f.state.groqBodies[0].body.messages[0].content;
     expect(sys).toContain('РОВНО 12');
     expect(sys).toContain('до 120 символов');
@@ -454,7 +454,7 @@ describe('диагностика llmReason', () => {
     [404, JSON.stringify({ error: { code: 'А/б<script>' } }), 'http_404:script'],
   ])('HTTP %s -> %s, ни ключа, ни тела в ответе, логе и служебной строке', async (status, body, reason) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const r = await getDiscover(t.db, { refresh: true }, NOW, d(groqFail(status, body)));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(groqFail(status, body)));
     expect(r.meta).toMatchObject({ llm: 'error', llmReason: reason });
     expect(warn.mock.calls).toEqual([['[recommend/discover] ' + reason]]);
     expect(JSON.stringify([r, warn.mock.calls, await t.db.select().from(recommendDiscoverCache)])).not.toMatch(/SECRET|message|plain text/);
@@ -471,7 +471,7 @@ describe('диагностика llmReason', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     for (const [f, reason, extra] of cases) {
       await t.reset();
-      const r = await getDiscover(t.db, { refresh: true }, NOW, { ...d(f), ...extra });
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, { ...d(f), ...extra });
       expect(r.meta.llmReason, reason).toBe(reason);
     }
     vi.restoreAllMocks();
@@ -480,14 +480,14 @@ describe('диагностика llmReason', () => {
   it('no_verified и rawg_unavailable; успех и disabled дают null', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const none = makeFetch({ proposals: [{ title: 'Выдумка Раз' }], rawg: () => [] });
-    expect((await getDiscover(t.db, { refresh: true }, NOW, d(none))).meta.llmReason).toBe('no_verified');
+    expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(none))).meta.llmReason).toBe('no_verified');
     await t.reset();
     const down = makeFetch({ proposals: [{ title: 'Hades' }], rawg: () => 500 });
-    expect((await getDiscover(t.db, { refresh: true }, NOW, d(down))).meta.llmReason).toBe('rawg_unavailable');
+    expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(down))).meta.llmReason).toBe('rawg_unavailable');
     await t.reset();
     const ok = makeFetch({ proposals: [{ title: 'Hades' }], rawg: echoRawg({ Hades: rg(1, 'Hades', '2020-09-17') }) });
-    expect((await getDiscover(t.db, { refresh: true }, NOW, d(ok))).meta.llmReason).toBeNull();
-    expect((await getDiscover(t.db, { refresh: true }, NOW, { ...d(ok), llm: null })).meta.llmReason).toBeNull();
+    expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(ok))).meta.llmReason).toBeNull();
+    expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, { ...d(ok), llm: null })).meta.llmReason).toBeNull();
     vi.restoreAllMocks();
   });
 
@@ -496,13 +496,13 @@ describe('диагностика llmReason', () => {
     const down = makeFetch({ proposals: [{ title: 'Hades' }], rawg: () => 500 });
     const { recordFailure } = await import('./budget');
     await recordFailure(t.db, 'http_500', NOW); // прежняя неудача
-    const r1 = await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    const r1 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(down));
     expect(r1.meta).toMatchObject({ llmReason: 'rawg_unavailable', refreshLeft: 2 });
     expect((await t.db.select().from(recommendLlmUsage))[0]).toMatchObject({ calls: 1, discoverManualCalls: 1 });
     expect((await getFailStreak(t.db)).streak).toBe(1); // не сброшен
-    await getDiscover(t.db, { refresh: true }, NOW, d(down));
-    await getDiscover(t.db, { refresh: true }, NOW, d(down));
-    const r4 = await getDiscover(t.db, { refresh: true }, NOW, d(down));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(down));
+    await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(down));
+    const r4 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, d(down));
     expect(down.state.groqCalls).toBe(3); // четвёртый вызов Groq не сделан
     expect(r4.meta.refreshLeft).toBe(0);
     vi.restoreAllMocks();
@@ -512,10 +512,10 @@ describe('диагностика llmReason', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const f = groqFail(401, JSON.stringify({ error: { code: 'invalid_api_key' } }));
     for (let i = 0; i < 3; i++) {
-      const r = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + i * 60_000), d(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + i * 60_000), d(f));
       expect(r.meta).toMatchObject({ llm: 'error', llmReason: 'http_401:invalid_api_key' });
     }
-    const r = await getDiscover(t.db, { refresh: true }, new Date(NOW.getTime() + 5 * 60_000), d(f));
+    const r = await getDiscover(t.db, TEST_USER, { refresh: true }, new Date(NOW.getTime() + 5 * 60_000), d(f));
     expect(r.meta).toMatchObject({ llm: 'error', llmReason: 'paused' });
     expect(warn).toHaveBeenCalledTimes(3);
     warn.mockRestore();
@@ -541,23 +541,23 @@ describe('внешние «Не интересно»', () => {
   it('идемпотентно, повтор продлевает, TTL, снятие', async () => {
     const v = { externalSource: 'rawg' as const, externalId: '3328', title: 'The Witcher 3', coverUrl: 'https://media.rawg.io/a.jpg' };
     const old = new Date(NOW.getTime() - 20 * 86_400_000);
-    await dislikeExternal(t.db, v, old);
-    await dislikeExternal(t.db, v, old);
-    expect((await listExternalDislikes(t.db, NOW)).items).toHaveLength(1);
-    await dislikeExternal(t.db, v, NOW);
-    const l = await listExternalDislikes(t.db, NOW);
+    await dislikeExternal(t.db, TEST_USER, v, old);
+    await dislikeExternal(t.db, TEST_USER, v, old);
+    expect((await listExternalDislikes(t.db, TEST_USER, NOW)).items).toHaveLength(1);
+    await dislikeExternal(t.db, TEST_USER, v, NOW);
+    const l = await listExternalDislikes(t.db, TEST_USER, NOW);
     expect(l.ttlDays).toBe(30);
     expect(l.items[0]).toMatchObject({ externalId: '3328', hiddenAt: NOW.toISOString(), expiresAt: new Date(NOW.getTime() + 30 * 86_400_000).toISOString() });
     // истёк
-    expect((await listExternalDislikes(t.db, new Date(NOW.getTime() + 31 * 86_400_000))).items).toEqual([]);
-    await undislikeExternal(t.db, '3328');
-    await undislikeExternal(t.db, '3328');
-    expect((await listExternalDislikes(t.db, NOW)).items).toEqual([]);
+    expect((await listExternalDislikes(t.db, TEST_USER, new Date(NOW.getTime() + 31 * 86_400_000))).items).toEqual([]);
+    await undislikeExternal(t.db, TEST_USER, '3328');
+    await undislikeExternal(t.db, TEST_USER, '3328');
+    expect((await listExternalDislikes(t.db, TEST_USER, NOW)).items).toEqual([]);
   });
 
   it('порядок hiddenAt desc', async () => {
-    await dislikeExternal(t.db, { externalSource: 'rawg', externalId: '1', title: 'A', coverUrl: null }, new Date(NOW.getTime() - 1000));
-    await dislikeExternal(t.db, { externalSource: 'rawg', externalId: '2', title: 'B', coverUrl: null }, NOW);
-    expect((await listExternalDislikes(t.db, NOW)).items.map((i) => i.externalId)).toEqual(['2', '1']);
+    await dislikeExternal(t.db, TEST_USER, { externalSource: 'rawg', externalId: '1', title: 'A', coverUrl: null }, new Date(NOW.getTime() - 1000));
+    await dislikeExternal(t.db, TEST_USER, { externalSource: 'rawg', externalId: '2', title: 'B', coverUrl: null }, NOW);
+    expect((await listExternalDislikes(t.db, TEST_USER, NOW)).items.map((i) => i.externalId)).toEqual(['2', '1']);
   });
 });

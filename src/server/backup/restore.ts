@@ -1,8 +1,9 @@
 // Восстановление разметки из файла копии (контракт 20.3): план (preview) и применение (apply) одной и той же функцией плана.
 // Правило: только добавляет и перезаписывает значениями из файла, ничего не удаляет; пустое (null) в файле значение в БД не трогает.
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { snapshotAllStatuses } from '@/server/collection/mutations';
 import type { BackupFile, BackupPlanned } from './format';
 
@@ -54,15 +55,15 @@ function plannedValues(fp: BackupPlanned, cur: typeof plannedGames.$inferSelect 
 }
 
 /** Строит план по текущему состоянию БД и файлу. Только чтение. */
-export async function planRestore(db: AnyDb, file: BackupFile): Promise<RestorePlan> {
+export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): Promise<RestorePlan> {
   const [gameRows, statuses, orders, excluded, months, planned, settings] = await Promise.all([
-    db.select({ id: games.id, titleId: games.titleId, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt }).from(games),
-    db.select().from(gameStatus),
-    db.select().from(roadmapOrder),
-    db.select().from(roadmapExcluded),
-    db.select().from(gameMonthExclusions),
-    db.select().from(plannedGames),
-    db.select().from(roadmapSettings),
+    db.select({ id: games.id, titleId: games.titleId, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt }).from(games).where(eq(games.userId, userId)),
+    db.select().from(gameStatus).where(eq(gameStatus.userId, userId)),
+    db.select().from(roadmapOrder).where(eq(roadmapOrder.userId, userId)),
+    db.select().from(roadmapExcluded).where(eq(roadmapExcluded.userId, userId)),
+    db.select().from(gameMonthExclusions).where(eq(gameMonthExclusions.userId, userId)),
+    db.select().from(plannedGames).where(eq(plannedGames.userId, userId)),
+    db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId)),
   ]);
   const byTitle = new Map(gameRows.map((g) => [g.titleId, g]));
   const statusBy = new Map(statuses.map((s) => [s.gameId, s]));
@@ -272,60 +273,60 @@ function normalizeOrder(ops: Op[], orderBy: Map<number, number>, filePos: Map<nu
 
 export type RestoreResult = RestoreReport & { applied: boolean; backupId: number | null };
 
-export async function previewRestore(db: AnyDb, file: BackupFile): Promise<RestoreResult> {
-  const plan = await planRestore(db, file);
+export async function previewRestore(db: AnyDb, userId: UserId, file: BackupFile): Promise<RestoreResult> {
+  const plan = await planRestore(db, userId, file);
   return { ...plan.report, applied: false, backupId: null };
 }
 
 /** Применяет план в одной транзакции. План строится заново внутри транзакции (под блокировкой), чтобы совпасть с БД. */
-export async function applyRestore(db: AnyDb, file: BackupFile, now: Date = new Date()): Promise<RestoreResult> {
+export async function applyRestore(db: AnyDb, userId: UserId, file: BackupFile, now: Date = new Date()): Promise<RestoreResult> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('backup_restore'))`);
-    const plan = await planRestore(tx, file);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`backup_restore:${userId}`}))`);
+    const plan = await planRestore(tx, userId, file);
     const hasStatus = plan.ops.some((o) => o.t === 'status');
-    const backupId = hasStatus ? await snapshotAllStatuses(tx, 'before_file_restore', now) : null;
+    const backupId = hasStatus ? await snapshotAllStatuses(tx, userId, 'before_file_restore', now) : null;
 
     for (const op of plan.ops) {
       switch (op.t) {
         case 'status':
           await tx
             .insert(gameStatus)
-            .values({ gameId: op.gameId, status: op.value, completedAt: op.completedAt, droppedAt: op.droppedAt, statusChangedAt: op.statusChangedAt, updatedAt: now })
+            .values({ userId, gameId: op.gameId, status: op.value, completedAt: op.completedAt, droppedAt: op.droppedAt, statusChangedAt: op.statusChangedAt, updatedAt: now })
             .onConflictDoUpdate({
               target: gameStatus.gameId,
               set: { status: op.value, completedAt: op.completedAt, droppedAt: op.droppedAt, statusChangedAt: op.statusChangedAt, updatedAt: now },
             });
           break;
         case 'duration':
-          await tx.update(games).set({ durationOverrideHours: op.hours }).where(eq(games.id, op.gameId));
+          await tx.update(games).set({ durationOverrideHours: op.hours }).where(and(eq(games.id, op.gameId), eq(games.userId, userId)));
           break;
         case 'genres':
-          await tx.update(games).set({ genresOverride: op.genres }).where(eq(games.id, op.gameId));
+          await tx.update(games).set({ genresOverride: op.genres }).where(and(eq(games.id, op.gameId), eq(games.userId, userId)));
           break;
         case 'hidden':
-          await tx.update(games).set({ hiddenAt: op.at }).where(eq(games.id, op.gameId));
+          await tx.update(games).set({ hiddenAt: op.at }).where(and(eq(games.id, op.gameId), eq(games.userId, userId)));
           break;
         case 'order':
           await tx
             .insert(roadmapOrder)
-            .values({ gameId: op.gameId, position: op.position, updatedAt: now })
+            .values({ userId, gameId: op.gameId, position: op.position, updatedAt: now })
             .onConflictDoUpdate({ target: roadmapOrder.gameId, set: { position: op.position, updatedAt: now } });
           break;
         case 'excluded':
-          await tx.insert(roadmapExcluded).values({ gameId: op.gameId }).onConflictDoNothing();
+          await tx.insert(roadmapExcluded).values({ userId, gameId: op.gameId }).onConflictDoNothing();
           break;
         case 'month':
-          await tx.insert(gameMonthExclusions).values({ gameId: op.gameId, month: op.month }).onConflictDoNothing();
+          await tx.insert(gameMonthExclusions).values({ userId, gameId: op.gameId, month: op.month }).onConflictDoNothing();
           break;
         case 'planned':
-          if (op.id === null) await tx.insert(plannedGames).values(op.values);
-          else await tx.update(plannedGames).set({ ...op.values, updatedAt: now }).where(eq(plannedGames.id, op.id));
+          if (op.id === null) await tx.insert(plannedGames).values({ ...op.values, userId });
+          else await tx.update(plannedGames).set({ ...op.values, updatedAt: now }).where(and(eq(plannedGames.id, op.id), eq(plannedGames.userId, userId)));
           break;
         case 'settings':
           await tx
             .insert(roadmapSettings)
-            .values({ id: 1, year: op.year, hoursPerWeek: op.hoursPerWeek, updatedAt: now })
-            .onConflictDoUpdate({ target: roadmapSettings.id, set: { year: op.year, hoursPerWeek: op.hoursPerWeek, updatedAt: now } });
+            .values({ userId, year: op.year, hoursPerWeek: op.hoursPerWeek, updatedAt: now })
+            .onConflictDoUpdate({ target: roadmapSettings.userId, set: { year: op.year, hoursPerWeek: op.hoursPerWeek, updatedAt: now } });
           break;
       }
     }

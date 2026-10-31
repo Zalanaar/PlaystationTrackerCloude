@@ -2,6 +2,7 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 
 const { games, gameStatus, roadmapOrder } = schema;
 
@@ -61,29 +62,29 @@ export function computeDateEdit(current: StatusRow | null, date: Date): StatusRo
   return current.status === 'completed' ? { ...current, completedAt: date } : { ...current, droppedAt: date };
 }
 
-async function load(db: AnyDb, gameId: number) {
-  const [g] = await db.select({ id: games.id, lastPlayedAt: games.lastPlayedAt }).from(games).where(eq(games.id, gameId)).limit(1);
+async function load(db: AnyDb, userId: UserId, gameId: number) {
+  const [g] = await db.select({ id: games.id, lastPlayedAt: games.lastPlayedAt }).from(games).where(and(eq(games.id, gameId), eq(games.userId, userId))).limit(1);
   if (!g) throw new StatusRuleError('not_found', 'Игра не найдена.');
-  const [cur] = await db.select().from(gameStatus).where(eq(gameStatus.gameId, gameId)).limit(1);
+  const [cur] = await db.select().from(gameStatus).where(and(eq(gameStatus.gameId, gameId), eq(gameStatus.userId, userId))).limit(1);
   return { game: g, current: cur ?? null };
 }
 
 /** Смена статуса с записью в БД. Возвращает итоговую строку или null («без статуса»). */
-export async function setGameStatus(db: AnyDb, gameId: number, next: StatusValue | null, now: Date = new Date()): Promise<StatusRow | null> {
+export async function setGameStatus(db: AnyDb, userId: UserId, gameId: number, next: StatusValue | null, now: Date = new Date()): Promise<StatusRow | null> {
   return db.transaction(async (tx) => {
-    const { game, current } = await load(tx, gameId);
+    const { game, current } = await load(tx, userId, gameId);
     const t = computeStatusChange(current, next, { lastPlayedAt: game.lastPlayedAt, now });
     if (t.action === 'noop') return current;
     if (t.action === 'delete') {
-      await tx.delete(gameStatus).where(eq(gameStatus.gameId, gameId));
+      await tx.delete(gameStatus).where(and(eq(gameStatus.gameId, gameId), eq(gameStatus.userId, userId)));
       return null;
     }
     await tx
       .insert(gameStatus)
-      .values({ gameId, ...t.row, updatedAt: now })
+      .values({ userId, gameId, ...t.row, updatedAt: now })
       .onConflictDoUpdate({ target: gameStatus.gameId, set: { ...t.row, updatedAt: now } });
     // N-2 (Фаза 12): вернувшаяся в бэклог игра встаёт в конец очереди, старая позиция плана сбрасывается.
-    if (t.row.status === 'backlog') await tx.delete(roadmapOrder).where(eq(roadmapOrder.gameId, gameId));
+    if (t.row.status === 'backlog') await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.gameId, gameId), eq(roadmapOrder.userId, userId)));
     return t.row;
   });
 }
@@ -91,6 +92,7 @@ export async function setGameStatus(db: AnyDb, gameId: number, next: StatusValue
 /** Ручная правка completed_at / dropped_at. Дата не позже now (иначе date_in_future), проверка после соответствия статуса. */
 export async function setStatusDate(
   db: AnyDb,
+  userId: UserId,
   gameId: number,
   date: Date,
   now: Date = new Date(),
@@ -98,7 +100,7 @@ export async function setStatusDate(
   field?: 'completedAt' | 'droppedAt',
 ): Promise<StatusRow> {
   return db.transaction(async (tx) => {
-    const { current } = await load(tx, gameId);
+    const { current } = await load(tx, userId, gameId);
     const want = field === 'completedAt' ? 'completed' : field === 'droppedAt' ? 'dropped' : null;
     if (want && current?.status !== want) {
       throw new StatusRuleError('date_not_allowed', 'Дата не соответствует статусу игры.', current?.status ?? null);
@@ -108,7 +110,7 @@ export async function setStatusDate(
     await tx
       .update(gameStatus)
       .set({ completedAt: row.completedAt, droppedAt: row.droppedAt, updatedAt: now })
-      .where(eq(gameStatus.gameId, gameId));
+      .where(and(eq(gameStatus.gameId, gameId), eq(gameStatus.userId, userId)));
     return row;
   });
 }
@@ -124,7 +126,7 @@ export class BulkMissingError extends Error {
  * (чтение игр, чтение статусов, один upsert, один delete). Нет хотя бы одной игры (или она скрыта): BulkMissingError, ничего не записано.
  * Возвращает число реально изменённых игр.
  */
-export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusValue | null, now: Date = new Date()): Promise<number> {
+export async function setGamesStatusBulk(db: AnyDb, userId: UserId, ids: number[], next: StatusValue | null, now: Date = new Date()): Promise<number> {
   const unique = [...new Set(ids)];
   if (!unique.length) return 0;
   return db.transaction(async (tx) => {
@@ -132,12 +134,12 @@ export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusV
     const found = await tx
       .select({ id: games.id, lastPlayedAt: games.lastPlayedAt })
       .from(games)
-      .where(and(inArray(games.id, unique), isNull(games.hiddenAt)));
+      .where(and(eq(games.userId, userId), inArray(games.id, unique), isNull(games.hiddenAt)));
     if (found.length !== unique.length) {
       const have = new Set(found.map((g) => g.id));
       throw new BulkMissingError(unique.filter((i) => !have.has(i)).sort((a, b) => a - b));
     }
-    const cur = await tx.select().from(gameStatus).where(inArray(gameStatus.gameId, unique));
+    const cur = await tx.select().from(gameStatus).where(and(eq(gameStatus.userId, userId), inArray(gameStatus.gameId, unique)));
     const curBy = new Map(cur.map((c) => [c.gameId, c as StatusRow]));
     const upserts: { gameId: number; row: StatusRow }[] = [];
     const deletes: number[] = [];
@@ -149,7 +151,7 @@ export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusV
     if (upserts.length) {
       await tx
         .insert(gameStatus)
-        .values(upserts.map((u) => ({ gameId: u.gameId, ...u.row, updatedAt: now })))
+        .values(upserts.map((u) => ({ userId, gameId: u.gameId, ...u.row, updatedAt: now })))
         .onConflictDoUpdate({
           target: gameStatus.gameId,
           set: {
@@ -162,8 +164,8 @@ export async function setGamesStatusBulk(db: AnyDb, ids: number[], next: StatusV
         });
     }
     const toBacklog = upserts.filter((u) => u.row.status === 'backlog').map((u) => u.gameId);
-    if (toBacklog.length) await tx.delete(roadmapOrder).where(inArray(roadmapOrder.gameId, toBacklog)); // N-2
-    if (deletes.length) await tx.delete(gameStatus).where(inArray(gameStatus.gameId, deletes));
+    if (toBacklog.length) await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.userId, userId), inArray(roadmapOrder.gameId, toBacklog))); // N-2
+    if (deletes.length) await tx.delete(gameStatus).where(and(eq(gameStatus.userId, userId), inArray(gameStatus.gameId, deletes)));
     return upserts.length + deletes.length;
   });
 }

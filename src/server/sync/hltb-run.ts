@@ -1,7 +1,8 @@
 // Массовая подгрузка длительности HLTB отдельным запуском (контракт 16.7). К PSN не обращается.
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { RunContext, type Warning } from './context';
 import { HLTB_RUN_BUDGET_MS, hltbRun, type HltbDeps, type HltbRunResult } from './hltb-step';
 import { startHltbRun } from './runs';
@@ -14,6 +15,7 @@ export type HltbRunOutcome =
 
 export async function runHltbMass(o: {
   db: AnyDb;
+  userId: UserId;
   deps: HltbDeps;
   now?: () => Date;
   budgetMs?: number;
@@ -21,7 +23,7 @@ export async function runHltbMass(o: {
   recheckBefore?: Date;
 }): Promise<HltbRunOutcome> {
   const now = o.now ?? (() => new Date());
-  const started = await startHltbRun(o.db, now());
+  const started = await startHltbRun(o.db, o.userId, now());
   if (started.kind === 'already_running') return started;
   const ctx = new RunContext(o.db, started.run, now, o.budgetMs ?? HLTB_RUN_BUDGET_MS);
   try {
@@ -37,7 +39,7 @@ export async function runHltbMass(o: {
     await o.db
       .update(syncRuns)
       .set({ status: 'failed', errorReason: 'internal', errorMessage: `Ошибка запуска HLTB: ${msg}`, finishedAt: now() })
-      .where(eq(syncRuns.id, started.run.id))
+      .where(and(eq(syncRuns.id, started.run.id), eq(syncRuns.userId, o.userId)))
       .catch(() => undefined);
     throw e;
   }

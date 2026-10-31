@@ -1,7 +1,8 @@
 // Одно звено синка: auth -> фазы по курсору до конца или до бюджета времени. Закрывает запись sync_runs.
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { PsnError, safeErr, type SyncErrorReason } from '@/server/psn/errors';
 import type { PsnClient } from '@/server/psn/types';
 import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
@@ -121,9 +122,9 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
 }
 
 /** Закрывает запуск как failed, если звено не удалось начать (например, не собрались зависимости). */
-export async function failRun(db: AnyDb, runId: number, reason: SyncErrorReason, message: string, now: Date): Promise<void> {
+export async function failRun(db: AnyDb, userId: UserId, runId: number, reason: SyncErrorReason, message: string, now: Date): Promise<void> {
   await db
     .update(syncRuns)
     .set({ status: 'failed', errorReason: reason, errorMessage: message.slice(0, 500), finishedAt: now })
-    .where(eq(syncRuns.id, runId));
+    .where(and(eq(syncRuns.id, runId), eq(syncRuns.userId, userId)));
 }

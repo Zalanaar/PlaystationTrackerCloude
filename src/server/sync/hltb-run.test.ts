@@ -9,6 +9,7 @@ import { runHltbMass } from './hltb-run';
 import type { HltbDeps } from './hltb-step';
 import { startRun } from './runs';
 import { createTestDb, type TestDb } from './test-helpers';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const { games, gameStatus, syncRuns } = schema;
 const T0 = new Date('2026-10-28T10:00:00Z');
@@ -54,7 +55,7 @@ describe('runHltbMass', () => {
     await add(3, 'completed');
     await add(2, 'service');
     const { deps, now } = mk(found);
-    const r = await runHltbMass({ db: t.db, deps, now, batch: 10 });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now, batch: 10 });
     expect(r.kind).toBe('done');
     if (r.kind !== 'done') return;
     // 20.1: completed берём тоже, service никогда
@@ -69,7 +70,7 @@ describe('runHltbMass', () => {
     // каждый запрос занимает 10 с; бюджет 30 с, на запрос нужно >= 9 с остатка
     const c = clock(10_000);
     const { deps, now } = mk(found, c, 1);
-    const r1 = await runHltbMass({ db: t.db, deps, now, budgetMs: 30_000, batch: 4 });
+    const r1 = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now, budgetMs: 30_000, batch: 4 });
     if (r1.kind !== 'done') throw new Error('x');
     expect(r1.result.done).toBe(false);
     expect(r1.result.stopReason).toBe('budget');
@@ -81,10 +82,10 @@ describe('runHltbMass', () => {
   it('идемпотентность: повтор после полного прохода ничего не делает', async () => {
     await add(5);
     const { deps, now } = mk(found);
-    await runHltbMass({ db: t.db, deps, now });
+    await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
     let calls = 0;
     const again = mk(async () => (calls++, []), undefined);
-    const r = await runHltbMass({ db: t.db, deps: again.deps, now: again.now });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps: again.deps, now: again.now });
     if (r.kind !== 'done') throw new Error('x');
     expect(r.result).toMatchObject({ processed: 0, remaining: 0, done: true, stopReason: 'complete' });
     expect(calls).toBe(0);
@@ -92,16 +93,16 @@ describe('runHltbMass', () => {
 
   it('параллельный запуск отвергается (идёт синк или другой hltb)', async () => {
     await add(2);
-    const s = await startRun(t.db, { kind: 'manual', now: T0 });
+    const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: T0 });
     expect(s.kind).toBe('started');
     const { deps, now } = mk(found);
-    const r = await runHltbMass({ db: t.db, deps, now });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
     expect(r.kind).toBe('already_running');
     expect((await t.db.select().from(syncRuns)).filter((x) => x.kind === 'hltb')).toHaveLength(0);
     // и обратно: идущий hltb блокирует синк
     await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.status, 'running'));
     await t.db.insert(syncRuns).values({ kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0 });
-    expect((await startRun(t.db, { kind: 'manual', now: T0 })).kind).toBe('already_running');
+    expect((await startRun(t.db, TEST_USER, { kind: 'manual', now: T0 })).kind).toBe('already_running');
   });
 
   it('ошибка HLTB не роняет: 200-итог, failed, предупреждение, done=true, игры не помечены', async () => {
@@ -109,7 +110,7 @@ describe('runHltbMass', () => {
     const { deps, now } = mk(async () => {
       throw new HltbError('unavailable', 'down');
     });
-    const r = await runHltbMass({ db: t.db, deps, now });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
     if (r.kind !== 'done') throw new Error('x');
     expect(r.result).toMatchObject({ processed: 0, failed: 3, remaining: 6, done: true, stopReason: 'errors' });
     expect(r.warnings.map((w) => w.code)).toContain('hltb_failed');
@@ -120,7 +121,7 @@ describe('runHltbMass', () => {
   it('пустая выдача на всё: hltb_empty, not_found не пишется, done=true (цикл фронта конечен)', async () => {
     await add(4);
     const { deps, now } = mk(async () => []);
-    const r = await runHltbMass({ db: t.db, deps, now });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
     if (r.kind !== 'done') throw new Error('x');
     expect(r.result).toMatchObject({ processed: 0, remaining: 4, done: true, stopReason: 'empty' });
     expect(r.warnings.map((w) => w.code)).toContain('hltb_empty');
@@ -129,8 +130,8 @@ describe('runHltbMass', () => {
   it('индикация синка не видит запуски hltb', async () => {
     await add(2);
     const { deps, now } = mk(found);
-    await runHltbMass({ db: t.db, deps, now });
-    const st = await getSyncStatus(t.db);
+    await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
+    const st = await getSyncStatus(t.db, TEST_USER);
     expect(st.run).toBeNull();
     expect(st.lastSuccessAt ?? null).toBeNull();
   });
@@ -142,10 +143,10 @@ describe('runHltbMass', () => {
     const [man] = await t.db.insert(games).values({ titleId: 'c', name: 'Manual', category: 'ps5_native_game', lastSeenAt: T0, hltbCheckedAt: old, durationOverrideHours: 3 }).returning({ id: games.id });
     const asked: string[] = [];
     const { deps, now } = mk(async (term) => (asked.push(term), [cand(77, 'Gothic')]));
-    const plain = await runHltbMass({ db: t.db, deps, now });
+    const plain = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
     if (plain.kind !== 'done') throw new Error('x');
     expect(plain.result.processed).toBe(0);
-    const r = await runHltbMass({ db: t.db, deps, now, recheckBefore: T0 });
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now, recheckBefore: T0 });
     if (r.kind !== 'done') throw new Error('x');
     expect(r.result).toMatchObject({ processed: 1, found: 1, remaining: 0, done: true });
     const rows = await t.db.select().from(games);
@@ -153,7 +154,7 @@ describe('runHltbMass', () => {
     expect(rows.find((g) => g.id === ok.id)).toMatchObject({ hltbId: 5, hltbMainHours: 20 });
     expect(rows.find((g) => g.id === man.id)?.hltbId).toBeNull();
     // повтор с тем же since: уже перепроверено, цикл конечен
-    const again = await runHltbMass({ db: t.db, deps, now, recheckBefore: T0 });
+    const again = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now, recheckBefore: T0 });
     if (again.kind !== 'done') throw new Error('x');
     expect(again.result.processed).toBe(0);
   });

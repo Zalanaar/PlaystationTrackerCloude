@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { LlmEnv } from '@/server/env';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getFailStreak } from './budget';
 import { generateDiscover, getDiscover, type DiscoverDeps } from './discover';
 import { normalizeTitle, parseProposals, pickMatch, similarity, titleMatches, yearMatches } from './match';
@@ -231,7 +231,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
     const run = async (cands: RawgGame[], planned: Partial<typeof plannedGames.$inferInsert>[] = []) => {
       const f = makeFetch({ proposals: cands.map((c) => ({ title: c.name, year: 2020 })), rawg: (q) => cands.filter((c) => c.name === q) });
       for (const p of planned) await t.db.insert(plannedGames).values({ title: 'x', status: 'planned', ...p } as never);
-      return getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      return getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     };
     it('скрытые, service, любой статус и hltb_name блокируют; дубль по регистру и знакам', async () => {
       await own('HADES', 'completed', { hiddenAt: NOW });
@@ -287,19 +287,19 @@ describe('QA 13b: getDiscover на PGlite', () => {
           return cat(q);
         },
       });
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       expect(r.items.map((i) => i.title)).toEqual(['Hades']);
       expect(r.meta).toMatchObject({ verified: 1, proposed: 5 });
     });
     it('на экран идёт название и дата RAWG, не модели; reason модели не подменяет данные', async () => {
       const f = makeFetch({ proposals: [{ title: 'hades', year: 2020, reason: 'Релиз 1999, платформа Xbox.' }], rawg: known({ hades: rg(1, 'Hades', '2020-09-17') }) });
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       expect(r.items[0]).toMatchObject({ title: 'Hades', releaseDate: '2020-09-17' });
     });
     it('RAWG: название кодируется в query (амперсанд, #, пробелы, юникод, ключ не подменяется)', async () => {
       const evil = 'Hades&key=HACK#frag?x=1 ёЁ';
       const f = makeFetch({ proposals: [{ title: evil }], rawg: () => [] });
-      await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       const u = f.st.rawgUrls[0];
       expect(u.searchParams.get('search')).toBe(evil);
       expect(u.searchParams.getAll('key')).toEqual([RAWG_KEY]);
@@ -314,12 +314,12 @@ describe('QA 13b: getDiscover на PGlite', () => {
       const f = f1();
       const a = new Date('2026-10-29T20:59:59Z');
       const b = new Date('2026-10-29T21:00:00Z');
-      await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, a, deps(f));
-      const again = await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, a, deps(f));
+      await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, a, deps(f));
+      const again = await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, a, deps(f));
       expect(again).toMatchObject({ ok: false, llm: 'limit' });
       expect(f.st.groq).toBe(1);
-      expect((await getDiscover(t.db, { refresh: false }, a, deps(f))).meta.cached).toBe(true);
-      expect((await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, b, deps(f))).ok).toBe(true);
+      expect((await getDiscover(t.db, TEST_USER, { refresh: false }, a, deps(f))).meta.cached).toBe(true);
+      expect((await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, b, deps(f))).ok).toBe(true);
       expect(f.st.groq).toBe(2);
       const days = (await t.db.select().from(recommendDiscoverCache)).map((x) => x.day).sort();
       expect(days).toEqual(['2026-10-29', '2026-10-30']);
@@ -327,33 +327,33 @@ describe('QA 13b: getDiscover на PGlite', () => {
     it('смена профиля внутри суток кэш не пересоздаёт: экран читает кэш; ручное обновление берёт новый профиль и тратит одно из 3', async () => {
       const f = f1();
       await own('Elden Ring');
-      await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
+      await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
       await own('Bloodborne', 'completed');
-      const read = await getDiscover(t.db, { refresh: false }, NOW, deps(f));
+      const read = await getDiscover(t.db, TEST_USER, { refresh: false }, NOW, deps(f));
       expect(f.st.groq).toBe(1);
       expect(read.meta).toMatchObject({ cached: true, refreshLeft: 3 });
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       expect(f.st.groq).toBe(2);
       expect(r.meta).toMatchObject({ cached: false, refreshLeft: 2 });
     });
     it('refresh: 3 ручных в сутки, четвёртый отдаёт кэш без Groq, refreshLeft 3->0', async () => {
       const f = f1();
-      await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
+      await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
       const lefts: number[] = [];
-      for (let i = 0; i < 4; i++) lefts.push((await getDiscover(t.db, { refresh: true }, NOW, deps(f))).meta.refreshLeft);
+      for (let i = 0; i < 4; i++) lefts.push((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f))).meta.refreshLeft);
       expect(lefts).toEqual([2, 1, 0, 0]);
       expect(f.st.groq).toBe(4); // 1 ночная + 3 ручных
     });
     it('refresh=1 без кэша = ручная генерация', async () => {
       const f = f1();
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       expect(r.meta.refreshLeft).toBe(2);
     });
     it('пустой результат (ничего не подтверждено) не кэшируется; следующая ручная попытка снова зовёт Groq', async () => {
       const f = makeFetch({ proposals: three, rawg: () => [] });
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const a = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
-      await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const a = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       expect(a.items).toEqual([]);
       expect(a.meta).toMatchObject({ llm: 'ok', catalog: 'ok', proposed: 3 });
       expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
@@ -363,26 +363,26 @@ describe('QA 13b: getDiscover на PGlite', () => {
     it('общий предохранитель: limit + последний кэш за прошлые сутки; без кэша пусто', async () => {
       const f = f1();
       const yesterday = new Date('2026-10-28T09:00:00Z');
-      await getDiscover(t.db, { refresh: true }, yesterday, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, yesterday, deps(f));
       const lim = { llm: { ...LLM, dailyLimit: 1 } };
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, lim));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, lim));
       // сегодня лимит 1, вчерашний вызов не считается: счётчик за сутки МСК
       expect(r.meta.llm).toBe('ok');
       await t.db.delete(recommendDiscoverCache).where(eq(recommendDiscoverCache.day, '2026-10-29'));
-      const r2 = await getDiscover(t.db, { refresh: true }, NOW, deps(f, lim));
+      const r2 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, lim));
       expect(r2.meta.llm).toBe('limit');
       expect(r2.items.map((i) => i.title).length).toBe(3); // вчерашний кэш
       await t.db.delete(recommendDiscoverCache);
-      const r3 = await getDiscover(t.db, { refresh: true }, NOW, deps(f, lim));
+      const r3 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, lim));
       expect(r3).toMatchObject({ items: [], meta: { llm: 'limit' } });
       expect((await t.db.select().from(recommendLlmUsage)).length).toBeGreaterThan(0);
     });
     it('сбой Groq (500, мусор, пустой games) = error + старый кэш, новый не пишется, вызов возвращён', async () => {
       const ok = f1();
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      await getDiscover(t.db, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(ok));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, new Date('2026-10-28T09:00:00Z'), deps(ok));
       for (const bad of [makeFetch({ groqStatus: 500 }), makeFetch({ raw: 'not json' }), makeFetch({ raw: '{"games":[]}' })]) {
-        const r = await getDiscover(t.db, { refresh: true }, NOW, deps(bad));
+        const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(bad));
         expect(r.meta.llm).toBe('error');
         expect(r.meta.refreshLeft).toBe(3);
         expect(r.items).toHaveLength(3);
@@ -399,16 +399,16 @@ describe('QA 13b: getDiscover на PGlite', () => {
         return url.hostname === 'api.rawg.io' ? new Response('no', { status: 500 }) : f(u, i);
       }) as typeof fetch;
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f, { fetch: bad }));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { fetch: bad }));
       expect(r).toMatchObject({ items: [], meta: { catalog: 'unavailable' } });
       expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(0);
       vi.restoreAllMocks();
     });
     it('нет ключей: сеть не вызывается', async () => {
       const f = f1();
-      expect((await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: null }))).meta.llm).toBe('disabled');
-      expect((await getDiscover(t.db, { refresh: true }, NOW, deps(f, { rawgKey: null }))).meta.catalog).toBe('unavailable');
-      expect((await getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: { ...LLM, provider: 'gemini' } }))).meta.llm).toBe('disabled');
+      expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: null }))).meta.llm).toBe('disabled');
+      expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { rawgKey: null }))).meta.catalog).toBe('unavailable');
+      expect((await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: { ...LLM, provider: 'gemini' } }))).meta.llm).toBe('disabled');
       expect(f.st.groq + f.st.rawgUrls.length).toBe(0);
     });
   });
@@ -416,11 +416,11 @@ describe('QA 13b: getDiscover на PGlite', () => {
   describe('гонки', () => {
     it('BUG-D1: параллельные ручные refresh не обходят лимит 3 в сутки', async () => {
       const f = makeFetch({ proposals: three, rawg: cat, groqDelay: 5 });
-      await generateDiscover(t.db, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
-      await getDiscover(t.db, { refresh: true }, NOW, deps(f));
-      await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      await generateDiscover(t.db, TEST_USER, 'discover_auto', LLM, RAWG_KEY, NOW, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       const before = f.st.groq;
-      await Promise.all(Array.from({ length: 6 }, () => getDiscover(t.db, { refresh: true }, NOW, deps(f))));
+      await Promise.all(Array.from({ length: 6 }, () => getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f))));
       const [u] = await t.db.select().from(recommendLlmUsage);
       // ожидание: ещё максимум 1 вызов, ручных не больше 3
       expect(f.st.groq - before).toBeLessThanOrEqual(1);
@@ -428,7 +428,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
     });
     it('параллельные ручные генерации: платят вызов Groq, но не больше общего лимита', async () => {
       const f = makeFetch({ proposals: three, rawg: cat, groqDelay: 5 });
-      await Promise.all(Array.from({ length: 5 }, () => getDiscover(t.db, { refresh: true }, NOW, deps(f, { llm: { ...LLM, dailyLimit: 2 } }))));
+      await Promise.all(Array.from({ length: 5 }, () => getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f, { llm: { ...LLM, dailyLimit: 2 } }))));
       expect(f.st.groq).toBe(2);
       expect(await t.db.select().from(recommendDiscoverCache)).toHaveLength(1);
     });
@@ -441,9 +441,9 @@ describe('QA 13b: getDiscover на PGlite', () => {
       await own('SecretHiddenTitle', 'completed', { hiddenAt: NOW });
       await own('ServiceTitle', 'service');
       const f = makeFetch({ proposals: three, rawg: cat });
-      const r = await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      const r = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       const bad = makeFetch({ groqStatus: 401 });
-      const r2 = await getDiscover(t.db, { refresh: true }, NOW, deps(bad));
+      const r2 = await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(bad));
       const cache = JSON.stringify(await t.db.select().from(recommendDiscoverCache));
       const out = JSON.stringify([r, r2, cache]);
       expect(out).not.toMatch(SECRETS);
@@ -461,7 +461,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
     });
     it('в кэше только данные RAWG и reason, ключа и профиля нет', async () => {
       const f = makeFetch({ proposals: three, rawg: cat });
-      await getDiscover(t.db, { refresh: true }, NOW, deps(f));
+      await getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
       const [row] = await t.db.select().from(recommendDiscoverCache);
       const p = row.payload as { proposed: number; candidates: Record<string, unknown>[] };
       expect(Object.keys(p).sort()).toEqual(['candidates', 'proposed']);

@@ -4,12 +4,15 @@ import { NotFoundError } from '@/server/collection/mutations';
 import { parseGameId, parseMonthExclusionBody } from '@/server/collection/validation';
 import { fail, ok } from '@/server/http';
 import { MonthExclusionConflictError, setMonthExclusion } from '@/server/stats/exclusions';
+import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Убрать игру из месяца / вернуть в месяц (Статистика, «Игры месяца»). Контракт 15.1.
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
   const id = parseGameId((await ctx.params).id);
   if (id === null) return fail(400, 'invalid_request', 'Некорректный id игры.');
   const read = await readJsonBody(req);
@@ -17,7 +20,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   const p = parseMonthExclusionBody(read.body);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
-    const r = await setMonthExclusion(getDb(), id, p.value.month, p.value.excluded);
+    const r = await setMonthExclusion(getDb(), a.user.id, id, p.value.month, p.value.excluded);
     return ok({ gameId: id, month: p.value.month, excluded: p.value.excluded, ...r });
   } catch (e) {
     if (e instanceof NotFoundError) return fail(404, 'not_found', 'Игра не найдена.');

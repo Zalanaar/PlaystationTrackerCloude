@@ -2,6 +2,7 @@
 import { type AnyColumn, and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
 import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, uncheckedPendingSql, effectiveHoursSql, type DurationRow } from './duration';
 import type {
@@ -34,7 +35,7 @@ const PLATFORM: Record<string, Platform> = { ps4_game: 'PS4', ps5_native_game: '
 const yearDate = sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt})`;
 const yearExpr = sql<number | null>`extract(year from (${yearDate} at time zone ${TZ}))::int`;
 
-function trophyAgg(db: AnyDb) {
+function trophyAgg(db: AnyDb, userId: UserId) {
   const sumOf = (col: AnyColumn) => sql<number>`coalesce(sum(${col}), 0)::int`;
   return db
     .select({
@@ -49,7 +50,8 @@ function trophyAgg(db: AnyDb) {
       eP: sumOf(trophySets.earnedPlatinum).as('e_platinum'),
     })
     .from(gameTrophySets)
-    .innerJoin(trophySets, eq(trophySets.id, gameTrophySets.trophySetId))
+    .innerJoin(trophySets, and(eq(trophySets.id, gameTrophySets.trophySetId), eq(trophySets.userId, userId)))
+    .where(eq(gameTrophySets.userId, userId))
     .groupBy(gameTrophySets.gameId)
     .as('tr');
 }
@@ -129,8 +131,8 @@ export function toGameItem(r: Row): GameItem {
   };
 }
 
-function itemsQuery(db: AnyDb) {
-  const tr = trophyAgg(db);
+function itemsQuery(db: AnyDb, userId: UserId) {
+  const tr = trophyAgg(db, userId);
   const q = db
     .select({
       id: games.id,
@@ -161,7 +163,7 @@ function itemsQuery(db: AnyDb) {
       hasTr: sql<boolean>`${tr.gameId} is not null`,
     })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .leftJoin(tr, eq(tr.gameId, games.id));
   return { q, tr };
 }
@@ -173,10 +175,10 @@ function normalizeRow(r: Omit<Row, 'tr'> & { tr: Row['tr']; hasTr: boolean }): R
 }
 
 /** Игры по списку id (для ответов мутаций и карточек статистики), порядок по id. Видимость не фильтрует: вызывающий передаёт нужные id. */
-export async function getGamesByIds(db: AnyDb, ids: number[]): Promise<GameItem[]> {
+export async function getGamesByIds(db: AnyDb, userId: UserId, ids: number[]): Promise<GameItem[]> {
   if (!ids.length) return [];
-  const { q } = itemsQuery(db);
-  const rows = await q.where(inArray(games.id, ids)).orderBy(asc(games.id));
+  const { q } = itemsQuery(db, userId);
+  const rows = await q.where(and(eq(games.userId, userId), inArray(games.id, ids))).orderBy(asc(games.id));
   return rows.map((r) => toGameItem(normalizeRow(r as never)));
 }
 
@@ -184,12 +186,12 @@ export function emptyCounts(): StatusCounts {
   return { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 };
 }
 
-async function statusCounts(db: AnyDb, where: SQL | undefined): Promise<StatusCounts> {
+async function statusCounts(db: AnyDb, userId: UserId, where: SQL | undefined): Promise<StatusCounts> {
   const rows = await db
     .select({ status: gameStatus.status, n: sql<number>`count(*)::int` })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(where)
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), where))
     .groupBy(gameStatus.status);
   const c = emptyCounts();
   for (const r of rows) {
@@ -214,9 +216,9 @@ export function forgottenSql(now: Date): SQL {
 }
 
 /** 16.4: id игр в области, у которых эффективные жанры (1.9) пересекаются с выбранными. Нормализация в коде, поэтому фильтр по id. */
-export async function genreFilterSql(db: AnyDb, keys: readonly GenreFilterKey[] | null, scope: SQL | undefined): Promise<SQL | undefined> {
+export async function genreFilterSql(db: AnyDb, userId: UserId, keys: readonly GenreFilterKey[] | null, scope: SQL | undefined): Promise<SQL | undefined> {
   if (!keys || keys.length === 0) return undefined;
-  const rows = await db.select({ id: games.id, psn: games.psnGenres, ov: games.genresOverride }).from(games).where(scope);
+  const rows = await db.select({ id: games.id, psn: games.psnGenres, ov: games.genresOverride }).from(games).where(and(eq(games.userId, userId), scope));
   const want = new Set<string>(keys);
   const ids = rows
     .filter((r) => (want.has(GENRE_NONE) && hasNoGenres(r.psn, r.ov)) || effectiveGenres(r.psn, r.ov).some((g) => want.has(g)))
@@ -225,12 +227,12 @@ export async function genreFilterSql(db: AnyDb, keys: readonly GenreFilterKey[] 
 }
 
 /** 16.4: сколько игр подошло бы под каждый жанровый чип (включая `none`) в области запроса без фильтра `genres`. Игра с несколькими жанрами считается в каждом. */
-async function genreCountsFor(db: AnyDb, where: SQL | undefined): Promise<GenreCounts> {
+async function genreCountsFor(db: AnyDb, userId: UserId, where: SQL | undefined): Promise<GenreCounts> {
   const rows = await db
     .select({ psn: games.psnGenres, ov: games.genresOverride })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(where);
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), where));
   const out: GenreCounts = {};
   for (const r of rows) {
     for (const g of effectiveGenres(r.psn, r.ov)) out[g] = (out[g] ?? 0) + 1;
@@ -239,7 +241,7 @@ async function genreCountsFor(db: AnyDb, where: SQL | undefined): Promise<GenreC
   return out;
 }
 
-async function hltbCountsFor(db: AnyDb, where: SQL | undefined): Promise<HltbCounts> {
+async function hltbCountsFor(db: AnyDb, userId: UserId, where: SQL | undefined): Promise<HltbCounts> {
   const [r] = await db
     .select({
       found: sql<number>`(count(*) filter (where ${hltbStatusSql('found')}))::int`,
@@ -248,12 +250,12 @@ async function hltbCountsFor(db: AnyDb, where: SQL | undefined): Promise<HltbCou
       unchecked: sql<number>`(count(*) filter (where ${uncheckedPendingSql()}))::int`,
     })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(where);
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), where));
   return { found: r?.found ?? 0, not_found: r?.notFound ?? 0, unchecked: r?.unchecked ?? 0 };
 }
 
-async function durationCounts(db: AnyDb, where: SQL | undefined): Promise<DurationCounts> {
+async function durationCounts(db: AnyDb, userId: UserId, where: SQL | undefined): Promise<DurationCounts> {
   const out: DurationCounts = { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 };
   const rows = await db
     .select({
@@ -264,22 +266,22 @@ async function durationCounts(db: AnyDb, where: SQL | undefined): Promise<Durati
       unknown: sql<number>`(count(*) filter (where ${bucketSql('unknown')}))::int`,
     })
     .from(games)
-    .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-    .where(where);
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), where));
   const r = rows[0];
   if (r) Object.assign(out, { lt10: r.lt10, '10_30': r.b1030, '30_60': r.b3060, '60plus': r.b60, unknown: r.unknown });
   return out;
 }
 
-export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
-  const scope = p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames;
+export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
+  const scope = and(eq(games.userId, userId), p.hiddenOnly ? isNotNull(games.hiddenAt) : visibleGames);
   const textYear: (SQL | undefined)[] = [
     scope,
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
     p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
   ];
   const whereText = and(...textYear);
-  const genreSql = await genreFilterSql(db, p.genres, whereText);
+  const genreSql = await genreFilterSql(db, userId, p.genres, whereText);
   const durationSql = durationFilterSql(p.durations);
   // 16.4: счётчики статусов и бакетов учитывают жанры; счётчики статусов ещё и длительность, бакеты нет
   const hltbSql = hltbFilterSql(p.hltb);
@@ -288,7 +290,7 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
   const whereAll = and(whereNoDuration, durationSql);
   const whereNoHltb = and(whereText, genreSql, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql);
 
-  const { q, tr } = itemsQuery(db);
+  const { q, tr } = itemsQuery(db, userId);
   const dir = p.order === 'asc' ? sql`asc` : sql`desc`;
   const progress = sql`((${tr.eB} + ${tr.eS} + ${tr.eG} + ${tr.eP})::numeric / nullif(${tr.dB} + ${tr.dS} + ${tr.dG} + ${tr.dP}, 0))`;
   const earnedAll = sql`(${tr.eB} + ${tr.eS} + ${tr.eG} + ${tr.eP})`;
@@ -303,29 +305,29 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
 
   const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts, hCounts] = await Promise.all([
     q
-      .where(whereAll)
+      .where(and(eq(games.userId, userId), whereAll))
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
       .limit(p.limit)
       .offset(p.offset),
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-      .where(whereAll),
-    statusCounts(db, whereBase),
+      .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.userId, userId), whereAll)),
+    statusCounts(db, userId, whereBase),
     db
       .selectDistinct({ y: yearExpr })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-      .where(scope),
+      .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.userId, userId), scope)),
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(games)
-      .leftJoin(gameStatus, eq(gameStatus.gameId, games.id))
-      .where(forgottenSql(now)),
-    durationCounts(db, whereNoDuration),
-    genreCountsFor(db, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql, hltbSql)),
-    hltbCountsFor(db, whereNoHltb),
+      .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.userId, userId), forgottenSql(now))),
+    durationCounts(db, userId, whereNoDuration),
+    genreCountsFor(db, userId, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql, hltbSql)),
+    hltbCountsFor(db, userId, whereNoHltb),
   ]);
 
   return {
@@ -345,32 +347,32 @@ export async function listGames(db: AnyDb, p: ListQuery, now: Date = new Date())
   };
 }
 
-export async function getCollectionSummary(db: AnyDb): Promise<CollectionSummaryResponse> {
+export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<CollectionSummaryResponse> {
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
   const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile, near] = await Promise.all([
     db
       .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${games.playDurationSeconds}), 0)::float8` })
       .from(games)
-      .where(visibleGames),
+      .where(and(eq(games.userId, userId), visibleGames)),
     db
       .select({
         earned: sql<number>`(count(*) filter (where ${trophies.earned}))::int`,
         plat: sql<number>`(count(*) filter (where ${trophies.earned} and ${trophies.type} = 'platinum'))::int`,
       })
       .from(trophies)
-      .where(trophySetCounted(trophies.trophySetId)),
-    statusCounts(db, visibleGames),
-    itemsQuery(db).q.where(and(visibleGames, eq(gameStatus.status, 'playing'))).orderBy(...byRecent).limit(PLAYING_LIMIT),
-    itemsQuery(db).q.where(and(visibleGames, eq(gameStatus.status, 'service'))).orderBy(...byRecent).limit(SERVICES_LIMIT),
-    itemsQuery(db)
-      .q.where(and(visibleGames, isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
+      .where(and(eq(trophies.userId, userId), trophySetCounted(trophies.trophySetId))),
+    statusCounts(db, userId, visibleGames),
+    itemsQuery(db, userId).q.where(and(eq(games.userId, userId), visibleGames, eq(gameStatus.status, 'playing'))).orderBy(...byRecent).limit(PLAYING_LIMIT),
+    itemsQuery(db, userId).q.where(and(eq(games.userId, userId), visibleGames, eq(gameStatus.status, 'service'))).orderBy(...byRecent).limit(SERVICES_LIMIT),
+    itemsQuery(db, userId)
+      .q.where(and(eq(games.userId, userId), visibleGames, isNotNull(games.lastPlayedAt), or(isNull(gameStatus.status), notInArray(gameStatus.status, ['completed', 'dropped']))))
       .orderBy(desc(games.lastPlayedAt), desc(games.id))
       .limit(CONTINUE_LIMIT),
-    getPsnProfile(db),
-    getNearPlatinumCandidates(db),
+    getPsnProfile(db, userId),
+    getNearPlatinumCandidates(db, userId),
   ]);
   // 14.2: карточки «ближе к платине» тем же запросом GameItem (до 5 id)
-  const nearItems = await getGamesByIds(db, near.map((c) => c.gameId));
+  const nearItems = await getGamesByIds(db, userId, near.map((c) => c.gameId));
   const nearById = new Map(nearItems.map((g) => [g.id, g]));
   const sec = Number(gameTotals[0]?.sec ?? 0);
   return {

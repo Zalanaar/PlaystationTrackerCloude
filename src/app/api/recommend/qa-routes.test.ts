@@ -16,6 +16,8 @@ import { GET } from './route';
 import { POST } from './dislike/route';
 import { DELETE } from './dislike/[gameId]/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const json = { 'content-type': 'application/json' };
 const post = (body: unknown, h: Record<string, string> = json) => new Request('http://x/api/recommend/dislike', { method: 'POST', headers: h, body: typeof body === 'string' ? body : JSON.stringify(body) });
 const del = (h: Record<string, string> = {}) => new Request('http://x/api/recommend/dislike/1', { method: 'DELETE', headers: h });

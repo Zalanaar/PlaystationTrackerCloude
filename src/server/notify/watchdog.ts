@@ -1,6 +1,7 @@
 // Алерт «синк не запускался» (контракт 20.2). Отдельный cron-пинг: срабатывает и тогда, когда синк не стартовал вовсе
 // (notifyAfterSync вызывается только после запуска). Не бросает: итог описывается в результате.
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { getSyncOverdue, isSyncRunningFresh } from '@/server/sync/overdue';
 import { getTelegramEnv, claimSend, messageFor, releaseSend, sendTelegram, type TelegramEnv } from './telegram';
 
@@ -9,15 +10,15 @@ export type WatchdogResult = { isOverdue: boolean; ageHours: number | null; aler
 
 export const SYNC_MISSED_KIND = 'sync_missed';
 
-export async function runSyncWatchdog(db: AnyDb, o: { now?: Date; env?: TelegramEnv | null; fetchImpl?: typeof fetch } = {}): Promise<WatchdogResult> {
+export async function runSyncWatchdog(db: AnyDb, userId: UserId, o: { now?: Date; env?: TelegramEnv | null; fetchImpl?: typeof fetch } = {}): Promise<WatchdogResult> {
   const now = o.now ?? new Date();
   try {
-    const overdue = await getSyncOverdue(db, now);
+    const overdue = await getSyncOverdue(db, userId, now);
     const base = { isOverdue: overdue.isOverdue, ageHours: overdue.ageHours };
     if (!overdue.isOverdue) return { ...base, alert: 'not_needed' };
     const env = o.env === undefined ? getTelegramEnv() : o.env;
     if (!env) return { ...base, alert: 'telegram_disabled' };
-    if (await isSyncRunningFresh(db, now)) return { ...base, alert: 'sync_running' };
+    if (await isSyncRunningFresh(db, userId, now)) return { ...base, alert: 'sync_running' };
     // N-7: отметка «отправлено сегодня» ставится атомарно ДО отправки, второй параллельный вызов получит already_sent.
     const claim = await claimSend(db, SYNC_MISSED_KIND, now);
     if (!claim.claimed) return { ...base, alert: 'already_sent' };

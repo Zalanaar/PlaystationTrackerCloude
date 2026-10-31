@@ -16,6 +16,8 @@ import { POST } from './dislike/route';
 import { GET as LIST } from './dislikes/route';
 import * as discoverRoute from './route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const json = { 'content-type': 'application/json' };
 const evil = { ...json, origin: 'http://evil.example', host: 'x' };
 const post = (body: unknown, headers: Record<string, string> = json) =>
@@ -87,13 +89,13 @@ describe('маршруты discover', () => {
     expect((await post(valid)).status).toBe(200);
     const again = await post({ ...valid, coverUrl: null });
     expect((await again.json()).data).toEqual({ externalId: '3328' });
-    const list = (await (await LIST()).json()).data;
+    const list = (await (await LIST(new Request('http://x/'))).json()).data;
     expect(list.items).toHaveLength(1);
     expect(list.items[0]).toMatchObject({ externalSource: 'rawg', externalId: '3328', title: 'The Witcher 3', coverUrl: null });
     expect(list.ttlDays).toBe(30);
     expect((await del('3328')).status).toBe(200);
     expect((await del('3328')).status).toBe(200);
-    expect((await (await LIST()).json()).data.items).toEqual([]);
+    expect((await (await LIST(new Request('http://x/'))).json()).data.items).toEqual([]);
   });
 
   it('DELETE: некорректный id и Origin = 400', async () => {
@@ -105,7 +107,7 @@ describe('маршруты discover', () => {
     holder.db = null;
     expect((await post(valid)).status).toBe(503);
     expect((await del('1')).status).toBe(503);
-    const r = await LIST();
+    const r = await LIST(new Request('http://x/'));
     expect(r.status).toBe(503);
     expect(JSON.stringify(await r.json())).not.toMatch(/SECRETPASS|postgres:/);
   });

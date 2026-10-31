@@ -29,6 +29,7 @@ export async function GET(req: Request) {
   }
   if (continueRunId === undefined && hop !== undefined) return fail(400, 'invalid_request', 'Некорректный запрос.');
   try {
+    // 20.3: ежедневный синк идёт для владельца; продолжение звена берёт пользователя из строки sync_runs (не из запроса). Обход всех: 20.4.
     const r = await launchSync({ kind: 'daily', continueRunId, hop });
     if (r.kind === 'config_error') return fail(500, 'config_error', 'Не заданы настройки PSN.');
     if (r.kind === 'already_running') return json({ started: false, reason: 'already_running', runId: r.runId }, 200);

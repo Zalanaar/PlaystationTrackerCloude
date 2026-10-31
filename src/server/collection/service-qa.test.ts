@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import * as fullSchema from '@/db/schema';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { setGameStatus, setGamesStatusBulk, setStatusDate } from '@/server/sync/status-rules';
 import { SERVICES_LIMIT, getCollectionSummary, getGamesByIds, listGames } from './query';
 import { parseListQuery } from './validation';
@@ -42,6 +42,7 @@ describe('миграция 0001 (service)', () => {
     const db = drizzle(pg, { schema: fullSchema });
     await migrate(db, { migrationsFolder: MIG });
     await migrate(db, { migrationsFolder: MIG });
+    await pg.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
     await db.insert(fullSchema.games).values({ titleId: 'CUSA1_00', name: 'A', category: 'ps4_game', lastSeenAt: NOW });
     await db.insert(fullSchema.gameStatus).values({ gameId: 1, status: 'service' });
     await pg.close();
@@ -70,19 +71,19 @@ describe('статус service: БД и API-логика', () => {
   it('смена из/в service: даты ставятся/обнуляются, повтор не трогает, статус-дата 409', async () => {
     const last = new Date('2026-09-01T12:00:00Z');
     const a = await game(1, { lastPlayedAt: last });
-    await setGameStatus(t.db, a, 'completed', NOW);
-    expect((await getGamesByIds(t.db, [a]))[0]).toMatchObject({ status: 'completed', completedAt: last.toISOString() });
-    await setGameStatus(t.db, a, 'service', NOW);
-    expect((await getGamesByIds(t.db, [a]))[0]).toMatchObject({ status: 'service', completedAt: null, droppedAt: null });
-    await setGameStatus(t.db, a, 'dropped', NOW);
-    expect((await getGamesByIds(t.db, [a]))[0]).toMatchObject({ status: 'dropped', droppedAt: last.toISOString() });
-    await setGameStatus(t.db, a, 'service', NOW);
-    await setGameStatus(t.db, a, 'service', new Date(NOW.getTime() + 1000));
+    await setGameStatus(t.db, TEST_USER, a, 'completed', NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [a]))[0]).toMatchObject({ status: 'completed', completedAt: last.toISOString() });
+    await setGameStatus(t.db, TEST_USER, a, 'service', NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [a]))[0]).toMatchObject({ status: 'service', completedAt: null, droppedAt: null });
+    await setGameStatus(t.db, TEST_USER, a, 'dropped', NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [a]))[0]).toMatchObject({ status: 'dropped', droppedAt: last.toISOString() });
+    await setGameStatus(t.db, TEST_USER, a, 'service', NOW);
+    await setGameStatus(t.db, TEST_USER, a, 'service', new Date(NOW.getTime() + 1000));
     const [row] = await t.db.select().from(gameStatus);
     expect(row.statusChangedAt.toISOString()).toBe(NOW.toISOString());
-    await expect(setStatusDate(t.db, a, new Date('2026-09-02T00:00:00Z'), NOW)).rejects.toMatchObject({ code: 'date_not_allowed' });
-    await setGameStatus(t.db, a, null, NOW);
-    expect((await getGamesByIds(t.db, [a]))[0].status).toBeNull();
+    await expect(setStatusDate(t.db, TEST_USER, a, new Date('2026-09-02T00:00:00Z'), NOW)).rejects.toMatchObject({ code: 'date_not_allowed' });
+    await setGameStatus(t.db, TEST_USER, a, null, NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [a]))[0].status).toBeNull();
   });
 
   it('summary.services: 60 игр -> 50 по last_played desc nulls last, затем title, id; counts.service = 60; в playing не попадают', async () => {
@@ -92,8 +93,8 @@ describe('статус service: БД и API-логика', () => {
       const lp = i <= 5 ? null : new Date(Date.UTC(2026, 0, 1) + (i % 3 === 0 ? 100 : i) * 86400_000);
       ids.push(await game(i, { lastPlayedAt: lp }));
     }
-    await setGamesStatusBulk(t.db, ids, 'service', NOW);
-    const s = await getCollectionSummary(t.db);
+    await setGamesStatusBulk(t.db, TEST_USER, ids, 'service', NOW);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(SERVICES_LIMIT).toBe(50);
     expect(s.services).toHaveLength(50);
     expect(s.counts.service).toBe(60);
@@ -110,7 +111,7 @@ describe('статус service: БД и API-логика', () => {
     // список /api/games?status=service отдаёт все 60 (UI грузит его, а не summary)
     const q = parseListQuery(new URLSearchParams('status=service&limit=300'));
     if (!q.ok) throw new Error('query');
-    const all = await listGames(t.db, q.value);
+    const all = await listGames(t.db, TEST_USER, q.value);
     expect(all.total).toBe(60);
     expect(all.items).toHaveLength(60);
     expect(all.counts.service).toBe(60);
@@ -121,10 +122,10 @@ describe('статус service: БД и API-логика', () => {
     const svc = await game(1, { lastPlayedAt: lp });
     const done = await game(2, { lastPlayedAt: lp });
     const never = await game(3, { lastPlayedAt: null });
-    await setGameStatus(t.db, svc, 'service', NOW);
-    await setGameStatus(t.db, done, 'completed', NOW);
-    await setGameStatus(t.db, never, 'service', NOW);
-    const s = await getCollectionSummary(t.db);
+    await setGameStatus(t.db, TEST_USER, svc, 'service', NOW);
+    await setGameStatus(t.db, TEST_USER, done, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, never, 'service', NOW);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.continue.map((g) => g.id)).toEqual([svc]);
     expect(s.counts).toMatchObject({ service: 2, completed: 1, all: 3 });
   });
@@ -134,11 +135,11 @@ describe('статус service: БД и API-логика', () => {
     const a = await game(1, { lastPlayedAt: lp });
     const b = await game(2, { lastPlayedAt: lp });
     const c = await game(3, { lastPlayedAt: lp });
-    await setGameStatus(t.db, a, 'completed', NOW);
-    await setGameStatus(t.db, b, 'dropped', NOW);
-    await setGameStatus(t.db, c, 'service', NOW);
-    expect(await setGamesStatusBulk(t.db, [a, b, c], 'service', NOW)).toBe(2);
-    const items = await getGamesByIds(t.db, [a, b, c]);
+    await setGameStatus(t.db, TEST_USER, a, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, b, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, c, 'service', NOW);
+    expect(await setGamesStatusBulk(t.db, TEST_USER, [a, b, c], 'service', NOW)).toBe(2);
+    const items = await getGamesByIds(t.db, TEST_USER, [a, b, c]);
     expect(items.map((g) => [g.status, g.completedAt, g.droppedAt])).toEqual([['service', null, null], ['service', null, null], ['service', null, null]]);
     const r = await t.pg.execute(sql`select count(*)::int n from game_status where completed_at is not null or dropped_at is not null`);
     expect((r.rows[0] as { n: number }).n).toBe(0);

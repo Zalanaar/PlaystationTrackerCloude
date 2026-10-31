@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { DISLIKE_TTL_DAYS, DISLIKE_TTL_MS, dislikeExpiresAt, isDislikeActive } from '@/shared/recommend';
 import { DEFAULT_TTL_DAYS } from '@/ui/recommend/model';
 import { dislikeGame, getDislikedIds, getRecommendations, listDislikes, undislikeGame } from './db';
@@ -42,13 +42,13 @@ describe('QA 13b: БД', () => {
   }
   it('TOP_N = 9: из 12 кандидатов 9 карточек, candidates 12; из 5 — 5', async () => {
     await seedBacklog(12);
-    const r = await getRecommendations(t.db, 'any', NOW, { llm: null });
+    const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(TOP_N).toBe(9);
     expect(r.items).toHaveLength(9);
     expect(r.meta.candidates).toBe(12);
     await t.reset();
     await seedBacklog(5);
-    expect((await getRecommendations(t.db, 'any', NOW, { llm: null })).items).toHaveLength(5);
+    expect((await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).items).toHaveLength(5);
   });
 
   it('лимит токенов 2000 уходит в тело запроса Gemini и Groq', async () => {
@@ -68,29 +68,29 @@ describe('QA 13b: БД', () => {
     for (const [age, hidden] of [[30 * DAY - 60_000, true], [30 * DAY - 1, true], [30 * DAY, false], [30 * DAY + 1, false], [0, true]] as const) {
       await t.db.delete(recommendDislikes);
       await t.db.insert(recommendDislikes).values({ gameId: id, createdAt: at(age) });
-      expect((await getDislikedIds(t.db, NOW)).has(id), `age ${age}`).toBe(hidden);
-      expect((await listDislikes(t.db, NOW)).items.length, `list ${age}`).toBe(hidden ? 1 : 0);
-      expect((await getRecommendations(t.db, 'any', NOW, { llm: null })).items.length, `rec ${age}`).toBe(hidden ? 0 : 1);
+      expect((await getDislikedIds(t.db, TEST_USER, NOW)).has(id), `age ${age}`).toBe(hidden);
+      expect((await listDislikes(t.db, TEST_USER, NOW)).items.length, `list ${age}`).toBe(hidden ? 1 : 0);
+      expect((await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).items.length, `rec ${age}`).toBe(hidden ? 0 : 1);
     }
   });
 
   it('повторный POST продлевает срок (created_at = now), одна строка; DELETE возвращает и идемпотентен', async () => {
     const [id] = await seedBacklog(1);
-    await dislikeGame(t.db, id, new Date(NOW.getTime() - 25 * DAY));
-    await dislikeGame(t.db, id, NOW);
+    await dislikeGame(t.db, TEST_USER, id, new Date(NOW.getTime() - 25 * DAY));
+    await dislikeGame(t.db, TEST_USER, id, NOW);
     const rows = await t.db.select().from(recommendDislikes);
     expect(rows).toHaveLength(1);
     expect(rows[0].createdAt.getTime()).toBe(NOW.getTime());
     // истёкшую отметку POST оживляет заново на 30 суток
     await t.db.update(recommendDislikes).set({ createdAt: new Date(NOW.getTime() - 40 * DAY) });
-    expect((await listDislikes(t.db, NOW)).items).toHaveLength(0);
-    await dislikeGame(t.db, id, NOW);
-    const l = await listDislikes(t.db, NOW);
+    expect((await listDislikes(t.db, TEST_USER, NOW)).items).toHaveLength(0);
+    await dislikeGame(t.db, TEST_USER, id, NOW);
+    const l = await listDislikes(t.db, TEST_USER, NOW);
     expect(l.items[0].expiresAt).toBe(new Date(NOW.getTime() + 30 * DAY).toISOString());
-    await undislikeGame(t.db, id);
-    await undislikeGame(t.db, id);
-    expect((await listDislikes(t.db, NOW)).items).toEqual([]);
-    expect((await getRecommendations(t.db, 'any', NOW, { llm: null })).items).toHaveLength(1);
+    await undislikeGame(t.db, TEST_USER, id);
+    await undislikeGame(t.db, TEST_USER, id);
+    expect((await listDislikes(t.db, TEST_USER, NOW)).items).toEqual([]);
+    expect((await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).items).toHaveLength(1);
   });
 
   it('GET /dislikes: только бэклог, не hidden_at, не истёкшие; порядок hiddenAt desc, затем id', async () => {
@@ -103,27 +103,29 @@ describe('QA 13b: БД', () => {
       { gameId: ids[2], createdAt: same }, { gameId: ids[0], createdAt: same }, { gameId: ids[1], createdAt: NOW },
       { gameId: ids[3], createdAt: new Date(NOW.getTime() - 31 * DAY) }, { gameId: done, createdAt: NOW }, { gameId: hid, createdAt: NOW },
     ]);
-    const r = await listDislikes(t.db, NOW);
+    const r = await listDislikes(t.db, TEST_USER, NOW);
     expect(r.ttlDays).toBe(30);
     expect(r.items.map((i) => i.game.id)).toEqual([ids[1], Math.min(ids[0], ids[2]), Math.max(ids[0], ids[2])]);
     expect(r.items[0]).toMatchObject({ hiddenAt: NOW.toISOString(), game: { genres: ['ACTION'] } });
     // возврат в бэклог игры с неистёкшей отметкой: снова скрыта (TTL, без воскрешения вечной)
     await t.db.update(gameStatus).set({ status: 'backlog' }).where(eq(gameStatus.gameId, done));
-    expect((await listDislikes(t.db, NOW)).items.map((i) => i.game.id)).toContain(done);
+    expect((await listDislikes(t.db, TEST_USER, NOW)).items.map((i) => i.game.id)).toContain(done);
   });
 });
 
 describe('QA 13b: GET /api/recommend/dislikes без БД', () => {
   it('503 db_unavailable без текста исходной ошибки', async () => {
     vi.resetModules();
+    vi.doMock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
     vi.doMock('@/db', async (orig) => ({ ...(await orig<typeof import('@/db')>()), getDb: () => { throw new Error('postgres://u:SECRETPASS@h/db'); } }));
     const { GET } = await import('@/app/api/recommend/dislikes/route');
-    const r = await GET();
+    const r = await GET(new Request('http://x/'));
     expect(r.status).toBe(503);
     const text = await r.text();
     expect(text).toContain('db_unavailable');
     expect(text).not.toContain('SECRETPASS');
     vi.doUnmock('@/db');
+    vi.doUnmock('@/server/auth/require-user');
   });
 });
 

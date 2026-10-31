@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { getStats } from '@/server/stats/query';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from './query';
 
 const { games, gameStatus, gameTrophySets, playtimeSnapshots, trophies, trophySets } = schema;
@@ -22,7 +22,7 @@ describe('getWrapped (PGlite)', () => {
   }
 
   it('пустая БД: empty, текущий год в списке без данных', async () => {
-    const r = await getWrapped(t.db, 2026, null, NOW);
+    const r = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(r.mode).toBe('empty');
     expect(r.slides).toEqual(['empty']);
     expect(r.years).toEqual([{ year: 2026, hasData: false }]);
@@ -57,8 +57,8 @@ describe('getWrapped (PGlite)', () => {
       { trophySetId: s2.id, trophyId: 2, type: 'gold', earned: true, earnedAt: new Date('2025-12-31T21:00:00Z') },
     ]);
 
-    const w = await getWrapped(t.db, 2026, 'artem', NOW);
-    const st = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, 'artem', NOW);
+    const st = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(w.mode).toBe('story');
     expect(w.profile.onlineId).toBe('artem');
     expect(w.hours.total).toBe(st.header.hours);
@@ -86,7 +86,7 @@ describe('getWrapped (PGlite)', () => {
     expect(w.trophies.platinum.rarest?.earnedRate).toBe(1.2);
 
     expect(w.finished.completed.items.map((i) => i.game.id)).toEqual([a]); // 1 янв МСК
-    const w25 = await getWrapped(t.db, 2025, null, NOW);
+    const w25 = await getWrapped(t.db, TEST_USER, 2025, null, NOW);
     expect(w25.finished.dropped.count).toBe(1);
     expect(w25.finished.completed.count).toBe(0);
     expect(w25.trophies.counts).toMatchObject({ gold: 1, total: 1 }); // 20:59:59Z
@@ -96,7 +96,7 @@ describe('getWrapped (PGlite)', () => {
     expect(w.years.map((y) => y.year)).toEqual([2026, 2025]);
     expect(w.years.every((y) => y.hasData)).toBe(true);
 
-    const w24 = await getWrapped(t.db, 2024, null, NOW);
+    const w24 = await getWrapped(t.db, TEST_USER, 2024, null, NOW);
     expect(w24.mode).toBe('empty');
     expect(w24.emptyState).toEqual({ syncStartedOn: '2025-12-31' });
   });

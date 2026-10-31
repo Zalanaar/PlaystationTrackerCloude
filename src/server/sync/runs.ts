@@ -2,6 +2,7 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import { asUserId, type UserId } from '@/server/auth/user-id';
 import { parseCursor, type RunRow } from './context';
 import { MAX_HOPS } from './engine';
 import { mskDate } from './time';
@@ -40,7 +41,7 @@ export async function closeStaleRuns(db: AnyDb, now: Date): Promise<number> {
   return closed.length;
 }
 
-async function resume(db: AnyDb, row: RunRow, now: Date, keepHops: boolean): Promise<RunRow | null> {
+async function resume(db: AnyDb, userId: UserId, row: RunRow, now: Date, keepHops: boolean): Promise<RunRow | null> {
   const cur = parseCursor(row.cursor);
   const [updated] = await db
     .update(syncRuns)
@@ -52,31 +53,32 @@ async function resume(db: AnyDb, row: RunRow, now: Date, keepHops: boolean): Pro
       phase: 'auth',
       cursor: { ...cur, hops: keepHops ? cur.hops : 0, heartbeat: now.toISOString() },
     })
-    .where(and(eq(syncRuns.id, row.id), eq(syncRuns.status, 'partial')))
+    .where(and(eq(syncRuns.id, row.id), eq(syncRuns.userId, userId), eq(syncRuns.status, 'partial')))
     .returning();
   return updated ?? null;
 }
 
-export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continueRunId?: number; /** номер звена от отправителя; проверяется на принимающей стороне */ hop?: number }): Promise<StartResult> {
+export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; now: Date; continueRunId?: number; /** номер звена от отправителя; проверяется на принимающей стороне */ hop?: number }): Promise<StartResult> {
   const { now } = o;
   await closeStaleRuns(db, now);
   try {
     if (o.continueRunId !== undefined) {
-      const [row] = await db.select().from(syncRuns).where(eq(syncRuns.id, o.continueRunId)).limit(1);
+      const [row] = await db.select().from(syncRuns).where(and(eq(syncRuns.id, o.continueRunId), eq(syncRuns.userId, userId))).limit(1);
       if (!row || row.status !== 'partial' || row.errorReason !== 'timeout') return { kind: 'not_resumable' };
       if (o.hop !== undefined && (o.hop > MAX_HOPS || o.hop !== parseCursor(row.cursor).hops)) return { kind: 'not_resumable' };
       if (parseCursor(row.cursor).hops > MAX_HOPS) return { kind: 'not_resumable' };
-      const run = await resume(db, row, now, true);
+      const run = await resume(db, userId, row, now, true);
       return run ? { kind: 'started', run, resumed: true } : { kind: 'not_resumable' };
     }
-    const [last] = await db.select().from(syncRuns).where(ne(syncRuns.kind, 'hltb')).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+    const [last] = await db.select().from(syncRuns).where(and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
     if (last && last.status === 'partial' && now.getTime() - last.startedAt.getTime() < RESUME_WINDOW_MS) {
-      const run = await resume(db, last, now, false);
+      const run = await resume(db, userId, last, now, false);
       if (run) return { kind: 'started', run, resumed: true };
     }
     const [run] = await db
       .insert(syncRuns)
       .values({
+        userId,
         kind: o.kind,
         status: 'running',
         snapshotDate: mskDate(now),
@@ -94,12 +96,12 @@ export async function startRun(db: AnyDb, o: { kind: RunKind; now: Date; continu
 }
 
 /** Запуск массовой подгрузки HLTB (контракт 16.7). Занимает тот же единственный слот running, что и синк. Никогда не возобновляет partial. */
-export async function startHltbRun(db: AnyDb, now: Date): Promise<{ kind: 'started'; run: RunRow } | { kind: 'already_running'; runId: number | null }> {
+export async function startHltbRun(db: AnyDb, userId: UserId, now: Date): Promise<{ kind: 'started'; run: RunRow } | { kind: 'already_running'; runId: number | null }> {
   await closeStaleRuns(db, now);
   try {
     const [run] = await db
       .insert(syncRuns)
-      .values({ kind: 'hltb', status: 'running', snapshotDate: mskDate(now), startedAt: now, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() } })
+      .values({ userId, kind: 'hltb', status: 'running', snapshotDate: mskDate(now), startedAt: now, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() } })
       .returning();
     return { kind: 'started', run };
   } catch (e) {
@@ -107,4 +109,10 @@ export async function startHltbRun(db: AnyDb, now: Date): Promise<{ kind: 'start
     const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);
     return { kind: 'already_running', runId: running?.id ?? null };
   }
+}
+
+/** Владелец запуска по id (для продолжения звена из cron: пользователь берётся из строки БД, не из запроса). */
+export async function getRunUserId(db: AnyDb, runId: number): Promise<UserId | null> {
+  const [row] = await db.select({ userId: syncRuns.userId }).from(syncRuns).where(eq(syncRuns.id, runId)).limit(1);
+  return row ? asUserId(row.userId) : null;
 }

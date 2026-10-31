@@ -1,7 +1,7 @@
 // Фаза 17.2 (контракт 20.8): «Редкие трофеи» без игр-сервисов по умолчанию, withService возвращает их.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from '@/server/wrapped/query';
 import { parseWrappedQuery } from '@/server/wrapped/validation';
 import { getStats } from './query';
@@ -45,29 +45,29 @@ describe('редкие трофеи и игры-сервисы', () => {
 
   it('по умолчанию трофеи сервиса исключены; сирота и игра без статуса остаются', async () => {
     await seed();
-    expect(names(await getRareTrophies(t.db, year))).toEqual(['Done', 'NoStatus', 'Orphan']);
-    expect(names(await getRareTrophies(t.db, null))).toEqual(['Done', 'NoStatus', 'Orphan']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, year))).toEqual(['Done', 'NoStatus', 'Orphan']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null))).toEqual(['Done', 'NoStatus', 'Orphan']);
   });
 
   it('withService=true возвращает прежнее поведение', async () => {
     await seed();
-    expect(names(await getRareTrophies(t.db, year, 5, true))).toEqual(['CoD', 'Done', 'NoStatus', 'Orphan']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, year, 5, true))).toEqual(['CoD', 'Done', 'NoStatus', 'Orphan']);
   });
 
   it('сет у двух версий: игра сета = минимальный id; решает её статус', async () => {
     const svc = await game('service');
     const normal = await game('completed');
     await trophy([svc, normal], 'Shared', '0.50'); // owner = svc (минимальный id)
-    expect(names(await getRareTrophies(t.db, null))).toEqual([]);
-    expect(names(await getRareTrophies(t.db, null, 5, true))).toEqual(['Shared']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null))).toEqual([]);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null, 5, true))).toEqual(['Shared']);
   });
 
   it('смена статуса сервиса на другой возвращает трофеи', async () => {
     const g = await game('service');
     await trophy([g], 'Now', '0.10');
-    expect(names(await getRareTrophies(t.db, null))).toEqual([]);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null))).toEqual([]);
     await t.db.update(gameStatus).set({ status: 'completed' });
-    expect(names(await getRareTrophies(t.db, null))).toEqual(['Now']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null))).toEqual(['Now']);
   });
 
   it('лимит 5 набирается уже без сервисов (сервис не съедает места)', async () => {
@@ -75,21 +75,21 @@ describe('редкие трофеи и игры-сервисы', () => {
     const ok = await game('completed');
     for (let i = 0; i < 6; i++) await trophy([svc], `Svc${i}`, `0.0${i + 1}`);
     for (let i = 0; i < 6; i++) await trophy([ok], `Ok${i}`, `${i + 1}.00`);
-    expect(names(await getRareTrophies(t.db, null))).toEqual(['Ok0', 'Ok1', 'Ok2', 'Ok3', 'Ok4']);
+    expect(names(await getRareTrophies(t.db, TEST_USER, null))).toEqual(['Ok0', 'Ok1', 'Ok2', 'Ok3', 'Ok4']);
   });
 
   it('getStats и getWrapped: параметр withService; прочие трофеи статистики не меняются', async () => {
     await seed();
     const q = { type: 'year' as const, year: 2026, month: null };
-    const def = await getStats(t.db, q, NOW);
+    const def = await getStats(t.db, TEST_USER, q, NOW);
     expect(names(def.rareTrophies.period)).toEqual(['Done', 'NoStatus', 'Orphan']);
     expect(names(def.rareTrophies.allTime)).toEqual(['Done', 'NoStatus', 'Orphan']);
-    const withSvc = await getStats(t.db, { ...q, withService: true }, NOW);
+    const withSvc = await getStats(t.db, TEST_USER, { ...q, withService: true }, NOW);
     expect(names(withSvc.rareTrophies.period)).toEqual(['CoD', 'Done', 'NoStatus', 'Orphan']);
     expect(withSvc.trophies).toEqual(def.trophies); // сводка трофеев не зависит от параметра
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(names(w.trophies.rare)).toEqual(['Done', 'NoStatus', 'Orphan']);
-    const w2 = await getWrapped(t.db, 2026, null, NOW, { withService: true });
+    const w2 = await getWrapped(t.db, TEST_USER, 2026, null, NOW, { withService: true });
     expect(names(w2.trophies.rare)).toEqual(['CoD', 'Done', 'NoStatus', 'Orphan']);
   });
 });

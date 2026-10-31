@@ -2,7 +2,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from '@/server/wrapped/query';
 import { getStats } from './query';
 import { compareRare, pickRare, type RareRow } from './rare';
@@ -81,18 +81,18 @@ describe('getRareTrophies на PGlite', () => {
     await trophy(sHidden, 1, '2026-03-01T00:00:00Z', '0.01'); // сет только скрытой игры: не учитывается
     await trophy(sOrphan, 1, '2026-04-01T00:00:00Z', '1.50'); // сирота учитывается
 
-    const y2026 = await getRareTrophies(t.db, { fromUtc: new Date('2025-12-31T21:00:00Z'), toUtc: new Date('2026-12-31T21:00:00Z') });
+    const y2026 = await getRareTrophies(t.db, TEST_USER, { fromUtc: new Date('2025-12-31T21:00:00Z'), toUtc: new Date('2026-12-31T21:00:00Z') });
     expect(y2026.map((r) => `${r.setName}:${r.trophyId}`)).toEqual(['AB:1', 'O:1']);
     expect(y2026[0].game).toEqual({ id: a, title: 'G1', coverUrl: null });
     expect(y2026[1].game).toBeNull();
 
-    const all = await getRareTrophies(t.db, null);
+    const all = await getRareTrophies(t.db, TEST_USER, null);
     expect(all.map((r) => `${r.setName}:${r.trophyId}`)).toEqual(['AB:4', 'AB:2', 'AB:1', 'O:1']);
     expect(all[0].earnedAt).toBeNull();
 
     // скрыли a: игра сета становится b
     await t.db.update(games).set({ hiddenAt: NOW }).where(eq(games.id, a));
-    expect((await getRareTrophies(t.db, null))[0].game?.id).toBe(b);
+    expect((await getRareTrophies(t.db, TEST_USER, null))[0].game?.id).toBe(b);
   });
 
   it('LIMIT 5 и встраивание в /api/stats и /api/wrapped', async () => {
@@ -100,14 +100,14 @@ describe('getRareTrophies на PGlite', () => {
     const s = await set([a]);
     for (let i = 1; i <= 7; i++) await trophy(s, i, `2026-0${i}-10T12:00:00Z`, `${10 - i}.00`);
     await trophy(s, 8, '2025-05-05T12:00:00Z', '0.20');
-    const st = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const st = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(st.rareTrophies.period.map((r) => r.trophyId)).toEqual([7, 6, 5, 4, 3]);
     expect(st.rareTrophies.allTime.map((r) => r.trophyId)).toEqual([8, 7, 6, 5, 4]);
-    const month = await getStats(t.db, { type: 'month', year: 2026, month: 3 }, NOW);
+    const month = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 3 }, NOW);
     expect(month.rareTrophies.period.map((r) => r.trophyId)).toEqual([3]);
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.trophies.rare.map((r) => r.trophyId)).toEqual([7, 6, 5, 4, 3]);
-    const empty = await getWrapped(t.db, 2024, null, NOW);
+    const empty = await getWrapped(t.db, TEST_USER, 2024, null, NOW);
     expect(empty.mode).toBe('empty');
     expect(empty.trophies.rare).toEqual([]);
   });

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getStats } from './query';
 
 const { games, gameStatus, playtimeSnapshots, trophies, trophySets } = schema;
@@ -20,7 +20,7 @@ describe('getStats (PGlite)', () => {
   }
 
   it('пустая БД: все блоки пустые, текущий год в списке', async () => {
-    const r = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const r = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(r.years).toEqual([2026]);
     expect(r.header).toEqual({ completed: 0, dropped: 0, hours: null, platinum: 0 });
     expect(r.hours.firstSnapshotDate).toBeNull();
@@ -47,16 +47,16 @@ describe('getStats (PGlite)', () => {
       { trophySetId: s.id, trophyId: 2, type: 'bronze', earned: true, earnedAt: null },
     ]);
 
-    const oct = await getStats(t.db, { type: 'month', year: 2026, month: 10 }, NOW);
+    const oct = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     expect(oct.years).toEqual([2026, 2025]);
     expect(oct.header).toEqual({ completed: 0, dropped: 1, hours: 3, platinum: 0 });
     expect(oct.finished.groups.map((g) => [g.month, g.items.map((i) => i.kind)])).toEqual([['2026-10', ['dropped']]]);
 
-    const nov = await getStats(t.db, { type: 'month', year: 2026, month: 11 }, NOW);
+    const nov = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 11 }, NOW);
     expect(nov.header.completed).toBe(1);
     expect(nov.header.hours).toBeNull(); // будущий месяц
 
-    const y = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(y.hours.firstSnapshotDate).toBe('2025-12-31');
     expect(y.hours.byMonth[9]).toBe(3);
     expect(y.hours.periodPartial).toBe(false);
@@ -64,7 +64,7 @@ describe('getStats (PGlite)', () => {
     expect(y.trophies.counts).toMatchObject({ gold: 1, total: 1 });
     expect(y.genres.items.map((i) => i.key).sort()).toEqual(['ACTION', 'ADVENTURE', 'PUZZLE']);
 
-    const y25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+    const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
     expect(y25.header.platinum).toBe(1);
     expect(y25.header.hours).toBe(0);
   });

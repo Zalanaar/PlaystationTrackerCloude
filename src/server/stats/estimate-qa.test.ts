@@ -3,7 +3,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from '@/server/wrapped/query';
 import { calcHours, estimateByMonth, groupSnapshots, type EstimateInput } from './hours';
 import { getStats } from './query';
@@ -164,8 +164,8 @@ describe('Статистика и Итоги: одинаковые часы, с�
     for (const id of ids.slice(0, 3)) await t.db.insert(gameStatus).values({ gameId: id, status: 'service' });
 
     for (const year of [2021, 2022, 2023, 2024, 2025, 2026, 2027]) {
-      const s = await getStats(t.db, { type: 'year', year, month: null }, NOW);
-      const w = await getWrapped(t.db, year, null, NOW);
+      const s = await getStats(t.db, TEST_USER, { type: 'year', year, month: null }, NOW);
+      const w = await getWrapped(t.db, TEST_USER, year, null, NOW);
       expect(w.hours.total, `total ${year}`).toBe(s.header.hours);
       expect(w.hours.byMonth, `byMonth ${year}`).toEqual(s.hours.byMonth);
       expect(w.hours.estimatedByMonth).toEqual(s.hours.estimatedByMonth);
@@ -182,13 +182,13 @@ describe('Статистика и Итоги: одинаковые часы, с�
       expect(w.topGames.items.every((x) => x.seconds > 0)).toBe(true);
       expect(w.mode === 'story', `mode ${year}`).toBe(w.hours.hasData || w.trophies.counts.total > 0 || w.finished.completed.count + w.finished.dropped.count > 0);
       // years Итогов согласованы с mode
-      const yh = (await getWrapped(t.db, 2026, null, NOW)).years.find((y) => y.year === year);
+      const yh = (await getWrapped(t.db, TEST_USER, 2026, null, NOW)).years.find((y) => y.year === year);
       if (yh) expect(w.mode === 'story', `years.hasData vs mode ${year}`).toBe(yh.hasData);
       // years Статистики содержат все годы Итогов с данными
-      for (const y of (await getWrapped(t.db, 2026, null, NOW)).years) if (y.hasData) expect(s.years).toContain(y.year);
+      for (const y of (await getWrapped(t.db, TEST_USER, 2026, null, NOW)).years) if (y.hasData) expect(s.years).toContain(y.year);
     }
     // service-игры не попадают в пройдено/брошено
-    const s26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const s26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(s26.header.completed + s26.header.dropped).toBe(0);
   });
 
@@ -199,13 +199,13 @@ describe('Статистика и Итоги: одинаковые часы, с�
       { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
       { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 36000 },
     ]);
-    const s25 = await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW);
+    const s25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
     expect(s25.genres.items.map((g) => g.key)).toEqual(['PUZZLE']);
-    const apr = await getStats(t.db, { type: 'month', year: 2025, month: 4 }, NOW);
+    const apr = await getStats(t.db, TEST_USER, { type: 'month', year: 2025, month: 4 }, NOW);
     expect(apr.genres.items.map((g) => g.key)).toEqual(['PUZZLE']);
-    const may = await getStats(t.db, { type: 'month', year: 2025, month: 5 }, NOW);
+    const may = await getStats(t.db, TEST_USER, { type: 'month', year: 2025, month: 5 }, NOW);
     expect(may.genres.hasData).toBe(false);
-    const s26 = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const s26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(s26.genres.hasData).toBe(false); // реальных дельт нет, оценка вся в 2025
   });
 
@@ -217,7 +217,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
       { gameId: a, snapshotDate: '2026-08-10', playDurationSeconds: 5 * 3600 },
       { gameId: a, snapshotDate: '2026-08-20', playDurationSeconds: 7 * 3600 },
     ]);
-    const s = await getStats(t.db, { type: 'year', year: 2026, month: null }, NOW);
+    const s = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     // апр..авг = 5 месяцев по 1 ч, август + 2 ч реальных
     expect(s.hours.estimatedByMonth.slice(3, 8)).toEqual([1, 1, 1, 1, 1]);
     expect(s.hours.byMonth[7]).toBe(3);
@@ -229,9 +229,9 @@ describe('Статистика и Итоги: одинаковые часы, с�
     // 5 секунд игры за 75 месяцев: доли 0, остаток 5 с в последний месяц
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 5 });
-    const base = await getWrapped(t.db, 2026, null, NOW);
+    const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     for (const y of base.years) {
-      const w = await getWrapped(t.db, y.year, null, NOW);
+      const w = await getWrapped(t.db, TEST_USER, y.year, null, NOW);
       expect(w.mode === 'story', `year ${y.year}`).toBe(y.hasData);
     }
   });
@@ -239,9 +239,9 @@ describe('Статистика и Итоги: одинаковые часы, с�
   it('КРАЙ: игра 1 минута за 6 лет (доля года < 0.05 ч): years.hasData vs mode', async () => {
     const a = await game(1, { firstPlayedAt: new Date('2020-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 60 });
-    const base = await getWrapped(t.db, 2026, null, NOW);
+    const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     for (const y of base.years) {
-      const w = await getWrapped(t.db, y.year, null, NOW);
+      const w = await getWrapped(t.db, TEST_USER, y.year, null, NOW);
       expect(w.mode === 'story', `year ${y.year}`).toBe(y.hasData);
     }
   });
@@ -250,12 +250,12 @@ describe('Статистика и Итоги: одинаковые часы, с�
     // два месяца 2025-12 и 2026-01: S0 = 359 -> доли 179 и 180
     const a = await game(1, { firstPlayedAt: new Date('2025-12-10T12:00:00Z'), lastPlayedAt: new Date('2026-01-04T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-01-05', playDurationSeconds: 359 });
-    const y = (await getWrapped(t.db, 2026, null, NOW)).years;
+    const y = (await getWrapped(t.db, TEST_USER, 2026, null, NOW)).years;
     expect(y.find((v) => v.year === 2025)?.hasData ?? false).toBe(false);
     expect(y.find((v) => v.year === 2026)?.hasData).toBe(true);
-    expect((await getWrapped(t.db, 2025, null, NOW)).mode).toBe('empty');
-    expect((await getWrapped(t.db, 2026, null, NOW)).mode).toBe('story');
-    expect((await getStats(t.db, { type: 'year', year: 2025, month: null }, NOW)).years).not.toContain(2025);
+    expect((await getWrapped(t.db, TEST_USER, 2025, null, NOW)).mode).toBe('empty');
+    expect((await getWrapped(t.db, TEST_USER, 2026, null, NOW)).mode).toBe('story');
+    expect((await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW)).years).not.toContain(2025);
   });
 
   it('sql-сверка: сумма оценки по всем месяцам игры равна S0 (нет потерь остатка)', async () => {
@@ -263,7 +263,7 @@ describe('Статистика и Итоги: одинаковые часы, с�
     await t.db.insert(playtimeSnapshots).values({ gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 100003 });
     let tot = 0;
     for (const y of [2025, 2026]) {
-      const s = await getStats(t.db, { type: 'year', year: y, month: null }, NOW);
+      const s = await getStats(t.db, TEST_USER, { type: 'year', year: y, month: null }, NOW);
       tot += s.hours.estimatedHours;
     }
     expect(Math.abs(tot - 100003 / 3600)).toBeLessThan(0.15);

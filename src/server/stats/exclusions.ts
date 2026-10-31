@@ -1,7 +1,8 @@
 // Исключение игры из месяца (контракт 15.1). Чистая проверка + выборки/мутация. Синк сюда не пишет.
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { NotFoundError } from '@/server/collection/mutations';
 import { gameVisible } from '@/server/collection/visibility';
 import { estimateRangeMonths, type EstimateInput } from './hours';
@@ -40,8 +41,8 @@ export function applyExclusions(inputs: readonly EstimateInput[], exclusions: Mo
 }
 
 /** Исключения видимых игр: gameId -> месяцы. Один запрос. */
-export async function getMonthExclusions(db: AnyDb): Promise<Map<number, Set<string>>> {
-  const rows = await db.select({ gameId: ex.gameId, month: ex.month }).from(ex).where(gameVisible(ex.gameId));
+export async function getMonthExclusions(db: AnyDb, userId: UserId): Promise<Map<number, Set<string>>> {
+  const rows = await db.select({ gameId: ex.gameId, month: ex.month }).from(ex).where(and(eq(ex.userId, userId), gameVisible(ex.gameId)));
   const out = new Map<number, Set<string>>();
   for (const r of rows) {
     const set = out.get(r.gameId) ?? new Set<string>();
@@ -63,24 +64,24 @@ export type MonthExclusionResult = {
   estimateDropped: boolean;
 };
 
-export async function setMonthExclusion(db: AnyDb, gameId: number, month: string, excluded: boolean): Promise<MonthExclusionResult> {
+export async function setMonthExclusion(db: AnyDb, userId: UserId, gameId: number, month: string, excluded: boolean): Promise<MonthExclusionResult> {
   return db.transaction(async (tx) => {
     // параллельные запросы по одной игре не должны вместе исключить последний месяц
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('game_month_exclusions'), ${gameId})`);
     const [game] = await tx
       .select({ firstPlayedAt: games.firstPlayedAt, lastPlayedAt: games.lastPlayedAt })
       .from(games)
-      .where(eq(games.id, gameId))
+      .where(and(eq(games.id, gameId), eq(games.userId, userId)))
       .limit(1);
     if (!game) throw new NotFoundError('Игра не найдена.');
 
     let range: string[] = [];
-    const current = new Set((await tx.select({ month: ex.month }).from(ex).where(eq(ex.gameId, gameId))).map((r) => r.month));
+    const current = new Set((await tx.select({ month: ex.month }).from(ex).where(and(eq(ex.gameId, gameId), eq(ex.userId, userId)))).map((r) => r.month));
     {
       const [first] = await tx
         .select({ date: ps.snapshotDate, seconds: ps.playDurationSeconds, lastPlayedAt: ps.lastPlayedAt })
         .from(ps)
-        .where(eq(ps.gameId, gameId))
+        .where(and(eq(ps.gameId, gameId), eq(ps.userId, userId)))
         .orderBy(asc(ps.snapshotDate))
         .limit(1);
       range = first
@@ -97,10 +98,10 @@ export async function setMonthExclusion(db: AnyDb, gameId: number, month: string
       if (!canExclude(range, current, month)) {
         throw new MonthExclusionConflictError(gameId, month, range, [...current].sort());
       }
-      await tx.insert(ex).values({ gameId, month }).onConflictDoNothing();
+      await tx.insert(ex).values({ userId, gameId, month }).onConflictDoNothing();
       current.add(month);
     } else if (!excluded && current.has(month)) {
-      await tx.delete(ex).where(sql`${ex.gameId} = ${gameId} and ${ex.month} = ${month}`);
+      await tx.delete(ex).where(and(eq(ex.gameId, gameId), eq(ex.userId, userId), eq(ex.month, month)));
       current.delete(month);
     }
     const inRange = excluded && range.includes(month);

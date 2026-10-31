@@ -1,6 +1,6 @@
 // Шаг «цвет акцента» в конце успешного звена синка (контракт 15.2). Не фаза: число шагов прогресса не меняется.
 // Ошибка любой обложки не роняет синк: tint остаётся NULL, tint_checked_at = now.
-import { and, asc, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import { fetchImageBytes, isPublicHttpsImageUrl } from '@/server/psn/image';
 import { TintUnavailableError, tintFromImage } from '@/server/tint/decode';
@@ -48,6 +48,7 @@ export async function tintStep(ctx: RunContext, deps: TintDeps): Promise<{ done:
     .from(games)
     .where(
       and(
+        eq(games.userId, ctx.userId),
         isNull(games.tint),
         or(sql`${games.imageUrl} is not null`, sql`${games.bannerUrl} is not null`),
         or(isNull(games.tintCheckedAt), lt(games.tintCheckedAt, retryBefore)),
@@ -78,7 +79,7 @@ export async function tintStep(ctx: RunContext, deps: TintDeps): Promise<{ done:
     const now = ctx.now();
     for (const r of results) {
       if ('unavailable' in r) continue;
-      await ctx.db.update(games).set({ tint: r.tint, tintCheckedAt: now }).where(sql`${games.id} = ${r.id}`);
+      await ctx.db.update(games).set({ tint: r.tint, tintCheckedAt: now }).where(and(eq(games.id, r.id), eq(games.userId, ctx.userId)));
       if (r.ok) done++;
       else failed++;
     }

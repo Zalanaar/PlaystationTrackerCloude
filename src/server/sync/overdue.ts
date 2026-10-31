@@ -2,6 +2,7 @@
 import { and, asc, desc, eq, gt, ne } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { syncOverdue, type SyncOverdue } from '@/shared/sync';
 
 const { syncRuns } = schema;
@@ -9,8 +10,8 @@ const { syncRuns } = schema;
 /** Идёт ли синк прямо сейчас (старт не старше 2 ч): тогда алерт «не запускался» не шлём. */
 export const RUNNING_FRESH_MS = 2 * 3_600_000;
 
-export async function getSyncOverdue(db: AnyDb, now: Date = new Date()): Promise<SyncOverdue> {
-  const notHltb = ne(syncRuns.kind, 'hltb');
+export async function getSyncOverdue(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<SyncOverdue> {
+  const notHltb = and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'));
   const [ok] = await db
     .select({ at: syncRuns.finishedAt, startedAt: syncRuns.startedAt })
     .from(syncRuns)
@@ -22,11 +23,11 @@ export async function getSyncOverdue(db: AnyDb, now: Date = new Date()): Promise
   return syncOverdue(first?.startedAt ?? null, now);
 }
 
-export async function isSyncRunningFresh(db: AnyDb, now: Date = new Date()): Promise<boolean> {
+export async function isSyncRunningFresh(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<boolean> {
   const [r] = await db
     .select({ id: syncRuns.id })
     .from(syncRuns)
-    .where(and(eq(syncRuns.status, 'running'), gt(syncRuns.startedAt, new Date(now.getTime() - RUNNING_FRESH_MS))))
+    .where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'running'), gt(syncRuns.startedAt, new Date(now.getTime() - RUNNING_FRESH_MS))))
     .limit(1);
   return !!r;
 }

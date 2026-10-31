@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { eq } from 'drizzle-orm';
 import { BulkMissingError, setGamesStatusBulk, setGameStatus, setStatusDate, StatusRuleError } from '@/server/sync/status-rules';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getCollectionSummary, getGamesByIds, listGames } from './query';
 import { parseListQuery, type ListQuery } from './validation';
 
@@ -45,15 +45,15 @@ describe('коллекция (PGlite)', () => {
     if (gameId !== null) await t.db.insert(gameTrophySets).values({ gameId, trophySetId: s.id, source: 'title_id' });
     return s.id;
   }
-  const names = async (qs = '') => (await listGames(t.db, lq(qs))).items.map((i) => i.title);
+  const names = async (qs = '') => (await listGames(t.db, TEST_USER, lq(qs))).items.map((i) => i.title);
 
   it('пустая БД', async () => {
-    const r = await listGames(t.db, lq());
+    const r = await listGames(t.db, TEST_USER, lq());
     expect(r).toEqual({
       items: [], total: 0, limit: 60, offset: 0, years: [], forgottenCount: 0, genreCounts: {}, hltbCounts: { found: 0, not_found: 0, unchecked: 0 }, durationCounts: { lt10: 0, '10_30': 0, '30_60': 0, '60plus': 0, unknown: 0 },
       counts: { all: 0, playing: 0, completed: 0, dropped: 0, backlog: 0, shelved: 0, service: 0, none: 0 },
     });
-    const s = await getCollectionSummary(t.db);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s).toEqual({
       totals: { games: 0, playSeconds: 0, hours: 0, trophiesEarned: 0, platinumEarned: 0 },
       counts: r.counts, playing: [], services: [], continue: [], profile: null, nearPlatinum: [],
@@ -66,7 +66,7 @@ describe('коллекция (PGlite)', () => {
       psnGenres: ['SIMULATOR', 'UNIQUE', 'ACTION'],
     });
     await game('Beta', { category: 'pspc_game' });
-    const [a] = await getGamesByIds(t.db, [id]);
+    const [a] = await getGamesByIds(t.db, TEST_USER, [id]);
     expect(a).toEqual({
       id, title: 'Alpha', coverUrl: 'http://img', bannerUrl: null, tint: null, platform: 'PS5', playSeconds: 5400, hours: 1.5, playCount: 3,
       lastPlayedAt: null, status: null, completedAt: null, droppedAt: null, trophies: null,
@@ -74,7 +74,7 @@ describe('коллекция (PGlite)', () => {
       hiddenAt: null,
       duration: { hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { status: 'unchecked', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } },
     });
-    const beta = (await listGames(t.db, lq('q=beta'))).items[0];
+    const beta = (await listGames(t.db, TEST_USER, lq('q=beta'))).items[0];
     expect(beta.platform).toBe('PC');
     expect(beta.genres).toEqual([{ key: 'OTHER', label: 'Другое' }]);
   });
@@ -85,12 +85,12 @@ describe('коллекция (PGlite)', () => {
     await trophySet(id, 'NPWR2', [4, 0, 0, 0], [4, 0, 0, 0]);
     const empty = await game('EmptySet');
     await trophySet(empty, 'NPWR3', [0, 0, 0, 0], [0, 0, 0, 0]);
-    const [m] = await getGamesByIds(t.db, [id]);
+    const [m] = await getGamesByIds(t.db, TEST_USER, [id]);
     expect(m.trophies).toEqual({
       earned: 16, defined: 22, progress: 73, platinumDefined: true, platinumEarned: false,
       byType: { platinum: { earned: 0, defined: 1 }, gold: { earned: 0, defined: 2 }, silver: { earned: 2, defined: 5 }, bronze: { earned: 14, defined: 14 } },
     });
-    expect((await getGamesByIds(t.db, [empty]))[0].trophies).toBeNull();
+    expect((await getGamesByIds(t.db, TEST_USER, [empty]))[0].trophies).toBeNull();
   });
 
   it('поиск: регистр, кириллица, спецсимволы LIKE', async () => {
@@ -111,13 +111,13 @@ describe('коллекция (PGlite)', () => {
     const b = await game('A2');
     const c = await game('B1');
     await game('B2');
-    await setGameStatus(t.db, a, 'playing', NOW);
-    await setGameStatus(t.db, b, 'backlog', NOW);
-    await setGameStatus(t.db, c, 'playing', NOW);
+    await setGameStatus(t.db, TEST_USER, a, 'playing', NOW);
+    await setGameStatus(t.db, TEST_USER, b, 'backlog', NOW);
+    await setGameStatus(t.db, TEST_USER, c, 'playing', NOW);
     expect((await names('status=playing&sort=title'))).toEqual(['A1', 'B1']);
     expect((await names('status=none'))).toEqual(['B2']);
     expect((await names('status=none,backlog&sort=title'))).toEqual(['A2', 'B2']);
-    const r = await listGames(t.db, lq('status=backlog&q=a'));
+    const r = await listGames(t.db, TEST_USER, lq('status=backlog&q=a'));
     expect(r.total).toBe(1);
     expect(r.counts).toEqual({ all: 2, playing: 1, completed: 0, dropped: 0, backlog: 1, shelved: 0, service: 0, none: 0 });
   });
@@ -128,18 +128,18 @@ describe('коллекция (PGlite)', () => {
     const dropped = await game('Dropped', { lastPlayedAt: d('2023-03-03T10:00:00Z') });
     const playing = await game('Playing', { lastPlayedAt: d('2025-05-05T10:00:00Z') });
     await game('Never'); // last_played_at NULL
-    await setGameStatus(t.db, done, 'completed', NOW);
-    await setGameStatus(t.db, dropped, 'dropped', NOW);
-    await setGameStatus(t.db, playing, 'playing', NOW);
+    await setGameStatus(t.db, TEST_USER, done, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, dropped, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, playing, 'playing', NOW);
     expect(await names('year=2026')).toEqual(['Done']);
     expect(await names('year=2023')).toEqual(['Dropped']);
     // playing с last_played_at в 2025 при year=2025 не виден
     expect(await names('year=2025')).toEqual([]);
     // ручная правка completed_at двигает игру между годами
-    await setStatusDate(t.db, done, d('2025-06-01T00:00:00Z'), NOW, 'completedAt');
+    await setStatusDate(t.db, TEST_USER, done, d('2025-06-01T00:00:00Z'), NOW, 'completedAt');
     expect(await names('year=2025')).toEqual(['Done']);
     expect(await names('year=2026')).toEqual([]);
-    const r = await listGames(t.db, lq());
+    const r = await listGames(t.db, TEST_USER, lq());
     expect(r.years).toEqual([2025, 2023]);
     expect(r.total).toBe(4);
   });
@@ -147,9 +147,9 @@ describe('коллекция (PGlite)', () => {
   it('years не зависят от фильтров; counts учитывают year', async () => {
     const x = await game('X', { lastPlayedAt: d('2026-02-02T10:00:00Z') });
     const y = await game('Y', { lastPlayedAt: d('2024-02-02T10:00:00Z') });
-    await setGameStatus(t.db, x, 'completed', d('2026-02-02T10:00:00Z'));
-    await setGameStatus(t.db, y, 'dropped', d('2024-02-02T10:00:00Z'));
-    const r = await listGames(t.db, lq('year=2024&q=x'));
+    await setGameStatus(t.db, TEST_USER, x, 'completed', d('2026-02-02T10:00:00Z'));
+    await setGameStatus(t.db, TEST_USER, y, 'dropped', d('2024-02-02T10:00:00Z'));
+    const r = await listGames(t.db, TEST_USER, lq('year=2024&q=x'));
     expect(r.years).toEqual([2026, 2024]);
     expect(r.total).toBe(0);
     expect(r.counts.all).toBe(0);
@@ -186,20 +186,20 @@ describe('коллекция (PGlite)', () => {
     const b = await game('b', { lastPlayedAt: d('2026-03-01T00:00:00Z') });
     const c = await game('c', { lastPlayedAt: d('2026-02-01T00:00:00Z') });
     await game('d', { lastPlayedAt: d('2026-04-01T00:00:00Z') });
-    await setGameStatus(t.db, a, 'completed', NOW);
-    await setGameStatus(t.db, b, 'dropped', NOW);
-    await setGameStatus(t.db, c, 'backlog', NOW);
+    await setGameStatus(t.db, TEST_USER, a, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, b, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, c, 'backlog', NOW);
     expect(await names('sort=completed_at')).toEqual(['b', 'a', 'c', 'd']);
     expect(await names('sort=completed_at&order=asc')).toEqual(['a', 'b', 'c', 'd']);
   });
 
   it('limit/offset и total; offset за пределами', async () => {
     for (const x of ['a', 'b', 'c', 'd', 'e']) await game(x);
-    const p1 = await listGames(t.db, lq('sort=title&limit=2'));
+    const p1 = await listGames(t.db, TEST_USER, lq('sort=title&limit=2'));
     expect(p1.items.map((i) => i.title)).toEqual(['a', 'b']);
     expect(p1.total).toBe(5);
-    expect((await listGames(t.db, lq('sort=title&limit=2&offset=4'))).items.map((i) => i.title)).toEqual(['e']);
-    const far = await listGames(t.db, lq('limit=2&offset=100'));
+    expect((await listGames(t.db, TEST_USER, lq('sort=title&limit=2&offset=4'))).items.map((i) => i.title)).toEqual(['e']);
+    const far = await listGames(t.db, TEST_USER, lq('limit=2&offset=100'));
     expect(far.items).toEqual([]);
     expect(far.total).toBe(5);
   });
@@ -209,27 +209,27 @@ describe('коллекция (PGlite)', () => {
     const s2 = await game('svc-new', { playDurationSeconds: 7200, lastPlayedAt: d('2026-10-20T00:00:00Z') });
     const done = await game('done', { lastPlayedAt: d('2026-10-25T00:00:00Z') });
     await game('plain');
-    await setGameStatus(t.db, s1, 'service', NOW);
-    await setGameStatus(t.db, done, 'completed', NOW);
-    await setGamesStatusBulk(t.db, [s2], 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, s1, 'service', NOW);
+    await setGameStatus(t.db, TEST_USER, done, 'completed', NOW);
+    await setGamesStatusBulk(t.db, TEST_USER, [s2], 'completed', NOW);
     // completed -> service обнуляет дату; повтор ничего не трогает
-    await setGamesStatusBulk(t.db, [s2], 'service', NOW);
-    expect(await setGamesStatusBulk(t.db, [s2], 'service', NOW)).toBe(0);
-    expect((await getGamesByIds(t.db, [s2]))[0]).toMatchObject({ status: 'service', completedAt: null, droppedAt: null });
+    await setGamesStatusBulk(t.db, TEST_USER, [s2], 'service', NOW);
+    expect(await setGamesStatusBulk(t.db, TEST_USER, [s2], 'service', NOW)).toBe(0);
+    expect((await getGamesByIds(t.db, TEST_USER, [s2]))[0]).toMatchObject({ status: 'service', completedAt: null, droppedAt: null });
     expect(await names('status=service&sort=last_played')).toEqual(['svc-new', 'svc-old']);
-    expect((await listGames(t.db, lq('status=service'))).counts).toMatchObject({ service: 2, completed: 1, none: 1, all: 4 });
-    const sum = await getCollectionSummary(t.db);
+    expect((await listGames(t.db, TEST_USER, lq('status=service'))).counts).toMatchObject({ service: 2, completed: 1, none: 1, all: 4 });
+    const sum = await getCollectionSummary(t.db, TEST_USER);
     expect(sum.services.map((g) => g.title)).toEqual(['svc-new', 'svc-old']);
     expect(sum.counts.service).toBe(2);
     expect(sum.playing).toEqual([]);
     // service -> dropped берёт дату запуска, -> null удаляет строку
-    await setGameStatus(t.db, s1, 'dropped', NOW);
-    expect((await getGamesByIds(t.db, [s1]))[0]).toMatchObject({ status: 'dropped', droppedAt: '2026-10-01T00:00:00.000Z' });
-    await setGameStatus(t.db, s2, null, NOW);
-    expect((await getGamesByIds(t.db, [s2]))[0].status).toBeNull();
+    await setGameStatus(t.db, TEST_USER, s1, 'dropped', NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [s1]))[0]).toMatchObject({ status: 'dropped', droppedAt: '2026-10-01T00:00:00.000Z' });
+    await setGameStatus(t.db, TEST_USER, s2, null, NOW);
+    expect((await getGamesByIds(t.db, TEST_USER, [s2]))[0].status).toBeNull();
     // дата у service править нельзя
-    await setGameStatus(t.db, s2, 'service', NOW);
-    await expect(setStatusDate(t.db, s2, d('2026-10-02T00:00:00Z'), NOW)).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: 'service' });
+    await setGameStatus(t.db, TEST_USER, s2, 'service', NOW);
+    await expect(setStatusDate(t.db, TEST_USER, s2, d('2026-10-02T00:00:00Z'), NOW)).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: 'service' });
   });
 
   it('summary: итоги, playing, continue (правило)', async () => {
@@ -240,11 +240,11 @@ describe('коллекция (PGlite)', () => {
     const back = await game('back', { lastPlayedAt: d('2026-10-10T00:00:00Z') });
     const noStatus = await game('nostatus', { lastPlayedAt: d('2026-10-15T00:00:00Z') });
     await game('never');
-    await setGameStatus(t.db, pl1, 'playing', NOW);
-    await setGameStatus(t.db, pl2, 'playing', NOW);
-    await setGameStatus(t.db, done, 'completed', NOW);
-    await setGameStatus(t.db, drop, 'dropped', NOW);
-    await setGameStatus(t.db, back, 'backlog', NOW);
+    await setGameStatus(t.db, TEST_USER, pl1, 'playing', NOW);
+    await setGameStatus(t.db, TEST_USER, pl2, 'playing', NOW);
+    await setGameStatus(t.db, TEST_USER, done, 'completed', NOW);
+    await setGameStatus(t.db, TEST_USER, drop, 'dropped', NOW);
+    await setGameStatus(t.db, TEST_USER, back, 'backlog', NOW);
     void noStatus;
     // трофеи: сет игры + сет-сирота (учитывается в totals)
     const s1 = await trophySet(pl1, 'S1', [1, 0, 0, 1], [1, 0, 0, 1]);
@@ -255,7 +255,7 @@ describe('коллекция (PGlite)', () => {
       { trophySetId: s1, trophyId: 2, type: 'bronze', earned: false },
       { trophySetId: s2, trophyId: 0, type: 'bronze', earned: true, earnedAt: NOW },
     ]);
-    const s = await getCollectionSummary(t.db);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.totals).toEqual({ games: 7, playSeconds: 10800, hours: 3, trophiesEarned: 3, platinumEarned: 1 });
     expect(s.counts).toEqual({ all: 7, playing: 2, completed: 1, dropped: 1, backlog: 1, shelved: 0, service: 0, none: 2 });
     expect(s.playing.map((g) => g.title)).toEqual(['pl-new', 'pl-old']);
@@ -266,29 +266,29 @@ describe('коллекция (PGlite)', () => {
 
   it('continue: максимум 8', async () => {
     for (let i = 1; i <= 11; i++) await game(`g${i}`, { lastPlayedAt: d(`2026-10-${String(i).padStart(2, '0')}T00:00:00Z`) });
-    const s = await getCollectionSummary(t.db);
+    const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s.continue).toHaveLength(8);
     expect(s.continue[0].title).toBe('g11');
   });
 
   it('игра с одним статусом и без last_played_at: completed берёт now', async () => {
     const id = await game('NoLast');
-    await setGameStatus(t.db, id, 'completed', NOW);
-    const [g] = await getGamesByIds(t.db, [id]);
+    await setGameStatus(t.db, TEST_USER, id, 'completed', NOW);
+    const [g] = await getGamesByIds(t.db, TEST_USER, [id]);
     expect(g).toMatchObject({ status: 'completed', completedAt: NOW.toISOString(), lastPlayedAt: null });
   });
 
   describe('setStatusDate с проверкой поля и будущего', () => {
     it('несоответствие поля = date_not_allowed со статусом; будущее = date_in_future; нет игры = not_found', async () => {
       const id = await game('G', { lastPlayedAt: d('2026-10-01T00:00:00Z') });
-      await expect(setStatusDate(t.db, id, d('2026-01-01T00:00:00Z'), NOW, 'completedAt')).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: null });
-      await setGameStatus(t.db, id, 'dropped', NOW);
-      await expect(setStatusDate(t.db, id, d('2026-01-01T00:00:00Z'), NOW, 'completedAt')).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: 'dropped' });
-      await expect(setStatusDate(t.db, id, d('2026-10-28T00:00:00Z'), NOW, 'droppedAt')).rejects.toMatchObject({ code: 'date_in_future' });
-      await setStatusDate(t.db, id, NOW, NOW, 'droppedAt'); // ровно now допустимо
+      await expect(setStatusDate(t.db, TEST_USER, id, d('2026-01-01T00:00:00Z'), NOW, 'completedAt')).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: null });
+      await setGameStatus(t.db, TEST_USER, id, 'dropped', NOW);
+      await expect(setStatusDate(t.db, TEST_USER, id, d('2026-01-01T00:00:00Z'), NOW, 'completedAt')).rejects.toMatchObject({ code: 'date_not_allowed', currentStatus: 'dropped' });
+      await expect(setStatusDate(t.db, TEST_USER, id, d('2026-10-28T00:00:00Z'), NOW, 'droppedAt')).rejects.toMatchObject({ code: 'date_in_future' });
+      await setStatusDate(t.db, TEST_USER, id, NOW, NOW, 'droppedAt'); // ровно now допустимо
       const row = (await t.db.select().from(gameStatus).where(eq(gameStatus.gameId, id)))[0];
       expect(row.droppedAt).toEqual(NOW);
-      await expect(setStatusDate(t.db, 99999, NOW, NOW, 'droppedAt')).rejects.toBeInstanceOf(StatusRuleError);
+      await expect(setStatusDate(t.db, TEST_USER, 99999, NOW, NOW, 'droppedAt')).rejects.toBeInstanceOf(StatusRuleError);
     });
   });
 
@@ -297,40 +297,40 @@ describe('коллекция (PGlite)', () => {
       const a = await game('a', { lastPlayedAt: d('2026-10-01T00:00:00Z') });
       const b = await game('b', { lastPlayedAt: d('2026-10-02T00:00:00Z') });
       const c = await game('c');
-      await setGameStatus(t.db, b, 'completed', NOW);
-      const changed = await setGamesStatusBulk(t.db, [a, b, c], 'completed', NOW);
+      await setGameStatus(t.db, TEST_USER, b, 'completed', NOW);
+      const changed = await setGamesStatusBulk(t.db, TEST_USER, [a, b, c], 'completed', NOW);
       expect(changed).toBe(2); // b уже completed
-      const rows = await getGamesByIds(t.db, [a, b, c]);
+      const rows = await getGamesByIds(t.db, TEST_USER, [a, b, c]);
       expect(rows.map((r) => [r.status, r.completedAt])).toEqual([
         ['completed', '2026-10-01T00:00:00.000Z'],
         ['completed', '2026-10-02T00:00:00.000Z'],
         ['completed', NOW.toISOString()],
       ]);
       // переход на другой статус обнуляет даты; повтор идемпотентен
-      expect(await setGamesStatusBulk(t.db, [a, b, c], 'backlog', NOW)).toBe(3);
-      expect(await setGamesStatusBulk(t.db, [a, b, c], 'backlog', NOW)).toBe(0);
-      expect((await getGamesByIds(t.db, [a, b, c])).every((r) => r.status === 'backlog' && r.completedAt === null)).toBe(true);
+      expect(await setGamesStatusBulk(t.db, TEST_USER, [a, b, c], 'backlog', NOW)).toBe(3);
+      expect(await setGamesStatusBulk(t.db, TEST_USER, [a, b, c], 'backlog', NOW)).toBe(0);
+      expect((await getGamesByIds(t.db, TEST_USER, [a, b, c])).every((r) => r.status === 'backlog' && r.completedAt === null)).toBe(true);
       // сброс
-      expect(await setGamesStatusBulk(t.db, [a, c], null, NOW)).toBe(2);
-      expect(await setGamesStatusBulk(t.db, [a, c], null, NOW)).toBe(0);
-      expect((await getGamesByIds(t.db, [a, b, c])).map((r) => r.status)).toEqual([null, 'backlog', null]);
+      expect(await setGamesStatusBulk(t.db, TEST_USER, [a, c], null, NOW)).toBe(2);
+      expect(await setGamesStatusBulk(t.db, TEST_USER, [a, c], null, NOW)).toBe(0);
+      expect((await getGamesByIds(t.db, TEST_USER, [a, b, c])).map((r) => r.status)).toEqual([null, 'backlog', null]);
     });
 
     it('несуществующий id: ничего не изменено, missingIds', async () => {
       const a = await game('a');
-      const err = await setGamesStatusBulk(t.db, [a, 9998, 9999], 'playing', NOW).catch((e: unknown) => e);
+      const err = await setGamesStatusBulk(t.db, TEST_USER, [a, 9998, 9999], 'playing', NOW).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(BulkMissingError);
       expect((err as BulkMissingError).missingIds).toEqual([9998, 9999]);
-      expect((await getGamesByIds(t.db, [a]))[0].status).toBeNull();
+      expect((await getGamesByIds(t.db, TEST_USER, [a]))[0].status).toBeNull();
     });
 
     it('1000 id за один вызов, одна транзакция', async () => {
       const ids: number[] = [];
       await t.db.insert(games).values(Array.from({ length: 1000 }, (_, i) => ({ titleId: `BULK${i}`, name: `g${i}`, category: 'ps4_game', lastSeenAt: NOW })));
       for (const r of await t.db.select({ id: games.id }).from(games)) ids.push(r.id);
-      expect(await setGamesStatusBulk(t.db, ids, 'shelved', NOW)).toBe(1000);
-      expect((await listGames(t.db, lq('status=shelved&limit=300'))).total).toBe(1000);
-      expect(await getGamesByIds(t.db, ids)).toHaveLength(1000);
+      expect(await setGamesStatusBulk(t.db, TEST_USER, ids, 'shelved', NOW)).toBe(1000);
+      expect((await listGames(t.db, TEST_USER, lq('status=shelved&limit=300'))).total).toBe(1000);
+      expect(await getGamesByIds(t.db, TEST_USER, ids)).toHaveLength(1000);
     });
   });
 });

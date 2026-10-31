@@ -3,6 +3,7 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
+import type { UserId } from '@/server/auth/user-id';
 import { getAppOrigin } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
 
@@ -179,13 +180,13 @@ export type NotifyAfterSyncOpts = {
  * Определяет самый приоритетный сработавший триггер (auth > stale > token_age) и шлёт не чаще раза в сутки МСК на тип.
  * Возвращает отправленный тип или null. Не бросает.
  */
-export async function notifyAfterSync(db: AnyDb, o: NotifyAfterSyncOpts = {}): Promise<NotifyKind | null> {
+export async function notifyAfterSync(db: AnyDb, userId: UserId, o: NotifyAfterSyncOpts = {}): Promise<NotifyKind | null> {
   try {
     const env = o.env === undefined ? getTelegramEnv() : o.env;
     if (!env) return null;
     const now = o.now ?? new Date();
 
-    const trigger = await pickTrigger(db, now, o.errorReason ?? null);
+    const trigger = await pickTrigger(db, userId, now, o.errorReason ?? null);
     if (!trigger) return null;
 
     const today = mskDateString(now);
@@ -202,18 +203,18 @@ export async function notifyAfterSync(db: AnyDb, o: NotifyAfterSyncOpts = {}): P
   }
 }
 
-async function pickTrigger(db: AnyDb, now: Date, errorReason: string | null): Promise<{ kind: NotifyKind; ageMs?: number } | null> {
+async function pickTrigger(db: AnyDb, userId: UserId, now: Date, errorReason: string | null): Promise<{ kind: NotifyKind; ageMs?: number } | null> {
   if (errorReason === 'auth_expired' || errorReason === 'npsso_invalid') return { kind: errorReason };
 
   const [lastSuccess] = await db
     .select({ at: syncRuns.finishedAt, startedAt: syncRuns.startedAt })
     .from(syncRuns)
-    .where(and(ne(syncRuns.kind, 'hltb'), eq(syncRuns.status, 'success')))
+    .where(and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'), eq(syncRuns.status, 'success')))
     .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
     .limit(1);
   let reference = lastSuccess ? (lastSuccess.at ?? lastSuccess.startedAt) : null;
   if (!lastSuccess) {
-    const [firstRun] = await db.select({ startedAt: syncRuns.startedAt }).from(syncRuns).where(ne(syncRuns.kind, 'hltb')).orderBy(syncRuns.startedAt).limit(1);
+    const [firstRun] = await db.select({ startedAt: syncRuns.startedAt }).from(syncRuns).where(and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'))).orderBy(syncRuns.startedAt).limit(1);
     reference = firstRun?.startedAt ?? null;
   }
   if (reference && now.getTime() - reference.getTime() > STALE_SYNC_MS) return { kind: 'sync_stale', ageMs: now.getTime() - reference.getTime() };

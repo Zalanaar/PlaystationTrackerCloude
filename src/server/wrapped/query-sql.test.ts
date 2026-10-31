@@ -2,7 +2,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getWrapped } from './query';
 
 const { games, gameStatus, gameTrophySets, playtimeSnapshots, trophies, trophySets } = schema;
@@ -93,7 +93,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     await t.db.insert(gameStatus).values(sts);
 
     for (const year of [2025, 2026, 2027]) {
-      const w = await getWrapped(t.db, year, null, NOW);
+      const w = await getWrapped(t.db, TEST_USER, year, null, NOW);
       const from = `${year}-01-01`, to = `${year}-12-31`;
       const fromUtc = w.period.fromUtc, toUtc = w.period.toUtc;
       const lbl = `year ${year}`;
@@ -172,13 +172,13 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
       { gameId: ids[2], snapshotDate: '2026-01-10', playDurationSeconds: 3600 },
       { gameId: ids[2], snapshotDate: '2026-02-10', playDurationSeconds: 3600 + Math.floor(rand() * 5 + 1) * 3600 },
     ]);
-    const base = await getWrapped(t.db, 2026, null, NOW);
+    const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(base.years.map((y) => y.year)).toEqual([2026, 2025, 2024, 2023]);
     for (const y of base.years) {
-      const w = await getWrapped(t.db, y.year, null, NOW);
+      const w = await getWrapped(t.db, TEST_USER, y.year, null, NOW);
       expect(w.mode === 'story', `year ${y.year}`).toBe(y.hasData);
     }
-    expect((await getWrapped(t.db, 2022, null, NOW)).mode).toBe('empty');
+    expect((await getWrapped(t.db, TEST_USER, 2022, null, NOW)).mode).toBe('empty');
   });
 
   it('ничьи: топ (lower(title), id), самая долгая = №1, платина-ничья по редкости = более ранняя', async () => {
@@ -191,7 +191,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
         { gameId: id, snapshotDate: '2026-05-01', playDurationSeconds: 7200 },
       ]),
     );
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.topGames.items.map((x) => x.game.id)).toEqual([a, a2, b]);
     expect(w.longestGame.game?.id).toBe(a);
 
@@ -201,7 +201,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
       { trophySetId: s2.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-08-01T00:00:00Z'), earnedRate: '2.00' },
       { trophySetId: s1.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-02-01T00:00:00Z'), earnedRate: '2.00' },
     ]);
-    const w2 = await getWrapped(t.db, 2026, null, NOW);
+    const w2 = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w2.trophies.platinum.rarest?.setName).toBe('one');
     expect(w2.trophies.platinum.first?.setName).toBe('one');
     expect(w2.trophies.platinum.last?.setName).toBe('two');
@@ -216,7 +216,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
         { gameId: id, snapshotDate: '2026-06-01', playDurationSeconds: 3600 },
       ]),
     );
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.topGames.items.map((x) => x.game.id)).toEqual(ids.slice(0, 5));
     expect(w.topGames.items.map((x) => x.rank)).toEqual([1, 2, 3, 4, 5]);
   });
@@ -229,7 +229,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     ]);
     const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
     await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
-    const w = await getWrapped(t.db, 2025, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2025, null, NOW);
     expect(w.slides).toEqual(['start', 'trophies', 'final']);
     expect(w.hours).toMatchObject({ hasData: false, total: null, days: null, topMonth: null });
     expect(w.periodPartial).toBe(true);
@@ -238,7 +238,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
 
   it('будущий год: empty, 200, без падения; 2000 и 2100', async () => {
     for (const y of [2027, 2000, 2100]) {
-      const w = await getWrapped(t.db, y, null, NOW);
+      const w = await getWrapped(t.db, TEST_USER, y, null, NOW);
       expect(w.mode).toBe('empty');
       expect(w.hours.byMonth).toHaveLength(12);
     }
@@ -253,7 +253,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
       { gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
       { gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
     ]);
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.years.find((y) => y.year === 2026)?.hasData).toBe(w.mode === 'story');
   });
 
@@ -268,12 +268,12 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
       { gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
     ]);
     await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
-    const w = await getWrapped(t.db, 2026, null, NOW);
+    const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     const has = (y: number) => w.years.find((r) => r.year === y)?.hasData;
     expect(has(2025)).toBe(true); // трофей
     expect(has(2026)).toBe(false); // база 95 (конец 2025), конец 95: часов 0, событий нет
-    expect((await getWrapped(t.db, 2026, null, NOW)).mode).toBe('empty');
-    expect((await getWrapped(t.db, 2025, null, NOW)).mode).toBe('story');
+    expect((await getWrapped(t.db, TEST_USER, 2026, null, NOW)).mode).toBe('empty');
+    expect((await getWrapped(t.db, TEST_USER, 2025, null, NOW)).mode).toBe('story');
   });
   it('оценка: топ игр, самая долгая, жанры и years/mode учитывают оценочные часы (сверка с независимым SQL)', async () => {
     // A: янв-мар 2025 (3 мес), S0 = 31 ч, D0 = март 2026-03-04, реальных после D0 нет
@@ -290,7 +290,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
       { gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 3 * 3600 },
     ]);
     // независимый SQL: A 2025: янв/фев по floor(111600/3)=37200 и март 37200 (111600 делится нацело)
-    const w25 = await getWrapped(t.db, 2025, null, NOW);
+    const w25 = await getWrapped(t.db, TEST_USER, 2025, null, NOW);
     expect(w25.mode).toBe('story');
     expect(w25.hours).toMatchObject({ hasData: true, total: 31, hasEstimate: true, estimatedHours: 31 });
     expect(w25.hours.estimatedByMonth.slice(0, 4)).toEqual([10.3, 10.3, 10.3, 0]);
@@ -303,7 +303,7 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     expect(w25.years.find((y) => y.year === 2025)?.hasData).toBe(true);
 
     // 2026: B оценка 10 ч поровну на фев-мар (5/5), D0 в марте + реальные 5 ч; A весь в 2025; C реальные 2 ч
-    const w26 = await getWrapped(t.db, 2026, null, NOW);
+    const w26 = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w26.topGames.items.map((x) => [x.game.id, x.seconds, x.estimated])).toEqual([[b, 15 * 3600, true], [c, 2 * 3600, false]]);
     expect(w26.hours.total).toBe(17);
     expect(w26.hours.estimatedHours).toBe(10);

@@ -60,6 +60,8 @@ describe('docs/release-neon-0009.sql', () => {
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(9) });
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: root });
+    // с 0014 user_id = 1 ссылается на allowed_users: нужен owner
+    await c.exec(`insert into allowed_users (email, role, status) values ('o@example.com', 'owner', 'active')`);
     const n = await c.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
     expect(n.rows[0].n).toBe(journalRaw.entries.length);
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','Игра','ps4_game', now())`);

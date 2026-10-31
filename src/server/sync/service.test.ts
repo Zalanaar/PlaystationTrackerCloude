@@ -6,6 +6,7 @@ import { getSyncOrigin, getPsnEnv } from '@/server/env';
 import { createTestDb, type TestDb } from './test-helpers';
 import { MAX_HOPS } from './engine';
 import { startRun } from './runs';
+import { TEST_USER } from '@/server/sync/test-helpers';
 
 const afterCbs: Array<() => unknown> = [];
 let t: TestDb;
@@ -92,7 +93,7 @@ describe('launchSync: hops на принимающей стороне', () => {
   });
 
   const partial = async (hops: number) => {
-    const s = await startRun(t.db, { kind: 'daily', now: new Date() });
+    const s = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date() });
     if (s.kind !== 'started') throw new Error('start');
     await t.db
       .update(schema.syncRuns)
@@ -103,30 +104,30 @@ describe('launchSync: hops на принимающей стороне', () => {
 
   it('hop совпадает с курсором и не больше лимита: звено запускается (after вызван)', async () => {
     const id = await partial(3);
-    const r = await launchSync({ kind: 'daily', continueRunId: id, hop: 3 });
+    const r = await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: 3 });
     expect(r.kind).toBe('started');
     expect(afterCbs).toHaveLength(1);
   });
 
   it('hop выше лимита: not_resumable, after не вызван', async () => {
     const id = await partial(MAX_HOPS + 1);
-    expect(await launchSync({ kind: 'daily', continueRunId: id, hop: MAX_HOPS + 1 })).toEqual({ kind: 'not_resumable' });
+    expect(await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: MAX_HOPS + 1 })).toEqual({ kind: 'not_resumable' });
     expect(afterCbs).toHaveLength(0);
   });
 
   it('hop не совпадает с курсором (повтор старого вызова): not_resumable', async () => {
     const id = await partial(5);
-    expect(await launchSync({ kind: 'daily', continueRunId: id, hop: 2 })).toEqual({ kind: 'not_resumable' });
+    expect(await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: 2 })).toEqual({ kind: 'not_resumable' });
     expect(afterCbs).toHaveLength(0);
   });
 
   it('курсор уже за лимитом: not_resumable даже при подходящем hop', async () => {
     const id = await partial(MAX_HOPS + 3);
-    expect(await launchSync({ kind: 'daily', continueRunId: id, hop: MAX_HOPS })).toEqual({ kind: 'not_resumable' });
+    expect(await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: MAX_HOPS })).toEqual({ kind: 'not_resumable' });
   });
 
   it('последнее допустимое звено (hop = 20) запускается', async () => {
     const id = await partial(MAX_HOPS);
-    expect((await launchSync({ kind: 'daily', continueRunId: id, hop: MAX_HOPS })).kind).toBe('started');
+    expect((await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: MAX_HOPS })).kind).toBe('started');
   });
 });

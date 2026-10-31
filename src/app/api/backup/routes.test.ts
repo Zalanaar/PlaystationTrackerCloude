@@ -16,6 +16,8 @@ import { GET as watchdogGet } from '../cron/watchdog/route';
 import { GET as backupGet } from './route';
 import { POST as restorePost } from './restore/route';
 
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+
 const { games, gameStatus, syncRuns } = schema;
 const json = { 'content-type': 'application/json' };
 const post = (body: unknown, headers: Record<string, string> = json) =>
@@ -37,7 +39,7 @@ describe('API копии разметки', () => {
 
   it('GET /api/backup: файл напрямую (не конверт), заголовки скачивания, no-store', async () => {
     await seed();
-    const r = await backupGet();
+    const r = await backupGet(new Request('http://x/'));
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('application/json; charset=utf-8');
     expect(r.headers.get('cache-control')).toBe('no-store');
@@ -50,7 +52,7 @@ describe('API копии разметки', () => {
 
   it('GET /api/backup: БД недоступна = 503 db_unavailable в конверте', async () => {
     holder.db = null;
-    const r = await backupGet();
+    const r = await backupGet(new Request('http://x/'));
     expect(r.status).toBe(503);
     expect((await r.json()).error.code).toBe('db_unavailable');
   });
@@ -82,7 +84,7 @@ describe('API копии разметки', () => {
 
   it('круг через API: скачать -> испортить -> preview (ничего не пишет) -> apply -> повторный apply пустой', async () => {
     const id = await seed();
-    const file = await (await backupGet()).json();
+    const file = await (await backupGet(new Request('http://x/'))).json();
     await t.db.update(gameStatus).set({ status: 'dropped', completedAt: null });
     await t.db.update(games).set({ durationOverrideHours: null });
 

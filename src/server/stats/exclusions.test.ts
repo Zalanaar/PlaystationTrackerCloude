@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import type { GameItem } from '@/server/collection/types';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { MonthExclusionConflictError, applyExclusions, canExclude, getMonthExclusions, setMonthExclusion } from './exclusions';
 import { estimateByMonth, estimateRangeMonths, type EstimateInput } from './hours';
 import { resolvePeriod } from './period';
@@ -127,26 +127,26 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
 
   it('перераспределение, идемпотентность, снятие, 409 на последнем месяце, 404', async () => {
     const id = await seedGame({ first: '2026-01-10T12:00:00Z', last: '2026-02-20T12:00:00Z', seconds: 20 * H }); // янв-фев
-    const r1 = await setMonthExclusion(t.db, id, '2026-01', true);
+    const r1 = await setMonthExclusion(t.db, TEST_USER, id, '2026-01', true);
     expect(r1).toEqual({ excludedMonths: ['2026-01'], redistributed: true, estimateDropped: false });
-    expect(await setMonthExclusion(t.db, id, '2026-01', true)).toEqual(r1); // идемпотентно
+    expect(await setMonthExclusion(t.db, TEST_USER, id, '2026-01', true)).toEqual(r1); // идемпотентно
 
-    const stats = await getStats(t.db, { type: 'year', year: 2026, month: null }, new Date('2026-10-28T10:00:00Z'));
+    const stats = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, new Date('2026-10-28T10:00:00Z'));
     expect(stats.hours.byMonth.slice(0, 3)).toEqual([null, 20, null]); // всё в феврале, в январе нет ни оценки, ни охвата
     expect(stats.header.hours).toBe(20);
 
-    await expect(setMonthExclusion(t.db, id, '2026-02', true)).rejects.toBeInstanceOf(MonthExclusionConflictError);
-    expect((await getMonthExclusions(t.db)).get(id)).toEqual(new Set(['2026-01']));
+    await expect(setMonthExclusion(t.db, TEST_USER, id, '2026-02', true)).rejects.toBeInstanceOf(MonthExclusionConflictError);
+    expect((await getMonthExclusions(t.db, TEST_USER)).get(id)).toEqual(new Set(['2026-01']));
 
-    const back = await setMonthExclusion(t.db, id, '2026-01', false);
+    const back = await setMonthExclusion(t.db, TEST_USER, id, '2026-01', false);
     expect(back).toEqual({ excludedMonths: [], redistributed: false, estimateDropped: false });
-    await expect(setMonthExclusion(t.db, 9999, '2026-01', true)).rejects.toThrow();
+    await expect(setMonthExclusion(t.db, TEST_USER, 9999, '2026-01', true)).rejects.toThrow();
   });
 
   it('один месяц диапазона: оценка выпадает (estimateDropped)', async () => {
     const id = await seedGame({ first: '2026-03-02T12:00:00Z', last: '2026-03-20T12:00:00Z', seconds: 8 * H });
-    expect(await setMonthExclusion(t.db, id, '2026-03', true)).toEqual({ excludedMonths: ['2026-03'], redistributed: false, estimateDropped: true });
-    const stats = await getStats(t.db, { type: 'year', year: 2026, month: null }, new Date('2026-10-28T10:00:00Z'));
+    expect(await setMonthExclusion(t.db, TEST_USER, id, '2026-03', true)).toEqual({ excludedMonths: ['2026-03'], redistributed: false, estimateDropped: true });
+    const stats = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, new Date('2026-10-28T10:00:00Z'));
     expect(stats.hours.estimatedHours).toBe(0);
     expect(stats.played.groups.find((g) => g.month === '2026-03')?.excluded?.[0].gameId).toBe(id);
   });
@@ -156,9 +156,9 @@ describe('setMonthExclusion и getStats (PGlite)', () => {
     await t.db.insert(schema.playtimeSnapshots).values({ gameId: id, snapshotDate: '2026-10-28', playDurationSeconds: 5 * H });
     const q = { type: 'month' as const, year: 2026, month: 10 };
     const now = new Date('2026-10-28T10:00:00Z');
-    const before = await getStats(t.db, q, now);
-    await setMonthExclusion(t.db, id, '2026-10', true);
-    const after = await getStats(t.db, q, now);
+    const before = await getStats(t.db, TEST_USER, q, now);
+    await setMonthExclusion(t.db, TEST_USER, id, '2026-10', true);
+    const after = await getStats(t.db, TEST_USER, q, now);
     expect(after.hours.byMonth).toEqual(before.hours.byMonth);
     expect(after.header.hours).toBe(before.header.hours);
     expect(before.played.groups[0].items).toHaveLength(1);

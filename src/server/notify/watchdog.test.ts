@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { schema } from '@/db';
 import { getSyncOverdue } from '@/server/sync/overdue';
 import { getSyncStatus } from '@/server/sync/status';
-import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
+import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { runSyncWatchdog } from './watchdog';
 import { messageFor } from './telegram';
 
@@ -32,8 +32,8 @@ describe('watchdog', () => {
     await run({ hoursAgo: 35 });
     const f = okFetch();
     const [a, b] = await Promise.all([
-      runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f }),
-      runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f }),
+      runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f }),
+      runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f }),
     ]);
     expect([a.alert, b.alert].sort()).toEqual(['already_sent', 'sent']);
     expect(f).toHaveBeenCalledTimes(1);
@@ -42,15 +42,15 @@ describe('watchdog', () => {
   it('N-7: неудачная отправка не блокирует повтор в тот же день', async () => {
     await run({ hoursAgo: 35 });
     const bad = vi.fn(async () => new Response('{"ok":false}', { status: 500 }));
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: bad })).alert).toBe('send_failed');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: bad })).alert).toBe('send_failed');
     expect(await t.db.select().from(notifyLog)).toEqual([]);
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: okFetch() })).alert).toBe('sent');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).alert).toBe('sent');
   });
 
   it('свежий успех: не просрочено, Telegram не вызывается', async () => {
     await run({ hoursAgo: 10 });
     const f = okFetch();
-    const r = await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f });
+    const r = await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f });
     expect(r).toMatchObject({ isOverdue: false, alert: 'not_needed' });
     expect(r.ageHours).toBeCloseTo(9.9, 1);
     expect(f).not.toHaveBeenCalled();
@@ -59,7 +59,7 @@ describe('watchdog', () => {
   it('успех старше 30 ч: сообщение в Telegram один раз в сутки МСК; повтор в тот же день не шлёт', async () => {
     await run({ hoursAgo: 35 });
     const f = okFetch();
-    const r1 = await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f });
+    const r1 = await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f });
     expect(r1.alert).toBe('sent');
     expect(r1.isOverdue).toBe(true);
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
@@ -68,10 +68,10 @@ describe('watchdog', () => {
     expect(text).toMatch(/не выполнялся успешно уже 3[45] ч/);
     expect(text).toContain('docs/release.md');
     expect((await t.db.select().from(notifyLog))[0]).toMatchObject({ kind: 'sync_missed', sentOn: '2026-10-29' });
-    expect((await runSyncWatchdog(t.db, { now: new Date(NOW.getTime() + 3 * H), env: ENV, fetchImpl: f })).alert).toBe('already_sent');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: new Date(NOW.getTime() + 3 * H), env: ENV, fetchImpl: f })).alert).toBe('already_sent');
     expect(f).toHaveBeenCalledTimes(1);
     // следующие сутки МСК (после 21:00Z): снова
-    expect((await runSyncWatchdog(t.db, { now: new Date('2026-10-30T06:00:00Z'), env: ENV, fetchImpl: f })).alert).toBe('sent');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: new Date('2026-10-30T06:00:00Z'), env: ENV, fetchImpl: f })).alert).toBe('sent');
     expect(f).toHaveBeenCalledTimes(2);
   });
 
@@ -79,16 +79,16 @@ describe('watchdog', () => {
     await run({ hoursAgo: 40 });
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const bad = vi.fn(async () => new Response('', { status: 500 }));
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: bad })).alert).toBe('send_failed');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: bad })).alert).toBe('send_failed');
     expect(await t.db.select().from(notifyLog)).toEqual([]);
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: okFetch() })).alert).toBe('sent');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).alert).toBe('sent');
     spy.mockRestore();
   });
 
   it('Telegram не настроен: telegram_disabled, сеть не трогается', async () => {
     await run({ hoursAgo: 40 });
     const f = okFetch();
-    const r = await runSyncWatchdog(t.db, { now: NOW, env: null, fetchImpl: f });
+    const r = await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: null, fetchImpl: f });
     expect(r).toMatchObject({ isOverdue: true, alert: 'telegram_disabled' });
     expect(f).not.toHaveBeenCalled();
   });
@@ -97,11 +97,11 @@ describe('watchdog', () => {
     await run({ hoursAgo: 40 });
     await run({ status: 'running', hoursAgo: 0.5 });
     const f = okFetch();
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f })).alert).toBe('sync_running');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f })).alert).toBe('sync_running');
     expect(f).not.toHaveBeenCalled();
     await t.db.delete(syncRuns).where(eq(syncRuns.status, 'running'));
     await run({ status: 'running', hoursAgo: 3 });
-    expect((await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f })).alert).toBe('sent');
+    expect((await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f })).alert).toBe('sent');
   });
 
   it('HLTB-запуски не маскируют отсутствие синка; failed/partial не считаются успехом', async () => {
@@ -109,34 +109,34 @@ describe('watchdog', () => {
     await run({ kind: 'hltb', hoursAgo: 1 });
     await run({ status: 'failed', hoursAgo: 2 });
     await run({ status: 'partial', hoursAgo: 3 });
-    const r = await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: okFetch() });
+    const r = await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() });
     expect(r.alert).toBe('sent');
     expect(r.ageHours).toBeCloseTo(59.9, 1);
   });
 
   it('успех без finished_at считается по started_at', async () => {
     await run({ hoursAgo: 31, finished: false });
-    expect((await getSyncOverdue(t.db, NOW)).isOverdue).toBe(true);
+    expect((await getSyncOverdue(t.db, TEST_USER, NOW)).isOverdue).toBe(true);
   });
 
   it('успехов не было, но запуски были: возраст от первого запуска', async () => {
     await run({ status: 'failed', hoursAgo: 50 });
     await run({ status: 'failed', hoursAgo: 5 });
-    const o = await getSyncOverdue(t.db, NOW);
+    const o = await getSyncOverdue(t.db, TEST_USER, NOW);
     expect(o.isOverdue).toBe(true);
     expect(o.ageHours).toBeCloseTo(50, 0);
   });
 
   it('запусков нет вообще: тихо, не просрочено', async () => {
     const f = okFetch();
-    expect(await runSyncWatchdog(t.db, { now: NOW, env: ENV, fetchImpl: f })).toEqual({ isOverdue: false, ageHours: null, alert: 'not_needed' });
+    expect(await runSyncWatchdog(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f })).toEqual({ isOverdue: false, ageHours: null, alert: 'not_needed' });
     expect(f).not.toHaveBeenCalled();
   });
 
   it('ошибка БД даёт error, а не исключение; токен не попадает в консоль', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const db = Object.assign(Object.create(t.db), { select: () => { throw new Error('db down 123:SECRET-TOKEN'); } });
-    const r = await runSyncWatchdog(db, { now: NOW, env: ENV, fetchImpl: okFetch() });
+    const r = await runSyncWatchdog(db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() });
     expect(r.alert).toBe('error');
     expect(JSON.stringify(spy.mock.calls)).not.toContain('SECRET-TOKEN');
     spy.mockRestore();
@@ -144,10 +144,10 @@ describe('watchdog', () => {
 
   it('GET /api/sync/status отдаёт overdue для баннера', async () => {
     await run({ hoursAgo: 53.2 });
-    const st = await getSyncStatus(t.db, NOW);
+    const st = await getSyncStatus(t.db, TEST_USER, NOW);
     expect(st.overdue).toEqual({ isOverdue: true, ageHours: 53.1, thresholdHours: 30 }); // от finished_at
     await run({ hoursAgo: 2 });
-    expect((await getSyncStatus(t.db, NOW)).overdue.isOverdue).toBe(false);
+    expect((await getSyncStatus(t.db, TEST_USER, NOW)).overdue.isOverdue).toBe(false);
   });
 
   it('текст sync_missed', () => {
