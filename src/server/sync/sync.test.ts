@@ -436,12 +436,12 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('статус: totals считаются из БД', async () => {
-    const [set] = await t.db.insert(schema.trophySets).values({ npCommunicationId: 'NPWRTOT', npServiceName: 'trophy', name: 'T' }).returning();
+    const [set] = await t.db.insert(schema.trophySets).values({ userId: 1, npCommunicationId: 'NPWRTOT', npServiceName: 'trophy', name: 'T' }).returning();
     await t.db.insert(schema.trophies).values([
-      { trophySetId: set.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date(clock.t) },
-      { trophySetId: set.id, trophyId: 1, type: 'bronze', earned: true, earnedAt: new Date(clock.t) },
-      { trophySetId: set.id, trophyId: 2, type: 'gold' },
-      { trophySetId: set.id, trophyId: 3, type: 'platinum' },
+      { userId: 1, trophySetId: set.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date(clock.t) },
+      { userId: 1, trophySetId: set.id, trophyId: 1, type: 'bronze', earned: true, earnedAt: new Date(clock.t) },
+      { userId: 1, trophySetId: set.id, trophyId: 2, type: 'gold' },
+      { userId: 1, trophySetId: set.id, trophyId: 3, type: 'platinum' },
     ]);
     const st = await getSyncStatus(t.db, TEST_USER);
     const gamesCount = (await t.db.select().from(schema.games)).length;

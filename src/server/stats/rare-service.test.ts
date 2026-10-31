@@ -20,15 +20,15 @@ describe('редкие трофеи и игры-сервисы', () => {
   let n = 0;
   async function game(status: 'service' | 'completed' | 'backlog' | null) {
     n++;
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW }).returning();
-    if (status) await t.db.insert(gameStatus).values({ gameId: g.id, status });
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}`, name: `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW }).returning();
+    if (status) await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status });
     return g.id;
   }
   async function trophy(gameIds: number[], name: string, rate: string, at = '2026-05-01T10:00:00Z') {
     n++;
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name }).returning();
-    for (const id of gameIds) await t.db.insert(gameTrophySets).values({ gameId: id, trophySetId: s.id, source: 'title_id' });
-    await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 1, type: 'gold', name, earned: true, earnedAt: new Date(at), earnedRate: rate });
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: `NPWR${n}`, npServiceName: 'trophy2', name }).returning();
+    for (const id of gameIds) await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id, trophySetId: s.id, source: 'title_id' });
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: s.id, trophyId: 1, type: 'gold', name, earned: true, earnedAt: new Date(at), earnedRate: rate });
   }
   const names = (r: { setName: string }[]) => r.map((x) => x.setName);
   const year = { fromUtc: new Date('2025-12-31T21:00:00Z'), toUtc: new Date('2026-12-31T21:00:00Z') };

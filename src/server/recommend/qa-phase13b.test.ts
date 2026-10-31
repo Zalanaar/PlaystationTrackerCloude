@@ -34,10 +34,10 @@ describe('QA 13b: БД', () => {
   beforeEach(() => t.reset());
 
   async function seedBacklog(n: number, base = 'G') {
-    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({
+    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ userId: 1,
       category: 'ps5_native_game', lastSeenAt: NOW, titleId: `${base}${i}`, name: `Игра ${String.fromCharCode(65 + i)}${i}`, psnGenres: ['ACTION'], hltbMainHours: 10,
     }))).returning({ id: games.id });
-    await t.db.insert(gameStatus).values(ins.map((g) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() - 100 * DAY) })));
+    await t.db.insert(gameStatus).values(ins.map((g) => ({ userId: 1, gameId: g.id, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() - 100 * DAY) })));
     return ins.map((g) => g.id);
   }
   it('TOP_N = 9: из 12 кандидатов 9 карточек, candidates 12; из 5 — 5', async () => {
@@ -67,7 +67,7 @@ describe('QA 13b: БД', () => {
     const at = (ms: number) => new Date(NOW.getTime() - ms);
     for (const [age, hidden] of [[30 * DAY - 60_000, true], [30 * DAY - 1, true], [30 * DAY, false], [30 * DAY + 1, false], [0, true]] as const) {
       await t.db.delete(recommendDislikes);
-      await t.db.insert(recommendDislikes).values({ gameId: id, createdAt: at(age) });
+      await t.db.insert(recommendDislikes).values({ userId: 1, gameId: id, createdAt: at(age) });
       expect((await getDislikedIds(t.db, TEST_USER, NOW)).has(id), `age ${age}`).toBe(hidden);
       expect((await listDislikes(t.db, TEST_USER, NOW)).items.length, `list ${age}`).toBe(hidden ? 1 : 0);
       expect((await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null })).items.length, `rec ${age}`).toBe(hidden ? 0 : 1);
@@ -100,8 +100,8 @@ describe('QA 13b: БД', () => {
     await t.db.update(games).set({ hiddenAt: NOW }).where(eq(games.id, hid));
     const same = new Date(NOW.getTime() - 2 * DAY);
     await t.db.insert(recommendDislikes).values([
-      { gameId: ids[2], createdAt: same }, { gameId: ids[0], createdAt: same }, { gameId: ids[1], createdAt: NOW },
-      { gameId: ids[3], createdAt: new Date(NOW.getTime() - 31 * DAY) }, { gameId: done, createdAt: NOW }, { gameId: hid, createdAt: NOW },
+      { userId: 1, gameId: ids[2], createdAt: same }, { userId: 1, gameId: ids[0], createdAt: same }, { userId: 1, gameId: ids[1], createdAt: NOW },
+      { userId: 1, gameId: ids[3], createdAt: new Date(NOW.getTime() - 31 * DAY) }, { userId: 1, gameId: done, createdAt: NOW }, { userId: 1, gameId: hid, createdAt: NOW },
     ]);
     const r = await listDislikes(t.db, TEST_USER, NOW);
     expect(r.ttlDays).toBe(30);

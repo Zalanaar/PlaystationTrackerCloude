@@ -74,7 +74,7 @@ describe('setGameStatus / setStatusDate (PGlite)', () => {
   async function game(lastPlayedAt: Date | null) {
     const [g] = await t.db
       .insert(schema.games)
-      .values({ titleId: 'CUSA1_00', name: 'G', category: 'ps4_game', lastSeenAt: NOW, lastPlayedAt })
+      .values({ userId: 1, titleId: 'CUSA1_00', name: 'G', category: 'ps4_game', lastSeenAt: NOW, lastPlayedAt })
       .returning();
     return g.id;
   }

@@ -31,9 +31,9 @@ describe('маршруты «Подскажи» на БД', () => {
   beforeEach(async () => {
     await t.reset();
     holder.db = t.db;
-    const [g] = await t.db.insert(schema.games).values({ category: 'ps5_native_game', lastSeenAt: new Date(), titleId: 'A', name: 'Alpha', psnGenres: ['ACTION'] }).returning({ id: schema.games.id });
+    const [g] = await t.db.insert(schema.games).values({ userId: 1, category: 'ps5_native_game', lastSeenAt: new Date(), titleId: 'A', name: 'Alpha', psnGenres: ['ACTION'] }).returning({ id: schema.games.id });
     gid = g.id;
-    await t.db.insert(schema.gameStatus).values({ gameId: gid, status: 'backlog', statusChangedAt: new Date() });
+    await t.db.insert(schema.gameStatus).values({ userId: 1, gameId: gid, status: 'backlog', statusChangedAt: new Date() });
   });
 
   it('GET: конверт, время по умолчанию any, дизлайк убирает игру, повтор безопасен', async () => {

@@ -220,8 +220,8 @@ describe('QA 13b: getDiscover на PGlite', () => {
   const deps = (f: ReturnType<typeof makeFetch>, extra: DiscoverDeps = {}): DiscoverDeps => ({ llm: LLM, rawgKey: RAWG_KEY, fetch: f, ...extra });
   const base = { category: 'ps5_native_game', lastSeenAt: NOW };
   const own = async (name: string, status: 'completed' | 'backlog' | 'dropped' | 'playing' | 'service' | 'shelved' = 'completed', extra: Partial<typeof games.$inferInsert> = {}) => {
-    const [r] = await t.db.insert(games).values({ ...base, titleId: `T${Math.random()}`, name, psnGenres: ['ACTION'], playDurationSeconds: 3600, ...extra }).returning({ id: games.id });
-    await t.db.insert(gameStatus).values({ gameId: r.id, status, completedAt: status === 'completed' ? NOW : null });
+    const [r] = await t.db.insert(games).values({ userId: 1, ...base, titleId: `T${Math.random()}`, name, psnGenres: ['ACTION'], playDurationSeconds: 3600, ...extra }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: r.id, status, completedAt: status === 'completed' ? NOW : null });
     return r.id;
   };
   const cat = known({ Hades: rg(1, 'Hades'), Stray: rg(2, 'Stray'), Control: rg(3, 'Control') });
@@ -230,7 +230,7 @@ describe('QA 13b: getDiscover на PGlite', () => {
   describe('фильтры владения (19.5), реальное поведение', () => {
     const run = async (cands: RawgGame[], planned: Partial<typeof plannedGames.$inferInsert>[] = []) => {
       const f = makeFetch({ proposals: cands.map((c) => ({ title: c.name, year: 2020 })), rawg: (q) => cands.filter((c) => c.name === q) });
-      for (const p of planned) await t.db.insert(plannedGames).values({ title: 'x', status: 'planned', ...p } as never);
+      for (const p of planned) await t.db.insert(plannedGames).values({ userId: 1, title: 'x', status: 'planned', ...p } as never);
       return getDiscover(t.db, TEST_USER, { refresh: true }, NOW, deps(f));
     };
     it('скрытые, service, любой статус и hltb_name блокируют; дубль по регистру и знакам', async () => {

@@ -23,12 +23,12 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
   const rows = async <T,>(q: ReturnType<typeof sql>) => (await t.pg.execute(q)).rows as T[];
   const link = (gameId: number, trophySetId: number) =>
-    t.db.insert(gameTrophySets).values({ gameId, trophySetId, source: 'manual' });
+    t.db.insert(gameTrophySets).values({ userId: 1, gameId, trophySetId, source: 'manual' });
 
   /** Независимая формула часов 1.6 по играм: секунды за [from,to], только > 0, порядок как в контракте. */
   const sqlTop = (from: string, to: string) =>
@@ -59,14 +59,14 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
         if (rand() < 0.3) continue;
         // кратно часу, чтобы возникали ничьи
         sec = rand() < 0.01 ? Math.max(0, sec - 3600) : sec + (rand() < 0.5 ? 0 : Math.floor(rand() * 3) * 3600);
-        snaps.push({ gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
+        snaps.push({ userId: 1, gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
       }
     }
     for (let i = 0; i < snaps.length; i += 500) await t.db.insert(playtimeSnapshots).values(snaps.slice(i, i + 500));
 
     const sets: number[] = [];
     for (let k = 0; k < 8; k++) {
-      const [s] = await t.db.insert(trophySets).values({ npCommunicationId: `NPWR${k}`, npServiceName: 'trophy', name: `Set ${k}` }).returning();
+      const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: `NPWR${k}`, npServiceName: 'trophy', name: `Set ${k}` }).returning();
       sets.push(s.id);
       if (k < 6) await link(ids[k], s.id);
       if (k === 0) await link(ids[20], s.id); // два игры на сет: берётся минимальный id
@@ -74,21 +74,21 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     const tr: (typeof trophies.$inferInsert)[] = [];
     let n = 0;
     for (let i = 0; i < 40; i++) {
-      tr.push({
+      tr.push({ userId: 1,
         trophySetId: sets[i % sets.length], trophyId: n++, type: 'platinum', earned: true,
         earnedAt: new Date(Date.UTC(2025, 0, 1) + Math.floor(rand() * 3 * 365 * 86400_000)),
         earnedRate: i % 5 === 0 ? null : (Math.floor(rand() * 30) / 10 + 0.5).toFixed(2),
         name: `P${i}`, rarity: i % 4,
       });
     }
-    tr.push({ trophySetId: sets[0], trophyId: n++, type: 'gold', earned: true, earnedAt: new Date('2026-05-05T00:00:00Z') });
-    tr.push({ trophySetId: sets[0], trophyId: n++, type: 'platinum', earned: false, earnedAt: null });
+    tr.push({ userId: 1, trophySetId: sets[0], trophyId: n++, type: 'gold', earned: true, earnedAt: new Date('2026-05-05T00:00:00Z') });
+    tr.push({ userId: 1, trophySetId: sets[0], trophyId: n++, type: 'platinum', earned: false, earnedAt: null });
     await t.db.insert(trophies).values(tr);
     const sts: (typeof gameStatus.$inferInsert)[] = [];
     ids.forEach((id, i) => {
       const at = new Date(Date.UTC(2025, 3, 1) + Math.floor(rand() * 24 * 30 * 86400_000));
-      if (i % 3 === 0) sts.push({ gameId: id, status: 'completed', completedAt: at });
-      else if (i % 3 === 1) sts.push({ gameId: id, status: 'dropped', droppedAt: at });
+      if (i % 3 === 0) sts.push({ userId: 1, gameId: id, status: 'completed', completedAt: at });
+      else if (i % 3 === 1) sts.push({ userId: 1, gameId: id, status: 'dropped', droppedAt: at });
     });
     await t.db.insert(gameStatus).values(sts);
 
@@ -160,17 +160,17 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
 
   it('years[].hasData совпадает с реальным mode ответа за год (случайные данные)', async () => {
     const rand = rng(11);
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'S' }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'S' }).returning();
     const ids: number[] = [];
     for (let i = 1; i <= 6; i++) ids.push(await game(i));
     // 2022 пусто, 2023 только трофей, 2024 только статус, 2025 только часы, 2026 всё
-    await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2023-05-01T00:00:00Z') });
-    await t.db.insert(gameStatus).values({ gameId: ids[0], status: 'dropped', droppedAt: new Date('2024-02-01T00:00:00Z') });
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2023-05-01T00:00:00Z') });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: ids[0], status: 'dropped', droppedAt: new Date('2024-02-01T00:00:00Z') });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: ids[1], snapshotDate: '2025-02-01', playDurationSeconds: 3600 },
-      { gameId: ids[1], snapshotDate: '2025-03-01', playDurationSeconds: 7200 },
-      { gameId: ids[2], snapshotDate: '2026-01-10', playDurationSeconds: 3600 },
-      { gameId: ids[2], snapshotDate: '2026-02-10', playDurationSeconds: 3600 + Math.floor(rand() * 5 + 1) * 3600 },
+      { userId: 1, gameId: ids[1], snapshotDate: '2025-02-01', playDurationSeconds: 3600 },
+      { userId: 1, gameId: ids[1], snapshotDate: '2025-03-01', playDurationSeconds: 7200 },
+      { userId: 1, gameId: ids[2], snapshotDate: '2026-01-10', playDurationSeconds: 3600 },
+      { userId: 1, gameId: ids[2], snapshotDate: '2026-02-10', playDurationSeconds: 3600 + Math.floor(rand() * 5 + 1) * 3600 },
     ]);
     const base = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(base.years.map((y) => y.year)).toEqual([2026, 2025, 2024, 2023]);
@@ -187,19 +187,19 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     const a2 = await game(3, { name: 'alpha' }); // равен Alpha по lower(), решает id
     await t.db.insert(playtimeSnapshots).values(
       [b, a, a2].flatMap((id) => [
-        { gameId: id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: id, snapshotDate: '2026-05-01', playDurationSeconds: 7200 },
+        { userId: 1, gameId: id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: id, snapshotDate: '2026-05-01', playDurationSeconds: 7200 },
       ]),
     );
     const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.topGames.items.map((x) => x.game.id)).toEqual([a, a2, b]);
     expect(w.longestGame.game?.id).toBe(a);
 
-    const [s1] = await t.db.insert(trophySets).values({ npCommunicationId: 'N1', npServiceName: 'trophy', name: 'one' }).returning();
-    const [s2] = await t.db.insert(trophySets).values({ npCommunicationId: 'N2', npServiceName: 'trophy', name: 'two' }).returning();
+    const [s1] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'N1', npServiceName: 'trophy', name: 'one' }).returning();
+    const [s2] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'N2', npServiceName: 'trophy', name: 'two' }).returning();
     await t.db.insert(trophies).values([
-      { trophySetId: s2.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-08-01T00:00:00Z'), earnedRate: '2.00' },
-      { trophySetId: s1.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-02-01T00:00:00Z'), earnedRate: '2.00' },
+      { userId: 1, trophySetId: s2.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-08-01T00:00:00Z'), earnedRate: '2.00' },
+      { userId: 1, trophySetId: s1.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2026-02-01T00:00:00Z'), earnedRate: '2.00' },
     ]);
     const w2 = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w2.trophies.platinum.rarest?.setName).toBe('one');
@@ -212,8 +212,8 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     for (let i = 1; i <= 8; i++) ids.push(await game(i, { name: `T${i}` }));
     await t.db.insert(playtimeSnapshots).values(
       ids.flatMap((id) => [
-        { gameId: id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
-        { gameId: id, snapshotDate: '2026-06-01', playDurationSeconds: 3600 },
+        { userId: 1, gameId: id, snapshotDate: '2025-12-31', playDurationSeconds: 0 },
+        { userId: 1, gameId: id, snapshotDate: '2026-06-01', playDurationSeconds: 3600 },
       ]),
     );
     const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
@@ -224,11 +224,11 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
   it('нет часов, но есть трофеи: слайды 2, 3, 7 пропущены; а часы без охвата прошлого года не выдумываются', async () => {
     const a = await game(1);
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
-      { gameId: a, snapshotDate: '2026-04-04', playDurationSeconds: 7200 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-04-04', playDurationSeconds: 7200 },
     ]);
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
-    await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
     const w = await getWrapped(t.db, TEST_USER, 2025, null, NOW);
     expect(w.slides).toEqual(['start', 'trophies', 'final']);
     expect(w.hours).toMatchObject({ hasData: false, total: null, days: null, topMonth: null });
@@ -249,9 +249,9 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
   it('years[].hasData согласован с mode, когда значение падает и снова растёт', async () => {
     const a = await game(1);
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 100 * 3600 },
-      { gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
-      { gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2025-12-31', playDurationSeconds: 100 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
     ]);
     const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     expect(w.years.find((y) => y.year === 2026)?.hasData).toBe(w.mode === 'story');
@@ -259,15 +259,15 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
 
   it('hasData: год без часов, но с трофеем или статусом, остаётся true; год с падением часов и без событий false', async () => {
     const a = await game(1);
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'N1', npServiceName: 'trophy', name: 's' }).returning();
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2024-12-31', playDurationSeconds: 100 * 3600 },
-      { gameId: a, snapshotDate: '2025-02-01', playDurationSeconds: 90 * 3600 },
-      { gameId: a, snapshotDate: '2025-03-01', playDurationSeconds: 95 * 3600 },
-      { gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
-      { gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2024-12-31', playDurationSeconds: 100 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2025-02-01', playDurationSeconds: 90 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2025-03-01', playDurationSeconds: 95 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 90 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-01', playDurationSeconds: 95 * 3600 },
     ]);
-    await t.db.insert(trophies).values({ trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: s.id, trophyId: 0, type: 'bronze', earned: true, earnedAt: new Date('2025-06-01T00:00:00Z') });
     const w = await getWrapped(t.db, TEST_USER, 2026, null, NOW);
     const has = (y: number) => w.years.find((r) => r.year === y)?.hasData;
     expect(has(2025)).toBe(true); // трофей
@@ -283,11 +283,11 @@ describe('getWrapped против прямого SQL (PGlite)', () => {
     // C: нет firstPlayedAt, только реальные 2 ч
     const c = await game(3, { name: 'C', psnGenres: ['RACING'], firstPlayedAt: null });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 31 * 3600 },
-      { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 10 * 3600 },
-      { gameId: b, snapshotDate: '2026-06-01', playDurationSeconds: 15 * 3600 },
-      { gameId: c, snapshotDate: '2026-03-04', playDurationSeconds: 1 * 3600 },
-      { gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 3 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 31 * 3600 },
+      { userId: 1, gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 10 * 3600 },
+      { userId: 1, gameId: b, snapshotDate: '2026-06-01', playDurationSeconds: 15 * 3600 },
+      { userId: 1, gameId: c, snapshotDate: '2026-03-04', playDurationSeconds: 1 * 3600 },
+      { userId: 1, gameId: c, snapshotDate: '2026-06-01', playDurationSeconds: 3 * 3600 },
     ]);
     // независимый SQL: A 2025: янв/фев по floor(111600/3)=37200 и март 37200 (111600 делится нацело)
     const w25 = await getWrapped(t.db, TEST_USER, 2025, null, NOW);

@@ -46,12 +46,12 @@ describe('GET /api/games: none и genreCounts', () => {
       { titleId: 'E', name: 'Echo', psnGenres: ['HORROR'], hltbId: 1, hltbMainHours: 5 },
       { titleId: 'H', name: 'Hidden', psnGenres: [] as string[], hiddenAt: NOW },
     ];
-    const ins = await t.db.insert(games).values(rows.map((r) => ({ ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
+    const ins = await t.db.insert(games).values(rows.map((r) => ({ userId: 1, ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
     const id = (k: string) => ins.find((x) => x.titleId === k)!.id;
     await t.db.insert(gameStatus).values([
-      { gameId: id('A'), status: 'backlog' as const },
-      { gameId: id('C'), status: 'backlog' as const },
-      { gameId: id('E'), status: 'playing' as const },
+      { userId: 1, gameId: id('A'), status: 'backlog' as const },
+      { userId: 1, gameId: id('C'), status: 'backlog' as const },
+      { userId: 1, gameId: id('E'), status: 'playing' as const },
     ]);
   });
   const list = async (q: string) => {

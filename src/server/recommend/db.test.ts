@@ -24,25 +24,25 @@ describe('recommend на БД', () => {
     const ins = await t.db
       .insert(games)
       .values([
-        { ...base, titleId: 'A', name: 'Alpha', psnGenres: ['ACTION'], hltbMainHours: 6 },
-        { ...base, titleId: 'B', name: 'Bravo', psnGenres: ['PUZZLE'], hltbMainHours: 40, durationOverrideHours: 5 },
-        { ...base, titleId: 'C', name: 'Charlie', psnGenres: ['ACTION'], hiddenAt: NOW },
-        { ...base, titleId: 'D', name: 'Delta', psnGenres: ['ACTION'] },
-        { ...base, titleId: 'S', name: 'Service', psnGenres: ['ACTION'] },
-        { ...base, titleId: 'H1', name: 'Hist1', psnGenres: ['ACTION'], playDurationSeconds: 100 * 3600 },
-        { ...base, titleId: 'H2', name: 'Hist2', psnGenres: ['RACING'], genresOverride: ['ACTION'], playDurationSeconds: 10 * 3600 },
+        { userId: 1, ...base, titleId: 'A', name: 'Alpha', psnGenres: ['ACTION'], hltbMainHours: 6 },
+        { userId: 1, ...base, titleId: 'B', name: 'Bravo', psnGenres: ['PUZZLE'], hltbMainHours: 40, durationOverrideHours: 5 },
+        { userId: 1, ...base, titleId: 'C', name: 'Charlie', psnGenres: ['ACTION'], hiddenAt: NOW },
+        { userId: 1, ...base, titleId: 'D', name: 'Delta', psnGenres: ['ACTION'] },
+        { userId: 1, ...base, titleId: 'S', name: 'Service', psnGenres: ['ACTION'] },
+        { userId: 1, ...base, titleId: 'H1', name: 'Hist1', psnGenres: ['ACTION'], playDurationSeconds: 100 * 3600 },
+        { userId: 1, ...base, titleId: 'H2', name: 'Hist2', psnGenres: ['RACING'], genresOverride: ['ACTION'], playDurationSeconds: 10 * 3600 },
       ])
       .returning({ id: games.id, titleId: games.titleId });
     const id = (k: string) => ins.find((x) => x.titleId === k)!.id;
     const old = new Date('2025-10-29T09:00:00Z');
     await t.db.insert(gameStatus).values([
-      { gameId: id('A'), status: 'backlog', statusChangedAt: old },
-      { gameId: id('B'), status: 'backlog', statusChangedAt: NOW },
-      { gameId: id('C'), status: 'backlog', statusChangedAt: old },
-      { gameId: id('D'), status: 'backlog', statusChangedAt: NOW },
-      { gameId: id('S'), status: 'service' },
-      { gameId: id('H1'), status: 'completed', completedAt: NOW },
-      { gameId: id('H2'), status: 'playing' },
+      { userId: 1, gameId: id('A'), status: 'backlog', statusChangedAt: old },
+      { userId: 1, gameId: id('B'), status: 'backlog', statusChangedAt: NOW },
+      { userId: 1, gameId: id('C'), status: 'backlog', statusChangedAt: old },
+      { userId: 1, gameId: id('D'), status: 'backlog', statusChangedAt: NOW },
+      { userId: 1, gameId: id('S'), status: 'service' },
+      { userId: 1, gameId: id('H1'), status: 'completed', completedAt: NOW },
+      { userId: 1, gameId: id('H2'), status: 'playing' },
     ]);
     return id;
   }
@@ -77,12 +77,12 @@ describe('recommend на БД', () => {
 
   it('трофеи: начатая игра с набором получает platinum_close, DLC-хвост снижает', async () => {
     const id = await seed();
-    const [ts] = await t.db.insert(trophySets).values({ npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
-    await t.db.insert(gameTrophySets).values({ gameId: id('D'), trophySetId: ts.id, source: 'manual' });
+    const [ts] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
+    await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id('D'), trophySetId: ts.id, source: 'manual' });
     let r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     const sig = (gid: number) => r.items.find((i) => i.game.id === gid)!.signals.find((s) => s.key === 'platinum_close');
     expect(sig(id('D'))?.contribution).toBe(1.2); // 8/10 * 1.5
-    await t.db.insert(trophies).values({ trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false });
+    await t.db.insert(trophies).values({ userId: 1, trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false });
     r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     expect(sig(id('D'))?.contribution).toBe(0.6);
   });
@@ -105,7 +105,7 @@ describe('recommend на БД', () => {
 
   const DAY = 86_400_000;
   const dislikeAt = async (gameId: number, daysAgo: number, ms = 0) => {
-    await t.db.insert(recommendDislikes).values({ gameId, createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) }).onConflictDoUpdate({ target: recommendDislikes.gameId, set: { createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) } });
+    await t.db.insert(recommendDislikes).values({ userId: 1, gameId, createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) }).onConflictDoUpdate({ target: recommendDislikes.gameId, set: { createdAt: new Date(NOW.getTime() - daysAgo * DAY - ms) } });
   };
 
   it('TTL дизлайка: 29 и 30 суток без секунды скрывают, ровно 30 и 31 нет', async () => {

@@ -20,15 +20,15 @@ async function seeded(nGames: number) {
   // данные одним SQL: nGames игр, ежедневные снимки с 2025-10-28 по 2026-10-27, часть игр завершена
   await client.exec(`insert into allowed_users (email, role, status) values ('owner@example.com', 'owner', 'active')`); // user_id = 1 (0014)
   await client.exec(`
-    insert into games (title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres)
-    select 'CUSA' || i, 'Game ' || i, 'ps5_native_game', now(), timestamptz '2024-01-01' + (i || ' days')::interval,
+    insert into games (user_id, title_id, name, category, last_seen_at, first_played_at, last_played_at, psn_genres)
+    select 1, 'CUSA' || i, 'Game ' || i, 'ps5_native_game', now(), timestamptz '2024-01-01' + (i || ' days')::interval,
            timestamptz '2025-06-01' + (i || ' days')::interval, array['ACTION']
     from generate_series(1, ${nGames}) i;
-    insert into playtime_snapshots (game_id, snapshot_date, play_duration_seconds)
-    select g.id, d::date, 3600 * 5 + (extract(epoch from d - timestamp '2025-10-28') / 86400)::int * (g.id % 7) * 60
+    insert into playtime_snapshots (user_id, game_id, snapshot_date, play_duration_seconds)
+    select 1, g.id, d::date, 3600 * 5 + (extract(epoch from d - timestamp '2025-10-28') / 86400)::int * (g.id % 7) * 60
     from games g, generate_series(timestamp '2025-10-28', timestamp '2026-10-27', interval '1 day') d;
-    insert into game_status (game_id, status, completed_at)
-    select id, 'completed', timestamptz '2026-01-15' + (id || ' days')::interval from games where id % 5 = 0;
+    insert into game_status (user_id, game_id, status, completed_at)
+    select 1, id, 'completed', timestamptz '2026-01-15' + (id || ' days')::interval from games where id % 5 = 0;
   `);
   return { db: db as unknown as AnyDb, count: () => queries, reset: () => void (queries = 0), close: () => client.close() };
 }

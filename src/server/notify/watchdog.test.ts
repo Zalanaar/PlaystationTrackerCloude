@@ -22,7 +22,7 @@ describe('watchdog', () => {
 
   async function run(o: { status?: 'success' | 'failed' | 'running' | 'partial'; kind?: 'daily' | 'manual' | 'hltb'; hoursAgo: number; finished?: boolean }) {
     const started = new Date(NOW.getTime() - o.hoursAgo * H);
-    await t.db.insert(syncRuns).values({
+    await t.db.insert(syncRuns).values({ userId: 1,
       kind: o.kind ?? 'daily', status: o.status ?? 'success', snapshotDate: '2026-10-28', startedAt: started,
       finishedAt: o.status === 'running' || o.finished === false ? null : new Date(started.getTime() + 300_000),
     });

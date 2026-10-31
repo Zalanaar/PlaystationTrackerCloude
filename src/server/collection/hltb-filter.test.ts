@@ -24,9 +24,9 @@ describe('GET /api/games: hltb', () => {
       { titleId: 'D', name: 'Delta' },
       { titleId: 'E', name: 'Echo', psnGenres: ['ACTION'] },
     ];
-    const ins = await t.db.insert(games).values(rows.map((r) => ({ ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
-    await t.db.insert(gameStatus).values(['A', 'B', 'C'].map((k) => ({ gameId: ins.find((x) => x.titleId === k)!.id, status: 'backlog' as const })));
-    await t.db.insert(gameStatus).values({ gameId: ins.find((x) => x.titleId === 'E')!.id, status: 'playing' });
+    const ins = await t.db.insert(games).values(rows.map((r) => ({ userId: 1, ...base, ...r }))).returning({ id: games.id, titleId: games.titleId });
+    await t.db.insert(gameStatus).values(['A', 'B', 'C'].map((k) => ({ userId: 1, gameId: ins.find((x) => x.titleId === k)!.id, status: 'backlog' as const })));
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: ins.find((x) => x.titleId === 'E')!.id, status: 'playing' });
   });
   const list = async (q: string) => {
     const p = parseListQuery(new URLSearchParams(q));
@@ -36,10 +36,10 @@ describe('GET /api/games: hltb', () => {
   it('N-3: unchecked не считает игры с ручной длительностью и сервисы', async () => {
     const base = { category: 'ps5_native_game', lastSeenAt: NOW };
     const ins = await t.db.insert(games).values([
-      { ...base, titleId: 'S', name: 'Service' },
-      { ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
+      { userId: 1, ...base, titleId: 'S', name: 'Service' },
+      { userId: 1, ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
     ]).returning({ id: games.id, titleId: games.titleId });
-    await t.db.insert(gameStatus).values({ gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
     // D и E (без hltb) остаются, S (service) и O (override) не считаются
     expect((await list('')).hltbCounts).toEqual({ found: 1, not_found: 2, unchecked: 2 });
   });
@@ -47,10 +47,10 @@ describe('GET /api/games: hltb', () => {
   it('фильтр hltb=unchecked совпадает со счётчиком: без override и сервисов', async () => {
     const base = { category: 'ps5_native_game', lastSeenAt: NOW };
     const ins = await t.db.insert(games).values([
-      { ...base, titleId: 'S', name: 'Service' },
-      { ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
+      { userId: 1, ...base, titleId: 'S', name: 'Service' },
+      { userId: 1, ...base, titleId: 'O', name: 'Override', durationOverrideHours: 8 },
     ]).returning({ id: games.id, titleId: games.titleId });
-    await t.db.insert(gameStatus).values({ gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: ins.find((x) => x.titleId === 'S')!.id, status: 'service' });
     const r = await list('hltb=unchecked&sort=title');
     expect(names(r)).toEqual(['Delta', 'Echo']);
     expect(r.total).toBe(r.hltbCounts.unchecked);

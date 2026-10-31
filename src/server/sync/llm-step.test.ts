@@ -46,10 +46,10 @@ describe('llmStep', () => {
     return new RunContext(t.db, s.run, () => NOW, budget);
   }
   async function seed(n: number, from = 0) {
-    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({
+    const ins = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ userId: 1,
       category: 'ps5_native_game', lastSeenAt: NOW, titleId: `L${from + i}`, name: `Игра ${from + i} ${'абвгд'[(from + i) % 5]}ж`, psnGenres: ['ACTION'], hltbMainHours: 10 + i,
     }))).returning({ id: games.id });
-    await t.db.insert(gameStatus).values(ins.map((g) => ({ gameId: g.id, status: 'backlog' as const, statusChangedAt: NOW })));
+    await t.db.insert(gameStatus).values(ins.map((g) => ({ userId: 1, gameId: g.id, status: 'backlog' as const, statusChangedAt: NOW })));
     return ins.map((g) => g.id);
   }
   const cached = async () => (await t.db.select().from(recommendReasons)).length;
@@ -139,7 +139,7 @@ describe('llmStep', () => {
     await seed(5);
     await llmStep(await ctx(), { env: ENV, provider: provider(good), rawgKey: null });
     const later = provider(good);
-    const s = await t.db.insert(syncRuns).values({ kind: 'manual', status: 'success', snapshotDate: '2027-04-29' }).returning();
+    const s = await t.db.insert(syncRuns).values({ userId: 1, kind: 'manual', status: 'success', snapshotDate: '2027-04-29' }).returning();
     const c = new RunContext(t.db, s[0], () => new Date('2027-04-29T09:00:00Z'), 1_000_000);
     await llmStep(c, { env: ENV, provider: later, rawgKey: null });
     expect(later.calls).toBe(0);
@@ -203,7 +203,7 @@ describe('llmStep', () => {
 
   it('дизлайкнутые игры не получают фраз', async () => {
     const ids = await seed(3);
-    await t.db.insert(schema.recommendDislikes).values({ gameId: ids[0], createdAt: NOW });
+    await t.db.insert(schema.recommendDislikes).values({ userId: 1, gameId: ids[0], createdAt: NOW });
     const p = provider(good);
     await llmStep(await ctx(), { env: ENV, provider: p, rawgKey: null });
     expect((JSON.parse(p.users[0]) as { games: { id: number }[] }).games.map((g) => g.id).sort()).toEqual([ids[1], ids[2]].sort());
@@ -292,8 +292,8 @@ describe('шаг LLM в runChunk', () => {
     return { res, row };
   }
   async function backlogGame() {
-    const [g] = await t.db.insert(games).values({ category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'BL1', name: 'Бэклог Игра', psnGenres: ['ACTION'] }).returning({ id: games.id });
-    await t.db.insert(gameStatus).values({ gameId: g.id, status: 'backlog', statusChangedAt: NOW });
+    const [g] = await t.db.insert(games).values({ userId: 1, category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'BL1', name: 'Бэклог Игра', psnGenres: ['ACTION'] }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status: 'backlog', statusChangedAt: NOW });
     return g.id;
   }
 

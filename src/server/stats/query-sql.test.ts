@@ -24,7 +24,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
   beforeEach(() => t.reset());
 
   async function game(n: number, o: Partial<typeof games.$inferInsert> = {}) {
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}_00`, name: `G${n}`, category: 'ps4_game', lastSeenAt: NOW, ...o }).returning();
     return g.id;
   }
   const rows = async <T,>(q: ReturnType<typeof sql>) => (await t.pg.execute(q)).rows as T[];
@@ -105,31 +105,31 @@ describe('getStats против прямого SQL (PGlite)', () => {
         const date = new Date(start.getTime() + d * 86400_000);
         if (date.getTime() > Date.UTC(2026, 9, 27)) break;
         sec = rand() < 0.02 ? Math.max(0, sec - 3600) : sec + Math.floor(rand() * 4000);
-        snaps.push({ gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
+        snaps.push({ userId: 1, gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
       }
     }
     for (let i = 0; i < snaps.length; i += 500) await t.db.insert(playtimeSnapshots).values(snaps.slice(i, i + 500));
 
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR9', npServiceName: 'trophy', name: 'orphan' }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR9', npServiceName: 'trophy', name: 'orphan' }).returning();
     const types = ['platinum', 'gold', 'silver', 'bronze'] as const;
     const tr: (typeof trophies.$inferInsert)[] = [];
     for (let i = 0; i < 300; i++) {
       const at = new Date(Date.UTC(2025, 0, 1) + Math.floor(rand() * 3 * 365 * 86400_000));
-      tr.push({ trophySetId: s.id, trophyId: i, type: types[i % 4], earned: true, earnedAt: at });
+      tr.push({ userId: 1, trophySetId: s.id, trophyId: i, type: types[i % 4], earned: true, earnedAt: at });
     }
     // границы лет и месяцев по МСК
     const edge = ['2025-12-31T20:59:59.999Z', '2025-12-31T21:00:00.000Z', '2026-09-30T21:00:00.000Z', '2026-09-30T20:59:59.999Z', '2026-12-31T21:00:00.000Z'];
-    edge.forEach((e, k) => tr.push({ trophySetId: s.id, trophyId: 1000 + k, type: 'platinum', earned: true, earnedAt: new Date(e) }));
-    tr.push({ trophySetId: s.id, trophyId: 2000, type: 'gold', earned: false, earnedAt: null });
+    edge.forEach((e, k) => tr.push({ userId: 1, trophySetId: s.id, trophyId: 1000 + k, type: 'platinum', earned: true, earnedAt: new Date(e) }));
+    tr.push({ userId: 1, trophySetId: s.id, trophyId: 2000, type: 'gold', earned: false, earnedAt: null });
     await t.db.insert(trophies).values(tr);
 
     const sts: (typeof gameStatus.$inferInsert)[] = [];
     ids.forEach((id, i) => {
       const at = new Date(Date.UTC(2025, 6, 1) + Math.floor(rand() * 18 * 30 * 86400_000));
-      if (i % 4 === 0) sts.push({ gameId: id, status: 'completed', completedAt: at });
-      else if (i % 4 === 1) sts.push({ gameId: id, status: 'dropped', droppedAt: at });
-      else if (i % 4 === 2) sts.push({ gameId: id, status: 'completed', completedAt: null }); // без даты
-      else sts.push({ gameId: id, status: i % 8 === 3 ? 'service' : 'backlog' }); // чужой статус (БД не даёт держать дату при другом статусе)
+      if (i % 4 === 0) sts.push({ userId: 1, gameId: id, status: 'completed', completedAt: at });
+      else if (i % 4 === 1) sts.push({ userId: 1, gameId: id, status: 'dropped', droppedAt: at });
+      else if (i % 4 === 2) sts.push({ userId: 1, gameId: id, status: 'completed', completedAt: null }); // без даты
+      else sts.push({ userId: 1, gameId: id, status: i % 8 === 3 ? 'service' : 'backlog' }); // чужой статус (БД не даёт держать дату при другом статусе)
     });
     await t.db.insert(gameStatus).values(sts);
 
@@ -180,10 +180,10 @@ describe('getStats против прямого SQL (PGlite)', () => {
   });
 
   it('границы лет по МСК: платина 21:00:00.000Z 31 дек = 1 января, 20:59:59.999Z = 31 декабря', async () => {
-    const [s] = await t.db.insert(trophySets).values({ npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'x' }).returning();
+    const [s] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR1', npServiceName: 'trophy', name: 'x' }).returning();
     await t.db.insert(trophies).values([
-      { trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T20:59:59.999Z') },
-      { trophySetId: s.id, trophyId: 1, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T21:00:00.000Z') },
+      { userId: 1, trophySetId: s.id, trophyId: 0, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T20:59:59.999Z') },
+      { userId: 1, trophySetId: s.id, trophyId: 1, type: 'platinum', earned: true, earnedAt: new Date('2025-12-31T21:00:00.000Z') },
     ]);
     const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, NOW);
     const y26 = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
@@ -200,10 +200,10 @@ describe('getStats против прямого SQL (PGlite)', () => {
   it('completed_at / dropped_at: полуинтервал [from, to), чужой статус и без даты не считаются, оба события в одном месяце', async () => {
     const a = await game(1), b = await game(2), c = await game(3), d = await game(4);
     await t.db.insert(gameStatus).values([
-      { gameId: a, status: 'completed', completedAt: new Date('2026-09-30T21:00:00.000Z') }, // 1 окт 00:00 МСК: октябрь
-      { gameId: b, status: 'completed', completedAt: new Date('2026-10-31T21:00:00.000Z') }, // ноябрь
-      { gameId: c, status: 'backlog' },                                                        // чужой статус: не считать
-      { gameId: d, status: 'dropped', droppedAt: null },                                       // без даты
+      { userId: 1, gameId: a, status: 'completed', completedAt: new Date('2026-09-30T21:00:00.000Z') }, // 1 окт 00:00 МСК: октябрь
+      { userId: 1, gameId: b, status: 'completed', completedAt: new Date('2026-10-31T21:00:00.000Z') }, // ноябрь
+      { userId: 1, gameId: c, status: 'backlog' },                                                        // чужой статус: не считать
+      { userId: 1, gameId: d, status: 'dropped', droppedAt: null },                                       // без даты
     ]);
     const oct = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     expect(oct.header).toMatchObject({ completed: 1, dropped: 0 });
@@ -217,13 +217,13 @@ describe('getStats против прямого SQL (PGlite)', () => {
   it('часы: снимки начались посреди месяца (число от первого), прошлое = null, падение значения = 0, игра, появившаяся позже', async () => {
     const a = await game(1), b = await game(2), c = await game(3);
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
-      { gameId: a, snapshotDate: '2026-03-31', playDurationSeconds: 3600 * 3 },
-      { gameId: a, snapshotDate: '2026-04-30', playDurationSeconds: 3600 * 4 },
-      { gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 7200 },
-      { gameId: b, snapshotDate: '2026-04-30', playDurationSeconds: 3600 }, // PSN уменьшил
-      { gameId: c, snapshotDate: '2026-04-15', playDurationSeconds: 100 * 3600 }, // новая игра в апреле: единственный снимок
-      { gameId: c, snapshotDate: '2026-04-20', playDurationSeconds: 101 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-31', playDurationSeconds: 3600 * 3 },
+      { userId: 1, gameId: a, snapshotDate: '2026-04-30', playDurationSeconds: 3600 * 4 },
+      { userId: 1, gameId: b, snapshotDate: '2026-03-04', playDurationSeconds: 7200 },
+      { userId: 1, gameId: b, snapshotDate: '2026-04-30', playDurationSeconds: 3600 }, // PSN уменьшил
+      { userId: 1, gameId: c, snapshotDate: '2026-04-15', playDurationSeconds: 100 * 3600 }, // новая игра в апреле: единственный снимок
+      { userId: 1, gameId: c, snapshotDate: '2026-04-20', playDurationSeconds: 101 * 3600 },
     ]);
     const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     expect(y.hours.firstSnapshotDate).toBe('2026-03-04');
@@ -249,11 +249,11 @@ describe('getStats против прямого SQL (PGlite)', () => {
     const c = await game(3, { psnGenres: [] });
     const d = await game(4, { psnGenres: ['ACTION'] }); // не играл, не завершён: не в жанрах
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-09-30', playDurationSeconds: 0 }, { gameId: a, snapshotDate: '2026-10-10', playDurationSeconds: 3600 },
-      { gameId: b, snapshotDate: '2026-09-30', playDurationSeconds: 0 }, { gameId: b, snapshotDate: '2026-10-10', playDurationSeconds: 3600 },
-      { gameId: d, snapshotDate: '2026-09-30', playDurationSeconds: 5 }, { gameId: d, snapshotDate: '2026-10-10', playDurationSeconds: 5 },
+      { userId: 1, gameId: a, snapshotDate: '2026-09-30', playDurationSeconds: 0 }, { userId: 1, gameId: a, snapshotDate: '2026-10-10', playDurationSeconds: 3600 },
+      { userId: 1, gameId: b, snapshotDate: '2026-09-30', playDurationSeconds: 0 }, { userId: 1, gameId: b, snapshotDate: '2026-10-10', playDurationSeconds: 3600 },
+      { userId: 1, gameId: d, snapshotDate: '2026-09-30', playDurationSeconds: 5 }, { userId: 1, gameId: d, snapshotDate: '2026-10-10', playDurationSeconds: 5 },
     ]);
-    await t.db.insert(gameStatus).values({ gameId: c, status: 'dropped', droppedAt: new Date('2026-10-05T10:00:00Z') });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: c, status: 'dropped', droppedAt: new Date('2026-10-05T10:00:00Z') });
     const r = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 10 }, NOW);
     const total = r.genres.items.reduce((s, i) => s + i.value, 0);
     expect(total).toBeCloseTo(3, 0);
@@ -276,7 +276,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
   it('текущий день МСК после полуночи: 00:30 МСК 1 ноября (21:30 UTC 31 окт) уже ноябрь для охвата', async () => {
     const a = await game(1);
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-10-31', playDurationSeconds: 0 }, { gameId: a, snapshotDate: '2026-11-01', playDurationSeconds: 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-10-31', playDurationSeconds: 0 }, { userId: 1, gameId: a, snapshotDate: '2026-11-01', playDurationSeconds: 3600 },
     ]);
     const now = new Date('2026-10-31T21:30:00Z');
     const nov = await getStats(t.db, TEST_USER, { type: 'month', year: 2026, month: 11 }, now);
@@ -301,7 +301,7 @@ describe('getStats против прямого SQL (PGlite)', () => {
         if (date.getTime() > Date.UTC(2026, 9, 27)) break;
         if (rand() < 0.3) continue;
         sec += rand() < 0.4 ? 0 : Math.floor(rand() * 3000);
-        snaps.push({ gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
+        snaps.push({ userId: 1, gameId: id, snapshotDate: date.toISOString().slice(0, 10), playDurationSeconds: sec });
       }
     });
     for (let i = 0; i < snaps.length; i += 500) await t.db.insert(playtimeSnapshots).values(snaps.slice(i, i + 500));
@@ -343,8 +343,8 @@ describe('getStats против прямого SQL (PGlite)', () => {
   it('пример Артёма через БД: янв-фев, 20 ч -> 10/10; месяц первого снимка получает долю оценки + реальные без двойного счёта', async () => {
     const a = await game(1, { firstPlayedAt: new Date('2026-01-10T12:00:00Z'), lastPlayedAt: new Date('2026-03-04T12:00:00Z') });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 20 * 3600 },
-      { gameId: a, snapshotDate: '2026-03-20', playDurationSeconds: 23 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-04', playDurationSeconds: 20 * 3600 },
+      { userId: 1, gameId: a, snapshotDate: '2026-03-20', playDurationSeconds: 23 * 3600 },
     ]);
     const y = await getStats(t.db, TEST_USER, { type: 'year', year: 2026, month: null }, NOW);
     // 3 месяца (янв, фев, март): 20 ч / 3 = 6.666.. ч; март = доля + 3 ч реальных
@@ -369,9 +369,9 @@ describe('getStats против прямого SQL (PGlite)', () => {
     // B: в первом снимке last_played_at NULL -> fallback на games.last_played_at (февраль 2026)
     const b = await game(2, { firstPlayedAt: new Date('2025-12-20T18:00:00Z'), lastPlayedAt: new Date('2026-02-10T18:00:00Z') });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: a, snapshotDate: '2026-10-27', playDurationSeconds: 20 * 3600, lastPlayedAt: new Date('2026-01-15T18:00:00Z') },
-      { gameId: a, snapshotDate: '2026-10-28', playDurationSeconds: 22 * 3600, lastPlayedAt: new Date('2026-10-28T18:00:00Z') },
-      { gameId: b, snapshotDate: '2026-10-27', playDurationSeconds: 3 * 3600, lastPlayedAt: null },
+      { userId: 1, gameId: a, snapshotDate: '2026-10-27', playDurationSeconds: 20 * 3600, lastPlayedAt: new Date('2026-01-15T18:00:00Z') },
+      { userId: 1, gameId: a, snapshotDate: '2026-10-28', playDurationSeconds: 22 * 3600, lastPlayedAt: new Date('2026-10-28T18:00:00Z') },
+      { userId: 1, gameId: b, snapshotDate: '2026-10-27', playDurationSeconds: 3 * 3600, lastPlayedAt: null },
     ]);
     const y25 = await getStats(t.db, TEST_USER, { type: 'year', year: 2025, month: null }, now);
     // A: 20 ч на дек+янв = 10 ч в декабре; B: 3 ч на дек..фев = 1 ч в декабре

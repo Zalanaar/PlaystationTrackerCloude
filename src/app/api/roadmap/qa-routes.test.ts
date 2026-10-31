@@ -65,8 +65,8 @@ describe('маршруты роадмапа на БД', () => {
   });
   it('смена бюджета и повторный GET пересчитывают план', async () => {
     const { games, gameStatus } = schema;
-    const [g] = await t.db.insert(games).values({ titleId: 'X', name: 'X', category: 'ps5_native_game', lastSeenAt: new Date(), hltbMainHours: 20 }).returning({ id: games.id });
-    await t.db.insert(gameStatus).values({ gameId: g.id, status: 'backlog' });
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: 'X', name: 'X', category: 'ps5_native_game', lastSeenAt: new Date(), hltbMainHours: 20 }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: g.id, status: 'backlog' });
     await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 10 }));
     const d1 = (await (await roadmapGet(new Request('http://x/'))).json()).data.items[0].days;
     await settingsPut(req('PUT', { year: 2026, hoursPerWeek: 20 }));

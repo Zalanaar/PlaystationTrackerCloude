@@ -104,8 +104,8 @@ describe('QA 13b: discover dislike API', () => {
     const { recommendExternalDislikes: tb } = schema;
     const d = 86_400_000;
     await t.db.insert(tb).values([
-      { externalSource: 'rawg', externalId: 'old', title: 'Old', createdAt: new Date(Date.now() - 30 * d - 1000) },
-      { externalSource: 'rawg', externalId: 'fresh', title: 'Fresh', createdAt: new Date(Date.now() - 29 * d) },
+      { userId: 1, externalSource: 'rawg', externalId: 'old', title: 'Old', createdAt: new Date(Date.now() - 30 * d - 1000) },
+      { userId: 1, externalSource: 'rawg', externalId: 'fresh', title: 'Fresh', createdAt: new Date(Date.now() - 29 * d) },
     ]);
     const data = (await (await LIST(new Request('http://x/'))).json()).data;
     expect(data.items.map((i: { externalId: string }) => i.externalId)).toEqual(['fresh']);

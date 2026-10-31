@@ -17,9 +17,9 @@ describe('QA: исключения и порядок', () => {
   beforeEach(() => t.reset());
 
   async function seed(n: number, hours = 10) {
-    const rows = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ category: 'ps5_native_game', lastSeenAt: NOW, titleId: `T${i}`, name: `G${i}`, hltbMainHours: hours }))).returning({ id: games.id });
+    const rows = await t.db.insert(games).values(Array.from({ length: n }, (_, i) => ({ userId: 1, category: 'ps5_native_game', lastSeenAt: NOW, titleId: `T${i}`, name: `G${i}`, hltbMainHours: hours }))).returning({ id: games.id });
     const ids = rows.map((r) => r.id);
-    await t.db.insert(gameStatus).values(ids.map((gameId, i) => ({ gameId, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() + i * 1000) })));
+    await t.db.insert(gameStatus).values(ids.map((gameId, i) => ({ userId: 1, gameId, status: 'backlog' as const, statusChangedAt: new Date(NOW.getTime() + i * 1000) })));
     return ids;
   }
 
@@ -73,8 +73,8 @@ describe('QA: исключения и порядок', () => {
     const [a, b] = await seed(2, 10);
     await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
     await t.db.insert(playtimeSnapshots).values([
-      { gameId: b, snapshotDate: '2026-02-01', playDurationSeconds: 0 }, { gameId: b, snapshotDate: '2026-10-01', playDurationSeconds: 36000 },
-      { gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 0 }, { gameId: a, snapshotDate: '2026-10-01', playDurationSeconds: 3600 },
+      { userId: 1, gameId: b, snapshotDate: '2026-02-01', playDurationSeconds: 0 }, { userId: 1, gameId: b, snapshotDate: '2026-10-01', playDurationSeconds: 36000 },
+      { userId: 1, gameId: a, snapshotDate: '2026-02-01', playDurationSeconds: 0 }, { userId: 1, gameId: a, snapshotDate: '2026-10-01', playDurationSeconds: 3600 },
     ]);
     await saveOrder(t.db, TEST_USER, [a, b]);
     const before = await getRoadmap(t.db, TEST_USER, NOW);

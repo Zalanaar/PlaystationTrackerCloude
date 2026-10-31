@@ -55,7 +55,7 @@ describe('GET /api/games ?forgotten=only (PGlite)', () => {
   let n = 0;
   async function game(name: string, o: Partial<typeof games.$inferInsert> = {}) {
     n++;
-    const [g] = await t.db.insert(games).values({ titleId: `CUSA${n}`, name, category: 'ps4_game', lastSeenAt: NOW, playDurationSeconds: 3600, ...o }).returning();
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: `CUSA${n}`, name, category: 'ps4_game', lastSeenAt: NOW, playDurationSeconds: 3600, ...o }).returning();
     return g.id;
   }
 
