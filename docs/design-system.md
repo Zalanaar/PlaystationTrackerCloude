@@ -1256,3 +1256,120 @@ a11y:
 Закрыто: показ существующим пользователям (нет, SQL 0016, S-2, §10.8); хранение на сервере (`tour_version`, §23); названия тем (PS1–PS5, соответствие в начале §10).
 Открыт:
 1. Шаг 8 ссылается на HowLongToBeat; если оценка времени в Бэклоге скрыта настройками, фразу сократить (frontend сверить с `BacklogView`).
+
+## 11. Бэклог: липкая плашка и блок Отложено (Фаза 22)
+Один вариант для всех 7 тем (Night, Memory Card=ps1, Crystal Towers=ps2, Wave=ps3, Tiles=ps4, Activity=ps5, Dark=graphite). Цвета только из существующих токенов, значения по темам не добавляются.
+
+### 11.1 Новые токены (только `tokens.css`, общие, в `themes.css` ничего не меняется)
+| Токен | Значение | Назначение |
+|---|---|---|
+| `--shadow-sticky` | `0 10px 16px -10px rgba(0,0,0,calc(var(--shadow-alpha) + .15))` | тень под липкой плашкой; выводится из `--shadow-alpha` темы (ps1 .33, night .6, ps5 .75), поэтому правок в 7 темах нет |
+| `--z-sticky` | `5` | слой плашки (ниже `--z-header` 50); значение то же, что было в `backlog.css` |
+
+### 11.2 Что не так сейчас и решение
+| Проблема | Решение |
+|---|---|
+| фон `color-mix(--bg 92%, transparent)`: контент просвечивает | фон `var(--bg)` сплошной (во всех темах `--bg` непрозрачный цвет; арт Activity и градиент Wave лежат слоем позади, плашка их перекрывает) |
+| `.ps-seg` с рамкой и `--surface-2` выглядит как кнопка | рамки нет (`border: 0`), сегменты на «лотке» `--surface` без обводки, активный сегмент залит `--surface-3` |
+| тень нужна только при прилипании | `data-stuck="true"` ставит frontend (11.4), без него тени нет |
+| между шапкой и плашкой возможен шов в 1px (шапка полупрозрачная) | `top: calc(var(--header-h) - 1px)` и `padding-top` +1px |
+Blur: `backdrop-filter: blur(12px)` оставлен по плану, при сплошном фоне визуально нейтрален (страховка, если фон когда-то станет полупрозрачным). Префикс `-webkit-backdrop-filter` обязателен (Safari).
+
+### 11.3 Структура и поведение
+```
+<nav class="ps-bl-jump" aria-label="Блоки страницы" data-testid="bl-jump" data-stuck="false|true">
+  <div class="ps-bl-jump__tabs">
+    <button type="button" class="ps-bl-jump__tab" aria-current="location|undefined">Бэклог <b class="num">N</b></button>
+    ... Отложено, Сервис
+  </div>
+</nav>
+```
+- Новый класс `.ps-bl-jump__tabs` и `.ps-bl-jump__tab` вместо `.ps-seg` внутри плашки (не переопределять `.ps-seg`, он нужен в других местах).
+- Порядок = порядок блоков на странице: Бэклог, Отложено, Сервис. «Бэклог» всегда. «Отложено» и «Сервис» показываются, если счётчик > 0 или блок был виден в этой сессии (чтобы вкладка не пропадала при переносе последней игры). Плашка рендерится, если видно >= 2 вкладки (сейчас: только при Сервисе).
+- Счётчик: `formatNumber(total)`, `class="num"`, фигур в табах нет (фигуры в заголовках блоков).
+- Активная вкладка: scroll-spy. Активна последняя вкладка, чей заголовок (`#h-bl-main`, `#h-bl-shelved`, `#h-bl-service`) выше линии `header-h + высота плашки + 16`; у верха страницы активен «Бэклог». Клик ставит активной сразу. Атрибут `aria-current="location"` у активной.
+- `data-stuck`: перед `<nav>` пустой `<div class="ps-bl-jump__sentinel" aria-hidden="true">` (высота 1px, `margin-bottom: -1px`); `IntersectionObserver` с `rootMargin: "-56px 0px 0px 0px"` (значение `--header-h`, читать из `getComputedStyle`), `stuck = !entry.isIntersecting`.
+- Прокрутка к блоку: существующий `jumpTo`, у заголовков `scroll-margin-top: calc(var(--header-h) + 80px)` (плашка 54 десктоп / 66 моб. + 16 запас).
+
+### 11.4 CSS (заменяет строки `.ps-bl-jump*` в `backlog.css`, переносить 1:1)
+```css
+.ps-bl-jump__sentinel { height: 1px; margin-bottom: -1px; pointer-events: none; }
+.ps-bl-jump {
+  position: sticky; top: calc(var(--header-h) - 1px); z-index: var(--z-sticky);
+  display: flex; align-items: center;
+  margin-inline: calc(var(--gutter) * -1);            /* фон на всю ширину контейнера, контент не виден по бокам */
+  padding: calc(var(--sp-2) + 1px) var(--gutter) var(--sp-2);
+  background: var(--bg);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 0 0 transparent;
+  transition: box-shadow var(--dur-base) var(--ease-ui);
+}
+.ps-bl-jump[data-stuck="true"] { box-shadow: var(--shadow-sticky); }
+.ps-bl-jump__tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border: 0; border-radius: var(--r-md); max-width: 100%; }
+.ps-bl-jump__tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 var(--sp-3); min-width: 0;
+  background: transparent; border: 0; border-radius: calc(var(--r-md) - 3px);
+  color: var(--text-2); font: inherit; font-size: var(--fs-small); font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-ui), color var(--dur-fast) var(--ease-ui);
+}
+.ps-bl-jump__tab b { font-weight: 600; color: var(--text-2); }
+.ps-bl-jump__tab:hover { background: var(--surface-2); color: var(--text); }
+.ps-bl-jump__tab:hover b { color: var(--text); }
+.ps-bl-jump__tab:active { background: var(--surface-3); color: var(--text); }
+.ps-bl-jump__tab[aria-current="location"] { background: var(--surface-3); color: var(--text); font-weight: 600; }
+.ps-bl-jump__tab[aria-current="location"] b { color: var(--text); }
+.ps-bl-jump__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }   /* внутрь: лоток не обрезает кольцо */
+@media (max-width: 767px) {
+  .ps-bl-jump__tabs { display: flex; width: 100%; }
+  .ps-bl-jump__tab { flex: 1 1 0; height: var(--tap-min); padding: 0 var(--sp-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-bl-jump, .ps-bl-jump__tab { transition: none; }
+}
+```
+Размеры: десктоп плашка 32 + 6 (лоток) + 8 + 9 = 55 по высоте (9 = 8 + 1px шов сверху), моб. 44 + 6 + 17 = 67. Радиусы: лоток `--r-md` (Night 12, ps1 6, ps4 4, ps5 14), вкладка `--r-md - 3`. Радиус по теме меняется сам, декор не нужен.
+
+Состояния:
+| Состояние | Фон | Текст / счётчик |
+|---|---|---|
+| обычное | прозрачный | `--text-2` / `--text-2` |
+| hover | `--surface-2` | `--text` / `--text` |
+| active (нажатие) | `--surface-3` | `--text` |
+| выбранная | `--surface-3` | `--text`, вес 600 / `--text` |
+| focus-visible | как есть + контур 2px `--focus` внутри (в ps1 `--focus` проверен на светлом лотке) | |
+Мобильный 360 px: контейнер 328 (gutter 16), лоток на всю ширину, 3 вкладки по ~107px минус паддинги: «Отложено 128» (12px) помещается (около 76px); при 4 значных счётчиках `min-width: 0` и `overflow: hidden; text-overflow: ellipsis` на вкладке не нужны, переносов нет (`nowrap`). На 2 вкладках лоток тоже на всю ширину. Таб-бар снизу (56) плашку не пересекает. Reduced-motion: переходы цвета и тени выключены, `jumpTo` уже использует `behavior: auto`.
+
+Контраст (QA добавить пары в `contrast.test.ts`, порог 4.5, все 7 тем): `--text-2` на `--surface`; `--text` на `--surface-2`; `--text` на `--surface-3`; `--focus` на `--surface` (3:1, нетекстовый).
+
+### 11.5 Блок «Отложено» (`status=shelved`)
+Данные: отдельный запрос `fetchGames({ status: 'shelved', ... })` по образцу `serviceToApi()`, фильтры бэклога его не затрагивают. Блок идёт между бэклогом (с «Показать ещё») и «Сервис». Классы `ps-bl-service*` переиспользуются как есть (общая разметка блока), новых классов блока нет.
+
+| Элемент | Спека |
+|---|---|
+| Секция | `<section class="ps-bl-service" id="shelved" aria-labelledby="h-bl-shelved" data-testid="bl-shelved">`, отступ сверху `--sp-8` |
+| Заголовок | `<h2 class="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-shelved" tabIndex={-1}>` + `StatusGlyph status="shelved" size={16}` (пауза ‖, `--st-shelved`) + «Отложено» + `<small class="num ps-bl-service__n" data-testid="bl-shelved-count">N</small>` |
+| Кнопка справа | «Свернуть / Развернуть» как у Сервиса (ghost sm, `aria-expanded`, `aria-controls="bl-shelved-list"`), по умолчанию развёрнуто |
+| Подзаголовок | `p.ps-bl-service__sub`: «Отложено на потом. В бэклог и план эти игры не входят.» |
+| Сетка | `GameGrid density="comfort" label="Отложенные игры"`, `id="bl-shelved-list"` |
+| Карточка | `GameCard` без изменений, как в бэклоге: внутри сначала строка длительности `.ps-bl-dur` (всегда, «—» если нет данных, чтобы высота совпадала с бэклогом), затем `.ps-bl-actions` |
+| Действие 1 (primary sm) | `StatusGlyph status="backlog" size={14}` + «Вернуть в бэклог» -> `change(g, 'backlog')` |
+| Действие 2 (ghost sm) | `StatusGlyph status="playing" size={14}` + «Начать играть» -> `change(g, 'playing')` |
+| Кнопки | `.ps-bl-actions` без изменений: высота 32 (моб. 40), `nowrap`, ellipsis; «Убрать из отложенных» не нужно (есть меню статуса на карточке) |
+| Тост | прежний: «Статус изменён: …» + «Отменить» |
+
+Состояния блока:
+| Состояние | Вид |
+|---|---|
+| Загрузка | блок не показывается, пока нет первого ответа; вкладка «Отложено» не рисуется (нет скачка вёрстки: блок ниже бэклога) |
+| 0 игр при загрузке | блок и вкладка скрыты |
+| 0 игр после действия в сессии | секция остаётся, внутри компактный `EmptyState` (иконка `StatusGlyph status="shelved" size={40}`, заголовок «Отложенных игр нет», текст «Поставь игре статус «Отложено» в меню карточки, и она появится здесь.», без кнопки); счётчик 0, вкладка остаётся до перезагрузки |
+| Ошибка запроса | остаётся последний список; если его не было, блок скрыт (как у Сервиса); тост не нужен |
+| Перенос игры | оптимистично, как у Сервиса (`moveBetweenLists` расширить на `shelved`: дельты `shelvedDelta` и `setShelvedTotal`); при ошибке возврат на место |
+
+### 11.6 Критерии приёмки
+- 7 тем: при прокрутке под плашкой ничего не просвечивает (проверить на белой обложке и на теме Wave/Activity); без рамки у вкладок; тень только при `data-stuck="true"`.
+- 360 px: 3 вкладки в одну строку, высота 44, нет горизонтального скролла страницы (проверить, что `margin-inline` не даёт overflow).
+- Клавиатура: Tab по вкладкам, Enter/Space прокручивает и фокусирует заголовок, кольцо видно в каждой теме; `aria-current` у активной.
+- Шаги тура на Бэклоге не сломаны (`data-tour="backlog-list"` остаётся на списке бэклога).
+- Блок «Отложено»: кнопки «Вернуть в бэклог» и «Начать играть» в один ряд по высоте, игра переезжает между блоками, счётчики в заголовке и вкладке совпадают.
