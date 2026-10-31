@@ -10,7 +10,7 @@ const SRC = join(__dirname, '..');
 const USER_TABLES = [
   'games', 'gameStatus', 'trophySets', 'gameTrophySets', 'trophies', 'playtimeSnapshots', 'syncRuns', 'psnProfile', 'statusBackups',
   'gameMonthExclusions', 'roadmapSettings', 'plannedGames', 'roadmapOrder', 'roadmapExcluded', 'recommendDislikes', 'recommendReasons',
-  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes',
+  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes', 'providerUsage',
 ];
 
 /** Модули, которым userId не нужен, и почему. Новые записи только с причиной. */
@@ -75,7 +75,7 @@ describe('охрана изоляции пользователей (статич
 
   it('SQL-запросы по голым именам таблиц (db.execute) тоже упоминают user_id', () => {
     const bad: string[] = [];
-    const tableSql = /\b(?:from|join|into|update)\s+(games|game_status|trophy_sets|game_trophy_sets|trophies|playtime_snapshots|sync_runs|psn_profile|status_backups|game_month_exclusions|roadmap_settings|planned_games|roadmap_order|roadmap_excluded|recommend_dislikes|recommend_reasons|recommend_llm_usage|recommend_discover_cache|recommend_external_dislikes)\b/i;
+    const tableSql = /\b(?:from|join|into|update)\s+(games|game_status|trophy_sets|game_trophy_sets|trophies|playtime_snapshots|sync_runs|psn_profile|status_backups|game_month_exclusions|roadmap_settings|planned_games|roadmap_order|roadmap_excluded|recommend_dislikes|recommend_reasons|recommend_llm_usage|provider_usage|recommend_discover_cache|recommend_external_dislikes)\b/i;
     for (const f of files) {
       const rel = relative(SRC, f).split(sep).join('/');
       if (ALLOW[rel] || rel === 'server/sync/test-helpers.ts') continue;

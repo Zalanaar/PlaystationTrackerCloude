@@ -4,6 +4,7 @@ import { getRawgKey } from '@/server/env';
 import { fail, ok } from '@/server/http';
 import { markPlanned } from '@/server/roadmap/db';
 import { parseUpcomingPage } from '@/server/roadmap/validation';
+import { rawgReserve } from '@/server/usage/rawg-reserve';
 import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   let page;
   try {
-    page = await getUpcoming(p.value, { apiKey: getRawgKey() });
+    page = await getUpcoming(p.value, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) });
   } catch (e) {
     const reason = e instanceof CatalogError ? e.reason : 'network';
     return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введите данные вручную.', { reason });

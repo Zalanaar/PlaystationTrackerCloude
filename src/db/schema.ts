@@ -512,6 +512,22 @@ export const recommendLlmUsage = pgTable(
   ],
 );
 
+// Хвост 20.5 (контракт 24, миграция 0017): исходящие запросы к RAWG и HLTB по пользователям и суткам МСК.
+export const providerUsage = pgTable(
+  'provider_usage',
+  {
+    userId: userIdCol(),
+    day: date({ mode: 'string' }).notNull(),
+    provider: text().notNull(),
+    calls: integer().notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.day, t.provider] }),
+    check('provider_usage_provider_check', sql`${t.provider} in ('rawg', 'hltb')`),
+    check('provider_usage_calls_check', sql`${t.calls} >= 0`),
+  ],
+);
+
 // Этап 5 (контракт 20.4, миграция 0012): подряд идущие неудачные вызовы LLM, ровно одна строка (id = 1).
 // fail_streak >= 3 = пауза до следующего синка (синк обнуляет в начале шага LLM).
 export const recommendLlmState = pgTable(

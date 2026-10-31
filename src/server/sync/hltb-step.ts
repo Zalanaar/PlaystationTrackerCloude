@@ -5,6 +5,8 @@ import { schema } from '@/db';
 import { HltbError, capDetail, createHltbClient, type HltbClient } from '@/server/hltb/client';
 import { pickAny, searchTerms } from '@/server/hltb/normalize';
 import type { UserId } from '@/server/auth/user-id';
+import { getProviderLimits } from '@/server/env';
+import { reserveProviderCall, type ReserveResult } from '@/server/usage/provider-usage';
 import type { RunContext } from './context';
 
 const { games, gameStatus } = schema;
@@ -20,7 +22,15 @@ export const HLTB_RUN_BATCH = 10;
 export const HLTB_RUN_MIN_LEFT_MS = 9000;
 export const HLTB_RUN_BUDGET_MS = 45_000;
 
-export type HltbDeps = { client: HltbClient; sleep: (ms: number) => Promise<void>; pauseMs?: number };
+export type HltbDeps = {
+  client: HltbClient;
+  sleep: (ms: number) => Promise<void>;
+  pauseMs?: number;
+  /** Занять запрос к HLTB (контракт 24). Нет = provider_usage с лимитами из env. Тесты подставляют своё. */
+  reserve?: (ctx: RunContext) => Promise<ReserveResult>;
+};
+
+const defaultReserve = (ctx: RunContext) => reserveProviderCall(ctx.db, ctx.userId, 'hltb', ctx.now(), getProviderLimits('hltb'));
 
 export const defaultHltbDeps = (): HltbDeps => ({ client: createHltbClient(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)), pauseMs: HLTB_PAUSE_MS });
 
@@ -63,7 +73,7 @@ export type HltbBatchResult = {
   /** id игр, на которые отправлен запрос (успешно или с ошибкой) */
   attemptedIds: number[];
   sawNonEmpty: boolean;
-  stop: 'errors' | 'empty' | 'time' | null;
+  stop: 'errors' | 'empty' | 'time' | 'limit' | null;
   /** `<код>[: деталь]` последней ошибки HLTB; пусто, если ошибок не было */
   failDetail?: string;
 };
@@ -111,6 +121,7 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
       let hit: ReturnType<typeof pickAny> = null;
       let empty = true;
       let cut = false;
+      let limitHit = false;
       const terms = searchTerms(g.name);
       for (let q = 0; q < terms.length; q++) {
         if (q > 0) {
@@ -120,10 +131,19 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
             break;
           }
         }
+        if ((await (deps.reserve ?? defaultReserve)(ctx)) !== 'ok') {
+          limitHit = true;
+          break;
+        }
         const cands = await deps.client.search(terms[q]);
         if (cands.length > 0) empty = false;
         hit = pickAny(g.name, cands);
         if (hit) break;
+      }
+      // лимит запросов исчерпан (контракт 24): игра остаётся непроверенной, шаг заканчивается без ошибки
+      if (limitHit && !hit) {
+        stop = 'limit';
+        break;
       }
       // время вышло посреди поиска: «не найдено» не фиксируем, игра останется непроверенной
       if (cut && !hit) {
@@ -178,6 +198,7 @@ export async function hltbBatch(ctx: RunContext, deps: HltbDeps, opts: HltbStepO
         .where(and(eq(games.id, g.id), eq(games.userId, ctx.userId)));
     }
   }
+  if (stop === 'limit') ctx.warn('hltb_limit', 'HLTB: достигнут дневной лимит запросов, остальные игры проверим в следующем синке.');
   const failDetail = failed > 0 ? `${lastCode}${lastDetail ? `: ${lastDetail}` : ''}` : '';
   return { checked: outcomes.length, found, failed, picked: due.length, attemptedIds, sawNonEmpty, stop, failDetail };
 }
@@ -226,6 +247,10 @@ export async function hltbRun(ctx: RunContext, deps: HltbDeps, o: { batch?: numb
     if (r.failDetail) detail = r.failDetail;
     if (r.stop === 'errors' || r.stop === 'empty') {
       stop = r.stop;
+      break;
+    }
+    if (r.stop === 'limit') {
+      stop = 'errors'; // UI знает только эти причины; пояснение в предупреждении hltb_limit
       break;
     }
     if (r.stop === 'time') {

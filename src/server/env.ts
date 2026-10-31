@@ -124,6 +124,21 @@ export function getLlmEnv(env: Record<string, string | undefined> = process.env)
   return { provider, apiKey, model: model && /^[\w.:\-/]{1,80}$/.test(model) ? model : null, dailyLimit, userDailyLimit };
 }
 
+/** Лимиты запросов к внешним каталогам в сутки МСК (контракт 24.3): на пользователя и общий (сумма пользователей). */
+export const PROVIDER_LIMIT_DEFAULTS = {
+  rawg: { user: 60, total: 300, userMax: 1000, totalMax: 5000 },
+  hltb: { user: 300, total: 1000, userMax: 2000, totalMax: 10000 },
+} as const;
+
+export function getProviderLimits(provider: 'rawg' | 'hltb', env: Record<string, string | undefined> = process.env): { userLimit: number; totalLimit: number } {
+  const d = PROVIDER_LIMIT_DEFAULTS[provider];
+  const P = provider.toUpperCase();
+  return {
+    userLimit: intEnv(env[`${P}_USER_DAILY_LIMIT`], d.user, 1, d.userMax),
+    totalLimit: intEnv(env[`${P}_DAILY_LIMIT`], d.total, 0, d.totalMax),
+  };
+}
+
 export type GoogleEnv = { clientId: string; clientSecret: string; origin: string };
 
 /** Google OAuth (контракт 22.4/22.8). null = вход Google не настроен (вход паролем owner работает). Секрет не логируется. */

@@ -52,6 +52,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       await client.exec(
         'TRUNCATE recommend_external_dislikes, recommend_discover_cache, recommend_llm_usage, recommend_llm_state, recommend_reasons, recommend_dislikes, roadmap_excluded, roadmap_order, roadmap_settings, planned_games, notify_log, game_month_exclusions, status_backups, game_status, game_trophy_sets, trophies, playtime_snapshots, trophy_sets, games, sync_runs, psn_auth, psn_profile RESTART IDENTITY CASCADE',
       );
+      // provider_usage есть только с 0017 (срезы журнала её не имеют)
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.provider_usage') IS NOT NULL THEN TRUNCATE provider_usage; END IF; END $$`);
     },
     close: () => client.close(),
   };

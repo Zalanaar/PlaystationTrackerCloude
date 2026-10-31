@@ -52,6 +52,28 @@ describe('hltbStep', () => {
     expect(await row(b)).toMatchObject({ hltbId: null, hltbMainHours: null, hltbCheckedAt: NOW });
   });
 
+  it('лимит запросов HLTB (provider_usage): шаг останавливается без ошибки, остаток не помечается, warning hltb_limit', async () => {
+    const a = await add('Hades', {}, 'backlog');
+    const b = await add('Celeste', {}, 'backlog');
+    let n = 0;
+    const search: HltbClient['search'] = async () => [cand(2127, 'Hades', 21.9)];
+    const c = await ctx();
+    const r = await hltbStep(c, { ...deps(search), reserve: async () => (n++ < 1 ? 'ok' : 'user_limit') });
+    expect(r).toMatchObject({ checked: 1, failed: 0 });
+    expect((await row(a)).hltbCheckedAt).toEqual(NOW);
+    expect((await row(b)).hltbCheckedAt).toBeNull();
+    expect(JSON.stringify(c.warnings ?? [])).toContain('hltb_limit');
+  });
+
+  it('реальный provider_usage: запросы HLTB записываются на пользователя', async () => {
+    await add('Hades', {}, 'backlog');
+    const c = await ctx();
+    await hltbStep(c, deps(async () => [cand(2127, 'Hades', 21.9)]));
+    const u = await t.db.select().from(schema.providerUsage);
+    expect(u.map((x) => [x.userId, x.provider])).toEqual([[1, 'hltb']]);
+    expect(u[0].calls).toBeGreaterThan(0);
+  });
+
   it('кого пропускаем: service, скрытые, с ручной длительностью, свежепроверенные (completed/dropped берём, 20.1)', async () => {
     const asked: string[] = [];
     await add('Done', {}, 'completed');

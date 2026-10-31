@@ -23,6 +23,9 @@ describe('toPsnProfile (чистая)', () => {
       trophies: { platinum: 38, gold: 410, silver: 1100, bronze: 2800, total: 4348 },
     });
   });
+  it('avatarUrl с http:// в БД отдаётся по https', () => {
+    expect(toPsnProfile(profileRow({ avatarUrl: 'http://image.api.playstation.com/xl.png' })).avatarUrl).toBe('https://image.api.playstation.com/xl.png');
+  });
   it('нет счётчиков: trophies = null; пустые поля = null', () => {
     const p = toPsnProfile(profileRow({ earnedGold: null, avatarUrl: null, trophyLevel: null, trophyTier: null, trophyProgress: null }));
     expect(p).toEqual({ onlineId: 'Artem_PS', avatarUrl: null, level: null, levelProgress: null, tier: null, trophies: null });

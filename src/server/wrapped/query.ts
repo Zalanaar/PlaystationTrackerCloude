@@ -1,4 +1,5 @@
 // Чтение данных для /api/wrapped (контракт 11). Расчёты в calc.ts/compose.ts, здесь только выборки.
+import { toHttps } from '@/shared/https-url';
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, min, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
@@ -163,7 +164,7 @@ export async function getWrapped(db: AnyDb, userId: UserId, year: number, online
     years,
     // ник: env важнее, иначе из сохранённого профиля PSN (12.4)
     onlineId: onlineId ?? psnProf?.onlineId ?? null,
-    avatarUrl: psnProf?.avatarUrl ?? null,
+    avatarUrl: toHttps(psnProf?.avatarUrl),
     snapshots,
     estimates,
     firstSnapshotDate: first[0]?.d ?? null,

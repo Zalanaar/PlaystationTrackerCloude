@@ -1,4 +1,5 @@
 // Профиль PSN из таблицы psn_profile (контракт 12.1, 12.3). Токенов в таблице нет.
+import { toHttps } from '@/shared/https-url';
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
@@ -16,7 +17,7 @@ export function toPsnProfile(r: ProfileRow): PsnProfile {
   const [platinum, gold, silver, bronze] = counts.map((c) => c ?? 0);
   return {
     onlineId: r.onlineId,
-    avatarUrl: r.avatarUrl,
+    avatarUrl: toHttps(r.avatarUrl),
     level: r.trophyLevel,
     levelProgress: r.trophyProgress,
     tier: r.trophyTier,
