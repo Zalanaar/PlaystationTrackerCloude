@@ -329,3 +329,122 @@
 .ps-st-played .ps-month { margin-top: var(--sp-1); }
 .ps-st-bar__col { height: var(--chart-h); }
 .ps-st-bars .ps-st-bar__col + .ps-st-bar__lbl { display: block; }
+
+/* ---------- «Всё время» (Фаза 25, §12) ---------- */
+.ps-st-switch[data-period="all"] .ps-seg button { white-space: nowrap; }
+.ps-st-nav { justify-content: center; }
+.ps-st-range { min-width: 7ch; color: var(--text-2); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-st-head__range { color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-st-head--all .ps-year__btn { flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-5); }
+.ps-st-head__plat { color: var(--plat-text); }
+.ps-st-head__plat b { color: var(--text); }
+.ps-st-head__plat svg { align-self: center; }
+.ps-st-note--cover { margin-top: var(--sp-4); }
+.ps-st-unattr { margin: var(--sp-2) 0 0; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-st-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1); min-height: 160px; color: var(--text-3); text-align: center; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-st-empty b { color: var(--text-2); font-weight: 600; font-size: var(--fs-body); }
+
+/* график по годам */
+.ps-st-ychart { position: relative; min-width: 0; }
+.ps-st-yscroll { overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scrollbar-width: none; }
+.ps-st-yscroll::-webkit-scrollbar { display: none; }
+.ps-st-yscroll[data-fade-l] { -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px); mask-image: linear-gradient(90deg, transparent, #000 16px); }
+.ps-st-yscroll[data-fade-r] { -webkit-mask-image: linear-gradient(270deg, transparent, #000 16px); mask-image: linear-gradient(270deg, transparent, #000 16px); }
+.ps-st-yscroll[data-fade-l][data-fade-r] { -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.ps-st-ybars { display: flex; min-width: min-content; padding-top: 22px; border-bottom: var(--border-w) solid var(--border); }
+.ps-st-yslot { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: stretch; min-width: 36px; padding: 0; background: none; border: 0; color: var(--text-3); cursor: pointer; scroll-snap-align: end; }
+.ps-st-yslot--empty { cursor: default; }
+.ps-st-yslot__col { position: relative; display: flex; align-items: flex-end; justify-content: center; height: 180px; }
+.ps-st-ychart[data-kind="trophies"] .ps-st-yslot__col { height: 140px; }
+.ps-st-ystack { display: flex; flex-direction: column-reverse; width: min(calc(100% - 8px), 40px); transform-origin: bottom; }
+.ps-st-ystack > :last-child { border-radius: min(4px, var(--r-sm)) min(4px, var(--r-sm)) 0 0; }
+.ps-st-ystack .ps-st-bar__fill, .ps-st-ystack .ps-st-bar__est, .ps-st-tseg { display: block; flex-basis: 0; min-height: 0; }
+.ps-st-tseg + .ps-st-tseg { border-bottom: 1px solid var(--surface); }
+.ps-st-tseg[data-kind="platinum"] { min-height: 3px; }
+.ps-st-tseg[data-kind="bronze"], .ps-st-sw--t[data-kind="bronze"] { background: var(--bronze); }
+.ps-st-tseg[data-kind="silver"], .ps-st-sw--t[data-kind="silver"] { background: var(--silver); }
+.ps-st-tseg[data-kind="gold"], .ps-st-sw--t[data-kind="gold"] { background: var(--gold); }
+.ps-st-tseg[data-kind="platinum"], .ps-st-sw--t[data-kind="platinum"] { background: var(--platinum); }
+.ps-st-ychart[data-kind="hours"] .ps-st-yslot[data-cur] .ps-st-bar__fill, .ps-st-ychart .ps-st-yslot[data-active] .ps-st-bar__fill { opacity: 1; }
+.ps-st-yslot__top { position: absolute; left: 0; right: 0; display: flex; align-items: baseline; justify-content: center; gap: 2px; color: var(--text-2); font: 400 11px/14px var(--font-body); white-space: nowrap; }
+.ps-st-ychart[data-kind="hours"]:not([data-roomy]) .ps-st-yslot__top { display: none; }
+.ps-st-ychart[data-kind="trophies"] .ps-st-yslot__top { color: var(--plat-text); }
+.ps-st-yslot__approx { color: var(--text-3); }
+.ps-st-yslot__lbl { padding-top: var(--sp-1); font-size: 11px; line-height: 16px; text-align: center; color: var(--text-3); }
+.ps-st-yslot__lbl[data-cur] { color: var(--text); font-weight: 600; }
+.ps-st-yslot__sub { font-size: 10px; line-height: 12px; text-align: center; color: var(--text-3); }
+.ps-st-yslot:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 4px; }
+.ps-st-ychart:not([data-in]) .ps-st-ystack { transform: scaleY(0); }
+.ps-st-ychart[data-in="go"] .ps-st-ystack { animation: ps-st-grow var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
+@keyframes ps-st-grow { from { transform: scaleY(0); } to { transform: none; } }
+.ps-st-tip--float { position: absolute; bottom: auto; right: auto; transform: none; width: max-content; max-width: calc(100vw - 16px); }
+.ps-st-tip small { color: var(--text-3); font-size: var(--fs-small); }
+
+/* пройдено / брошено по годам (§12.4) */
+.ps-st-fy { margin: 0; padding: 0; list-style: none; }
+.ps-st-fy li { border-top: var(--border-w) solid var(--border); }
+.ps-st-fy__row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-4); width: 100%; min-height: 44px; padding: 0 var(--sp-2); background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ps-st-fy__row:hover { background: var(--surface-2); }
+.ps-st-fy__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--r-sm); }
+.ps-st-fy__y { font: 600 14px/20px var(--font-body); color: var(--text); }
+.ps-st-fy__bars { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ps-st-fy__bar { display: block; height: 6px; background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
+.ps-st-fy__bar i { display: block; height: 100%; border-radius: var(--r-pill); }
+.ps-st-fy__bar i[data-kind="completed"] { background: var(--st-completed); }
+.ps-st-fy__bar i[data-kind="dropped"] { background: var(--st-dropped); }
+.ps-st-fy__n { display: inline-flex; gap: var(--sp-3); font: 400 13px/16px var(--font-body); color: var(--text); }
+.ps-st-fy__n > span { display: inline-flex; align-items: center; gap: 4px; min-width: 40px; }
+.ps-st-fy__n [data-zero] { color: var(--text-3); }
+.ps-st-fy__total { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 var(--sp-2); background: var(--surface-2); border-radius: var(--r-sm); color: var(--text); font-size: var(--fs-small); }
+.ps-st-fy__none { display: grid; place-items: center; height: 120px; margin: 0; color: var(--text-3); font-size: var(--fs-small); }
+
+/* «Когда ты играешь» (Фаза 26, §12.6) */
+.ps-pp__sum { margin: calc(var(--sp-2) * -1) 0 var(--sp-4); color: var(--text); font: 400 14px/20px var(--font-body); }
+.ps-pp__sum b { font-weight: 600; }
+.ps-pp__grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 24px; }
+.ps-pp__chart { position: relative; min-width: 0; }
+.ps-pp__bars { display: flex; align-items: stretch; gap: 2px; padding-top: 26px; border-bottom: var(--border-w) solid var(--border); }
+.ps-pp__chart[data-kind="weekdays"] .ps-pp__bars { gap: 8px; }
+.ps-pp__slot { position: relative; display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; }
+.ps-pp__col { position: relative; display: flex; align-items: flex-end; justify-content: center; height: 120px; border-radius: var(--r-sm); outline: none; cursor: default; }
+.ps-pp__col:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ps-pp__fill { display: block; width: 100%; height: var(--h); background: var(--accent); opacity: .55; border-radius: min(3px, var(--r-sm)) min(3px, var(--r-sm)) 0 0; transform-origin: bottom; }
+.ps-pp__chart[data-kind="weekdays"] .ps-pp__fill { width: min(calc(100% - 12px), 40px); }
+.ps-pp__col[data-active] .ps-pp__fill, .ps-pp__col:focus-visible .ps-pp__fill { opacity: 1; }
+.ps-pp__col[data-peak] .ps-pp__fill { opacity: 1; box-shadow: inset 0 3px 0 var(--text); }
+.ps-pp__pill { position: absolute; bottom: calc(var(--h) + 4px); left: 0; padding: 2px 8px; background: var(--accent-soft); border-radius: var(--r-pill); color: var(--text); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); white-space: nowrap; pointer-events: none; }
+.ps-pp__val { position: absolute; bottom: calc(var(--h) + 2px); left: 0; right: 0; text-align: center; color: var(--text); font: 400 11px/14px var(--font-body); }
+.ps-pp__lbl { display: block; padding-top: var(--sp-1); font-size: 11px; line-height: 16px; color: var(--text-3); white-space: nowrap; }
+.ps-pp__chart[data-kind="hours"] .ps-pp__slot:not([data-every]) .ps-pp__lbl { visibility: hidden; }
+.ps-pp__chart[data-kind="weekdays"] .ps-pp__lbl { text-align: center; }
+.ps-pp__lbl[data-peak] { color: var(--text); font-weight: 600; }
+.ps-pp__chart:not([data-in]) .ps-pp__fill { transform: scaleY(0); }
+.ps-pp__chart[data-in="go"] .ps-pp__fill { animation: ps-st-grow var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--step, 20ms)); }
+.ps-pp__stub { position: relative; height: 140px; }
+.ps-pp__stubbars { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
+.ps-pp__stubbars i { flex: 1 1 0; background: var(--surface-3); border-radius: min(3px, var(--r-sm)) min(3px, var(--r-sm)) 0 0; }
+.ps-pp__stubmsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; margin: auto; width: fit-content; height: fit-content; padding: var(--sp-3) var(--sp-5); background: var(--surface); border-radius: var(--r-md); text-align: center; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-pp__stubmsg b { color: var(--text); font-weight: 600; font-size: var(--fs-body); }
+.ps-pp__stubmsg span { color: var(--text-2); }
+
+@media (max-width: 767px) {
+  .ps-st-switch { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .ps-st-switch[data-period="all"] .ps-seg, .ps-st-switch .ps-seg { display: flex; }
+  .ps-st-switch > .ps-seg button { flex: 1 1 0; height: var(--tap-min); }
+  .ps-st-range { text-align: center; }
+  .ps-st-ychart[data-kind] .ps-st-yslot__col { height: 160px; }
+  .ps-st-ychart[data-kind="trophies"] .ps-st-yslot__col { height: 120px; }
+  .ps-st-yslot__top { display: none !important; }
+  .ps-st-yslot__sub { display: none; }
+  .ps-st-fy__row { min-height: 52px; gap: var(--sp-3); }
+  .ps-pp__grid { grid-template-columns: minmax(0, 1fr); }
+  .ps-pp__col { height: 104px; }
+  .ps-pp__stub { height: 120px; }
+  .ps-st-head__y { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-st-ychart .ps-st-ystack, .ps-pp__chart .ps-pp__fill { transform: none !important; animation: none !important; }
+}
+@media (prefers-contrast: more) {
+  .ps-pp__fill { opacity: 1; }
+}

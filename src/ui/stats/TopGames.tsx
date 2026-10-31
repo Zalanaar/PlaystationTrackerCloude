@@ -5,7 +5,7 @@ import type { GameItem } from '@/server/collection/types';
 import type { StatsTop } from '@/server/stats/types';
 import { Cover } from '../collection/Cover';
 import { Icon, PlatinumIcon } from '../icons';
-import { TOP_EMPTY, TOP_MODES, TOP_SUBTITLE, topHoursRows, topTrophyRows, type TopMode, type TopRow } from './model';
+import { TOP_EMPTY, TOP_MODES, TOP_SUBTITLE, TROPHY_POINTS, topHoursRows, topTrophyRows, type TopMode, type TopRow } from './model';
 
 function Row({ row, mode, onOpen }: { row: TopRow; mode: TopMode; onOpen: (g: GameItem) => void }) {
   return (
@@ -37,7 +37,7 @@ function Row({ row, mode, onOpen }: { row: TopRow; mode: TopMode; onOpen: (g: Ga
 }
 
 /** Топ-10 игр периода с переключателем «Часы / Трофеи» (design-system §4.17.2). Выбор не хранится. */
-export function TopGames({ top, onOpen }: { top: StatsTop; onOpen: (g: GameItem) => void }) {
+export function TopGames({ top, onOpen, scope }: { top: StatsTop; onOpen: (g: GameItem) => void; scope?: 'all' }) {
   const [mode, setMode] = useState<TopMode>('hours');
   const titleId = useId();
   const rows = useMemo(() => (mode === 'hours' ? topHoursRows(top.byHours) : topTrophyRows(top.byTrophies)), [mode, top]);
@@ -49,7 +49,7 @@ export function TopGames({ top, onOpen }: { top: StatsTop; onOpen: (g: GameItem)
           {TOP_MODES.map((m) => <button key={m.id} type="button" aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>{m.label}</button>)}
         </div>
       </div>
-      <p className="ps-st-panel__s">{TOP_SUBTITLE[mode]}</p>
+      <p className="ps-st-panel__s">{scope === 'all' ? (mode === 'hours' ? 'за всё время' : `Очки за все трофеи: платина ${TROPHY_POINTS.platinum}, золото ${TROPHY_POINTS.gold}, серебро ${TROPHY_POINTS.silver}, бронза ${TROPHY_POINTS.bronze}`) : TOP_SUBTITLE[mode]}</p>
       {rows.length === 0 ? (
         <p className="ps-top__empty">{TOP_EMPTY[mode]}</p>
       ) : (

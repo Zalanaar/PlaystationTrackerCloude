@@ -17,6 +17,10 @@ import { ActivityPanel } from './ActivityPanel';
 import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
+import { Panel } from './Panel';
+import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel } from './AllTime';
+import { yearRange } from './allTime';
+import { PlayPatternPanel } from './PlayPatternPanel';
 import { WrappedBanner } from './WrappedBanner';
 import { TopGames } from './TopGames';
 import { StatsDataSkeleton } from '../skeletons';
@@ -63,14 +67,24 @@ export function StatsView() {
     return () => clearTimeout(t);
   }, [load, sel, key, withService]);
 
-  const go = (s: Selection | null) => {
-    if (s) router.push(`${pathname}?${selectionToParams(s).toString()}`, { scroll: false });
+  // последний выбранный год: возврат с «Всё время» на «Год» (в памяти страницы)
+  const lastYear = useRef<number | null>(null);
+  useEffect(() => { if (sel.period !== 'all') lastYear.current = sel.year; }, [sel]);
+  const go = (s: Selection | null, replace = false) => {
+    if (!s) return;
+    const url = `${pathname}?${selectionToParams(s).toString()}`;
+    if (replace) router.replace(url, { scroll: false }); else router.push(url, { scroll: false });
+  };
+  const openYear = (y: number) => {
+    go({ period: 'year', year: y, month: null });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
   const prev = shiftSelection(sel, -1, years, today);
   const next = shiftSelection(sel, 1, years, today);
 
   const fresh = loaded && loaded.key === key ? loaded : null;
-  const stale = loaded && loaded.key !== key && 'data' in loaded ? loaded.data : null;
+  // предыдущие данные показываем только того же типа периода: шапка года в режиме «Всё время» (и наоборот) недопустима
+  const stale = loaded && loaded.key !== key && 'data' in loaded && loaded.data.period.type === sel.period ? loaded.data : null;
   const data = fresh && 'data' in fresh ? fresh.data : stale;
   const failed = fresh && 'error' in fresh ? fresh.error : null;
   const loading = !fresh;
@@ -115,13 +129,13 @@ export function StatsView() {
     <div className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1">Статистика</h1>
-        <Link href={`/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
-          <Icon name="sparkles" size={16} />Итоги {sel.year}
+        <Link href={sel.period === 'all' ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
+          <Icon name="sparkles" size={16} />{sel.period === 'all' ? 'Итоги: всё время' : `Итоги ${sel.year}`}
         </Link>
       </div>
       <WrappedBanner years={years} />
       <PeriodSwitch
-        sel={sel} today={today} onType={(p) => go(setPeriodType(sel, p, today))}
+        sel={sel} today={today} years={years} onType={(p) => go(setPeriodType(sel, p, today, lastYear.current), true)}
         onPrev={prev ? () => go(prev) : null} onNext={next ? () => go(next) : null}
       />
       {failed ? (
@@ -130,9 +144,11 @@ export function StatsView() {
         </EmptyState>
       ) : !data ? (
         <StatsDataSkeleton />
+      ) : data.period.type !== sel.period ? (
+        <StatsDataSkeleton />
       ) : (
         <div className="ps-st" aria-busy={loading || undefined} data-stale={loading || undefined}>
-          <Content data={data} sel={sel} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
+          <Content data={data} sel={sel} years={years} onOpenYear={openYear} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
         </div>
       )}
     </div>
@@ -140,33 +156,63 @@ export function StatsView() {
 }
 
 function PeriodSwitch({
-  sel, today, onType, onPrev, onNext,
-}: { sel: Selection; today: { year: number; month: number }; onType: (p: PeriodType) => void; onPrev: (() => void) | null; onNext: (() => void) | null }) {
+  sel, today, years, onType, onPrev, onNext,
+}: { sel: Selection; today: { year: number; month: number }; years: readonly number[]; onType: (p: PeriodType) => void; onPrev: (() => void) | null; onNext: (() => void) | null }) {
   const unit = sel.period === 'year' ? 'год' : 'месяц';
+  const all = sel.period === 'all';
+  const word = all ? 'всё время' : sel.period === 'year' ? 'год' : 'месяц';
   return (
-    <div className="ps-st-switch" data-tour="stats-period">
+    <div className="ps-st-switch" data-tour="stats-period" data-period={sel.period}>
       <div className="ps-seg" role="group" aria-label="Период">
         <button type="button" aria-pressed={sel.period === 'year'} onClick={() => onType('year')}>Год</button>
         <button type="button" aria-pressed={sel.period === 'month'} onClick={() => onType('month')}>Месяц</button>
+        <button type="button" aria-pressed={all} onClick={() => onType('all')}>Всё время</button>
       </div>
-      <div className="ps-st-nav" role="group" aria-label="Выбор периода">
-        <button type="button" className="ps-iconbtn" aria-label={`Предыдущий ${unit}`} disabled={!onPrev} onClick={() => onPrev?.()}><span aria-hidden="true">‹</span></button>
-        <span className="ps-st-nav__label ps-num" aria-live="polite" data-today={sel.year === today.year || undefined}>{periodLabel(sel)}</span>
-        <button type="button" className="ps-iconbtn" aria-label={`Следующий ${unit}`} disabled={!onNext} onClick={() => onNext?.()}><span aria-hidden="true">›</span></button>
-      </div>
+      {all ? (
+        <span className="ps-st-range ps-num" data-testid="all-range">{yearRange(years, today.year)}</span>
+      ) : (
+        <div className="ps-st-nav" role="group" aria-label="Выбор периода">
+          <button type="button" className="ps-iconbtn" aria-label={`Предыдущий ${unit}`} disabled={!onPrev} onClick={() => onPrev?.()}><span aria-hidden="true">‹</span></button>
+          <span className="ps-st-nav__label ps-num" aria-live="polite" data-today={sel.year === today.year || undefined}>{periodLabel(sel)}</span>
+          <button type="button" className="ps-iconbtn" aria-label={`Следующий ${unit}`} disabled={!onNext} onClick={() => onNext?.()}><span aria-hidden="true">›</span></button>
+        </div>
+      )}
+      <span className="ps-sr" aria-live="polite">{`Период: ${word}`}</span>
     </div>
   );
 }
 
 function Content({
-  data, sel, today, actions, onOpenGame, onOpenStub, onOpenRare, onChanged, withService, onWithService,
+  data, sel, today, years, onOpenYear, actions, onOpenGame, onOpenStub, onOpenRare, onChanged, withService, onWithService,
 }: {
+  years: readonly number[]; onOpenYear: (y: number) => void;
   onOpenRare: (g: StatsGenreGame) => void;
   withService: boolean; onWithService: (v: boolean) => void;
   data: StatsResponse; sel: Selection; today: { year: number; month: number }; actions: GameActions;
   onOpenGame: (g: GameItem) => void; onOpenStub: (g: StatsGenreGame) => void; onChanged: () => void;
 }) {
   const empty = isEmptyPeriod(data, sel.period);
+  if (sel.period === 'all') {
+    return (
+      <>
+        <AllHeader data={data} years={years} currentYear={today.year} />
+        {empty ? (
+          <EmptyState icon="bar-chart" title="Данных пока нет" text="Часы, трофеи и завершённые игры появятся после синка." />
+        ) : (
+          <>
+            <div className="ps-st-grid">
+              <HoursByYearPanel data={data} currentYear={today.year} wide={!data.genres.hasData} />
+              {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} sub="за всё время" />}
+            </div>
+            <FinishedByYearPanel data={data} onOpenYear={onOpenYear} />
+            <TopGames top={data.top} onOpen={onOpenGame} scope="all" />
+            <PlayPatternPanel pattern={data.playPattern} periodKey="all" />
+            <TrophiesByYearPanel data={data} currentYear={today.year} />
+          </>
+        )}
+      </>
+    );
+  }
   return (
     <>
       <PeriodHeader data={data} sel={sel} />
@@ -182,6 +228,7 @@ function Content({
             {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} />}
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />
+          <PlayPatternPanel pattern={data.playPattern} periodKey={selectionKey(sel)} />
           <TrophiesPanel data={data} sel={sel} />
           <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenRare} withService={withService} onWithService={onWithService} />
           <ActivityPanel key={sel.year} defaultYear={sel.year} />
@@ -215,17 +262,6 @@ function PeriodHeader({ data, sel }: { data: StatsResponse; sel: Selection }) {
         <span className="ps-year__k"><Icon name="trophy" size={16} /><b className="num">{formatNumber(h.platinum)}</b> {plural(h.platinum, ['платина', 'платины', 'платин'])}</span>
       </div>
     </header>
-  );
-}
-
-function Panel({ title, sub, className, labelId, aside, children }: { title: string; sub?: string; className?: string; labelId: string; aside?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className={`ps-panel ps-st-panel ${className ?? ''}`} aria-labelledby={labelId}>
-      <h3 className="ps-st-panel__t" id={labelId}>{title}</h3>
-      {sub && <p className="ps-st-panel__s">{sub}</p>}
-      {aside}
-      {children}
-    </section>
   );
 }
 
@@ -315,10 +351,10 @@ function BarTip({ bar }: { bar: HoursBar }) {
   );
 }
 
-function GenresPanel({ data, onOpenGame }: { data: StatsResponse; onOpenGame: (g: StatsGenreGame) => void }) {
+function GenresPanel({ data, onOpenGame, sub }: { data: StatsResponse; onOpenGame: (g: StatsGenreGame) => void; sub?: string }) {
   const bars = genreBars(data.genres.items);
   return (
-    <Panel title="Жанры" sub="Игра делится между своими жанрами поровну" labelId="st-genres" className="ps-st-panel--genres">
+    <Panel title="Жанры" sub={sub ?? 'Игра делится между своими жанрами поровну'} labelId="st-genres" className="ps-st-panel--genres">
       <ul className="ps-st-genres">
         {bars.map((g) => <GenreRow key={g.key} bar={g} games={data.genres.games} onOpenGame={onOpenGame} />)}
       </ul>
