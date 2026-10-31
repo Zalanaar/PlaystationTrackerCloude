@@ -39,7 +39,7 @@
 ## Дефекты
 
 ### B-1 (major, до 0015): `ON CONFLICT` кэша фраз не совпадёт с целевым PK
-`src/server/recommend/db.ts:100` (`writeCachedReasons`): `target: [recommendReasons.gameId, recommendReasons.signalsHash]`. Сейчас это PK `(game_id, signals_hash)` и работает. По `docs/api-contract.md` 22.1 после `0015` PK `recommend_reasons` становится `(user_id, game_id, signals_hash)`; миграция 0014 для этой таблицы unique с `user_id` не добавляла (в отличие от пяти таблиц из 22.11). Если `0015` заменит PK, запись фраз упадёт с «no unique or exclusion constraint matching the ON CONFLICT specification»; ошибка проглатывается шагом LLM синка (предупреждение), фразы молча перестанут кэшироваться.
+`src/server/recommend/db.ts:103` (`writeCachedReasons`): `target: [recommendReasons.gameId, recommendReasons.signalsHash]`. Сейчас это PK `(game_id, signals_hash)` и работает. По `docs/api-contract.md` 22.1 после `0015` PK `recommend_reasons` становится `(user_id, game_id, signals_hash)`; миграция 0014 для этой таблицы unique с `user_id` не добавляла (в отличие от пяти таблиц из 22.11). Если `0015` заменит PK, запись фраз упадёт с «no unique or exclusion constraint matching the ON CONFLICT specification»; ошибка проглатывается шагом LLM синка (предупреждение), фразы молча перестанут кэшироваться.
 Воспроизведение: после `0015` выполнить синк с `LLM_API_KEY` и включённым шагом фраз, проверить `recommend_reasons` (пусто).
 Исправление: в `0015` оставить unique `(game_id, signals_hash)` либо перейти на target `[userId, gameId, signalsHash]` вместе с миграцией. Тест на это нужно добавить в `release-sql-0015`.
 Текущая выкладка не затронута.
