@@ -282,11 +282,11 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, gameVisible(ps.gameId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${to}`, gameVisible(ps.gameId, userId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), gameVisible(ps.gameId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), gameVisible(ps.gameId, userId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
   ]);

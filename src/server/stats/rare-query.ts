@@ -50,7 +50,7 @@ export async function getRareTrophies(db: AnyDb, userId: UserId, range: { fromUt
         isNotNull(trophies.earnedRate),
         range ? gte(trophies.earnedAt, range.fromUtc) : undefined,
         range ? lt(trophies.earnedAt, range.toUtc) : undefined,
-        trophySetCounted(trophies.trophySetId),
+        trophySetCounted(trophies.trophySetId, userId),
         withService ? undefined : or(isNull(gameStatus.status), ne(gameStatus.status, 'service')),
       ),
     )

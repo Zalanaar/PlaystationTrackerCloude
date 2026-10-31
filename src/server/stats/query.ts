@@ -24,10 +24,10 @@ const TZ = 'Europe/Moscow';
 export async function getStatsYears(db: AnyDb, userId: UserId, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
   const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
   const [snap, tr, comp, drop] = await Promise.all([
-    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(and(eq(ps.userId, userId), gameVisible(ps.gameId))),
-    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.userId, userId), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId))),
-    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId))),
-    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId))),
+    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(and(eq(ps.userId, userId), gameVisible(ps.gameId, userId))),
+    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.userId, userId), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId, userId))),
+    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId, userId))),
+    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId, userId))),
   ]);
   const set = new Set<number>([currentYear]);
   for (const r of [...snap, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
@@ -61,25 +61,25 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId))),
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, yearFrom), sql`${ps.snapshotDate} <= ${yearTo}`, gameVisible(ps.gameId, userId))),
     db
       .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
       .from(ps)
-      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId)))
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, yearFrom), gameVisible(ps.gameId, userId)))
       .orderBy(ps.gameId, desc(ps.snapshotDate)),
     db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
     db
       .select({ type: trophies.type, earnedAt: trophies.earnedAt })
       .from(trophies)
-      .where(and(eq(trophies.userId, userId), eq(trophies.earned, true), gte(trophies.earnedAt, yearStartUtc), lt(trophies.earnedAt, yearEndUtc), trophySetCounted(trophies.trophySetId))),
+      .where(and(eq(trophies.userId, userId), eq(trophies.earned, true), gte(trophies.earnedAt, yearStartUtc), lt(trophies.earnedAt, yearEndUtc), trophySetCounted(trophies.trophySetId, userId))),
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.completedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc), gameVisible(gameStatus.gameId))),
+      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, fromUtc), lt(gameStatus.completedAt, toUtc), gameVisible(gameStatus.gameId, userId))),
     db
       .select({ gameId: gameStatus.gameId, at: gameStatus.droppedAt })
       .from(gameStatus)
-      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId))),
+      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'dropped'), gte(gameStatus.droppedAt, fromUtc), lt(gameStatus.droppedAt, toUtc), gameVisible(gameStatus.gameId, userId))),
     db
       .select({ id: games.id, title: games.name, coverUrl: games.imageUrl, psnGenres: games.psnGenres, genresOverride: games.genresOverride })
       .from(games)

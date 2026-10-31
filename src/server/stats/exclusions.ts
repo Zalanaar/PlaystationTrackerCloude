@@ -42,7 +42,7 @@ export function applyExclusions(inputs: readonly EstimateInput[], exclusions: Mo
 
 /** Исключения видимых игр: gameId -> месяцы. Один запрос. */
 export async function getMonthExclusions(db: AnyDb, userId: UserId): Promise<Map<number, Set<string>>> {
-  const rows = await db.select({ gameId: ex.gameId, month: ex.month }).from(ex).where(and(eq(ex.userId, userId), gameVisible(ex.gameId)));
+  const rows = await db.select({ gameId: ex.gameId, month: ex.month }).from(ex).where(and(eq(ex.userId, userId), gameVisible(ex.gameId, userId)));
   const out = new Map<number, Set<string>>();
   for (const r of rows) {
     const set = out.get(r.gameId) ?? new Set<string>();

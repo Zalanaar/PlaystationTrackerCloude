@@ -37,7 +37,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 /** Строки game_status видимых игр в формате payload (1.12), по game_id. */
 async function visibleStatusRows(tx: Tx, userId: UserId): Promise<StatusBackupRow[]> {
-  const rows = await tx.select().from(gameStatus).where(and(eq(gameStatus.userId, userId), gameVisible(gameStatus.gameId))).orderBy(gameStatus.gameId);
+  const rows = await tx.select().from(gameStatus).where(and(eq(gameStatus.userId, userId), gameVisible(gameStatus.gameId, userId))).orderBy(gameStatus.gameId);
   return rows.map((r) => ({
     gameId: r.gameId,
     status: r.status,
@@ -140,7 +140,7 @@ export async function restoreStatuses(db: AnyDb, userId: UserId, backupId: numbe
 
     const current = await visibleStatusRows(tx, userId);
     const beforeId = await writeBackup(tx, userId, 'before_restore', current, now);
-    await tx.delete(gameStatus).where(and(eq(gameStatus.userId, userId), gameVisible(gameStatus.gameId)));
+    await tx.delete(gameStatus).where(and(eq(gameStatus.userId, userId), gameVisible(gameStatus.gameId, userId)));
 
     const values = [...parsed.values()]
       .filter((r) => visible.has(r.gameId))
