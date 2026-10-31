@@ -68,8 +68,8 @@
   display: flex; align-items: center;
   margin-inline: calc(var(--gutter) * -1);            /* фон на всю ширину контейнера, контент не виден по бокам */
   padding: calc(var(--sp-2) + 1px) var(--gutter) var(--sp-2);
-  background: var(--bg);
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 62%, transparent);   /* матовое стекло: контент под плашкой размыт, не читается */
+  -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: 0 0 0 transparent;
   transition: box-shadow var(--dur-base) var(--ease-ui);
 }
