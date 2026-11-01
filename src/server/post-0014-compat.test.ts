@@ -28,6 +28,8 @@ describe('20.3 на схеме после 0014 (до 0015), один польз�
   let t: TestDb;
   beforeAll(async () => {
     t = await createTestDb({ migrations: 15 }); // схема ровно после 0014 (журнал: 15 записей)
+    // Код Фазы 32 читает/пишет goal_* в roadmap_settings (миграция 0022); сам тест про ключи 0014, колонки добавляем как в expand-миграции.
+    await t.pg.execute(sql`ALTER TABLE roadmap_settings ADD COLUMN IF NOT EXISTS goal_mode text, ADD COLUMN IF NOT EXISTS goal_count smallint`);
   });
   afterAll(() => t.close());
 

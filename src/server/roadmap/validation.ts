@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { normalizeOverrideHours } from '@/server/collection/duration';
 import { isDateString } from './dates';
+import { GOAL_MAX, GOAL_MODES, type GoalMode } from './goal';
 import { MAX_HOURS_PER_WEEK, round1 } from './plan';
 import type { PlannedGameStatus } from './types';
 
@@ -36,6 +37,16 @@ export function parseSettingsBody(body: unknown): Parsed<{ year: number; hoursPe
   const hoursPerWeek = round1(r.data.hoursPerWeek);
   if (hoursPerWeek < 0.1) return bad('Часов в неделю должно быть не меньше 0.1.');
   return { ok: true, value: { year: r.data.year, hoursPerWeek } };
+}
+
+// --- цель года (17.3a)
+const goalSchema = z.strictObject({ mode: z.enum(GOAL_MODES), count: z.number().int().min(0).max(GOAL_MAX) });
+
+export function parseGoalBody(body: unknown): Parsed<{ mode: GoalMode; count: number }> {
+  const r = goalSchema.safeParse(body);
+  if (!r.success) return bad(issueMessage(r.error));
+  if (r.data.mode === 'complete' && r.data.count < 1) return bad('Цель «пройти» должна быть не меньше 1.');
+  return { ok: true, value: r.data };
 }
 
 // --- planned_games (17.7)

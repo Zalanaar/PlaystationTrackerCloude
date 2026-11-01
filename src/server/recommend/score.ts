@@ -160,7 +160,7 @@ export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreSt
     .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution) || order.indexOf(a.key) - order.indexOf(b.key))
     .map((s) => ({ ...s, contribution: r2(s.contribution) }));
   return {
-    game: { id: c.id, name: c.name, imageUrl: c.imageUrl, bannerUrl: c.bannerUrl, genres: [...c.genres], hours: c.hours, hoursSource: c.hoursSource },
+    game: { id: c.id, name: c.name, imageUrl: c.imageUrl, bannerUrl: c.bannerUrl, genres: [...c.genres], hours: c.hours, totalHours: c.totalHours ?? c.hours, hoursSource: c.hoursSource },
     score: total,
     signals: shown,
     topGenre,
