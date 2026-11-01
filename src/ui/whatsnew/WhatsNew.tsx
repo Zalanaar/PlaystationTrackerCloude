@@ -58,7 +58,7 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (userId === null) return;
     const ac = new AbortController();
-    void fetchTourState(ac.signal).then((s) => { if (!ac.signal.aborted) setTourNew(s ? s.shouldAutoStart : false); });
+    void fetchTourState(ac.signal).then((s) => { if (!ac.signal.aborted) setTourNew(s ? s.shouldAutoStart : null); }); // ошибка: состояние неизвестно, карточку не показываем
     return () => ac.abort();
   }, [userId]);
 
@@ -76,12 +76,11 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
 
   // тосты: на время тоста карточка скрыта
   useEffect(() => {
-    const el = document.querySelector('.ps-toasts');
-    if (!el) return;
-    const sync = () => setToast(el.children.length > 0);
+    // контейнер тостов появляется порталом позже монтирования: следим за всем body
+    const sync = () => setToast((document.querySelector('.ps-toasts')?.children.length ?? 0) > 0);
     sync();
     const mo = new MutationObserver(sync);
-    mo.observe(el, { childList: true });
+    mo.observe(document.body, { childList: true, subtree: true });
     return () => mo.disconnect();
   }, []);
 

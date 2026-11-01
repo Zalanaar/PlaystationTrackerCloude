@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { splitMobile, type Chip } from './model';
@@ -24,16 +24,34 @@ function ChipLink({ c, mobile }: { c: Chip; mobile: boolean }) {
 export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
   const mobile = useIsMobile();
   const [expanded, setExpanded] = useState(false);
+  // Пустой ответ после скелета: скелет плавно схлопывается по высоте (без скачка вёрстки), потом снимается
+  const [prevPhase, setPrevPhase] = useState(ctl.phase);
+  const [collapse, setCollapse] = useState<'no' | 'run' | 'done'>('no');
+  const empty = (ctl.phase === 'ready' && ctl.chips.length === 0) || ctl.phase === 'gone';
+  if (prevPhase !== ctl.phase) {
+    setPrevPhase(ctl.phase);
+    if (prevPhase === 'loading' && empty) setCollapse('run');
+  }
+  useEffect(() => {
+    if (collapse !== 'run') return;
+    const ms = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260;
+    const t = setTimeout(() => setCollapse('done'), ms);
+    return () => clearTimeout(t);
+  }, [collapse]);
   if (!ctl.enabled || ctl.hidden) return null;
 
-  if (ctl.phase === 'loading') {
+  if (ctl.phase === 'loading' || collapse === 'run') {
     return (
-      <section className="ps-inbox ps-inbox--sk" aria-busy="true" aria-label="Загрузка сводки" data-testid="inbox-skeleton">
-        <span className="ps-skeleton ps-inbox__sk-label" />
-        <span className="ps-inbox__sk-row">
-          <span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" />
-        </span>
-      </section>
+      <div className="ps-inbox-wrap" data-collapsed={collapse === 'run' ? 'true' : undefined}>
+        <div className="ps-inbox-wrap__in">
+          <section className="ps-inbox ps-inbox--sk" aria-busy="true" aria-label="Загрузка сводки" data-testid="inbox-skeleton">
+            <span className="ps-skeleton ps-inbox__sk-label" />
+            <span className="ps-inbox__sk-row">
+              <span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" />
+            </span>
+          </section>
+        </div>
+      </div>
     );
   }
   if (ctl.phase === 'error') {

@@ -11,7 +11,6 @@ describe('записи', () => {
     for (const e of WHATS_NEW_ENTRIES) {
       expect(e.title.length).toBeLessThanOrEqual(32);
       expect(e.text.length).toBeLessThanOrEqual(120);
-      expect(e.date).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
       if (e.action) expect(e.action.href.startsWith('/')).toBe(true);
     }
   });
@@ -36,7 +35,7 @@ describe('planAuto', () => {
     expect(p.markTo).toBe(12);
   });
   it('новая запись (id 13) показывается один раз', () => {
-    const extra = [{ id: 13, date: '02.11.2026', title: 'Новое', text: 'Текст.', audience: 'all', highlight: false } as const, ...WHATS_NEW_ENTRIES];
+    const extra = [{ id: 13, title: 'Новое', text: 'Текст.', audience: 'all', highlight: false } as const, ...WHATS_NEW_ENTRIES];
     const p = planAuto(12, 'member', extra);
     expect(p.entries.map((e) => e.id)).toEqual([13]);
     expect(p.markTo).toBe(13);

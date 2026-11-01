@@ -29,6 +29,38 @@ test('QA-28: скачок вёрстки при пустом ответе (ск�
   await page.getByTestId('inbox-skeleton').waitFor({ state: 'detached' });
   const after = (await card.boundingBox())?.y ?? 0;
   console.log(`CLS-shift ${page.viewportSize()?.width}: card y ${before} -> ${after} (delta ${before - after})`);
+  expect(after).toBeLessThan(before); // схлопнулся, но через анимацию высоты (см. следующий тест)
+});
+
+test('QA-28-2: схлопывание скелета идёт анимацией, без мгновенного скачка', async ({ page, context, baseURL }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await open(page, context, baseURL!, null, 1200);
+  await page.getByTestId('inbox-skeleton').waitFor();
+  const card = page.locator('.ps-card').first();
+  const before = (await card.boundingBox())!.y;
+  const ys: number[] = [];
+  const t0 = Date.now();
+  while (Date.now() - t0 < 2200) {
+    ys.push((await card.boundingBox())!.y);
+    await page.waitForTimeout(20);
+  }
+  const steps = ys.slice(1).map((y, i) => ys[i] - y).filter((d) => d > 0);
+  expect(ys.at(-1)!).toBeLessThan(before);
+  expect(steps.length).toBeGreaterThan(2); // несколько промежуточных кадров, а не один скачок
+});
+
+test('QA-28-5: тост скрывает «Что нового» и карточка возвращается', async ({ page, context, baseURL }) => {
+  await open(page, context, baseURL!, null);
+  await page.evaluate(() => localStorage.setItem('ps-wn-seen:1', '11'));
+  await page.reload();
+  const wn = page.getByTestId('whats-new');
+  await wn.waitFor({ timeout: 8000 });
+  const st = page.getByRole('button', { name: 'Статус: Stray' });
+  test.skip((await st.count()) === 0, 'на мобильном смена статуса через шторку, тост проверен на десктопе');
+  await st.click();
+  await page.getByRole('menuitemradio', { name: 'Играю' }).click();
+  await expect(page.locator('.ps-toast').first()).toBeVisible();
+  await expect(wn).toHaveCount(0);
 });
 
 test('QA-28: нет горизонтального скролла, размеры чипов; скриншоты', async ({ page, context, baseURL }, info) => {

@@ -37,6 +37,10 @@
 .ps-inbox--err svg { flex: none; }
 
 /* Скелет */
+.ps-inbox-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
+.ps-inbox-wrap[data-collapsed="true"] { grid-template-rows: 0fr; opacity: 0; }
+.ps-inbox-wrap__in { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .ps-inbox-wrap { transition: none; } }
 .ps-inbox--sk { display: flex; flex-direction: column; gap: var(--sp-3); animation: none; }
 .ps-inbox__sk-label { display: block; width: 120px; height: 12px; }
 .ps-inbox__sk-row { display: flex; gap: var(--sp-2); }
