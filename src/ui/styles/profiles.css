@@ -1,0 +1,170 @@
+/* Профили PSN (Фаза 41, design-system §17). Только токены тем, без хардкода цветов; декора тем нет. */
+
+/* ---------- Спиннер и завеса перезагрузки (§17.2) ---------- */
+.ps-pswitch-spin { display: inline-grid; place-items: center; color: var(--accent); }
+.ps-pswitch-spin__a { animation: ps-pswitch-rot 1s linear infinite; }
+.ps-pswitch-spin__b { display: none; }
+@keyframes ps-pswitch-rot { to { transform: rotate(360deg); } }
+
+/* пока меняется профиль, контент прежнего профиля скрыт целиком (не мелькает ни кадра) */
+html[data-psw] .ps-main { visibility: hidden; }
+.ps-pswitch-veil {
+  position: fixed; inset: var(--header-h) 0 0 0; z-index: calc(var(--z-header) - 10);
+  display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 72%, transparent);
+  animation: ps-pswitch-fade var(--dur-base) var(--ease-out);
+}
+@keyframes ps-pswitch-fade { from { opacity: 0; } }
+.ps-pswitch-veil__panel {
+  display: inline-flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-6);
+  background: var(--surface); color: var(--text); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+  font-size: var(--fs-body); line-height: var(--lh-body); max-width: calc(100vw - 2 * var(--gutter));
+}
+.ps-pswitch-veil__panel span:last-child { overflow-wrap: anywhere; }
+
+/* ---------- Переключатель в шапке (§17.1) ---------- */
+.ps-pswitch {
+  position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); height: 32px; max-width: 200px;
+  padding: 0 var(--sp-2) 0 var(--sp-1); background: transparent; border: var(--border-w) solid var(--border);
+  border-radius: var(--r-chip); color: var(--text); font: inherit; font-size: 13px; line-height: 16px; font-weight: 600; cursor: pointer;
+}
+.ps-pswitch:hover:not(:disabled) { background: var(--surface-2); }
+.ps-pswitch[aria-expanded="true"] { background: var(--surface-3); }
+.ps-pswitch:disabled { cursor: default; opacity: 1; }
+.ps-pswitch__ini {
+  flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-sm);
+  background: var(--surface-3); border: 1px solid var(--border-strong); color: var(--text); font-size: 11px; line-height: 12px; font-weight: 700;
+}
+.ps-pswitch__ini--lg { width: 24px; height: 24px; font-size: 12px; }
+.ps-pswitch__nick { min-width: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-pswitch__chev { flex: none; color: var(--text-2); }
+.ps-pswitch .ps-pswitch-spin { flex: none; }
+.ps-pswitch-pop .ps-pop__panel { width: 240px; background: var(--surface-3); border-radius: var(--r-md); box-shadow: var(--shadow-pop); }
+.ps-pswitch__head { margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-1); font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
+.ps-pswitch__item { min-height: 40px; gap: var(--sp-3); color: var(--text); }
+.ps-pswitch__item .ps-pswitch__nick { flex: 1; max-width: none; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 500; }
+.ps-pswitch__item[aria-checked="true"] { background: var(--accent-soft); }
+.ps-pswitch__item[aria-checked="true"]:hover { background: var(--accent-soft); }
+.ps-pswitch__tag { color: var(--text-3); font-size: var(--fs-small); font-weight: 400; }
+.ps-pswitch__check { flex: none; color: var(--accent); }
+.ps-pswitch__manage { width: 100%; text-decoration: none; }
+.ps-profmenu__psn { display: block; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .ps-pswitch { height: 40px; max-width: 120px; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-1); flex: 0 1 auto; min-width: 0; }
+  .ps-pswitch::before { content: ""; position: absolute; inset: -2px 0; }
+  .ps-pswitch__nick { max-width: 72px; }
+  .ps-pswitch__item { min-height: var(--tap-min); }
+  .ps-pswitch-sheet { max-height: 70dvh; }
+  .ps-pswitch__manage { height: var(--tap-min); margin-top: var(--sp-2); }
+  .ps-pswitch-veil { inset: var(--header-h) 0 var(--tabbar-h) 0; }
+}
+
+/* ---------- Страница /profiles (§17.3) ---------- */
+.ps-pprof { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-4); }
+.ps-plist-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ps-plist-head__row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ps-plist-head h1:focus { outline: none; }
+.ps-plist-head h1:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+.ps-plist-count { display: inline-flex; align-items: center; gap: var(--sp-1); height: 24px; padding: 0 var(--sp-3); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text-2); font-size: var(--fs-small); font-weight: 600; }
+.ps-plist-lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-plist__item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center;
+  padding: var(--sp-3) var(--sp-4); background: var(--surface); color: var(--text);
+  border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
+}
+.ps-plist__item[data-active] { border-color: var(--accent); background: var(--accent-soft); }
+.ps-plist__item:focus { outline: none; }
+.ps-plist__item:focus-visible { box-shadow: var(--shadow-focus); }
+.ps-plist__ini, .ps-parch__ini {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--surface-3);
+  color: var(--text); font: var(--fw-h3) 16px/20px var(--font-display);
+}
+.ps-plist__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-plist__top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }
+.ps-plist__nick { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text); }
+.ps-plist__pill { display: inline-flex; align-items: center; gap: var(--sp-1); height: 20px; padding: 0 var(--sp-2); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
+.ps-plist__item[data-active] .ps-plist__pill--now { background: var(--surface); }
+.ps-plist__pill--now svg { color: var(--accent); }
+.ps-plist__meta { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-plist__problem { margin: var(--sp-1) 0 0; display: flex; align-items: flex-start; gap: var(--sp-1); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-plist__problem svg { flex: none; margin-top: 1px; color: var(--warning); }
+.ps-plist__acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+.ps-plist__lock { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-3); font-size: var(--fs-small); max-width: 200px; }
+.ps-plist__lock svg { flex: none; }
+
+.ps-padd-wrap { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-padd-open { align-self: flex-start; }
+.ps-padd-open:disabled { opacity: .6; }
+.ps-padd-why { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-pempty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-pempty p { margin: 0; color: var(--text-2); }
+.ps-pempty__ico { color: var(--text-3); }
+
+/* скелет (§17.7) */
+.ps-pprof__sk-pill { display: block; width: 60px; height: 24px; border-radius: var(--r-chip); }
+.ps-pprof__sk-panel { display: block; width: 100%; height: 72px; margin-top: var(--sp-2); border-radius: var(--r-lg); }
+.ps-pprof__sk-btn { display: block; width: 100%; height: 40px; margin-top: var(--sp-4); border-radius: var(--r-md); }
+
+/* ---------- Форма добавления и отвязка (§17.4, §17.5) ---------- */
+.ps-padd { max-width: 480px; }
+.ps-padd__form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-padd__field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ps-padd__label { color: var(--text); font-size: var(--fs-body); font-weight: 500; overflow-wrap: anywhere; }
+.ps-padd__hint { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-padd__text { margin: 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-padd__text--strong { color: var(--text); font-weight: 600; }
+.ps-padd__err { margin: 0; display: flex; align-items: flex-start; gap: var(--sp-1); }
+.ps-padd__err svg { flex: none; margin-top: 1px; color: var(--danger); }
+.ps-padd .ps-input[aria-invalid="true"] { border-color: var(--danger); }
+.ps-padd__banner { align-items: flex-start; }
+.ps-padd__bannertx { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.ps-padd__banner svg { color: var(--danger); margin-top: 1px; }
+.ps-padd__acts { display: flex; gap: var(--sp-2); }
+.ps-padd__submit { flex: 1; }
+.ps-pcheck { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--text); font-size: var(--fs-body); position: relative; min-height: var(--control-h); }
+.ps-pcheck input { position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0; }
+.ps-pcheck input:focus-visible + .ps-check { box-shadow: var(--shadow-focus); }
+.ps-pcheck input:disabled ~ * { opacity: .6; }
+
+/* ---------- Архив (§17.6) ---------- */
+.ps-parch { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ps-parch h2:focus { outline: none; }
+.ps-parch h2:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+.ps-parch__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-parch__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-parch__row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3);
+  background: var(--surface); color: var(--text); border: var(--border-w) dashed var(--border-strong); border-radius: var(--r-lg);
+}
+.ps-parch__ini { width: 32px; height: 32px; font-size: 14px; line-height: 16px; }
+.ps-parch__tx { min-width: 0; display: flex; flex-direction: column; }
+.ps-parch__tx b { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-parch__tx small { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-parch__acts { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+.ps-parch__row { transition: opacity var(--dur-base) var(--ease-out); }
+
+@media (max-width: 767px) {
+  .ps-plist__item { grid-template-columns: auto minmax(0, 1fr); padding: var(--sp-3); }
+  .ps-plist__acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .ps-plist__acts .ps-btn { height: var(--tap-min); }
+  .ps-plist__lock { max-width: none; }
+  .ps-padd-open { align-self: stretch; height: var(--tap-min); }
+  .ps-parch__row { grid-template-columns: auto minmax(0, 1fr); }
+  .ps-parch__acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .ps-parch__acts .ps-btn { height: var(--tap-min); }
+  .ps-padd .ps-padd__acts { position: sticky; bottom: 0; padding-top: var(--sp-2); background: var(--surface); }
+  .ps-padd .ps-padd__acts .ps-btn { height: var(--tap-min); }
+  .ps-padd .ps-input { height: var(--tap-min); font-size: 16px; }
+  .ps-padd, .ps-padd.ps-sheet { max-height: 85dvh; overflow-y: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-pswitch-spin__a { display: none; }
+  .ps-pswitch-spin__b { display: block; }
+  .ps-pswitch-veil { animation: none; }
+  .ps-parch__row { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .ps-plist__item, .ps-parch__row, .ps-padd .ps-input { border-width: 2px; }
+}
