@@ -144,6 +144,16 @@ describe('proxy: matcher', () => {
     }
   });
 
+  it('Фаза 39: /sw.js и /offline открыты без сессии, с CSP на nonce', async () => {
+    for (const p of ['/sw.js', '/offline']) {
+      const r = await proxy(req(p));
+      expect(r.status, p).toBe(200);
+      expect(r.headers.get('x-middleware-next')).toBe('1');
+      expect(r.headers.get('content-security-policy')).toMatch(/script-src 'self' 'nonce-[^']+'/);
+    }
+    expect((await proxy(req('/offline/x'))).status).toBe(307);
+  });
+
   it('Google-вход открыт без сессии, /api/auth/me закрыт', async () => {
     vi.stubEnv('SESSION_SECRET', SECRET);
     for (const p of ['/api/auth/google', '/api/auth/google/callback']) {

@@ -11,6 +11,8 @@ import { profileLine } from '../profile/model';
 import { useProfile } from '../profile/ProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
+import { useInstall } from '../pwa/InstallPrompt';
+import { purgeServiceWorkerCaches } from '../pwa/sw-messages';
 import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { SyncIndicator } from './SyncIndicator';
@@ -28,6 +30,7 @@ function useLogout() {
     try {
       await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     } finally {
+      void purgeServiceWorkerCaches();
       router.replace('/login');
       router.refresh();
     }
@@ -46,6 +49,7 @@ export function AppHeader() {
   const offer = useSeasonOffer();
   const isOwner = useIsOwner();
   const { start: startTour } = useTour();
+  const install = useInstall();
   const { open: openWhatsNew } = useWhatsNew();
 
   return (
@@ -151,6 +155,11 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { setMore(false); setTimeout(openWhatsNew, 0); }}>
             <Icon name="info" size={16} /><span className="ps-menu-item__label">Что нового</span>
           </button>
+          {install.available && (
+            <button type="button" className="ps-menu-item" data-testid="menu-install" onClick={() => { setMore(false); setTimeout(install.open, 250); }}>
+              <Icon name="download" size={16} /><span className="ps-menu-item__label">Установить приложение</span>
+            </button>
+          )}
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
