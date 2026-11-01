@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { expectHltbEnabled, openFilters, startHltb } from './backlog-ui';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: null, status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -32,6 +33,7 @@ const cards = (page: Page) => page.locator('.ps-card:not(.ps-card--sk)');
 test.describe('Бэклог: статус HLTB', () => {
   test('чипы со счётчиками, фильтр, URL, сочетание с другими фильтрами', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
+    await openFilters(page);
     await expect(page.getByRole('button', { name: 'Не найдено на HLTB: 2' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Не проверено: 2' })).toBeVisible();
     await page.getByRole('button', { name: 'Не найдено на HLTB: 2' }).click();
@@ -48,6 +50,7 @@ test.describe('Бэклог: статус HLTB', () => {
     await expect(page).toHaveURL(/duration=10_30/);
     await page.reload();
     await expect(cards(page)).toHaveCount(1);
+    await openFilters(page);
     await expect(page.getByRole('button', { name: 'Не найдено на HLTB: 1' })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -67,8 +70,11 @@ test.describe('Бэклог: статус HLTB', () => {
     await mockApi(page, [bl(1, 'Альфа', { hltbHours: 8, hltbName: 'A', hltbChecked: true })]);
     await page.goto('/backlog');
     await cards(page).first().waitFor();
+    await openFilters(page);
     await expect(page.getByRole('button', { name: /^Не найдено на HLTB/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await page.goto('/backlog?hltb=not_found');
+    await openFilters(page);
     await expect(page.getByRole('button', { name: 'Не найдено на HLTB: 0' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
@@ -76,19 +82,20 @@ test.describe('Бэклог: статус HLTB', () => {
 test.describe('Бэклог: подгрузка длительности с HLTB', () => {
   test('цикл budget -> complete: прогресс, итог, обновление списка и счётчиков', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
-    mock.hltbDelay = 150;
+    mock.hltbDelay = 800;
     mock.hltbRuns.push(run({ processed: 1, found: 1, remaining: 1 }), run({ processed: 1, notFound: 1, remaining: 0, done: true, stopReason: 'complete' }));
     mock.hltbApply = (gs, call) => {
       const g = gs.find((x) => x.id === (call === 1 ? 4 : 5)) as G;
       if (call === 1) Object.assign(g, { hltbChecked: true, hltbName: 'Delta', hltbHours: 20 });
       else g.hltbChecked = true;
     };
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect(page.getByTestId('hltb-progress')).toContainText('Проверено 1, осталось 1');
-    await expect(page.getByRole('button', { name: 'Подтянуть длительность с HLTB' })).toBeDisabled();
+    await expectHltbEnabled(page, false);
     await expect(page.getByTestId('hltb-result')).toContainText('Готово. Проверено 2: найдено 1, не найдено 1, ошибок 0.');
     expect(mock.hltbCalls).toEqual([{}, {}]);
     // список и счётчики перезагружены
+    await openFilters(page);
     await expect(page.getByRole('button', { name: 'Не найдено на HLTB: 3' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Не проверено: 0' })).toHaveCount(0);
     await expect(page.locator('.ps-card', { hasText: 'Дельта' }).getByTestId('bl-duration')).toContainText('≈ 20 ч');
@@ -97,8 +104,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
   test('«Перепроверить не найденные»: since один и тот же во всех вызовах', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push(run({ processed: 2, notFound: 2, remaining: 1 }), run({ processed: 1, notFound: 1, remaining: 0, done: true, stopReason: 'complete' }));
-    await page.getByLabel('Перепроверить не найденные').check();
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page, true);
     await expect(page.getByTestId('hltb-result')).toContainText('Проверено 3');
     expect(mock.hltbCalls).toHaveLength(2);
     expect(mock.hltbCalls[0].recheckNotFound).toBe(true);
@@ -110,20 +116,19 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     const mock = await open(page, context, baseURL as string);
     mock.hltbDelay = 300;
     for (let i = 0; i < 5; i++) mock.hltbRuns.push(run({ processed: 1, found: 1, remaining: 10 }));
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect(page.getByTestId('hltb-progress')).toBeVisible();
     await page.getByRole('button', { name: 'Остановить подгрузку с HLTB' }).click();
     await expect(page.getByTestId('hltb-result')).toContainText('Остановлено.');
     expect(mock.hltbCalls.length).toBeLessThanOrEqual(2);
-    await expect(page.getByRole('button', { name: 'Подтянуть длительность с HLTB' })).toBeEnabled();
+    await expectHltbEnabled(page, true);
   });
 
   test('перепроверка: since = сейчас минус ~60 секунд', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push(run({ processed: 1, notFound: 1, remaining: 0, done: true, stopReason: 'complete' }));
     const t0 = Date.now();
-    await page.getByLabel('Перепроверить не найденные').check();
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page, true);
     await expect(page.getByTestId('hltb-result')).toContainText('Готово.');
     const since = Date.parse(mock.hltbCalls[0].since as string);
     expect(t0 - since).toBeGreaterThanOrEqual(59_000);
@@ -133,10 +138,9 @@ test.describe('Бэклог: подгрузка длительности с HLTB
   test('400 since_in_future: сообщение о часах, без повторов', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push({ status: 400, code: 'invalid_request', reason: 'since_in_future' }, run({ processed: 1, remaining: 0, done: true, stopReason: 'complete' }));
-    await page.getByLabel('Перепроверить не найденные').check();
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page, true);
     await expect(page.getByTestId('hltb-result')).toHaveText('Часы устройства не совпадают с сервером, перепроверка не запущена.');
-    await expect(page.getByRole('button', { name: 'Подтянуть длительность с HLTB' })).toBeEnabled();
+    await expectHltbEnabled(page, true);
     await page.waitForTimeout(300);
     expect(mock.hltbCalls).toHaveLength(1);
   });
@@ -147,7 +151,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     mock.hltbRuns.push(run({ processed: 1, found: 1, remaining: 10 }));
     const failed: string[] = [];
     page.on('requestfailed', (r) => { if (r.url().includes('/api/hltb/run')) failed.push(r.failure()?.errorText ?? ''); });
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect.poll(() => mock.hltbCalls.length).toBe(1);
     await page.getByRole('button', { name: 'Остановить подгрузку с HLTB' }).click();
     const res = page.getByTestId('hltb-result');
@@ -156,7 +160,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     await expect(res).not.toContainText('Нет связи');
     await expect.poll(() => failed.length).toBe(1);
     expect(mock.hltbCalls).toHaveLength(1);
-    await expect(page.getByRole('button', { name: 'Подтянуть длительность с HLTB' })).toBeEnabled();
+    await expectHltbEnabled(page, true);
   });
 
   test('уход со страницы прерывает запрос в полёте', async ({ page, context, baseURL }) => {
@@ -165,7 +169,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     mock.hltbRuns.push(run({ processed: 1, found: 1, remaining: 10 }));
     const failed: string[] = [];
     page.on('requestfailed', (r) => { if (r.url().includes('/api/hltb/run')) failed.push(r.failure()?.errorText ?? ''); });
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect.poll(() => mock.hltbCalls.length).toBe(1);
     // dispatchEvent: на мобильной вёрстке dev-оверлей Next перехватывает указатель, нужен именно клиентский переход (размонтирование)
     await page.getByRole('link', { name: 'Коллекция' }).first().dispatchEvent('click');
@@ -176,22 +180,22 @@ test.describe('Бэклог: подгрузка длительности с HLTB
   test('409: синк уже идёт', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push({ status: 409, code: 'sync_in_progress' });
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect(page.getByTestId('hltb-result')).toHaveText('Синк уже идёт, повторите позже.');
-    await expect(page.getByRole('button', { name: 'Подтянуть длительность с HLTB' })).toBeEnabled();
+    await expectHltbEnabled(page, true);
   });
 
   test('503: база недоступна', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push({ status: 503, code: 'db_unavailable' });
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     await expect(page.getByTestId('hltb-result')).toContainText('База данных недоступна');
   });
 
   test('done при remaining > 0 (errors) и предупреждения failed', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push(run({ processed: 1, found: 1, failed: 3, remaining: 4, done: true, stopReason: 'errors', warnings: [{ code: 'hltb_failed', message: 'HLTB не ответил для 3 игр' }] }));
-    await page.getByRole('button', { name: 'Подтянуть длительность с HLTB' }).click();
+    await startHltb(page);
     const res = page.getByTestId('hltb-result');
     await expect(res).toContainText('Остановлено: HLTB несколько раз подряд вернул ошибку');
     await expect(res).toContainText('ошибок 3');
@@ -200,13 +204,19 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     expect(mock.hltbCalls).toHaveLength(1);
   });
 
-  test('мобильная: без горизонтального скролла, кнопка доступна с клавиатуры', async ({ page, context, baseURL }) => {
+  test('мобильная: без горизонтального скролла, меню страницы доступно с клавиатуры', async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await open(page, context, baseURL as string);
     const w = await page.evaluate(() => ({ s: document.documentElement.scrollWidth, c: document.documentElement.clientWidth }));
     expect(w.s).toBeLessThanOrEqual(w.c);
-    const btn = page.getByRole('button', { name: 'Подтянуть длительность с HLTB' });
+    const btn = page.getByRole('button', { name: 'Ещё: действия со страницей' });
     await btn.focus();
+    await expect(btn).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('menuitem', { name: /^Подтянуть длительность с HLTB/ })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('menuitem', { name: /^Перепроверить не найденные/ })).toBeFocused();
+    await page.keyboard.press('Escape');
     await expect(btn).toBeFocused();
   });
 });
