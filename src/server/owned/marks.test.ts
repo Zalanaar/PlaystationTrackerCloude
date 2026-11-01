@@ -175,15 +175,30 @@ describe('исключение из «У тебя нет» и вкус/скор�
     // чужая отметка не влияет
     await upsertOwnedMark(t.db, U2, standalone('3', true));
     expect((await get(1)).items.map((i) => i.externalId).sort()).toEqual(['3', '4']);
-    // пересчёт: отмеченные не попадают в кэш
+    // пересчёт: отмеченные остаются в кэше (скрыты на чтении), чтобы отмена возвращала их сразу
     await t.db.delete(recommendDiscoverCache);
     await refresh(1);
-    expect((await payloadOf(1)).candidates.map((c) => c.externalId).sort()).toEqual(['3', '4']);
-    // «Вернуть в подборку»: после следующего пересчёта игра возвращается
+    expect((await payloadOf(1)).candidates.map((c) => c.externalId).sort()).toEqual(['1', '2', '3', '4']);
+    expect((await get(1)).items.map((i) => i.externalId).sort()).toEqual(['3', '4']);
+    // «Вернуть в подборку»/«Отменить»: следующая выдача содержит игру без пересчёта и без запросов RAWG
     await removeOwnedMark(t.db, TEST_USER, '2');
-    await t.db.delete(recommendDiscoverCache);
-    await refresh(1);
     expect((await get(1)).items.map((i) => i.externalId).sort()).toEqual(['2', '3', '4']);
+    await removeOwnedMark(t.db, TEST_USER, '1');
+    expect((await get(1)).items.map((i) => i.externalId).sort()).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('отмена у одного пользователя не возвращает игру другому', async () => {
+    await seedLibrary(1);
+    await seedLibrary(2);
+    await refresh(1);
+    await refresh(2);
+    await upsertOwnedMark(t.db, TEST_USER, standalone('2', true, 'Beta Strike'));
+    await upsertOwnedMark(t.db, U2, standalone('2', true, 'Beta Strike'));
+    expect((await get(1)).items.map((i) => i.externalId)).not.toContain('2');
+    expect((await get(2)).items.map((i) => i.externalId)).not.toContain('2');
+    expect(await removeOwnedMark(t.db, TEST_USER, '2')).toBe(true);
+    expect((await get(1)).items.map((i) => i.externalId)).toContain('2');
+    expect((await get(2)).items.map((i) => i.externalId)).not.toContain('2');
   });
 
   it('вкус и скоринг не меняются: история та же, у остальных кандидатов тот же score, порядок и причины', async () => {
@@ -198,8 +213,9 @@ describe('исключение из «У тебя нет» и вкус/скор�
     await refresh(2);
     const p1 = (await payloadOf(1)).candidates;
     const p2 = (await payloadOf(2)).candidates;
-    expect(p2.map((c) => c.externalId)).toEqual(['4', '2']);
-    const rest = p1.filter((c) => c.externalId === '4' || c.externalId === '2');
+    expect(p2.map((c) => c.externalId)).toEqual(p1.map((c) => c.externalId));
+    expect((await get(2)).items.map((i) => i.externalId)).toEqual(['4', '2']);
+    const rest = p1;
     expect(p2).toEqual(rest.map((c) => ({ ...c, reason: { ...c.reason, text: c.reason.text.replace('Hist1', 'Hist2') } })));
     // отметка не создаёт ни статусов, ни игр, ни снимков
     expect(await t.db.select().from(games)).toHaveLength(2);

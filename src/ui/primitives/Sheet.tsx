@@ -6,8 +6,8 @@ import { Icon } from '../icons';
 
 /** Модальное окно: на десктопе по центру, на мобильном bottom sheet. Портал в body (шапка с blur ломает fixed). */
 export function Sheet({
-  open, onClose, title, children, wide,
-}: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+  open, onClose, title, children, wide, className,
+}: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -50,7 +50,7 @@ export function Sheet({
   return createPortal(
     <div className="ps-sheet-wrap" onKeyDown={onKey}>
       <div className="ps-sheet-backdrop" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="ps-sheet" data-wide={wide ? 'true' : undefined}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={className ? `ps-sheet ${className}` : 'ps-sheet'} data-wide={wide ? 'true' : undefined}>
         <div className="ps-sheet__handle" aria-hidden="true" />
         <div className="ps-sheet__head">
           <h2 id={titleId} className="ps-h3">{title}</h2>

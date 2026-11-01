@@ -99,7 +99,8 @@ async function writeCache(db: AnyDb, userId: UserId, day: string, hash: string, 
 
 // --- данные пользователя (все выборки с user_id)
 
-type Exclusions = { lib: LibraryIndex; ids: Set<string>; keys: Set<string>; plannedByExt: Map<string, number> };
+// marked отдельно от ids: отметки «Уже есть» скрывают игру только при чтении, в кэш подборки она попадает (иначе «Отменить» не вернёт карточку без пересчёта)
+type Exclusions = { lib: LibraryIndex; ids: Set<string>; marked: Set<string>; keys: Set<string>; plannedByExt: Map<string, number> };
 
 async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exclusions> {
   const [owned, planned, disliked, marked] = await Promise.all([
@@ -122,7 +123,6 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
   const ids = new Set<string>();
   const keys = new Set<string>();
   const plannedByExt = new Map<string, number>();
-  for (const id of marked) ids.add(id);
   for (const p of planned) {
     if (p.source === 'rawg' && p.extId) plannedByExt.set(p.extId, p.id);
     if (p.status === 'planned' || p.status === 'done') {
@@ -136,7 +136,7 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
     const k = libraryKey(d.title);
     if (k) keys.add(k);
   }
-  return { lib: buildLibraryIndex(names), ids, keys, plannedByExt };
+  return { lib: buildLibraryIndex(names), ids, marked, keys, plannedByExt };
 }
 
 async function loadNamedHistory(db: AnyDb, userId: UserId): Promise<NamedHistory[]> {
@@ -395,7 +395,7 @@ export async function getDiscover(db: AnyDb, userId: UserId, now: Date = new Dat
   const seenKeys = new Set<string>();
   for (const c of [...row.payload.candidates].sort((a, b) => b.score - a.score)) {
     const key = libraryKey(c.title);
-    if (ex.ids.has(c.externalId) || (key && (ex.keys.has(key) || seenKeys.has(key))) || inLibrary(c.title, ex.lib)) continue;
+    if (ex.ids.has(c.externalId) || ex.marked.has(c.externalId) || (key && (ex.keys.has(key) || seenKeys.has(key))) || inLibrary(c.title, ex.lib)) continue;
     if (key) seenKeys.add(key);
     const plannedId = ex.plannedByExt.get(c.externalId) ?? null;
     items.push({
