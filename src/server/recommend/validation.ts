@@ -1,5 +1,6 @@
 // Разбор входных данных раздела 18 (чистые функции, без БД).
 import { z } from 'zod';
+import { isStatusHintRule, STATUS_HINT_RULES } from '@/shared/status-hints';
 import { TIME_WISHES, type TimeWish } from './types';
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -41,4 +42,20 @@ export function parseExternalDislikeBody(body: unknown): Parsed<z.infer<typeof e
 export function parseExternalId(raw: string): string | null {
   const r = externalIdSchema.safeParse(raw);
   return r.success ? r.data : null;
+}
+
+// --- Подсказки статусов (Фаза 27, контракт 28)
+
+const hintDismissSchema = z.strictObject({
+  gameId: z.number().int().min(1).max(2_147_483_647),
+  rule: z.enum(STATUS_HINT_RULES),
+});
+
+export function parseHintDismissBody(body: unknown): Parsed<{ gameId: number; rule: (typeof STATUS_HINT_RULES)[number] }> {
+  const r = hintDismissSchema.safeParse(body);
+  return r.success ? { ok: true, value: r.data } : { ok: false, message: 'Некорректные поля: gameId, rule.' };
+}
+
+export function parseHintRule(raw: string): (typeof STATUS_HINT_RULES)[number] | null {
+  return isStatusHintRule(raw) ? raw : null;
 }
