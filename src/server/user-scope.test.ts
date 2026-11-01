@@ -87,4 +87,30 @@ describe('охрана изоляции пользователей (статич
     }
     expect([...new Set(bad)]).toEqual([]);
   });
+
+  // Фаза 41 (41.6): у дополнительного профиля email = копия почты входа; поиск по почте/google_sub без primary_user_id найдёт не ту строку
+  it('выборки allowed_users по email/google_sub обязаны фильтровать primary_user_id (профили PSN)', () => {
+    const bad: string[] = [];
+    let found = 0;
+    for (const f of files) {
+      const rel = relative(SRC, f).split(sep).join('/');
+      const src = readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/\beq\(allowedUsers\.(email|googleSub)\b/g)) {
+        found++;
+        const start = m.index ?? 0;
+        // фильтр стоит в том же and(...) сразу после условия
+        const win = src.slice(start, start + 140);
+        if (!/primaryUserId/.test(win)) bad.push(`${rel}: allowedUsers.${m[1]}`);
+      }
+    }
+    expect(found).toBeGreaterThanOrEqual(3); // lookupForLogin x2, createMember
+    expect(bad, 'поиск по email/google_sub без фильтра primary_user_id').toEqual([]);
+  });
+
+  it('getOwner и обход входа ищут только основные строки', () => {
+    const users = readFileSync(join(SRC, 'server/auth/users.ts'), 'utf8');
+    expect(users).toMatch(/eq\(allowedUsers\.role, 'owner'\), isNull\(allowedUsers\.primaryUserId\)/);
+    const digest = readFileSync(join(SRC, 'server/digest/run.ts'), 'utf8');
+    expect(digest).toMatch(/isNull\(allowedUsers\.primaryUserId\)/);
+  });
 });
