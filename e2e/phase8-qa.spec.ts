@@ -22,18 +22,23 @@ async function menu(page: Page, mobile: boolean, item: RegExp) {
 }
 
 test.describe('QA Фаза 8: edge', () => {
-  test('скрыть игру со статусом «Играю»: пропадает из блока «Играю», возврат со статусом', async ({ page, context, baseURL }) => {
+  test('скрыть игру со статусом «Играю»: пропадает из hero и блока «Сейчас», возврат со статусом', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!);
+    // после Фазы 22 игра «Играю» видна дважды: hero сверху и карточка в блоке «Сейчас»
     const banner = page.getByRole('button', { name: 'Открыть: Horizon Forbidden West' });
-    await expect(banner).toHaveCount(1);
-    await banner.click();
+    const now = page.getByTestId('now-block');
+    await expect(banner).toHaveCount(2);
+    await expect(now.getByRole('heading', { name: 'Сейчас' })).toBeVisible();
+    await banner.first().click();
     await page.getByRole('dialog', { name: 'Horizon Forbidden West' }).getByRole('button', { name: 'Убрать из коллекции' }).click();
     await expect(card(coll(page), page, 'Horizon Forbidden West')).toHaveCount(0);
     await expect(banner).toHaveCount(0);
+    await expect(now).toHaveCount(0);
     await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /Играю/ })).not.toContainText('1');
     expect(mock.games.find((g) => g.id === 3)?.status).toBe('playing');
     await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
-    await expect(banner).toHaveCount(1);
+    await expect(banner).toHaveCount(2);
+    await expect(now).toBeVisible();
     expect(mock.games.find((g) => g.id === 3)?.status).toBe('playing');
   });
 

@@ -34,8 +34,8 @@ test.describe('блок «Игры-сервисы»', () => {
   test('порядок блоков, счётчик, один ряд и «Показать ещё N» / «Свернуть»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
     await expect(block(page)).toBeVisible();
-    // после Бэклога, до Отложено
-    await expect(coll(page).locator('section.ps-block > .ps-block__head h2')).toHaveText(['Бэклог', 'Игры-сервисы', 'Отложено', 'Не разобрано']);
+    // «Сейчас» (Фаза 22) идёт первым; Игры-сервисы после Бэклога, до Отложено
+    await expect(coll(page).locator('section.ps-block > .ps-block__head h2')).toHaveText(['Сейчас', 'Бэклог', 'Игры-сервисы', 'Отложено', 'Не разобрано']);
     await expect(block(page).locator('.ps-block__cnt')).toHaveText('9');
     await expect(block(page).locator('.ps-block__head svg')).toBeVisible();
     await expect(tab(page, /Сервис/)).toContainText('9');
