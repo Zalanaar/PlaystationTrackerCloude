@@ -598,3 +598,19 @@ export const recommendExternalDislikes = pgTable(
     check('recommend_external_dislikes_title_check', sql`char_length(${t.title}) between 1 and 200`),
   ],
 );
+
+// Фаза 27 (контракт 28.1, миграция 0020): «не предлагать для этой игры по правилу». Только отказы, сами подсказки считаются на лету.
+export const statusHintDismissals = pgTable(
+  'status_hint_dismissals',
+  {
+    userId: userIdCol(),
+    gameId: integer('game_id').notNull(),
+    rule: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.gameId, t.rule] }),
+    foreignKey({ name: 'status_hint_dismissals_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    check('status_hint_dismissals_rule_check', sql`${t.rule} in ('started','stale','platinum','returned')`),
+  ],
+);
