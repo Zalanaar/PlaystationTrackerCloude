@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '../icons';
 import { queueTourStart, skipTourSilently } from '../tour/api';
 import {
-  STEP_NAMES, checkActions, checkFromStatus, deriveStep, gamesSeen, mapPutError, phaseLabel, progressPercent, shouldAutoStart,
+  STEP_NAMES, checkActions, checkFromStatus, deriveStep, gamesSeen, mapPutError, phaseLabel, isIdlePartial, isStalled, progressPercent, shouldAutoStart, shouldResumePartial,
   syncErrorText, syncView, validateNick, type Action, type CheckResult, type PsnState, type Step, type SyncSlice,
 } from './model';
 
@@ -360,6 +360,7 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
   const [startError, setStartError] = useState(false);
   const [onboarded, setOnboarded] = useState<boolean>(!recheck && !!initial.onboardedAt);
   const [phaseNote, setPhaseNote] = useState('');
+  const [stalled, setStalled] = useState(false);
   const api = useRef<{ retry: () => void }>({ retry: () => {} });
   const onBackRef = useRef(onBack);
   useEffect(() => { onBackRef.current = onBack; }, [onBack]);
@@ -372,6 +373,10 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
     let q = false;
     let confirmTries = 0;
     let lastPhase = '';
+    let idleTicks = 0;
+    let lastResumeAt: number | null = null;
+    let lastDone = -1;
+    let lastProgressAt = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const schedule = (ms: number) => {
@@ -379,7 +384,7 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
       if (alive && polling) timer = setTimeout(() => void tick(), ms);
     };
 
-    async function post(): Promise<void> {
+    async function post(resume = false): Promise<void> {
       setStartError(false);
       try {
         const r = await fetch('/api/sync', { method: 'POST', headers: JSON_HEADERS, body: '{}' });
@@ -387,7 +392,7 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
         if (r.status === 202) { q = false; setQueued(false); return; }
         const j = await r.json().catch(() => null);
         const code = j?.error?.code;
-        if (r.status === 409 && code === 'sync_in_progress') { q = true; setQueued(true); return; }
+        if (r.status === 409 && code === 'sync_in_progress') { if (resume) return; q = true; setQueued(true); return; }
         if (code === 'psn_not_set') { polling = false; onBackRef.current(1); return; }
         if (code === 'psn_not_verified') { polling = false; onBackRef.current(2); return; }
         setStartError(true);
@@ -420,6 +425,21 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
         if (alive && polling) schedule(POLL_MS);
         return;
       }
+      const nowMs = Date.now();
+      const doneNow = s.run?.progress?.done ?? -1;
+      if (doneNow > lastDone || s.run?.status === 'success') { lastProgressAt = nowMs; setStalled(false); }
+      lastDone = Math.max(lastDone, doneNow);
+      if (isIdlePartial(s)) {
+        idleTicks++;
+        if (shouldResumePartial(idleTicks, lastResumeAt, nowMs)) {
+          lastResumeAt = nowMs;
+          await post(true);
+          if (!alive) return;
+          if (polling) schedule(600);
+          return;
+        }
+      } else idleTicks = 0;
+      if (isStalled(lastProgressAt, nowMs) && syncView(s).kind === 'running') setStalled(true);
       const v = syncView(s);
       const ph = s.run?.progress?.phase ?? '';
       if (ph && ph !== lastPhase) { lastPhase = ph; setPhaseNote(phaseLabel(ph)); }
@@ -439,6 +459,10 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
       polling = true;
       first = false;
       confirmTries = 0;
+      idleTicks = 0;
+      lastResumeAt = Date.now();
+      lastProgressAt = Date.now();
+      setStalled(false);
       setStatus((p) => (p ? { ...p, running: true, run: p.run ? { ...p.run, status: 'running' } : p.run } : p));
       void (async () => { await post(); if (alive && polling) schedule(600); })();
     };
@@ -521,6 +545,12 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
           <div className="ps-ob__bar-fill" style={pct === null ? undefined : { width: `${pct}%` }} />
         </div>
         {v.kind === 'running' && v.partial && <p className="ps-ob__hint">Продолжаем загрузку…</p>}
+        {stalled && v.kind === 'running' && (
+          <>
+            <p className="ps-ob__rtext" role="status" data-testid="ob-stalled">Загрузка остановилась. Нажмите, чтобы продолжить: загруженное сохранится.</p>
+            <div className="ps-ob__acts"><button type="button" className="ps-btn ps-btn--primary" onClick={retry}>Продолжить загрузку</button></div>
+          </>
+        )}
         <p className="ps-ob__hint">Первая загрузка занимает несколько минут. Вкладку можно закрыть: загрузка продолжится.</p>
         <p className="ps-ob__sr" role="status">{phaseNote}</p>
       </>

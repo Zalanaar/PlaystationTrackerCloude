@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkActions, checkFromStatus, deriveStep, gamesSeen, mapPutError, needsOnboarding, phaseLabel, progressPercent, retryAfterSeconds,
-  shouldAutoStart, syncErrorText, syncView, validateNick, type SyncSlice,
+  isIdlePartial, isStalled, shouldAutoStart, shouldResumePartial, syncErrorText, syncView, validateNick, type SyncSlice,
 } from './model';
 
 describe('validateNick', () => {
@@ -80,7 +80,8 @@ describe('синк (шаг 3)', () => {
     expect(shouldAutoStart(run('failed'))).toBe(true);
     expect(shouldAutoStart(run('running'))).toBe(false);
     expect(shouldAutoStart(run('success'))).toBe(false);
-    expect(shouldAutoStart(run('partial'))).toBe(false);
+    expect(shouldAutoStart(run('partial'))).toBe(true);
+    expect(shouldAutoStart({ running: true, run: { status: 'partial' } })).toBe(false);
   });
   it('фазы, причины, прогресс, счётчик', () => {
     expect(phaseLabel('trophy_sets')).toBe(phaseLabel('trophy_link'));
@@ -93,5 +94,24 @@ describe('синк (шаг 3)', () => {
     expect(progressPercent({ done: 0, total: 0 })).toBeNull();
     expect(gamesSeen(run('success', { counters: { gamesSeen: 214 } }))).toBe(214);
     expect(gamesSeen(run('success', { counters: null }))).toBeNull();
+  });
+});
+
+describe('возобновление partial', () => {
+  it('isIdlePartial', () => {
+    expect(isIdlePartial({ running: false, run: { status: 'partial' } })).toBe(true);
+    expect(isIdlePartial({ running: true, run: { status: 'partial' } })).toBe(false);
+    expect(isIdlePartial({ running: false, run: { status: 'failed' } })).toBe(false);
+    expect(isIdlePartial(null)).toBe(false);
+  });
+  it('shouldResumePartial: 2 тика и кулдаун 30 с', () => {
+    expect(shouldResumePartial(1, null, 0)).toBe(false);
+    expect(shouldResumePartial(2, null, 0)).toBe(true);
+    expect(shouldResumePartial(5, 1000, 20_000)).toBe(false);
+    expect(shouldResumePartial(5, 1000, 31_000)).toBe(true);
+  });
+  it('isStalled: 3 минуты', () => {
+    expect(isStalled(0, 179_999)).toBe(false);
+    expect(isStalled(0, 180_000)).toBe(true);
   });
 });
