@@ -34,8 +34,8 @@ describe('QA Ф30: форма ответа RAWG', () => {
     expect(p.results[0]).toMatchObject({ externalId: '3498', slug: 'grand-theft-auto-v', psPlatforms: ['PS4'], genreSlugs: ['action'], metacritic: 92, rating: 4.5, releaseDate: '2013-09-17' });
     expect(JSON.stringify(p)).not.toContain('SECRET');
   });
-  // БАГ QA-30-1: validDate бросает RangeError на несуществующей дате вида 2020-13-45 и роняет разбор всей страницы (it.fails: уберите .fails после исправления)
-  it.fails('граничные значения: null-поля, rating 0, пустые массивы, tba, дата мусор', () => {
+  // QA-30-1: битая дата -> releaseDate null, остальные игры страницы разбираются
+  it('граничные значения: null-поля, rating 0, пустые массивы, tba, дата мусор', () => {
     const p = parseDiscoverPage({ next: null, results: [real({ id: 1, rating: 0, metacritic: null, genres: [], tags: null, platforms: [] }), real({ id: 2, released: null }), real({ id: 3, tba: true }), real({ id: 4, released: '2020-13-45' }), real({ id: 5, name: '   ' })] });
     expect(p.hasMore).toBe(false);
     expect(p.results.map((r) => r.externalId)).toEqual(['1', '2', '3', '4']);

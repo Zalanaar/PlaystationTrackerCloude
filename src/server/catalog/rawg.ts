@@ -53,7 +53,12 @@ const raw = z.object({
 const envelope = z.object({ results: z.array(z.unknown()) });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const validDate = (s: string): boolean => DATE_RE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+const validDate = (s: string): boolean => {
+  if (!DATE_RE.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  // Битая дата RAWG (2020-13-45) = NaN: toISOString на ней бросил бы RangeError и уронил страницу.
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s;
+};
 
 /** Разбор без сортировки (порядок RAWG сохраняется). */
 export function parseResults(body: unknown): CatalogCandidate[] {
