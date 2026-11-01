@@ -1,4 +1,5 @@
 // Клиент API роадмапа (контракт docs/api-contract.md §17). Только типы из server.
+import type { GoalMode, GoalView } from './goal-model';
 import type { PlannedGameDto, RoadmapResponse, SettingsView } from '@/server/roadmap/types';
 import { ApiError, call } from '../collection/api';
 import { mutationErrorText, type CatalogCandidateView, type PlannedBody, type UpcomingCandidate } from './model';
@@ -8,6 +9,10 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 export const fetchRoadmap = (signal?: AbortSignal) => call<RoadmapResponse>('/api/roadmap', { signal });
 export const putSettings = (year: number, hoursPerWeek: number) =>
   call<{ settings: SettingsView }>('/api/roadmap/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ year, hoursPerWeek }) });
+/** Цель года (контракт 17.3a): PUT = upsert, DELETE идемпотентен. */
+export const putGoal = (mode: GoalMode, count: number) =>
+  call<{ goal: GoalView }>('/api/roadmap/goal', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ mode, count }) });
+export const deleteGoal = () => call<{ goal: null }>('/api/roadmap/goal', { method: 'DELETE' });
 /** Все записи планируемых игр (любой статус): блок «Релизы» берёт `planned`, «Предстоящие» сверяются по всем. */
 export const fetchPlanned = (signal?: AbortSignal) => call<{ planned: PlannedGameDto[] }>('/api/roadmap/planned?status=all', { signal });
 export const postPlanned = (body: PlannedBody) =>

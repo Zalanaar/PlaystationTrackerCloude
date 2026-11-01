@@ -10,6 +10,7 @@ import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationErr
 import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
+import { GoalPanel } from './GoalPanel';
 import { flashElement } from './parts';
 import { ProgressPanel } from './ProgressPanel';
 import { QueuePanel, type SaveState } from './QueuePanel';
@@ -88,6 +89,15 @@ export function RoadmapView() {
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
+
+  // ---- цель года: ответ PUT/DELETE сразу кладём в данные плана ----
+  const setGoal = useCallback((goal: RoadmapResponse['goal']) => {
+    const cur = dataRef.current;
+    if (!cur) return;
+    const next = { ...cur, goal };
+    dataRef.current = next;
+    setData(next);
   }, []);
 
   // ---- настройки ----
@@ -334,6 +344,11 @@ export function RoadmapView() {
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
           <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
           {data ? <SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /> : <div className="ps-skeleton ps-rm-sk-set" aria-hidden="true" />}
+        </section>
+        <section className="ps-rm-panel" id="rm-goal" data-area="goal" data-tour="roadmap-goal" aria-labelledby="rm-goal-h" aria-busy={!data || undefined}>
+          {data ? (
+            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} onChanged={setGoal} onSettings={() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })} />
+          ) : <><h2 className="ps-h2" id="rm-goal-h">Цель года</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">
           {data ? <ProgressPanel data={data} /> : <><h2 className="ps-h2">Прогресс</h2><div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" /></>}
