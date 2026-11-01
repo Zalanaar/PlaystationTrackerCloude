@@ -68,6 +68,9 @@ const P: Record<string, ReactNode> = {
   'trending-up': <><path d="M22 7 13.500 15.500 8.500 10.500 2 17" /><path d="M16 7h6v6" /></>,
   'trending-down': <><path d="M22 17 13.500 8.500 8.500 13.500 2 7" /><path d="M16 17h6v-6" /></>,
   minus: <path d="M5 12h14" />,
+  share: <><path d="M12 3v12" /><path d="m8 7 4-4 4 4" /><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8" /></>,
+  'plus-square': <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8" /><path d="M12 8v8" /></>,
+  'wifi-off': <><path d="m2 2 20 20" /><path d="M8.5 16.5a5 5 0 0 1 7 0" /><path d="M2 8.8a15 15 0 0 1 4.200-2.700" /><path d="M10.500 5.100A15 15 0 0 1 22 8.800" /><path d="M5 12.900a10 10 0 0 1 5.100-2.700" /><path d="M13.500 10.200a10 10 0 0 1 5.500 2.700" /><path d="M12 20h.01" /></>,
   'circle-help': <><circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></>,
 };
 

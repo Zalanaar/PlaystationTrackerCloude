@@ -6,10 +6,12 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'PS Tracker',
     short_name: 'PS Tracker',
     description: 'Личный трекер игр PlayStation',
+    id: '/',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     lang: 'ru',
+    categories: ['games', 'entertainment'],
     background_color: '#0e0f16',
     theme_color: '#0e0f16',
     icons: [
