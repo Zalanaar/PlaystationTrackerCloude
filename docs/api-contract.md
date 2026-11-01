@@ -3162,3 +3162,78 @@ Profile = { id: number; isPrimary: boolean; onlineId: string | null; accessStatu
 
 1. Чьи аккаунты? Принадлежность аккаунта PSN проверить нельзя (чтение идёт по открытому профилю через технический NPSSO, входа через PSN нет), как и в Фазе 20. Рекомендация: разрешить любой открытый профиль, правило «только свои» держится на доверии, защита от захвата чужого ника — уникальность аккаунта и `psn_id_taken`. Блокирует формулировку подсказки в UI.
 2. Можно принять по умолчанию без ответа: лимит 3 профиля на вход, `MAX_USERS` считает профили (10); архив 30 дней перед физическим удалением; «сделать основным» и «запомнить последний профиль» не делаем (если друг захочет убрать основной, owner пересоздаёт вход).
+
+## Фаза 35. Страница «Здоровье» (owner), без миграции
+
+Одна owner-only ручка, которая собирает состояние сервиса по всем профилям. Новых таблиц и колонок нет: читаются `allowed_users`, `sync_runs`, `provider_usage`, `recommend_llm_usage`, `psn_token_events`, env. К PSN ручка не обращается. Логика в `src/server/health/` (чистые функции `limits.ts`, `criteria.ts` + загрузчик `overview.ts`), роут `src/app/api/health/overview/route.ts`. Существующий `GET /api/health` (4.3) не меняется.
+
+### F35.1 `GET /api/health/overview`
+
+Доступ: `requireOwner` (роль входа из БД). Без сессии `401 unauthorized`; member (и дополнительный профиль member-входа) `403 forbidden`, тело не содержит данных; БД недоступна `503 db_unavailable`. Ответ `Cache-Control: no-store`. Параметров нет.
+
+```json
+{ "ok": true, "data": {
+  "generatedAt": "2026-11-01T10:00:00.000Z",
+  "day": "2026-11-01",
+  "multiuser": { "enabled": false, "maxUsers": 10, "activeProfiles": 1 },
+  "limits": {
+    "rawg": { "state": "active", "userLimit": 60, "totalLimit": 300, "userSource": "default", "totalSource": "default", "keyConfigured": true },
+    "hltb": { "state": "active", "userLimit": 300, "totalLimit": 1000, "userSource": "env", "totalSource": "default" },
+    "llm":  { "state": "disabled", "reason": "no_key", "userLimit": 12, "totalLimit": 60, "userSource": "default", "totalSource": "default", "provider": "groq" }
+  },
+  "psnToken": { "issuedAt": "...", "ageSeconds": 864000, "source": "pasted", "lastEvent": { "event": "refreshed", "at": "...", "details": { "refreshTokenExpiresInSec": 864000 } } },
+  "users": [ {
+    "id": 1, "loginId": 1, "isPrimary": true, "role": "owner", "status": "active",
+    "label": "Target", "email": "owner@example.com", "psnOnlineId": "Target",
+    "psnAccessStatus": "ok", "psnAccessCheckedAt": "...", "onboardedAt": "...", "lastLoginAt": "...",
+    "sync": {
+      "lastSuccessAt": "...", "lastAttemptAt": "...",
+      "recentErrors": [ { "id": 41, "kind": "daily", "status": "failed", "errorReason": "auth_expired", "startedAt": "..." } ]
+    },
+    "usage": { "rawg": { "used": 3, "limit": 60 }, "hltb": { "used": 0, "limit": 300 }, "llm": { "used": 2, "limit": null } }
+  } ],
+  "totals": { "rawg": { "used": 3, "limit": 300 }, "hltb": { "used": 0, "limit": 1000 }, "llm": { "used": 2, "limit": null } },
+  "criteria": {
+    "summary": { "pass": 2, "fail": 1, "pending": 1, "manual": 2 },
+    "items": [ { "id": "owner_ready", "title": "...", "status": "pass", "detail": "..." } ]
+  }
+} }
+```
+
+**Поля.**
+- `users`: все строки `allowed_users` кроме `archived`, по `id`. Дополнительные профили (`primary_user_id != null`) идут отдельными строками: `isPrimary = false`, `loginId` = id основного, `email = null` и `lastLoginAt = null` (вход принадлежит основной строке, см. 41.1). Email отдаётся только у основных строк (владелец и так видит их в `/api/access/users`); `googleSub`, `psnAccountId`, имя из Google, токены, `invitedBy` не отдаются. `label` = `displayName` или `psnOnlineId` или `null`.
+- `sync` (по `user_id` профиля, `kind = 'hltb'` исключён, как в 4.3/16.7): `lastSuccessAt` = `finished_at` последнего `status = 'success'`; `lastAttemptAt` = `started_at` последнего запуска, кроме отменённых; `recentErrors` = до 5 запусков `failed|partial` за последние 14 суток (кроме `error_reason = 'cancelled'`), новые первыми. Только `id, kind, status, errorReason, startedAt`: `error_message` и `warnings` не отдаются (там может быть текст PSN). Запусков нет: `null` и `[]`.
+- `usage`: расход за сутки МСК (`day`): RAWG/HLTB из `provider_usage`, LLM из `recommend_llm_usage.calls`. `limit` = потолок на профиль (`userLimit`) или `null`, если провайдер выключен (см. ниже). Отсутствие строки = `used: 0`.
+- `totals`: сумма `used` по всем профилям за сутки (включая архивные, они делят общий потолок) и общий потолок (`totalLimit`) или `null`.
+- `psnToken`: как в 27.4 (глобальный, один технический аккаунт), `null` если журнала нет. Возраст = `ageSeconds` с последнего `pasted|from_env`. Ориентир: refresh-токен живёт ~10 дней (CLAUDE.md), срок NPSSO не измерен; порогов и цветов ручка не решает, это дело UI.
+
+**Потолки не молчат про «ноль» (`limits.*`).** Объект явно говорит, включён ли провайдер:
+- `state`: `active | disabled`. `disabled` значит «запросы не выполняются», а не «без лимита»; безлимитного режима в проекте нет. Тогда `userLimit`/`totalLimit` остаются эффективными значениями, а `usage[].limit` и `totals.limit` = `null`.
+- RAWG: `disabled` при отсутствии `RAWG_API_KEY` (`reason: 'no_key'`) или `RAWG_DAILY_LIMIT=0` (`reason: 'limit_zero'`). HLTB: `disabled` при `HLTB_DAILY_LIMIT=0`. LLM: `disabled` при нет провайдера/ключа (`reason: 'no_key'`, если ключа нет; `'no_provider'`, если `LLM_PROVIDER` не `gemini|groq`) или `LLM_DAILY_LIMIT=0` (`'limit_zero'`). `provider` у LLM = `gemini|groq|null`; ключ и модель не отдаются.
+- `userSource`/`totalSource`: `default` (переменная не задана или не число), `env` (значение принято как есть), `clamped` (значение вне допустимого диапазона приведено к границе; например `RAWG_USER_DAILY_LIMIT=0` на самом деле даёт 1, так как нижняя граница 1). Эффективное число всегда в `userLimit`/`totalLimit`.
+
+**Критерии для `MULTIUSER_ENABLED=1` (`criteria`).** Чеклист из `docs/qa/phase-20-5.md`. `status`: `pass` (вычислено, выполнено), `fail` (вычислено, нет), `pending` (вычисляется только после включения мультипользователя), `manual` (из данных не вычислить, отмечает человек). Значения env в `detail` не попадают (только факт «задано/нет» и числа).
+| `id` | Что считается |
+|---|---|
+| `owner_ready` | пункт 1: владелец `role='owner'`, `status='active'`, `psn_access_status='ok'`, `psn_online_id` равен `PSN_TARGET_ONLINE_ID` без учёта регистра. `fail` с перечнем невыполненного, если нет |
+| `env_sync_origin` | пункт 2: `SYNC_ORIGIN` задан (именно явный, не `VERCEL_URL`; B-1) |
+| `env_cron_secret` | пункт 2: `CRON_SECRET` задан |
+| `env_llm_budget` | пункт 2: `LLM_DAILY_LIMIT >= активные_профили x LLM_USER_DAILY_LIMIT` (как `llmLimitWarning`). LLM выключен: `pass` с пометкой в `detail` (шаблоны, кормить нечем) |
+| `second_account_live` | пункт 3: `manual` |
+| `observation_sync` | пункт 4: если `multiuser.enabled = false` -> `pending`; иначе `pass`, когда у каждого активного профиля с ником есть `success` не старше 36 часов, иначе `fail` с числом отставших |
+| `observation_watchdog` | пункт 4: ложные алерты watchdog и ночные сутки наблюдения: `manual` |
+| `block_delete_member` | пункт 5: `manual` |
+| `ci_green` | пункт 6: `tsc`, `eslint`, `vitest`, e2e: `manual` (проверяет CI/QA) |
+`multiuser.enabled` = `MULTIUSER_ENABLED=1`; `activeProfiles` = число строк `status in ('invited','active')`.
+
+### F35.2 Ошибки
+| Код | HTTP | Когда |
+|---|---|---|
+| `unauthorized` | 401 | нет/невалидная сессия |
+| `forbidden` | 403 | роль входа не owner |
+| `db_unavailable` | 503 | БД недоступна |
+Частичный отказ источника (нет таблицы `psn_token_events` до 0019 и т.п.): соответствующий блок `null`/пустой, ответ остаётся 200.
+
+### F35.3 Безопасность и тесты
+- Секреты (NPSSO, access/refresh, `CRON_SECRET`, `LLM_API_KEY`, `RAWG_API_KEY`, сессия) в ответ не попадают ни в каком виде, `details` токенных событий отдаются как есть (в журнале 27.3 там только числа и причины).
+- Тесты: `src/server/health/*.test.ts` (чистая логика: потолки, критерии, возраст), `src/app/api/health/overview/route.test.ts` (PGlite: 401, 403 member и дополнительного профиля member-входа, нет секретов и `google_sub`/`psn_account_id`/`error_message` в теле, данные всех профилей только для owner). Роут автоматически под `blocked.test.ts` (без сессии 401).

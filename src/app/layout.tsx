@@ -14,6 +14,7 @@ import '@/ui/styles/stats.css';
 import '@/ui/styles/profile.css';
 import '@/ui/styles/plan.css';
 import '@/ui/styles/access.css';
+import '@/ui/styles/health.css';
 import '@/ui/styles/onboarding.css';
 import '@/ui/styles/tour.css';
 import '@/ui/styles/inbox.css';
