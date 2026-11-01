@@ -326,15 +326,24 @@ export const allowedUsers = pgTable(
     tourCompletedAt: tz('tour_completed_at'),
     lastLoginAt: tz('last_login_at'),
     invitedBy: integer('invited_by').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'set null' }),
+    // Фаза 41 (контракт 41.1): NULL = основной профиль (вход), иначе id основного. Вход строки = coalesce(primary_user_id, id)
+    primaryUserId: integer('primary_user_id').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    // Фаза 41: момент отвязки профиля (status = 'archived')
+    archivedAt: tz('archived_at'),
     createdAt: tz('created_at').notNull().defaultNow(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('allowed_users_email_key').on(t.email),
+    uniqueIndex('allowed_users_email_primary_key').on(t.email).where(sql`${t.primaryUserId} is null`),
+    uniqueIndex('allowed_users_psn_account_key').on(t.psnAccountId).where(sql`${t.psnAccountId} is not null and ${t.status} <> 'archived'`),
+    uniqueIndex('allowed_users_psn_online_key')
+      .on(sql`lower(${t.psnOnlineId})`)
+      .where(sql`${t.psnOnlineId} is not null and ${t.status} <> 'archived'`),
+    index('allowed_users_primary_idx').on(t.primaryUserId).where(sql`${t.primaryUserId} is not null`),
     uniqueIndex('allowed_users_google_sub_key').on(t.googleSub).where(sql`${t.googleSub} is not null`),
     uniqueIndex('allowed_users_single_owner_key').on(sql`(true)`).where(sql`${t.role} = 'owner'`),
     check('allowed_users_role_check', sql`${t.role} in ('owner','member')`),
-    check('allowed_users_status_check', sql`${t.status} in ('invited','active','blocked')`),
+    check('allowed_users_status_check', sql`${t.status} in ('invited','active','blocked','archived')`),
     check('allowed_users_psn_access_mode_check', sql`${t.psnAccessMode} in ('public','friend')`),
     check(
       'allowed_users_psn_access_status_check',
@@ -342,6 +351,10 @@ export const allowedUsers = pgTable(
     ),
     check('allowed_users_email_check', sql`${t.email} ~ '^[^@\\s]+@[^@\\s]+$' and char_length(${t.email}) <= 254`),
     check('allowed_users_owner_not_blocked_check', sql`${t.role} <> 'owner' or ${t.status} <> 'blocked'`),
+    check(
+      'allowed_users_profile_check',
+      sql`(${t.primaryUserId} is null or (${t.primaryUserId} <> ${t.id} and ${t.role} = 'member' and ${t.googleSub} is null)) and ((${t.status} = 'archived') = (${t.archivedAt} is not null)) and (${t.status} <> 'archived' or ${t.primaryUserId} is not null)`,
+    ),
   ],
 );
 
