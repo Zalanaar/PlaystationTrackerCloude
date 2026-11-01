@@ -59,7 +59,7 @@ function PickPanel({ lib, retry, selectedId, onSelect, onGoNone, setLive }: {
   const shown = list.slice(0, limit);
   const showRecents = !hasQuery && recents.length > 0 && lib.state === 'ready';
   const firstId = showRecents ? recents[0].id : shown[0]?.id ?? null;
-  const tabId = selectedId ?? firstId;
+  const tabId = selectedId !== null && (showRecents ? [...recents, ...shown] : shown).some((g) => g.id === selectedId) ? selectedId : firstId;
 
   useEffect(() => {
     if (!hasQuery || lib.state !== 'ready') return;

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../collection/api';
 import { Icon } from '../icons';
-import { useToast } from '../primitives/Toast';
+import { useToast, useToastDismiss } from '../primitives/Toast';
 import { postPlanned } from '../roadmap/api';
 import '../recommend.css';
 import {
@@ -37,6 +37,9 @@ function StatePanel({ icon, title, children }: { icon: 'check' | 'circle-alert' 
 export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog: () => void }) {
   const router = useRouter();
   const toast = useToast();
+  const dismissToast = useToastDismiss();
+  const removedToast = useRef<number | null>(null);
+  const overlayOpen = useRef(false);
   const wide = useWide();
   const [data, setData] = useState<DiscoverResponse | null>(null);
   const [fatal, setFatal] = useState<Fatal>(null);
@@ -161,7 +164,8 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
     focusAfter.current = (list[i + 1] ?? list[i - 1])?.externalId ?? '';
     bumpCount(1);
     setOwnedItem(null);
-    toast({ text: removedText(it.title), ttl: 8000, action: { label: 'Отменить', run: () => void undoOwned(it) } });
+    if (removedToast.current !== null) dismissToast(removedToast.current);
+    removedToast.current = toast({ text: removedText(it.title), ttl: 8000, action: { label: 'Отменить', run: () => void undoOwned(it) } });
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setLeaving((s) => new Set(s).add(it.externalId));
     setTimeout(() => {
@@ -169,14 +173,17 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
       void latest.current?.load();
     }, reduce ? 0 : FADE_MS);
     return true;
-  }, [gone, toast, undoOwned, bumpCount]);
+  }, [gone, toast, dismissToast, undoOwned, bumpCount]);
 
   useEffect(() => { latest.current = { load, plan, hide }; });
+  useEffect(() => { overlayOpen.current = marksOpen || ownedItem !== null; }, [marksOpen, ownedItem]);
 
   // перенос фокуса после ухода или возвращения карточки (sheet вернул его на исчезнувшую кнопку)
   useEffect(() => {
     const id = focusAfter.current;
     if (id === null || loading) return;
+    // открыт лист или диалог: фокус не трогаем, он в ловушке листа
+    if (overlayOpen.current) { focusAfter.current = null; return; }
     const root = panelRef.current;
     if (!root) return;
     const target = id ? Array.from(root.querySelectorAll<HTMLElement>('[data-ext]')).find((el) => el.dataset.ext === id) : null;

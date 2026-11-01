@@ -222,8 +222,8 @@
 .ps-own-modes button[aria-checked="true"], .ps-own-filter button[aria-checked="true"] { background: var(--surface-3); color: var(--text); }
 [data-theme="ps5"] .ps-own-modes button[aria-checked="true"], [data-theme="ps5"] .ps-own-filter button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
 .ps-own-modes button:focus-visible, .ps-own-filter button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
-.ps-own-filter { display: flex; width: 100%; flex: none; }
-.ps-own-filter button { flex: 1 1 0; min-width: 0; height: auto; min-height: 32px; padding: var(--sp-1) var(--sp-2); white-space: normal; line-height: 16px; }
+.ps-own-filter { display: flex; width: 100%; flex: none; overflow-x: auto; }
+.ps-own-filter button { flex: 1 0 auto; min-width: 0; height: auto; min-height: 32px; padding: var(--sp-1) var(--sp-2); white-space: nowrap; line-height: 16px; }
 
 .ps-own-pick, .ps-own-none { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
 .ps-own-help { margin: 0; font-size: 12px; line-height: 16px; color: var(--text-2); }
