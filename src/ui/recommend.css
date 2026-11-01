@@ -104,6 +104,33 @@
   .ps-rec-hid__cover { grid-row: 1 / span 2; }
 }
 
+/* ---- Фаза 31: вкладки и карточка «У тебя нет» (спека 12) ---- */
+.ps-rec-modes { align-self: flex-start; max-width: 100%; }
+.ps-rec-modes button { height: 44px; padding: 0 var(--sp-4); font-size: 13px; line-height: 16px; font-weight: 600; }
+.ps-rec-modes button[aria-selected="true"] { background: var(--surface-3); color: var(--text); }
+[data-theme="ps5"] .ps-rec-modes button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.ps-rec-pick { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ps-rec-pick__when { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-rec--discover[data-leaving] { opacity: 0; transition: opacity var(--dur-base) var(--ease-out); pointer-events: none; }
+.ps-rec__mediabox { display: block; min-width: 0; border-radius: var(--r-cover); }
+.ps-rec__name--plain { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--text); }
+.ps-rec__meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; color: var(--text-3); }
+.ps-rec__chip { padding: 0 6px; font-size: 11px; line-height: 14px; font-weight: 600; color: var(--text-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-chip); }
+.ps-rec__score { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--text); }
+.ps-rec__source { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-rec__source a, .ps-rec-note__link { display: inline-flex; align-items: center; gap: 2px; color: var(--text-2); text-decoration: underline; }
+.ps-rec__source a:hover, .ps-rec-note__link:hover { color: var(--text); }
+.ps-rec__planned:disabled { cursor: default; }
+.ps-rec__planlink { align-self: center; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); text-decoration: underline; }
+.ps-rec__planlink:hover { color: var(--text); }
+@media (min-width: 1024px) { .ps-rec__mediabox { width: 100%; border-radius: var(--r-md); } }
+@media (max-width: 767px) {
+  .ps-rec-modes { display: flex; align-self: stretch; }
+  .ps-rec-modes button { flex: 1 1 0; min-width: 0; height: 48px; padding: 0 var(--sp-1); }
+  .ps-rec__planlink { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .ps-rec--discover[data-leaving] { transition: none; } }
+
 /* ---- скелеты ---- */
 .ps-rec--sk .ps-rec__sk-cover { width: 96px; height: 128px; border-radius: var(--r-cover); }
 .ps-rec--sk .ps-rec__sk-media { width: 100%; aspect-ratio: 16 / 9; }

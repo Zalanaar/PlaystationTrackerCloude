@@ -23,14 +23,7 @@ export function parseGameId(raw: string): number | null {
   return n >= 1 && n <= 2_147_483_647 ? n : null;
 }
 
-// --- «Новое от ИИ» (раздел 19)
-
-/** `refresh` отсутствует = false; `1`/`true` = true; `0`/`false` = false; иное = ошибка. */
-export function parseRefresh(raw: string | null): Parsed<boolean> {
-  if (raw === null || raw === '0' || raw === 'false') return { ok: true, value: false };
-  if (raw === '1' || raw === 'true') return { ok: true, value: true };
-  return { ok: false, message: 'Некорректный параметр refresh.' };
-}
+// --- «У тебя нет» (Фаза 30)
 
 const externalIdSchema = z.string().trim().min(1).max(64).regex(/^[^\s/?#%\\]+$/);
 const externalDislikeSchema = z.strictObject({
