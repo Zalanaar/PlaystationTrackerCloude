@@ -2972,3 +2972,76 @@ Hobby: не больше 2 cron-заданий и только раз в сут�
 ### F29.9 Тесты
 
 `src/server/digest/*.test.ts` (текст на фикстурах спеки 6.1–6.3, границы недели МСК, склонения, усечение, без origin), `digest-db.test.ts` (PGlite: идемпотентность и параллельный запуск, откат при сбое, изоляция двух пользователей, пропуск блока при сбое сборки, получатели), `link.test.ts` (привязка, неверный/просроченный/повторный код, лимит, отвязка, чужой чат), `src/app/api/telegram/webhook/route.test.ts` (секрет), `src/db/release-sql-0021.test.ts`.
+
+## Фаза 40. «Уже есть»: отметки внешних игр и связь «одна игра → много» (миграция 0024)
+
+Игра в «У тебя нет», которая на деле есть (в составе сборника библиотеки) или уже пройдена вне библиотеки, помечается и пропадает из выдач кандидатов RAWG. Решение Артёма 2026-11-01: отметка «прошёл» НЕ меняет саму подборку (вкус, жанры, скоринг RAWG считаются по тем же данным), она только исключает игру из выдач. В Статистику и Итоги отметка не попадает (часов и трофеев по ней нет).
+
+### 40.1 Схема (миграция `0024_owned_marks`, только добавляет таблицу)
+```
+owned_marks
+  user_id              integer NOT NULL  FK allowed_users(id) ON DELETE CASCADE
+  rawg_id              text    NOT NULL                       -- ключ внешней игры (externalId RAWG)
+  title                text    NOT NULL  CHECK 1..200
+  title_key            text    NOT NULL                       -- libraryKey(title): нормализованное название, только для справки/диагностики, в фильтрах НЕ участвует
+  cover_url            text    NULL
+  covered_by_game_id   integer NULL      FK (user_id, covered_by_game_id) -> games(user_id, id) ON DELETE CASCADE
+  completed            boolean NOT NULL DEFAULT false
+  created_at, updated_at timestamptz NOT NULL DEFAULT now()
+  PRIMARY KEY (user_id, rawg_id)                              -- уникальность (user_id, rawg_id)
+  CHECK owned_marks_covered_completed: covered_by_game_id IS NULL OR completed = false
+  INDEX owned_marks_user_covered_idx (user_id, covered_by_game_id) WHERE covered_by_game_id IS NOT NULL
+```
+- Связь 1 -> много: у одной игры библиотеки (`games.id`) может быть много отметок (`covered_by_game_id` одинаков). Составной FK гарантирует на уровне БД, что покрывающая игра принадлежит тому же `user_id`.
+- Два вида отметки: `covered` (`covered_by_game_id IS NOT NULL`, `completed = false`) и `not_in_library` (`covered_by_game_id IS NULL`, `completed` true/false: «прошёл» или просто «есть/не интересует»).
+- Игра библиотеки удалена из БД (сейчас не бывает): отметки `covered` каскадно исчезают, игра может вернуться в выдачу.
+- `docs/release-neon-0024.sql` идемпотентен, пишет в журнал drizzle; `docs/release-neon-0024-check.sql` для проверки до/после. Миграция на прод применяется Артёмом через Neon SQL Editor.
+
+### 40.2 Роуты (сессия `requireUser`; запись требует `Content-Type: application/json` и проверку Origin; везде `user_id` сессии)
+
+Тип отметки в ответах:
+```
+OwnedMark = {
+  externalSource: 'rawg'; externalId: string; title: string; coverUrl: string | null;
+  kind: 'covered' | 'not_in_library';
+  completed: boolean;                       // для covered всегда false
+  coveredBy: { gameId: number; name: string; imageUrl: string | null } | null;   // для not_in_library null
+  createdAt: string; updatedAt: string      // ISO
+}
+```
+
+`PUT /api/owned-marks` — создать или обновить отметку (upsert по `(user_id, externalId)`, идемпотентно). Тело, все поля обязательны, лишние = 400:
+```
+{ "externalSource": "rawg", "externalId": "3328", "title": "Uncharted 3", "coverUrl": "https://..." | null,
+  "kind": "covered", "coveredByGameId": 123 }
+{ "externalSource": "rawg", "externalId": "3328", "title": "Uncharted 3", "coverUrl": null,
+  "kind": "not_in_library", "completed": true }
+```
+Поля `externalId`, `title`, `coverUrl` как в 30.5. Для `covered` поле `completed` не передаётся (иначе 400), для `not_in_library` `coveredByGameId` не передаётся (иначе 400). `coveredByGameId` int >= 1.
+- `covered`: игра должна существовать у этого пользователя (скрытая допустима). Чужая и несуществующая игра дают одинаковый ответ `404 game_not_found` (наличие чужой игры не раскрывается). Если выбрана игра-дубль (Фаза 23), связь пишется на главную (`duplicate_of_game_id`).
+- Повторный PUT меняет вид отметки (`not_in_library` -> `covered` и обратно), `created_at` сохраняется, `updated_at` обновляется. Это также «выбор сборника одним тапом» для следующей игры: тот же `coveredByGameId`.
+- `200 { ok, data: { mark: OwnedMark } }`. Ошибки: `400 invalid_request`, `401`, `404 game_not_found`, `503 db_unavailable`.
+
+`DELETE /api/owned-marks/{externalId}` — «Вернуть в подборку». Идемпотентно, проверка Origin, удаляет только запись этого пользователя. `200 { ok, data: { externalId, removed: boolean } }` (`removed = false`: отметки не было, в том числе у другого пользователя ту же `externalId` затронуть нельзя). Игра возвращается в выдачу сразу при следующем чтении (фильтр на чтении, 40.3); если подборка уже пересчитана без неё, она вернётся после следующего пересчёта.
+
+`GET /api/owned-marks` — все отметки пользователя, новые сверху (`updatedAt` убыв., затем `externalId`). `200 { ok, data: { marks: OwnedMark[] } }`. Для экрана «Отмеченные» и отмены.
+
+`GET /api/owned-marks/recent-collections?limit=5` — «недавно выбранные сборники» для приоритета в списке выбора. `limit` 1..10, по умолчанию 5. Игры библиотеки пользователя, у которых есть отметки `covered`, по последнему использованию (`max(updated_at)` убыв., затем `gameId`); скрытые и дубли не показываются.
+`200 { ok, data: { collections: { gameId: number; name: string; imageUrl: string | null; coveredCount: number; lastUsedAt: string }[] } }`.
+
+`GET /api/owned-marks/library-search?q=uncharted&limit=20` — поиск по библиотеке для выбора сборника. `q` 1..80 символов после trim (пустой или длиннее = 400), поиск без учёта регистра по `games.name` и `games.hltb_name` как подстрока (`%` и `_` в `q` экранируются); `limit` 1..30, по умолчанию 20. Только видимые игры пользователя (не скрытые, не дубли). Порядок: название начинается с `q`, затем по названию, затем по `id`.
+`200 { ok, data: { games: { id: number; name: string; imageUrl: string | null; coveredCount: number }[] } }`.
+
+Ошибки общие: `401 unauthorized`, `400 invalid_request` (в том числе неверный Origin), `503 db_unavailable` (без текста исключения и без секретов).
+
+### 40.3 Исключение из выдач кандидатов RAWG
+Фильтр по `owned_marks.rawg_id` этого пользователя (любой вид отметки, срока нет). Ключ только RAWG id: совпадение названия без совпадения id игру не скрывает. Действует при чтении, не дожидаясь пересчёта:
+- `GET /api/recommend/discover` (30.2) и пересчёт подборки (30.3/30.4): отмеченные не попадают в пул и ранжирование и убираются из уже сохранённых `candidates` при выдаче.
+- `GET /api/roadmap/catalog/upcoming` (17.13) и `GET /api/roadmap/catalog/search` (17.9): отмеченные убираются из `candidates`. Параметры страницы (`page`, `hasMore`) не меняются, страница может быть короче обычной. Поиск тоже фильтруется: игра, которую пользователь уже отметил как имеющуюся, в План не предлагается; «Вернуть в подборку» снимает фильтр.
+- «Подскажи» (раздел 18) кандидатов RAWG не содержит (только бэклог библиотеки), отметки на него не влияют.
+
+Что отметка НЕ меняет: `loadHistory`, профиль вкуса, жанры и аффинити, фасеты запроса, `score` и порядок остальных кандидатов, причины, `games`/`game_status`, Статистику, Итоги, Wrapped, счётчики RAWG/LLM. Резервная копия разметки отметки не включает (внешние игры, не библиотека).
+
+### 40.4 Изоляция и проверки
+- `owned_marks` добавлена в охранный тест `user-scope` (`USER_TABLES`), все выборки и записи с `user_id`.
+- Тесты: `src/server/owned/*.test.ts` (PGlite: изоляция двух пользователей, нельзя покрыть чужой игрой, нельзя удалить чужую отметку, 1 -> много, смена вида, отмена, дубль -> главная, поиск и недавние сборники, исключение из discover/roadmap, вкус и скоринг не меняются), `src/app/api/owned-marks/*.test.ts` (роуты: валидация, Origin, 401, 404, 503 без утечек), `src/db/release-sql-0024.test.ts`.
