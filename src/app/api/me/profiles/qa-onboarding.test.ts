@@ -61,7 +61,7 @@ describe('QA-41-1: guard /onboarding после добавления профи�
   it('восстановление из архива (вход member) с ok: onboarded_at проставлен, redirect нет', async () => {
     const first = await list.POST(kitRequest('/api/me/profiles', { method: 'POST', cookie: await sessionCookie(2, { role: 'member' }), body: { onlineId: 'ArchNick' } }));
     expect(first.status).toBe(201);
-    await pg().exec(`update allowed_users set status='archived', archived_at=now(), onboarded_at=NULL where lower(psn_online_id)='archnick'`);
+    await pg().exec(`update allowed_users set status='archived', archived_at=now(), onboarded_at=NULL, created_at=now() - interval '1 hour' where lower(psn_online_id)='archnick'`);
     resetAddProfileThrottle();
     const res = await list.POST(kitRequest('/api/me/profiles', { method: 'POST', cookie: await sessionCookie(2, { role: 'member' }), body: { onlineId: 'ArchNick' } }));
     expect(res.status).toBe(200);
