@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   backlogSortId, backlogToApi, backlogToUrl, DEFAULT_BACKLOG, durationText, formatHours, hltbStatusText, hoursInputValue, parseBacklogFilters,
   genreCount, parseHoursInput, resetBacklogFilters, sourceLabel, toggleValue,
-  moveBetweenLists, serviceToApi, shelvedToApi,
+  moveBetweenLists, serviceToApi, shelvedToApi, resolveBacklogView, activeBacklogCount, rowDuration,
 } from './backlog';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -153,5 +153,28 @@ describe('moveBetweenLists: блоки бэклога и сервиса', () => 
   });
   it('запрос сервиса без фильтров бэклога', () => {
     expect(serviceToApi(50).toString()).toBe('status=service&sort=last_played&limit=50&offset=0');
+  });
+});
+
+describe('Фаза 33: вид и бейдж фильтров', () => {
+  it('resolveBacklogView: сохранённое главнее, иначе по ширине', () => {
+    expect(resolveBacklogView(null, true)).toBe('list');
+    expect(resolveBacklogView(null, false)).toBe('cards');
+    expect(resolveBacklogView('cards', true)).toBe('cards');
+    expect(resolveBacklogView('list', false)).toBe('list');
+    expect(resolveBacklogView('мусор', true)).toBe('list');
+  });
+  it('activeBacklogCount: фильтры плюс смена сортировки', () => {
+    expect(activeBacklogCount(DEFAULT_BACKLOG)).toBe(0);
+    expect(activeBacklogCount({ ...DEFAULT_BACKLOG, genres: ['ACTION', 'HORROR'], duration: ['lt10'] })).toBe(3);
+    expect(activeBacklogCount({ ...DEFAULT_BACKLOG, sort: 'duration' })).toBe(1);
+    expect(activeBacklogCount({ ...DEFAULT_BACKLOG, sort: 'title', order: 'desc' })).toBe(1);
+  });
+  it('rowDuration: часы, только «нет на HLTB» или ничего', () => {
+    const hltb = { status: 'found' as const, id: 1, name: 'A', mainHours: 8, extraHours: null, checkedAt: null };
+    expect(rowDuration({ hours: 8, source: 'hltb', bucket: 'lt10', overrideHours: null, hltb })?.text).toBe('≈ 8 ч');
+    expect(rowDuration({ hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { ...hltb, status: 'not_found', mainHours: null } })).toEqual({ text: null, source: null, notOnHltb: true });
+    expect(rowDuration({ hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { ...hltb, status: 'unchecked', mainHours: null } })).toBeNull();
+    expect(rowDuration(undefined)).toBeNull();
   });
 });
