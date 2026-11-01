@@ -166,7 +166,27 @@ export function syncView(s: SyncSlice | null): SyncView {
 export function shouldAutoStart(s: SyncSlice | null): boolean {
   if (!s) return false;
   if (s.running) return false;
-  return !s.run || s.run.status === 'failed';
+  return !s.run || s.run.status === 'failed' || s.run.status === 'partial';
+}
+
+export const PARTIAL_IDLE_TICKS = 2;
+export const RESUME_COOLDOWN_MS = 30_000;
+export const STALL_MS = 180_000;
+
+/** partial без активного запуска: цепочка звеньев оборвалась. */
+export function isIdlePartial(s: SyncSlice | null): boolean {
+  return !!s && !s.running && s.run?.status === 'partial';
+}
+
+/** Возобновлять partial: idle-состояние держится >= 2 тиков и с прошлой попытки прошло >= 30 с. */
+export function shouldResumePartial(idleTicks: number, lastResumeAt: number | null, now: number): boolean {
+  if (idleTicks < PARTIAL_IDLE_TICKS) return false;
+  return lastResumeAt === null || now - lastResumeAt >= RESUME_COOLDOWN_MS;
+}
+
+/** Прогресс не двигался >= 3 минут. */
+export function isStalled(lastProgressAt: number, now: number): boolean {
+  return now - lastProgressAt >= STALL_MS;
 }
 
 /** Процент полосы; null = indeterminate (нет счётчика). */
