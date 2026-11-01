@@ -2,6 +2,7 @@ import { getDb } from '@/db';
 import { CatalogError, getUpcoming } from '@/server/catalog/rawg';
 import { getRawgKey } from '@/server/env';
 import { fail, ok } from '@/server/http';
+import { filterOwned } from '@/server/owned/marks';
 import { markPlanned } from '@/server/roadmap/db';
 import { parseUpcomingPage } from '@/server/roadmap/validation';
 import { rawgReserve } from '@/server/usage/rawg-reserve';
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
     return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введите данные вручную.', { reason });
   }
   try {
-    return ok({ candidates: await markPlanned(getDb(), a.user.id, page.candidates), page: page.page, hasMore: page.hasMore });
+    return ok({ candidates: await markPlanned(getDb(), a.user.id, await filterOwned(getDb(), a.user.id, page.candidates).catch(() => page.candidates)), page: page.page, hasMore: page.hasMore });
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

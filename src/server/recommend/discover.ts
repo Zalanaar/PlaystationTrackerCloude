@@ -18,6 +18,7 @@ import {
   POOL_LIMIT, rankPool, similarGames, tasteOf, templateReason, type Facet, type LibraryIndex, type NamedHistory, type PoolEntry,
   type StoredCandidate,
 } from './discover-rank';
+import { ownedRawgIds } from '@/server/owned/marks';
 import { loadHistory } from './db';
 import { normalizeTitle } from './match';
 import { createProvider, DEFAULT_MODELS, LINK_RE, LlmError, type PhraseProvider } from './phrase';
@@ -101,7 +102,7 @@ async function writeCache(db: AnyDb, userId: UserId, day: string, hash: string, 
 type Exclusions = { lib: LibraryIndex; ids: Set<string>; keys: Set<string>; plannedByExt: Map<string, number> };
 
 async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exclusions> {
-  const [owned, planned, disliked] = await Promise.all([
+  const [owned, planned, disliked, marked] = await Promise.all([
     // любая игра библиотеки, включая скрытые и дубли Фазы 23
     db.select({ name: games.name, hltb: games.hltbName }).from(games).where(eq(games.userId, userId)),
     db.select({ id: plannedGames.id, title: plannedGames.title, source: plannedGames.externalSource, extId: plannedGames.externalId, status: plannedGames.status }).from(plannedGames).where(eq(plannedGames.userId, userId)),
@@ -109,6 +110,9 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
       .select({ extId: recommendExternalDislikes.externalId, title: recommendExternalDislikes.title })
       .from(recommendExternalDislikes)
       .where(and(eq(recommendExternalDislikes.userId, userId), eq(recommendExternalDislikes.externalSource, 'rawg'), gt(recommendExternalDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)))),
+    // Фаза 40: «Уже есть / проходил». Только по RAWG id; вкус и скоринг не затрагиваются (история берётся из games)
+    // схема до 0024 (таблицы ещё нет) не должна ронять подборку
+    ownedRawgIds(db, userId).catch(() => new Set<string>()),
   ]);
   const names: string[] = [];
   for (const o of owned) {
@@ -118,6 +122,7 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
   const ids = new Set<string>();
   const keys = new Set<string>();
   const plannedByExt = new Map<string, number>();
+  for (const id of marked) ids.add(id);
   for (const p of planned) {
     if (p.source === 'rawg' && p.extId) plannedByExt.set(p.extId, p.id);
     if (p.status === 'planned' || p.status === 'done') {
