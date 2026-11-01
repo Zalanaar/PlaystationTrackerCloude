@@ -140,7 +140,8 @@ describe('POST /api/me/profiles', () => {
     const res = await call(list.POST, '/api/me/profiles', await A(), 'POST', { onlineId: 'NewNick' });
     expect(res.status).toBe(201);
     const r = await json(res);
-    expect(r.data.profile).toMatchObject({ isPrimary: false, onlineId: 'NewNick', accessStatus: 'ok', canStartSync: true, gamesCount: 0, onboardedAt: null });
+    expect(r.data.profile).toMatchObject({ isPrimary: false, onlineId: 'NewNick', accessStatus: 'ok', canStartSync: true, gamesCount: 0 });
+    expect(r.data.profile.onboardedAt).not.toBeNull();
     expect(r.data.activeProfileId).toBe(r.data.profile.id);
     expect(await readSessionToken(setCookieToken(res), KIT_SECRET)).toMatchObject({ uid: 1, pid: r.data.profile.id });
     const row = (await rows<Record<string, unknown>>(`select * from allowed_users where id = ${r.data.profile.id}`))[0];

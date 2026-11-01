@@ -216,7 +216,7 @@ export async function addProfile(db: AnyDb, i: AddProfileInput): Promise<AddProf
       if (arch) {
         await tx
           .update(allowedUsers)
-          .set({ status: 'active', archivedAt: null, psnOnlineId: onlineId, psnAccountId: accountId ?? arch.psnAccountId, psnAccessStatus: accessStatus, psnAccessCheckedAt: now, updatedAt: now })
+          .set({ status: 'active', archivedAt: null, psnOnlineId: onlineId, psnAccountId: accountId ?? arch.psnAccountId, psnAccessStatus: accessStatus, psnAccessCheckedAt: now, updatedAt: now, ...(accessStatus === 'ok' ? { onboardedAt: arch.onboardedAt ?? now } : {}) })
           .where(eq(allowedUsers.id, arch.id));
         return { kind: 'restored' as const, profileId: arch.id };
       }
@@ -233,6 +233,8 @@ export async function addProfile(db: AnyDb, i: AddProfileInput): Promise<AddProf
           psnAccessMode: i.mode,
           psnAccessStatus: accessStatus,
           psnAccessCheckedAt: now,
+          // ник проверен при добавлении -> онбординг не нужен (QA-41-1); при friend_required онбординг остаётся
+          onboardedAt: accessStatus === 'ok' ? now : null,
           tourVersion: l.tourVersion,
           tourCompletedAt: l.tourCompletedAt,
         })
