@@ -1,13 +1,13 @@
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
-import { evaluateLimit, GOOGLE_RULES, PASSWORD_RULES, type LimitResult } from './limiter';
+import { evaluateLimit, GOOGLE_RULES, NPSSO_RULES, PASSWORD_RULES, type LimitResult } from './limiter';
 
 const { loginAttempts } = schema;
 
 // Произвольный константный ключ advisory lock для сериализации проверки лимита входа.
 const LOCK_KEY = 7_204_001;
 
-export type AttemptKind = 'password' | 'google';
+export type AttemptKind = 'password' | 'google' | 'npsso';
 
 export type Reservation = { limited: true; retryAfterSeconds: number } | { limited: false; id: number };
 
@@ -29,7 +29,7 @@ export async function peekLoginLimit(ipHash: string, kind: AttemptKind, now: Dat
 
 async function runAttempt(ipHash: string, kind: AttemptKind, now: Date, write: boolean): Promise<Reservation> {
   const db = getDb();
-  const rules = kind === 'google' ? GOOGLE_RULES : PASSWORD_RULES;
+  const rules = kind === 'google' ? GOOGLE_RULES : kind === 'npsso' ? NPSSO_RULES : PASSWORD_RULES;
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_KEY})`);
     await tx.delete(loginAttempts).where(lt(loginAttempts.attemptedAt, new Date(now.getTime() - 24 * 60 * 60 * 1000)));

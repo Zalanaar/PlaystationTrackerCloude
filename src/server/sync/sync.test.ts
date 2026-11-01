@@ -425,7 +425,7 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('статус: прогресс, счётчики и конверт для running', async () => {
-    expect(await getSyncStatus(t.db, TEST_USER)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
+    expect(await getSyncStatus(t.db, TEST_USER)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnToken: null, psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
     const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
     if (s.kind !== 'started') throw new Error();
     const st = await getSyncStatus(t.db, TEST_USER);

@@ -6,9 +6,15 @@ export const GLOBAL_LIMIT = { max: 20, windowMs: 60 * 60 * 1000 };
 export const GOOGLE_IP_LIMIT = { max: 10, windowMs: 15 * 60 * 1000 };
 export const GOOGLE_GLOBAL_LIMIT = { max: 40, windowMs: 60 * 60 * 1000 };
 
+/** Вставка NPSSO с сайта (контракт 27.2): только owner, поэтому строже. */
+export const NPSSO_IP_LIMIT = { max: 3, windowMs: 15 * 60 * 1000 };
+export const NPSSO_GLOBAL_LIMIT = { max: 10, windowMs: 60 * 60 * 1000 };
+
 export type LimitRules = { ip: Rule; global: Rule };
 export const PASSWORD_RULES: LimitRules = { ip: IP_LIMIT, global: GLOBAL_LIMIT };
 export const GOOGLE_RULES: LimitRules = { ip: GOOGLE_IP_LIMIT, global: GOOGLE_GLOBAL_LIMIT };
+
+export const NPSSO_RULES: LimitRules = { ip: NPSSO_IP_LIMIT, global: NPSSO_GLOBAL_LIMIT };
 
 export type LimitResult = { limited: false } | { limited: true; retryAfterSeconds: number };
 

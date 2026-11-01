@@ -28,6 +28,7 @@ export type ErrorCode =
   | 'psn_private'
   | 'psn_friend_required'
   | 'psn_unavailable'
+  | 'npsso_invalid'
   | 'internal_error'
   | 'db_unavailable';
 

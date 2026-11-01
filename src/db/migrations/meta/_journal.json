@@ -134,6 +134,13 @@
       "when": 1793480610527,
       "tag": "0018_game_duplicates",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793523761942,
+      "tag": "0019_psn_token_events",
+      "breakpoints": true
     }
   ]
 }

@@ -2585,3 +2585,73 @@ DiscoverMeta = {
 - `RAWG_API_KEY` и `LLM_API_KEY` только из env, не попадают в ответы, кэш, предупреждения и логи; URL с ключом в ошибки не пишется (`CatalogError` содержит только причину).
 - Новых переменных окружения нет. RAWG free tier 20 000/мес.: штатный расход шага до 8 запросов на пользователя в сутки, под потолками `RAWG_USER_DAILY_LIMIT` (60) и `RAWG_DAILY_LIMIT` (300).
 - Тесты: `src/server/recommend/discover*.test.ts`, `src/server/sync/discover-step.test.ts`, `src/app/api/recommend/discover/*.test.ts`. Обязательные: ни одной игры библиотеки (в том числе скрытой, дубля и с другим написанием) в выдаче; работа при выключенном и падающем LLM; лимиты RAWG и LLM-вида; изоляция двух пользователей.
+
+## 27. NPSSO с сайта и журнал токена PSN (Фаза 24)
+
+Цель: owner обновляет NPSSO за минуту на сайте, без Vercel и передеплоя; по журналу видно реальный срок жизни NPSSO и refresh-токена. `PSN_NPSSO` из env остаётся запасным (порядок в 1.8 не меняется: живой access -> refresh -> NPSSO из env). Токен PSN общий (технический аккаунт, `psn_auth` singleton), поэтому журнал глобальный, как `psn_auth`, а не по пользователям (исключение из правила `user_id`, как у `login_attempts`).
+
+### 27.1 `POST /api/sync/npsso`
+
+Только owner (`requireOwner`, роль берётся из БД). Порядок проверок: сессия (401) -> роль (403, member) -> Origin (`originAllowed`, как у `POST /api/sync`) и `Content-Type: application/json` (400 `invalid_request`) -> настройки (`TOKEN_ENCRYPTION_KEY`, `PSN_TARGET_ONLINE_ID`; нет = 500 `config_error`) -> формат (400) -> лимит (429) -> обмен с PSN. CSRF: тот же механизм, что у остальных мутаций (cookie `SameSite=Lax` + проверка Origin + обязательный `application/json`); отдельного токена в проекте нет.
+
+Запрос: `{ "npsso": "<64 символа>" }`. Принимается также содержимое, которое выдаёт `https://ca.account.sony.com/api/v1/ssocookie` (`{"npsso":"..."}`), присланное как строка в поле `npsso`: сервер вытащит значение сам. Пробелы и кавычки по краям обрезаются. Формат: `^[A-Za-z0-9]{64}$`. Ошибка формата не обращается к PSN и не расходует лимит.
+
+Ответ 200 (NPSSO принят PSN, токены зашифрованы и сохранены в `psn_auth`, `source = 'npsso'`):
+```json
+{ "ok": true, "data": { "accepted": true, "refreshExpiresAt": "2026-11-11T10:00:00.000Z", "token": { "issuedAt": "2026-11-01T10:00:00.000Z", "ageSeconds": 0, "lastEvent": { "event": "pasted", "at": "2026-11-01T10:00:00.000Z" } } } }
+```
+`refreshExpiresAt` = ориентир от `refresh_token_expires_in` PSN или `null`. Поле `token` устроено как `psnToken` в 27.4. NPSSO, токены и их части в ответ не попадают никогда.
+
+Ошибки (конверт 4.1, сообщения фиксированные, текст PSN и исключений в ответ не попадает):
+| Код | HTTP | Когда |
+|---|---|---|
+| `unauthorized` | 401 | нет сессии |
+| `forbidden` | 403 | роль не owner |
+| `invalid_request` | 400 | не JSON, нет `application/json`, чужой Origin, нет поля, не строка, неверный формат (`details.field = "npsso"`) |
+| `rate_limited` | 429 | лимит попыток (27.2); `Retry-After` и `details.retryAfterSeconds` |
+| `npsso_invalid` | 422 | PSN отвергло NPSSO (протух, чужой, не тот cookie). Токены в `psn_auth` не меняются |
+| `psn_unavailable` | 503 | временный сбой или лимит на стороне PSN (429/5xx/сеть). Токены не меняются, пробовать позже |
+| `config_error` | 500 | нет `TOKEN_ENCRYPTION_KEY` или `PSN_TARGET_ONLINE_ID` |
+| `db_unavailable` | 503 | БД недоступна |
+`npsso_invalid` добавляется в `ErrorCode` (`src/server/http.ts`). Ошибка PSN никогда не стирает прежние токены и данные: запись в `psn_auth` только после успешного обмена, одним upsert.
+
+### 27.2 Лимит попыток
+
+`login_attempts` с новым `kind = 'npsso'`; счётчики `password`, `google` и `npsso` независимы. Правило как в 3.3 (резерв неудачи до обмена, `success = true` при успехе, заблокированный запрос ничего не пишет, advisory lock): **3 неудачи с IP за 15 минут, 10 за час глобально**. Неудачей считаются отказ PSN и временный сбой PSN. Миграция `0019` расширяет `login_attempts_kind_check` до `('password','google','npsso')` (drop + add, данные не меняются).
+
+### 27.3 Журнал `psn_token_events` (миграция `0019_psn_token_events`, expand)
+
+| Колонка | Тип | Null | Описание |
+|---|---|---|---|
+| `id` | integer identity PK | нет | |
+| `user_id` | integer | да | кто вставил NPSSO (только для `pasted`), FK `allowed_users(id)` `ON DELETE SET NULL`; для событий синка `NULL` |
+| `event` | text | нет | CHECK `pasted | refreshed | expired | from_env` |
+| `details` | jsonb | да | без секретов (только числа, `source`, `reason`) |
+| `created_at` | timestamptz | нет | default `now()` |
+
+Индекс `psn_token_events_created_idx (created_at desc, id desc)`. Хранятся 200 последних событий (лишние удаляются при записи). События:
+- `pasted`: NPSSO вставлен на сайте и принят. `details`: `{ "refreshTokenExpiresInSec": 864000 }`.
+- `from_env`: обмен NPSSO из `PSN_NPSSO` прошёл в `getAccessToken` (токены обновились из env). Те же details.
+- `refreshed`: refresh-токен обменян на новую пару. Пишется не чаще раза в 20 часов (иначе шум от каждого часового access). `details`: `{ "refreshTokenExpiresInSec": N }` (видно, продлевает ли refresh срок).
+- `expired`: `getAccessToken` исчерпал refresh и NPSSO (бросил `auth_expired`, либо `npsso_invalid`, когда NPSSO из env отвергнут; если токенов нет и env пуст, это не протухание, события нет). Временные сбои PSN событий не пишут. Подряд идущие `expired` не дублируются (пока последнее событие `expired`, новое не пишется). `details`: `{ "reason": "auth_expired" | "npsso_invalid", "hadRefresh": bool }`.
+Запись события не бросает и не мешает синку (сбой записи глотается; нет таблицы = события не пишутся). Срок жизни NPSSO = интервал от последнего `pasted`/`from_env` до `expired`; срок refresh-цепочки = от `pasted`/`from_env` до `expired`, между ними `refreshed`.
+
+### 27.4 Дополнение `GET /api/sync/status` (8.4)
+
+Новое поле `psnToken` (всем ролям, секретов нет; `null`, если событий ещё нет или таблицы нет):
+```json
+"psnToken": {
+  "issuedAt": "2026-10-22T10:00:00.000Z",
+  "ageSeconds": 864000,
+  "source": "pasted",
+  "lastEvent": { "event": "expired", "at": "2026-11-01T10:00:00.000Z", "details": { "reason": "auth_expired" } }
+}
+```
+- `issuedAt` = время последнего `pasted` или `from_env` (последний обмен NPSSO; с него живёт refresh-цепочка), `ageSeconds` = `now - issuedAt`, `source` = `pasted | from_env`. Нет таких событий: `issuedAt`/`ageSeconds`/`source` = `null`.
+- `lastEvent` = последнее событие любого вида (`event`, `at`, `details`) или `null`.
+- Правка `psnAuth`: если последний завершённый запуск упал по `auth_expired`/`npsso_invalid`, но после его окончания было успешное `pasted` или `from_env`, `psnAuth = 'ok'` (баннер протухания исчезает сразу после вставки; следующий синк подтвердит). Иначе правило из 8.4.
+Для UI: баннер протухания ведёт к полю «Вставить NPSSO» (owner); member видит баннер без поля (вставлять может только owner).
+
+### 27.5 Секреты и проверки
+- NPSSO существует только в теле запроса и локальной переменной на время обмена; не пишется в БД, `sync_runs`, `details`, ответы, `console.*`. Ошибки PSN проходят через `safeErr` с NPSSO и code в списке секретов, а в ответ идёт только фиксированный текст.
+- Тесты: `src/app/api/sync/npsso/route.test.ts` (роль, CSRF, лимит, формат, нет NPSSO в ответах и логах, в т.ч. при ошибке PSN), `src/server/psn/token-events.test.ts` (журнал), `src/db/release-sql-0019.test.ts`. Прод: `docs/release-neon-0019.sql` + `docs/release-neon-0019-check.sql`. Миграцию применять ДО деплоя: журнал и статус без таблицы работают мягко (события не пишутся, `psnToken = null`), но лимит `kind = 'npsso'` на старой CHECK падает, и вставка NPSSO ответит `503`.

@@ -5,6 +5,7 @@ import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { decryptToken, encryptToken } from './crypto';
 import { PsnError, classifyPsnError } from './errors';
+import { recordTokenEvent } from './token-events';
 
 const { psnAuth } = schema;
 
@@ -142,7 +143,8 @@ async function withRetry<T>(fn: () => Promise<T>, opts: AuthOptions): Promise<T>
   }
 }
 
-async function save(db: AnyDb, cfg: AuthConfig, pair: TokenPair, source: 'npsso' | 'refresh', now: Date): Promise<void> {
+/** Шифрует и сохраняет пару токенов одной записью. */
+export async function saveTokens(db: AnyDb, cfg: Pick<AuthConfig, 'encryptionKey'>, pair: TokenPair, source: 'npsso' | 'refresh', now: Date): Promise<void> {
   const values = {
     id: 1,
     refreshTokenEnc: encryptToken(pair.refreshToken, cfg.encryptionKey),
@@ -189,7 +191,8 @@ export async function getAccessToken(db: AnyDb, cfg: AuthConfig, opts: AuthOptio
     const token = refresh;
     const pair = await withRetry(() => api.exchangeRefresh(token), opts);
     if (pair) {
-      await save(db, cfg, pair, 'refresh', now);
+      await saveTokens(db, cfg, pair, 'refresh', now);
+      await recordTokenEvent(db, 'refreshed', { now, details: { refreshTokenExpiresInSec: pair.refreshTokenExpiresIn } });
       return pair.accessToken;
     }
   }
@@ -197,10 +200,14 @@ export async function getAccessToken(db: AnyDb, cfg: AuthConfig, opts: AuthOptio
   if (npsso) {
     const pair = await withRetry(() => api.exchangeNpsso(npsso), opts);
     if (pair) {
-      await save(db, cfg, pair, 'npsso', now);
+      await saveTokens(db, cfg, pair, 'npsso', now);
+      await recordTokenEvent(db, 'from_env', { now, details: { refreshTokenExpiresInSec: pair.refreshTokenExpiresIn } });
       return pair.accessToken;
     }
   }
+  const reason = hadRefresh || row ? 'auth_expired' : 'npsso_invalid';
+  // npsso_invalid без сохранённых токенов и без NPSSO в env: протухания не было, просто токена нет
+  if (hadRefresh || row || cfg.npsso) await recordTokenEvent(db, 'expired', { now, details: { reason, hadRefresh } });
   if (hadRefresh || row) {
     throw new PsnError('auth_expired', 'Refresh token PSN не подошёл и NPSSO отвергнут или не задан: нужен новый NPSSO.');
   }
