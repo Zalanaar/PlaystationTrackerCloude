@@ -15,7 +15,7 @@ import { tintStep, type TintDeps } from './tint';
 
 const { syncRuns } = schema;
 
-export const MAX_HOPS = 20;
+export const MAX_HOPS = 60;
 
 export type SyncDeps = {
   db: AnyDb;
