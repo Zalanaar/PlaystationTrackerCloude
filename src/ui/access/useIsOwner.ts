@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { registerCacheReset } from '../profiles/scope';
 
 /**
  * Владелец ли текущий пользователь (по /api/auth/me). Только для показа пункта меню: права проверяет сервер.
@@ -10,6 +11,7 @@ import { useEffect, useState } from 'react';
  */
 let cached: boolean | null = null;
 let inflight: Promise<boolean> | null = null;
+registerCacheReset(() => { cached = null; }); // смена профиля PSN: роль входа та же, но кэш не держим
 
 function loadIsOwner(): Promise<boolean> {
   if (cached !== null) return Promise.resolve(cached);

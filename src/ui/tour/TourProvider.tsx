@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { TOUR_VERSION } from '@/shared/tour';
+import { readProfileValue, writeProfileValue } from '../profiles/scope';
 import { fetchTourState, saveTourDone } from './api';
 import {
   AUTO_DELAY_MS, canAutoStart, nextIndex, parseResume, prevIndex, TOUR_SEEN_KEY, TOUR_SHOWN_KEY, TOUR_STEP_KEY,
@@ -101,7 +102,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const input = (apiShouldStart: boolean) => {
       let seenFlag: string | null = null;
       let shown = false;
-      try { seenFlag = localStorage.getItem(TOUR_SEEN_KEY); shown = store()?.getItem(TOUR_SHOWN_KEY) === '1'; } catch { /* нет хранилища */ }
+      try { seenFlag = readProfileValue(TOUR_SEEN_KEY); shown = readProfileValue(TOUR_SHOWN_KEY, { session: true }) === '1'; } catch { /* нет хранилища */ }
       return {
         pathname: pathRef.current, search: window.location.search, apiShouldStart, shownThisSession: shown, seenFlag, version: TOUR_VERSION,
         tourActive: indexRef.current !== null,
@@ -122,7 +123,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
         if (pathRef.current !== startPath) return;
         if (!canAutoStart(input(true))) return;
         if (blocked()) { if (tries < 120) later(() => attempt(tries + 1), 500); return; }
-        try { store()?.setItem(TOUR_SHOWN_KEY, '1'); } catch { /* ок */ }
+        writeProfileValue(TOUR_SHOWN_KEY, '1', { session: true });
         show(0);
       };
       waitReady(0);
