@@ -171,3 +171,23 @@ for (const theme of THEMES) {
     }
   });
 }
+
+// Ширина 375 (iPhone SE/mini): без горизонтального переполнения на all-статистике и во всех слайдах all-Итогов
+for (const theme of ['night', 'ps3'] as const) {
+  test(`375px ${theme}`, async ({ page, context, baseURL }, info) => {
+    test.skip(info.project.name !== 'mobile', 'только мобильный проект');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await open(page, context, baseURL!, '/stats?period=all');
+    await expect(page.getByRole('heading', { name: 'Когда ты играешь' })).toBeVisible();
+    await setTheme(page, theme);
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    await page.screenshot({ path: `${SHOTS}/w375-stats-all-${theme}.png`, fullPage: true });
+    await openWrapped(page, context, baseURL!, '/wrapped?year=all');
+    await page.getByRole('button', { name: 'Смотреть итоги за всё время' }).click();
+    for (let i = 0; i < 9; i++) {
+      expect(await overflow(page), `слайд ${i + 1}`).toBeLessThanOrEqual(0);
+      if (i === 3 || i === 7) await page.screenshot({ path: `${SHOTS}/w375-wrapped-${theme}-${i + 1}.png` });
+      if (i < 8) await page.keyboard.press('ArrowRight');
+    }
+  });
+}
