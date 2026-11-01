@@ -56,7 +56,7 @@ describe('sync status mapping', () => {
   });
 });
 
-import { isSyncOverdue, overdueAgeText } from './status';
+import { isSyncOverdue, overdueAgeText, npssoErrorText, psnTokenRows, retryAfterText } from './status';
 
 describe('overdue (20.2)', () => {
   const o = (h: number | null, is = true) => ({ isOverdue: is, ageHours: h, thresholdHours: 30 });
@@ -73,5 +73,31 @@ describe('overdue (20.2)', () => {
     expect(overdueAgeText(o(24 * 5))).toBe('5 дней');
     expect(overdueAgeText(o(24 * 21))).toBe('21 день');
     expect(overdueAgeText(o(null))).toBe('больше 30 ч');
+  });
+});
+
+describe('NPSSO с сайта (фаза 24)', () => {
+  it('psnTokenRows: null без журнала', () => {
+    expect(psnTokenRows(null)).toBeNull();
+    expect(psnTokenRows(undefined)).toBeNull();
+    expect(psnTokenRows({ issuedAt: null, ageSeconds: null, source: null, lastEvent: null })).toBeNull();
+  });
+  it('psnTokenRows: возраст, источник, событие', () => {
+    const rows = psnTokenRows({ issuedAt: 'x', ageSeconds: 9 * 86400 + 5, source: 'from_env', lastEvent: { event: 'refreshed', at: '2026-11-01T10:00:00.000Z' } });
+    expect(rows?.map((r) => r.value)).toEqual(['9 дней назад', 'из env', 'токен продлён, 01.11.2026, 13:00']);
+    expect(psnTokenRows({ issuedAt: 'x', ageSeconds: 86400 * 2, source: 'pasted', lastEvent: null })?.[0].value).toBe('2 дня назад');
+  });
+  it('retryAfterText', () => {
+    expect(retryAfterText(30)).toBe('через 30 с');
+    expect(retryAfterText(600)).toBe('через 10 мин');
+    expect(retryAfterText(7200)).toBe('через 2 ч');
+    expect(retryAfterText(undefined)).toBe('позже');
+  });
+  it('npssoErrorText: фиксированные тексты по контракту', () => {
+    expect(npssoErrorText(422, 'npsso_invalid')).toContain('отклонил');
+    expect(npssoErrorText(400, 'invalid_request')).toContain('формат');
+    expect(npssoErrorText(429, 'rate_limited', 120)).toContain('через 2 мин');
+    expect(npssoErrorText(503, 'psn_unavailable')).toContain('недоступны');
+    expect(npssoErrorText(500, 'config_error')).toContain('Не удалось');
   });
 });

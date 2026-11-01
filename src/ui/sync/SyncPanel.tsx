@@ -1,10 +1,11 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
+import { useIsOwner } from '../access/useIsOwner';
 import { useSync } from './SyncProvider';
 import {
-  STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText,
-  totalsRows,
+  STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
+  reasonText, runCountersText, totalsRows,
 } from './status';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -12,8 +13,44 @@ const btnPrimary = `h-11 rounded-md bg-accent px-5 font-semibold text-accent-ink
 const btnGhost = `h-11 rounded-md border border-border-strong px-4 text-text disabled:opacity-60 ${focus}`;
 
 export function SyncPanel() {
-  const { status, loading, loadError, starting, notice, start } = useSync();
-  const [howTo, setHowTo] = useState(false);
+  const { status, loading, loadError, starting, notice, start, reload } = useSync();
+  const isOwner = useIsOwner();
+  const [howTo, setHowTo] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [sending, setSending] = useState(false);
+  const [npssoMsg, setNpssoMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // NPSSO живёт только в поле и в теле запроса: поле очищается до ожидания ответа, в state значение не попадает.
+  async function submitNpsso(e: React.FormEvent) {
+    e.preventDefault();
+    const el = inputRef.current;
+    const raw = el?.value.trim() ?? '';
+    if (!raw) {
+      setNpssoMsg({ ok: false, text: npssoErrorText(400, 'invalid_request') });
+      return;
+    }
+    const body = JSON.stringify({ npsso: raw });
+    if (el) el.value = '';
+    setSending(true);
+    setNpssoMsg(null);
+    try {
+      const res = await fetch('/api/sync/npsso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      if (res.ok) {
+        await res.text().catch(() => '');
+        setNpssoMsg({ ok: true, text: 'Принято. Токен сохранён, можно запускать синк.' });
+        await reload();
+      } else {
+        const json = await res.json().catch(() => null);
+        setNpssoMsg({ ok: false, text: npssoErrorText(res.status, json?.error?.code, json?.error?.details?.retryAfterSeconds) });
+      }
+    } catch {
+      setNpssoMsg({ ok: false, text: npssoErrorText(0, undefined) });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const tokenRows = psnTokenRows(status?.psnToken);
   const running = status?.running ?? false;
 
   const run = status?.run ?? null;
@@ -48,7 +85,7 @@ export function SyncPanel() {
             <ol className="list-decimal pl-5 text-text-2">
               <li>Войди в технический аккаунт PSN в браузере.</li>
               <li>Открой ca.account.sony.com/api/v1/ssocookie и скопируй значение npsso.</li>
-              <li>Вставь его в PSN_NPSSO на сервере и запусти синк.</li>
+              <li>{isOwner ? 'Вставь его в поле «Вставить NPSSO» ниже и нажми «Сохранить».' : 'Передай его владельцу: вставить может только он.'}</li>
             </ol>
           )}
         </div>
@@ -82,6 +119,17 @@ export function SyncPanel() {
           </dl>
         )}
 
+        {tokenRows && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-text-2" aria-label="Токен PSN" data-testid="psn-token">
+            {tokenRows.map((r) => (
+              <Fragment key={r.label}>
+                <dt>{r.label}</dt>
+                <dd className="min-w-0 break-words text-text">{r.value}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        )}
+
         {running && run && (
           <div role="status" className="flex flex-col gap-2">
             <p className="text-text">{phaseText(run)}</p>
@@ -104,6 +152,29 @@ export function SyncPanel() {
           <p role="status" className="text-text-2">Не удалось обновить статус. Показаны последние данные.</p>
         )}
         {notice && <p role="status" className="text-text">{notice}</p>}
+
+        {isOwner && (
+          <form onSubmit={(e) => void submitNpsso(e)} className="flex flex-col gap-2" data-testid="npsso-form" noValidate>
+            <label htmlFor="npsso-input" className="font-semibold text-text">Вставить NPSSO</label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="npsso-input" ref={inputRef} type="password" name="psn-token-field" autoComplete="off" autoCapitalize="off"
+                autoCorrect="off" spellCheck={false} className="ps-input min-w-0 flex-1 basis-40" disabled={sending}
+                aria-describedby="npsso-hint npsso-result"
+              />
+              <button type="submit" className={btnGhost} disabled={sending}>{sending ? 'Сохраняем…' : 'Сохранить'}</button>
+            </div>
+            <p id="npsso-hint" className="text-text-2">Значение npsso или ответ страницы целиком. Не сохраняется в браузере.</p>
+          </form>
+        )}
+        <div id="npsso-result" role="status" aria-live="polite" data-testid="npsso-result" className="flex flex-col gap-2">
+          {npssoMsg && <p className={npssoMsg.ok ? 'text-text' : 'text-danger'}>{npssoMsg.text}</p>}
+          {npssoMsg?.ok && (
+            <div>
+              <button type="button" className={btnGhost} onClick={() => void start()} disabled={starting || running}>Синк сейчас</button>
+            </div>
+          )}
+        </div>
 
         <div>
           <button type="button" className={btnPrimary} onClick={() => void start()} disabled={starting || running || loading}>

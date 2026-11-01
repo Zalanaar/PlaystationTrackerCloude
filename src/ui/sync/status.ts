@@ -40,7 +40,18 @@ export interface SyncTotals {
   platinumEarned: number;
 }
 
+export type PsnTokenEventName = 'pasted' | 'refreshed' | 'expired' | 'from_env';
+
+/** Журнал токена PSN (контракт 27.4). Без секретов. */
+export interface PsnTokenInfo {
+  issuedAt: string | null;
+  ageSeconds: number | null;
+  source: 'pasted' | 'from_env' | null;
+  lastEvent: { event: PsnTokenEventName; at: string; details?: Record<string, unknown> | null } | null;
+}
+
 export interface SyncStatus {
+  psnToken?: PsnTokenInfo | null;
   totals?: SyncTotals | null;
   running: boolean;
   run: SyncRun | null;
@@ -170,4 +181,52 @@ export function overdueAgeText(o: SyncOverdue): string {
   const d = Math.floor(h / 24);
   const m = d % 10, c = d % 100;
   return `${d} ${m === 1 && c !== 11 ? 'день' : m >= 2 && m <= 4 && (c < 12 || c > 14) ? 'дня' : 'дней'}`;
+}
+
+const EVENT_LABEL: Record<PsnTokenEventName, string> = {
+  pasted: 'NPSSO вставлен на сайте',
+  from_env: 'NPSSO взят из настроек сервера',
+  refreshed: 'токен продлён',
+  expired: 'токен протух',
+};
+
+function plural(n: number, one: string, few: string, many: string): string {
+  const m = n % 10, c = n % 100;
+  return m === 1 && c !== 11 ? one : m >= 2 && m <= 4 && (c < 12 || c > 14) ? few : many;
+}
+
+/** Строки блока «Токен PSN»; null, если журнала нет (psnToken = null) или данных нет совсем. */
+export function psnTokenRows(t: PsnTokenInfo | null | undefined): { label: string; value: string }[] | null {
+  if (!t) return null;
+  const rows: { label: string; value: string }[] = [];
+  if (t.ageSeconds !== null && Number.isFinite(t.ageSeconds) && t.ageSeconds >= 0) {
+    const d = Math.floor(t.ageSeconds / 86400);
+    const age = d === 0 ? 'меньше суток назад' : `${d} ${plural(d, 'день', 'дня', 'дней')} назад`;
+    rows.push({ label: 'Токен обновлён', value: age });
+  }
+  if (t.source) rows.push({ label: 'Источник', value: t.source === 'pasted' ? 'с сайта' : 'из env' });
+  if (t.lastEvent) {
+    const at = formatMoscow(t.lastEvent.at);
+    rows.push({ label: 'Последнее событие', value: `${EVENT_LABEL[t.lastEvent.event] ?? 'событие'}${at ? `, ${at}` : ''}` });
+  }
+  return rows.length ? rows : null;
+}
+
+/** «через 5 мин» / «через 2 ч» / «через 40 с» по retryAfterSeconds. */
+export function retryAfterText(sec: number | null | undefined): string {
+  if (sec === null || sec === undefined || !Number.isFinite(sec) || sec <= 0) return 'позже';
+  if (sec < 60) return `через ${Math.ceil(sec)} с`;
+  if (sec < 3600) return `через ${Math.ceil(sec / 60)} мин`;
+  return `через ${Math.ceil(sec / 3600)} ч`;
+}
+
+/** Фиксированные тексты ошибок POST /api/sync/npsso (27.1). Введённое значение не подставляется. */
+export function npssoErrorText(status: number, code: string | undefined, retryAfterSeconds?: number | null): string {
+  if (status === 429 || code === 'rate_limited') return `Слишком много попыток. Повторить можно ${retryAfterText(retryAfterSeconds)}.`;
+  if (status === 422 || code === 'npsso_invalid') return 'PSN отклонил NPSSO. Возьми свежий и вставь снова.';
+  if (status === 400 || code === 'invalid_request') return 'Неверный формат. Нужны 64 латинские буквы и цифры или ответ страницы целиком.';
+  if (status === 401) return 'Сессия истекла. Войди заново.';
+  if (status === 403 || code === 'forbidden') return 'Вставлять NPSSO может только владелец.';
+  if (status === 503) return 'PSN или база сейчас недоступны. Попробуй позже.';
+  return 'Не удалось сохранить NPSSO. Попробуй позже.';
 }
