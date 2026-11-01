@@ -1,6 +1,7 @@
 // Белый список (allowed_users, контракт 22.2): чистый доступ к БД, db передаётся параметром (Neon в рантайме, PGlite в тестах).
 // Email не логируется.
-import { and, asc, count, eq, inArray, max, ne, sql } from 'drizzle-orm';
+import { and, asc, count, eq, getTableColumns, inArray, isNotNull, isNull, max, ne, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { asUserId, type UserId } from './user-id';
@@ -9,7 +10,7 @@ const { allowedUsers, games, syncRuns } = schema;
 
 export type UserRow = typeof allowedUsers.$inferSelect;
 export type Role = 'owner' | 'member';
-export type UserStatus = 'invited' | 'active' | 'blocked';
+export type UserStatus = 'invited' | 'active' | 'blocked' | 'archived';
 
 export const EMAIL_RE = /^[^@\s]+@[^@\s]+$/;
 
@@ -25,9 +26,39 @@ export async function getUserById(db: AnyDb, id: number): Promise<UserRow | null
   return row ?? null;
 }
 
-/** Единственная строка role = owner. */
+export type AuthContext = { profile: UserRow; login: UserRow };
+
+async function loadWithLogin(db: AnyDb, id: number): Promise<{ profile: UserRow; login: UserRow | null } | null> {
+  const login = alias(allowedUsers, 'login_row');
+  const [r] = await db
+    .select({ profile: getTableColumns(allowedUsers), login: getTableColumns(login) })
+    .from(allowedUsers)
+    .leftJoin(login, eq(login.id, sql`coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id})`))
+    .where(eq(allowedUsers.id, id))
+    .limit(1);
+  return r ?? null;
+}
+
+/**
+ * Контракт 41.2: профиль pid (по умолчанию uid) и основная строка входа одним запросом. null = отказ (401): вход не тот/не основной/не active,
+ * профиль чужого входа или не active. Профиль удалён или архивный при живой сессии -> обслуживается основной (uid).
+ */
+export async function resolveAuthContext(db: AnyDb, uid: number, pid: number | undefined): Promise<AuthContext | null> {
+  const want = pid ?? uid;
+  let r = await loadWithLogin(db, want);
+  const loginOk = (x: { login: UserRow | null }) => x.login !== null && x.login.id === uid && x.login.primaryUserId === null && x.login.status === 'active';
+  if (r && !loginOk(r)) return null;
+  if ((!r || r.profile.status === 'archived') && want !== uid) {
+    r = await loadWithLogin(db, uid);
+    if (r && !loginOk(r)) return null;
+  }
+  if (!r || !r.login || r.profile.status !== 'active') return null;
+  return { profile: r.profile, login: r.login };
+}
+
+/** Единственная строка role = owner (всегда основная). */
 export async function getOwner(db: AnyDb): Promise<UserRow | null> {
-  const [row] = await db.select().from(allowedUsers).where(eq(allowedUsers.role, 'owner')).limit(1);
+  const [row] = await db.select().from(allowedUsers).where(and(eq(allowedUsers.role, 'owner'), isNull(allowedUsers.primaryUserId))).limit(1);
   return row ?? null;
 }
 
@@ -44,10 +75,11 @@ export type LoginLookup = { ok: true; user: UserRow } | { ok: false };
  * Строка с другим google_sub, blocked, нет в списке: одинаковый отказ { ok: false }.
  */
 export async function lookupForLogin(db: AnyDb, sub: string, email: string): Promise<LoginLookup> {
-  const [bySub] = await db.select().from(allowedUsers).where(eq(allowedUsers.googleSub, sub)).limit(1);
+  // Фаза 41 (41.2): только основные строки, иначе по почте найдётся дополнительный профиль
+  const [bySub] = await db.select().from(allowedUsers).where(and(eq(allowedUsers.googleSub, sub), isNull(allowedUsers.primaryUserId))).limit(1);
   let user = bySub ?? null;
   if (!user) {
-    const [byEmail] = await db.select().from(allowedUsers).where(eq(allowedUsers.email, email)).limit(1);
+    const [byEmail] = await db.select().from(allowedUsers).where(and(eq(allowedUsers.email, email), isNull(allowedUsers.primaryUserId))).limit(1);
     if (!byEmail) return { ok: false };
     if (byEmail.googleSub !== null && byEmail.googleSub !== sub) return { ok: false };
     user = byEmail;
@@ -71,6 +103,7 @@ export async function completeLogin(db: AnyDb, user: UserRow, sub: string, displ
       .where(
         and(
           eq(allowedUsers.id, user.id),
+          isNull(allowedUsers.primaryUserId),
           inArray(allowedUsers.status, ['invited', 'active']),
           // привязка только к пустому sub либо к тому же
           sql`(${allowedUsers.googleSub} is null or ${allowedUsers.googleSub} = ${sub})`,
@@ -95,9 +128,13 @@ export type AccessUser = {
   createdAt: string;
   gamesCount: number;
   lastSyncAt: string | null;
+  /** Фаза 41 (41.3): id основного профиля входа; isPrimary; profilesCount (на основной) = не-архивные профили входа, включая основной */
+  loginId: number;
+  isPrimary: boolean;
+  profilesCount: number;
 };
 
-function toAccessUser(u: UserRow, gamesCount: number, lastSyncAt: Date | null): AccessUser {
+function toAccessUser(u: UserRow, gamesCount: number, lastSyncAt: Date | null, profilesCount: number): AccessUser {
   return {
     id: u.id,
     email: u.email,
@@ -110,11 +147,23 @@ function toAccessUser(u: UserRow, gamesCount: number, lastSyncAt: Date | null): 
     createdAt: u.createdAt.toISOString(),
     gamesCount,
     lastSyncAt: lastSyncAt?.toISOString() ?? null,
+    loginId: u.primaryUserId ?? u.id,
+    isPrimary: u.primaryUserId === null,
+    profilesCount: u.primaryUserId === null ? profilesCount : 0,
   };
 }
 
+async function profilesCountByLogin(db: AnyDb): Promise<Map<number, number>> {
+  const rows = await db
+    .select({ loginId: sql<number>`coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id})`, n: count() })
+    .from(allowedUsers)
+    .where(ne(allowedUsers.status, 'archived'))
+    .groupBy(sql`coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id})`);
+  return new Map(rows.map((r) => [Number(r.loginId), Number(r.n)]));
+}
+
 /** gamesCount и lastSyncAt по user_id (22.12): одним запросом на каждый показатель, группировка по пользователю. */
-async function statsByUser(db: AnyDb, ids?: number[]): Promise<Map<number, { games: number; lastSync: Date | null }>> {
+export async function statsByUser(db: AnyDb, ids?: number[]): Promise<Map<number, { games: number; lastSync: Date | null }>> {
   const gameRows = await db
     .select({ userId: games.userId, n: count() })
     .from(games)
@@ -132,16 +181,17 @@ async function statsByUser(db: AnyDb, ids?: number[]): Promise<Map<number, { gam
 }
 
 export async function listAccessUsers(db: AnyDb): Promise<AccessUser[]> {
-  const rows = await db.select().from(allowedUsers).orderBy(asc(allowedUsers.id));
+  const rows = await db.select().from(allowedUsers).where(ne(allowedUsers.status, 'archived')).orderBy(asc(allowedUsers.id));
   const stats = await statsByUser(db);
-  return rows.map((u) => toAccessUser(u, stats.get(u.id)?.games ?? 0, stats.get(u.id)?.lastSync ?? null));
+  const pc = await profilesCountByLogin(db);
+  return rows.map((u) => toAccessUser(u, stats.get(u.id)?.games ?? 0, stats.get(u.id)?.lastSync ?? null, pc.get(u.id) ?? 1));
 }
 
 export async function toAccessUserById(db: AnyDb, id: number): Promise<AccessUser | null> {
   const u = await getUserById(db, id);
   if (!u) return null;
   const s = (await statsByUser(db, [id])).get(id);
-  return toAccessUser(u, s?.games ?? 0, s?.lastSync ?? null);
+  return toAccessUser(u, s?.games ?? 0, s?.lastSync ?? null, (await profilesCountByLogin(db)).get(u.primaryUserId ?? u.id) ?? 1);
 }
 
 export type CreateResult = { ok: true; id: number } | { ok: false; reason: 'exists' | 'limit' };
@@ -150,7 +200,7 @@ export type CreateResult = { ok: true; id: number } | { ok: false; reason: 'exis
 export async function createMember(db: AnyDb, email: string, invitedBy: number, maxUsers: number, psnMode: 'public' | 'friend' = 'public'): Promise<CreateResult> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(7204002)`);
-    const [dup] = await tx.select({ id: allowedUsers.id }).from(allowedUsers).where(eq(allowedUsers.email, email)).limit(1);
+    const [dup] = await tx.select({ id: allowedUsers.id }).from(allowedUsers).where(and(eq(allowedUsers.email, email), isNull(allowedUsers.primaryUserId))).limit(1);
     if (dup) return { ok: false as const, reason: 'exists' as const };
     const [c] = await tx.select({ n: count() }).from(allowedUsers).where(inArray(allowedUsers.status, ['invited', 'active']));
     if (Number(c?.n ?? 0) >= maxUsers) return { ok: false as const, reason: 'limit' as const };
@@ -164,38 +214,53 @@ export async function createMember(db: AnyDb, email: string, invitedBy: number, 
 
 export type PatchResult = { ok: true } | { ok: false; reason: 'not_found' | 'owner_protected' | 'limit' };
 
-/** Блокировка/разблокировка (blocked -> active, а если ни разу не входил, invited) и режим доступа к PSN. */
+/**
+ * Блокировка/разблокировка ВСЕГО входа (41.3): id любой строки входа приводится к основной; blocked ставится на все не-архивные строки входа
+ * (cron/digest фильтруют status = 'active'), разблокировка возвращает active (основная: invited, если ни разу не входил). psnAccessMode меняет только строку id.
+ */
 export async function patchUser(db: AnyDb, id: number, patch: { status?: 'active' | 'blocked'; psnAccessMode?: 'public' | 'friend' }, maxUsers: number): Promise<PatchResult> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(7204002)`);
     const [u] = await tx.select().from(allowedUsers).where(eq(allowedUsers.id, id)).limit(1);
-    if (!u) return { ok: false as const, reason: 'not_found' as const };
-    const set: Partial<typeof allowedUsers.$inferInsert> = { updatedAt: new Date() };
-    if (patch.status === 'blocked') {
-      if (u.role === 'owner') return { ok: false as const, reason: 'owner_protected' as const };
-      set.status = 'blocked';
-    } else if (patch.status === 'active' && u.status === 'blocked') {
-      const [c] = await tx.select({ n: count() }).from(allowedUsers).where(and(inArray(allowedUsers.status, ['invited', 'active']), ne(allowedUsers.id, id)));
-      if (Number(c?.n ?? 0) >= maxUsers) return { ok: false as const, reason: 'limit' as const };
-      set.status = u.googleSub === null && u.lastLoginAt === null ? 'invited' : 'active';
+    if (!u || u.status === 'archived') return { ok: false as const, reason: 'not_found' as const };
+    const now = new Date();
+    if (patch.status) {
+      const loginId = u.primaryUserId ?? u.id;
+      const [login] = await tx.select().from(allowedUsers).where(eq(allowedUsers.id, loginId)).limit(1);
+      if (!login) return { ok: false as const, reason: 'not_found' as const };
+      const rows = and(ne(allowedUsers.status, 'archived'), sql`coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id}) = ${loginId}`);
+      if (patch.status === 'blocked') {
+        if (login.role === 'owner') return { ok: false as const, reason: 'owner_protected' as const };
+        await tx.update(allowedUsers).set({ status: 'blocked', updatedAt: now }).where(and(rows, inArray(allowedUsers.status, ['invited', 'active'])));
+      } else if (login.status === 'blocked') {
+        const [mine] = await tx.select({ n: count() }).from(allowedUsers).where(rows);
+        const [c] = await tx
+          .select({ n: count() })
+          .from(allowedUsers)
+          .where(and(inArray(allowedUsers.status, ['invited', 'active']), sql`coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id}) <> ${loginId}`));
+        if (Number(c?.n ?? 0) + Number(mine?.n ?? 0) > maxUsers) return { ok: false as const, reason: 'limit' as const };
+        await tx.update(allowedUsers).set({ status: login.googleSub === null && login.lastLoginAt === null ? 'invited' : 'active', updatedAt: now }).where(eq(allowedUsers.id, loginId));
+        await tx.update(allowedUsers).set({ status: 'active', updatedAt: now }).where(and(rows, isNotNull(allowedUsers.primaryUserId), eq(allowedUsers.status, 'blocked')));
+      }
     }
-    if (patch.psnAccessMode) set.psnAccessMode = patch.psnAccessMode;
-    await tx.update(allowedUsers).set(set).where(eq(allowedUsers.id, id));
+    if (patch.psnAccessMode) await tx.update(allowedUsers).set({ psnAccessMode: patch.psnAccessMode, updatedAt: now }).where(eq(allowedUsers.id, id));
     return { ok: true as const };
   });
 }
 
 export type DeleteResult = { ok: true } | { ok: false; reason: 'not_found' | 'owner_protected' | 'not_blocked' | 'confirm_mismatch' };
 
-/** Удаление (каскад по FK снесёт данные пользователя). Только blocked/invited; confirmEmail совпадает с email. */
+/** Удаление входа целиком (каскад по FK снесёт дополнительные профили и данные). id любой строки входа приводится к основной; только blocked/invited; confirmEmail = почта входа. */
 export async function deleteUser(db: AnyDb, id: number, confirmEmail: string): Promise<DeleteResult> {
   return db.transaction(async (tx) => {
-    const [u] = await tx.select().from(allowedUsers).where(eq(allowedUsers.id, id)).limit(1);
+    const [row] = await tx.select().from(allowedUsers).where(eq(allowedUsers.id, id)).limit(1);
+    if (!row || row.status === 'archived') return { ok: false as const, reason: 'not_found' as const };
+    const [u] = row.primaryUserId === null ? [row] : await tx.select().from(allowedUsers).where(eq(allowedUsers.id, row.primaryUserId)).limit(1);
     if (!u) return { ok: false as const, reason: 'not_found' as const };
     if (u.role === 'owner') return { ok: false as const, reason: 'owner_protected' as const };
     if (u.status === 'active') return { ok: false as const, reason: 'not_blocked' as const };
     if (normalizeEmail(confirmEmail) !== u.email) return { ok: false as const, reason: 'confirm_mismatch' as const };
-    await tx.delete(allowedUsers).where(eq(allowedUsers.id, id));
+    await tx.delete(allowedUsers).where(eq(allowedUsers.id, u.id));
     return { ok: true as const };
   });
 }

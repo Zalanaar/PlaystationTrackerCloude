@@ -289,7 +289,7 @@ describe('API «Доступ»', () => {
     const d = (await r.json()).data;
     expect(d.users.map((u: { id: number }) => u.id)).toEqual([1, 2]);
     expect(d.users[0]).toMatchObject({ email: 'owner@x.com', role: 'owner', status: 'active', psnOnlineId: 'ArtemPSN', gamesCount: 0, lastSyncAt: null });
-    expect(Object.keys(d.users[0]).sort()).toEqual(['createdAt', 'displayName', 'email', 'gamesCount', 'id', 'lastLoginAt', 'lastSyncAt', 'psnAccessStatus', 'psnOnlineId', 'role', 'status']);
+    expect(Object.keys(d.users[0]).sort()).toEqual(['createdAt', 'displayName', 'email', 'gamesCount', 'id', 'isPrimary', 'lastLoginAt', 'lastSyncAt', 'loginId', 'profilesCount', 'psnAccessStatus', 'psnOnlineId', 'role', 'status']);
   });
 
   it('POST при MULTIUSER_ENABLED != 1: 409 multiuser_not_ready, никого не создаёт', async () => {

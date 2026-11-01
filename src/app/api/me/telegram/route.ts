@@ -9,7 +9,12 @@ import { getBotToken } from '@/server/notify/telegram';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Статус привязки Telegram пользователя сессии (контракт F29.7).
+async function telegramProfile(db: ReturnType<typeof getDb>, loginId: number): Promise<{ id: number; onlineId: string | null }> {
+  const [r] = await db.select({ onlineId: schema.allowedUsers.psnOnlineId }).from(schema.allowedUsers).where(eq(schema.allowedUsers.id, loginId)).limit(1);
+  return { id: loginId, onlineId: r?.onlineId ?? null };
+}
+
+// Статус привязки Telegram ВХОДА сессии (контракт F29.7, 41.4): всегда основной профиль, независимо от активного.
 export async function GET(req: Request) {
   const a = await requireUser(req);
   if (!a.ok) return a.response;
@@ -17,9 +22,9 @@ export async function GET(req: Request) {
     const db = getDb();
     const now = new Date();
     const [chatId, code, state] = await Promise.all([
-      getLinkedChatId(db, a.user.id),
-      db.select({ expiresAt: schema.telegramLinkCodes.expiresAt }).from(schema.telegramLinkCodes).where(eq(schema.telegramLinkCodes.userId, a.user.id)).limit(1),
-      db.select({ lastSentAt: schema.digestState.lastSentAt }).from(schema.digestState).where(eq(schema.digestState.userId, a.user.id)).limit(1),
+      getLinkedChatId(db, a.user.loginId),
+      db.select({ expiresAt: schema.telegramLinkCodes.expiresAt }).from(schema.telegramLinkCodes).where(eq(schema.telegramLinkCodes.userId, a.user.loginId)).limit(1),
+      db.select({ lastSentAt: schema.digestState.lastSentAt }).from(schema.digestState).where(eq(schema.digestState.userId, a.user.loginId)).limit(1),
     ]);
     const botConfigured = getBotToken() !== null && getTelegramWebhookSecret() !== null;
     const alerts = a.user.role === 'owner' && !!process.env.TELEGRAM_CHAT_ID?.trim();
@@ -29,6 +34,7 @@ export async function GET(req: Request) {
       botConfigured,
       botUsername: getTelegramBotUsername(),
       role: a.user.role,
+      profile: await telegramProfile(db, a.user.loginId),
       linked: chatId !== null,
       deliversTo,
       lastSentAt: state[0]?.lastSentAt?.toISOString() ?? null,
@@ -45,7 +51,7 @@ export async function DELETE(req: Request) {
   if (!a.ok) return a.response;
   if (!originAllowed(req)) return fail(400, 'invalid_request', 'Некорректный запрос.');
   try {
-    await unlinkUser(getDb(), a.user.id);
+    await unlinkUser(getDb(), a.user.loginId);
     return ok({ linked: false });
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');

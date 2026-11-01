@@ -4,12 +4,14 @@
 import { NextResponse } from 'next/server';
 import { asUserId } from './user-id';
 
-export const testSession: { userId: number; role: 'owner' | 'member'; anonymous: boolean } = { userId: 1, role: 'owner', anonymous: false };
+// loginId: основной профиль входа (Фаза 41); null = userId сам основной
+export const testSession: { userId: number; role: 'owner' | 'member'; anonymous: boolean; loginId: number | null } = { userId: 1, role: 'owner', anonymous: false, loginId: null };
 
 export function resetTestSession(): void {
   testSession.userId = 1;
   testSession.role = 'owner';
   testSession.anonymous = false;
+  testSession.loginId = null;
 }
 
 const deny = () => ({
@@ -23,9 +25,9 @@ function authed() {
   const row = {
     id: testSession.userId, email: `u${testSession.userId}@example.com`, role: testSession.role, status: 'active', googleSub: null, displayName: null,
     psnOnlineId: testSession.role === 'owner' ? 'Target' : `psn${testSession.userId}`, psnAccountId: null, psnAccessMode: 'public', psnAccessStatus: 'ok',
-    psnAccessCheckedAt: null, onboardedAt: null, lastLoginAt: null, invitedBy: null, createdAt: new Date(0), updatedAt: new Date(0),
+    psnAccessCheckedAt: null, onboardedAt: null, tourVersion: null, tourCompletedAt: null, lastLoginAt: null, invitedBy: null, primaryUserId: testSession.loginId, archivedAt: null, createdAt: new Date(0), updatedAt: new Date(0),
   };
-  return { ok: true as const, user: { id, email: row.email, role: testSession.role, amr: 'google' as const, row } };
+  return { ok: true as const, user: { id, loginId: asUserId(testSession.loginId ?? testSession.userId), email: row.email, role: testSession.role, profileRole: testSession.loginId === null ? testSession.role : ('member' as const), amr: 'google' as const, row } };
 }
 
 export const requireUserMock = {

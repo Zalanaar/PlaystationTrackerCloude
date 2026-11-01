@@ -1,5 +1,5 @@
 // Кто и под каким ником участвует в синке (контракт 22.13). Чистая выборка из allowed_users.
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { asUserId, type UserId } from '@/server/auth/user-id';
@@ -26,7 +26,14 @@ export async function listSyncUsers(db: AnyDb, fallbackOnlineId: string, o: { af
   const rows = await db
     .select()
     .from(allowedUsers)
-    .where(and(eq(allowedUsers.status, 'active'), o.afterId !== undefined ? gt(allowedUsers.id, o.afterId) : undefined))
+    .where(
+      and(
+        eq(allowedUsers.status, 'active'),
+        // Фаза 41 (41.4): основная строка входа тоже active (дополнительные профили заблокированного входа в обход не попадают)
+        sql`exists (select 1 from allowed_users l where l.id = coalesce(${allowedUsers.primaryUserId}, ${allowedUsers.id}) and l.status = 'active' and l.primary_user_id is null)`,
+        o.afterId !== undefined ? gt(allowedUsers.id, o.afterId) : undefined,
+      ),
+    )
     .orderBy(asc(allowedUsers.id));
   const out: SyncUser[] = [];
   for (const u of rows) {

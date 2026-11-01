@@ -1,5 +1,5 @@
 // Отправка сводки (контракт F29.2-F29.4). Не бросает: итог в результате. Токен бота не логируется.
-import { and, eq, like, lt, sql } from 'drizzle-orm';
+import { and, eq, isNull, like, lt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { asUserId, type UserId } from '@/server/auth/user-id';
@@ -116,7 +116,7 @@ export async function runDigest(db: AnyDb, o: DigestDeps & { force?: boolean; bu
   const started = Date.now();
   let users: Recipient[] = [];
   try {
-    const rows = await db.select({ id: allowedUsers.id, role: allowedUsers.role }).from(allowedUsers).where(eq(allowedUsers.status, 'active')).orderBy(sql`${allowedUsers.role} = 'owner' desc`, allowedUsers.id);
+    const rows = await db.select({ id: allowedUsers.id, role: allowedUsers.role }).from(allowedUsers).where(and(eq(allowedUsers.status, 'active'), isNull(allowedUsers.primaryUserId))).orderBy(sql`${allowedUsers.role} = 'owner' desc`, allowedUsers.id);
     users = rows.map((r) => ({ id: asUserId(r.id), role: r.role }));
   } catch {
     console.error('digest: список пользователей не получен');

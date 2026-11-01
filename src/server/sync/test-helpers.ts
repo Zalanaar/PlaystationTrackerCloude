@@ -42,6 +42,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
   // срезы журнала (до 0016) всё равно получают колонки тура: схема drizzle в коде их уже выбирает, а 0016 к срезу 0015 ортогональна
   if (opts.migrations !== undefined) {
     await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS tour_version integer, ADD COLUMN IF NOT EXISTS tour_completed_at timestamp with time zone');
+    // то же для колонок профилей PSN (0025, Фаза 41)
+    await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS primary_user_id integer, ADD COLUMN IF NOT EXISTS archived_at timestamp with time zone');
     // то же для колонок дублей (0018): схема drizzle в коде их уже выбирает
     await client.exec('ALTER TABLE games ADD COLUMN IF NOT EXISTS duplicate_of_game_id integer, ADD COLUMN IF NOT EXISTS not_duplicate boolean NOT NULL DEFAULT false');
   }

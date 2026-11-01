@@ -153,8 +153,15 @@ export function getGoogleEnv(env: Record<string, string | undefined> = process.e
 export const DEFAULT_MAX_USERS = 10;
 
 /** Мультипользовательность (контракт 22.7/22.8): MULTIUSER_ENABLED=1 разрешает добавлять member; MAX_USERS (1..100, по умолчанию 10). */
-export function getMultiuserEnv(env: Record<string, string | undefined> = process.env): { enabled: boolean; maxUsers: number } {
-  return { enabled: env.MULTIUSER_ENABLED?.trim() === '1', maxUsers: intEnv(env.MAX_USERS, DEFAULT_MAX_USERS, 1, 100) };
+export const DEFAULT_MAX_PROFILES_PER_LOGIN = 3;
+
+/** Фаза 41: MAX_USERS считает профили (не входы); MAX_PROFILES_PER_LOGIN (1..5, по умолчанию 3) — потолок активных профилей на вход. */
+export function getMultiuserEnv(env: Record<string, string | undefined> = process.env): { enabled: boolean; maxUsers: number; maxProfilesPerLogin: number } {
+  return {
+    enabled: env.MULTIUSER_ENABLED?.trim() === '1',
+    maxUsers: intEnv(env.MAX_USERS, DEFAULT_MAX_USERS, 1, 100),
+    maxProfilesPerLogin: intEnv(env.MAX_PROFILES_PER_LOGIN, DEFAULT_MAX_PROFILES_PER_LOGIN, 1, 5),
+  };
 }
 
 /**

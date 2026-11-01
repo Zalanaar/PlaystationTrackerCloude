@@ -11,6 +11,8 @@ export type ErrorCode =
   | 'not_blocked'
   | 'multiuser_not_ready'
   | 'confirm_mismatch'
+  | 'profile_limit'
+  | 'primary_protected'
   | 'invalid_credentials'
   | 'not_found'
   | 'rate_limited'

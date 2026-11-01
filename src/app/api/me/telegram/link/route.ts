@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   if (!originAllowed(req)) return fail(400, 'invalid_request', 'Некорректный запрос.');
   if (getBotToken() === null || getTelegramWebhookSecret() === null) return fail(503, 'config_error', 'Бот Telegram на сервере не настроен.');
   try {
-    const r = await createLinkCode(getDb(), a.user.id);
+    const r = await createLinkCode(getDb(), a.user.loginId);
     if (!r.ok) return fail(429, 'rate_limited', 'Слишком много кодов. Подожди несколько минут.');
     const bot = getTelegramBotUsername();
     return ok({ code: r.code, expiresAt: r.expiresAt.toISOString(), deepLink: bot ? `https://t.me/${bot}?start=${r.code}` : null });

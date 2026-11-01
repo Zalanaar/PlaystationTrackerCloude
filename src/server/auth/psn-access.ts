@@ -119,7 +119,7 @@ export async function setPsnAccess(db: AnyDb, userId: UserId, input: string | un
   const [dup] = await db
     .select({ id: allowedUsers.id })
     .from(allowedUsers)
-    .where(and(ne(allowedUsers.id, userId), sql`lower(${allowedUsers.psnOnlineId}) = ${onlineId.toLowerCase()}`))
+    .where(and(ne(allowedUsers.id, userId), ne(allowedUsers.status, 'archived'), sql`lower(${allowedUsers.psnOnlineId}) = ${onlineId.toLowerCase()}`))
     .limit(1);
   if (dup) return { kind: 'taken' };
 
