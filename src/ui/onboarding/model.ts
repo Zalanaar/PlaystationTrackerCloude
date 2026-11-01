@@ -150,6 +150,7 @@ export type SyncView =
   | { kind: 'idle' }
   | { kind: 'running'; partial: boolean }
   | { kind: 'failed'; reason: string | null }
+  | { kind: 'cancelled' }
   | { kind: 'success' };
 
 /** Вид шага 3 по статусу синка. */
@@ -157,15 +158,17 @@ export function syncView(s: SyncSlice | null): SyncView {
   if (!s || !s.run) return { kind: 'idle' };
   if (s.run.status === 'running' || s.running) return { kind: 'running', partial: false };
   if (s.run.status === 'partial') return { kind: 'running', partial: true };
+  if (s.run.status === 'failed' && s.run.errorReason === 'cancelled') return { kind: 'cancelled' };
   if (s.run.status === 'failed') return { kind: 'failed', reason: s.run.errorReason ?? null };
   if (s.run.status === 'success') return { kind: 'success' };
   return { kind: 'idle' };
 }
 
-/** Автозапуск на входе в шаг 3: нет запусков или последний failed (и ничего не идёт). */
+/** Автозапуск на входе в шаг 3: нет запусков или последний failed (и ничего не идёт). Остановленный пользователем (cancelled) не перезапускаем. */
 export function shouldAutoStart(s: SyncSlice | null): boolean {
   if (!s) return false;
   if (s.running) return false;
+  if (s.run?.status === 'failed' && s.run.errorReason === 'cancelled') return false;
   return !s.run || s.run.status === 'failed' || s.run.status === 'partial';
 }
 

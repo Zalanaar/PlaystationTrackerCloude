@@ -497,6 +497,16 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
         <span className="ps-skeleton" style={{ height: 'var(--sp-4)' }} /><span className="ps-skeleton" style={{ height: 6 }} /><span className="ps-skeleton" style={{ height: 'var(--sp-3)' }} />
       </div>
     );
+  } else if (v.kind === 'cancelled') {
+    body = (
+      <>
+        <div className="ps-ob__result" data-tone="neutral" role="status" data-testid="ob-sync-cancelled">
+          <Icon name="cloud-off" size={24} />
+          <div className="ps-ob__rbody"><p className="ps-ob__rtitle">Загрузка остановлена</p><p className="ps-ob__rtext">Уже загруженное сохранено.</p></div>
+        </div>
+        <div className="ps-ob__acts"><button type="button" className="ps-btn ps-btn--primary" onClick={retry}>Продолжить загрузку</button></div>
+      </>
+    );
   } else if (v.kind === 'failed') {
     body = <FailBlock title="Не удалось загрузить игры. Уже загруженное сохранено." text={syncErrorText(v.reason)} onRetry={retry} onBack={() => onBackRef.current(2)} />;
   } else if (v.kind === 'success' && seen === 0) {
