@@ -158,7 +158,7 @@
   --tour-kb: 0px;                           /* высота экранной клавиатуры, выставляет скрипт тура из visualViewport */
 
   /* z-index */
-  --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5;
+  --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5; --z-whatsnew: 65;
 
   /* Тени (цвета темой не меняются, интенсивность через --shadow-alpha) */
   --shadow-alpha: 0.45;
