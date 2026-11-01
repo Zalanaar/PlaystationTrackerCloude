@@ -39,7 +39,10 @@ function focusPageHeading(): void {
   let tries = 0;
   const go = () => {
     const h = document.querySelector<HTMLElement>('main h1');
-    if (h) { h.tabIndex = -1; h.focus({ preventScroll: false }); return; }
+    if (h) {
+      h.tabIndex = -1; h.focus({ preventScroll: false });
+      if (document.activeElement === h) return;
+    }
     if (++tries < 15) setTimeout(go, 100);
   };
   requestAnimationFrame(go);
@@ -57,6 +60,7 @@ export function PsnProfileProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<AuthSnapshot | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
   const [pending, startTransition] = useTransition();
   const busy = useRef(false);
   const waiter = useRef<{ saw: boolean; done: () => void } | null>(null);
@@ -94,6 +98,9 @@ export function PsnProfileProvider({ children }: { children: ReactNode }) {
     return () => document.documentElement.removeAttribute('data-psw');
   }, [switching]);
 
+  // data-psw уже снят (эффект выше объявлен раньше): main видим, focus() сработает
+  useEffect(() => { if (focusTick > 0 && switching === null) focusPageHeading(); }, [focusTick, switching]);
+
   const nickOf = useCallback((id: number) => snapRef.current?.profiles.find((p) => p.id === id)?.onlineId ?? 'PSN', []);
 
   const completeSwitch = useCallback(async (id: number, nick: string) => {
@@ -117,7 +124,7 @@ export function PsnProfileProvider({ children }: { children: ReactNode }) {
       setSwitching(null);
     }
     toast({ text: switchedToast(nick), kind: 'info', ttl: 3000 });
-    focusPageHeading();
+    setFocusTick((t) => t + 1);
   }, [reload, router, toast]);
 
   const switchTo = useCallback(async (id: number) => {

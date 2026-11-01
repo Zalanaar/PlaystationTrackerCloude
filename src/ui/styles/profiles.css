@@ -58,6 +58,17 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-pswitch__manage { height: var(--tap-min); margin-top: var(--sp-2); }
   .ps-pswitch-veil { inset: var(--header-h) 0 var(--tabbar-h) 0; }
 }
+/* QA-41-3: на телефоне чип только с инициалом (ник в aria-label и в sheet), шапка не выходит за экран */
+@media (max-width: 480px) {
+  .ps-header .ps-pswitch > .ps-pswitch__nick { display: none; }
+  .ps-header .ps-pswitch { width: 44px; justify-content: center; padding: 0; }
+  .ps-header .ps-pswitch__chev { display: none; }
+  /* блок статуса синка сжимается первым */
+  .ps-header__in { min-width: 0; }
+  .ps-header__right { min-width: 0; flex: 0 1 auto; gap: var(--sp-1); }
+  .ps-header__right .ps-btn--sync { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .ps-header__right .ps-sync-text-m { max-width: 16vw; }
+}
 
 /* ---------- Страница /profiles (§17.3) ---------- */
 .ps-pprof { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-4); }

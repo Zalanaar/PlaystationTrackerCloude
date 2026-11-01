@@ -5,7 +5,7 @@ import { setup, THREE } from './profiles-mock';
 
 const SHOTS = process.env.SHOTS_DIR;
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'] as const;
-const VPS = [{ w: 1280, h: 800 }, { w: 360, h: 740 }];
+const VPS = [{ w: 1280, h: 800 }, { w: 360, h: 740 }, ...(process.env.EXTRA_VP ? [{ w: 320, h: 740 }, { w: 412, h: 800 }] : [])];
 test.skip(!SHOTS, 'нужен SHOTS_DIR');
 test.beforeEach(({}, i) => { test.skip(i.project.name !== 'desktop'); });
 const setTheme = (page: Page, t: string) => page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
@@ -23,6 +23,8 @@ for (const theme of THEMES) for (const vp of VPS) {
     await page.waitForTimeout(300);
     const hs = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(hs, 'горизонтальный скролл').toBeLessThanOrEqual(0);
+    const edge = await page.evaluate(() => Math.max(...[...document.querySelectorAll('.ps-header *')].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0).map((r) => r.right)));
+    expect(edge, 'шапка в пределах экрана').toBeLessThanOrEqual(vp.w);
     await page.screenshot({ path: `${SHOTS}/profiles-${theme}-${vp.w}.png`, fullPage: true });
     await page.locator('.ps-pswitch').click();
     await page.getByRole('menuitemradio').first().waitFor();

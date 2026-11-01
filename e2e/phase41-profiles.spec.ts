@@ -58,9 +58,7 @@ test.describe('переключатель в шапке', () => {
   });
 
   // QA-41-2: focusPageHeading() вызывается, пока html[data-psw] ещё стоит (main { visibility: hidden }), focus() молча не срабатывает.
-  // test.fail: когда баг починят, тест станет «неожиданно зелёным» и его надо переключить на обычный test.
   test('фокус на h1 после смены профиля (QA-41-2)', async ({ page, baseURL }, info) => {
-    test.fail(true, 'QA-41-2: фокус не переходит на h1');
     await setup(page, baseURL!, TWO());
     await page.goto('/');
     await expect(page.locator('main')).toContainText('Horizon Forbidden West');
