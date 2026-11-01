@@ -148,6 +148,13 @@
       "when": 1793525886268,
       "tag": "0020_status_hint_dismissals",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793537134196,
+      "tag": "0021_telegram_digest",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,8 @@ const PUBLIC: Record<string, string> = {
   'auth/google/callback/route.ts': 'callback входа Google',
   'cron/sync/route.ts': 'CRON_SECRET',
   'cron/watchdog/route.ts': 'CRON_SECRET',
+  'cron/digest/route.ts': 'CRON_SECRET',
+  'telegram/webhook/route.ts': 'секрет webhook Telegram (X-Telegram-Bot-Api-Secret-Token)',
 };
 
 function walk(dir: string): string[] {
@@ -70,7 +72,7 @@ describe('blocked: все API-роуты без сессии = 401', () => {
   }
 
   it('cron-роуты без Bearer тоже 401', async () => {
-    for (const rel of ['cron/sync/route.ts', 'cron/watchdog/route.ts']) {
+    for (const rel of ['cron/sync/route.ts', 'cron/watchdog/route.ts', 'cron/digest/route.ts']) {
       const mod = (await import(/* @vite-ignore */ join(API, rel))) as { GET: (r: Request) => Promise<Response> };
       expect((await mod.GET(new Request('http://localhost/api/cron'))).status, rel).toBe(401);
     }

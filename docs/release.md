@@ -54,3 +54,9 @@
 - Не проверены: реальные обложки на слайдах Итогов (размытый фон), iOS Safari и физический тач, контраст темы Activity на слайдах.
 - Аватара в данных нет, на слайде «Старт» показан инициал.
 - Отложено из Фазы 3 и редизайна: hover-попап карточки, цвет акцента из обложки (`--tint`, нужна миграция).
+
+## Сводка в Telegram (Фаза 29)
+1. Миграция: выполнить `docs/release-neon-0021.sql` в Neon SQL Editor (все флаги итоговой проверки `true`), потом деплой.
+2. Vercel Environment Variables: `APP_ORIGIN` (ссылки в сводке), `TELEGRAM_WEBHOOK_SECRET` (16–256 символов `A-Za-z0-9_-`), по желанию `TELEGRAM_BOT_USERNAME`. `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` уже заданы.
+3. Один раз зарегистрировать webhook, открыв в браузере (подставить свои значения): `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<APP_ORIGIN>/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`. Ответ `{"ok":true,...}`.
+4. Расписание watchdog в `vercel.json` теперь `0 16 * * *` (19:00 МСК): в воскресенье он же шлёт сводку, в понедельник догоняет пропущенную. Ручной запуск: `GET /api/cron/digest?force=1` с `Authorization: Bearer <CRON_SECRET>`.

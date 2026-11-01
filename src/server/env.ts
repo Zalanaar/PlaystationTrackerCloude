@@ -167,3 +167,15 @@ export function llmLimitWarning(llm: Pick<LlmEnv, 'dailyLimit' | 'userDailyLimit
   if (llm.dailyLimit >= need) return null;
   return `LLM_DAILY_LIMIT=${llm.dailyLimit} меньше нужного ${need} (${activeUsers} польз. x ${llm.userDailyLimit ?? LLM_DEFAULT_USER_DAILY_LIMIT}): последним в обходе LLM не хватит`;
 }
+
+/** Секрет webhook Telegram (Фаза 29, F29.6): 16-256 символов A-Za-z0-9_- (ограничение Telegram). Не задан или невалиден = null. */
+export function getTelegramWebhookSecret(env: Record<string, string | undefined> = process.env): string | null {
+  const v = env.TELEGRAM_WEBHOOK_SECRET?.trim();
+  return v && /^[A-Za-z0-9_-]{16,256}$/.test(v) ? v : null;
+}
+
+/** Ник бота без @ для ссылки t.me/<ник>?start=<код> (необязательно). */
+export function getTelegramBotUsername(env: Record<string, string | undefined> = process.env): string | null {
+  const v = env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, '');
+  return v && /^[A-Za-z0-9_]{3,64}$/.test(v) ? v : null;
+}

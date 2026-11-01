@@ -1789,7 +1789,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 "overdue": { "isOverdue": true, "ageHours": 53.2, "thresholdHours": 30 }
 ```
 `ageHours` округлено до 0.1 или `null`. Остальные поля 8.4 без изменений. Баннер на сайте показывается при `overdue.isOverdue = true` и не заменяет баннер `psnAuth=auth_expired` (если оба, показывать оба или приоритетный по решению designer).
-- Новый cron `GET /api/cron/watchdog` (Bearer `CRON_SECRET`, `maxDuration = 30`), расписание в `vercel.json` `0 6 * * *` (09:00 МСК; Hobby: 2 задания, раз в сутки). Выполняет две независимые проверки, сбой одной не мешает другой:
+- Новый cron `GET /api/cron/watchdog` (Bearer `CRON_SECRET`, `maxDuration = 30`; с Фазы 29 `60`), расписание в `vercel.json` `0 6 * * *` (09:00 МСК; с Фазы 29 `0 16 * * *` = 19:00 МСК, см. F29.2; Hobby: 2 задания, раз в сутки). Выполняет две независимые проверки, сбой одной не мешает другой:
   1. Если `isOverdue` и задан Telegram, шлёт сообщение `sync_missed` («PS Tracker: синк не выполнялся успешно уже N ч (порог 30). Проверьте cron на Vercel и NPSSO.» + ссылка на инструкцию `docs/release.md`, раздел 3). Не чаще раза в сутки МСК (`notify_log.kind = 'sync_missed'`, как в 15.4). Фаза 18.7 (N-7): отметка «отправлено сегодня» ставится атомарно ДО отправки (`INSERT ... ON CONFLICT DO UPDATE ... WHERE sent_on < сегодня`), второй параллельный вызов получает `already_sent`; при неудачной отправке отметка откатывается, повтор возможен. Не отправляется, если сейчас идёт синк (`running`, старт не старше 2 ч).
   2. Еженедельная копия (20.3).
 - Ответ `200`: `{"ok":true,"data":{"sync":{"isOverdue":false,"ageHours":10.1,"alert":"not_needed"},"backup":{"result":"not_due"}}}`. `sync.alert`: `not_needed | sent | already_sent | telegram_disabled | send_failed | sync_running | error`. `backup.result`: `not_due | sent | already_sent | telegram_disabled | send_failed | error`. Ошибка БД одной проверки даёт `error` в её поле, не `5xx`. Неверный Bearer: `401 unauthorized`.
@@ -2797,3 +2797,99 @@ PK `(user_id, game_id, rule)`: уникальность по тройке, по�
 Части для флагов: `newGames` (поля `newGames`, `newGamesWindow`, `newUnsorted`), `trophies` (`trophies`, `platinums`, `trophiesWindow`), `hours` (`hoursWeek`, `hoursPrevWeek`, `hoursNoHistory`), `checkCount`, `forgottenCount`. Упавшая часть: её поля `null`, имя в `failed`, `partial = true`. Упавшие части в `isEmpty` не входят (все упали: `isEmpty: true`, `partial: true`, но тогда роут отвечает 503).
 
 Тесты: `src/server/inbox/inbox.test.ts` (чистая часть), `src/server/inbox/inbox-db.test.ts` (PGlite: пусто, полно, границы окон, 24 ч -> 7 дн., первая загрузка, DLC-платина, изоляция двух пользователей, частичный сбой, роут).
+
+## Фаза 29. Сводка в Telegram (миграция 0021)
+
+Недельная сводка в чат Telegram. Тексты и правила сборки: `docs/design/spec-phase-29-digest.md` (источник истины для строк). Здесь схема, запуск, API, идемпотентность.
+
+### F29.1 Схема (миграция `0021_telegram_digest`, expand: только новые таблицы)
+
+Все таблицы с `user_id` -> `allowed_users(id)` ON DELETE CASCADE.
+
+| Таблица | Колонки | Ограничения |
+|---|---|---|
+| `telegram_chats` | `user_id` int PK, `chat_id` text NOT NULL, `linked_at` timestamptz NOT NULL default now() | UNIQUE(`chat_id`): один чат привязан к одному пользователю; CHECK `chat_id ~ '^-?[0-9]{1,20}$'` |
+| `telegram_link_codes` | `user_id` int PK, `code_hash` text NOT NULL, `expires_at` timestamptz NOT NULL, `created_at` timestamptz NOT NULL default now() | UNIQUE(`code_hash`); у пользователя не больше одного живого кода (новый заменяет старый) |
+| `telegram_link_attempts` | `id` int identity PK, `chat_id` text NOT NULL, `attempted_at` timestamptz NOT NULL default now() | индекс (`chat_id`, `attempted_at`); неверные попытки привязки по `chat_id` и создания кодов по служебному ключу `user:<id>` (лимит F29.7) |
+| `digest_state` | `user_id` int PK, `last_sent_at` timestamptz NULL, `last_week` text NULL (понедельник недели МСК, `YYYY-MM-DD`), `last_advice_game_id` int NULL | служебное: «последняя сводка» для сайта и совет «не из прошлой сводки» |
+
+Код привязки хранится только как `sha256(код)`; открытый код живёт 15 минут и показывается один раз в ответе создания.
+
+### F29.2 Запуск (ограничение Vercel Hobby)
+
+Hobby: не больше 2 cron-заданий и только раз в сутки. Оба заняты (`/api/cron/sync`, `/api/cron/watchdog`), третье добавить нельзя. Решение: сводку запускает существующий cron watchdog, а его расписание переносится с `0 6 * * *` на `0 16 * * *` (16:00 UTC = 19:00 МСК, «воскресенье вечер»). Цена: алерт «синк не запускался» приходит на 10 ч позже (в 19:00 МСК вместо 09:00; порог 30 ч не меняется), еженедельная копия разметки (20.3) тоже уходит вечером. Синк идёт в 23:00 МСК, поэтому в воскресенье в 19:00 сводка видит данные до субботнего синка: воскресные часы и трофеи, ещё не загруженные из PSN, в неё не попадут и лягут в следующую неделю (по `earned_at` трофей воскресенья относится к уже ушедшей неделе и в следующей сводке не учитывается). Это принятая неточность; в тексте сводки не обещаем «до конца воскресенья».
+
+- В `GET /api/cron/watchdog`: если сейчас воскресенье МСК, после алерта и копии запускается сводка. Понедельник МСК: догоняющий запуск за ПРОШЛУЮ неделю (если сводка пользователя за неё не ушла: Telegram лежал, пользователь привязался после). Остальные дни сводка не запускается.
+- `GET /api/cron/digest` (Bearer `CRON_SECRET`): тот же запуск вручную, без проверки дня недели при `?force=1` (неделя = текущая по МСК). Для проверки владельцем и отладки; `maxDuration = 60`. Ответ как `digest` ниже.
+- `maxDuration` watchdog поднят с 30 до 60. Пользователи обрабатываются последовательно; бюджет 40 с на сводки, не успевшие остаются без отметки (`skipped`) и уйдут на догоняющем запуске в понедельник.
+- Ответ watchdog получает поле `digest` (`null`, если не воскресенье/понедельник):
+```json
+"digest": { "week": "2026-10-26", "results": [ { "userId": 1, "result": "sent" } ] }
+```
+`result`: `sent | already_sent | no_target | telegram_disabled | send_failed | skipped | error`. `no_target`: у участника нет привязанного чата.
+
+### F29.3 Получатели
+
+- Участник (`member`): только в привязанный чат (`telegram_chats`). Нет привязки: `no_target`, ничего не отправляется.
+- Владелец (`owner`): в привязанный чат, если он привязал свой; иначе в `TELEGRAM_CHAT_ID` (чат алертов), привязка не нужна. Отключить сводку владельцу можно только убрав `TELEGRAM_CHAT_ID`.
+- Нужны `TELEGRAM_BOT_TOKEN` (общий бот). Нет токена: `telegram_disabled`.
+- Блокированные пользователи (`status <> 'active'`) сводку не получают.
+
+### F29.4 Идемпотентность
+
+Ключ `notify_log.kind = 'digest:<userId>:<понедельник недели МСК>'`. Отметка ставится атомарно ДО отправки: `INSERT ... ON CONFLICT (kind) DO NOTHING RETURNING`; вернулась строка = мы владеем отправкой, нет = `already_sent` (двойной запуск, параллельные запуски, догоняющий запуск после успеха). Отправка неудачна или любое исключение: отметка удаляется (`DELETE ... WHERE kind = ? AND last_sent_at = <наш now>`), повтор возможен. После успеха обновляется `digest_state` (`last_sent_at`, `last_week`, `last_advice_game_id`); сбой этой записи не откатывает отправку. Старые ключи `digest:*` старше 10 недель удаляются при запуске.
+
+### F29.5 Содержимое и источники данных
+
+Все выборки несут `user_id` и общий фильтр видимости (`snapshotGameVisible`, `trophySetCounted`, `visibleGames`, дубли склеены). Блок собирается независимо: исключение при сборе блока = блок пропущен, остальные отправляются. Неделя = пн 00:00 – вс 23:59:59 МСК (`[mskMidnightUtc(пн), mskMidnightUtc(пн+7))`); «прошлая» на 7 дней раньше.
+
+| Блок | Источник | «Нет данных» |
+|---|---|---|
+| Часы | `playtime_snapshots`, `secondsByGame` по датам МСК, дельта снимков, отрицательная = 0 | `week = null`, если снимков нет вообще или первый снимок позже воскресенья недели; `prevWeek = null`, если первый снимок не раньше понедельника прошлой недели (неполная). `null` не равно 0: текст «нет данных», не «0 ч» |
+| Трофеи | `trophies.earned_at` в границах недели; платины с названием игры (минимальный id видимой игры набора, как в статистике) | сеты скрытых игр не считаются |
+| План | `getRoadmap`: `progress.status`/`diffHours` (`ahead`/`behind`/`onTrack`), `items` недели после целевой; `plan.status = 'ok'` и есть записи | блок пропущен |
+| Совет | `getRecommendations(time='any')`, топ-1, id не равен `digest_state.last_advice_game_id`; LLM не вызывается (фраза из кэша синка или шаблон) | блок пропущен |
+| Статусы | `getInbox`: `checkCount + newUnsorted` | блок пропущен при 0 или сбое обеих частей |
+
+Отклонение от спеки designer (согласовать): «Отстаёшь/Опережаешь» в сводке выражено в ЧАСАХ (`progress.diffHours`), а не в играх: прогресс Плана в бэкенде считается в часах (17.6), числа «игр от графика» в данных нет. Строки: «Отстаёшь от графика на {X}.», «Опережаешь график на {X}.», «Идёшь по графику.» (X в формате «12 ч 30 м»); при `no_data`/`not_started` строка состояния не выводится, список недели остаётся.
+
+Ссылки: `{APP_ORIGIN}/?game=<id>` через `gameLink`; нет `APP_ORIGIN` (или id) = без ссылок. Служебные ссылки (`/`, `/triage?mode=check`) только при `APP_ORIGIN`. Длина: усечение по порядку из спеки (п. 0), жёсткий предел 3500 символов. Plain text, без `parse_mode`.
+
+### F29.6 Привязка чата
+
+Выбран webhook, не `getUpdates`: `getUpdates` требует опроса по таймеру (нет свободного cron на Hobby), а webhook отвечает сразу. Артём один раз регистрирует его (`setWebhook` с `url=<APP_ORIGIN>/api/telegram/webhook` и `secret_token=<TELEGRAM_WEBHOOK_SECRET>`, ссылкой из браузера; инструкция в `docs/release.md`).
+
+`POST /api/telegram/webhook` (публичный путь в `proxy.ts`, без сессии; свой секрет):
+- Заголовок `X-Telegram-Bot-Api-Secret-Token` сверяется с `TELEGRAM_WEBHOOK_SECRET` (сравнение без утечки по времени). Нет секрета в env, нет заголовка или не совпал: `401 unauthorized`, тело не читается. Токены и секрет не логируются.
+- Обрабатывается только `message.text` из приватного чата (`chat.type = 'private'`); остальное: `200 {"ok":true}` без действий. Любой обработанный апдейт отвечает `200` (чтобы Telegram не ретраил), ошибки БД тоже `200`, ответ пользователю в чат не отправляется.
+- `/start <код>` (код `A-Z0-9` без `0/O/1/I`, 8 символов, регистр не важен): верный -> запись `telegram_chats`, код удаляется, ответ бота по спеке 3. Неверный/просроченный/использованный/чат уже привязан/лимит: ответы из спеки 3. Лимит: 5 неверных попыток за 10 минут на `chat_id` (`telegram_link_attempts`), дальше ответ «Слишком много попыток» без проверки кода.
+- `/stop`: удаляет привязку этого чата. `/start` без кода и прочий текст: подсказка. Команды с суффиксом `@бот` понимаются.
+- Ответы бота: `sendMessage` в `message.chat.id`, plain text.
+
+### F29.7 API сайта (сессия, `requireUser`; запись требует `originAllowed`)
+
+`GET /api/me/telegram`:
+```json
+{ "botConfigured": true, "botUsername": "ps_tracker_bot", "role": "member", "linked": true, "linkedAt": "2026-11-01T10:00:00.000Z",
+  "deliversTo": "own_chat", "lastSentAt": "2026-10-25T16:00:12.000Z", "pendingCode": { "expiresAt": "2026-11-01T10:15:00.000Z" } }
+```
+`deliversTo`: `own_chat` (привязанный), `alerts_chat` (владелец без привязки при заданном `TELEGRAM_CHAT_ID`), `none`. `botUsername`: из `TELEGRAM_BOT_USERNAME` (без `@`) или `null`. `pendingCode`: `null`, если нет живого кода (сам код не отдаётся повторно). `botConfigured = false`: нет `TELEGRAM_BOT_TOKEN` или `TELEGRAM_WEBHOOK_SECRET` (привязка не заработает).
+
+`POST /api/me/telegram/link` (тело пустое или `{}`) -> `{ "code": "K7M2QX9H", "expiresAt": "...", "deepLink": "https://t.me/ps_tracker_bot?start=K7M2QX9H" | null }`. Заменяет прежний код. `503 config_error`, если бот не настроен. Не чаще 5 созданий за 10 минут на пользователя (`429 rate_limited`).
+
+`DELETE /api/me/telegram` -> `{ "linked": false }`: удаляет привязку и живой код. Идемпотентен. Владелец после отвязки получает сводку в чат алертов.
+
+Ошибки: `401 unauthorized`, `503 db_unavailable`, `503 config_error`, `429 rate_limited`.
+
+### F29.8 Переменные окружения
+
+| Переменная | Обязательна | Описание |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | для сводки | уже используется алертами; токен общий |
+| `TELEGRAM_WEBHOOK_SECRET` | для привязки | 16–256 символов `A-Za-z0-9_-`, тот же передаётся в `setWebhook` |
+| `TELEGRAM_BOT_USERNAME` | нет | для ссылки `t.me/<ник>?start=<код>` |
+| `APP_ORIGIN` | нет | абсолютные ссылки в сводке; без него ссылок нет (задаёт Артём) |
+
+### F29.9 Тесты
+
+`src/server/digest/*.test.ts` (текст на фикстурах спеки 6.1–6.3, границы недели МСК, склонения, усечение, без origin), `digest-db.test.ts` (PGlite: идемпотентность и параллельный запуск, откат при сбое, изоляция двух пользователей, пропуск блока при сбое сборки, получатели), `link.test.ts` (привязка, неверный/просроченный/повторный код, лимит, отвязка, чужой чат), `src/app/api/telegram/webhook/route.test.ts` (секрет), `src/db/release-sql-0021.test.ts`.

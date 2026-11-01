@@ -56,6 +56,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       );
       // provider_usage есть только с 0017 (срезы журнала её не имеют)
       await client.exec(`DO $$ BEGIN IF to_regclass('public.psn_token_events') IS NOT NULL THEN TRUNCATE psn_token_events; END IF; END $$`);
+      // таблицы сводки Telegram есть только с 0021
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.digest_state') IS NOT NULL THEN TRUNCATE digest_state, telegram_chats, telegram_link_codes, telegram_link_attempts; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.provider_usage') IS NOT NULL THEN TRUNCATE provider_usage; END IF; END $$`);
     },
     close: () => client.close(),

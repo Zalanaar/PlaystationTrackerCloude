@@ -614,3 +614,48 @@ export const statusHintDismissals = pgTable(
     check('status_hint_dismissals_rule_check', sql`${t.rule} in ('started','stale','platinum','returned')`),
   ],
 );
+
+// Фаза 29 (контракт F29.1, миграция 0021): сводка в Telegram. Привязка чата, коды, лимит попыток, состояние сводки.
+export const telegramChats = pgTable(
+  'telegram_chats',
+  {
+    userId: integer('user_id')
+      .primaryKey()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').notNull(),
+    linkedAt: tz('linked_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('telegram_chats_chat_id_key').on(t.chatId), check('telegram_chats_chat_id_check', sql`${t.chatId} ~ '^-?[0-9]{1,20}$'`)],
+);
+
+export const telegramLinkCodes = pgTable(
+  'telegram_link_codes',
+  {
+    userId: integer('user_id')
+      .primaryKey()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: tz('expires_at').notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('telegram_link_codes_code_hash_key').on(t.codeHash)],
+);
+
+export const telegramLinkAttempts = pgTable(
+  'telegram_link_attempts',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    chatId: text('chat_id').notNull(),
+    attemptedAt: tz('attempted_at').notNull().defaultNow(),
+  },
+  (t) => [index('telegram_link_attempts_chat_idx').on(t.chatId, t.attemptedAt)],
+);
+
+export const digestState = pgTable('digest_state', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+  lastSentAt: tz('last_sent_at'),
+  lastWeek: text('last_week'),
+  lastAdviceGameId: integer('last_advice_game_id'),
+});

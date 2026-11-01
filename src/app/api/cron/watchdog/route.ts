@@ -6,11 +6,12 @@ import { checkBearer } from '@/server/auth/password';
 import { fail } from '@/server/http';
 import { getOwnerUserId } from '@/server/auth/users';
 import { alertOwnerMissing, runSyncWatchdog, type WatchdogResult } from '@/server/notify/watchdog';
+import { runDigest, type DigestRunResult } from '@/server/digest/run';
 import { listSyncUsers } from '@/server/sync/users';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const BACKUP_PARALLEL = 4;
@@ -54,8 +55,10 @@ export async function GET(req: Request) {
     users[i].backup = r;
   });
   const ownerBackup = results[0];
+  // Фаза 29 (F29.2): недельная сводка в воскресенье МСК и догоняющий запуск в понедельник; в остальные дни digest = null. Не бросает.
+  const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
   return NextResponse.json(
-    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup } } },
+    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest } },
     { headers: NO_STORE },
   );
 }
