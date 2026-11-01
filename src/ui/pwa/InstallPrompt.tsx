@@ -30,7 +30,7 @@ function subscribeMobile(cb: () => void) {
   mq.addEventListener('change', cb);
   return () => mq.removeEventListener('change', cb);
 }
-const overlayOpen = () => !!document.querySelector('[role="dialog"], [role="menu"], [data-story]');
+const overlayOpen = () => !!document.querySelector('[role="dialog"], [role="menu"], .ps-story');
 const conflictOpen = () => !!document.querySelector('.ps-wn, .ps-toasts > *, .ps-selbar');
 
 /**
@@ -160,6 +160,7 @@ function Card({ platform, busy, onInstall, onDismiss }: { platform: 'ios' | 'and
       className={`ps-install${ios ? ' ps-install--ios' : ''}`} role="region" aria-label="Установка приложения"
       data-shown={shown ? 'true' : undefined} data-ipad={ipad ? 'true' : undefined} data-testid="install-prompt"
     >
+      <div className="ps-install__body">
       <div className="ps-install__head">
         {/* eslint-disable-next-line @next/next/no-img-element -- иконка приложения 40x40, статический файл */}
         <img className="ps-install__icon" src="/icons/icon-192.png" alt="" width={40} height={40} />
@@ -181,7 +182,6 @@ function Card({ platform, busy, onInstall, onDismiss }: { platform: 'ios' | 'and
           <div className="ps-install__foot">
             <button type="button" className="ps-btn ps-btn--ghost ps-install__btn" onClick={onDismiss}>Понятно</button>
           </div>
-          <span className="ps-install__arrow" aria-hidden="true" />
         </>
       ) : (
         <div className="ps-install__foot">
@@ -189,6 +189,8 @@ function Card({ platform, busy, onInstall, onDismiss }: { platform: 'ios' | 'and
           <button type="button" className="ps-btn ps-btn--ghost ps-install__btn" onClick={onDismiss}>Не сейчас</button>
         </div>
       )}
+      </div>
+      {ios && <span className="ps-install__arrow" aria-hidden="true" />}
     </div>
   );
 }

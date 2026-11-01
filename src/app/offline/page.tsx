@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { OfflineRetry } from '@/ui/pwa/OfflineRetry';
 
-// Статическая заглушка без данных и без inline-скриптов (design-system §15.3): HTML кэшируется service worker'ом.
+// Заглушка без данных пользователя (design-system §15.3). Страница динамическая: в HTML есть inline-скрипты с nonce (тема, поток Next),
+// поэтому service worker кэширует ответ вместе с CSP-заголовком, под который выписан nonce.
 export const metadata: Metadata = { title: 'Нет сети · PS Tracker' };
 
 export default function OfflinePage() {

@@ -1,19 +1,31 @@
 /* PWA (design-system §15): подсказка «Установить», обновление SW, полоса «Нет сети», страница /offline. Только токены. */
 
-/* ---------- Подсказка «Установить» (только <768) ---------- */
+/* ---------- Подсказка «Установить» (только <768) и баннер обновления (все ширины) ---------- */
 .ps-install { display: none; }
+.ps-update {
+  position: fixed; z-index: var(--z-install);
+  left: max(var(--gutter), env(safe-area-inset-left)); right: max(var(--gutter), env(safe-area-inset-right));
+  bottom: calc(env(safe-area-inset-bottom) + var(--sp-4));
+  margin-inline: auto; max-width: 480px; max-height: 60dvh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4);
+  background: var(--surface); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+}
 @media (max-width: 767px) {
+  .ps-update { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3)); }
   .ps-install {
     position: fixed; z-index: var(--z-install);
     left: max(var(--gutter), env(safe-area-inset-left)); right: max(var(--gutter), env(safe-area-inset-right));
     bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3));
-    margin-inline: auto; max-width: 480px; max-height: 60dvh; overflow-y: auto;
-    display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4);
+    margin-inline: auto; max-width: 480px;
+    display: block; padding: var(--sp-4);
     background: var(--surface); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
     opacity: 0; transform: translateY(12px);
     transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
   }
   .ps-install[data-shown="true"] { opacity: 1; transform: none; }
+  /* скролл внутри, чтобы стрелка карточки не обрезалась */
+  .ps-install__body { display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(60dvh - 2 * var(--sp-4)); overflow-y: auto; }
+}
   .ps-install__head { display: flex; align-items: flex-start; gap: var(--sp-3); }
   .ps-install__icon { flex: none; width: 40px; height: 40px; border-radius: 10px; }
   .ps-install__tx { flex: 1 1 auto; min-width: 0; }
@@ -48,8 +60,6 @@
     .ps-install__steps { flex-direction: row; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
     .ps-install__steps li > svg { display: none; }
   }
-  .ps-update { z-index: var(--z-install); }
-}
 @media (max-width: 340px) { .ps-install__btn { padding-inline: var(--sp-2); } }
 @media (prefers-reduced-motion: reduce) {
   .ps-install { transition: none; transform: none; }
