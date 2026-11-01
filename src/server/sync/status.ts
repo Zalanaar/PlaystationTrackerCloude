@@ -5,6 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { PHASES, parseCursor } from './context';
 import { getSyncOverdue } from './overdue';
+import { getTokenInfo } from '@/server/psn/token-events';
 
 const { syncRuns, psnAuth } = schema;
 
@@ -42,8 +43,12 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
     platinumEarned: Number(tr.platinum_earned ?? 0),
   };
 
+  const token = await getTokenInfo(db, now);
   const authFailed = lastDone?.errorReason === 'auth_expired' || lastDone?.errorReason === 'npsso_invalid';
-  const psnAuthState = !lastDone ? 'unknown' : authFailed ? 'auth_expired' : 'ok';
+  // контракт 27.4: NPSSO вставлен/обменян после падения запуска -> токен снова рабочий, баннер уходит сразу
+  const lastDoneAt = lastDone ? (lastDone.finishedAt ?? lastDone.startedAt) : null;
+  const refreshedSince = !!(token?.lastNpssoAt && lastDoneAt && token.lastNpssoAt.getTime() > lastDoneAt.getTime());
+  const psnAuthState = !lastDone ? 'unknown' : authFailed && !refreshedSince ? 'auth_expired' : 'ok';
 
   let run = null;
   if (last) {
@@ -83,6 +88,7 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
     run,
     lastSuccessAt: lastSuccess?.finishedAt ? lastSuccess.finishedAt.toISOString() : null,
     psnAuth: psnAuthState,
+    psnToken: token?.info ?? null,
     psnAuthExpiresAt: auth?.refreshExpiresAt ? auth.refreshExpiresAt.toISOString() : null,
     totals,
     overdue: await getSyncOverdue(db, userId, now),

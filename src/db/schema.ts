@@ -272,6 +272,22 @@ export const psnAuth = pgTable(
   (t) => [check('psn_auth_singleton_check', sql`${t.id} = 1`)],
 );
 
+// Фаза 24 (контракт 27.3): журнал событий токена PSN. Глобальный, как psn_auth; user_id = кто вставил NPSSO (только pasted).
+export const psnTokenEvents = pgTable(
+  'psn_token_events',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer('user_id').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'set null' }),
+    event: text().notNull(),
+    details: jsonb(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('psn_token_events_created_idx').on(t.createdAt.desc(), t.id.desc()),
+    check('psn_token_events_event_check', sql`${t.event} in ('pasted','refreshed','expired','from_env')`),
+  ],
+);
+
 export const loginAttempts = pgTable(
   'login_attempts',
   {
@@ -284,7 +300,7 @@ export const loginAttempts = pgTable(
   },
   (t) => [
     index('login_attempts_ip_time_idx').on(t.ipHash, t.attemptedAt.desc()),
-    check('login_attempts_kind_check', sql`${t.kind} in ('password','google')`),
+    check('login_attempts_kind_check', sql`${t.kind} in ('password','google','npsso')`),
   ],
 );
 
