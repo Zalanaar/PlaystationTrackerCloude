@@ -13,7 +13,7 @@ describe('QA-35: подписи против схемы', () => {
     for (const k of ['daily', 'manual']) expect(runKindLabel(k), `kind=${k}`).not.toBe(k);
   });
   // QA-35-1: подписи есть у несуществующих kind (initial/onboarding/trophies), а у реального trophy_backfill нет. it.fails: станет красным, когда баг починят (тогда сменить на it).
-  it.fails('trophy_backfill имеет русскую подпись (QA-35-1, баг продукта)', () => {
+  it('trophy_backfill имеет русскую подпись (QA-35-1, баг продукта)', () => {
     expect(runKindLabel('trophy_backfill')).not.toBe('trophy_backfill');
   });
   it('error_reason из схемы (кроме cancelled) не падают в «другая ошибка»', () => {

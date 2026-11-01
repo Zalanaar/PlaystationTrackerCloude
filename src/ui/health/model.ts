@@ -130,7 +130,7 @@ export function usageLevel(cell: { used: number; limit: number | null }): Level 
 }
 
 // ---- Прочее ----
-const RUN_KIND: Record<string, string> = { daily: 'ежедневный', manual: 'ручной', onboarding: 'первый', initial: 'первый', trophies: 'трофеи' };
+const RUN_KIND: Record<string, string> = { daily: 'ежедневный', manual: 'ручной', trophy_backfill: 'добор трофеев', hltb: 'HLTB' };
 export const runKindLabel = (k: string) => RUN_KIND[k] ?? k;
 export const runStatusText = (s: string) => (s === 'partial' ? 'частично' : s === 'failed' ? 'ошибка' : s);
 
