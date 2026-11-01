@@ -2,7 +2,7 @@
 import type { PlayedGroup, StatsGenreGame, StatsGenreItem, StatsResponse, TopHoursItem, TopTrophyItem, TrophyCountsByType } from '@/server/stats/types';
 import { formatNumber, formatPlayTime, mskParts, monthName, plural } from '../format';
 
-export type PeriodType = 'year' | 'month';
+export type PeriodType = 'year' | 'month' | 'all';
 export type Selection = { period: PeriodType; year: number; month: number | null };
 export type Today = { year: number; month: number };
 
@@ -26,7 +26,10 @@ export function defaultMonth(year: number, today: Today): number {
 
 /** Выбор из searchParams. Мусор заменяется значениями по умолчанию, будущее обрезается до сегодняшнего дня. */
 export function parseSelection(sp: URLSearchParams, today: Today): Selection {
-  const period: PeriodType = sp.get('period') === 'month' ? 'month' : 'year';
+  const raw = sp.get('period');
+  // «Всё время» (Фаза 25): year и month из URL игнорируются, year = текущий год только для типа.
+  if (raw === 'all') return { period: 'all', year: today.year, month: null };
+  const period: PeriodType = raw === 'month' ? 'month' : 'year';
   let year = intParam(sp.get('year'), 2000, 2100) ?? today.year;
   if (year > today.year) year = today.year;
   if (period === 'year') return { period, year, month: null };
@@ -36,6 +39,7 @@ export function parseSelection(sp: URLSearchParams, today: Today): Selection {
 }
 
 export function selectionToParams(s: Selection): URLSearchParams {
+  if (s.period === 'all') return new URLSearchParams({ period: 'all' });
   const p = new URLSearchParams({ period: s.period, year: String(s.year) });
   if (s.period === 'month' && s.month !== null) p.set('month', String(s.month));
   return p;
@@ -45,13 +49,20 @@ export function selectionKey(s: Selection): string {
   return selectionToParams(s).toString();
 }
 
-export function setPeriodType(s: Selection, period: PeriodType, today: Today): Selection {
+/** Переход между типами периода. С «Всё время» на «Год»/«Месяц» берётся `lastYear` (последний выбранный год), иначе текущий. */
+export function setPeriodType(s: Selection, period: PeriodType, today: Today, lastYear?: number | null): Selection {
   if (period === s.period) return s;
+  if (period === 'all') return { period: 'all', year: today.year, month: null };
+  if (s.period === 'all') {
+    const year = lastYear ?? today.year;
+    return period === 'year' ? { period, year, month: null } : { period, year, month: defaultMonth(year, today) };
+  }
   return period === 'year' ? { period, year: s.year, month: null } : { period, year: s.year, month: defaultMonth(s.year, today) };
 }
 
 /** Шаг стрелками. null, если уходит за доступные годы (минимум из `years`) или в будущее. */
 export function shiftSelection(s: Selection, dir: -1 | 1, years: readonly number[], today: Today): Selection | null {
+  if (s.period === 'all') return null;
   const minYear = years.length ? Math.min(...years, today.year) : today.year;
   if (s.period === 'year') {
     const y = s.year + dir;
@@ -66,6 +77,7 @@ export function shiftSelection(s: Selection, dir: -1 | 1, years: readonly number
 }
 
 export function periodLabel(s: Selection): string {
+  if (s.period === 'all') return 'Всё время';
   return s.period === 'year' ? String(s.year) : `${monthName(s.month ?? 1)} ${s.year}`;
 }
 
@@ -144,6 +156,7 @@ export const barsHaveEstimate = (bars: readonly HoursBar[]) => bars.some((b) => 
 
 /** Какой столбец подсвечен: выбранный месяц, иначе текущий месяц текущего года. */
 export function highlightedMonth(s: Selection, today: Today): number | null {
+  if (s.period === 'all') return null;
   if (s.period === 'month') return s.month;
   return s.year === today.year ? today.month : null;
 }
@@ -261,7 +274,7 @@ export function linePath(points: readonly LinePoint[]): string {
  * иначе пустой месяц внутри года с данными не покажет пустое состояние.
  */
 export function isEmptyPeriod(d: StatsResponse, period: PeriodType): boolean {
-  const hoursEmpty = period === 'month' || d.hours.byMonth.every((v) => v === null || v === 0);
+  const hoursEmpty = period === 'month' || period === 'all' || d.hours.byMonth.every((v) => v === null || v === 0);
   return d.header.completed === 0 && d.header.dropped === 0 && (d.header.hours ?? 0) === 0 && d.trophies.counts.total === 0
     && d.played.groups.length === 0 && !d.genres.hasData && hoursEmpty;
 }

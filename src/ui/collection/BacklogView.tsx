@@ -12,12 +12,16 @@ import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
 import { BacklogFilters } from './BacklogFilters';
+import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
+import { BacklogRow, type RowMenuItem } from './BacklogRow';
 import {
   BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, shelvedToApi, sourceLabel,
   type BacklogFilters as Filters,
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
-import { HltbRunner } from './HltbRunner';
+import { HltbStatus, useHltbRunner } from './HltbRunner';
+import { useIsMobile } from '../primitives/hooks';
+import { useBacklogView } from './useBacklogView';
 import { useOpenGameFromPage } from './useGameLink';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
@@ -236,6 +240,24 @@ export function BacklogView() {
     toggle: () => {},
   }), [change, openGameLink]);
 
+  const [view, setView] = useBacklogView();
+  const mobile = useIsMobile();
+  const hltb = useHltbRunner(() => void load());
+  const startHltb = hltb.start;
+  const menuFor = (g: GameItem, kind: 'backlog' | 'shelved' | 'service'): RowMenuItem[] => [
+    { label: 'Открыть игру', run: () => actions.open(g) },
+    ...(kind === 'backlog' ? [{ label: 'В сервис', run: () => void change(g, 'service') }, { label: 'Убрать из бэклога', run: () => void change(g, null) }] : []),
+    ...(kind === 'shelved' ? [{ label: 'Вернуть в бэклог', run: () => void change(g, 'backlog') }] : []),
+    ...(kind === 'service' ? [{ label: 'Вернуть в бэклог', run: () => void change(g, 'backlog') }, { label: 'Убрать из сервиса', run: () => void change(g, null) }] : []),
+  ];
+  const rows = (list: GameItem[], kind: 'backlog' | 'shelved' | 'service', label: string) => (
+    <ul className="ps-bl-rows" aria-label={label}>
+      {list.map((g) => (
+        <BacklogRow key={g.id} game={g} onOpen={() => actions.open(g)} onPlay={() => void change(g, 'playing')} menu={menuFor(g, kind)} />
+      ))}
+    </ul>
+  );
+
   const tabs = [
     { id: 'h-bl-main', label: 'Бэклог', n: total, on: true },
     { id: 'h-bl-shelved', label: 'Отложено', n: shelvedTotal, on: showShelved },
@@ -280,15 +302,24 @@ export function BacklogView() {
 
   return (
     <div className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
-      <div className="ps-pagehead">
+      <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
         {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
+        <div className="ps-bl-pagehead__tools">
+          {!mobile && (items || counts) && <BacklogViewSeg view={view} onView={setView} />}
+          <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} />
+        </div>
       </div>
       {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
-      {(items || counts) && (
+      {(items || counts) && (mobile ? (
+        <BacklogMobileBar
+          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={total} view={view} onView={setView}
+          onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))}
+        />
+      ) : (
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
-      )}
-      <HltbRunner onFinished={() => void load()} />
+      ))}
+      <HltbStatus runner={hltb} />
       {showJump && (
         <>
           <div className="ps-bl-jump__sentinel" ref={sentinelRef} aria-hidden="true" />
@@ -323,7 +354,8 @@ export function BacklogView() {
           <Link href="/" className="ps-btn ps-btn--primary">К коллекции</Link>
         </EmptyState>
       ) : (
-        <div className="ps-bl-list" data-tour="backlog-list" aria-busy={loading || undefined} data-loading={loading || undefined}>
+        <div className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
+        {view === 'list' ? rows(items, 'backlog', 'Игры в бэклоге') : (
         <GameGrid density="comfort" label="Игры в бэклоге">
           {items.map((g) => (
             <GameGridItem key={g.id}>
@@ -347,6 +379,7 @@ export function BacklogView() {
             </GameGridItem>
           ))}
         </GameGrid>
+        )}
         </div>
       )}
       {items && items.length > 0 && items.length < total && (
@@ -371,7 +404,7 @@ export function BacklogView() {
             <div id="bl-shelved-list">
               {shelved.length === 0 ? (
                 <EmptyState icon={<StatusGlyph status="shelved" size={40} />} title="Отложенных игр нет" text="Поставь игре статус «Отложено» в меню карточки, и она появится здесь." />
-              ) : (
+              ) : view === 'list' ? rows(shelved, 'shelved', 'Отложенные игры') : (
                 <GameGrid density="comfort" label="Отложенные игры">
                   {shelved.map((g) => (
                     <GameGridItem key={g.id}>
@@ -411,6 +444,7 @@ export function BacklogView() {
           <p className="ps-bl-service__sub">Игры-сервисы не попадают в план прохождения.</p>
           {serviceOpen && (
             <div id="bl-service-list">
+              {view === 'list' ? rows(service, 'service', 'Игры-сервисы') : (
               <GameGrid density="comfort" label="Игры-сервисы">
                 {service.map((g) => (
                   <GameGridItem key={g.id}>
@@ -425,6 +459,7 @@ export function BacklogView() {
                   </GameGridItem>
                 ))}
               </GameGrid>
+              )}
             </div>
           )}
         </section>

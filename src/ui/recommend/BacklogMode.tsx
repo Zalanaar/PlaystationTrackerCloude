@@ -309,7 +309,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
   }
 
   return (
-    <div className="ps-rec-mode" hidden={!active}>
+    <div className="ps-rec-mode" role="tabpanel" id="rec-panel-backlog" aria-labelledby="rec-tab-backlog" hidden={!active}>
       {showControl && timeControl}
       <div className="ps-rec-sr" aria-live="polite">{announce}</div>
 

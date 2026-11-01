@@ -4,6 +4,7 @@ import type { FinishedEvent } from '@/server/stats/finished';
 import { aggregateGenres, type GenreGame } from '@/server/stats/genre-stats';
 import { calcHours, groupSnapshots, type EstimateInput, type Snapshot } from '@/server/stats/hours';
 import { resolvePeriod } from '@/server/stats/period';
+import { buildPlayPattern, type PatternCell } from '@/server/stats/play-pattern';
 import { aggregateTrophies, type EarnedTrophy } from '@/server/stats/trophies';
 import type { RareTrophy } from '@/server/stats/types';
 import { peakMonth, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
@@ -30,6 +31,8 @@ export type WrappedInput = {
   genreGames: ReadonlyMap<number, GenreGame>;
   /** 14.1: редкие трофеи года (SQL с LIMIT 5); нет = []. */
   rareTrophies?: RareTrophy[];
+  /** 26.3: ячейки (час, день недели МСК) трофеев года. */
+  patternCells?: readonly PatternCell[];
 };
 
 export function composeWrapped(i: WrappedInput): WrappedResponse {
@@ -54,6 +57,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
   }
   const genres = aggregateGenres(genreList, WRAPPED_GENRES_TOP);
 
+  const pattern = buildPlayPattern(i.patternCells ?? []);
   const leader = top[0] ?? null;
   const trophiesHas = counts.total > 0;
   const empty = !hoursHas && !trophiesHas && !finHas;
@@ -66,6 +70,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
         ...(top.length ? (['topGames'] as const) : []),
         ...(finHas ? (['finished'] as const) : []),
         ...(trophiesHas ? (['trophies'] as const) : []),
+        ...(pattern.hasData ? (['playPattern'] as const) : []),
         ...(genres.hasData ? (['genres'] as const) : []),
         ...(leader ? (['longestGame'] as const) : []),
         'final',
@@ -73,6 +78,10 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
 
   return {
     year: i.year,
+    scope: 'year',
+    allTimeAvailable: i.years.some((y) => y.hasData),
+    allTime: null,
+    playPattern: pattern,
     mode: empty ? 'empty' : 'story',
     period: { from: p.from, to: p.to, fromUtc: p.fromUtc, toUtc: p.toUtc },
     years: i.years,

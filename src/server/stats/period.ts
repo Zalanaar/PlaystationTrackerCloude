@@ -1,5 +1,5 @@
 // Границы периодов в Europe/Moscow (UTC+3 круглый год, без перехода на летнее время). Чистые функции.
-import type { StatsPeriod, StatsPeriodType } from './types';
+import type { BoundedPeriod, BoundedPeriodType } from './types';
 
 const MSK_OFFSET_MS = 3 * 3600 * 1000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -26,7 +26,7 @@ export function mskDateString(at: Date): string {
   return ymd(year, month, day);
 }
 
-export function resolvePeriod(type: StatsPeriodType, year: number, month: number | null): StatsPeriod {
+export function resolvePeriod(type: BoundedPeriodType, year: number, month: number | null): BoundedPeriod {
   const m = type === 'month' ? (month as number) : null;
   const startMonth = m ?? 1;
   const endMonth = m ?? 12;

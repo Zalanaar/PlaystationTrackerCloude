@@ -1,0 +1,42 @@
+/* История игры в окне игры (Фаза 34, design-system 12). Только существующие токены, правил тем нет. */
+.ps-gd__histline { margin: 0; color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ps-gd__histline b { font-weight: 600; }
+.ps-gd__histsub { margin: 2px 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-gd__chart { margin-top: var(--sp-3); }
+.ps-gd__bars { display: flex; align-items: stretch; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.ps-gd__bars[data-dense] { gap: 1px; }
+.ps-gd__bars > li { position: relative; flex: 1 1 0; min-width: 2px; display: flex; flex-direction: column; }
+.ps-gd__wk { display: flex; align-items: flex-end; height: 72px; border-bottom: var(--border-w) solid var(--border); }
+.ps-gd__chart:not([data-hours]) .ps-gd__wk { height: 0; }
+.ps-gd__stack { display: flex; flex-direction: column; width: 100%; min-height: 3px; border-radius: 2px 2px 0 0; overflow: hidden; }
+.ps-gd__real { display: block; min-height: 0; background: var(--accent); }
+.ps-gd__est { position: relative; display: block; min-height: 0; border: var(--border-w) dashed var(--accent); border-bottom: 0; box-sizing: border-box; }
+.ps-gd__est::before, .ps-gd__sw--est::before { content: ""; position: absolute; inset: 0; background: var(--accent); opacity: var(--est-opacity); }
+.ps-gd__est::after, .ps-gd__sw--est::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(45deg, var(--est-stripe) 0 2px, transparent 2px 5px); }
+.ps-gd__bars > li[data-sync]::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 20px; border-left: var(--border-w) dashed var(--border-strong); pointer-events: none; }
+.ps-gd__mark { display: flex; align-items: center; justify-content: center; height: 20px; color: var(--plat-text); }
+.ps-gd__mark[data-mark="trophy"]::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-2); }
+.ps-gd__axis { display: flex; justify-content: space-between; gap: var(--sp-3); color: var(--text-3); font-size: var(--fs-micro); line-height: var(--lh-micro); }
+.ps-gd__legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: var(--sp-3) 0 0; padding: 0; list-style: none; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-gd__legend li { display: inline-flex; align-items: center; gap: 6px; }
+.ps-gd__legend b { font-weight: 600; }
+.ps-gd__legend svg { color: var(--plat-text); }
+.ps-gd__sw { position: relative; display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 2px; background: var(--accent); overflow: hidden; }
+.ps-gd__sw--est { background: transparent; border: var(--border-w) dashed var(--accent); box-sizing: border-box; }
+.ps-gd__sw--sync { width: 0; height: 10px; border-radius: 0; background: none; border: 0; border-left: var(--border-w) dashed var(--border-strong); }
+.ps-gd__dot { display: inline-block; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-2); }
+.ps-gd__sk-hist { height: 168px; border-radius: var(--r-md); }
+/* «Длительность прохождения» свёрнута до строки */
+.ps-gd__durbar { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-sm); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ps-gd__durbar:focus-visible { box-shadow: var(--shadow-focus); }
+.ps-gd__durbar .ps-gd__durt { flex: 1; min-width: 0; font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
+.ps-gd__durval { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+.ps-gd__durval[data-empty] { color: var(--text-3); }
+.ps-gd__durchev { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; color: var(--text-2); }
+.ps-gd__durbody { margin-top: var(--sp-2); }
+.ps-gd__duration > h3 { margin: 0; }
+@media (max-width: 767px) {
+  .ps-gd__wk { height: 64px; }
+  .ps-gd__durbar { min-height: 48px; }
+  .ps-gd__durchev { width: var(--tap-min); height: var(--tap-min); }
+}

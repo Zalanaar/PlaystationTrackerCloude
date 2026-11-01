@@ -22,10 +22,11 @@ export function parseWithService(raw: string | null): boolean | null {
 /** currentYear: год МСК «сегодня» (по умолчанию для year). */
 export function parseStatsQuery(sp: URLSearchParams, currentYear: number): StatsParsed {
   const pRaw = sp.get('period') ?? 'year';
-  if (pRaw !== 'year' && pRaw !== 'month') return bad('Некорректный период.');
+  if (pRaw !== 'year' && pRaw !== 'month' && pRaw !== 'all') return bad('Некорректный период.');
   let year = currentYear;
   const yRaw = sp.get('year');
-  if (yRaw !== null && yRaw !== '') {
+  // 26.1: при period=all year и month игнорируются (в том числе мусорные)
+  if (pRaw !== 'all' && yRaw !== null && yRaw !== '') {
     const y = int(yRaw, 2000, 2100);
     if (y === null) return bad('Некорректный год.');
     year = y;

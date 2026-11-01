@@ -33,7 +33,7 @@ export function PlayedBlock({
   const params = useSearchParams();
   // месяцы, в которых есть игры (или убранные игры, чтобы их можно было вернуть); показывается один выбранный
   const groups = data.played.groups.filter((g) => g.items.length > 0 || (g.excluded?.length ?? 0) > 0);
-  const chosen = pickPlayedMonth(groups.map((g) => g.month), sel.period, params.get('m'));
+  const chosen = pickPlayedMonth(groups.map((g) => g.month), sel.period === 'month' ? 'month' : 'year', params.get('m'));
   const games = data.played.games;
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   /** Ручное раскрытие строки «Убрано из месяца»; нет записи = по умолчанию (раскрыта, если в месяце не осталось игр) */

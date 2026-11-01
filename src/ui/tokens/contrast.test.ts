@@ -350,4 +350,23 @@ describe('контраст тем', () => {
           expect(ratio(get('ps3', fg), over('#ffffff', 0.11, parseColor(months[m]['--xmb-b']).hex))).toBeGreaterThanOrEqual(4.5));
       }
   });
+  // Фазы 25-26 (design-system §12.9): графики «по годам» и «Когда ты играешь», плашка охвата
+  describe('Фазы 25-26 (§12.9)', () => {
+    /** --accent-soft: rgba(...) или color-mix(in srgb, var(--accent) P%, transparent) поверх фона. */
+    const softOver = (t: string, bg: string): string => {
+      const raw = merged(t)['--accent-soft'];
+      const mix = raw.match(/color-mix\(in srgb,\s*var\(--accent\)\s*([\d.]+)%,\s*transparent\)/);
+      if (mix) return over(get(t, '--accent'), Number(mix[1]) / 100, bg);
+      const c = parseColor(raw);
+      return over(c.hex, c.a, bg);
+    };
+    for (const t of IDS) {
+      it(`${t}: --accent на --surface >= 3 (нетекстовые столбцы)`, () => expect(ratio(get(t, '--accent'), get(t, '--surface'))).toBeGreaterThanOrEqual(3));
+      it(`${t}: --text-2 на --accent-soft (плашка охвата) >= 4.5`, () => expect(ratio(get(t, '--text-2'), softOver(t, get(t, '--surface')))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text-3 на --surface (подписи осей) >= 4.5`, () => expect(ratio(get(t, '--text-3'), get(t, '--surface'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text-2 на --surface-2 (подсказка графика) >= 4.5`, () => expect(ratio(get(t, '--text-2'), get(t, '--surface-2'))).toBeGreaterThanOrEqual(4.5));
+      // информативно по спеке 12.6: обычные столбцы --accent с opacity .55 на --surface; смысл не только цветом
+      it(`${t}: обычный столбец --accent .55 на --surface >= 3 (нетекстовый)`, () => expect(ratio(over(get(t, '--accent'), 0.55, get(t, '--surface')), get(t, '--surface'))).toBeGreaterThanOrEqual(3));
+    }
+  });
 });

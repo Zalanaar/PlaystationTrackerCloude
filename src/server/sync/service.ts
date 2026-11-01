@@ -12,6 +12,7 @@ import { notifyAfterSync } from '@/server/notify/telegram';
 import { asUserId, type UserId } from '@/server/auth/user-id';
 import { failRun, runChunk, type SyncDeps } from './engine';
 import type { RunRow } from './context';
+import { defaultDiscoverDeps } from './discover-step';
 import { defaultHltbDeps } from './hltb-step';
 import { defaultLlmDeps } from './llm-step';
 import { defaultTintDeps } from './tint';
@@ -29,6 +30,7 @@ export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetO
     tint: defaultTintDeps,
     hltb: defaultHltbDeps(),
     llm: defaultLlmDeps,
+    discover: defaultDiscoverDeps,
     connect: () =>
       connectPsn({
         getAccessToken: (force) => getAccessToken(db, cfg, { force }),

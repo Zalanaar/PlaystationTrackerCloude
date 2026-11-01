@@ -21,7 +21,16 @@ export const DEFAULT_SLIDE_MS = 7000;
 export const RARE_SLIDE = 'rareTrophies' as const;
 export type StorySlideId = WrappedSlideId | typeof RARE_SLIDE;
 
-const KNOWN: readonly WrappedSlideId[] = ['start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final', 'empty'];
+const KNOWN: readonly WrappedSlideId[] = [
+  'start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final', 'empty', 'playPattern', 'firstGame', 'platinumYears', 'busiestYear',
+];
+
+export type WrappedScope = number | 'all';
+
+/** Параметр `year`: «all» (Фаза 26), год 2000..2100 или null (текущий год по Москве). Регистр важен: «ALL» не принимается. */
+export function parseScopeParam(raw: string | null): WrappedScope | null {
+  return raw === 'all' ? 'all' : parseYearParam(raw);
+}
 
 /** Год из URL: целое 2000..2100, иначе null (тогда API берёт текущий год по Москве). */
 export function parseYearParam(raw: string | null): number | null {
@@ -214,6 +223,92 @@ export function slideCover(id: StorySlideId, d: WrappedResponse): { url: string 
     : id === 'trophies' ? (d.trophies.platinum.rarest ?? d.trophies.platinum.last)?.game
     : id === 'longestGame' ? d.longestGame.game
     : id === RARE_SLIDE ? d.trophies.rare?.[0]?.game
+    : id === 'firstGame' ? d.allTime?.firstGame.game
     : null;
   return g ? { url: g.coverUrl, title: g.title } : null;
+}
+
+// ---------- «Всё время» (Фаза 26, design-system §12.7) ----------
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** «2014 – 2026»: первый год с данными (из списка лет или границ периода) – текущий год. Один год = «2026». */
+export function allRangeText(d: Pick<WrappedResponse, 'years' | 'period' | 'year'>): string | null {
+  const fromYear = d.period.from && DATE_RE.test(d.period.from) ? Number(d.period.from.slice(0, 4)) : null;
+  const dataYears = d.years.filter((y) => y.hasData).map((y) => y.year);
+  const first = Math.min(...dataYears, ...(fromYear === null ? [] : [fromYear]), d.year);
+  if (!Number.isFinite(first)) return null;
+  return first >= d.year ? String(d.year) : `${first} – ${d.year}`;
+}
+
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const MSK_MS = 3 * 3600_000;
+
+/** «12 марта 2014» по МСК. */
+export function dayMonthYear(iso: string | null): string | null {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return null;
+  const x = new Date(t + MSK_MS);
+  return `${x.getUTCDate()} ${MONTHS_GEN[x.getUTCMonth()]} ${x.getUTCFullYear()}`;
+}
+
+/** «12 лет назад», «меньше года назад». */
+export function yearsAgoText(iso: string | null, nowMs: number): string | null {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return null;
+  const n = Math.floor((nowMs - t) / (365.25 * 86_400_000));
+  if (n < 1) return 'меньше года назад';
+  return `${n} ${plural(n, ['год', 'года', 'лет'])} назад`;
+}
+
+/** Подпись под названием первой игры: по дате первого запуска или (запасной путь) по первому трофею. */
+export function firstGameCaption(source: 'first_played' | 'first_trophy' | null, at: string | null): string | null {
+  const d = dayMonthYear(at);
+  if (!d) return null;
+  return source === 'first_trophy' ? `Первый трофей: ${d}` : `Первый запуск: ${d}`;
+}
+
+/** Плашка слайда «Часы» в наборе «Всё время». «Итог равен сумме PSN» не пишем, если есть неотнесённые часы. */
+export function allEstimateBadge(firstSnapshotDate: string | null, unattributed: number | null | undefined): string {
+  const m = firstSnapshotDate ? DATE_RE.exec(firstSnapshotDate) : null;
+  const rule = 'распределены равномерно между первым и последним запуском игры.';
+  const tail = typeof unattributed === 'number' && Math.abs(unattributed) >= 0.1 ? '' : ' Итог равен сумме PSN.';
+  return m ? `Часы до ${m[3]}.${m[2]}.${m[1]} оценены: ${rule}${tail}` : `Часы оценены: ${rule}${tail}`;
+}
+
+/** Последние годы с платинами (новые сверху), не больше `limit`; `rest` = сколько лет не поместилось. */
+export function platinumRows(items: readonly { year: number; count: number }[], limit = 8): { rows: { year: number; count: number; pct: number }[]; rest: number } {
+  const withPlat = items.filter((i) => i.count > 0).sort((a, b) => b.year - a.year);
+  const rows = withPlat.slice(0, limit);
+  const max = Math.max(0, ...rows.map((r) => r.count));
+  return { rows: rows.map((r) => ({ ...r, pct: max > 0 ? (r.count / max) * 100 : 0 })), rest: Math.max(0, withPlat.length - rows.length) };
+}
+
+export const yearsWord = (n: number) => `${n} ${plural(n, ['год', 'года', 'лет'])}`;
+
+/** Мини-столбцы часов по годам: до 10 последних лет, лидер отмечен. */
+export function busiestBars(byYear: readonly { year: number; hours: number }[], leaderYear: number | null, limit = 10): { year: number; hours: number; heightPct: number; leader: boolean }[] {
+  const last = byYear.slice(-limit);
+  const max = Math.max(0, ...last.map((y) => y.hours));
+  return last.map((y) => ({ year: y.year, hours: y.hours, heightPct: y.hours > 0 && max > 0 ? Math.max(4, (y.hours / max) * 100) : 0, leader: y.year === leaderYear }));
+}
+
+/** Заголовок слайда (для aria-live при смене). */
+export function slideTitle(id: StorySlideId, scope: 'year' | 'all'): string {
+  switch (id) {
+    case 'start': return scope === 'all' ? 'Всё время в играх' : 'Твой год в играх';
+    case 'hours': return 'Ты наиграл';
+    case 'topGames': return 'Топ игр года';
+    case 'finished': return 'Пройдено и брошено';
+    case 'trophies': return 'Трофеи';
+    case RARE_SLIDE: return 'Самое редкое';
+    case 'genres': return scope === 'all' ? 'Любимый жанр' : 'Любимые жанры';
+    case 'longestGame': return 'Самая долгая игра';
+    case 'firstGame': return 'С чего всё началось';
+    case 'platinumYears': return 'Платины';
+    case 'busiestYear': return 'Самый игровой год';
+    case 'playPattern': return 'Когда ты играешь';
+    case 'final': return scope === 'all' ? 'Спасибо, что играешь' : 'До встречи';
+    case 'empty': return scope === 'all' ? 'Данных пока нет' : 'Данных нет';
+    default: return '';
+  }
 }

@@ -58,7 +58,7 @@ export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
 export const fetchActivity = (year: number, signal?: AbortSignal) =>
   call<ActivityResponse>(`/api/stats/activity?year=${year}`, { signal });
 
-export const fetchWrapped = (year: number | null, signal?: AbortSignal) =>
+export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) =>
   call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
 
 export const putStatus = (id: number, status: GameStatusValue | null) =>

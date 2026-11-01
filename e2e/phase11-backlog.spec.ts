@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { chooseSort, isMobile, openFilters, openGenres } from './backlog-ui';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: null, status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -39,6 +40,7 @@ test.describe('Бэклог: длительность и фильтры', () => 
 
   test('чипы длительности: счётчики, ИЛИ внутри, URL', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
+    await openFilters(page);
     await expect(page.getByRole('button', { name: 'До 10 ч: 1' })).toBeVisible();
     await expect(page.getByRole('button', { name: '10–30 ч: 2' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Неизвестно: 1' })).toBeVisible();
@@ -57,20 +59,21 @@ test.describe('Бэклог: длительность и фильтры', () => 
 
   test('жанры: мульти ИЛИ, состояние в URL переживает перезагрузку', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
-    await page.getByRole('button', { name: /^Жанр/ }).click();
+    await openGenres(page);
     await page.getByRole('button', { name: 'Хоррор: 1', exact: true }).click();
     await page.getByRole('button', { name: 'Гонки: 1', exact: true }).click();
     await expect(page).toHaveURL(/genres=HORROR%2CRACING/);
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
     await page.reload();
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
-    await expect(page.getByRole('button', { name: /^Жанр/ })).toHaveAttribute('aria-expanded', 'true');
+    if (!isMobile(page)) await expect(page.getByRole('button', { name: /^Жанр/ })).toHaveAttribute('aria-expanded', 'true');
+    await openGenres(page);
     await expect(page.getByRole('button', { name: 'Хоррор: 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('жанры: счётчики на чипах не зависят от выбранных жанров', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
-    await page.getByRole('button', { name: /^Жанр/ }).click();
+    await openGenres(page);
     await expect(page.getByRole('button', { name: 'Экшен: 3', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Ролевые: 1', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Приключения: 0', exact: true })).toBeVisible();
@@ -88,7 +91,7 @@ test.describe('Бэклог: длительность и фильтры', () => 
     const mock = await mockApi(page, [...games(), bl(7, 'Зулу Безымянная', { genres: [], hltbHours: 5, hltbName: 'Zulu' })]);
     await page.goto('/backlog');
     await page.locator('.ps-card:not(.ps-card--sk)').first().waitFor();
-    await page.getByRole('button', { name: /^Жанр/ }).click();
+    await openGenres(page);
     const none = page.getByRole('button', { name: 'Без жанра: 1', exact: true });
     await expect(none).toBeVisible();
     // игра без жанров считается и в «Другое»
@@ -102,15 +105,16 @@ test.describe('Бэклог: длительность и фильтры', () => 
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
     await page.reload();
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(2);
+    await openGenres(page);
     await expect(page.getByRole('button', { name: 'Без жанра: 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('сортировка по длительности: короткие, длинные, без длительности в конце', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
-    await page.getByLabel('Сортировка').selectOption('duration');
+    await chooseSort(page, 'duration', 'По длительности: короткие сверху');
     await expect(page).toHaveURL(/sort=duration/);
     await expect.poll(() => titles(page)).toEqual(['Альфа Экшен', 'Браво Хоррор', 'Эхо Ручная', 'Чарли РПГ', 'Дельта Гонки']);
-    await page.getByLabel('Сортировка').selectOption('duration_desc');
+    await chooseSort(page, 'duration_desc', 'По длительности: длинные сверху');
     await expect(page).toHaveURL(/order=desc/);
     await expect.poll(() => titles(page)).toEqual(['Чарли РПГ', 'Эхо Ручная', 'Браво Хоррор', 'Альфа Экшен', 'Дельта Гонки']);
   });
@@ -125,6 +129,7 @@ test.describe('Бэклог: длительность и фильтры', () => 
 
   test('ошибка обновления не стирает список', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL as string);
+    await openFilters(page);
     mock.listFails = true;
     await page.getByRole('button', { name: '10–30 ч: 2' }).click();
     // список остаётся на экране, ошибка показывается тостом
@@ -138,7 +143,7 @@ test.describe('Бэклог: длительность и фильтры', () => 
 
   test('без горизонтального скролла', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
-    await page.getByRole('button', { name: /^Жанр/ }).click();
+    await openGenres(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
@@ -149,6 +154,7 @@ test.describe('Ручной ввод длительности', () => {
     const mock = await open(page, context, baseURL as string);
     await page.getByRole('button', { name: 'Открыть: Браво Хоррор' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click(); // Фаза 34: блок свёрнут до строки
     await expect(dlg.getByTestId('duration-hltb')).toContainText('Найдено: Bravo Horror');
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 12 ч');
     await expect(dlg.getByRole('button', { name: 'Сбросить ручное значение' })).toHaveCount(0);
@@ -181,6 +187,7 @@ test.describe('Ручной ввод длительности', () => {
     await expect(page.locator('.ps-card:not(.ps-card--sk)')).toHaveCount(1);
     await page.getByRole('button', { name: 'Открыть: Дельта Гонки' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click();
     await expect(dlg.getByTestId('duration-hltb')).toHaveText('На HLTB не найдено');
     await dlg.getByLabel('Своя оценка, часов').fill('5');
     await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
@@ -194,6 +201,7 @@ test.describe('Ручной ввод длительности', () => {
     const mock = await open(page, context, baseURL as string);
     await page.getByRole('button', { name: 'Открыть: Альфа Экшен' }).click();
     const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: /Длительность прохождения/ }).click();
     await dlg.getByLabel('Своя оценка, часов').fill('15');
     mock.failNextMutation = 503;
     await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();

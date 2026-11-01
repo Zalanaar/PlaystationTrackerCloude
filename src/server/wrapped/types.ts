@@ -1,8 +1,31 @@
 // Типы ответа GET /api/wrapped (раздел 11 docs/api-contract.md). Только типы.
 import type { GameItem } from '@/server/collection/types';
-import type { RareTrophy, StatsGenreItem, TrophyCountsByType } from '@/server/stats/types';
+import type { HoursYear, PlayPattern, RareTrophy, StatsGenreItem, TrophyCountsByType } from '@/server/stats/types';
 
-export type WrappedSlideId = 'start' | 'hours' | 'topGames' | 'finished' | 'trophies' | 'genres' | 'longestGame' | 'final' | 'empty';
+export type WrappedSlideId =
+  | 'start'
+  | 'hours'
+  | 'topGames'
+  | 'finished'
+  | 'trophies'
+  | 'genres'
+  | 'longestGame'
+  | 'final'
+  | 'empty'
+  // Фаза 26: «когда ты играешь» (год и всё время) и слайды набора «Всё время»
+  | 'playPattern'
+  | 'firstGame'
+  | 'platinumYears'
+  | 'busiestYear';
+
+/** Набор «за всё время» (26.2), только при scope = 'all'. */
+export type WrappedAllTime = {
+  firstGame: { hasData: boolean; at: string | null; source: 'first_played' | 'first_trophy' | null; game: GameItem | null };
+  hoursByYear: { hasData: boolean; total: number | null; unattributed: number; byYear: HoursYear[] };
+  platinumByYear: { hasData: boolean; total: number; items: { year: number; count: number }[] };
+  busiestYear: { hasData: boolean; year: number | null; hours: number; estimated: boolean };
+  topGenre: { hasData: boolean; key: string | null; label: string | null; value: number };
+};
 
 export type WrappedTopGame = { rank: number; seconds: number; hours: number; /** В часах есть оценочная часть (1.6). */ estimated: boolean; game: GameItem };
 export type WrappedFinishedItem = { at: string; game: GameItem };
@@ -16,9 +39,19 @@ export type WrappedPlatinum = {
 };
 
 export type WrappedResponse = {
+  /** При scope = 'all' текущий год МСК (смысла не несёт). */
   year: number;
   mode: 'story' | 'empty';
-  period: { from: string; to: string; fromUtc: string; toUtc: string };
+  /** 26.2: 'year' (по умолчанию) или 'all'. Необязательно в типе (фикстуры src/ui), сервер присылает всегда. */
+  scope?: 'year' | 'all';
+  /** 26.2: есть ли данные для набора «Всё время» (кнопка в выборе года). */
+  allTimeAvailable?: boolean;
+  /** 26.2: набор «за всё время» или null при scope = 'year'. */
+  allTime?: WrappedAllTime | null;
+  /** 26.3: «Когда ты играешь» для года или всего времени. */
+  playPattern?: PlayPattern;
+  /** При scope = 'all' границы = первая/последняя даты данных, могут быть null. */
+  period: { from: string | null; to: string | null; fromUtc: string | null; toUtc: string | null };
   years: { year: number; hasData: boolean }[];
   profile: { onlineId: string | null; avatarUrl: string | null };
   firstSnapshotDate: string | null;

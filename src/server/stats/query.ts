@@ -1,5 +1,5 @@
 // Чтение данных для /api/stats (контракт 10). Расчёты в чистых модулях, здесь только выборки.
-import { and, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
@@ -10,33 +10,29 @@ import { composeStats } from './compose';
 import { getEstimateInputs } from './estimate-query';
 import { applyExclusions, getMonthExclusions } from './exclusions';
 import type { FinishedEvent } from './finished';
-import { calcHours, estimateYears, groupSnapshots, type EstimateInput, type Snapshot } from './hours';
+import { calcHours, groupSnapshots, type Snapshot } from './hours';
 import { mskDateString, mskMidnightUtc, resolvePeriod, ymd } from './period';
 import { playedGameIds } from './played';
 import { getRareTrophies } from './rare-query';
+import { getStatsAll } from './all-query';
+import { getPlayPatternCells } from './play-pattern-query';
+import { getStatsYears } from './years-query';
 import { rankByHours, rankByTrophies, type GameTrophyCount } from './top';
 import type { EarnedTrophy } from './trophies';
-import type { StatsResponse } from './types';
+import type { BoundedPeriod, StatsResponse } from './types';
 import type { StatsQuery } from './validation';
 
+export { getStatsYears };
+
 const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies } = schema;
-const TZ = 'Europe/Moscow';
 
-export async function getStatsYears(db: AnyDb, userId: UserId, currentYear: number, estimates: readonly EstimateInput[] = []): Promise<number[]> {
-  const yearOf = (col: unknown) => sql<number | null>`extract(year from (${col} at time zone ${TZ}))::int`;
-  const [snap, tr, comp, drop] = await Promise.all([
-    db.selectDistinct({ y: sql<number>`extract(year from ${ps.snapshotDate})::int` }).from(ps).where(and(eq(ps.userId, userId), snapshotGameVisible(ps.gameId, userId))),
-    db.selectDistinct({ y: yearOf(trophies.earnedAt) }).from(trophies).where(and(eq(trophies.userId, userId), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId, userId))),
-    db.selectDistinct({ y: yearOf(gameStatus.completedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.completedAt), gameVisible(gameStatus.gameId, userId))),
-    db.selectDistinct({ y: yearOf(gameStatus.droppedAt) }).from(gameStatus).where(and(eq(gameStatus.userId, userId), isNotNull(gameStatus.droppedAt), gameVisible(gameStatus.gameId, userId))),
-  ]);
-  const set = new Set<number>([currentYear]);
-  for (const r of [...snap, ...tr, ...comp, ...drop]) if (r.y !== null) set.add(r.y);
-  for (const y of estimateYears(estimates)) set.add(y);
-  return [...set].sort((a, b) => b - a);
-}
+/** Ответ с границами периода (year/month): `period.from/to` строки. */
+export type BoundedStatsResponse = Omit<StatsResponse, 'period'> & { period: BoundedPeriod };
 
+export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery & { type: 'year' | 'month' }, now?: Date): Promise<BoundedStatsResponse>;
+export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now?: Date): Promise<StatsResponse>;
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Date = new Date()): Promise<StatsResponse> {
+  if (q.type === 'all') return getStatsAll(db, userId, now, q.withService === true);
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const period = resolvePeriod(q.type, q.year, q.month);
@@ -57,7 +53,7 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     .where(and(eq(gameTrophySets.userId, userId), eq(games.userId, userId), snapshotGameVisible(games.id, userId)))
     .groupBy(gameTrophySets.trophySetId)
     .as('owner');
-  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows, rarePeriod, rareAllTime] = await Promise.all([
+  const [years, inYear, bases, first, trophyRows, completedRows, droppedRows, genreRows, trophyByGameRows, rarePeriod, rareAllTime, patternCells] = await Promise.all([
     getStatsYears(db, userId, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -95,6 +91,8 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     // 14.1: по LIMIT 5 строк, без GameItem (вес ответа, P8-3).
     getRareTrophies(db, userId, { fromUtc, toUtc }, undefined, q.withService === true),
     getRareTrophies(db, userId, null, undefined, q.withService === true),
+    // 26.3: трофеи периода по часам и дням недели МСК, группировка в SQL
+    getPlayPatternCells(db, userId, { fromUtc, toUtc }),
   ]);
 
   const finishedEvents: FinishedEvent[] = [
@@ -131,5 +129,6 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     genreGames,
     rareTrophies: { period: rarePeriod, allTime: rareAllTime },
     exclusions,
+    patternCells,
   });
 }

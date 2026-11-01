@@ -179,3 +179,30 @@ export function shelvedToApi(limit = BACKLOG_PAGE): URLSearchParams {
 export function serviceToApi(limit = BACKLOG_PAGE): URLSearchParams {
   return new URLSearchParams({ status: 'service', sort: 'last_played', limit: String(limit), offset: '0' });
 }
+
+// ---------- Вид страницы (Фаза 33): карточки или список ----------
+export const BACKLOG_VIEW_KEY = 'ps-bl-view';
+export type BacklogView = 'cards' | 'list';
+
+export function isBacklogView(v: unknown): v is BacklogView {
+  return v === 'cards' || v === 'list';
+}
+
+/** Вид по умолчанию: на мобильном список, на десктопе карточки; сохранённый выбор главнее. */
+export function resolveBacklogView(stored: string | null, mobile: boolean): BacklogView {
+  return isBacklogView(stored) ? stored : mobile ? 'list' : 'cards';
+}
+
+/** Число активных настроек для бейджа кнопки «Фильтры»: фильтры + 1, если сортировка не по умолчанию. */
+export function activeBacklogCount(f: BacklogFilters): number {
+  const sortChanged = f.sort !== DEFAULT_BACKLOG.sort || (f.order !== null && f.order !== BACKLOG_DEFAULT_ORDER[f.sort]);
+  return f.genres.length + f.duration.length + f.hltb.length + (sortChanged ? 1 : 0);
+}
+
+/** Строка длительности в списке: null, если показывать нечего (нет часов и нет пометки «нет на HLTB»). */
+export function rowDuration(d: GameDuration | undefined): { text: string | null; source: GameDuration['source']; notOnHltb: boolean } | null {
+  const text = d && d.hours !== null ? durationText(d) : null;
+  const notOnHltb = isNotOnHltb(d);
+  if (text === null && !notOnHltb) return null;
+  return { text, source: d?.source ?? null, notOnHltb };
+}

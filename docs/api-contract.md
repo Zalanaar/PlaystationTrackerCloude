@@ -2310,3 +2310,278 @@ Fail-open: если БД недоступна или таблицы ещё не�
 - 200: `{"ok":true,"data":{"game":{ GameItem игры {id} уже без отвязанных версий }}}`.
 - 400 `invalid_request`: id не число, тело не JSON-объект или `versionId` не целое. 404 `not_found`: нет игры, чужая игра (то же тело, что у несуществующей), `versionId` не её дубль. 503 `db_unavailable`.
 Отменить это действие в API нельзя (синк не вернёт склейку). Риск склейки разных игр с общим `concept_id` лечится этой кнопкой.
+
+## 26. Статистика и Итоги «за всё время», «Когда ты играешь» (Фазы 25–26)
+
+Миграций нет: схема БД не меняется. Все изменения только добавляют поля; ответы `year` и `month` (10.1, 11.1) не меняются ни в одном существующем поле. Типы: `src/server/stats/types.ts`, `src/server/wrapped/types.ts` (во frontend только `import type`). Новые поля в типах необязательные (фикстуры `src/ui`), сервер присылает их всегда там, где указано.
+
+### 26.1 `GET /api/stats?period=all` (Фаза 25)
+
+`period` принимает `year | month | all`. При `period=all` параметры `year` и `month` **игнорируются** (в том числе мусорные: `period=all&year=abc` это `200`). Остальной мусор по-прежнему `400 invalid_request` (неизвестный `period`, плохой `withService`).
+
+**`period` в ответе.** `{ "type": "all", "year": <текущий год МСК>, "month": null, "from": "2019-03-02" | null, "to": "2026-10-27" | null, "fromUtc": ... | null, "toUtc": ... | null }`. `year` для `all` это текущий год по Москве (поле остаётся числом, чтобы не ломать типы), смысла не несёт. `from` / `to`: первая и последняя даты данных пользователя по МСК. Источники: `playtime_snapshots.snapshot_date`, `trophies.earned_at` (только засчитанные), `game_status.completed_at` / `dropped_at`, `games.first_played_at` / `last_played_at` (видимые игры). Данных нет совсем: `from`, `to`, `fromUtc`, `toUtc` равны `null`. Иначе `fromUtc` = полночь МСК `from`, `toUtc` = полночь МСК следующего за `to` дня (`toUtc` исключается). Тип `StatsPeriod` теперь объединение: у `type: "all"` четыре поля границ могут быть `null`.
+
+**Какие блоки как заполняются при `all`.** Форма ответа та же, что у `year` (UI не проверяет на undefined), плюс новые поля:
+
+```json
+{ "ok": true, "data": {
+  "period": { "type": "all", "year": 2026, "month": null, "from": "2019-03-02", "to": "2026-10-27",
+              "fromUtc": "2019-03-01T21:00:00.000Z", "toUtc": "2026-10-27T21:00:00.000Z" },
+  "years": [2026, 2025, 2024],
+  "header": { "completed": 41, "dropped": 9, "hours": 2840.5, "platinum": 33 },
+  "hours": {
+    "byMonth": [null, null, null, null, null, null, null, null, null, null, null, null],
+    "estimatedByMonth": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "estimatedHours": 410.3, "hasEstimate": true,
+    "firstSnapshotDate": "2026-03-04", "periodPartial": true,
+    "byYear": [
+      { "year": 2024, "hours": 900.1, "estimatedHours": 900.1, "measuredHours": 0 },
+      { "year": 2025, "hours": 1200.0, "estimatedHours": 300.0, "measuredHours": 900.0 },
+      { "year": 2026, "hours": 700.4, "estimatedHours": 0, "measuredHours": 700.4 }
+    ],
+    "unattributed": 40.0
+  },
+  "genres": { "hasData": true, "items": [ { "key": "ACTION", "label": "Экшен", "value": 52.5, "gameIds": [17] } ], "games": { "17": { "id": 17, "title": "...", "coverUrl": null } } },
+  "top": { "byHours": [ { "game": { "...": "GameItem" }, "hours": 310.2, "estimated": false } ], "byTrophies": [ { "game": { "...": "GameItem" }, "points": 1200, "counts": { "platinum": 1, "gold": 3, "silver": 9, "bronze": 20, "total": 33 } } ] },
+  "rareTrophies": { "period": [ "= allTime" ], "allTime": [ "RareTrophy по 14.1" ] },
+  "trophies": {
+    "counts": { "platinum": 33, "gold": 120, "silver": 300, "bronze": 800, "total": 1253 },
+    "byMonth": [ { "month": 1, "platinum": 0, "gold": 0, "silver": 0, "bronze": 0, "total": 0 } ],
+    "byYear": [ { "year": 2024, "platinum": 10, "gold": 40, "silver": 100, "bronze": 300, "total": 450 } ]
+  },
+  "finished": { "groups": [], "byYear": [ { "year": 2024, "completed": 12, "dropped": 3 } ] },
+  "played": { "games": {}, "groups": [] },
+  "playPattern": { "byHour": [0, 0, "... 24 числа"], "byWeekday": [0, 0, 0, 0, 0, 0, 0], "total": 1253, "peakHour": 22, "peakWeekday": 5, "label": "по времени трофеев", "hasData": true }
+} }
+```
+
+| Поле | Правило при `all` |
+|---|---|
+| `years` | как в 10.1 (годы с данными по убыванию, текущий год всегда) |
+| `header.hours` | **сумма PSN `playDuration` по видимым играм**: `games.play_duration_seconds` каждой видимой игры (не скрыта, не дубль) плюс `play_duration_seconds` всех её дублей (Фаза 23, 25.3; то же выражение, что `GameItem.playSeconds`: дубль в суммы входит ровно один раз, через главную). Округление до 0.1. `null`, если у пользователя нет видимых игр |
+| `header.completed` / `dropped` | число видимых игр со `status = completed` / `dropped` и непустой датой (`completed_at` / `dropped_at`), без ограничения периодом |
+| `header.platinum` | число платин с `earned_at`, равно `trophies.counts.platinum` |
+| `hours.byYear` | по возрастанию года, **без пропусков**: от самого раннего года из `years` до текущего года МСК (в том числе годы с нулями). `hours` = `measuredHours + estimatedHours` (в десятых долях, без накопления погрешности). `measuredHours`: реальные часы года по снимкам (формула 1.6 для периода «год»: `S_end - S_base`, отрицательная дельта = 0, дубли слиты в главную как в 25.3). `estimatedHours`: оценочная часть года (оценка 1.6 по месяцам года, с учётом исключённых месяцев 15.1, оценка дубля относится к главной). UI рисует `estimatedHours` штриховкой «оценка» |
+| `hours.unattributed` | часы, которые нельзя отнести к годам: `header.hours - sum(byYear[].hours)`, в десятых долях. Это игры без снимков, игры с часами до первого снимка и без `first_played_at` (оценки нет), ручное расхождение `games.play_duration_seconds` и последнего снимка, скачки PSN вниз. Может быть и **отрицательным** (PSN уменьшил время, а в годах уже учтён прирост; у игры, чья оценка шла по одному исключённому месяцу, наоборот плюс). Обычно близок к `0` |
+| **Инвариант** | `sum(hours.byYear[].hours) + hours.unattributed == header.hours` (с точностью до 0.1 float; считается в целых десятых). Если `header.hours = null`: `byYear` по нулям (или `[]`), `unattributed = 0` |
+| `hours.estimatedHours` / `hasEstimate` | сумма `byYear[].estimatedHours` / `> 0` |
+| `hours.byMonth` | 12 `null` (при `all` не используется) , `estimatedByMonth` 12 нулей |
+| `hours.firstSnapshotDate` | как в 10.1. `periodPartial = true`, если `firstSnapshotDate = null`, либо есть оценочные часы (`estimatedHours > 0`), либо `unattributed != 0` (UI показывает плашку «часть часов оценка / не по снимкам») |
+| `trophies.counts` | все засчитанные трофеи с `earned = true` и `earned_at` (без периода), как в 10.1 по фильтрам видимости и сетов-сирот |
+| `trophies.byYear` | по возрастанию года, без пропусков (диапазон как у `hours.byYear`, года по МСК). Платина по годам = `byYear[].platinum`. `sum(byYear[].X) == counts.X` |
+| `trophies.byMonth` | 12 нулевых элементов (форма сохраняется) |
+| `finished.byYear` | `[{year, completed, dropped}]`, диапазон лет как у `hours.byYear`; год по МСК по `completed_at` / `dropped_at`, те же правила, что `header.completed/dropped`. `sum(completed) == header.completed`. `finished.groups` при `all` всегда `[]` |
+| `genres` | топ-8, веса 1/N (1.9, 10.1). Игры: видимые игры с часами `> 0` (PSN, как `header.hours`) **или** со статусом `completed` / `dropped` когда-либо. `gameIds` по часам игры по убыванию |
+| `top.byHours` | топ-10 видимых игр по **суммарным** часам PSN (с дублями, `effectiveSeconds`), порядок `top.ts`: часы по убыванию, `lower(title)`, `id`. `estimated` всегда `false` (это суммарные часы PSN, не оценка) |
+| `top.byTrophies` | по очкам всех полученных трофеев (13.2 без периода) |
+| `rareTrophies` | `period` = `allTime` (одна выборка, 14.1, включая трофеи без даты) |
+| `played` | `{ games: {}, groups: [] }` (блок «Игры месяца» только для года/месяца) |
+
+**Что не меняется.** `period=year` и `period=month`: ни одно существующее поле не изменено. Новые поля для них: только `playPattern` (26.3). `hours.byYear`, `hours.unattributed`, `trophies.byYear`, `finished.byYear` присутствуют **только** при `period.type = "all"`.
+
+**Скорость.** Число запросов к БД не зависит от числа игр и снимков: снимки не грузятся целиком, берутся строки «первый снимок игры» и «последний снимок игры в каждом году» (из них та же формула 1.6 даёт часы по годам), трофеи агрегируются в SQL. Покрыто `perf.test.ts`.
+
+**Изоляция.** Все запросы с `user_id` из сессии (как в остальной статистике, 22.6); тест на утечки между двумя пользователями.
+
+### 26.2 `GET /api/wrapped?year=all` (Фаза 26)
+
+Выбрано `year=all` (а не `period=all`): параметр один, и он уже выбирает «что показывать». `year`: целое 2000..2100 **или** строка `all`; остальное `400 invalid_request` (`year=ALL`, `year=all2`, пустая строка = нет параметра = текущий год).
+
+Новые поля ответа (всегда присутствуют, форма `empty` сохраняется):
+| Поле | Значение |
+|---|---|
+| `scope` | `"year"` или `"all"` |
+| `allTimeAvailable` | `true`, если у пользователя есть данные для набора «всё время». При `scope = "all"` точно (`mode = story`); при `scope = "year"` приближённо: хоть у одного года из `years` `hasData = true` (11.1). Для карточки «Всё время» в выборе года, присутствует в обоих ответах |
+| `allTime` | `null` при `scope = "year"`; при `all` объект (ниже) |
+| `playPattern` | блок 26.3 для года или всего времени |
+| `year` | при `all` текущий год МСК (число, как `period.year` в 26.1), смысла не несёт |
+| `period` | при `all`: `{from, to, fromUtc, toUtc}` как в 26.1 (поля могут быть `null`) |
+
+`allTime` при `scope = "all"`:
+```json
+{
+  "firstGame": { "hasData": true, "at": "2016-05-09T17:00:00.000Z", "source": "first_played", "game": { "...": "GameItem" } },
+  "hoursByYear": { "hasData": true, "total": 2840.5, "unattributed": 40.0, "byYear": [ { "year": 2025, "hours": 1200.0, "estimatedHours": 300.0, "measuredHours": 900.0 } ] },
+  "platinumByYear": { "hasData": true, "total": 33, "items": [ { "year": 2024, "count": 10 } ] },
+  "busiestYear": { "hasData": true, "year": 2025, "hours": 1200.0, "estimated": true },
+  "topGenre": { "hasData": true, "key": "ACTION", "label": "Экшен", "value": 52.5 }
+}
+```
+| Поле | Правило |
+|---|---|
+| `firstGame` | видимая игра с самой ранней датой первого запуска: `min(games.first_played_at)` главной и её дублей (`source: "first_played"`, `at` = эта дата). Если ни у одной игры даты нет: игра самого раннего полученного трофея по `earned_at` (`source: "first_trophy"`, `at` = `earned_at`; игра сета = минимальный id видимой игры, сет-сирота игры не даёт). Нет ни того ни другого: `hasData: false`, `at: null`, `source: null`, `game: null`. Игры без `first_played_at` в первую очередь не участвуют (PSN не отдал дату). Честное ограничение: `first_played_at` это то, что PSN помнит о первом запуске, у старых игр оно может быть позже реального |
+| `hoursByYear` | то же, что `hours.byYear` / `unattributed` / `header.hours` из 26.1 (одна функция расчёта), `hasData = total > 0` |
+| `platinumByYear` | платины по `earned_at` по годам МСК, диапазон лет как у `hoursByYear`, `total` = сумма, `hasData = total > 0` |
+| `busiestYear` | год с максимальным `hours` в `hoursByYear.byYear` (ничья: более ранний), `hours` его часы, `estimated = estimatedHours > 0` в этом году. `hasData = false`, `year = null`, `hours = 0`, если часов нет |
+| `topGenre` | первый жанр из `genres.items` (топ-1 за все годы); `hasData = false` и `key`/`label` `null`, `value` `0`, если жанров нет |
+
+Остальные блоки при `all` (форма как в 11.1, но за все годы):
+- `hours`: `total` = `header.hours` из 26.1, `days = round(total/24, 1)`, `byMonth` 12 `null`, `estimatedByMonth` 12 нулей, `estimatedHours`/`hasEstimate` как в 26.1, `topMonth = null`, `hasData = total > 0`.
+- `topGames`: топ-5 по суммарным часам PSN (как `top.byHours`, `estimated: false`, `rank`, `seconds` суммарные).
+- `longestGame`: игра №1 из `topGames` (самая долгая за всё время), `playCount = game.playCount`; пусто = `hasData: false`, `game: null`.
+- `genres`: топ-3 (правила 26.1).
+- `trophies`: `counts` все; `platinum.first/last/rarest` по всем платинам; `rare` = `rareTrophies.allTime` (топ-5).
+- `finished`: `completed.count` / `dropped.count` как `header` из 26.1, `items: []` (списки слайдами «за всё время» не показываются), `busiestMonth: null`, `hasData = count сумма > 0`.
+- `mode`: `empty`, если одновременно нет часов, трофеев и завершённых/брошенных (`emptyState.syncStartedOn` как в 11.1).
+- `slides` при `all` (порядок фиксирован): `start`, `firstGame` (если `allTime.firstGame.hasData`), `hours` (если `hours.hasData`), `platinumYears` (если `platinumByYear.hasData`), `busiestYear` (если `busiestYear.hasData`), `genres` (если `genres.hasData`), `longestGame` (если `longestGame.hasData`), `playPattern` (если `playPattern.hasData`), `final`. `topGames`, `finished`, `trophies` в наборе «всё время» не показываются. `empty`: `["empty"]`.
+- `slides` при `year`: порядок 11.1; **новое**: `playPattern` ставится сразу после `trophies` (если `playPattern.hasData`; при `hasData = false` слайда нет, поэтому у существующих годов без паттерна `slides` не меняется). Новые идентификаторы в `WrappedSlideId`: `firstGame`, `platinumYears`, `busiestYear`, `playPattern`.
+
+`withService` (17.2/20.8) влияет только на `rare` (как в годовом наборе). Эндпоинт для года не меняется. `years` в ответе остаётся списком лет; кнопка «Всё время» зависит от `allTimeAvailable`.
+
+### 26.3 «Когда ты играешь»: `playPattern` (Фаза 26)
+
+Распределение **полученных трофеев** по времени суток и дню недели по **Europe/Moscow** (UTC+3 без перехода на летнее время, как везде). Это не игровое время: PSN отдаёт время только трофеев, поэтому подпись `label: "по времени трофеев"`.
+
+```json
+{ "byHour": [3, 0, 0, "... всего 24 числа, индекс = час МСК 0..23"],
+  "byWeekday": [20, 15, 10, 8, 30, 55, 40],
+  "total": 178, "peakHour": 22, "peakWeekday": 5,
+  "label": "по времени трофеев", "hasData": true }
+```
+| Поле | Правило |
+|---|---|
+| `byHour` | ровно 24 числа, индекс = час `0..23` по МСК. Трофей в 23:59:59 МСК идёт в 23, в 00:00:00 МСК уже в 0 следующего дня (событие 21:00:00Z это 00:00 МСК следующих суток) |
+| `byWeekday` | ровно 7 чисел, индекс 0 = понедельник .. 6 = воскресенье (ISO). День недели считается по дате МСК (не UTC): 21:30Z субботы это воскресенье 00:30 МСК |
+| `total` | число трофеев в периоде: `sum(byHour) == sum(byWeekday) == total == trophies.counts.total` того же периода (те же фильтры: `earned`, есть `earned_at`, видимость сетов) |
+| `peakHour` / `peakWeekday` | индекс максимума (ничья: меньший индекс); `null`, если `total = 0` |
+| `label` | константа `"по времени трофеев"` |
+| `hasData` | `total >= 20` (порог `PLAY_PATTERN_MIN_TOTAL`); иначе `false`: UI скрывает блок/слайд (мало данных, паттерн был бы шумом). Массивы всё равно присылаются |
+
+Где присутствует: `GET /api/stats` для `period` `year` / `month` / `all` (по периоду ответа; при `month` это только трофеи месяца) и `GET /api/wrapped` (для года и для `all`). Пустой период: нули, `total: 0`, пики `null`, `hasData: false`.
+
+### 26.4 Решения и риски
+
+- Часы «за всё время» берутся из текущего `games.play_duration_seconds`, а не из последнего снимка: сумма совпадает с числом на карточках коллекции. Разницу со снимками честно показывает `unattributed`.
+- Годы часов до первого синка это только оценка 1.6 (месячная, по `first_played_at`..`last_played_at`); штриховка «оценка» в UI обязательна.
+- Паттерн времени по трофеям смещён в сторону игр с трофеями и в сторону моментов, когда трофеи синхронизировались с PS (PSN хранит время получения, но старые трофеи могут быть выданы пачкой при синхронизации консоли).
+
+## 26. История игры в окне игры (Фаза 34)
+
+Цель: на «Обзоре» окна игры показать, как шла игра: мини-график часов по неделям и отметки трофеев/платины на той же шкале. Только добавление поля в `GET /api/games/{id}` (12.5); существующие поля не меняются, миграций нет, схема БД не меняется, новых секретов нет. Расчёт в чистой функции `src/server/collection/history.ts` (Vitest), выборка в `details.ts`.
+
+### 26.1 Поле `history`
+
+`GameDetailsResponse.history: GameHistory | null`. Сервер присылает всегда; в типе необязательное (фикстуры src/ui, старые ответы).
+
+```json
+"history": {
+  "weeks": [
+    { "weekStart": "2026-05-04", "seconds": 7200, "estimatedSeconds": 5400, "trophies": 0, "platinum": false },
+    { "weekStart": "2026-05-11", "seconds": 0, "estimatedSeconds": 0, "trophies": 2, "platinum": true }
+  ],
+  "truncated": false,
+  "hasHours": true,
+  "hasEstimate": true,
+  "playedDays": 14,
+  "firstSnapshotDate": "2026-09-01"
+}
+```
+
+| Поле | Правило |
+|---|---|
+| `history` | `null`, если у игры (с её дублями) нет ни одного снимка и ни одного трофея с `earnedAt`. Иначе объект |
+| `weeks` | непрерывный ряд недель по возрастанию `weekStart`, **от первой недели с данными до последней недели с данными** (недели без данных внутри ряда присутствуют с нулями; пустые недели до и после ряда не добавляются). `[]`, если данных по неделям нет (например снимки есть, но играть не начинали, оценки нет, трофеев нет) |
+| `weekStart` | понедельник недели, дата МСК `YYYY-MM-DD`. Неделя = пн..вс **по МСК**. Событие 01:00 МСК понедельника (22:00 UTC воскресенья) относится к новой неделе |
+| `seconds` | всё время недели, секунды: реальные + оценочные |
+| `estimatedSeconds` | оценочная часть `seconds` (до первого снимка, 1.6), `0 <= estimatedSeconds <= seconds`. UI рисует её штриховкой и подписывает «оценка». Реальная часть = `seconds - estimatedSeconds` |
+| `trophies` | число полученных трофеев недели (все типы, по `earnedAt` в МСК). Трофеи без `earnedAt` не попадают |
+| `platinum` | `true`, если платина получена в эту неделю (`trophies >= 1` тогда обязательно) |
+| `truncated` | `true`, если ряд длиннее 52 недель и отдана только **последняя** 52-недельная часть (трофеи и часы более ранних недель в ответ не входят) |
+| `hasHours` | у игры есть хотя бы один снимок. `false` = часов по неделям нет вообще (только отметки трофеев): UI не рисует столбцы часов |
+| `hasEstimate` | в `weeks` есть хотя бы одна неделя с `estimatedSeconds > 0` |
+| `playedDays` | число дней МСК с положительным приростом времени по снимкам (суточные дельты, как 14.3: первый снимок дельты не даёт, отрицательная дельта = 0). `null`, если снимков нет. Нижняя оценка: дни до первого синка неизвестны, пропущенные синком дни дают одну дату на всю дельту. Относится ко всей истории, а не к усечённым 52 неделям |
+| `firstSnapshotDate` | дата МСК первого снимка игры (с дублями: самого раннего), `null`, если снимков нет. UI показывает границу «дальше только оценка» |
+
+Строка «Играл 14 дней, последний раз 6 июн.» собирается на клиенте: `playedDays` и `GameItem.lastPlayedAt` (`lastPlayedAt` уже есть в ответе).
+
+### 26.2 Как считаются недели
+
+1. **Реальные часы.** Снимки игры (для главной: слитые снимки группы, `mergeDuplicateSnapshots`, 25.3) превращаются в суточные дельты (`dailyActivity`, 14.3); дельта дня относится к неделе этого дня (МСК). Часы дублей суммируются в главную, поэтому окно главной показывает группу целиком; окно самого дубля (ответ по id дубля) считает историю только по самому дублю, как и остальные поля этого ответа (трофеи 12.5).
+2. **Оценка до первого снимка (1.6).** Для каждой версии игры месячные доли оценки (`estimateByMonth`, с исключёнными месяцами 15.1) раскладываются по дням **внутри окна оценки**: от даты `first_played_at` (МСК) до `min(L0, D0)` включительно (L0, D0 по 1.6), только дни месяца этой доли; доля делится поровну по дням, остаток целиком в последний день. Затем дни складываются по неделям. Так сумма `estimatedSeconds` по всем неделям равна оценке 1.6 игры (и сумма оценки + реальных дельт = последнему значению времени по снимкам, с точностью до обнулённых отрицательных дельт). Оценка относится только к дням до первого снимка, реальные часы после `D0` оценкой не затрагиваются. Неделя, в которой стыкуются оценка и первые реальные дельты, смешанная (`0 < estimatedSeconds < seconds`).
+3. **Трофеи.** Из уже загруженного `trophyList` (12.5): полученные трофеи с `earnedAt`, по неделе МСК; платина = `type: "platinum"`. Для главной это объединение трофеев группы (25.3), сет, общий для версий, считается один раз.
+4. **Окно.** От минимальной до максимальной недели, где есть реальные часы, оценка или трофеи. Если ряд длиннее 52 недель, отдаются последние 52 недели (`truncated: true`).
+
+### 26.3 Изоляция, дубли, стоимость
+
+- Все выборки с `user_id` сессии (снимки `playtime_snapshots.user_id`, `games.user_id`, `game_month_exclusions.user_id`). Чужой id игры = `404 not_found` как в 12.5, история чужой игры недоступна.
+- Скрытая игра отдаётся и с историей (как и прогноз платины в 14.2).
+- Добавляются **два** запроса, не зависящих от числа игр: (а) снимки группы (игра и её дубли) вместе с `first_played_at` и `last_played_at` версий; (б) исключённые месяцы версий группы. Трофеи берутся из уже загруженного списка. Всего у `GET /api/games/{id}` становится 5 запросов в одном `Promise.all`.
+
+### 26.4 UI (напоминание для frontend, детали в design-system «Фаза 34»)
+
+Блок «Длительность прохождения» (16, `DurationEditor`) на «Обзоре» сворачивается до одной строки (раскрывается по клику). Пометка «оценка» ставится у штриховых столбцов и в легенде, если `hasEstimate`; если `hasHours: false`, столбцы часов не рисуются.
+
+## Фаза 30. «У тебя нет»: предложения игр вне библиотеки
+
+Решение Артёма 2026-10-31 убрало «Новое от ИИ» (раздел 19: Groq придумывал названия, RAWG их проверял). Фаза 30 возвращает режим «вне библиотеки» по другой модели: **кандидатов выбирает каталог RAWG и правила, а не LLM**. LLM только формулирует причину (одна фраза на карточку), при выключенном LLM или сбое причина шаблонная. Название, жанры, обложка, рейтинг и платформы берутся только из RAWG, выдумать игру модель не может. Раздел 19 остаётся удалённым, его роуты и тексты не возвращаются; здесь новая схема ответа.
+
+### 30.1 Схема: миграций нет
+Переиспользуются таблицы 13b, схема Drizzle и БД не меняются.
+- `recommend_discover_cache (user_id, day)`: `day` сутки МСК, `profile_hash` = первые 32 hex sha256 от списка фасетов (30.3), `payload` jsonb, `refreshes` не используется (всегда 0), `created_at`. Один ряд на пользователя и сутки.
+- `recommend_external_dislikes (user_id, external_source = 'rawg', external_id, title, cover_url, created_at)`: «Не интересно», срок `DISLIKE_TTL_DAYS` (30 суток), повтор продлевает.
+- `provider_usage (user_id, day, 'rawg')`: счётчик запросов RAWG (раздел 24).
+- `recommend_llm_usage.discover_auto_calls`: счётчик вида `discover` (потолок 1 вызов в сутки на пользователя; общий `calls`, `LLM_USER_DAILY_LIMIT` и `LLM_DAILY_LIMIT` действуют как раньше). Колонка раньше не использовалась (значения 13b в ней нет, всегда 0).
+- Все выборки и записи с `user_id` (запрос без него = баг).
+
+Форма `payload` (внутреннее, клиенту не отдаётся как есть): `{ version: 1, complete: boolean, fetched: string[], pool: PoolEntry[], candidates: StoredCandidate[] }`. `fetched` = уже опрошенные фасеты суток (`genres:action`, `tags:horror`, `all`), `pool` = отобранные записи RAWG (до 120), `candidates` = ранжированные, до 24 штук, с причиной. `complete = false`, пока не опрошены все фасеты (лимит RAWG, нехватка времени звена, сбой): следующий синк в те же сутки добирает только недостающее.
+
+### 30.2 `GET /api/recommend/discover`
+Сессия. Только чтение: ни RAWG, ни LLM не вызываются, ответ быстрый. Подборку создаёт ночной синк (30.4). Параметров нет (лишние игнорируются).
+
+`200 { ok: true, data: DiscoverResponse }`:
+```
+DiscoverResponse = { items: DiscoverItem[]; meta: DiscoverMeta }
+DiscoverItem = {
+  externalSource: 'rawg'; externalId: string; title: string;
+  releaseDate: string | null;            // YYYY-MM-DD, уже вышла
+  coverUrl: string | null;               // https, из RAWG
+  platforms: ('PS5' | 'PS4')[];          // только PlayStation
+  genres: GenreKey[];                    // жанры RAWG, сведённые к GenreKey (shared/genres); может быть []
+  rating: number | null;                 // пользовательский рейтинг RAWG 0..5, один знак
+  metacritic: number | null;             // 1..100
+  rawgUrl: string | null;                // https://rawg.io/games/<slug> (ссылка-атрибуция на карточке)
+  reason: { text: string; source: 'llm' | 'template' };
+  planned: boolean; plannedId: number | null;   // есть отменённая запись Плана (planned/done в выдачу не попадают)
+}
+DiscoverMeta = {
+  catalog: 'ok' | 'unavailable';         // unavailable: нет RAWG_API_KEY или RAWG_DAILY_LIMIT = 0
+  generatedAt: string | null;            // ISO, когда собрана подборка
+  stale: boolean;                        // подборка не за сегодняшние сутки МСК
+  partial: boolean;                      // не все фасеты опрошены (лимит RAWG, время, сбой)
+  reason: 'not_generated' | 'no_candidates' | null;
+  total: number;                         // кандидатов в подборке до фильтра выдачи
+  limit: number;                         // 12
+}
+```
+- Выдача: из `candidates` последней подборки (за сегодня, иначе за любые прошлые сутки, `stale = true`) убираются игры библиотеки, активные записи Плана и «Не интересно», остаётся до 12 по убыванию `score`. Фильтр действует в момент чтения: добавленная в библиотеку/План и скрытая игра исчезают сразу, не дожидаясь пересчёта.
+- Пустая выдача: нет подборки = `items: []`, `reason: 'not_generated'` (синк ещё не считал); подборка есть, всё отфильтровано = `reason: 'no_candidates'`; `catalog: 'unavailable'` = `items: []`, `reason: null`, подборка не читается.
+- Ошибки: `401`, `503 db_unavailable` (БД). Сбои RAWG и LLM ошибкой HTTP не бывают (это синк, не запрос).
+
+### 30.3 Кандидаты и ранжирование (`src/server/recommend/discover.ts`, чистая часть `discover-rank.ts`)
+- Профиль вкуса: история пользователя (`loadHistory`: видимые completed/playing/dropped, дубли склеены по Фазе 23) -> `genreStats` и `affinityOf` как в «Подскажи». Фасеты запроса = до 3 жанров с наибольшим affinity > 0, не «наказанные» (`penalized`), у которых есть соответствие в RAWG, плюс общий фасет `all` (топ без жанра) всегда последним. Соответствие жанров: ACTION `genres=action`, ADVENTURE `adventure`, ROLE_PLAYING_GAMES `role-playing-games-rpg`, SHOOTER `shooter`, RACING `racing`, SIMULATION `simulation`, FIGHTING `fighting`, ARCADE `arcade`, CASUAL `casual`, STRATEGY `strategy`, PUZZLE `puzzle`, FAMILY `family`, HORROR `tags=horror` (жанра в RAWG нет); MUSIC_RHYTHM, PARTY, OTHER без фасета. Пустая история = только `all`.
+- Запрос RAWG на страницу: `platforms=187,18` (PS5, PS4), фасет, `metacritic=75,100` (порог `RAWG_DISCOVER_MIN_METACRITIC`), `ordering=-metacritic`, `exclude_additions=true`, `page_size=40`. Запись принимается, если вышла (`released` не позже сегодняшнего МСК), есть PS5 или PS4 и `metacritic >= 75`.
+- Исключения кандидатов (при сборке и повторно при чтении): любая игра библиотеки пользователя, в том числе скрытая и дубль Фазы 23; активная запись Плана (`planned`/`done`, по `externalId` и названию); неистёкшее «Не интересно». Совпадение с библиотекой: равенство ключей после нормализации (`normalizeTitle`; `normalizeGameName` без скобок и меток PS4/PS5; отбрасывание слов издания `edition`, `complete`, `definitive`, `deluxe`, `ultimate`, `goty`, `remastered`...) или `titleMatches` (сходство ≥ 0.9 при одинаковых номерах частей) с `games.name` или `games.hltb_name`.
+- Страниц на фасет: 1; если после исключений осталось меньше 6, и RAWG говорит `next`, добираются 2-я и 3-я. Не больше 8 запросов RAWG за запуск шага.
+- `score = 0.6 * affinity + 0.4 * quality`, где `affinity` = максимум affinity по жанрам кандидата (жанров с соответствием нет = 0), `quality = (metacritic - 75) / 25` в [0, 1]. Кандидат, все известные жанры которого «наказаны», отбрасывается. Тай-брейк: `metacritic` убыв., `externalId` возр. В `candidates` попадает до 24 лучших, дубли по `externalId` и ключу названия схлопываются.
+- Причина-шаблон: «Похожа на «A» и «B», жанр «Z».» (A, B = до двух игр истории пользователя, пересекающихся по жанру с кандидатом, по часам убыв.; Z = жанр с наибольшим affinity среди жанров кандидата). Одна похожая: «Похожа на «A», жанр «Z».». Нет похожих, есть жанр: «Жанр «Z» тебе заходит, Metacritic N.». Ничего: «Высоко оценена на PlayStation: Metacritic N.».
+
+### 30.4 Шаг синка «У тебя нет» (`src/server/sync/discover-step.ts`)
+- Идёт после шага LLM в конце успешного звена, не фаза курсора. Ошибка шага = предупреждение `discover_step_failed`, итог запуска не меняется. Выполняется на пользователя запуска (`ctx.userId`).
+- Нет `RAWG_API_KEY` или `RAWG_DAILY_LIMIT = 0`: шаг молча пропускается. Подборка за сегодня `complete = true`: пропуск (раз в сутки). Иначе опрашиваются недостающие фасеты по одной странице на запрос; перед каждым запросом проверяется `ctx.timeLeft() >= 10 с` (иначе остановка, `partial`) и занимается слот `provider_usage` (24.2). Исчерпание лимита = остановка шага, предупреждение `discover_limit`; сбой фасета (сеть, 5xx, мусор) = фасет остаётся недобранным, предупреждение `discover_failed` с причиной (`timeout`, `network`, `http_error`, `rate_limited`, `bad_response`), остальные фасеты продолжаются.
+- После опроса пул ранжируется, подборка пишется в `recommend_discover_cache` на сегодня (если есть хоть один кандидат; иначе прежняя подборка не затирается). Данные прежних суток не удаляются.
+- Причины: когда подборка `complete`, LLM включён (раздел 20, `LLM_PROVIDER` + `LLM_API_KEY`), не на паузе и свободен слот вида `discover` (1 вызов в сутки): один вызов на все (до 24) карточки. Модель получает только факты RAWG и названия до двух игр библиотеки на карточку; отвечает `{"reasons":[{"id":<число>,"text":"..."}]}`. Принимается фраза строкой до 140 символов без ссылок и без названий других кандидатов; остальные остаются шаблонными. Сбой, таймаут, мусор: вызов возвращается в бюджет, учитывается в `fail_streak` (пауза 20.4), все причины шаблонные (`source: 'template'`), повтор LLM для этой подборки в те же сутки не делается. LLM никогда не выбирает и не меняет состав игр.
+- Лимиты RAWG: каждый реальный HTTP-запрос считается в `provider_usage` (`RAWG_USER_DAILY_LIMIT`, `RAWG_DAILY_LIMIT`), см. 24.2. Штатный расход: до 8 запросов на пользователя в сутки.
+
+### 30.5 «Не интересно» для внешней игры
+- `POST /api/recommend/discover/dislike`, тело `{ "externalSource": "rawg", "externalId": "3328", "title": "...", "coverUrl": "https://..." | null }` (все поля обязательны, лишние = 400). Идемпотентно, повтор продлевает срок. Сессия, `Content-Type: application/json`, проверка Origin. `200 { ok, data: { externalId } }`. Ошибки: `400 invalid_request`, `503 db_unavailable`. `externalId` 1..64 без пробелов и `/ ? # % \`, `title` 1..200, `coverUrl` https до 2048 или `null`.
+- `DELETE /api/recommend/discover/dislike/{externalId}`: снимает отметку, идемпотентно, проверка Origin. `200 { ok, data: { externalId } }`.
+- Отметка скрывает игру в `GET /api/recommend/discover` сразу, на 30 суток; следующий пересчёт её тоже не вернёт.
+
+### 30.6 «В План»
+Отдельного роута нет: экран вызывает существующий `POST /api/roadmap/planned` (17.7) с `{ title, releaseDate, coverUrl, externalSource: 'rawg', externalId, wantAtRelease: false }`. `409 planned_duplicate` экран считает успехом (игра уже в Плане). Игра с активной записью Плана перестаёт попадать в выдачу.
+
+### 30.7 Изоляция, секреты, проверки
+- `user_id` во всех запросах шага и роутов (охранный тест `user-scope`); подборка, дизлайки и счётчики одного пользователя не видны другому.
+- `RAWG_API_KEY` и `LLM_API_KEY` только из env, не попадают в ответы, кэш, предупреждения и логи; URL с ключом в ошибки не пишется (`CatalogError` содержит только причину).
+- Новых переменных окружения нет. RAWG free tier 20 000/мес.: штатный расход шага до 8 запросов на пользователя в сутки, под потолками `RAWG_USER_DAILY_LIMIT` (60) и `RAWG_DAILY_LIMIT` (300).
+- Тесты: `src/server/recommend/discover*.test.ts`, `src/server/sync/discover-step.test.ts`, `src/app/api/recommend/discover/*.test.ts`. Обязательные: ни одной игры библиотеки (в том числе скрытой, дубля и с другим написанием) в выдаче; работа при выключенном и падающем LLM; лимиты RAWG и LLM-вида; изоляция двух пользователей.

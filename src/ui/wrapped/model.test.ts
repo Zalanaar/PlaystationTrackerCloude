@@ -191,3 +191,56 @@ describe('форматирование', () => {
     expect(slideCover('longestGame', d)).toBeNull();
   });
 });
+
+import {
+  allEstimateBadge, allRangeText, busiestBars, firstGameCaption, parseScopeParam, platinumRows, resolveSlides as resolveSlides26, yearsAgoText,
+} from './model';
+
+describe('Итоги «Всё время» (Фаза 26)', () => {
+  it('параметр year: all, год, мусор', () => {
+    expect(parseScopeParam('all')).toBe('all');
+    expect(parseScopeParam('ALL')).toBeNull();
+    expect(parseScopeParam('2025')).toBe(2025);
+    expect(parseScopeParam('all2')).toBeNull();
+    expect(parseScopeParam(null)).toBeNull();
+  });
+  it('новые слайды принимаются, порядок сервера сохраняется', () => {
+    const slides = resolveSlides26({ mode: 'story', slides: ['start', 'firstGame', 'hours', 'platinumYears', 'busiestYear', 'genres', 'longestGame', 'playPattern', 'final'] });
+    expect(slides).toEqual(['start', 'firstGame', 'hours', 'platinumYears', 'busiestYear', 'genres', 'longestGame', 'playPattern', 'final']);
+  });
+  it('в годовом наборе playPattern идёт после «Трофеев» и редких', () => {
+    const slides = resolveSlides26({ mode: 'story', slides: ['start', 'trophies', 'playPattern', 'final'], trophies: { rare: [{}] } });
+    expect(slides).toEqual(['start', 'trophies', 'rareTrophies', 'playPattern', 'final']);
+  });
+  it('диапазон лет', () => {
+    const period = { from: '2014-05-01', to: '2026-10-01', fromUtc: null, toUtc: null };
+    expect(allRangeText({ year: 2026, period, years: [{ year: 2026, hasData: true }] })).toBe('2014 – 2026');
+    expect(allRangeText({ year: 2026, period: { ...period, from: null }, years: [{ year: 2026, hasData: true }, { year: 2019, hasData: true }, { year: 2018, hasData: false }] })).toBe('2019 – 2026');
+  });
+  it('подписи первой игры', () => {
+    expect(firstGameCaption('first_played', '2014-03-12T09:00:00.000Z')).toBe('Первый запуск: 12 марта 2014');
+    expect(firstGameCaption('first_trophy', '2014-03-12T09:00:00.000Z')).toBe('Первый трофей: 12 марта 2014');
+    expect(firstGameCaption(null, null)).toBeNull();
+    expect(yearsAgoText('2014-03-12T09:00:00.000Z', Date.parse('2026-10-31T00:00:00Z'))).toBe('12 лет назад');
+    expect(yearsAgoText('2026-03-12T09:00:00.000Z', Date.parse('2026-10-31T00:00:00Z'))).toBe('меньше года назад');
+  });
+  it('плашка оценки: «Итог равен сумме» только без неотнесённых часов', () => {
+    expect(allEstimateBadge('2026-03-04', 0)).toContain('Итог равен сумме PSN.');
+    expect(allEstimateBadge('2026-03-04', 40)).not.toContain('равен сумме');
+    expect(allEstimateBadge('2026-03-04', 40)).toMatch(/^Часы до 04\.03\.2026 оценены/);
+  });
+  it('платины: последние 8 лет, новые сверху, остаток', () => {
+    const items = Array.from({ length: 10 }, (_, i) => ({ year: 2017 + i, count: i === 3 ? 0 : i + 1 }));
+    const r = platinumRows(items);
+    expect(r.rows).toHaveLength(8);
+    expect(r.rows[0].year).toBe(2026);
+    expect(r.rest).toBe(1);
+    expect(r.rows[0].pct).toBe(100);
+  });
+  it('мини-столбцы: до 10 лет, лидер отмечен', () => {
+    const by = Array.from({ length: 12 }, (_, i) => ({ year: 2015 + i, hours: i * 10 }));
+    const b = busiestBars(by, 2026);
+    expect(b).toHaveLength(10);
+    expect(b.filter((x) => x.leader).map((x) => x.year)).toEqual([2026]);
+  });
+});
