@@ -16,6 +16,7 @@ import '@/ui/styles/plan.css';
 import '@/ui/styles/access.css';
 import '@/ui/styles/onboarding.css';
 import '@/ui/styles/tour.css';
+import '@/ui/styles/inbox.css';
 import './globals.css';
 import { cookies, headers } from 'next/headers';
 import { themeInitScript } from '@/ui/theme-script';

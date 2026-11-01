@@ -37,6 +37,8 @@ import { RestoreBackupDialog } from './RestoreBackupDialog';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
+import { InboxStrip } from '../inbox/InboxStrip';
+import { useInbox } from '../inbox/useInbox';
 
 export function CollectionView() {
   const router = useRouter();
@@ -105,7 +107,11 @@ export function CollectionView() {
     empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
   } = L;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
-  const checkCount = useCheckCount() ?? 0;
+  // только чистая хроника: без поиска, статуса и платины (спека A.1)
+  const inbox = useInbox(chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum);
+  // пока полоса показывает чип «Проверить статусы», старый check-chip не рендерим (спека A.2)
+  const rawCheckCount = useCheckCount() ?? 0;
+  const checkCount = inbox.showsCheck ? 0 : rawCheckCount;
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
@@ -150,6 +156,8 @@ export function CollectionView() {
       </div>
 
       {isMobile && <MobileSearch {...barProps} />}
+
+      <InboxStrip ctl={inbox} />
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && <HeroSkeleton />)}
 

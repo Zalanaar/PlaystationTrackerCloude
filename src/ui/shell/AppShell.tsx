@@ -12,6 +12,7 @@ import { useProfile } from '../profile/ProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { useTour } from '../tour/TourProvider';
+import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { SyncIndicator } from './SyncIndicator';
 import { RestoreFileDialog } from '../backup/RestoreFileDialog';
 import { NAV_TABS } from '../tokens';
@@ -45,6 +46,7 @@ export function AppHeader() {
   const offer = useSeasonOffer();
   const isOwner = useIsOwner();
   const { start: startTour } = useTour();
+  const { open: openWhatsNew } = useWhatsNew();
 
   return (
     <>
@@ -91,6 +93,10 @@ export function AppHeader() {
                     <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); startTour(); }}>
                       <Icon name="circle-help" size={16} />
                       <span className="ps-menu-item__label">Как пользоваться</span>
+                    </button>
+                    <button type="button" role="menuitem" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { close(); setTimeout(openWhatsNew, 0); }}>
+                      <Icon name="info" size={16} />
+                      <span className="ps-menu-item__label">Что нового</span>
                     </button>
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
@@ -141,6 +147,9 @@ export function AppHeader() {
           <p className="ps-micro">Аккаунт</p>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
             <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>
+          </button>
+          <button type="button" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { setMore(false); setTimeout(openWhatsNew, 0); }}>
+            <Icon name="info" size={16} /><span className="ps-menu-item__label">Что нового</span>
           </button>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
