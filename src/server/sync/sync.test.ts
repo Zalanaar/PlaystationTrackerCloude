@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import { PsnError } from '@/server/psn/errors';
 import { connectPsn } from '@/server/psn/client';
-import { runChunk, type ChunkResult, type SyncDeps } from './engine';
+import { MAX_HOPS, runChunk, type ChunkResult, type SyncDeps } from './engine';
 import { startRun, STALE_RUN_MS, type RunKind } from './runs';
 import { getSyncStatus } from './status';
 import { createTestDb, fakeApi, freshState, type FakeState, type TestDb } from './test-helpers';
@@ -311,11 +311,11 @@ describe('синк на PGlite и фейковом PSN', () => {
     expect(b.res.status).not.toBe('failed');
   });
 
-  it('предохранитель: после 20 самовызовов цепочка не продолжается', async () => {
+  it('предохранитель: после MAX_HOPS самовызовов цепочка не продолжается', async () => {
     const a = await once({ budgetMs: 0 });
     expect(a.res.continueNext).toBe(true);
     const [cur] = await t.db.select().from(syncRuns);
-    await t.db.update(syncRuns).set({ cursor: { ...(cur.cursor as object), hops: 20 } }).where(eq(syncRuns.id, a.run.id));
+    await t.db.update(syncRuns).set({ cursor: { ...(cur.cursor as object), hops: MAX_HOPS } }).where(eq(syncRuns.id, a.run.id));
     const s = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t), continueRunId: a.run.id });
     if (s.kind !== 'started') throw new Error();
     const res = await runChunk(deps({ budgetMs: 0 }), s.run);
