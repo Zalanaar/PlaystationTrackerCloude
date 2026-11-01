@@ -1,0 +1,22 @@
+/* Фаза 29: блок «Сводка в Telegram». Только токены темы. */
+.ps-tg { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); }
+.ps-tg__title { margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; color: var(--text); }
+.ps-tg__lead { margin: 0; color: var(--text-2); font-size: 14px; line-height: 20px; }
+.ps-tg__status { display: flex; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--text-2); min-height: 22px; }
+.ps-tg__status[data-tone="success"] { color: var(--success); }
+.ps-tg__status[data-tone="warning"] { color: var(--warning); }
+.ps-tg__status[data-tone="danger"] { color: var(--danger); }
+.ps-tg__cap { margin: 0; color: var(--text-2); font-size: 14px; line-height: 20px; }
+.ps-tg__codebox { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.ps-tg__code { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 20px; line-height: 28px; letter-spacing: .08em; color: var(--text); white-space: nowrap; user-select: all; }
+.ps-tg__timer { color: var(--text-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.ps-tg__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ps-tg__confirm { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-tg__sk { height: 16px; width: 40%; }
+.ps-tg__sk--cap { height: 40px; width: 100%; }
+@media (max-width: 767px) {
+  .ps-tg__acts, .ps-tg__acts .ps-btn, .ps-tg__codebox .ps-btn { width: 100%; }
+  .ps-tg__acts { flex-direction: column; }
+  .ps-tg .ps-btn { height: var(--tap-min); justify-content: center; }
+  .ps-tg__code { font-size: 20px; }
+}
