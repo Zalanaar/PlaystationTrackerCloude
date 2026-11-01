@@ -45,7 +45,7 @@ export function computeStatusChange(
 
 export class StatusRuleError extends Error {
   constructor(
-    readonly code: 'not_found' | 'date_not_allowed' | 'date_in_future',
+    readonly code: 'not_found' | 'date_not_allowed' | 'date_in_future' | 'status_conflict',
     message: string,
     /** Для date_not_allowed: текущий статус игры (null = без статуса). */
     readonly currentStatus: StatusValue | null = null,
@@ -69,10 +69,29 @@ async function load(db: AnyDb, userId: UserId, gameId: number) {
   return { game: g, current: cur ?? null };
 }
 
+export type SetStatusOptions = {
+  /** Контракт 28.9: ожидаемый текущий статус (null = без статуса); иначе StatusRuleError status_conflict. */
+  expectedStatus?: StatusValue | null;
+  /** Контракт 28.9: записать строку статуса как есть (откат), без правил дат. */
+  restore?: StatusRow;
+};
+
 /** Смена статуса с записью в БД. Возвращает итоговую строку или null («без статуса»). */
-export async function setGameStatus(db: AnyDb, userId: UserId, gameId: number, next: StatusValue | null, now: Date = new Date()): Promise<StatusRow | null> {
+export async function setGameStatus(db: AnyDb, userId: UserId, gameId: number, next: StatusValue | null, now: Date = new Date(), opts: SetStatusOptions = {}): Promise<StatusRow | null> {
   return db.transaction(async (tx) => {
     const { game, current } = await load(tx, userId, gameId);
+    if (opts.expectedStatus !== undefined && (current?.status ?? null) !== opts.expectedStatus) {
+      throw new StatusRuleError('status_conflict', 'Статус игры уже изменён.', current?.status ?? null);
+    }
+    if (opts.restore && next !== null && opts.restore.status === next) {
+      const row = opts.restore;
+      await tx
+        .insert(gameStatus)
+        .values({ userId, gameId, ...row, updatedAt: now })
+        .onConflictDoUpdate({ target: gameStatus.gameId, set: { ...row, updatedAt: now } });
+      if (row.status === 'backlog') await tx.delete(roadmapOrder).where(and(eq(roadmapOrder.gameId, gameId), eq(roadmapOrder.userId, userId)));
+      return row;
+    }
     const t = computeStatusChange(current, next, { lastPlayedAt: game.lastPlayedAt, now });
     if (t.action === 'noop') return current;
     if (t.action === 'delete') {

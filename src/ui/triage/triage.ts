@@ -61,11 +61,18 @@ export function swipeTarget(dx: number, dy: number, width: number, fraction = SW
   return dy < 0 ? TRIAGE_SWIPE.up : TRIAGE_SWIPE.down;
 }
 
-export type TriageCommand = { type: 'status'; status: GameStatusValue } | { type: 'skip' } | { type: 'undo' } | { type: 'exit' };
+export type TriageCommand =
+  | { type: 'status'; status: GameStatusValue } | { type: 'skip' } | { type: 'undo' } | { type: 'exit' }
+  /** только режим «Проверить»: Enter принимает основную цель, N/Т = «Не предлагать» */
+  | { type: 'accept' } | { type: 'dismiss' };
 
-/** Клавиша -> команда. Модификаторы и ввод в поля обрабатывает вызывающий. */
-export function keyCommand(key: string): TriageCommand | null {
+/** Клавиша -> команда. Модификаторы и ввод в поля обрабатывает вызывающий. В режиме `check` («Пропустить» = «Оставить как есть») добавляются Enter и N/Т. */
+export function keyCommand(key: string, check = false): TriageCommand | null {
   if (TRIAGE_KEYS[key]) return { type: 'status', status: TRIAGE_KEYS[key] };
+  if (check) {
+    if (key === 'Enter') return { type: 'accept' };
+    if (key === 'n' || key === 'N' || key === 'т' || key === 'Т') return { type: 'dismiss' };
+  }
   switch (key) {
     case ' ': case 'ArrowRight': case '0': return { type: 'skip' };
     case 'z': case 'Z': case 'я': case 'Я': case 'ArrowLeft': return { type: 'undo' };

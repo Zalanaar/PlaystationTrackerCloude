@@ -184,7 +184,21 @@ export type Mock = {
   hltbDelay: number;
   /** что делать с игрой при ответе с `apply`: ключи games, у которых после вызова появляется совпадение */
   hltbApply: (games: G[], call: number) => void;
+  /** Фаза 27 (контракт 28): подсказки смены статуса; пусто = «Подсказок нет», чип «Проверить» не показывается */
+  hints: HintMock[];
+  /** GET /api/status-hints отвечает этим статусом, пока не сброшен в null */
+  hintsFail: number | null;
+  /** отказы «Не предлагать» в порядке записи (DELETE снимает) */
+  dismissals: { gameId: number; rule: string }[];
 };
+
+/** Подсказка мока: `game` и `question` подставляются из игры и правила. */
+export type HintMock = {
+  gameId: number; rule: 'started' | 'stale' | 'platinum' | 'returned'; currentStatus: Status | null;
+  facts?: { statusChangedAt?: string | null; platinumEarnedAt?: string | null; daysSinceLaunch?: number | null };
+};
+const HINT_Q = { started: 'Играю?', stale: 'Отложить / бросить?', platinum: 'Пройдено?', returned: 'Вернулся?' } as const;
+const HINT_S = { started: ['playing'], stale: ['shelved', 'dropped'], platinum: ['completed'], returned: ['playing'] } as const;
 
 const DAY = 86_400_000;
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -224,6 +238,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
+    hints: [], hintsFail: null, dismissals: [],
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
@@ -309,6 +324,34 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     });
   });
 
+  const liveHints = () => m.hints.filter((h) => !m.dismissals.some((d) => d.gameId === h.gameId && d.rule === h.rule));
+  await page.route('**/api/status-hints/count', (r) => json(r, { count: liveHints().length }));
+  await page.route(/\/api\/status-hints$/, (r) => {
+    if (m.hintsFail) return json(r, { code: 'db_unavailable', message: 'x' }, m.hintsFail);
+    const items = liveHints().map((h) => {
+      const g = m.games.find((x) => x.id === h.gameId) as G;
+      return {
+        gameId: h.gameId, rule: h.rule, question: HINT_Q[h.rule], reason: '', suggested: HINT_S[h.rule], currentStatus: h.currentStatus,
+        facts: { lastPlayedAt: g.lastPlayedAt, statusChangedAt: null, platinumEarnedAt: null, daysSinceLaunch: null, ...h.facts }, game: item(g),
+      };
+    });
+    return json(r, { count: items.length, items });
+  });
+  await page.route('**/api/status-hints/dismissals**', (route) => {
+    const req = route.request();
+    if (req.method() === 'POST') {
+      const b = req.postDataJSON() as { gameId: number; rule: string };
+      m.mutations.push({ method: 'POST', url: req.url(), body: b });
+      if (m.failNextMutation) { const st = m.failNextMutation; m.failNextMutation = null; return json(route, { code: 'db_unavailable', message: 'x' }, st); }
+      if (!m.dismissals.some((d) => d.gameId === b.gameId && d.rule === b.rule)) m.dismissals.push(b);
+      return json(route, b);
+    }
+    const [, gid, rule] = req.url().match(/dismissals\/(\d+)\/(\w+)/) ?? [];
+    m.mutations.push({ method: 'DELETE', url: req.url(), body: null });
+    m.dismissals = m.dismissals.filter((d) => !(d.gameId === Number(gid) && d.rule === rule));
+    return json(route, { gameId: Number(gid), rule });
+  });
+
   await page.route('**/api/hltb/run', async (route) => {
     const req = route.request();
     if (req.method() !== 'POST') return route.fallback();
@@ -363,6 +406,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     }
     const out = apply(body);
     if (out === NOT_FOUND) return json(route, { code: 'not_found', message: 'x' }, 404);
+    if (out && typeof out === 'object' && '__conflict' in out) return json(route, { code: 'status_conflict', message: 'x', details: { status: (out as { __conflict: Status | null }).__conflict } }, 409);
     return json(route, out);
   };
   const setStatus = (g: G, s: Status | null, now = new Date().toISOString()) => {
@@ -374,7 +418,12 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
 
   await page.route(/\/api\/games\/\d+\/status$/, (route) => mutate(route, (b) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/status/)?.[1]);
-    const g = m.games.find((x) => x.id === id) as G;
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return NOT_FOUND;
+    // контракт 28.9: expectedStatus (ключ есть) -> 409 status_conflict; restore восстанавливает строку статуса без пересчёта дат
+    if ('expectedStatus' in b && (g.status ?? null) !== b.expectedStatus) return { __conflict: g.status ?? null };
+    const r = b.restore as { status: Status; completedAt: string | null; droppedAt: string | null } | undefined;
+    if (r) { g.status = r.status; g.completedAt = r.completedAt; g.droppedAt = r.droppedAt; return { game: item(g) }; }
     setStatus(g, b.status as Status | null);
     return { game: item(g) };
   }));

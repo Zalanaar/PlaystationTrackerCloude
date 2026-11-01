@@ -18,7 +18,8 @@ import type { GameActions } from './GameCard';
 import { GameDialog } from './GameDialog';
 import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
 import type { RenderCtx } from './list/renderCtx';
-import { renderBlock } from './list/renderBlocks';
+import { CheckChip, renderBlock } from './list/renderBlocks';
+import { useCheckCount } from '../triage/useCheckCount';
 import { moreBtn, renderGames } from './list/renderGames';
 import { renderPlayed } from './list/renderChronicle';
 import { SelectBar } from './list/SelectBar';
@@ -104,12 +105,14 @@ export function CollectionView() {
     empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
   } = L;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
+  const checkCount = useCheckCount() ?? 0;
+  const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
   usePageArt(chronicleMode ? playing[0]?.coverUrl : null, isMobile);
 
   const renderCtx: RenderCtx = {
-    view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0,
+    view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0, checkCount,
     more: data.more, loadMore, byBlock, chron: L.chron, played, isOpen: L.isOpen, toggle: L.toggle, isPlayedOpen: L.isPlayedOpen, togglePlayed: L.togglePlayed,
     rawLoaded: L.rawLoaded, shownCount, serviceFull: L.serviceFull, serviceOpen: L.serviceOpen, setServiceOpen: L.setServiceOpen,
     serviceRows: L.serviceRows, setServiceRows: L.setServiceRows,
@@ -139,6 +142,7 @@ export function CollectionView() {
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
           <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
+          {checkCount > 0 && !unsortedShown && <p className="ps-pagehead__check"><CheckChip n={checkCount} /></p>}
         </div>
         {!summary
           ? (!pool ? (isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)

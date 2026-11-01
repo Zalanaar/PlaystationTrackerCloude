@@ -61,8 +61,15 @@ export const fetchActivity = (year: number, signal?: AbortSignal) =>
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) =>
   call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
 
-export const putStatus = (id: number, status: GameStatusValue | null) =>
-  call<GameMutationResponse>(`/api/games/${id}/status`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ status }) });
+/** PUT status. `expectedStatus` (ключ есть, даже null) = оптимистичная проверка, 409 `status_conflict`; `restore` = откат строки статуса (контракт 28.9). */
+export const putStatus = (
+  id: number, status: GameStatusValue | null,
+  opts?: { expectedStatus?: GameStatusValue | null; restore?: { status: GameStatusValue; statusChangedAt: string; completedAt: string | null; droppedAt: string | null } },
+) =>
+  call<GameMutationResponse>(`/api/games/${id}/status`, {
+    method: 'PUT', headers: JSON_HEADERS,
+    body: JSON.stringify({ status, ...(opts?.expectedStatus !== undefined ? { expectedStatus: opts.expectedStatus } : {}), ...(opts?.restore ? { restore: opts.restore } : {}) }),
+  });
 
 export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: string) =>
   call<GameMutationResponse>(`/api/games/${id}/status-date`, {
@@ -119,3 +126,23 @@ export async function fetchHltbRun(body: HltbRunBody, signal?: AbortSignal): Pro
     throw e;
   }
 }
+
+// ---------- Подсказки смены статуса (контракт 28). Сайт только предлагает; статус меняет putStatus. ----------
+export const fetchStatusHints = () => call<import('../triage/hints').HintsResponse>('/api/status-hints');
+
+/** Число подсказок для чипа/сегмента. Без редиректа на вход и без исключений: сбой = null (чип просто не показывается). */
+export async function fetchStatusHintCount(): Promise<number | null> {
+  try {
+    const res = await fetch('/api/status-hints/count', { cache: 'no-store' });
+    const json = await res.json().catch(() => null);
+    const n = json?.ok ? json.data?.count : null;
+    return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const postHintDismissal = (gameId: number, rule: string) =>
+  call<{ gameId: number; rule: string }>('/api/status-hints/dismissals', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ gameId, rule }) });
+export const deleteHintDismissal = (gameId: number, rule: string) =>
+  call<{ gameId: number; rule: string }>(`/api/status-hints/dismissals/${gameId}/${rule}`, { method: 'DELETE' });

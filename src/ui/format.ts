@@ -75,6 +75,14 @@ export function formatDayMonth(iso: string | null | undefined, withYear = false)
   return `${p.d} ${MONTHS_SHORT[p.m - 1]}${withYear ? ` ${p.y}` : ''}`;
 }
 
+/** «05.10» (МСК, без года). */
+export function formatDdMm(iso: string | null | undefined): string | null {
+  const t = parse(iso);
+  if (t === null) return null;
+  const p = mskParts(t);
+  return `${pad(p.d)}.${pad(p.m)}`;
+}
+
 /** «Октябрь» по номеру месяца 1..12. */
 export function monthName(m: number): string {
   return MONTHS_NOM[m - 1] ?? '';
