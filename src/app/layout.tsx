@@ -18,8 +18,10 @@ import '@/ui/styles/onboarding.css';
 import '@/ui/styles/tour.css';
 import '@/ui/styles/inbox.css';
 import '@/ui/styles/telegram.css';
+import '@/ui/styles/install.css';
 import './globals.css';
 import { cookies, headers } from 'next/headers';
+import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';
 import { themeInitScript } from '@/ui/theme-script';
 import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
 import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
@@ -52,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <div className="ps-app min-h-screen">{children}</div>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

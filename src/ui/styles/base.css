@@ -48,7 +48,7 @@ a.ps-btn { text-decoration: none; }
 .ps-link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .ps-trigger { background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1); border-radius: var(--r-pill); }
 /* ---------- Шапка ---------- */
-.ps-header { position: sticky; top: 0; z-index: var(--z-header); background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: var(--border-w) solid var(--border); }
+.ps-header { position: sticky; top: 0; z-index: var(--z-header); padding-top: env(safe-area-inset-top); background: var(--header-bg); backdrop-filter: blur(12px); border-bottom: var(--border-w) solid var(--border); }
 .ps-header__in { display: flex; align-items: center; gap: var(--sp-6); min-height: var(--header-h); }
 .ps-logo { font: 700 13px/1 var(--font-display); text-transform: uppercase; letter-spacing: .14em; color: var(--text); text-decoration: none; white-space: nowrap; }
 .ps-nav { display: flex; gap: var(--sp-1); align-self: stretch; }
@@ -268,3 +268,21 @@ a.ps-btn { text-decoration: none; }
 .ps-nf .ps-btn { height: var(--control-h); text-decoration: none; }
 @media (max-width: 767px) { .ps-nf__code { font-size: 64px; line-height: 64px; } .ps-nf .ps-btn { height: var(--tap-min); }
 }
+
+/* ---------- PWA / standalone (design-system §15.4) ---------- */
+html { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; background: var(--bg); }
+.ps-app { min-height: 100dvh; }
+.ps-container { padding-inline: max(var(--gutter), env(safe-area-inset-left), env(safe-area-inset-right)); }
+@media (max-width: 767px) {
+  /* 16px в полях: iOS не зумит страницу при фокусе */
+  .ps-input, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; }
+  .ps-tabbar { padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+}
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+  .ps-tabbar, .ps-header { -webkit-user-select: none; user-select: none; }
+  .ps-tab, .ps-nav-item, .ps-header a, .ps-tabbar a { -webkit-touch-callout: none; }
+}
+html[data-standalone], html[data-standalone] body { overscroll-behavior-y: none; }
+html[data-standalone] .ps-tabbar, html[data-standalone] .ps-header { -webkit-user-select: none; user-select: none; }
+html[data-standalone] .ps-tab, html[data-standalone] .ps-nav-item, html[data-standalone] .ps-header a, html[data-standalone] .ps-tabbar a { -webkit-touch-callout: none; }
