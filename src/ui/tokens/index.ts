@@ -80,3 +80,5 @@ export const THEME_COLORS: Record<ThemeId, string> = {
 /** «Разбор»: клавиши и свайпы (docs/design-system.md §4.9). */
 export const TRIAGE_KEYS: Record<string, GameStatus> = { '1': 'playing', '2': 'completed', '3': 'backlog', '4': 'dropped', '5': 'shelved', '6': 'service' };
 export const TRIAGE_SWIPE: { right: GameStatus; left: GameStatus; up: GameStatus; down: 'skip' } = { right: 'completed', left: 'dropped', up: 'backlog', down: 'skip' };
+/** Режим «Проверить» (design-system §13.5): вправо = принять подсказку, влево = оставить как есть; вверх и вниз отключены. */
+export const TRIAGE_SWIPE_CHECK: { right: 'accept'; left: 'keep' } = { right: 'accept', left: 'keep' };

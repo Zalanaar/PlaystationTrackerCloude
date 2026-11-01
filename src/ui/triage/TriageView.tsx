@@ -13,6 +13,10 @@ import { useMediaQuery, useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
+import { CheckBody } from './CheckView';
+import { checkSegmentText, hintProgress, primaryTarget } from './hints';
+import { useCheckCount } from './useCheckCount';
+import { useCheckQueue } from './useCheckQueue';
 import { FORGOTTEN_HINT, forgottenChipText, forgottenCountOf, forgottenSpan, isForgotten, triageSegments } from './forgotten';
 import {
   applyStatus, initState, keyCommand, progress, rollback, skip, summarize, swipeTarget, SWIPE_STAMP, undo, type SwipeTarget, type TriageState,
@@ -34,7 +38,10 @@ export function TriageView() {
   const toast = useToast();
   const wide = useMediaQuery('(min-width: 1000px)');
   const params = useSearchParams();
-  const forgotten = params.get('forgotten') === '1';
+  const check = params.get('mode') === 'check';
+  const forgotten = !check && params.get('forgotten') === '1';
+  const hintCount = useCheckCount();
+  const cq = useCheckQueue(check);
   const now = useNow();
   const [forgottenCount, setForgottenCount] = useState(0);
   const [order, setOrder] = useState<Order>('last_played');
@@ -90,6 +97,7 @@ export function TriageView() {
     if (game && isForgotten(game, Date.now())) setForgottenCount((n) => Math.max(0, n + delta));
   };
   const setMode = (only: boolean) => router.replace(only ? '/triage?forgotten=1' : '/triage');
+  const setCheck = () => router.replace('/triage?mode=check');
 
   const send = useCallback((game: GameItem, status: GameStatusValue | null, onFail: () => void) => {
     const run = async () => {
@@ -152,21 +160,82 @@ export function TriageView() {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (document.querySelector('[role="dialog"]')) return;
-      const cmd = keyCommand(e.key);
+      const cmd = keyCommand(e.key, check);
       if (!cmd) return;
-      if (cmd.type === 'skip' && el && (el.tagName === 'BUTTON' || el.tagName === 'A')) return; // пробел на кнопке нажимает кнопку
+      if ((cmd.type === 'skip' || cmd.type === 'accept') && el && (el.tagName === 'BUTTON' || el.tagName === 'A')) return; // пробел и Enter на кнопке нажимают кнопку
       e.preventDefault();
+      if (check) {
+        // режим «Проверить»: «Пропустить» = «Оставить как есть» (на сервер не пишет)
+        const head = cq.state?.queue[0];
+        if (cmd.type === 'status') cq.accept(cmd.status);
+        else if (cmd.type === 'accept') { if (head) cq.accept(primaryTarget(head)); }
+        else if (cmd.type === 'skip') cq.keep();
+        else if (cmd.type === 'dismiss') cq.dismiss();
+        else if (cmd.type === 'undo') cq.undo();
+        else if (cmd.type === 'exit') router.push('/');
+        return;
+      }
       if (cmd.type === 'status') act(cmd.status);
       else if (cmd.type === 'skip') doSkip();
       else if (cmd.type === 'undo') doUndo();
-      else router.push('/');
+      else if (cmd.type === 'exit') router.push('/');
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [act, doSkip, doUndo, router]);
+  }, [act, doSkip, doUndo, router, check, cq]);
 
   // ---------- вывод ----------
+  // сегменты режимов: «Все N» / «Забытые N» / «Проверить N»; «Проверить» виден при N > 0 или в активном режиме (§13.1)
+  const checkN = check && cq.state ? cq.state.queue.length : hintCount ?? 0;
+  const modeSeg = () => {
+    const showCheck = checkN > 0 || check;
+    const showForgotten = forgottenCount > 0 || forgotten;
+    if (!counts || !(showCheck || showForgotten)) return null;
+    const seg = triageSegments(counts.none, forgottenCount);
+    return (
+      <div className="ps-seg ps-tri__mode" role="group" aria-label="Какие игры разбирать">
+        <button type="button" aria-pressed={!forgotten && !check} onClick={() => setMode(false)}>{seg.all}</button>
+        {showForgotten && <button type="button" aria-pressed={forgotten} onClick={() => setMode(true)}>{seg.forgotten}</button>}
+        {showCheck && <button type="button" aria-pressed={check} onClick={setCheck}>{checkSegmentText(checkN)}</button>}
+      </div>
+    );
+  };
+  const renderCheck = () => {
+    const q = cq.state;
+    if (cq.error && !q) {
+      return (
+        <div className="ps-tri ps-tri--check">
+          {modeSeg()}
+          <EmptyState icon="circle-alert" role="alert" title="Не удалось загрузить подсказки" text="Статусы не тронуты. Попробуй ещё раз.">
+            <button type="button" className="ps-btn ps-btn--primary" onClick={() => void cq.load()}><Icon name="refresh" size={16} />Повторить</button>
+          </EmptyState>
+        </div>
+      );
+    }
+    if (!q) return <TriageSkeleton check>{modeSeg()}</TriageSkeleton>;
+    const p = hintProgress(q);
+    const body = (
+      <CheckBody
+        state={q} wide={wide} a={cq} hasUnsorted={(counts?.none ?? 0) > 0}
+        onToUnsorted={() => setMode(false)}
+      />
+    );
+    if (q.total === 0 || q.queue.length === 0) return <div className="ps-tri--check">{body}</div>;
+    return (
+      <div className="ps-tri ps-tri--check" data-wide={wide || undefined}>
+        <div className="ps-tri__top">
+          <span className="ps-tri__pos num" aria-label={`Проверено ${p.done} из ${p.total}`}>{p.done} / {p.total}</span>
+          <div className="ps-pbar" role="progressbar" aria-label="Прогресс проверки" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.fraction * 100)}><i style={{ width: `${p.fraction * 100}%` }} /></div>
+          <span className="ps-tri__left num">осталось {p.left}</span>
+          <Link href="/" className="ps-btn ps-btn--ghost ps-tri__exit">Выйти <kbd>Esc</kbd></Link>
+        </div>
+        {modeSeg()}
+        {body}
+      </div>
+    );
+  };
   const render = () => {
+  if (check) return renderCheck();
   if (error && !state) {
     return (
       <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить очередь. Попробуй ещё раз.">
@@ -218,12 +287,7 @@ export function TriageView() {
         <span className="ps-tri__left num">осталось {p.left}</span>
         <Link href="/" className="ps-btn ps-btn--ghost ps-tri__exit">Выйти <kbd>Esc</kbd></Link>
       </div>
-      {(forgottenCount > 0 || forgotten) && (
-        <div className="ps-seg ps-tri__mode" role="group" aria-label="Какие игры разбирать">
-          <button type="button" aria-pressed={!forgotten} onClick={() => setMode(false)}>{triageSegments(counts.none, forgottenCount).all}</button>
-          <button type="button" aria-pressed={forgotten} onClick={() => setMode(true)}>{triageSegments(counts.none, forgottenCount).forgotten}</button>
-        </div>
-      )}
+      {modeSeg()}
       {wide ? (
         <Desktop now={now} game={head} queue={state.queue.slice(1, 6)} order={order} onOrder={setOrder} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
       ) : (
@@ -233,15 +297,21 @@ export function TriageView() {
   );
   };
   // маркер готовности страницы для тура (design-system §10.7); обёртка не влияет на вёрстку
-  const ready = (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
+  const ready = check
+    ? (cq.error && !cq.state) || !!cq.state
+    : (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
   return <div className="ps-tour-page" data-tour-page="triage" data-tour-ready={String(!!ready)}>{render()}</div>;
 }
 
-function TriageSkeleton() {
+function TriageSkeleton({ check, children }: { check?: boolean; children?: React.ReactNode }) {
   return (
-    <div className="ps-tri" aria-busy="true" aria-label="Загрузка">
+    <div className={check ? 'ps-tri ps-tri--check' : 'ps-tri'} aria-busy="true" aria-label="Загрузка">
       <div className="ps-tri__top"><span className="ps-skeleton ps-sk-line" style={{ width: 120 }} /></div>
-      <div className="ps-tri__grid"><div className="ps-skeleton ps-tri__cover" /></div>
+      {children}
+      <div className="ps-tri__grid">
+        <div className="ps-skeleton ps-tri__cover" />
+        {check && <div className="ps-tri__skkeys" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className="ps-skeleton ps-sk-row" />)}</div>}
+      </div>
     </div>
   );
 }

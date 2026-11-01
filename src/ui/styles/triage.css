@@ -102,3 +102,56 @@
   .ps-tri__mode { display: flex; width: 100%; }
   .ps-tri__mode button { flex: 1; height: 40px; }
 }
+
+/* ---------- Фаза 27: «Проверить» (design-system §13): подсказки смены статуса. Новых токенов нет, сайт только предлагает ---------- */
+.ps-tri--check { padding-bottom: var(--sp-10); }
+.ps-sg { display: grid; gap: var(--sp-2); max-width: 440px; margin: 0 0 var(--sp-4); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-sg__rule {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: var(--border-w) solid var(--border-strong); color: var(--text-2); font: 600 11px/14px var(--font-body);
+}
+.ps-sg__q { margin: 0; color: var(--text); font: 700 20px/26px var(--font-display); }
+.ps-sg__why { margin: 0; color: var(--text-2); font: 400 14px/20px var(--font-body); overflow-wrap: anywhere; }
+.ps-sg__why b { color: var(--text); font-weight: 600; }
+.ps-sg__warn { margin: 0; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-sg__act { display: flex; flex-wrap: wrap; gap: var(--sp-2); max-width: 440px; margin: 0 0 var(--sp-4); }
+.ps-sg__act .ps-btn, .ps-sg__row .ps-btn { height: calc(var(--control-h) + 4px); }
+.ps-sg__act .ps-btn kbd { margin-right: 6px; }
+/* фигура статуса на акцентной заливке: цвет кнопки, чтобы не терялась (inline-цвет фигуры перебиваем только здесь) */
+.ps-sg__btn.ps-btn--primary svg, .ps-stack3__fg svg { color: currentColor !important; }
+.ps-sg__btn { display: inline-flex; align-items: center; gap: 6px; }
+.ps-key[data-target="true"] { border-color: var(--st-x); background: color-mix(in srgb, var(--st-x) 10%, var(--surface)); }
+.ps-key[aria-disabled="true"] { opacity: .5; cursor: default; }
+.ps-key[aria-disabled="true"]:hover { border-color: var(--border); background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.ps-tri__skkeys { display: grid; gap: var(--sp-2); align-content: start; }
+.ps-tri__skkeys .ps-sk-row { height: 52px; }
+.ps-tri__actions button[data-target="true"] { border-color: var(--st-x); background: color-mix(in srgb, var(--st-x) 10%, var(--surface)); color: var(--text); }
+.ps-tri__actions button:disabled { opacity: .5; cursor: default; }
+.ps-tri__row2 .ps-sg__btn--main { flex: 2; }
+.ps-sg__dismiss { width: 100%; }
+@media (max-width: 999px) {
+  /* стопка ниже, чтобы «Принять» помещалась на 360x640 без прокрутки */
+  .ps-tri--check .ps-stack3 { aspect-ratio: auto; height: clamp(200px, 36svh, 320px); margin-bottom: var(--sp-5); }
+  .ps-tri--check .ps-sg { max-width: none; padding: var(--sp-3); }
+  .ps-tri--check .ps-tri__m { padding-bottom: calc(var(--tap-min) + var(--sp-10)); }
+}
+@media (max-width: 767px) and (max-height: 700px) {
+  /* низкий экран (360x640): стопка ниже спеки (36svh), иначе «Принять» уходит под tab bar */
+  .ps-tri--check .ps-stack3 { height: clamp(160px, 28svh, 320px); }
+}
+@media (max-width: 767px) {
+  /* бюджет 360x640 (§13.5): чип правила уже на обложке, предупреждение остаётся для читалок экрана */
+  .ps-tri--check { padding-top: 0; }
+  .ps-tri--check .ps-tri__top { padding-top: var(--sp-1); }
+  .ps-tri--check .ps-tri__mode { margin-top: var(--sp-2); }
+  .ps-tri--check .ps-tri__m { padding-top: 0; }
+  .ps-tri--check .ps-stack3 { margin-top: var(--sp-2); }
+  .ps-tri--check .ps-sg { gap: var(--sp-1); margin-bottom: var(--sp-3); }
+  .ps-tri--check .ps-sg__rule { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
+  .ps-tri--check .ps-sg__warn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ps-sg__q { font-size: 17px; line-height: 22px; }
+  .ps-tri--check .ps-tri__row2 .ps-btn { white-space: normal; }
+}
+@media (prefers-contrast: more) {
+  .ps-sg, .ps-key { border-width: 2px; }
+}

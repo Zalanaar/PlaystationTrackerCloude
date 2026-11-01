@@ -4,6 +4,7 @@ import type { GameItem } from '@/server/collection/types';
 import { formatNumber } from '../../format';
 import { Icon, StatusGlyph } from '../../icons';
 import { forgottenCountText } from '../../triage/forgotten';
+import { checkChipText } from '../../triage/hints';
 import { isFull, type BlockId } from '../blocks';
 import { BlockHead } from '../Chronicle';
 import { previewSlots } from '../chronicle';
@@ -76,7 +77,7 @@ export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
 }
 
 export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
-  const { view, cols, filters, counts, byBlock, forgotten, setFilters, shownCount, rawLoaded } = c;
+  const { view, cols, filters, counts, byBlock, forgotten, checkCount, setFilters, shownCount, rawLoaded } = c;
   const list = byBlock[b] ?? [];
   if (b === 'playing') {
     // hero «Играю» остаётся сверху; здесь те же игры обычными карточками, до годов (Фаза 22, 1.2). Пустой блок не показываем.
@@ -99,8 +100,11 @@ export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
     <section key={b} className="ps-block" id={id} aria-labelledby={`h-${id}`}>
       <BlockHead
         id={`h-${id}`} title={titles[b]} count={total}
-        extra={b === 'unsorted' && (forgotten) > 0 ? (
-          <Link href="/triage?forgotten=1" className="ps-chipbtn"><Icon name="clock" size={12} />{forgottenCountText(forgotten)}</Link>
+        extra={b === 'unsorted' && (forgotten > 0 || checkCount > 0) ? (
+          <>
+            {forgotten > 0 && <Link href="/triage?forgotten=1" className="ps-chipbtn"><Icon name="clock" size={12} />{forgottenCountText(forgotten)}</Link>}
+            {checkCount > 0 && <CheckChip n={checkCount} />}
+          </>
         ) : undefined}
       >
         {b === 'backlog' && <Link href="/backlog" className="ps-link ps-link--plain">Все <Icon name="arrow-right" size={14} /></Link>}
@@ -114,4 +118,9 @@ export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
       {full && moreBtn(c, b, counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'] - rawLoaded(b))}
     </section>
   );
+}
+
+/** Вход в режим «Проверить» (design-system §13.1): чип рядом с «Забытые» или одной строкой под StatLine. */
+export function CheckChip({ n }: { n: number }) {
+  return <Link href="/triage?mode=check" className="ps-chipbtn" data-testid="check-chip"><Icon name="check-circle" size={12} />{checkChipText(n)}</Link>;
 }

@@ -479,3 +479,5 @@
   .ps-pagehead--coll { padding-bottom: 0; }
   .ps-hero__main { min-height: var(--hero-box-h); }
 }
+/* Фаза 27: вход в «Проверить» одной строкой под StatLine, когда блока «Не разобрано» нет */
+.ps-pagehead__check { margin: var(--sp-2) 0 0; }

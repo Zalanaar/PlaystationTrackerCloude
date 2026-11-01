@@ -119,3 +119,23 @@ export async function fetchHltbRun(body: HltbRunBody, signal?: AbortSignal): Pro
     throw e;
   }
 }
+
+// ---------- Подсказки смены статуса (контракт 28). Сайт только предлагает; статус меняет putStatus. ----------
+export const fetchStatusHints = () => call<import('../triage/hints').HintsResponse>('/api/status-hints');
+
+/** Число подсказок для чипа/сегмента. Без редиректа на вход и без исключений: сбой = null (чип просто не показывается). */
+export async function fetchStatusHintCount(): Promise<number | null> {
+  try {
+    const res = await fetch('/api/status-hints/count', { cache: 'no-store' });
+    const json = await res.json().catch(() => null);
+    const n = json?.ok ? json.data?.count : null;
+    return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const postHintDismissal = (gameId: number, rule: string) =>
+  call<{ gameId: number; rule: string }>('/api/status-hints/dismissals', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ gameId, rule }) });
+export const deleteHintDismissal = (gameId: number, rule: string) =>
+  call<{ gameId: number; rule: string }>(`/api/status-hints/dismissals/${gameId}/${rule}`, { method: 'DELETE' });
