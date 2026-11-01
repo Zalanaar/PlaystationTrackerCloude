@@ -52,6 +52,28 @@
 .ps-bl-src[data-hltb="not_found"] { border-color: var(--warning); }
 .ps-bl-dur { flex-wrap: wrap; }
 
+/* Фаза 32: RemainingMeter, «осталось ≈ N ч» + полоса 4 px (спека п.1) */
+.ps-rem { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0 0 var(--sp-2); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-rem__line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0; margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.ps-rem__line svg { flex: none; color: var(--text-3); }
+.ps-rem__t b { font-weight: 600; color: var(--text); }
+.ps-rem__src { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-micro); line-height: 14px; font-weight: 500; color: var(--text-3); }
+.ps-rem__src::before { content: "\00b7"; margin-right: 3px; }
+.ps-rem__src[data-minimum] { color: var(--text-2); }
+.ps-rem__nf { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 var(--sp-2); border: var(--border-w) solid var(--warning); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
+.ps-rem__nf svg { color: var(--text-2); }
+.ps-rem__bar { height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-rem__bar i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--accent); transition: width var(--dur-slow) var(--ease-out); }
+.ps-rem[data-kind="notFound"] .ps-rem__line, .ps-rem[data-kind="unknown"] .ps-rem__line { min-height: 20px; }
+.ps-rem__act { margin-top: 2px; align-self: flex-start; }
+.ps-rem[data-variant="row"] { margin: 0; }
+.ps-rem[data-variant="row"] .ps-rem__src::before { content: none; }
+@media (max-width: 767px) {
+  /* карточки 2 колонки: только «≈ 12 ч» и полоса, источник и пометки в окне игры и aria-label */
+  .ps-rem[data-variant="card"] .ps-rem__w, .ps-rem[data-variant="card"] .ps-rem__src { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ps-rem__bar i { transition: none; } }
+
 /* Блок «Сервис» на странице бэклога */
 .ps-bl-service { margin-top: var(--sp-8); }
 .ps-bl-service__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-1); }
@@ -135,6 +157,7 @@
 .ps-blrow .ps-cover--empty span { display: none; }   /* название рядом: в миниатюре текст нечитаем */
 .ps-blrow__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ps-blrow__title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font: 600 14px/18px var(--font-body); color: var(--text); }
+.ps-blrow:has(.ps-rem[data-kind="notFound"], .ps-rem[data-minimum]) .ps-blrow__title { -webkit-line-clamp: 1; }
 .ps-blrow__plat { display: inline-block; vertical-align: -2px; margin-left: 4px; color: var(--plat-text); }
 .ps-blrow__dur { flex-wrap: nowrap; margin: 0; min-width: 0; overflow: hidden; white-space: nowrap; }
 .ps-blrow__dur .ps-bl-src { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -13,9 +13,10 @@ import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
 import { BacklogFilters } from './BacklogFilters';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
+import { RemainingMeter } from './RemainingMeter';
 import { BacklogRow, type RowMenuItem } from './BacklogRow';
 import {
-  BACKLOG_PAGE, backlogToApi, backlogToUrl, durationText, hasBacklogFilters, isNotOnHltb, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, shelvedToApi, sourceLabel,
+  BACKLOG_PAGE, backlogToApi, backlogToUrl, hasBacklogFilters, needsHours, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, shelvedToApi,
   type BacklogFilters as Filters,
 } from './backlog';
 import { GameCard, type GameActions } from './GameCard';
@@ -245,6 +246,7 @@ export function BacklogView() {
   const hltb = useHltbRunner(() => void load());
   const startHltb = hltb.start;
   const menuFor = (g: GameItem, kind: 'backlog' | 'shelved' | 'service'): RowMenuItem[] => [
+    ...(kind !== 'service' && needsHours(g) ? [{ label: 'Указать часы', run: () => actions.open(g) }] : []),
     { label: 'Открыть игру', run: () => actions.open(g) },
     ...(kind === 'backlog' ? [{ label: 'В сервис', run: () => void change(g, 'service') }, { label: 'Убрать из бэклога', run: () => void change(g, null) }] : []),
     ...(kind === 'shelved' ? [{ label: 'Вернуть в бэклог', run: () => void change(g, 'backlog') }] : []),
@@ -253,7 +255,7 @@ export function BacklogView() {
   const rows = (list: GameItem[], kind: 'backlog' | 'shelved' | 'service', label: string) => (
     <ul className="ps-bl-rows" aria-label={label}>
       {list.map((g) => (
-        <BacklogRow key={g.id} game={g} onOpen={() => actions.open(g)} onPlay={() => void change(g, 'playing')} menu={menuFor(g, kind)} />
+        <BacklogRow key={g.id} game={g} hideBar={kind === 'service'} onOpen={() => actions.open(g)} onPlay={() => void change(g, 'playing')} menu={menuFor(g, kind)} />
       ))}
     </ul>
   );
@@ -360,12 +362,8 @@ export function BacklogView() {
           {items.map((g) => (
             <GameGridItem key={g.id}>
               <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                <p className="ps-bl-dur num" data-testid="bl-duration" data-source={g.duration?.source ?? undefined}>
-                  <Icon name="clock" size={12} />
-                  <span aria-label={g.duration?.hours != null ? `Длительность ${durationText(g.duration)}` : 'Длительность неизвестна'}>{durationText(g.duration)}</span>
-                  {sourceLabel(g.duration?.source ?? null) && <span className="ps-bl-src" data-source={g.duration?.source ?? undefined}>{sourceLabel(g.duration?.source ?? null)}</span>}
-                  {isNotOnHltb(g.duration) && <span className="ps-bl-src" data-hltb="not_found" data-testid="bl-no-hltb">нет на HLTB</span>}
-                </p>
+                <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
+                {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
                 <div className="ps-bl-actions">
                   <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
                     <StatusGlyph status="playing" size={14} />Начать играть
@@ -409,11 +407,8 @@ export function BacklogView() {
                   {shelved.map((g) => (
                     <GameGridItem key={g.id}>
                       <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                        <p className="ps-bl-dur num" data-testid="bl-duration" data-source={g.duration?.source ?? undefined}>
-                          <Icon name="clock" size={12} />
-                          <span aria-label={g.duration?.hours != null ? `Длительность ${durationText(g.duration)}` : 'Длительность неизвестна'}>{durationText(g.duration)}</span>
-                          {sourceLabel(g.duration?.source ?? null) && <span className="ps-bl-src" data-source={g.duration?.source ?? undefined}>{sourceLabel(g.duration?.source ?? null)}</span>}
-                        </p>
+                        <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
+                        {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
                         <div className="ps-bl-actions">
                           <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
                             <StatusGlyph status="backlog" size={14} />Вернуть в бэклог

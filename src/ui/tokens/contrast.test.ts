@@ -118,6 +118,8 @@ describe('контраст тем', () => {
       it('--accent-ink на --accent >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
       // Фаза 13: подсказка активного сегмента времени («Подскажи») лежит на --surface-3
       it('--text-2 на --surface-3 >= 4.5', () => expect(ratio(get(t, '--text-2'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
+      // Фаза 32: полоса «осталось» и цель года, заливка --accent на дорожке --surface-3 (нетекст >= 3)
+      it('--accent на --surface-3 (полоса остатка и цели) >= 3', () => expect(ratio(get(t, '--accent'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(3));
       for (const bg of BGS)
         it(`--accent на ${bg} >= 4.5`, () => expect(ratio(get(t, '--accent'), get(t, bg))).toBeGreaterThanOrEqual(4.5));
       for (const st of [...STATUSES, ...SEMANTIC])

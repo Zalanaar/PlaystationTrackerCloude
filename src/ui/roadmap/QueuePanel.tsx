@@ -167,6 +167,8 @@ export function QueuePanel({
           const cn = nums.get(r.key) ?? [];
           const e = r.entry;
           const src = hoursSourceLabel(e.hoursSource);
+          // Фаза 32 (17.4): hours у начатой игры бэклога = остаток, полная длительность в totalHours
+          const started = typeof e.totalHours === 'number' && (e.playedHours ?? 0) > 0 && e.totalHours > e.hours!;
           const isOver = over?.key === r.key ? over.side : undefined;
           return (
             <li
@@ -194,7 +196,10 @@ export function QueuePanel({
                 <small>
                   {e.hours !== null ? (
                     <>
-                      <Icon name="clock" size={12} /><span className="num">{hoursLabel(e.hours)}</span>
+                      <Icon name="clock" size={12} />
+                      {started ? (
+                        <span className="num" title={`Наиграно ${hoursLabel(e.playedHours ?? 0)} из ${hoursLabel(e.totalHours ?? 0)}`}>осталось {hoursLabel(e.hours)}</span>
+                      ) : <span className="num">{hoursLabel(e.hours)}</span>}
                       {src && <span className="ps-rm-src">{r.movable ? src : 'ручн.'}</span>}
                     </>
                   ) : (
