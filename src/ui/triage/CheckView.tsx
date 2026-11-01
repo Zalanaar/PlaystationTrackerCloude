@@ -11,7 +11,7 @@ import { StatusGlyph } from '../icons';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS } from '../tokens';
 import {
-  acceptLabel, checkSwipe, hintAnnounce, hintQuestion, hintReason, isCurrentStatus, isHintTarget, keyDateHint, primaryTarget, STALE_LABEL, summarizeHints,
+  acceptLabel, checkSwipe, hintAnnounce, hintQuestion, hintReason, isCurrentStatus, isHintTarget, keyDateHint, platinumDateNote, primaryTarget, STALE_LABEL, summarizeHints,
   type CheckSwipe, type HintItem, type HintState,
 } from './hints';
 import type { CheckQueue } from './useCheckQueue';
@@ -74,9 +74,11 @@ function AcceptButtons({ h, onAccept }: { h: HintItem; onAccept: (s: GameStatusV
     );
   }
   const s = primaryTarget(h);
+  const note = platinumDateNote(h);
   return (
-    <button type="button" className="ps-btn ps-btn--primary ps-sg__btn ps-sg__btn--main" data-status={s} onClick={() => onAccept(s)} aria-keyshortcuts={`Enter ${TRIAGE_KEYS_REV[s]}`}>
-      <StatusGlyph status={s} size={16} />{acceptLabel(s)}
+    <button type="button" className="ps-btn ps-btn--primary ps-sg__btn ps-sg__btn--main" data-status={s} data-sub={note ? '' : undefined} onClick={() => onAccept(s)} aria-keyshortcuts={`Enter ${TRIAGE_KEYS_REV[s]}`}>
+      <StatusGlyph status={s} size={16} />
+      {note ? <span className="ps-sg__lbl">{acceptLabel(s)}<small>{note}</small></span> : acceptLabel(s)}
     </button>
   );
 }

@@ -53,6 +53,119 @@ test.describe('Проверить (desktop)', () => {
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'backlog' } });
   });
 
+  const RETURNED: HintMock[] = [
+    { gameId: 5, rule: 'returned', currentStatus: 'dropped', facts: { statusChangedAt: '2026-01-02T09:00:00.000Z' } },
+    { gameId: 3, rule: 'stale', currentStatus: 'playing', facts: { daysSinceLaunch: 42 } },
+    { gameId: 8, rule: 'started', currentStatus: null },
+  ];
+
+  test('QA-27-1: откат «Принять» шлёт restore из снимка ДО принятия и expectedStatus = принятая цель', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!, RETURNED);
+    await page.keyboard.press('Enter');
+    await expect.poll(() => mock.mutations.length).toBe(1);
+    expect(mock.mutations[0].body).toEqual({ status: 'playing', expectedStatus: 'dropped' });
+    await page.keyboard.press('z');
+    await expect.poll(() => mock.mutations.length).toBe(2);
+    expect(mock.mutations[1].body).toEqual({
+      status: 'dropped', expectedStatus: 'playing',
+      restore: { status: 'dropped', statusChangedAt: '2026-01-02T09:00:00.000Z', completedAt: null, droppedAt: '2025-12-31T21:30:00.000Z' },
+    });
+    // даты в «БД» мока восстановлены, а не пересчитаны
+    expect(mock.games.find((g) => g.id === 5)).toMatchObject({ status: 'dropped', droppedAt: '2025-12-31T21:30:00.000Z' });
+    await expect(title(page, 'Hades')).toBeVisible();
+  });
+
+  test('QA-27-1: без прошлого статуса откат = {status:null} без restore', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!, [HINTS[2], HINTS[0]]);
+    await page.keyboard.press('Enter');
+    await expect.poll(() => mock.mutations.length).toBe(1);
+    expect(mock.mutations[0].body).toEqual({ status: 'playing', expectedStatus: null });
+    await page.keyboard.press('z');
+    await expect.poll(() => mock.mutations.length).toBe(2);
+    expect(mock.mutations[1].body).toEqual({ status: null, expectedStatus: 'playing' });
+  });
+
+  test('QA-27-3: 409 убирает карточку, счётчик не откатывается, warning-тост без «Отменить», «Обновить подсказку» перезагружает очередь', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!);
+    (mock.games.find((g) => g.id === 6) as { status: string }).status = 'shelved'; // статус сменили в другом месте
+    await page.keyboard.press('Enter');
+    const toast = page.locator('.ps-toast', { hasText: 'Статус уже изменён в другом месте. Подсказка могла устареть.' });
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveAttribute('data-kind', 'warning');
+    await expect(toast.getByRole('button', { name: 'Отменить' })).toHaveCount(0);
+    await expect(page.locator('.ps-toast', { hasText: 'Статус изменён: Играю' })).toHaveCount(0);
+    await expect(title(page, 'Horizon Forbidden West')).toBeVisible();
+    await expect(page.locator('.ps-tri__pos')).toHaveText('1 / 3');
+    // Z не откатывает конфликтную запись и ничего не шлёт
+    const n = mock.mutations.length;
+    await page.keyboard.press('z');
+    await page.waitForTimeout(150);
+    expect(mock.mutations.length).toBe(n);
+    await toast.getByRole('button', { name: 'Обновить подсказку' }).click();
+    await expect(title(page, 'Stray')).toBeVisible();
+    await expect(page.locator('.ps-tri__pos')).toHaveText('0 / 3');
+    await expect(page).toHaveURL(/mode=check/);
+  });
+
+  test('QA-27-3: игра удалена (404) = «Игра не найдена», счётчик уменьшается', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!);
+    mock.games = mock.games.filter((g) => g.id !== 6);
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Игра не найдена, подсказка убрана')).toBeVisible();
+    await expect(page.locator('.ps-toast', { hasText: 'Подсказка могла устареть' })).toHaveCount(0);
+  });
+
+  test('QA-27-2: тост заменяется новым, «Отменить» и Z откатывают своё действие', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!);
+    await page.keyboard.press('Enter'); // принять Stray
+    await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
+    await page.keyboard.press('n'); // не предлагать Horizon
+    await expect(page.getByText('Не предлагаем «Отложить / бросить?» для «Horizon Forbidden West»')).toBeVisible();
+    // прежний тост заменён: «Отменить» осталась только у последнего
+    await expect(page.getByText('Статус изменён: Играю')).toHaveCount(0);
+    await expect(page.locator('.ps-toast__action')).toHaveCount(1);
+    await expect.poll(() => mock.dismissals.length).toBe(1);
+    await page.locator('.ps-toast__action').click();
+    await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'DELETE' });
+    expect(mock.mutations.at(-1)!.url).toMatch(/dismissals\/3\/stale$/);
+    await expect(title(page, 'Horizon Forbidden West')).toBeVisible();
+    // статус Stray остался принятым: PUT отката не было
+    expect(mock.mutations.filter((x) => x.method === 'PUT')).toHaveLength(1);
+    // Z откатывает предыдущее действие (принять Stray)
+    await page.keyboard.press('z');
+    await expect.poll(() => mock.mutations.filter((x) => x.method === 'PUT').length).toBe(2);
+    expect(mock.mutations.at(-1)!.url).toMatch(/games\/6\/status$/);
+  });
+
+  test('QA-27-2: Z закрывает тост откатанного действия, повторный клик по нему не нужен', async ({ page, context, baseURL }) => {
+    const mock = await open(page, context, baseURL!);
+    await page.keyboard.press('n');
+    const t = page.locator('.ps-toast', { hasText: 'Не предлагаем' });
+    await expect(t).toBeVisible();
+    await page.keyboard.press('z');
+    await expect(t).toHaveCount(0);
+    await expect.poll(() => mock.mutations.filter((x) => x.method === 'DELETE').length).toBe(1);
+    await page.waitForTimeout(150);
+    expect(mock.mutations.filter((x) => x.method === 'DELETE')).toHaveLength(1);
+  });
+
+  test('QA-27-4: platinum: подпись «дата завершения — последний запуск» на кнопке и строке, дата платины только в причине', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, [
+      { gameId: 3, rule: 'platinum', currentStatus: 'playing', facts: { platinumEarnedAt: '2026-10-12T10:00:00.000Z' } },
+      { gameId: 9, rule: 'platinum', currentStatus: null, facts: { platinumEarnedAt: '2026-10-12T10:00:00.000Z' } },
+    ]);
+    const note = 'дата завершения — последний запуск: 20.10';
+    await expect(page.getByRole('button', { name: 'Принять: Пройдено' })).toContainText(note);
+    await expect(page.locator('.ps-key[data-status="completed"] .ps-key__h, .ps-key[data-status="completed"]').first()).toContainText(/предлагаем|последний запуск/);
+    await expect(page.locator('.ps-sg__why')).toContainText('12 окт.');
+    await expect(page.getByText(note)).toHaveCount(1);
+    await page.keyboard.press('0');
+    // игра без lastPlayedAt: подписи с датой нет
+    await expect(title(page, 'Gran Turismo 7')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Принять: Пройдено' })).not.toContainText('последний запуск');
+    await expect(page.locator('.ps-sg__why')).toContainText('12 окт.');
+  });
+
   test('«Оставить как есть» (0, Пробел, →) ничего не пишет на сервер', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!);
     await page.keyboard.press('0');

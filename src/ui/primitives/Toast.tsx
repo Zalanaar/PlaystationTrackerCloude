@@ -4,12 +4,15 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, useS
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons';
 
-type ToastItem = { id: number; text: string; kind: 'info' | 'error'; alert?: boolean; action?: { label: string; run: () => void } };
+type ToastItem = { id: number; text: string; kind: 'info' | 'error' | 'warning'; alert?: boolean; action?: { label: string; run: () => void } };
 /** ttl: время показа в мс (по умолчанию 4 с, ошибки 8 с); длиннее для откатов массовых действий. */
-type Push = (t: { text: string; kind?: 'info' | 'error'; alert?: boolean; action?: ToastItem['action']; ttl?: number }) => void;
+/** Возвращает id тоста: по нему вызывающий может закрыть тост (useToastDismiss). */
+type Push = (t: { text: string; kind?: ToastItem['kind']; alert?: boolean; action?: ToastItem['action']; ttl?: number }) => number;
 
-const Ctx = createContext<Push>(() => {});
+const Ctx = createContext<Push>(() => 0);
+const DismissCtx = createContext<(id: number) => void>(() => {});
 export const useToast = () => useContext(Ctx);
+export const useToastDismiss = () => useContext(DismissCtx);
 
 const TTL_MS = 4000;
 
@@ -21,6 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = ++seq.current;
     setItems((l) => [...l.slice(-2), { id, text: t.text, kind: t.kind ?? 'info', alert: t.alert, action: t.action }]);
     setTimeout(() => dismiss(id), t.ttl ?? (t.kind === 'error' ? TTL_MS * 2 : TTL_MS));
+    return id;
   }, [dismiss]);
   const value = useMemo(() => push, [push]);
   // Портал в body: .ps-app изолирует стек (decor.css), иначе тост с «Отменить» оказывается под окном игры
@@ -28,6 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={value}>
+      <DismissCtx.Provider value={dismiss}>
       {children}
       {mounted && createPortal(
         <div className="ps-toasts" aria-live="polite">
@@ -44,6 +49,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         </div>,
         document.body,
       )}
+      </DismissCtx.Provider>
     </Ctx.Provider>
   );
 }

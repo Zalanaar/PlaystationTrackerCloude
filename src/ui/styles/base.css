@@ -106,6 +106,7 @@ a.ps-btn { text-decoration: none; }
 .ps-toasts { position: fixed; z-index: var(--z-toast); left: 50%; bottom: var(--sp-6); transform: translateX(-50%); display: flex; flex-direction: column; gap: var(--sp-2); width: min(360px, calc(100vw - 2 * var(--gutter))); }
 .ps-toast { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--surface-3); color: var(--text); border-radius: var(--r-md); box-shadow: var(--shadow-pop); font-size: var(--fs-body); }
 .ps-toast[data-kind="error"] { border-left: 4px solid var(--danger); }
+.ps-toast[data-kind="warning"] { border-left: 4px solid var(--warning); }
 /* Тост с «Отменить»/«Вернуть» после действия в открытом окне игры должен быть доступен: над модалкой, а не под затемнением */
 :root:has(.ps-sheet-wrap) .ps-toasts, :root:has(.ps-gd) .ps-toasts { z-index: calc(var(--z-modal) + 1); }
 .ps-toast__msg { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }

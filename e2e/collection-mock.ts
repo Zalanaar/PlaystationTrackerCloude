@@ -406,6 +406,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     }
     const out = apply(body);
     if (out === NOT_FOUND) return json(route, { code: 'not_found', message: 'x' }, 404);
+    if (out && typeof out === 'object' && '__conflict' in out) return json(route, { code: 'status_conflict', message: 'x', details: { status: (out as { __conflict: Status | null }).__conflict } }, 409);
     return json(route, out);
   };
   const setStatus = (g: G, s: Status | null, now = new Date().toISOString()) => {
@@ -417,7 +418,12 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
 
   await page.route(/\/api\/games\/\d+\/status$/, (route) => mutate(route, (b) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/status/)?.[1]);
-    const g = m.games.find((x) => x.id === id) as G;
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return NOT_FOUND;
+    // контракт 28.9: expectedStatus (ключ есть) -> 409 status_conflict; restore восстанавливает строку статуса без пересчёта дат
+    if ('expectedStatus' in b && (g.status ?? null) !== b.expectedStatus) return { __conflict: g.status ?? null };
+    const r = b.restore as { status: Status; completedAt: string | null; droppedAt: string | null } | undefined;
+    if (r) { g.status = r.status; g.completedAt = r.completedAt; g.droppedAt = r.droppedAt; return { game: item(g) }; }
     setStatus(g, b.status as Status | null);
     return { game: item(g) };
   }));

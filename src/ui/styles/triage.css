@@ -120,6 +120,9 @@
 /* фигура статуса на акцентной заливке: цвет кнопки, чтобы не терялась (inline-цвет фигуры перебиваем только здесь) */
 .ps-sg__btn.ps-btn--primary svg, .ps-stack3__fg svg { color: currentColor !important; }
 .ps-sg__btn { display: inline-flex; align-items: center; gap: 6px; }
+.ps-sg__lbl { display: flex; flex-direction: column; align-items: flex-start; text-align: left; line-height: 1.2; }
+.ps-sg__lbl small { font-size: var(--fs-small); font-weight: 400; opacity: .9; }
+.ps-sg__act .ps-btn[data-sub], .ps-sg__row .ps-btn[data-sub] { height: auto; min-height: calc(var(--control-h) + 4px); padding-block: var(--sp-1); }
 .ps-key[data-target="true"] { border-color: var(--st-x); background: color-mix(in srgb, var(--st-x) 10%, var(--surface)); }
 .ps-key[aria-disabled="true"] { opacity: .5; cursor: default; }
 .ps-key[aria-disabled="true"]:hover { border-color: var(--border); background: color-mix(in srgb, var(--surface) 80%, transparent); }

@@ -2,34 +2,64 @@
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatusHint } from '@/server/sync/status-hints';
 import { HINT_QUESTION, HINT_SUGGESTED, type HintStatus, type StatusHintRule } from '@/shared/status-hints';
-import { formatDayMonth } from '../format';
+import { formatDayMonth, formatDdMm } from '../format';
 import { STATUS_META, TRIAGE_SWIPE_CHECK } from '../tokens';
 
 /** Элемент ответа GET /api/status-hints: подсказка + карточка игры (контракт 28.4). */
 export type HintItem = StatusHint & { game: GameItem };
 export type HintsResponse = { count: number; items: HintItem[] };
 
-export type HintAction =
-  | { kind: 'accept'; hint: HintItem; status: GameStatusValue }
+/** Снимок прошлой строки статуса (контракт 28.9 `restore`), снятый ДО «Принять». */
+export type StatusRestore = { status: GameStatusValue; statusChangedAt: string; completedAt: string | null; droppedAt: string | null };
+
+export type HintAction = { id: number } & (
+  | { kind: 'accept'; hint: HintItem; status: GameStatusValue; snapshot: StatusRestore | null }
   | { kind: 'keep'; hint: HintItem }
-  | { kind: 'dismiss'; hint: HintItem };
+  | { kind: 'dismiss'; hint: HintItem }
+  | { kind: 'conflict'; hint: HintItem } // статус сменили в другом месте: карточка проверена, откатывать нечего
+);
+type Draft<T> = T extends unknown ? Omit<T, 'id'> : never;
 export type HintState = { queue: HintItem[]; history: HintAction[]; total: number };
 
 export const initHints = (items: HintItem[]): HintState => ({ queue: items, history: [], total: items.length });
 
-const take = (s: HintState, a: (head: HintItem) => HintAction): HintState => {
+let actionSeq = 0;
+const take = (s: HintState, a: (head: HintItem) => Draft<HintAction>): HintState => {
   const [head, ...rest] = s.queue;
-  return head ? { ...s, queue: rest, history: [...s.history, a(head)] } : s;
+  return head ? { ...s, queue: rest, history: [...s.history, { id: ++actionSeq, ...a(head) } as HintAction] } : s;
 };
-export const acceptHint = (s: HintState, status: GameStatusValue) => take(s, (hint) => ({ kind: 'accept', hint, status }));
+
+/** Снимок для отката: `currentStatus`, `facts.statusChangedAt`, `game.completedAt/droppedAt` подсказки. Без прошлого статуса снимка нет. */
+export function restoreSnapshot(h: HintItem): StatusRestore | null {
+  const cur = h.currentStatus;
+  if (!cur || !h.facts.statusChangedAt) return null;
+  return { status: cur, statusChangedAt: h.facts.statusChangedAt, completedAt: cur === 'completed' ? h.game.completedAt : null, droppedAt: cur === 'dropped' ? h.game.droppedAt : null };
+}
+
+export const acceptHint = (s: HintState, status: GameStatusValue) => take(s, (hint) => ({ kind: 'accept', hint, status, snapshot: restoreSnapshot(hint) }));
 export const keepHint = (s: HintState) => take(s, (hint) => ({ kind: 'keep', hint }));
 export const dismissHint = (s: HintState) => take(s, (hint) => ({ kind: 'dismiss', hint }));
+/** Действие, которое только что добавили в историю. */
+export const lastAction = (s: HintState): HintAction | undefined => s.history[s.history.length - 1];
 
-/** Отмена последнего действия: карточка возвращается в начало очереди. */
+/** Тело PUT для отката «Принять» (контракт 28.9): прежний статус, `expectedStatus` = принятая цель, `restore` из снимка. */
+export function undoAcceptBody(a: Extract<HintAction, { kind: 'accept' }>): { status: GameStatusValue | null; expectedStatus: GameStatusValue; restore?: StatusRestore } {
+  return a.snapshot
+    ? { status: a.snapshot.status, expectedStatus: a.status, restore: a.snapshot }
+    : { status: a.hint.currentStatus, expectedStatus: a.status };
+}
+
+/** Отмена действия по id: карточка возвращается в начало очереди. Нет такого действия (уже откатано, ошибка, конфликт) = ничего. */
+export function undoHintById(s: HintState, id: number): { state: HintState; undone: HintAction | null } {
+  const a = s.history.find((x) => x.id === id);
+  if (!a || a.kind === 'conflict') return { state: s, undone: null };
+  return { state: { ...s, queue: [a.hint, ...s.queue.filter((h) => h.gameId !== a.hint.gameId)], history: s.history.filter((x) => x.id !== id) }, undone: a };
+}
+
+/** Отмена последнего откатываемого действия (клавиша Z): записи о конфликте пропускаются. */
 export function undoHint(s: HintState): { state: HintState; undone: HintAction | null } {
-  const last = s.history[s.history.length - 1];
-  if (!last) return { state: s, undone: null };
-  return { state: { ...s, queue: [last.hint, ...s.queue.filter((h) => h.gameId !== last.hint.gameId)], history: s.history.slice(0, -1) }, undone: last };
+  const last = [...s.history].reverse().find((x) => x.kind !== 'conflict');
+  return last ? undoHintById(s, last.id) : { state: s, undone: null };
 }
 
 /** Откат неудачного запроса: карточка в начало, записи истории по ней нет. */
@@ -45,10 +75,19 @@ export function replayHint(s: HintState, a: HintAction): HintState {
   return { ...s, queue: s.queue.filter((h) => h.gameId !== a.hint.gameId), history: [...s.history, a] };
 }
 
-/** Подсказка исчезла без следа в истории (статус уже изменён в другом месте). */
+/** Игра удалена (404): подсказка исчезла без следа, счётчик уменьшается. */
 export function dropHint(s: HintState, gameId: number): HintState {
   const idx = s.history.map((a) => a.hint.gameId).lastIndexOf(gameId);
   return { ...s, queue: s.queue.filter((h) => h.gameId !== gameId), history: idx < 0 ? s.history : s.history.filter((_, i) => i !== idx), total: Math.max(0, s.total - 1) };
+}
+
+/** 409: статус уже изменён в другом месте. Карточка уходит из очереди, счётчик не откатывается (запись `conflict` вместо действия). */
+export function settleConflict(s: HintState, hint: HintItem, actionId: number): HintState {
+  return {
+    ...s,
+    queue: s.queue.filter((h) => h.gameId !== hint.gameId),
+    history: [...s.history.filter((x) => x.id !== actionId), { id: ++actionSeq, kind: 'conflict', hint }],
+  };
 }
 
 export function summarizeHints(history: readonly HintAction[]): { accepted: number; kept: number; dismissed: number } {
@@ -56,7 +95,7 @@ export function summarizeHints(history: readonly HintAction[]): { accepted: numb
   for (const a of history) {
     if (a.kind === 'accept') n.accepted++;
     else if (a.kind === 'keep') n.kept++;
-    else n.dismissed++;
+    else if (a.kind === 'dismiss') n.dismissed++;
   }
   return n;
 }
@@ -81,11 +120,18 @@ export const hintQuestion = (rule: StatusHintRule): string => HINT_QUESTION[rule
 export const acceptLabel = (s: HintStatus): string => `Принять: ${STATUS_META[s].label}`;
 export const STALE_LABEL: Partial<Record<HintStatus, string>> = { shelved: 'Отложить', dropped: 'Бросить' };
 
-/** Дата-подсказка у ключей: для «Пройдено» с платиной дата платины, иначе последний запуск. */
+/** Подпись даты у «Пройдено» для платины: дата завершения = последний запуск, дата платины в подпись не идёт. Без запуска подписи нет. */
+export function platinumDateNote(h: Pick<HintItem, 'rule' | 'game'>): string | null {
+  if (h.rule !== 'platinum') return null;
+  const d = formatDdMm(h.game.lastPlayedAt);
+  return d ? `дата завершения — последний запуск: ${d}` : null;
+}
+
+/** Дата-подсказка у ключей «Пройдено» и «Брошено» = последний запуск; у платины своя подпись. */
 export function keyDateHint(h: HintItem, status: GameStatusValue): string | null {
   if (status !== 'completed' && status !== 'dropped') return null;
-  const iso = status === 'completed' && h.rule === 'platinum' ? h.facts.platinumEarnedAt ?? h.game.lastPlayedAt : h.game.lastPlayedAt;
-  return `дата: ${formatDayMonth(iso, true) ?? 'сегодня'}`;
+  if (status === 'completed' && h.rule === 'platinum') return platinumDateNote(h);
+  return `дата: ${formatDayMonth(h.game.lastPlayedAt, true) ?? 'сегодня'}`;
 }
 
 export type Seg = { text: string; bold?: boolean };

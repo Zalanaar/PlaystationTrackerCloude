@@ -61,8 +61,15 @@ export const fetchActivity = (year: number, signal?: AbortSignal) =>
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) =>
   call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
 
-export const putStatus = (id: number, status: GameStatusValue | null) =>
-  call<GameMutationResponse>(`/api/games/${id}/status`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ status }) });
+/** PUT status. `expectedStatus` (ключ есть, даже null) = оптимистичная проверка, 409 `status_conflict`; `restore` = откат строки статуса (контракт 28.9). */
+export const putStatus = (
+  id: number, status: GameStatusValue | null,
+  opts?: { expectedStatus?: GameStatusValue | null; restore?: { status: GameStatusValue; statusChangedAt: string; completedAt: string | null; droppedAt: string | null } },
+) =>
+  call<GameMutationResponse>(`/api/games/${id}/status`, {
+    method: 'PUT', headers: JSON_HEADERS,
+    body: JSON.stringify({ status, ...(opts?.expectedStatus !== undefined ? { expectedStatus: opts.expectedStatus } : {}), ...(opts?.restore ? { restore: opts.restore } : {}) }),
+  });
 
 export const patchStatusDate = (id: number, kind: 'completed' | 'dropped', iso: string) =>
   call<GameMutationResponse>(`/api/games/${id}/status-date`, {
