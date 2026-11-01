@@ -28,6 +28,7 @@
 .ps-sk-msearch { flex: 1 1 auto; min-width: 0; height: 40px; border-radius: var(--r-chip); }
 .ps-sk-fbtn { flex: none; width: var(--tap-min); height: 40px; border-radius: var(--r-md); }
 .ps-sk-blfilters { height: 80px; border-radius: var(--r-md); }
+.ps-sk-bltool { width: var(--control-h); height: var(--control-h); border-radius: var(--r-md); }
 .ps-sk-stat120 { display: inline-block; width: 120px; height: 20px; border-radius: var(--r-sm); }
 .ps-sk-qhead { width: 200px; height: 32px; margin-bottom: var(--sp-3); }
 .ps-sk-qrow { height: var(--rm-row-h); margin-bottom: 6px; border-radius: var(--r-md); }
@@ -70,7 +71,8 @@
   .ps-sk-m { display: block; }
   .ps-sk-d { display: none; }
   .ps-sk-chip { height: var(--control-h); }
-  .ps-sk-blfilters { height: 202px; }
+  .ps-sk-bltool { width: 40px; height: 40px; }
+  .ps-sk-blfilters { height: 40px; margin: var(--sp-2) 0 var(--sp-3); }
   .ps-sk-reccards { grid-template-columns: minmax(0, 1fr); }
   .ps-sk-toprow { height: 64px; }
   .ps-sk-back { height: var(--tap-min); }
