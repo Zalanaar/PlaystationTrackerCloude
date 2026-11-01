@@ -666,3 +666,27 @@ export const digestState = pgTable('digest_state', {
   lastWeek: text('last_week'),
   lastAdviceGameId: integer('last_advice_game_id'),
 });
+
+// Фаза 40 (контракт 40.1, миграция 0024): «Уже есть / проходил». Ключ внешней игры — rawg_id (title_key только справочный).
+// covered_by_game_id: игра библиотеки этого же пользователя (составной FK), одна игра покрывает много внешних (1 -> много).
+export const ownedMarks = pgTable(
+  'owned_marks',
+  {
+    userId: userIdCol(),
+    rawgId: text('rawg_id').notNull(),
+    title: text().notNull(),
+    titleKey: text('title_key').notNull(),
+    coverUrl: text('cover_url'),
+    coveredByGameId: integer('covered_by_game_id'),
+    completed: boolean().notNull().default(false),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.rawgId] }),
+    foreignKey({ name: 'owned_marks_user_game_fk', columns: [t.userId, t.coveredByGameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    index('owned_marks_user_covered_idx').on(t.userId, t.coveredByGameId).where(sql`${t.coveredByGameId} is not null`),
+    check('owned_marks_title_check', sql`char_length(${t.title}) between 1 and 200`),
+    check('owned_marks_covered_completed', sql`${t.coveredByGameId} is null or ${t.completed} = false`),
+  ],
+);

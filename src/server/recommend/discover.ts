@@ -18,6 +18,7 @@ import {
   POOL_LIMIT, rankPool, similarGames, tasteOf, templateReason, type Facet, type LibraryIndex, type NamedHistory, type PoolEntry,
   type StoredCandidate,
 } from './discover-rank';
+import { ownedRawgIds } from '@/server/owned/marks';
 import { loadHistory } from './db';
 import { normalizeTitle } from './match';
 import { createProvider, DEFAULT_MODELS, LINK_RE, LlmError, type PhraseProvider } from './phrase';
@@ -98,10 +99,11 @@ async function writeCache(db: AnyDb, userId: UserId, day: string, hash: string, 
 
 // --- данные пользователя (все выборки с user_id)
 
-type Exclusions = { lib: LibraryIndex; ids: Set<string>; keys: Set<string>; plannedByExt: Map<string, number> };
+// marked отдельно от ids: отметки «Уже есть» скрывают игру только при чтении, в кэш подборки она попадает (иначе «Отменить» не вернёт карточку без пересчёта)
+type Exclusions = { lib: LibraryIndex; ids: Set<string>; marked: Set<string>; keys: Set<string>; plannedByExt: Map<string, number> };
 
 async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exclusions> {
-  const [owned, planned, disliked] = await Promise.all([
+  const [owned, planned, disliked, marked] = await Promise.all([
     // любая игра библиотеки, включая скрытые и дубли Фазы 23
     db.select({ name: games.name, hltb: games.hltbName }).from(games).where(eq(games.userId, userId)),
     db.select({ id: plannedGames.id, title: plannedGames.title, source: plannedGames.externalSource, extId: plannedGames.externalId, status: plannedGames.status }).from(plannedGames).where(eq(plannedGames.userId, userId)),
@@ -109,6 +111,9 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
       .select({ extId: recommendExternalDislikes.externalId, title: recommendExternalDislikes.title })
       .from(recommendExternalDislikes)
       .where(and(eq(recommendExternalDislikes.userId, userId), eq(recommendExternalDislikes.externalSource, 'rawg'), gt(recommendExternalDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)))),
+    // Фаза 40: «Уже есть / проходил». Только по RAWG id; вкус и скоринг не затрагиваются (история берётся из games)
+    // схема до 0024 (таблицы ещё нет) не должна ронять подборку
+    ownedRawgIds(db, userId).catch(() => new Set<string>()),
   ]);
   const names: string[] = [];
   for (const o of owned) {
@@ -131,7 +136,7 @@ async function loadExclusions(db: AnyDb, userId: UserId, now: Date): Promise<Exc
     const k = libraryKey(d.title);
     if (k) keys.add(k);
   }
-  return { lib: buildLibraryIndex(names), ids, keys, plannedByExt };
+  return { lib: buildLibraryIndex(names), ids, marked, keys, plannedByExt };
 }
 
 async function loadNamedHistory(db: AnyDb, userId: UserId): Promise<NamedHistory[]> {
@@ -390,7 +395,7 @@ export async function getDiscover(db: AnyDb, userId: UserId, now: Date = new Dat
   const seenKeys = new Set<string>();
   for (const c of [...row.payload.candidates].sort((a, b) => b.score - a.score)) {
     const key = libraryKey(c.title);
-    if (ex.ids.has(c.externalId) || (key && (ex.keys.has(key) || seenKeys.has(key))) || inLibrary(c.title, ex.lib)) continue;
+    if (ex.ids.has(c.externalId) || ex.marked.has(c.externalId) || (key && (ex.keys.has(key) || seenKeys.has(key))) || inLibrary(c.title, ex.lib)) continue;
     if (key) seenKeys.add(key);
     const plannedId = ex.plannedByExt.get(c.externalId) ?? null;
     items.push({

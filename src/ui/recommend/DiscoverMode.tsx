@@ -4,13 +4,19 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../collection/api';
 import { Icon } from '../icons';
-import { useToast } from '../primitives/Toast';
+import { useToast, useToastDismiss } from '../primitives/Toast';
 import { postPlanned } from '../roadmap/api';
 import '../recommend.css';
-import { deleteDiscoverDislike, fetchDiscover, postDiscoverDislike, type DiscoverItem, type DiscoverResponse } from './api';
+import {
+  deleteDiscoverDislike, deleteOwnedMark, fetchDiscover, fetchOwnedMarks, postDiscoverDislike, putOwnedMark,
+  type DiscoverItem, type DiscoverResponse,
+} from './api';
 import { DiscoverCard, type DiscoverBusy } from './DiscoverCard';
 import { discoverView, PARTIAL_NOTE, pickedText, STALE_NOTE } from './discover-model';
 import { DEFAULT_TTL_DAYS, hiddenForText } from './model';
+import { removedText, type PutBody } from './owned-model';
+import { OwnedMarksSheet } from './OwnedMarksSheet';
+import { OwnedSheet } from './OwnedSheet';
 import { RecSkeleton } from './RecCard';
 import { useWide } from './useWide';
 
@@ -31,6 +37,9 @@ function StatePanel({ icon, title, children }: { icon: 'check' | 'circle-alert' 
 export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog: () => void }) {
   const router = useRouter();
   const toast = useToast();
+  const dismissToast = useToastDismiss();
+  const removedToast = useRef<number | null>(null);
+  const overlayOpen = useRef(false);
   const wide = useWide();
   const [data, setData] = useState<DiscoverResponse | null>(null);
   const [fatal, setFatal] = useState<Fatal>(null);
@@ -40,7 +49,12 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   const [plannedIds, setPlannedIds] = useState<ReadonlySet<string>>(new Set());
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  const [ownedItem, setOwnedItem] = useState<DiscoverItem | null>(null);
+  const [marksOpen, setMarksOpen] = useState(false);
+  const [ownedCount, setOwnedCount] = useState<number | null>(null);
   const reqRef = useRef(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const focusAfter = useRef<string | null>(null);
   const dataRef = useRef<DiscoverResponse | null>(null);
   const started = useRef(false);
   const latest = useRef<{ load: () => Promise<void>; plan: (it: DiscoverItem) => Promise<void>; hide: (it: DiscoverItem) => Promise<void> } | null>(null);
@@ -119,7 +133,72 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
     }, reduce ? 0 : FADE_MS);
   }, [toast, undoHide]);
 
+  const bumpCount = useCallback((d: number) => setOwnedCount((n) => (n === null ? n : Math.max(0, n + d))), []);
+
+  const openMarks = useCallback(() => setMarksOpen(true), []);
+
+  // «Отменить» после «Уже есть»: удаляем отметку и перечитываем выдачу, карточка возвращается на место
+  const undoOwned = useCallback(async (it: DiscoverItem) => {
+    try {
+      await deleteOwnedMark(it.externalId);
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 401)) {
+        toast({ alert: true, text: 'Не удалось вернуть. Открой «Отмеченные» и верни вручную.', action: { label: 'Открыть', run: openMarks } });
+      }
+      return;
+    }
+    bumpCount(-1);
+    focusAfter.current = it.externalId;
+    void latest.current?.load();
+  }, [toast, openMarks, bumpCount]);
+
+  const submitOwned = useCallback(async (it: DiscoverItem, body: PutBody): Promise<boolean> => {
+    try {
+      await putOwnedMark(body);
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) return false;
+    }
+    // фокус после ухода карточки: следующая, иначе предыдущая, иначе сама вкладка
+    const list = (dataRef.current?.items ?? []).filter((x) => x.externalId === it.externalId || !gone.has(x.externalId));
+    const i = list.findIndex((x) => x.externalId === it.externalId);
+    focusAfter.current = (list[i + 1] ?? list[i - 1])?.externalId ?? '';
+    bumpCount(1);
+    setOwnedItem(null);
+    if (removedToast.current !== null) dismissToast(removedToast.current);
+    removedToast.current = toast({ text: removedText(it.title), ttl: 8000, action: { label: 'Отменить', run: () => void undoOwned(it) } });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setLeaving((s) => new Set(s).add(it.externalId));
+    setTimeout(() => {
+      setGone((s) => new Set(s).add(it.externalId));
+      void latest.current?.load();
+    }, reduce ? 0 : FADE_MS);
+    return true;
+  }, [gone, toast, dismissToast, undoOwned, bumpCount]);
+
   useEffect(() => { latest.current = { load, plan, hide }; });
+  useEffect(() => { overlayOpen.current = marksOpen || ownedItem !== null; }, [marksOpen, ownedItem]);
+
+  // перенос фокуса после ухода или возвращения карточки (sheet вернул его на исчезнувшую кнопку)
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (id === null || loading) return;
+    // открыт лист или диалог: фокус не трогаем, он в ловушке листа
+    if (overlayOpen.current) { focusAfter.current = null; return; }
+    const root = panelRef.current;
+    if (!root) return;
+    const target = id ? Array.from(root.querySelectorAll<HTMLElement>('[data-ext]')).find((el) => el.dataset.ext === id) : null;
+    if (id && !target) return;
+    focusAfter.current = null;
+    (target ?? root).focus();
+  }, [data, gone, loading]);
+
+  // число отмеченных для ссылки «Отмеченные · N»
+  useEffect(() => {
+    if (!active) return;
+    const ac = new AbortController();
+    fetchOwnedMarks(ac.signal).then((r) => setOwnedCount(r.marks.length)).catch(() => { /* без числа ссылка просто «Отмеченные» */ });
+    return () => ac.abort();
+  }, [active]);
 
   // запрос при первом открытии вкладки
   useEffect(() => {
@@ -172,8 +251,15 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   const notes = view === 'cards' && meta ? [meta.stale ? STALE_NOTE : null, meta.partial ? PARTIAL_NOTE : null].filter((n): n is string => n !== null) : [];
 
   return (
-    <div className="ps-rec-mode" role="tabpanel" id="rec-panel-discover" aria-labelledby="rec-tab-discover" hidden={!active}>
-      {view === 'cards' && when && <div className="ps-rec-pick"><span className="ps-rec-pick__when">{when}</span></div>}
+    <div className="ps-rec-mode" role="tabpanel" id="rec-panel-discover" aria-labelledby="rec-tab-discover" hidden={!active} ref={panelRef} tabIndex={-1}>
+      <div className="ps-rec-pick">
+        {view === 'cards' && when && <span className="ps-rec-pick__when">{when}</span>}
+        <button type="button" className="ps-own-link" aria-haspopup="dialog" onClick={openMarks}>
+          <Icon name="library" size={14} />
+          <span>Отмеченные{ownedCount ? <> · <span className="num">{ownedCount}</span></> : null}</span>
+          <Icon name="chevron-right" size={14} />
+        </button>
+      </div>
       {panel ?? (
         <>
           {refreshErr && (
@@ -191,7 +277,7 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
                 <DiscoverCard
                   key={it.externalId} item={it} index={i} total={items.length} wide={wide}
                   planned={it.planned || plannedIds.has(it.externalId)} busy={busy.get(it.externalId) ?? null} leaving={leaving.has(it.externalId)}
-                  hideHint={hiddenForText(DEFAULT_TTL_DAYS)} onPlan={() => void plan(it)} onHide={() => void hide(it)}
+                  hideHint={hiddenForText(DEFAULT_TTL_DAYS)} onPlan={() => void plan(it)} onHide={() => void hide(it)} onOwn={() => setOwnedItem(it)}
                 />
               ))}
           </ol>
@@ -200,6 +286,8 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
           )}
         </>
       )}
+      <OwnedSheet item={ownedItem} onClose={() => setOwnedItem(null)} onSubmit={submitOwned} />
+      <OwnedMarksSheet open={marksOpen} onClose={() => setMarksOpen(false)} onCount={setOwnedCount} onChanged={() => void latest.current?.load()} />
     </div>
   );
 }

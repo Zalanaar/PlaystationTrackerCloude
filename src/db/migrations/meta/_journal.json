@@ -169,6 +169,13 @@
       "when": 1793544108496,
       "tag": "0023_sync_cancelled",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793555009120,
+      "tag": "0024_owned_marks",
+      "breakpoints": true
     }
   ]
 }

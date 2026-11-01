@@ -6,6 +6,7 @@ import { Icon } from '../icons';
 import type { DiscoverItem } from './api';
 import { REASON_TITLE, releaseYear, scoreLine } from './discover-model';
 import { genresLine } from './model';
+import { OWN_BUTTON } from './owned-model';
 
 export type DiscoverBusy = null | 'plan' | 'hide';
 
@@ -31,10 +32,10 @@ function Media({ item, wide, eager }: { item: DiscoverItem; wide: boolean; eager
 
 /** Карточка «У тебя нет» (спека Фазы 31, 12.2). Название и обложка не кликабельны: игры нет в библиотеке. */
 export function DiscoverCard({
-  item, index, total, wide, planned, busy, leaving, hideHint, onPlan, onHide,
+  item, index, total, wide, planned, busy, leaving, hideHint, onPlan, onHide, onOwn,
 }: {
   item: DiscoverItem; index: number; total: number; wide: boolean; planned: boolean; busy: DiscoverBusy; leaving: boolean;
-  hideHint: string; onPlan: () => void; onHide: () => void;
+  hideHint: string; onPlan: () => void; onHide: () => void; onOwn: () => void;
 }) {
   const year = releaseYear(item.releaseDate);
   const genres = genresLine(item.genres);
@@ -43,7 +44,7 @@ export function DiscoverCard({
   return (
     <li
       className="ps-panel ps-rec-panel ps-rec ps-rec--discover" aria-label={`Игра ${index + 1} из ${total}: ${item.title}`}
-      aria-busy={busy !== null || undefined} data-wide={wide || undefined} data-leaving={leaving || undefined} data-testid="discover-card"
+      aria-busy={busy !== null || undefined} data-wide={wide || undefined} data-leaving={leaving || undefined} data-testid="discover-card" data-ext={item.externalId} tabIndex={-1}
     >
       <div className="ps-rec__top">
         <div className="ps-rec__mediabox"><Media item={item} wide={wide} eager={index < 3} /></div>
@@ -83,6 +84,12 @@ export function DiscoverCard({
         <button type="button" className="ps-btn ps-btn--ghost ps-rec__hide" disabled={disabled} title={hideHint} aria-label={`Не интересно: ${item.title}`} onClick={onHide}>
           {busy === 'hide' ? <span className="ps-rec__spin" aria-hidden="true" /> : <Icon name="thumbs-down" size={16} />}
           {busy === 'hide' ? 'Скрываю…' : 'Не интересно'}
+        </button>
+        <button
+          type="button" className="ps-btn ps-btn--ghost ps-rec__own" disabled={disabled} aria-haspopup="dialog"
+          aria-label={`Уже есть или проходил: «${item.title}»`} onClick={onOwn}
+        >
+          <Icon name="library" size={16} />{OWN_BUTTON}
         </button>
       </div>
     </li>
