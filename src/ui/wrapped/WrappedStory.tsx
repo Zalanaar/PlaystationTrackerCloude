@@ -295,7 +295,7 @@ function SlideView({
           <Rise n={0} rm={rm}><p className="ps-story__label">Трофеев получено</p></Rise>
           <Rise n={1} rm={rm}><div className="ps-story__big ps-num">{c.total}</div></Rise>
           <Rise n={2} rm={rm} className="ps-story__frow">
-            <span style={{ color: 'var(--platinum)', display: 'inline-flex' }}><Icon name="trophy" size={40} /></span>
+            <span style={{ color: 'var(--platinum)', display: 'inline-flex' }}><PlatinumIcon size={40} /></span>
             <span className="ps-story__stat ps-num">{c.platinum}</span>
             <span className="ps-story__sub">{plural(c.platinum, ['платина', 'платины', 'платин'])}</span>
           </Rise>

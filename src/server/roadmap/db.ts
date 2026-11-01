@@ -4,6 +4,7 @@ import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
+import { effectiveSecondsSql } from '@/server/collection/query';
 import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import { snapshotGameVisible, visibleGameRow } from '@/server/collection/visibility';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
@@ -254,7 +255,7 @@ export async function getUnallocated(db: AnyDb, userId: UserId): Promise<Roadmap
 /** 17.11: видимые игры-сервисы для таблицы «в план не берём». */
 export async function getServiceGames(db: AnyDb, userId: UserId): Promise<ServiceGame[]> {
   const rows = await db
-    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, seconds: games.playDurationSeconds })
+    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, seconds: effectiveSecondsSql })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .where(and(eq(games.userId, userId), eq(gameStatus.status, 'service'), visibleGameRow()))

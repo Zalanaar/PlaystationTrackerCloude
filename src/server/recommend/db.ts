@@ -5,6 +5,7 @@ import { visibleGameRow } from '@/server/collection/visibility';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
+import { effectiveSecondsSql } from '@/server/collection/query';
 import { getLlmEnv, type LlmEnv } from '@/server/env';
 import { effectiveGenres } from '@/shared/genres';
 import { DISLIKE_TTL_DAYS, DISLIKE_TTL_MS, dislikeExpiresAt } from '@/shared/recommend';
@@ -70,7 +71,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
 /** История вкуса: видимые completed / playing / dropped. */
 export async function loadHistory(db: AnyDb, userId: UserId): Promise<HistoryGame[]> {
   const rows = await db
-    .select({ id: games.id, status: gameStatus.status, psn: games.psnGenres, override: games.genresOverride, seconds: games.playDurationSeconds })
+    .select({ id: games.id, status: gameStatus.status, psn: games.psnGenres, override: games.genresOverride, seconds: effectiveSecondsSql })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .where(and(eq(games.userId, userId), inArray(gameStatus.status, ['completed', 'playing', 'dropped']), visibleGameRow()));

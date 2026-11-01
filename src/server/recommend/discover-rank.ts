@@ -113,8 +113,11 @@ export function pickFacets(taste: TasteModel): Facet[] {
 const EDITION_WORDS = new Set([
   'edition', 'complete', 'definitive', 'deluxe', 'ultimate', 'gold', 'premium', 'standard', 'digital', 'remastered', 'remaster', 'goty',
   'enhanced', 'anniversary', 'collectors', 'collector', 'legendary', 'special', 'director', 'directors', 'cut', 'game', 'of', 'the', 'year',
-  'bundle', 'collection', 'version',
+  'bundle', 'collection', 'version', 'intergrade', 's',
 ]);
+
+// Римские номера в арабские (QA-30-2): «Dark Souls III» = «Dark Souls 3». V, X и I не трогаем: «Mega Man X», «Resident Evil V» неоднозначны.
+const ROMAN_TO_ARABIC: Record<string, string> = { ii: '2', iii: '3', iv: '4', vi: '6', vii: '7', viii: '8', ix: '9', xi: '11', xii: '12', xiii: '13', xiv: '14', xv: '15' };
 
 /** Ключ для сравнения с библиотекой: без скобок, меток PS4/PS5, слов издания и знаков. «The Witcher 3: Wild Hunt - Complete Edition» = «witcher 3 wild hunt». */
 export function libraryKey(name: string): string {
@@ -123,6 +126,19 @@ export function libraryKey(name: string): string {
   const words = norm.split(' ').filter((w) => w !== '');
   // слова издания отбрасываем только с хвоста, чтобы не потерять «of the» внутри названия («Shadow of the Colossus»)
   while (words.length > 1 && EDITION_WORDS.has(words[words.length - 1])) words.pop();
+  return words.map((w, i) => (i > 0 ? ROMAN_TO_ARABIC[w] ?? w : w)).join(' ');
+}
+
+/**
+ * Запасной ключ для названия из БИБЛИОТЕКИ: без хвоста «remake»/«remaster» («Resident Evil 4 Remake» -> «resident evil 4»).
+ * Только в одну сторону: купленный ремейк закрывает оригинал в выдаче, а купленный оригинал не скрывает ремейк (это другая покупка).
+ */
+export function libraryAliasKey(name: string): string | null {
+  const words = libraryKey(name).split(' ');
+  if (words.length < 2) return null;
+  const last = words[words.length - 1];
+  if (last !== 'remake' && last !== 'reimagined') return null;
+  words.pop();
   return words.join(' ');
 }
 
@@ -134,6 +150,8 @@ export function buildLibraryIndex(names: readonly string[]): LibraryIndex {
   for (const n of names) {
     const k = libraryKey(n);
     if (k) keys.add(k);
+    const alias = libraryAliasKey(n);
+    if (alias) keys.add(alias);
     if (normalizeTitle(n)) titles.push(n);
   }
   return { keys, titles };

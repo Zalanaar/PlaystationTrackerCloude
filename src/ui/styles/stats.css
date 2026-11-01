@@ -16,7 +16,7 @@
 .ps-st-panel { position: relative; grid-column: span 12; min-width: 0; padding: 20px; background: color-mix(in srgb, var(--surface) 82%, transparent); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
 .ps-st-panel--hours { grid-column: span 7; }
 .ps-st-panel--hours-wide { grid-column: span 12; }
-.ps-st-panel--genres { grid-column: span 5; }
+.ps-st-panel--genres { grid-column: span 5; align-self: start; }
 .ps-st-panel__t { margin: 0; font: var(--fw-h2) 14px/20px var(--font-display); color: var(--text); }
 .ps-st-panel__s { margin: 2px 0 var(--sp-4); color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
 .ps-st-sk { height: 180px; border-radius: var(--r-md); }
