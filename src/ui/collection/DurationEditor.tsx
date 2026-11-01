@@ -9,10 +9,15 @@ import { durationText, hltbStatusText, hoursInputValue, MAX_HOURS, MIN_HOURS, pa
 
 const RANGE = `от ${hoursInputValue(MIN_HOURS)} до ${MAX_HOURS}`;
 
-/** Блок «Длительность» в окне игры: эффективные часы с источником, статус HLTB, ручной ввод и сброс (контракт 16.5). */
+/**
+ * Блок «Длительность» в окне игры: эффективные часы с источником, статус HLTB, ручной ввод и сброс (контракт 16.5).
+ * С Фазы 34 свёрнут до строки (спека design-system 12.3); тело остаётся в DOM под `hidden`, ввод не теряется при сворачивании.
+ */
 export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged: (g: GameItem) => void }) {
   const d = game.duration;
   const inputId = useId();
+  const bodyId = useId();
+  const [open, setOpen] = useState(false);
   const errId = useId();
   const [text, setText] = useState(hoursInputValue(d?.overrideHours));
   const [busy, setBusy] = useState(false);
@@ -32,6 +37,7 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
       setSaved(hours === null ? 'Ручное значение сброшено' : 'Сохранено');
       onChanged(r.game);
     } catch (e) {
+      setOpen(true); // ошибку должно быть видно
       setErr(e instanceof ApiError && e.status === 400 ? `Сервер не принял значение. Допустимо ${RANGE} ч.` : `Не удалось сохранить. ${errorText(e)}`);
     } finally {
       setBusy(false);
@@ -42,6 +48,7 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
     const n = parseHoursInput(text);
     if (n === null) {
       setSaved(null);
+      setOpen(true);
       setErr(`Введи число часов ${RANGE}.`);
       return;
     }
@@ -50,7 +57,20 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
 
   return (
     <section className="ps-gd__sec ps-gd__duration" aria-labelledby="gd-dur">
-      <h3 id="gd-dur">Длительность прохождения</h3>
+      <h3 id="gd-dur">
+        <button
+          type="button" className="ps-gd__durbar" aria-expanded={open} aria-controls={bodyId}
+          aria-label={`Длительность прохождения: ${open ? 'скрыть' : 'показать'} детали`} onClick={() => setOpen((v) => !v)}
+        >
+          <span className="ps-gd__durt">Длительность прохождения</span>
+          <span className="ps-gd__durval num" data-testid="duration-summary" data-empty={d.hours === null ? true : undefined}>
+            {d.hours === null ? 'не задана' : durationText(d)}
+            {src && <span className="ps-bl-src" data-source={d.source}>{src}</span>}
+          </span>
+          <span className="ps-gd__durchev" aria-hidden="true"><Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} /></span>
+        </button>
+      </h3>
+      <div id={bodyId} className="ps-gd__durbody" hidden={!open}>
       <dl>
         <div className="ps-gd__kv">
           <dt>Сейчас</dt>
@@ -83,6 +103,7 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
       </form>
       {err && <p id={errId} role="alert" className="ps-field-error">{err}</p>}
       {saved && !err && <p role="status" className="ps-detail__hint">{saved}</p>}
+      </div>
     </section>
   );
 }

@@ -84,15 +84,21 @@ const nextMonth = (key: string): string => {
  * Диапазон месяцев оценки игры (YYYY-MM по возрастанию), без учёта исключений (контракт 1.6). Пусто = оценки нет.
  */
 export function estimateRangeMonths(i: EstimateInput): string[] {
-  if (i.firstPlayedAt === null || i.firstSeconds <= 0) return [];
-  const first = mskDateString(i.firstPlayedAt);
-  if (first > i.firstSnapshotDate) return [];
-  const last = i.lastPlayedAt === null ? null : mskDateString(i.lastPlayedAt);
-  const endDate = last === null || last < first ? first : last < i.firstSnapshotDate ? last : i.firstSnapshotDate;
-  const endKey = monthKey(endDate);
+  const w = estimateDateWindow(i);
+  if (w === null) return [];
   const keys: string[] = [];
-  for (let k = monthKey(first); k <= endKey; k = nextMonth(k)) keys.push(k);
+  for (let k = monthKey(w.start); k <= monthKey(w.end); k = nextMonth(k)) keys.push(k);
   return keys;
+}
+
+/** Даты МСК (включительно), которые покрывает оценка игры (1.6): от first_played_at до min(L0, D0). null = оценки нет. */
+export function estimateDateWindow(i: EstimateInput): { start: string; end: string } | null {
+  if (i.firstPlayedAt === null || i.firstSeconds <= 0) return null;
+  const first = mskDateString(i.firstPlayedAt);
+  if (first > i.firstSnapshotDate) return null;
+  const last = i.lastPlayedAt === null ? null : mskDateString(i.lastPlayedAt);
+  const end = last === null || last < first ? first : last < i.firstSnapshotDate ? last : i.firstSnapshotDate;
+  return { start: first, end };
 }
 
 /**

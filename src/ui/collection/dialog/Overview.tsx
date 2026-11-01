@@ -9,6 +9,7 @@ import { STATUS_META } from '../../tokens';
 import { DurationEditor } from '../DurationEditor';
 import { doneLabel, lastPlayedText } from '../details';
 import { completionInfo, dateInputToIso, isoToDateInput } from '../filters';
+import { History } from './History';
 import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
 import type { DialogHandlers } from './types';
@@ -88,6 +89,8 @@ export function Overview({
           </dl>
         </section>
       </div>
+
+      {details ? <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} /> : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
 
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />

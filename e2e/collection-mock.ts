@@ -161,6 +161,8 @@ export type Mock = {
   detailCalls: number[];
   /** `platinumForecast` деталей по id игры (14.2, 15.3); нет записи = null */
   forecasts: Record<number, Record<string, unknown> | null>;
+  /** `history` деталей по id игры (26.1); нет записи = null */
+  histories: Record<number, Record<string, unknown> | null>;
   /** Фаза 15 (14.3): GET /api/stats/activity */
   activityCalls: URL[];
   activityFails: number | null;
@@ -219,7 +221,7 @@ export function activityFor(year: number, empty = false, firstDay?: string) {
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
-    profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {},
+    profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -345,6 +347,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       statusChangedAt: g.status ? '2026-10-06T08:00:00.000Z' : null,
       trophyList: g.trophies ? (m.trophies[id] ?? trophyList()) : [],
       platinumForecast: m.forecasts[id] ?? null,
+      history: m.histories[id] ?? null,
     });
   });
 
