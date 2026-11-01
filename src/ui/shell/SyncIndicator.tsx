@@ -3,7 +3,7 @@
 import { isSyncStale, syncAge } from '../format';
 import { useNow } from '../primitives/hooks';
 import { useSync } from '../sync/SyncProvider';
-import { needsNewNpsso } from '../sync/status';
+import { isFailedRun, needsNewNpsso } from '../sync/status';
 
 export type SyncTone = 'ok' | 'warn' | 'bad' | 'busy' | 'unknown';
 
@@ -20,7 +20,7 @@ export function syncTone(
 export function SyncIndicator() {
   const { status, loading, loadError, openPanel } = useSync();
   const now = useNow();
-  const failed = !!status?.run && status.run.status === 'failed';
+  const failed = isFailedRun(status?.run);
   const tone = loading || (loadError && !status) ? 'unknown' : syncTone(
     status ? { running: status.running, lastSuccessAt: status.lastSuccessAt, failed, npsso: needsNewNpsso(status) } : null, now,
   );

@@ -1,10 +1,10 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Sheet } from '../primitives/Sheet';
 import { SyncPanel } from './SyncPanel';
 import { TelegramDigestPanel } from '../telegram/TelegramDigestPanel';
-import { startErrorText, type SyncStatus } from './status';
+import { startErrorText, stopErrorText, type SyncStatus } from './status';
 
 const POLL_MS = 3000;
 
@@ -14,7 +14,11 @@ type SyncCtx = {
   loadError: boolean;
   starting: boolean;
   notice: string | null;
+  stopping: boolean;
+  restarting: boolean;
   start: () => Promise<void>;
+  cancel: () => Promise<void>;
+  restart: () => Promise<void>;
   reload: () => Promise<void>;
   openPanel: () => void;
 };
@@ -35,6 +39,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [starting, setStarting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const busy = useRef(false); // синхронная защита от двойного клика
 
   const reload = useCallback(async () => {
     try {
@@ -79,10 +86,35 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [reload]);
 
+  const post = useCallback(async (url: string, body: string, action: 'cancel' | 'restart') => {
+    if (busy.current) return;
+    busy.current = true;
+    if (action === 'cancel') setStopping(true); else setRestarting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setNotice(stopErrorText(res.status, json?.error?.code, action));
+      }
+      // cancelled:false (уже завершён) и успех: тихо обновляем статус
+      await reload();
+    } catch {
+      setNotice(stopErrorText(0, undefined, action));
+    } finally {
+      busy.current = false;
+      setStopping(false);
+      setRestarting(false);
+    }
+  }, [reload]);
+
+  const cancel = useCallback(() => post('/api/sync/cancel', '{}', 'cancel'), [post]);
+  const restart = useCallback(() => post('/api/sync', '{"restart":true}', 'restart'), [post]);
+
   const openPanel = useCallback(() => setPanelOpen(true), []);
   const value = useMemo(
-    () => ({ status, loading, loadError, starting, notice, start, reload, openPanel }),
-    [status, loading, loadError, starting, notice, start, reload, openPanel],
+    () => ({ status, loading, loadError, starting, stopping, restarting, notice, start, cancel, restart, reload, openPanel }),
+    [status, loading, loadError, starting, stopping, restarting, notice, start, cancel, restart, reload, openPanel],
   );
 
   return (

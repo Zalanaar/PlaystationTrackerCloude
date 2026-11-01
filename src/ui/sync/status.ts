@@ -9,7 +9,8 @@ export type SyncErrorReason =
   | 'rate_limited'
   | 'psn_unavailable'
   | 'timeout'
-  | 'internal';
+  | 'internal'
+  | 'cancelled';
 
 export type SyncRunStatus = 'running' | 'success' | 'partial' | 'failed';
 
@@ -85,10 +86,39 @@ const REASON_TEXT: Record<SyncErrorReason, string> = {
   psn_unavailable: 'PSN сейчас недоступен. Попробуй позже.',
   timeout: 'Синк не уложился во время и остановлен. Можно продолжить.',
   internal: 'Внутренняя ошибка синка.',
+  cancelled: 'Остановлено вами. Загруженные данные сохранены.',
 };
 
-export function reasonText(reason: SyncErrorReason | null | undefined): string {
+export function reasonText(reason: SyncErrorReason | null | undefined, message?: string | null): string {
+  if (reason === 'cancelled' && message && /владельц/i.test(message)) return 'Остановлено владельцем. Загруженные данные сохранены.';
   return reason ? (REASON_TEXT[reason] ?? REASON_TEXT.internal) : '';
+}
+
+/** Остановка пользователем (8.8) не ошибка: без красного баннера и тревожного индикатора. */
+export function isCancelledRun(run: Pick<SyncRun, 'status' | 'errorReason'> | null | undefined): boolean {
+  return !!run && run.status === 'failed' && run.errorReason === 'cancelled';
+}
+
+/** Запуск закончился настоящей ошибкой (не остановкой). */
+export function isFailedRun(run: Pick<SyncRun, 'status' | 'errorReason'> | null | undefined): boolean {
+  return !!run && run.status === 'failed' && run.errorReason !== 'cancelled';
+}
+
+export function runStatusLabel(run: Pick<SyncRun, 'status' | 'errorReason'>): string {
+  return isCancelledRun(run) ? 'Остановлен' : STATUS_LABEL[run.status];
+}
+
+export const CANCEL_CONFIRM_TEXT = 'Остановить синк? Загруженные данные сохранятся';
+
+/** Текст ошибки POST /api/sync/cancel и POST /api/sync {restart:true} (8.8). */
+export function stopErrorText(status: number, code: string | undefined, action: 'cancel' | 'restart'): string {
+  if (status === 403 || code === 'forbidden') return 'Остановить чужой синк может только владелец.';
+  if (status === 409 && code === 'sync_in_progress') return 'Синк сейчас занят другим запуском. Попробуй ещё раз через минуту.';
+  if (status === 409 && code === 'psn_not_set') return 'PSN-аккаунт не подключён.';
+  if (code === 'config_error') return 'Синк не настроен на сервере.';
+  if (status === 503 || code === 'db_unavailable') return 'База данных недоступна. Попробуй позже.';
+  if (status === 401) return 'Сессия истекла. Войди заново.';
+  return action === 'cancel' ? 'Не удалось остановить синк.' : 'Не удалось перезапустить синк.';
 }
 
 export function needsNewNpsso(s: Pick<SyncStatus, 'psnAuth' | 'run'>): boolean {

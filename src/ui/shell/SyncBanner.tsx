@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { formatMoscow, isSyncOverdue, needsNewNpsso, overdueAgeText } from '../sync/status';
 import { Icon } from '../icons';
 import { useSync } from '../sync/SyncProvider';
-import { reasonText } from '../sync/status';
+import { isCancelledRun, reasonText } from '../sync/status';
 
 /** Баннеры под шапкой (4.9): протухший NPSSO нельзя скрыть, ошибка синка скрывается до перезагрузки. */
 export function SyncBanner() {
@@ -53,7 +53,7 @@ export function SyncBanner() {
   }
 
   const run = status.run;
-  if (hidden || !run || (run.status !== 'failed' && run.status !== 'partial')) return overdueBanner;
+  if (hidden || !run || (run.status !== 'failed' && run.status !== 'partial') || isCancelledRun(run)) return overdueBanner;
   const why = run.status === 'failed' ? reasonText(run.errorReason) : 'Синк завершился частично.';
   return (
     <>

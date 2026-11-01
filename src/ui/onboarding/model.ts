@@ -132,6 +132,7 @@ export function phaseLabel(phase: string | null | undefined): string {
 export function syncErrorText(reason: string | null | undefined): string {
   if (reason === 'timeout') return 'Загрузка заняла слишком много времени.';
   if (reason === 'npsso_invalid' || reason === 'auth_expired') return 'Сервису не удалось войти в PlayStation. Владелец сайта уже получил уведомление.';
+  if (reason === 'cancelled') return 'Загрузка остановлена. Уже загруженное сохранено.';
   return 'Неизвестная ошибка.';
 }
 
