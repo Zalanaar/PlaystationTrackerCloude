@@ -16,7 +16,7 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
   const notHltb = notHltbOf(userId);
   const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastDone] = await db.select().from(syncRuns)// отменённые запуски (8.8) не считаются «последним завершённым»: отмена не скрывает прежний auth_expired
-    .where(and(notHltb, ne(syncRuns.status, 'running'), or(isNull(syncRuns.errorReason), ne(syncRuns.errorReason, 'cancelled')))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
+    .where(and(notHltb, ne(syncRuns.status, 'running'), or(isNull(syncRuns.errorReason), sql`${syncRuns.errorReason}::text <> 'cancelled'`))).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
   const [lastSuccess] = await db
     .select({ finishedAt: syncRuns.finishedAt })
     .from(syncRuns)
