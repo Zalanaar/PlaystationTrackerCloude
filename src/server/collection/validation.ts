@@ -134,6 +134,47 @@ export function parseStatusBody(body: unknown): Parsed<{ status: GameStatusValue
   return r.success ? { ok: true, value: { status: r.data } } : bad('Недопустимый статус.');
 }
 
+export type StatusRestore = { status: GameStatusValue; statusChangedAt: Date; completedAt: Date | null; droppedAt: Date | null };
+export type StatusPutBody = { status: GameStatusValue | null; expectedStatus?: GameStatusValue | null; restore?: StatusRestore };
+
+const restoreDate = z.iso.datetime({ offset: true });
+
+/** Контракт 28.9: PUT статуса с необязательными expectedStatus и restore. Без них равен parseStatusBody. */
+export function parseStatusPutBody(body: unknown): Parsed<StatusPutBody> {
+  const base = parseStatusBody(body);
+  if (!base.ok) return base;
+  const b = body as Record<string, unknown>;
+  const value: StatusPutBody = { status: base.value.status };
+  if ('expectedStatus' in b) {
+    const e = statusSchema.safeParse(b.expectedStatus);
+    if (!e.success) return bad('Недопустимый expectedStatus.');
+    value.expectedStatus = e.data;
+  }
+  if ('restore' in b && b.restore !== undefined) {
+    const r = b.restore;
+    if (typeof r !== 'object' || r === null || Array.isArray(r)) return bad('restore должен быть объектом.');
+    const o = r as Record<string, unknown>;
+    if (Object.keys(o).some((k) => !['status', 'statusChangedAt', 'completedAt', 'droppedAt'].includes(k))) return bad('restore: лишние поля.');
+    const st = z.enum(STATUS_VALUES).safeParse(o.status);
+    if (!st.success) return bad('restore.status: недопустимый статус.');
+    if (st.data !== value.status) return bad('restore.status должен совпадать со status.');
+    const changed = restoreDate.safeParse(o.statusChangedAt);
+    if (!changed.success) return bad('restore.statusChangedAt: нужна дата ISO 8601.');
+    const dates: Record<'completedAt' | 'droppedAt', Date | null> = { completedAt: null, droppedAt: null };
+    for (const k of ['completedAt', 'droppedAt'] as const) {
+      const v = o[k];
+      if (v === undefined || v === null) continue;
+      const d = restoreDate.safeParse(v);
+      if (!d.success) return bad(`restore.${k}: нужна дата ISO 8601 или null.`);
+      dates[k] = new Date(d.data);
+    }
+    if (dates.completedAt && st.data !== 'completed') return bad('restore.completedAt допустим только при completed.');
+    if (dates.droppedAt && st.data !== 'dropped') return bad('restore.droppedAt допустим только при dropped.');
+    value.restore = { status: st.data, statusChangedAt: new Date(changed.data), ...dates };
+  }
+  return { ok: true, value };
+}
+
 export function parseBulkBody(body: unknown): Parsed<{ ids: number[]; status: GameStatusValue | null }> {
   if (typeof body !== 'object' || body === null) return bad('Некорректное тело запроса.');
   const b = body as { ids?: unknown };

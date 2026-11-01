@@ -1,6 +1,22 @@
-// QA Фазы 27: границы порогов и последствия «Принять» + «Отменить» (откат делает PUT прошлого статуса).
-import { describe, expect, it } from 'vitest';
-import { hintFor, matchingRules, type HintFacts } from './status-hints';
+// QA Фазы 27: границы порогов; QA-27-1 (откат «Принять» восстанавливает строку статуса) и QA-27-3 (конфликт) на PGlite.
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { and, eq } from 'drizzle-orm';
+import { schema } from '@/db';
+import { resetTestSession, testSession } from '@/server/auth/test-require-user';
+import { matchingRules, type HintFacts } from './status-hints';
+import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from './test-helpers';
+import { computeStatusHints } from './status-hints-db';
+
+const holder: { db: TestDb['db'] | null } = { db: null };
+vi.mock('@/db', async (orig) => ({
+  ...(await orig<typeof import('@/db')>()),
+  getDb: () => {
+    if (!holder.db) throw new Error('no db');
+    return holder.db;
+  },
+}));
+vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
+import { PUT as statusPut } from '@/app/api/games/[id]/status/route';
 
 const NOW = new Date('2026-11-01T12:00:00Z');
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
@@ -31,17 +47,108 @@ describe('QA-27: пороги', () => {
   });
 });
 
-describe('QA-27-1: после «Принять» + «Отменить» подсказка пропадает без отказа', () => {
-  // PUT прошлого статуса ставит statusChangedAt = сейчас (и dropped_at = последний запуск)
-  it('returned: undo -> dropped с новым statusChangedAt, запуск старше: подсказки нет', () => {
-    const before = facts({ status: 'dropped', statusChangedAt: daysAgo(60), droppedAt: daysAgo(60), lastPlayedAt: daysAgo(3) });
-    expect(hintFor(before, new Set(), NOW)?.rule).toBe('returned');
-    const afterUndo = { ...before, statusChangedAt: NOW, droppedAt: before.lastPlayedAt };
-    expect(hintFor(afterUndo, new Set(), NOW)).toBeNull();
+describe('QA-27-1 / QA-27-3: откат и конфликт (PUT статуса, контракт 28.9)', () => {
+  let t: TestDb;
+  const { games, gameStatus, allowedUsers } = schema;
+  beforeAll(async () => {
+    t = await createTestDb();
+    holder.db = t.db;
+    await t.db.insert(allowedUsers).values({ email: 'b@example.com', role: 'member', status: 'active' });
   });
-  it('stale: undo -> playing с новым statusChangedAt: 30 дней тишины', () => {
-    const before = facts({ status: 'playing', statusChangedAt: daysAgo(80), lastPlayedAt: daysAgo(50) });
-    expect(hintFor(before, new Set(), NOW)?.rule).toBe('stale');
-    expect(hintFor({ ...before, statusChangedAt: NOW }, new Set(), NOW)).toBeNull();
+  afterAll(() => t.close());
+  beforeEach(async () => {
+    await t.reset();
+    resetTestSession();
+  });
+
+  const put = (id: number, body: unknown) =>
+    statusPut(new Request(`http://x/api/games/${id}/status`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), { params: Promise.resolve({ id: String(id) }) });
+  const hintRules = async (u: typeof TEST_USER) => (await computeStatusHints(t.db, u, NOW)).map((h) => `${h.gameId}:${h.rule}`);
+  const row = async (u: typeof TEST_USER, id: number) => (await t.db.select().from(gameStatus).where(and(eq(gameStatus.gameId, id), eq(gameStatus.userId, u))))[0];
+  async function droppedGame(u: typeof TEST_USER) {
+    const [g] = await t.db.insert(games).values({ userId: u, titleId: 'CUSA1', name: 'G', category: 'ps5_native_game', lastSeenAt: NOW, playDurationSeconds: 7200, lastPlayedAt: daysAgo(3) }).returning({ id: games.id });
+    // ручная дата отличается от последнего запуска
+    await t.db.insert(gameStatus).values({ userId: u, gameId: g.id, status: 'dropped', statusChangedAt: daysAgo(60), droppedAt: daysAgo(55) });
+    return g.id;
+  }
+
+  it('«Принять» + откат через restore: статус и даты как были, подсказка returned возвращается', async () => {
+    const id = await droppedGame(TEST_USER);
+    const before = await row(TEST_USER, id);
+    expect(await hintRules(TEST_USER)).toEqual([`${id}:returned`]);
+    expect((await put(id, { status: 'playing', expectedStatus: 'dropped' })).status).toBe(200);
+    expect(await hintRules(TEST_USER)).toEqual([]);
+    const res = await put(id, {
+      status: 'dropped',
+      expectedStatus: 'playing',
+      restore: { status: 'dropped', statusChangedAt: before.statusChangedAt.toISOString(), completedAt: null, droppedAt: before.droppedAt!.toISOString() },
+    });
+    expect(res.status).toBe(200);
+    const after = await row(TEST_USER, id);
+    expect(after.status).toBe('dropped');
+    expect(after.statusChangedAt).toEqual(before.statusChangedAt);
+    expect(after.droppedAt).toEqual(before.droppedAt);
+    expect(after.completedAt).toBeNull();
+    expect(await hintRules(TEST_USER)).toEqual([`${id}:returned`]);
+  });
+
+  it('без restore обычный PUT прошлого статуса по-прежнему сдвигает даты (поведение 9.4 не менялось)', async () => {
+    const id = await droppedGame(TEST_USER);
+    const before = await row(TEST_USER, id);
+    await put(id, { status: 'playing' });
+    await put(id, { status: 'dropped' });
+    const after = await row(TEST_USER, id);
+    expect(after.statusChangedAt.getTime()).toBeGreaterThan(before.statusChangedAt.getTime());
+    expect(after.droppedAt).toEqual(daysAgo(3));
+  });
+
+  it('expectedStatus: несовпадение = 409 status_conflict с текущим статусом, запись не выполнена; null = «без статуса»', async () => {
+    const id = await droppedGame(TEST_USER);
+    const r = await put(id, { status: 'playing', expectedStatus: 'backlog' });
+    expect(r.status).toBe(409);
+    const j = await r.json();
+    expect(j.error.code).toBe('status_conflict');
+    expect(j.error.details).toEqual({ status: 'dropped' });
+    expect((await row(TEST_USER, id)).status).toBe('dropped');
+    expect((await put(id, { status: 'playing', expectedStatus: null })).status).toBe(409);
+    expect((await put(id, { status: 'playing', expectedStatus: 'dropped' })).status).toBe(200);
+  });
+
+  it('откат не затирает чужое изменение: статус сменили в другом месте = 409', async () => {
+    const id = await droppedGame(TEST_USER);
+    const before = await row(TEST_USER, id);
+    await put(id, { status: 'playing', expectedStatus: 'dropped' });
+    await put(id, { status: 'shelved' }); // другая вкладка
+    const r = await put(id, { status: 'dropped', expectedStatus: 'playing', restore: { status: 'dropped', statusChangedAt: before.statusChangedAt.toISOString(), droppedAt: before.droppedAt!.toISOString() } });
+    expect(r.status).toBe(409);
+    expect((await row(TEST_USER, id)).status).toBe('shelved');
+  });
+
+  it('валидация restore: расхождение со status, лишнее поле, дата не к статусу, нет statusChangedAt, плохой expectedStatus = 400', async () => {
+    const id = await droppedGame(TEST_USER);
+    const ok = { status: 'dropped', statusChangedAt: daysAgo(60).toISOString(), droppedAt: null };
+    const bad: unknown[] = [
+      { status: 'playing', restore: ok },
+      { status: 'dropped', restore: { ...ok, extra: 1 } },
+      { status: 'dropped', restore: { ...ok, completedAt: daysAgo(1).toISOString() } },
+      { status: 'dropped', restore: { status: 'dropped', droppedAt: null } },
+      { status: 'dropped', restore: { ...ok, statusChangedAt: 'вчера' } },
+      { status: 'dropped', restore: null },
+      { status: 'dropped', restore: [] },
+      { status: 'dropped', expectedStatus: 'bogus' },
+    ];
+    for (const b of bad) expect((await put(id, b)).status, JSON.stringify(b)).toBe(400);
+    expect((await row(TEST_USER, id)).statusChangedAt).toEqual(daysAgo(60));
+  });
+
+  it('изоляция: чужая игра = 404, чужая строка статуса не меняется', async () => {
+    const idA = await droppedGame(TEST_USER);
+    testSession.userId = TEST_USER_2;
+    const r = await put(idA, { status: 'dropped', restore: { status: 'dropped', statusChangedAt: NOW.toISOString() } });
+    expect(r.status).toBe(404);
+    expect((await put(idA, { status: 'playing', expectedStatus: 'dropped' })).status).toBe(404);
+    const a = await row(TEST_USER, idA);
+    expect(a.status).toBe('dropped');
+    expect(a.statusChangedAt).toEqual(daysAgo(60));
   });
 });
