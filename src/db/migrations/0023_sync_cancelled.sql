@@ -1,0 +1,1 @@
+ALTER TYPE "public"."sync_error_reason" ADD VALUE IF NOT EXISTS 'cancelled';

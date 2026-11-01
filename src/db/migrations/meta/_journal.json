@@ -162,6 +162,13 @@
       "when": 1793540167283,
       "tag": "0022_roadmap_goal",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793544108496,
+      "tag": "0023_sync_cancelled",
+      "breakpoints": true
     }
   ]
 }

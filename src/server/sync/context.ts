@@ -42,6 +42,14 @@ export function parseCursor(raw: unknown): Cursor {
   };
 }
 
+/** Запись состояния не нашла running-строку: запуск отменён (контракт 8.8) или закрыт как брошенный. */
+export class RunCancelledError extends Error {
+  constructor(readonly runId: number) {
+    super('Запуск синка остановлен.');
+    this.name = 'RunCancelledError';
+  }
+}
+
 export type PhaseResult = 'done' | 'timeout';
 
 export class RunContext {
@@ -87,9 +95,13 @@ export class RunContext {
     if (this.warnings.length < MAX_WARNINGS) this.warnings.push({ code, message: message.slice(0, 200) });
   }
 
-  /** Запись состояния. Вызывается внутри транзакции батча, чтобы данные и курсор менялись атомарно. */
+  /**
+   * Запись состояния. Вызывается внутри транзакции батча, чтобы данные и курсор менялись атомарно.
+   * Обновляет строку только при status='running': 0 строк = запуск отменён (8.8) -> RunCancelledError,
+   * транзакция батча откатывается, отменённый запуск ничего не перезаписывает.
+   */
   async save(db: AnyDb = this.db, extra: Partial<typeof syncRuns.$inferInsert> = {}): Promise<void> {
-    await db
+    const rows = await db
       .update(syncRuns)
       .set({
         phase: this.cursor.phase,
@@ -98,7 +110,9 @@ export class RunContext {
         warnings: this.warnings,
         ...extra,
       })
-      .where(and(eq(syncRuns.id, this.run.id), eq(syncRuns.userId, this.userId)));
+      .where(and(eq(syncRuns.id, this.run.id), eq(syncRuns.userId, this.userId), eq(syncRuns.status, 'running')))
+      .returning({ id: syncRuns.id });
+    if (rows.length === 0) throw new RunCancelledError(this.run.id);
   }
 }
 

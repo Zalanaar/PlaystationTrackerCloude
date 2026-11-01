@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, or } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { fail, ok } from '@/server/http';
 import type { UserId } from '@/server/auth/user-id';
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     const db = getDb();
     const notHltb = notHltbOf(a.user.id);
     const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt)).limit(1);
-    const [lastDone] = await db.select().from(syncRuns).where(and(notHltb, ne(syncRuns.status, 'running'))).orderBy(desc(syncRuns.startedAt)).limit(1);
+    const [lastDone] = await db.select().from(syncRuns).where(and(notHltb, ne(syncRuns.status, 'running'), or(isNull(syncRuns.errorReason), ne(syncRuns.errorReason, 'cancelled')))).orderBy(desc(syncRuns.startedAt)).limit(1);
     const [lastSuccess] = await db
       .select({ finishedAt: syncRuns.finishedAt })
       .from(syncRuns)
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
     const authFailed = lastDone?.errorReason === 'auth_expired' || lastDone?.errorReason === 'npsso_invalid';
     const psnAuth = !lastDone ? 'unknown' : authFailed ? 'auth_expired' : 'ok';
-    const degraded = psnAuth === 'auth_expired' || last?.status === 'failed';
+    const degraded = psnAuth === 'auth_expired' || (last?.status === 'failed' && last.errorReason !== 'cancelled');
 
     return ok({
       status: degraded ? 'degraded' : 'ok',
