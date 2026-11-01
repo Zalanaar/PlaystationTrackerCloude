@@ -1,6 +1,7 @@
 // Длительность прохождения (контракт 16): эффективные часы, бакеты, статус HLTB. Чистые функции без БД.
 import { sql, type SQL } from 'drizzle-orm';
 import { schema } from '@/db';
+import { remainingHours } from '@/shared/remaining';
 import type { GameDuration, DurationBucket, HltbStatus } from './types';
 
 const { games, gameStatus } = schema;
@@ -43,6 +44,8 @@ export type DurationRow = {
   hltbMainHours?: number | null;
   hltbExtraHours?: number | null;
   hltbCheckedAt?: Date | null;
+  /** Наиграно, секунды (с версиями-дублями): для остатка часов (17.4, Фаза 32). */
+  playSeconds?: number;
 };
 
 export function buildDuration(r: DurationRow): GameDuration {
@@ -52,10 +55,13 @@ export function buildDuration(r: DurationRow): GameDuration {
   const checkedAt = r.hltbCheckedAt ?? null;
   const status = hltbStatus({ id, checkedAt });
   const found = status === 'found';
+  const rem = remainingHours(hours, r.playSeconds ?? 0);
   return {
     hours,
     source,
     bucket: bucketOf(hours),
+    remainingHours: rem.remaining,
+    progress: rem.progress,
     overrideHours: override,
     hltb: {
       status,

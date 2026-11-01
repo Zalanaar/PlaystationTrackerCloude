@@ -22,9 +22,27 @@ export type RmState = {
   upcoming: { pages: Record<string, unknown>[][]; fail: { status: number; reason?: string } | null };
   /** принудительные ответы */
   roadmapFail: number | null; plannedFail: number | null; orderFail: boolean;
+  /** Фаза 32: цель года (GoalView 17.3a). undefined = поле goal в ответе плана нет (старые фикстуры) */
+  goal?: Record<string, unknown> | null;
+  /** принудительная ошибка PUT цели (status, code) */
+  goalPutFail?: { status: number; code: string } | null;
+  goalCalls?: { method: string; body: unknown }[];
   catalog: { status: number; reason?: string; candidates?: unknown[] } | null;
   calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[]; catalogPs: (string | null)[]; exclusions: { method: string; gameId: number }[]; upcoming: number[] };
 };
+
+/** Упрощённый GoalView (17.3a): 7 пройдено, темп 0.8/мес, прогноз 9 на конец года. */
+export function goalView(mode: 'complete' | 'backlog_to', count: number, o: Record<string, unknown> = {}): Record<string, unknown> {
+  const complete = mode === 'complete';
+  const current = complete ? 7 : 24;
+  const forecast = complete ? 9 : 20;
+  const diff = complete ? forecast - count : count - forecast;
+  const status = (complete ? current >= count : current <= count) ? 'achieved' : diff >= 1 ? 'ahead' : diff <= -1 ? 'behind' : 'onTrack';
+  return {
+    mode, count, year: 2026, current, target: count, remaining: complete ? Math.max(0, count - current) : Math.max(0, current - count),
+    pacePerMonth: 0.8, paceEmpty: false, forecast, forecastAtYearEnd: forecast, requiredPerMonth: status === 'achieved' ? 0 : 2.4, status, diff, asOf: '2026-10-29', ...o,
+  };
+}
 
 export function baseState(over: Partial<RmState> = {}): RmState {
   return {
@@ -165,6 +183,7 @@ export function buildRoadmap(s: RmState) {
   const planned = items.reduce((sum, i) => sum + (i.segments as { hours: number }[]).reduce((x, g) => x + g.hours, 0), 0);
   return {
     settings: { year: s.year, hoursPerWeek: s.hoursPerWeek, configured: s.configured },
+    ...(s.goal !== undefined ? { goal: s.goal } : {}),
     status: b > 0 ? 'ok' : 'no_budget', today: s.today, range: { from: yearStart, to: yearEnd, days },
     totals: { capacityHours: Math.round(((b * days) / 7) * 10) / 10, plannedHours: Math.round(planned * 10) / 10 },
     weeks, months, items, queue, conflicts, notFit, needHours,
@@ -189,6 +208,17 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
     s.calls.roadmap++;
     if (s.roadmapFail) return fail(r, s.roadmapFail, 'db_unavailable');
     return ok(r, buildRoadmap(s));
+  });
+  await page.route(/\/api\/roadmap\/goal$/, async (r) => {
+    const method = r.request().method();
+    const calls = (s.goalCalls ??= []);
+    if (method === 'GET') return ok(r, { goal: s.goal ?? null });
+    if (method === 'DELETE') { calls.push({ method, body: null }); s.goal = null; return ok(r, { goal: null }); }
+    const body = r.request().postDataJSON() as { mode: 'complete' | 'backlog_to'; count: number };
+    calls.push({ method, body });
+    if (s.goalPutFail) return fail(r, s.goalPutFail.status, s.goalPutFail.code);
+    s.goal = goalView(body.mode, body.count);
+    return ok(r, { goal: s.goal });
   });
   await page.route(/\/api\/roadmap\/settings$/, async (r) => {
     if (r.request().method() !== 'PUT') return ok(r, { settings: { year: s.year, hoursPerWeek: s.hoursPerWeek, configured: s.configured } });

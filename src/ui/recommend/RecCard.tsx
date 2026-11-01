@@ -47,6 +47,9 @@ export function RecCard({
   const genres = genresLine(game.genres);
   const hours = hoursText(game.hours);
   const src = hoursSourceText(game.hoursSource);
+  // Фаза 32 (18.3): game.hours = остаток; «осталось» и полная длительность, если игру уже начали
+  const started = hours !== null && typeof game.totalHours === 'number' && game.totalHours - (game.hours ?? 0) > 0.05;
+  const fullText = started ? hoursText(game.totalHours ?? null) : null;
   const max = maxAbs(signals.map((s) => s.contribution));
   const source = SOURCE_TEXT[reason.source];
   const disabled = busy !== null || locked;
@@ -61,7 +64,8 @@ export function RecCard({
         {hours ? (
           <>
             <Icon name="clock" size={12} />
-            <span className="num ps-rec__hours-v">{hours}</span>
+            <span className="num ps-rec__hours-v">{started ? `осталось ${hours}` : hours}</span>
+            {fullText && <small>из {fullText}</small>}
             {src && <small>{src}</small>}
           </>
         ) : <small>Длительность неизвестна</small>}

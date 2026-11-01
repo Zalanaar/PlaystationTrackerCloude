@@ -18,6 +18,7 @@ export type ErrorCode =
   | 'status_conflict'
   | 'month_exclusion_conflict'
   | 'planned_duplicate'
+  | 'settings_required'
   | 'catalog_unavailable'
   | 'config_error'
   | 'psn_not_set'

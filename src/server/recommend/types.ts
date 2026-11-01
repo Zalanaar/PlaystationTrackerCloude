@@ -23,7 +23,10 @@ export type Candidate = {
   imageUrl: string | null;
   bannerUrl: string | null;
   genres: readonly GenreKey[];
+  /** ОСТАТОК часов (18.3, Фаза 32): max(база − наиграно, 15% базы). Его видит duration_fit. */
   hours: number | null;
+  /** Полная база (override/HLTB). */
+  totalHours?: number | null;
   hoursSource: 'manual' | 'hltb' | null;
   /** game_status.status_changed_at: когда игра попала в бэклог. */
   statusChangedAt: Date;
@@ -39,7 +42,9 @@ export type ScoredItem = {
     imageUrl: string | null;
     bannerUrl: string | null;
     genres: GenreKey[];
+    /** Остаток часов (18.3). */
     hours: number | null;
+    totalHours?: number | null;
     hoursSource: 'manual' | 'hltb' | null;
   };
   score: number;

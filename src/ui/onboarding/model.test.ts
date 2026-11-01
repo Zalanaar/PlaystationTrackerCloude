@@ -78,6 +78,9 @@ describe('синк (шаг 3)', () => {
     expect(syncView(run('success')).kind).toBe('success');
     expect(shouldAutoStart({ running: false, run: null })).toBe(true);
     expect(shouldAutoStart(run('failed'))).toBe(true);
+    expect(syncView(run('failed', { errorReason: 'cancelled' }))).toEqual({ kind: 'cancelled' });
+    expect(shouldAutoStart(run('failed', { errorReason: 'cancelled' }))).toBe(false);
+    expect(shouldAutoStart(run('failed', { errorReason: 'timeout' }))).toBe(true);
     expect(shouldAutoStart(run('running'))).toBe(false);
     expect(shouldAutoStart(run('success'))).toBe(false);
     expect(shouldAutoStart(run('partial'))).toBe(true);

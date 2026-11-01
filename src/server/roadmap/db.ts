@@ -3,13 +3,15 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql } from 'drizz
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
+import { remainingHours } from '@/shared/remaining';
 import { effectiveDuration } from '@/server/collection/duration';
 import { effectiveSecondsSql } from '@/server/collection/query';
 import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import { snapshotGameVisible, visibleGameRow } from '@/server/collection/visibility';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
-import { mskDate, mskDateString } from '@/server/stats/period';
+import { mskDate, mskDateString, mskMidnightUtc } from '@/server/stats/period';
 import { yearBounds } from './dates';
+import { computeGoal, type GoalMode, type GoalView } from './goal';
 import { buildPlan, isValidBudget, round1 } from './plan';
 import { computeProgress } from './progress';
 import type { PlannedGameDto, PlannedGameStatus, RoadmapEntry, RoadmapResponse, ServiceGame, SettingsView } from './types';
@@ -18,6 +20,19 @@ import type { PlannedCreate, PlannedPatch } from './validation';
 const { games, gameStatus, playtimeSnapshots: ps, plannedGames, roadmapExcluded, roadmapOrder, roadmapSettings } = schema;
 
 export const SERVICE_GAMES_LIMIT = 50;
+
+type BacklogRow = { id: number; name: string; imageUrl: string | null; override: number | null; main: number | null; seconds: number };
+
+/** Запись бэклога: hours = ОСТАТОК (17.4, D3), totalHours = база, playedHours = наиграно. Ручная оценка приоритетнее HLTB. */
+function backlogEntry(r: BacklogRow): RoadmapEntry {
+  const d = effectiveDuration({ override: r.override, main: r.main });
+  const rem = remainingHours(d.hours, r.seconds);
+  return {
+    key: `g:${r.id}`, kind: 'backlog', gameId: r.id, plannedId: null, title: r.name, coverUrl: r.imageUrl,
+    hours: rem.remaining, hoursSource: d.source, releaseDate: null, wantAtRelease: false,
+    totalHours: d.hours, playedHours: round1(r.seconds / 3600),
+  };
+}
 
 export class NotFoundError extends Error {}
 export class DuplicatePlannedError extends Error {
@@ -52,6 +67,53 @@ export async function putSettings(db: AnyDb, userId: UserId, v: { year: number; 
     .values({ userId, year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now })
     .onConflictDoUpdate({ target: roadmapSettings.userId, set: { year: v.year, hoursPerWeek: v.hoursPerWeek, updatedAt: now } });
   return { year: v.year, hoursPerWeek: v.hoursPerWeek, configured: true };
+}
+
+export class SettingsRequiredError extends Error {}
+
+const isGoalMode = (m: unknown): m is GoalMode => m === 'complete' || m === 'backlog_to';
+
+/** Данные цели: игры, завершённые в году (completed_at по МСК), и бэклог сейчас. Только видимые игры пользователя. */
+async function goalFacts(db: AnyDb, userId: UserId, year: number): Promise<{ completedInYear: number; backlogNow: number }> {
+  const from = mskMidnightUtc(year, 1, 1);
+  const to = mskMidnightUtc(year + 1, 1, 1);
+  const [done, backlog] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(gameStatus)
+      .innerJoin(games, and(eq(games.id, gameStatus.gameId), eq(games.userId, userId)))
+      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'completed'), gte(gameStatus.completedAt, from), lt(gameStatus.completedAt, to), visibleGameRow())),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(gameStatus)
+      .innerJoin(games, and(eq(games.id, gameStatus.gameId), eq(games.userId, userId)))
+      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow())),
+  ]);
+  return { completedInYear: done[0]?.n ?? 0, backlogNow: backlog[0]?.n ?? 0 };
+}
+
+/** 17.3a: цель года и прогноз. null = цели нет (или настроек ещё нет). */
+export async function getGoal(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<GoalView | null> {
+  const [row] = await db.select({ year: roadmapSettings.year, mode: roadmapSettings.goalMode, count: roadmapSettings.goalCount }).from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
+  if (!row || !isGoalMode(row.mode) || row.count === null) return null;
+  const facts = await goalFacts(db, userId, row.year);
+  return computeGoal({ mode: row.mode, count: row.count, year: row.year, today: mskDateString(now), ...facts });
+}
+
+/** 17.3a: upsert цели в существующей строке настроек. Нет строки = SettingsRequiredError (409). */
+export async function putGoal(db: AnyDb, userId: UserId, v: { mode: GoalMode; count: number }, now: Date = new Date()): Promise<GoalView> {
+  const rows = await db
+    .update(roadmapSettings)
+    .set({ goalMode: v.mode, goalCount: v.count, updatedAt: new Date() })
+    .where(eq(roadmapSettings.userId, userId))
+    .returning({ userId: roadmapSettings.userId });
+  if (!rows.length) throw new SettingsRequiredError();
+  return (await getGoal(db, userId, now)) as GoalView;
+}
+
+/** 17.3a: снять цель. Идемпотентно. */
+export async function clearGoal(db: AnyDb, userId: UserId): Promise<void> {
+  await db.update(roadmapSettings).set({ goalMode: null, goalCount: null, updatedAt: new Date() }).where(eq(roadmapSettings.userId, userId));
 }
 
 type PlannedRow = typeof plannedGames.$inferSelect;
@@ -157,20 +219,14 @@ export async function saveOrder(db: AnyDb, userId: UserId, gameIds: readonly num
 /** Очередь бэклога: видимые игры со статусом backlog; сначала ручной порядок, затем без позиции по дате попадания в бэклог. */
 export async function getBacklogEntries(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
   const rows = await db
-    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
+    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours, seconds: effectiveSecondsSql })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .leftJoin(roadmapOrder, and(eq(roadmapOrder.gameId, games.id), eq(roadmapOrder.userId, userId)))
     .leftJoin(roadmapExcluded, and(eq(roadmapExcluded.gameId, games.id), eq(roadmapExcluded.userId, userId)))
     .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow(), isNull(roadmapExcluded.gameId)))
     .orderBy(sql`${roadmapOrder.position} asc nulls last`, asc(gameStatus.statusChangedAt), asc(games.id));
-  return rows.map((r) => {
-    const d = effectiveDuration({ override: r.override, main: r.main });
-    return {
-      key: `g:${r.id}`, kind: 'backlog' as const, gameId: r.id, plannedId: null, title: r.name, coverUrl: r.imageUrl,
-      hours: d.hours, hoursSource: d.source, releaseDate: null, wantAtRelease: false,
-    };
-  });
+  return rows.map(backlogEntry);
 }
 
 /**
@@ -238,16 +294,13 @@ export async function restoreGame(db: AnyDb, userId: UserId, gameId: number): Pr
 /** 17.12: «Не распределено»: исключённые игры бэклога, затем отменённые релизы. */
 export async function getUnallocated(db: AnyDb, userId: UserId): Promise<RoadmapEntry[]> {
   const backlogRows = await db
-    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours })
+    .select({ id: games.id, name: games.name, imageUrl: games.imageUrl, override: games.durationOverrideHours, main: games.hltbMainHours, seconds: effectiveSecondsSql })
     .from(roadmapExcluded)
     .innerJoin(games, and(eq(games.id, roadmapExcluded.gameId), eq(games.userId, userId)))
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .where(and(eq(roadmapExcluded.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow()))
     .orderBy(desc(roadmapExcluded.createdAt), asc(games.id));
-  const fromBacklog = backlogRows.map((r): RoadmapEntry => {
-    const d = effectiveDuration({ override: r.override, main: r.main });
-    return { key: `g:${r.id}`, kind: 'backlog', gameId: r.id, plannedId: null, title: r.name, coverUrl: r.imageUrl, hours: d.hours, hoursSource: d.source, releaseDate: null, wantAtRelease: false };
-  });
+  const fromBacklog = backlogRows.map(backlogEntry);
   const rows = await db.select().from(plannedGames).where(and(eq(plannedGames.userId, userId), eq(plannedGames.status, 'cancelled'))).orderBy(desc(plannedGames.updatedAt), asc(plannedGames.id));
   return [...fromBacklog, ...rows.map(plannedEntry)];
 }
@@ -298,8 +351,8 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
 /** GET /api/roadmap: план на лету (17.5). */
 export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<RoadmapResponse> {
   const today = mskDateString(now);
-  const [settings, backlog, planned, unallocated, serviceGames] = await Promise.all([
-    getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId),
+  const [settings, backlog, planned, unallocated, serviceGames, goal] = await Promise.all([
+    getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId), getGoal(db, userId, now),
   ]);
   const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
   let progress = null;
@@ -311,7 +364,7 @@ export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
-  return { ...plan, settings, today, progress, unallocated, serviceGames };
+  return { ...plan, settings, today, progress, goal, unallocated, serviceGames };
 }
 
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };

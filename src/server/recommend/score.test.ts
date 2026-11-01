@@ -148,3 +148,15 @@ describe('scoreBacklog', () => {
     expect(it0.signals.map((s) => s.key)).toEqual(['genre_affinity', 'duration_fit', 'waiting', 'platinum_close']);
   });
 });
+
+describe('Фаза 32 (D3): duration_fit работает по остатку часов', () => {
+  it('начатая 30-часовая игра с остатком 6 ч подходит под short; та же без прогресса нет', () => {
+    const started = cand(1, { hours: 6, totalHours: 30, hoursSource: 'hltb' });
+    const fresh = cand(2, { hours: 30, totalHours: 30, hoursSource: 'hltb' });
+    const r = run({ candidates: [started, fresh], time: 'short' });
+    const byId = (id: number) => r.items.find((i) => i.game.id === id)!;
+    expect(byId(1).signals.find((s) => s.key === 'duration_fit')!.contribution).toBe(WEIGHTS.duration_fit);
+    expect(byId(2).signals.find((s) => s.key === 'duration_fit')!.contribution).toBeLessThan(0);
+    expect(byId(1).game).toMatchObject({ hours: 6, totalHours: 30 });
+  });
+});

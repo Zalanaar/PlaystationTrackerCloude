@@ -1,6 +1,6 @@
 // Watchdog и копия по всем пользователям, всё владельцу (контракт 22.13); owner не найден не молчит (N-2).
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
 
@@ -23,7 +23,7 @@ const OLD = new Date('2026-01-01T20:00:00Z');
 const req = () => new Request('http://x/api/cron/watchdog', { headers: { authorization: `Bearer ${SECRET}` } });
 
 beforeAll(async () => {
-  t = await createTestDb({ migrations: 15 });
+  t = await createTestDb();
   for (const [k, nick, extra] of [['a', 'User_A', {}], ['blocked', 'User_Blocked', { status: 'blocked' as const }], ['nonick', null, {}]] as const) {
     const [r] = await t.db.insert(allowedUsers).values({ email: `${k}@example.com`, role: 'member', status: 'active', psnOnlineId: nick, psnAccessStatus: nick ? 'ok' : 'unchecked', ...extra }).returning({ id: allowedUsers.id });
     ids[k] = r.id;
@@ -33,7 +33,11 @@ beforeAll(async () => {
   }
 });
 afterAll(() => t.close());
+// QA-32-4: схема полная (в ней есть таблицы сводки Telegram), поэтому в воскресенье МСК cron-watchdog шлёт ещё и недельную сводку.
+// Часы фиксируем на среду, чтобы тест не зависел от дня запуска; воскресный тест ставит дату сам.
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-04T09:00:00Z'));
   owner.missing = false;
   sent.length = 0;
   docs.length = 0;
@@ -49,6 +53,10 @@ beforeEach(async () => {
     else if (init.body instanceof FormData) docs.push(String(init.body.get('caption')));
     return new Response('{"ok":true}', { status: 200 });
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('watchdog по пользователям', () => {
@@ -82,9 +90,8 @@ describe('watchdog по пользователям', () => {
   });
 
   it('еженедельная копия: по файлу на пользователя владельцу, ключи backup_weekly и backup_weekly:<id>', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-01T09:00:00Z')); // воскресенье МСК
-    try {
+    {
       await t.db.insert(games).values({ userId: ids.a, titleId: 'BKP000001', name: 'Backup game', category: 'ps5_native_game', lastSeenAt: new Date() });
       const data = (await (await GET(req())).json()).data;
       expect(data.backup).toEqual({ result: 'sent' });
@@ -93,8 +100,6 @@ describe('watchdog по пользователям', () => {
       expect(docs.filter((c) => c.includes('User_A'))).toHaveLength(1);
       const kinds = (await t.db.select().from(notifyLog)).map((k) => k.kind).filter((k) => k.startsWith('backup_weekly')).sort();
       expect(kinds).toEqual(['backup_weekly', `backup_weekly:${ids.a}`]);
-    } finally {
-      vi.useRealTimers();
     }
   });
 

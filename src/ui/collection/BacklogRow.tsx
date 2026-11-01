@@ -3,17 +3,15 @@
 import type { GameItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
 import { Popover } from '../primitives/Popover';
-import { rowDuration, sourceLabel } from './backlog';
+import { RemainingMeter } from './RemainingMeter';
 import { Cover } from './Cover';
 
 export type RowMenuItem = { label: string; run: () => void };
 
 /** Строка вида «Список» страницы «Бэклог» (Фаза 33): обложка, название, длительность, «Играть» и меню «…». Нажатие на строку открывает окно игры. */
 export function BacklogRow({
-  game, onOpen, onPlay, menu,
-}: { game: GameItem; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[] }) {
-  const dur = rowDuration(game.duration);
-  const src = sourceLabel(dur?.source ?? null);
+  game, onOpen, onPlay, menu, hideBar = false,
+}: { game: GameItem; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean }) {
   const plat = game.trophies?.platinumEarned === true;
   return (
     <li className="ps-blrow" data-testid="bl-row">
@@ -23,18 +21,7 @@ export function BacklogRow({
           {game.title}
           {plat && <PlatinumIcon size={14} className="ps-blrow__plat" title="Платина получена" />}
         </span>
-        {dur && (
-          <span className="ps-bl-dur num ps-blrow__dur" data-testid="bl-duration" data-source={dur.source ?? undefined}>
-            {dur.text !== null && (
-              <>
-                <Icon name="clock" size={12} />
-                <span aria-label={`Длительность ${dur.text}`}>{dur.text}</span>
-              </>
-            )}
-            {src && <span className="ps-bl-src" data-source={dur.source ?? undefined}>{src}</span>}
-            {dur.notOnHltb && <span className="ps-bl-src" data-hltb="not_found" data-testid="bl-no-hltb">нет на HLTB</span>}
-          </span>
-        )}
+        <RemainingMeter duration={game.duration} playedSeconds={game.playSeconds} variant="row" hideBar={hideBar} />
       </div>
       <button type="button" className="ps-btn ps-btn--primary ps-blrow__play" aria-label={`Начать играть: ${game.title}`} onClick={onPlay}>
         Играть

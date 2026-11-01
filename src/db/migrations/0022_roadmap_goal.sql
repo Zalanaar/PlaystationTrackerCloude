@@ -1,0 +1,5 @@
+ALTER TABLE "roadmap_settings" ADD COLUMN "goal_mode" text;--> statement-breakpoint
+ALTER TABLE "roadmap_settings" ADD COLUMN "goal_count" smallint;--> statement-breakpoint
+ALTER TABLE "roadmap_settings" ADD CONSTRAINT "roadmap_settings_goal_mode_check" CHECK ("roadmap_settings"."goal_mode" is null or "roadmap_settings"."goal_mode" in ('complete', 'backlog_to'));--> statement-breakpoint
+ALTER TABLE "roadmap_settings" ADD CONSTRAINT "roadmap_settings_goal_count_check" CHECK ("roadmap_settings"."goal_count" is null or ("roadmap_settings"."goal_count" >= 0 and "roadmap_settings"."goal_count" <= 1000));--> statement-breakpoint
+ALTER TABLE "roadmap_settings" ADD CONSTRAINT "roadmap_settings_goal_pair_check" CHECK (("roadmap_settings"."goal_mode" is null) = ("roadmap_settings"."goal_count" is null));

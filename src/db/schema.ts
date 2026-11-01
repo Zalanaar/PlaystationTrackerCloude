@@ -41,6 +41,7 @@ export const syncErrorReason = pgEnum('sync_error_reason', [
   'psn_unavailable',
   'timeout',
   'internal',
+  'cancelled',
 ]);
 
 export const games = pgTable(
@@ -409,10 +410,16 @@ export const roadmapSettings = pgTable(
     userId: userIdCol(),
     year: smallint().notNull(),
     hoursPerWeek: doublePrecision('hours_per_week').notNull(),
+    // Фаза 32 (N2): цель года в штуках. NULL = цели нет (контракт 17.1).
+    goalMode: text('goal_mode'),
+    goalCount: smallint('goal_count'),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.userId] }),
+    check('roadmap_settings_goal_mode_check', sql`${t.goalMode} is null or ${t.goalMode} in ('complete', 'backlog_to')`),
+    check('roadmap_settings_goal_count_check', sql`${t.goalCount} is null or (${t.goalCount} >= 0 and ${t.goalCount} <= 1000)`),
+    check('roadmap_settings_goal_pair_check', sql`(${t.goalMode} is null) = (${t.goalCount} is null)`),
     check('roadmap_settings_year_check', sql`${t.year} >= 2000 and ${t.year} <= 2100`),
     check('roadmap_settings_hours_check', sql`${t.hoursPerWeek} > 0 and ${t.hoursPerWeek} <= 168`),
   ],

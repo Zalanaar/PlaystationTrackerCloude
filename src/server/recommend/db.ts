@@ -8,6 +8,7 @@ import { effectiveDuration } from '@/server/collection/duration';
 import { effectiveSecondsSql } from '@/server/collection/query';
 import { getLlmEnv, type LlmEnv } from '@/server/env';
 import { effectiveGenres } from '@/shared/genres';
+import { remainingHours } from '@/shared/remaining';
 import { DISLIKE_TTL_DAYS, DISLIKE_TTL_MS, dislikeExpiresAt } from '@/shared/recommend';
 import { stableHash, templateReason } from './phrase';
 import { scoreBacklog } from './score';
@@ -31,7 +32,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
   const rows = await db
     .select({
       id: games.id, name: games.name, imageUrl: games.imageUrl, bannerUrl: games.bannerUrl, psn: games.psnGenres, override: games.genresOverride,
-      durOverride: games.durationOverrideHours, main: games.hltbMainHours, changedAt: gameStatus.statusChangedAt,
+      durOverride: games.durationOverrideHours, main: games.hltbMainHours, changedAt: gameStatus.statusChangedAt, seconds: effectiveSecondsSql,
     })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
@@ -59,10 +60,12 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
   const dlcSet = new Set(dlc.map((d) => d.gameId));
   return rows.map((r) => {
     const d = effectiveDuration({ override: r.durOverride, main: r.main });
+    // 18.3 (Фаза 32, D3): скоринг и текст видят ОСТАТОК часов, а не полную длительность.
+    const rem = remainingHours(d.hours, r.seconds);
     const s = sumBy.get(r.id);
     return {
       id: r.id, name: r.name, imageUrl: r.imageUrl, bannerUrl: r.bannerUrl, genres: effectiveGenres(r.psn, r.override),
-      hours: d.hours, hoursSource: d.source, statusChangedAt: r.changedAt,
+      hours: rem.remaining, totalHours: d.hours, hoursSource: d.source, statusChangedAt: r.changedAt,
       trophy: s && s.total > 0 ? { earned: s.earned, total: s.total, dlcTail: dlcSet.has(r.id) } : null,
     };
   });

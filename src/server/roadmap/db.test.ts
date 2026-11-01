@@ -177,7 +177,7 @@ describe('roadmap на БД', () => {
       expect(r.notFit).toEqual([]);
       expect(r.needHours.map((e) => e.title)).toEqual(['Delta']);
       expect(r.unallocated).toEqual([
-        { key: `g:${id('A')}`, kind: 'backlog', gameId: id('A'), plannedId: null, title: 'Alpha', coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false },
+        { key: `g:${id('A')}`, kind: 'backlog', gameId: id('A'), plannedId: null, title: 'Alpha', coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false, totalHours: 10, playedHours: 0 },
       ]);
       const [st] = await t.db.select().from(gameStatus).where(eq(gameStatus.gameId, id('A')));
       expect(st.status).toBe('backlog');

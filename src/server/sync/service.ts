@@ -17,7 +17,7 @@ import { defaultHltbDeps } from './hltb-step';
 import { defaultLlmDeps } from './llm-step';
 import { defaultTintDeps } from './tint';
 import { resolveOnlineIdFor } from './users';
-import { getRunUserId, startRun, type RunKind, type StartResult } from './runs';
+import { getRunUserId, restartRun, startRun, type RunKind, type StartResult } from './runs';
 
 export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetOnlineId): SyncDeps {
   const cfg = { npsso: env.npsso, encryptionKey: env.encryptionKey };
@@ -72,6 +72,8 @@ export async function launchSync(o: {
   kind: RunKind;
   continueRunId?: number;
   hop?: number;
+  /** Перезапуск (8.8): отменить идущий запуск пользователя и начать новый с сохранённого места. */
+  restart?: boolean;
 }): Promise<LaunchResult> {
   const env = getPsnEnv();
   if (!env) {
@@ -94,7 +96,7 @@ export async function launchSync(o: {
   const resolved = resolveOnlineIdFor(user, env.targetOnlineId);
   if (resolved.kind !== 'ok') return o.continueRunId !== undefined ? { kind: 'user_inactive' } : { kind: resolved.kind === 'not_set' ? 'psn_not_set' : 'psn_not_verified' };
   const onlineId = resolved.onlineId;
-  const started = await startRun(db, userId, { kind: o.kind, now: new Date(), continueRunId: o.continueRunId, hop: o.hop });
+  const started = o.restart && o.continueRunId === undefined ? await restartRun(db, userId, { kind: o.kind, now: new Date() }) : await startRun(db, userId, { kind: o.kind, now: new Date(), continueRunId: o.continueRunId, hop: o.hop });
   if (started.kind !== 'started') return started;
 
   const run = started.run;
@@ -119,7 +121,10 @@ async function work(db: AnyDb, env: PsnEnv, run: RunRow, onlineId: string): Prom
       await continueChain(run.id, res.hops);
       return;
     }
-    if (res.status === 'success') await markOnboarded(db, run.userId, new Date());
+    // отмена (8.8) не ошибка: ни алертов, ни онбординга; обход пользователей ниже продолжается
+    if (res.reason === 'cancelled') {
+      // ничего
+    } else if (res.status === 'success') await markOnboarded(db, run.userId, new Date());
     // 15.4: итог звена не success и не остановка по бюджету -> проверка предупреждений
     else await notifyAbout(db, userId, { errorReason: res.reason });
   } catch (e) {

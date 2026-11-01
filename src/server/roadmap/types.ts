@@ -15,6 +15,9 @@ export type RoadmapEntry = {
   hoursSource: HoursSource;
   releaseDate: string | null;
   wantAtRelease: boolean;
+  /** Фаза 32 (D3), только kind = backlog: полная база (override/HLTB) и наиграно, часы. `hours` у них = остаток. */
+  totalHours?: number | null;
+  playedHours?: number | null;
 };
 
 export type PlanSegment = { from: string; to: string; days: number; hours: number };
@@ -76,6 +79,8 @@ export type Progress = {
   budgetHours: number;
 };
 
+import type { GoalView } from './goal';
+
 export type SettingsView = { year: number; hoursPerWeek: number | null; configured: boolean };
 
 /** 17.11: игра-сервис для таблицы «в план не берём». */
@@ -85,6 +90,8 @@ export type RoadmapResponse = Plan & {
   settings: SettingsView;
   today: string;
   progress: Progress | null;
+  /** Фаза 32 (N2): цель года и прогноз или null, если цели нет (17.3a). */
+  goal: GoalView | null;
   /** 17.12: «Не распределено» (исключённый бэклог и отменённые релизы). */
   unallocated: RoadmapEntry[];
   serviceGames: ServiceGame[];

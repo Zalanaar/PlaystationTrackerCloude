@@ -4,8 +4,8 @@ import { Fragment, useRef, useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
 import { useSync } from './SyncProvider';
 import {
-  STATUS_LABEL, buttonLabel, formatMoscow, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
-  reasonText, runCountersText, totalsRows,
+  buttonLabel, formatMoscow, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
+  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows,
 } from './status';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -13,7 +13,8 @@ const btnPrimary = `h-11 rounded-md bg-accent px-5 font-semibold text-accent-ink
 const btnGhost = `h-11 rounded-md border border-border-strong px-4 text-text disabled:opacity-60 ${focus}`;
 
 export function SyncPanel() {
-  const { status, loading, loadError, starting, notice, start, reload } = useSync();
+  const { status, loading, loadError, starting, stopping, restarting, notice, start, cancel, restart, reload } = useSync();
+  const [stopAskedFor, setStopAskedFor] = useState<number | null>(null); // id запуска, для которого открыто подтверждение
   const isOwner = useIsOwner();
   const [howTo, setHowTo] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +60,10 @@ export function SyncPanel() {
   const fraction = run && running ? progressFraction(run) : null;
   const label = status ? buttonLabel(status, starting) : starting ? 'Синк идёт…' : 'Синк сейчас';
   const failedReason = run && run.status !== 'running' && run.status !== 'success' ? run.errorReason : null;
+  const cancelled = isCancelledRun(run);
+  const confirmStop = running && run !== null && stopAskedFor === run.id;
+  const setConfirmStop = (v: boolean) => setStopAskedFor(v && run ? run.id : null);
+  const stopBusy = stopping || restarting;
 
   return (
     <section aria-labelledby="sync-title" aria-busy={loading || running} className="flex flex-col gap-4">
@@ -107,7 +112,7 @@ export function SyncPanel() {
             {run && (
               <>
                 <dt>Последний запуск</dt>
-                <dd className="text-text" data-testid="run-status">{STATUS_LABEL[run.status]}</dd>
+                <dd className="text-text" data-testid="run-status">{runStatusLabel(run)}</dd>
               </>
             )}
             {totalsRows(status?.totals).map((r) => (
@@ -147,11 +152,42 @@ export function SyncPanel() {
           </div>
         )}
 
-        {!running && failedReason && !npsso && <p role="status" className="text-text">{reasonText(failedReason)}</p>}
+        {running && (
+          <div className="flex flex-col gap-2" data-testid="sync-run-actions">
+            {confirmStop ? (
+              <div
+                role="alertdialog" aria-labelledby="sync-stop-q" className="flex flex-wrap items-center gap-2"
+                onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setConfirmStop(false); } }}
+              >
+                <p id="sync-stop-q" className="w-full font-semibold text-text">{CANCEL_CONFIRM_TEXT}</p>
+                <button
+                  type="button" className={btnPrimary} disabled={stopBusy}
+                  onClick={() => { setConfirmStop(false); void cancel(); }}
+                >
+                  Остановить
+                </button>
+                <button type="button" className={btnGhost} autoFocus onClick={() => setConfirmStop(false)}>Отмена</button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnGhost} disabled={stopBusy} onClick={() => setConfirmStop(true)}>
+                  {stopping ? 'Останавливаем…' : 'Остановить'}
+                </button>
+                <button type="button" className={btnGhost} disabled={stopBusy} onClick={() => void restart()}>
+                  {restarting ? 'Перезапускаем…' : 'Перезапустить'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!running && failedReason && !npsso && (
+          <p role="status" className="text-text" data-testid={cancelled ? 'sync-cancelled' : undefined}>{reasonText(failedReason, run?.errorMessage)}</p>
+        )}
         {loadError && status && (
           <p role="status" className="text-text-2">Не удалось обновить статус. Показаны последние данные.</p>
         )}
-        {notice && <p role="status" className="text-text">{notice}</p>}
+        <div role="status" aria-live="polite">{notice && <p className="text-text">{notice}</p>}</div>
 
         {isOwner && (
           <form onSubmit={(e) => void submitNpsso(e)} className="flex flex-col gap-2" data-testid="npsso-form" noValidate>

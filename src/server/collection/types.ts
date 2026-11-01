@@ -20,6 +20,10 @@ export type GameDuration = {
   hours: number | null;
   source: 'manual' | 'hltb' | null;
   bucket: DurationBucket;
+  /** Фаза 32 (D3, 16.3): остаток max(hours − наиграно, 15% hours), 0.1; null, если hours = null. Сервер присылает всегда; необязательное из-за фикстур src/ui. */
+  remainingHours?: number | null;
+  /** Доля пройденного 0..1 (0.01) = 1 − remainingHours / hours; null, если hours = null. */
+  progress?: number | null;
   overrideHours: number | null;
   hltb: {
     status: HltbStatus;

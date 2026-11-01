@@ -146,6 +146,11 @@ export function isNotOnHltb(d: Pick<GameDuration, 'hltb'> | undefined): boolean 
   return d?.hltb.status === 'not_found';
 }
 
+/** Состояние C (Фаза 32): часов нет вовсе и на HLTB не найдено, нужно указать часы вручную. */
+export function needsHours(g: { duration?: GameDuration }): boolean {
+  return !!g.duration && g.duration.hours === null && isNotOnHltb(g.duration);
+}
+
 // ---------- Два блока страницы «Бэклог»: бэклог и сервис ----------
 export type StatusLists<T> = { backlog: T[]; service: T[]; shelved?: T[] };
 

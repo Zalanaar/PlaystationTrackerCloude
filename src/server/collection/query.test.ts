@@ -72,7 +72,7 @@ describe('коллекция (PGlite)', () => {
       lastPlayedAt: null, status: null, completedAt: null, droppedAt: null, trophies: null,
       genres: [{ key: 'SIMULATION', label: 'Симуляторы' }, { key: 'OTHER', label: 'Другое' }, { key: 'ACTION', label: 'Экшен' }],
       hiddenAt: null, linkedVersions: [], duplicateOfGameId: null,
-      duration: { hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { status: 'unchecked', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } },
+      duration: { hours: null, source: null, bucket: 'unknown', remainingHours: null, progress: null, overrideHours: null, hltb: { status: 'unchecked', id: null, name: null, mainHours: null, extraHours: null, checkedAt: null } },
     });
     const beta = (await listGames(t.db, TEST_USER, lq('q=beta'))).items[0];
     expect(beta.platform).toBe('PC');

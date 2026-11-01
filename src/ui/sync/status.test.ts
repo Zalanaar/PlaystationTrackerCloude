@@ -101,3 +101,23 @@ describe('NPSSO с сайта (фаза 24)', () => {
     expect(npssoErrorText(500, 'config_error')).toContain('Не удалось');
   });
 });
+
+describe('Фаза 32.1: остановка и перезапуск', () => {
+  it('cancelled: нейтральный текст, не ошибка', async () => {
+    const { isCancelledRun, isFailedRun, reasonText: rt, runStatusLabel, stopErrorText, CANCEL_CONFIRM_TEXT } = await import('./status');
+    const c = run({ status: 'failed', errorReason: 'cancelled', errorMessage: 'Остановлено пользователем.' });
+    expect(isCancelledRun(c)).toBe(true);
+    expect(isFailedRun(c)).toBe(false);
+    expect(isFailedRun(run({ status: 'failed', errorReason: 'internal' }))).toBe(true);
+    expect(rt('cancelled')).toMatch(/Остановлено вами/);
+    expect(rt('cancelled', 'Остановлено владельцем.')).toMatch(/владельцем/);
+    expect(runStatusLabel(c)).toBe('Остановлен');
+    expect(runStatusLabel(run({ status: 'failed', errorReason: 'timeout' }))).toBe('Ошибка');
+    expect(needsNewNpsso({ psnAuth: 'ok', run: c })).toBe(false);
+    expect(CANCEL_CONFIRM_TEXT).toBe('Остановить синк? Загруженные данные сохранятся');
+    expect(stopErrorText(403, 'forbidden', 'cancel')).toMatch(/владелец/);
+    expect(stopErrorText(409, 'sync_in_progress', 'restart')).toMatch(/занят/);
+    expect(stopErrorText(503, 'db_unavailable', 'cancel')).toMatch(/База данных/);
+    expect(stopErrorText(500, undefined, 'restart')).toBe('Не удалось перезапустить синк.');
+  });
+});
