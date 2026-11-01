@@ -21,6 +21,8 @@ export type G = {
   hltbName?: string | null;
   hltbChecked?: boolean;
   /** Фаза 23: связанные версии главной игры */
+  /** Фаза 32 (17.4): отдавать duration.remainingHours/progress (иначе поля нет, как у старой схемы) */
+  withRemaining?: boolean;
   linked?: { gameId: number; title: string; platform: 'PS4' | 'PS5'; hours: number }[];
 };
 
@@ -91,10 +93,18 @@ export const hltbStatusOf = (g: G): 'found' | 'not_found' | 'unchecked' => (g.hl
 const hoursOf = (g: G): number | null => g.override ?? g.hltbHours ?? null;
 export const bucketOf = (h: number | null): Bucket => (h === null ? 'unknown' : h < 10 ? 'lt10' : h < 30 ? '10_30' : h < 60 ? '30_60' : '60plus');
 
+function remainingOf(g: G, h: number | null): { remainingHours: number | null; progress: number | null } | Record<string, never> {
+  if (!g.withRemaining) return {};
+  if (h === null || h <= 0) return { remainingHours: null, progress: null };
+  const raw = Math.max(h - g.playSeconds / 3600, h * 0.15);
+  return { remainingHours: Math.max(0.1, Math.round(raw * 10) / 10), progress: Math.round((1 - raw / h) * 100) / 100 };
+}
+
 function duration(g: G) {
   const h = hoursOf(g);
   const found = g.hltbName != null;
   return {
+    ...remainingOf(g, h),
     hours: h, source: g.override != null ? 'manual' : g.hltbHours != null ? 'hltb' : null, bucket: bucketOf(h), overrideHours: g.override ?? null,
     hltb: {
       status: found ? 'found' : g.hltbChecked ? 'not_found' : 'unchecked', id: found ? 1 : null, name: found ? g.hltbName : null,
