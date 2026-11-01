@@ -5,7 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { PsnError, safeErr, type SyncErrorReason } from '@/server/psn/errors';
 import type { PsnClient } from '@/server/psn/types';
-import { PHASES, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
+import { PHASES, RunCancelledError, RunContext, type PhaseFn, type PhaseName, type RunRow } from './context';
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
 import { applyDuplicates } from './duplicates';
 import { hltbStep, type HltbDeps } from './hltb-step';
@@ -44,6 +44,8 @@ export type ChunkResult = {
   hops?: number;
 };
 
+const CANCELLED: ChunkResult = { status: 'failed', reason: 'cancelled', continueNext: false };
+
 const PHASE_FNS: Record<PhaseName, PhaseFn> = {
   games: gamesPhase,
   trophy_sets: trophySetsPhase,
@@ -71,6 +73,8 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
         ...(cursorNull ? { cursor: null } : {}),
       });
     } catch (e) {
+      // запуск отменён (8.8): ничего не перезаписываем, самовызова нет
+      if (e instanceof RunCancelledError) return CANCELLED;
       // БД недоступна: запись останется running и закроется как брошенная
       console.error('sync: не удалось закрыть запуск', safeErr(e, secrets));
     }
@@ -98,7 +102,8 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     if (deps.tint) {
       try {
         await tintStep(ctx, deps.tint);
-      } catch {
+      } catch (e) {
+        if (e instanceof RunCancelledError) throw e;
         // цвет акцента необязателен: ошибка шага не влияет на итог синка
         ctx.warn('tint_failed', 'Шаг расчёта цвета акцента завершился ошибкой.');
       }
@@ -106,7 +111,8 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     if (deps.hltb) {
       try {
         await hltbStep(ctx, deps.hltb);
-      } catch {
+      } catch (e) {
+        if (e instanceof RunCancelledError) throw e;
         // длительность необязательна (есть ручной ввод): ошибка шага не влияет на итог синка
         ctx.warn('hltb_failed', 'Шаг длительности по HLTB завершился ошибкой.');
       }
@@ -114,7 +120,8 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     if (deps.llm) {
       try {
         await llmStep(ctx, deps.llm);
-      } catch {
+      } catch (e) {
+        if (e instanceof RunCancelledError) throw e;
         // фразы и подборка необязательны (есть шаблоны): ошибка шага не влияет на итог синка
         ctx.warn('llm_failed', 'Шаг LLM завершился ошибкой.');
       }
@@ -122,13 +129,15 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     if (deps.discover) {
       try {
         await discoverStep(ctx, deps.discover);
-      } catch {
+      } catch (e) {
+        if (e instanceof RunCancelledError) throw e;
         // подборка необязательна (экран покажет прежнюю или пустое состояние): ошибка шага не влияет на итог синка
         ctx.warn('discover_step_failed', 'Шаг «У тебя нет» завершился ошибкой.');
       }
     }
     return await close({ status: 'success', reason: null, continueNext: false }, null, true);
   } catch (e) {
+    if (e instanceof RunCancelledError) return CANCELLED;
     if (e instanceof PsnError) {
       // игры ещё не записаны = ничего не сделано: failed; иначе есть что продолжать: partial
       const transient = e.reason === 'rate_limited' || e.reason === 'psn_unavailable';
@@ -144,5 +153,5 @@ export async function failRun(db: AnyDb, userId: UserId, runId: number, reason: 
   await db
     .update(syncRuns)
     .set({ status: 'failed', errorReason: reason, errorMessage: message.slice(0, 500), finishedAt: now })
-    .where(and(eq(syncRuns.id, runId), eq(syncRuns.userId, userId)));
+    .where(and(eq(syncRuns.id, runId), eq(syncRuns.userId, userId), eq(syncRuns.status, 'running')));
 }

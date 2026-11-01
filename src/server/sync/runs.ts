@@ -3,7 +3,7 @@ import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { asUserId, type UserId } from '@/server/auth/user-id';
-import { parseCursor, type RunRow } from './context';
+import { parseCursor, type PhaseName, type RunRow } from './context';
 import { MAX_HOPS } from './engine';
 import { mskDate } from './time';
 
@@ -16,7 +16,7 @@ export const RESUME_WINDOW_MS = 6 * 3600_000;
 
 export type RunKind = (typeof schema.syncRunKind.enumValues)[number];
 export type StartResult =
-  | { kind: 'started'; run: RunRow; resumed: boolean }
+  | { kind: 'started'; run: RunRow; resumed: boolean; /** restart (8.8): id отменённого идущего запуска */ cancelledRunId?: number | null }
   | { kind: 'already_running'; runId: number | null }
   | { kind: 'not_resumable' };
 
@@ -58,7 +58,38 @@ async function resume(db: AnyDb, userId: UserId, row: RunRow, now: Date, keepHop
   return updated ?? null;
 }
 
-export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; now: Date; continueRunId?: number; /** номер звена от отправителя; проверяется на принимающей стороне */ hop?: number }): Promise<StartResult> {
+export const CANCEL_MESSAGE_SELF = 'Остановлено пользователем.';
+export const CANCEL_MESSAGE_OWNER = 'Остановлено владельцем.';
+
+export type CancelledRun = { id: number; cursor: unknown; snapshotDate: string; startedAt: Date };
+
+/**
+ * Отмена идущего запуска пользователя (контракт 8.8): атомарно running -> failed/cancelled, слот освобождается сразу.
+ * Данные, курсор и счётчики не трогаются. Нет запуска = null (идемпотентно). Запуски kind='hltb' не отменяются.
+ */
+export async function cancelRun(db: AnyDb, userId: UserId, now: Date, message: string = CANCEL_MESSAGE_SELF): Promise<CancelledRun | null> {
+  const [row] = await db
+    .update(syncRuns)
+    .set({ status: 'failed', errorReason: 'cancelled', errorMessage: message, finishedAt: now })
+    .where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'running'), ne(syncRuns.kind, 'hltb')))
+    .returning({ id: syncRuns.id, cursor: syncRuns.cursor, snapshotDate: syncRuns.snapshotDate, startedAt: syncRuns.startedAt });
+  return row ?? null;
+}
+
+/**
+ * «Перезапуск» (8.8): отмена идущего запуска и старт нового. Курсор (фаза) отменённого переносится в новый,
+ * если тот начался в ту же дату МСК и не раньше RESUME_WINDOW назад; иначе новый идёт с фазы games.
+ * Нет идущего запуска = обычный старт.
+ */
+export async function restartRun(db: AnyDb, userId: UserId, o: { kind: RunKind; now: Date }): Promise<StartResult> {
+  const cancelled = await cancelRun(db, userId, o.now);
+  const carry: PhaseName | undefined =
+    cancelled && cancelled.snapshotDate === mskDate(o.now) && o.now.getTime() - cancelled.startedAt.getTime() < RESUME_WINDOW_MS ? parseCursor(cancelled.cursor).phase : undefined;
+  const r = await startRun(db, userId, { kind: o.kind, now: o.now, carryPhase: carry });
+  return r.kind === 'started' ? { ...r, cancelledRunId: cancelled?.id ?? null } : r;
+}
+
+export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; now: Date; continueRunId?: number; /** номер звена от отправителя; проверяется на принимающей стороне */ hop?: number; /** фаза отменённого запуска, с которой продолжить новый (8.8) */ carryPhase?: PhaseName }): Promise<StartResult> {
   const { now } = o;
   await closeStaleRuns(db, now);
   try {
@@ -84,10 +115,10 @@ export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; no
         snapshotDate: mskDate(now),
         startedAt: now,
         phase: 'auth',
-        cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() },
+        cursor: { phase: o.carryPhase ?? 'games', hops: 0, heartbeat: now.toISOString() },
       })
       .returning();
-    return { kind: 'started', run, resumed: false };
+    return { kind: 'started', run, resumed: o.carryPhase !== undefined && o.carryPhase !== 'games' };
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
     const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);

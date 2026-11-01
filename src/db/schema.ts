@@ -41,6 +41,7 @@ export const syncErrorReason = pgEnum('sync_error_reason', [
   'psn_unavailable',
   'timeout',
   'internal',
+  'cancelled',
 ]);
 
 export const games = pgTable(
