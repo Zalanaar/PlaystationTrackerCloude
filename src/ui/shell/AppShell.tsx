@@ -130,6 +130,12 @@ export function AppHeader() {
                         <span className="ps-menu-item__label">Доступ</span>
                       </Link>
                     )}
+                    {isOwner && (
+                      <Link href="/health" role="menuitem" className="ps-menu-item" onClick={close}>
+                        <Icon name="shield-alert" size={16} />
+                        <span className="ps-menu-item__label">Здоровье</span>
+                      </Link>
+                    )}
                     <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => void logout()} disabled={busy}>
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти</span>
@@ -189,6 +195,11 @@ export function AppHeader() {
           {isOwner && (
             <Link href="/access" className="ps-menu-item" onClick={() => setMore(false)}>
               <Icon name="users" size={16} /><span className="ps-menu-item__label">Доступ</span>
+            </Link>
+          )}
+          {isOwner && (
+            <Link href="/health" className="ps-menu-item" onClick={() => setMore(false)}>
+              <Icon name="shield-alert" size={16} /><span className="ps-menu-item__label">Здоровье</span>
             </Link>
           )}
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>

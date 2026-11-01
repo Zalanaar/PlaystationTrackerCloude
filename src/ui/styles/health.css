@@ -1,0 +1,59 @@
+/* Страница «Здоровье» (Фаза 35). Только токены тем, одна разметка для всех тем. */
+.ps-health { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 880px; min-width: 0; }
+.ps-health__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.ps-health__stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-health__sk { display: block; height: 120px; border-radius: var(--r-lg); }
+.ps-health__lead, .ps-health__muted { margin: 0; color: var(--text-2); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.ps-health__h2 { margin-bottom: var(--sp-3); }
+.ps-health__card {
+  display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0;
+  padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
+}
+.ps-health__err { margin: 0; color: var(--danger); }
+.ps-health__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: 0; }
+.ps-health__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-health__badge {
+  display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 24px; padding: 0 var(--sp-2);
+  border-radius: var(--r-chip); background: var(--surface-3); color: var(--text); font-size: var(--fs-small); font-weight: 600;
+}
+.ps-health__badge[data-level="ok"] svg { color: var(--success); }
+.ps-health__badge[data-level="warn"] svg { color: var(--warning); }
+.ps-health__badge[data-level="danger"] svg { color: var(--danger); }
+.ps-health__pill { display: inline-flex; align-items: center; height: 22px; padding: 0 var(--sp-2); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text-2); font-size: var(--fs-small); }
+.ps-health__crit { display: flex; gap: var(--sp-3); align-items: flex-start; padding-bottom: var(--sp-3); border-bottom: var(--border-w) solid var(--border); }
+.ps-health__crit:last-child { border-bottom: 0; padding-bottom: 0; }
+.ps-health__crit-ic { flex: none; margin-top: 1px; color: var(--text-3); }
+.ps-health__crit[data-status="pass"] .ps-health__crit-ic { color: var(--success); }
+.ps-health__crit[data-status="fail"] .ps-health__crit-ic { color: var(--danger); }
+.ps-health__crit[data-status="pending"] .ps-health__crit-ic { color: var(--warning); }
+.ps-health__crit-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ps-health__crit-title { color: var(--text); overflow-wrap: anywhere; }
+.ps-health__crit-state { color: var(--text-2); font-size: var(--fs-small); font-weight: 600; }
+.ps-health__crit[data-status="fail"] .ps-health__crit-state { color: var(--danger); }
+.ps-health__meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2) var(--sp-6); margin: 0; font-size: var(--fs-small); }
+.ps-health__meta div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-health__meta dt { color: var(--text-3); }
+.ps-health__meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.ps-health__user-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ps-health__user-name { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.ps-health__usages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.ps-health__usage { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; font-size: var(--fs-small); }
+.ps-health__usage-name { color: var(--text-3); }
+.ps-health__usage-val { color: var(--text); overflow-wrap: anywhere; }
+.ps-health__usage[data-level="unknown"] .ps-health__usage-val { color: var(--text-2); }
+.ps-health__bar { display: block; height: 6px; border-radius: var(--r-chip); background: var(--surface-3); overflow: hidden; }
+.ps-health__bar span { display: block; height: 100%; background: var(--success); }
+.ps-health__usage[data-level="warn"] .ps-health__bar span { background: var(--warning); }
+.ps-health__usage[data-level="danger"] .ps-health__bar span { background: var(--danger); }
+.ps-health__limit { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ps-health__limit[data-state="disabled"] > span:first-of-type { color: var(--warning); }
+.ps-health__errs { gap: var(--sp-1); font-size: var(--fs-small); color: var(--text-2); }
+.ps-health__errs li { overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .ps-health__head .ps-btn { height: var(--tap-min); }
+  .ps-health__card .ps-btn { height: var(--tap-min); }
+  .ps-health__meta { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 420px) {
+  .ps-health__usages { grid-template-columns: minmax(0, 1fr); }
+}
