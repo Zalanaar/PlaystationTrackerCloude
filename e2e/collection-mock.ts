@@ -190,6 +190,13 @@ export type Mock = {
   hintsFail: number | null;
   /** отказы «Не предлагать» в порядке записи (DELETE снимает) */
   dismissals: { gameId: number; rule: string }[];
+  /** Фаза 28: ответ GET /api/inbox (поля сверх пустого ответа). null = пустой ответ. */
+  inbox: Record<string, unknown> | null;
+  /** сколько ближайших запросов /api/inbox отвечают 503 */
+  inboxFails: number;
+  /** задержка ответа /api/inbox, мс */
+  inboxDelay: number;
+  inboxCalls: number;
 };
 
 /** Подсказка мока: `game` и `question` подставляются из игры и правила. */
@@ -238,13 +245,23 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
-    hints: [], hintsFail: null, dismissals: [],
+    hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
   };
   const json = (route: Route, data: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(status === 200 ? { ok: true, data } : { ok: false, error: data }) });
 
   await page.route('**/api/sync/status', (r) => json(r, m.syncStatus));
+
+  await page.route('**/api/inbox', async (r) => {
+    m.inboxCalls++;
+    if (m.inboxDelay) await new Promise((res) => setTimeout(res, m.inboxDelay));
+    if (m.inboxFails > 0) { m.inboxFails--; return json(r, { code: 'db_unavailable', message: 'x' }, 503); }
+    return json(r, {
+      now: new Date().toISOString(), newGames: 0, newGamesWindow: null, newUnsorted: 0, trophies: 0, platinums: 0, trophiesWindow: null,
+      hoursWeek: 0, hoursPrevWeek: 0, hoursNoHistory: false, checkCount: 0, forgottenCount: 0, partial: false, failed: [], isEmpty: true, ...m.inbox,
+    });
+  });
 
   await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
     const u = new URL(r.request().url());

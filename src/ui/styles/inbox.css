@@ -1,0 +1,105 @@
+/* Фаза 28: полоса «С прошлого визита» (.ps-inbox) и карточка «Что нового» (.ps-wn). Только токены, без hex/rgb.
+   Спека: docs/design/spec-phase-28-inbox.md. Правил темы нет: всё меняется значениями токенов. */
+
+/* ---------- Полоса ---------- */
+.ps-inbox {
+  background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4);
+  animation: ps-inbox-in var(--dur-base) var(--ease-out);
+}
+@keyframes ps-inbox-in { from { opacity: 0; } to { opacity: 1; } }
+.ps-inbox__row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "label list x"; align-items: center; column-gap: var(--sp-3);
+}
+.ps-inbox__label { grid-area: label; white-space: nowrap; }
+.ps-inbox__x { grid-area: x; }
+.ps-inbox__list { grid-area: list; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }
+.ps-inbox__list > li { display: flex; min-width: 0; }
+.ps-inbox .ps-chipbtn.ps-inbox__chip {
+  height: calc(var(--control-h) - 4px); padding: 0 var(--sp-3); border-radius: var(--r-chip); color: var(--text-2);
+  border-color: var(--border-strong); max-width: 100%;
+}
+.ps-inbox .ps-chipbtn.ps-inbox__chip::after { inset: -6px 0; }
+.ps-inbox .ps-chipbtn.ps-inbox__chip:focus-visible { box-shadow: var(--shadow-focus); }
+.ps-inbox__chip .num { color: var(--text); font-weight: 600; }
+.ps-inbox__chip svg { flex: none; }
+.ps-inbox__txt { min-width: 0; }
+.ps-inbox__chip[data-platinum] { border-color: color-mix(in srgb, var(--plat-1) 45%, var(--border)); }
+.ps-inbox__plat { color: var(--platinum); }
+.ps-inbox__chev { color: var(--text-2); }
+.ps-inbox__more { font: inherit; font-size: var(--fs-small); }
+
+/* Строка ошибки: не ломает Коллекцию, тоста нет */
+.ps-inbox--err {
+  display: flex; align-items: center; gap: var(--sp-2); height: 36px; margin: 0 0 var(--sp-4); color: var(--text-2);
+  font: 400 var(--fs-small)/var(--lh-small) var(--font-body);
+}
+.ps-inbox--err svg { flex: none; }
+
+/* Скелет */
+.ps-inbox--sk { display: flex; flex-direction: column; gap: var(--sp-3); animation: none; }
+.ps-inbox__sk-label { display: block; width: 120px; height: 12px; }
+.ps-inbox__sk-row { display: flex; gap: var(--sp-2); }
+.ps-inbox__sk-chip { display: block; width: 140px; height: calc(var(--control-h) - 4px); border-radius: var(--r-chip); }
+
+/* Узко: метка отдельной строкой над чипами */
+@media (max-width: 999px) {
+  .ps-inbox__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label x" "list list"; row-gap: var(--sp-2); }
+}
+
+/* Мобильный: сетка 2 колонки, чипы по --tap-min */
+@media (max-width: 767px) {
+  .ps-inbox { padding: var(--sp-3); margin-bottom: var(--sp-3); }
+  .ps-inbox__x { width: var(--tap-min); height: var(--tap-min); margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; }
+  .ps-inbox__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ps-inbox__list > li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .ps-inbox .ps-chipbtn.ps-inbox__chip {
+    width: 100%; height: auto; min-height: var(--tap-min); padding-block: var(--sp-1); white-space: normal; text-align: left; border-radius: var(--r-chip);
+  }
+  .ps-inbox .ps-chipbtn.ps-inbox__chip.ps-inbox__more { justify-content: center; }
+  .ps-inbox__txt {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
+  }
+  .ps-inbox__chev { display: none; }
+  .ps-inbox__sk-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ps-inbox__sk-chip { width: auto; height: var(--tap-min); }
+  .ps-inbox__sk-chip:last-child { grid-column: 1 / -1; }
+}
+
+@media (prefers-contrast: more) {
+  .ps-inbox { border-width: 2px; }
+  .ps-inbox .ps-chipbtn.ps-inbox__chip { border-width: 2px; }
+}
+@media (forced-colors: active) {
+  .ps-inbox, .ps-inbox .ps-chipbtn.ps-inbox__chip, .ps-wn { border-color: CanvasText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-inbox, .ps-wn { animation: none; }
+}
+
+/* ---------- «Что нового» ---------- */
+.ps-wn {
+  position: fixed; z-index: var(--z-whatsnew); right: var(--gutter); bottom: var(--sp-6); width: min(360px, calc(100vw - 2 * var(--gutter)));
+  display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4);
+  background: var(--surface-2); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+  animation: ps-wn-in var(--dur-slow) var(--ease-out);
+}
+@keyframes ps-wn-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ps-wn__head { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-wn__count { flex: none; }
+.ps-wn__new {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 var(--sp-2); border-radius: var(--r-chip);
+  background: var(--accent-soft); color: var(--text);
+}
+.ps-wn__x { margin-left: auto; width: 32px; height: 32px; margin-block: calc(-1 * var(--sp-1)); margin-right: calc(-1 * var(--sp-2)); }
+.ps-wn__title { margin: 0; font: var(--fw-h2) var(--fs-h2)/var(--lh-h2) var(--font-display); color: var(--text); overflow-wrap: anywhere; }
+.ps-wn__text { margin: 0; font: 400 var(--fs-body)/var(--lh-body) var(--font-body); color: var(--text-2); overflow-wrap: anywhere; }
+.ps-wn__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); margin-top: var(--sp-2); }
+.ps-wn__go { margin-right: auto; }
+@media (max-width: 767px) {
+  .ps-wn { left: var(--gutter); right: var(--gutter); width: auto; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3)); }
+  .ps-wn__x { width: var(--tap-min); height: var(--tap-min); }
+  .ps-wn__foot .ps-btn { height: var(--tap-min); }
+  .ps-wn__go { display: inline-flex; align-items: center; min-height: var(--tap-min); }
+}
+@media (prefers-contrast: more) { .ps-wn { border-width: 2px; } }
