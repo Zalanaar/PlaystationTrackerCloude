@@ -38,6 +38,9 @@ async function route(req: NextRequest, nonce: string, csp: string): Promise<Next
     return next();
   }
 
+  // Фаза 29 (F29.6): webhook бота Telegram без сессии, подлинность по секретному заголовку внутри роута
+  if (pathname === '/api/telegram/webhook') return next();
+
   if (pathname === '/api/cron' || pathname.startsWith('/api/cron/')) {
     if (!checkBearer(req.headers.get('authorization'), getCronSecret())) {
       return json(401, 'unauthorized', 'Не авторизован.');

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Sheet } from '../primitives/Sheet';
 import { SyncPanel } from './SyncPanel';
+import { TelegramDigestPanel } from '../telegram/TelegramDigestPanel';
 import { startErrorText, type SyncStatus } from './status';
 
 const POLL_MS = 3000;
@@ -88,7 +89,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       <Sheet open={panelOpen} onClose={() => setPanelOpen(false)} title="Синк" wide>
-        <SyncPanel />
+        <div className="flex flex-col gap-4">
+          <SyncPanel />
+          <TelegramDigestPanel />
+        </div>
       </Sheet>
     </Ctx.Provider>
   );

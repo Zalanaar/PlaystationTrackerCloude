@@ -25,6 +25,11 @@ export function getTelegramEnv(env: Record<string, string | undefined> = process
   return token && chatId ? { token, chatId } : null;
 }
 
+/** Токен бота без привязки к чату (сводка Фазы 29 шлёт в чаты пользователей). null, если не задан. */
+export function getBotToken(env: Record<string, string | undefined> = process.env): string | null {
+  return env.TELEGRAM_BOT_TOKEN?.trim() || null;
+}
+
 /**
  * Абсолютная ссылка на игру `{origin}/?game=<id>` (контракт 15.4). null, если APP_ORIGIN не задан или у игры нет
  * записи в библиотеке (gameId не положительное целое): тогда ссылку не добавляем.
