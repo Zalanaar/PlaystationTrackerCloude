@@ -9,12 +9,14 @@ import { Avatar } from '../primitives/Avatar';
 import { Popover } from '../primitives/Popover';
 import { profileLine } from '../profile/model';
 import { useProfile } from '../profile/ProfileProvider';
+import { usePsnProfiles } from '../profiles/PsnProfileProvider';
 import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { useInstall } from '../pwa/InstallPrompt';
 import { purgeServiceWorkerCaches } from '../pwa/sw-messages';
 import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
+import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { SyncIndicator } from './SyncIndicator';
 import { RestoreFileDialog } from '../backup/RestoreFileDialog';
 import { NAV_TABS } from '../tokens';
@@ -45,6 +47,8 @@ export function AppHeader() {
   const [more, setMore] = useState(false);
   const [restore, setRestore] = useState(false);
   const { profile } = useProfile();
+  const { profiles, activeProfileId } = usePsnProfiles();
+  const psnNick = profiles.length >= 2 ? (profiles.find((p) => p.id === activeProfileId)?.onlineId ?? null) : null;
   const line = profile ? profileLine(profile) : null;
   const offer = useSeasonOffer();
   const isOwner = useIsOwner();
@@ -73,6 +77,7 @@ export function AppHeader() {
           </nav>
           <div className="ps-header__right">
             <SyncIndicator />
+            <PsnProfileSwitcher />
             <div className="ps-desktop-only"><ThemePicker /></div>
             <div className="ps-desktop-only">
               <Popover
@@ -91,6 +96,7 @@ export function AppHeader() {
                         <span className="ps-profmenu__tx">
                           <b title={profile.onlineId}>{profile.onlineId}</b>
                           {line && <small className="num">{line}</small>}
+                          {psnNick && <small className="ps-profmenu__psn">PSN: {psnNick}</small>}
                         </span>
                       </div>
                     )}
@@ -105,6 +111,10 @@ export function AppHeader() {
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
+                    </Link>
+                    <Link href="/profiles" role="menuitem" className="ps-menu-item" onClick={close}>
+                      <Icon name="users" size={16} />
+                      <span className="ps-menu-item__label">PSN-профили</span>
                     </Link>
                     <a href="/api/backup" download role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="download" size={16} />
@@ -143,6 +153,7 @@ export function AppHeader() {
               <span className="ps-profmenu__tx">
                 <b title={profile.onlineId}>{profile.onlineId}</b>
                 {line && <small className="num">{line}</small>}
+                {psnNick && <small className="ps-profmenu__psn">PSN: {psnNick}</small>}
               </span>
             </div>
           )}
@@ -165,6 +176,9 @@ export function AppHeader() {
           </button>
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
+          </Link>
+          <Link href="/profiles" className="ps-menu-item" onClick={() => setMore(false)}>
+            <Icon name="users" size={16} /><span className="ps-menu-item__label">PSN-профили</span>
           </Link>
           <a href="/api/backup" download className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="download" size={16} /><span className="ps-menu-item__label">Скачать копию</span>

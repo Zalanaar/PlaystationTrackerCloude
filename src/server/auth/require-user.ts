@@ -5,12 +5,18 @@ import { getSessionSecret } from '@/server/env';
 import { fail } from '@/server/http';
 import { readSessionToken, SESSION_COOKIE, type SessionAmr, type SessionRole } from './session';
 import { asUserId, type UserId } from './user-id';
-import { getUserById, type UserRow } from './users';
+import { resolveAuthContext, type UserRow } from './users';
 
 export type AuthedUser = {
+  /** Активный профиль (Фаза 41): под ним все данные. Без pid в сессии = основной профиль. */
   id: UserId;
+  /** Основной профиль = вход (Telegram, «Доступ»). */
+  loginId: UserId;
   email: string;
+  /** Роль ВХОДА (права, 41.1), из основной строки. */
   role: SessionRole;
+  /** Роль строки активного профиля: у дополнительного всегда member. */
+  profileRole: SessionRole;
   amr: SessionAmr;
   row: UserRow;
 };
@@ -33,19 +39,23 @@ function unauthorized(clearCookie: boolean): AuthResult {
   return { ok: false, response };
 }
 
-/** Сессия валидна и пользователь в БД active. Роль берётся из БД, не из cookie. */
+/** Сессия валидна и вход/профиль в БД active (41.2: принадлежность pid проверяется на КАЖДОМ запросе). Роль берётся из БД, не из cookie. */
 export async function requireUser(req: Request): Promise<AuthResult> {
   const token = cookieValue(req, SESSION_COOKIE);
   const session = await readSessionToken(token, getSessionSecret());
   if (!session) return unauthorized(!!token);
-  let row: UserRow | null;
+  let ctx: Awaited<ReturnType<typeof resolveAuthContext>>;
   try {
-    row = await getUserById(getDb(), session.uid);
+    ctx = await resolveAuthContext(getDb(), session.uid, session.pid);
   } catch {
     return { ok: false, response: fail(503, 'db_unavailable', 'База данных недоступна.') };
   }
-  if (!row || row.status !== 'active') return unauthorized(true);
-  return { ok: true, user: { id: asUserId(row.id), email: row.email, role: row.role as SessionRole, amr: session.amr, row } };
+  if (!ctx) return unauthorized(true);
+  const { profile: row, login } = ctx;
+  return {
+    ok: true,
+    user: { id: asUserId(row.id), loginId: asUserId(login.id), email: row.email, role: login.role as SessionRole, profileRole: row.role as SessionRole, amr: session.amr, row },
+  };
 }
 
 /** requireUser + роль owner по БД; иначе 403 forbidden. */

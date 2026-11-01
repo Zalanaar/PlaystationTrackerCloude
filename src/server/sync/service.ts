@@ -93,6 +93,11 @@ export async function launchSync(o: {
   if (!user) return { kind: o.continueRunId !== undefined ? 'user_inactive' : 'config_error' };
   // blocked/invited не продолжают и не стартуют (22.13); данные запуска не трогаем
   if (user.status !== 'active') return { kind: 'user_inactive' };
+  // Фаза 41 (41.4): профиль заблокированного/удалённого входа не стартует и не продолжается
+  if (user.primaryUserId !== null) {
+    const login = await getUserById(db, user.primaryUserId);
+    if (!login || login.status !== 'active') return { kind: 'user_inactive' };
+  }
   const resolved = resolveOnlineIdFor(user, env.targetOnlineId);
   if (resolved.kind !== 'ok') return o.continueRunId !== undefined ? { kind: 'user_inactive' } : { kind: resolved.kind === 'not_set' ? 'psn_not_set' : 'psn_not_verified' };
   const onlineId = resolved.onlineId;

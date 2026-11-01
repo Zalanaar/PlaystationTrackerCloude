@@ -7,7 +7,6 @@ import { signedSession } from './session';
 const SHOTS = process.env.SHOTS_DIR;
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'] as const;
 const VPS = [{ w: 1280, h: 800 }, { w: 390, h: 800 }, { w: 360, h: 740 }, { w: 320, h: 640 }];
-const WHITE_OLD = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const WHITE = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="#fff"/></svg>';
 test.skip(!SHOTS, 'нужен SHOTS_DIR');
 test.beforeEach(({}, i) => { test.skip(i.project.name !== 'desktop'); });

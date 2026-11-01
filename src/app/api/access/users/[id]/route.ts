@@ -35,7 +35,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const parsed = patchBody.safeParse(await readJson(req));
   const id = await parseId(ctx);
   if (!parsed.success || id === null) return fail(400, 'invalid_request', 'Некорректный запрос.');
-  if (id === a.user.id && parsed.data.status === 'blocked') return fail(409, 'owner_protected', 'Нельзя заблокировать себя.');
+  if (id === a.user.loginId && parsed.data.status === 'blocked') return fail(409, 'owner_protected', 'Нельзя заблокировать себя.');
   try {
     const db = getDb();
     const r = await patchUser(db, id, parsed.data, getMultiuserEnv().maxUsers);
@@ -56,7 +56,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
   const parsed = deleteBody.safeParse(await readJson(req));
   const id = await parseId(ctx);
   if (!parsed.success || id === null) return fail(400, 'invalid_request', 'Некорректный запрос.');
-  if (id === a.user.id) return fail(409, 'owner_protected', 'Нельзя удалить себя.');
+  if (id === a.user.loginId) return fail(409, 'owner_protected', 'Нельзя удалить себя.');
   try {
     const r = await deleteUser(getDb(), id, parsed.data.confirmEmail);
     if (!r.ok) {

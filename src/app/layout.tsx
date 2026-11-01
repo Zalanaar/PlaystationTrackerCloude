@@ -19,6 +19,7 @@ import '@/ui/styles/tour.css';
 import '@/ui/styles/inbox.css';
 import '@/ui/styles/telegram.css';
 import '@/ui/styles/install.css';
+import '@/ui/styles/profiles.css';
 import './globals.css';
 import { cookies, headers } from 'next/headers';
 import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';

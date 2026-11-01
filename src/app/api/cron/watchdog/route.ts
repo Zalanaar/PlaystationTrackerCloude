@@ -8,6 +8,7 @@ import { getOwnerUserId } from '@/server/auth/users';
 import { alertOwnerMissing, runSyncWatchdog, type WatchdogResult } from '@/server/notify/watchdog';
 import { runDigest, type DigestRunResult } from '@/server/digest/run';
 import { listSyncUsers } from '@/server/sync/users';
+import { purgeExpiredArchive } from '@/server/auth/profiles';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,8 @@ export async function GET(req: Request) {
     const alert = await alertOwnerMissing(db);
     return fail(500, 'config_error', 'Владелец не найден в списке доступа.', { alert });
   }
+  // Фаза 41 (41.4): архивные профили старше 30 дней удаляются физически (каскад); сбой не мешает остальным проверкам
+  const archivePurged = await purgeExpiredArchive(db).catch(() => 0);
   // подходящие пользователи; владелец без своего ника идёт через fallback env, а при отсутствии настроек PSN всё равно проверяется сам
   const env = getPsnEnv();
   const listed = await listSyncUsers(db, env?.targetOnlineId ?? '__none__').catch(() => []);
@@ -58,7 +61,7 @@ export async function GET(req: Request) {
   // Фаза 29 (F29.2): недельная сводка в воскресенье МСК и догоняющий запуск в понедельник; в остальные дни digest = null. Не бросает.
   const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
   return NextResponse.json(
-    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest } },
+    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, archivePurged } },
     { headers: NO_STORE },
   );
 }

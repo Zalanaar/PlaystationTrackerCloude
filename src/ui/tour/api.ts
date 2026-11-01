@@ -1,7 +1,11 @@
 // Клиент /api/me/tour (контракт docs/api-contract.md §23). Любая ошибка не бросается: тур fail-open.
 import { TOUR_VERSION } from '@/shared/tour';
+import { registerCacheReset, writeProfileValue } from '../profiles/scope';
 import { TOUR_SEEN_KEY, TOUR_STEP_KEY } from './model';
 import { TOUR_STEPS } from './steps';
+
+// Смена профиля PSN: недопройденный тур прежнего профиля не возобновляется у нового
+registerCacheReset(() => { try { sessionStorage.removeItem(TOUR_STEP_KEY); } catch { /* нет хранилища */ } });
 
 export type TourApiState = { version: number; completedVersion: number; shouldAutoStart: boolean };
 
@@ -31,7 +35,7 @@ export async function saveTourDone(version: number): Promise<boolean> {
   } catch {
     // сеть: ниже запасной флаг
   }
-  try { localStorage.setItem(TOUR_SEEN_KEY, String(version)); } catch { /* приватный режим: тур может показаться ещё раз */ }
+  writeProfileValue(TOUR_SEEN_KEY, String(version)); // приватный режим: тур может показаться ещё раз
   return false;
 }
 

@@ -59,8 +59,21 @@ export async function verifyJson(secret: string | null | undefined, token: strin
 
 export type SessionRole = 'owner' | 'member';
 export type SessionAmr = 'google' | 'pwd';
-export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr };
+/** uid = id основного профиля (вход), pid = id активного профиля (Фаза 41, контракт 41.2); нет pid = pid = uid. */
+export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr; pid?: number };
 export type Session = SessionClaims & { v: 2; iat: number; exp: number };
+
+async function signBody(secret: string, body: Record<string, unknown>): Promise<string> {
+  const payload = b64urlEncode(enc.encode(JSON.stringify(body)));
+  const sig = await crypto.subtle.sign('HMAC', await importKey(secret, 'sign'), enc.encode(payload));
+  return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
+}
+
+function pidField(uid: number, pid: number | undefined): { pid?: number } {
+  if (pid === undefined || pid === uid) return {};
+  if (!Number.isInteger(pid) || pid <= 0) throw new Error('invalid pid');
+  return { pid };
+}
 
 /** Токен v:2 (контракт 22.3). Бросает при пустом/коротком секрете или некорректных claims. */
 export async function createSessionTokenV2(
@@ -71,10 +84,18 @@ export async function createSessionTokenV2(
   if (!validSecret(secret)) throw new Error('session secret is missing or too short');
   if (!Number.isInteger(claims.uid) || claims.uid <= 0) throw new Error('invalid uid');
   const iat = Math.floor(nowMs / 1000);
-  const body = { v: 2, uid: claims.uid, role: claims.role, amr: claims.amr, iat, exp: iat + SESSION_TTL_SECONDS };
-  const payload = b64urlEncode(enc.encode(JSON.stringify(body)));
-  const sig = await crypto.subtle.sign('HMAC', await importKey(secret, 'sign'), enc.encode(payload));
-  return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
+  return signBody(secret, { v: 2, uid: claims.uid, role: claims.role, amr: claims.amr, ...pidField(claims.uid, claims.pid), iat, exp: iat + SESSION_TTL_SECONDS });
+}
+
+/** Переключение профиля (41.2): новый токен с теми же uid/role/amr/iat/exp, срок НЕ продлевается. pid = uid или undefined убирает pid. */
+export async function reissueSessionToken(secret: string | null | undefined, session: Session, pid: number | undefined): Promise<string> {
+  if (!validSecret(secret)) throw new Error('session secret is missing or too short');
+  return signBody(secret, { v: 2, uid: session.uid, role: session.role, amr: session.amr, ...pidField(session.uid, pid), iat: session.iat, exp: session.exp });
+}
+
+/** Остаток жизни токена в секундах (для maxAge cookie при переключении профиля). */
+export function sessionRemainingSeconds(session: Session, nowMs: number = Date.now()): number {
+  return Math.max(0, session.exp - Math.floor(nowMs / 1000));
 }
 
 /** Разбор и проверка токена (только v:2; v:1 удалён после 0015, контракт 22.3): подпись, форма, срок. null при любой ошибке. Без БД. */
@@ -102,11 +123,12 @@ export async function readSessionToken(
     const nowS = Math.floor(nowMs / 1000);
     if (!(nowS < exp) || iat > nowS + 60) return null;
     if (v === 2) {
-      const { uid, role, amr } = d;
+      const { uid, role, amr, pid } = d;
       if (typeof uid !== 'number' || !Number.isInteger(uid) || uid <= 0) return null;
       if (role !== 'owner' && role !== 'member') return null;
       if (amr !== 'google' && amr !== 'pwd') return null;
-      return { v: 2, uid, role, amr, iat, exp };
+      if (pid !== undefined && (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0)) return null;
+      return { v: 2, uid, role, amr, ...(pid !== undefined && pid !== uid ? { pid } : {}), iat, exp };
     }
     return null;
   } catch {
@@ -123,6 +145,6 @@ export async function verifySessionToken(
   return (await readSessionToken(token, secret, nowMs)) !== null;
 }
 
-export function sessionCookieOptions(secure: boolean) {
-  return { httpOnly: true, secure, sameSite: 'lax' as const, path: '/', maxAge: SESSION_TTL_SECONDS };
+export function sessionCookieOptions(secure: boolean, maxAge: number = SESSION_TTL_SECONDS) {
+  return { httpOnly: true, secure, sameSite: 'lax' as const, path: '/', maxAge };
 }
