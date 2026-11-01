@@ -81,6 +81,7 @@ a.ps-btn { text-decoration: none; }
 }
 .ps-pop__panel[data-align="end"] { right: 0; }
 .ps-pop__panel[data-align="start"] { left: 0; }
+.ps-pop__panel[data-flip="up"] { top: auto; bottom: calc(100% + 6px); }
 @keyframes ps-pop-in { from { opacity: 0; transform: scale(.98); } }
 .ps-menu-item {
   display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 36px; padding: 0 var(--sp-3);

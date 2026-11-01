@@ -73,10 +73,27 @@ describe('QA Ф30: названия библиотеки', () => {
   });
 });
 
-describe('QA Ф30: известные пробелы названий (низкая серьёзность, фиксируем текущее поведение)', () => {
-  it('«Intergrade» и «Remake» в хвосте не считаются изданием: RAWG «Final Fantasy VII Remake» не совпадёт с «...REMAKE INTERGRADE»', () => {
-    expect(inLibrary('Final Fantasy VII Remake', buildLibraryIndex(['FINAL FANTASY VII REMAKE INTERGRADE']))).toBe(false);
-    expect(inLibrary('Resident Evil 4', buildLibraryIndex(['Resident Evil 4 Remake']))).toBe(false);
+describe('QA Ф30 (QA-30-2): издания и суффиксы одной игры', () => {
+  it.each([
+    ['Final Fantasy VII Remake', 'FINAL FANTASY VII REMAKE INTERGRADE'],
+    ['Resident Evil 4', 'Resident Evil 4 Remake'],
+    ['Dark Souls 3', 'DARK SOULS™ III'],
+    ['Dark Souls III', 'Dark Souls 3 Deluxe Edition'],
+    ['Alan Wake 2', 'Alan Wake II Digital Deluxe Edition'],
+    ['Death Stranding', "Death Stranding Director's Cut"],
+  ])('RAWG «%s» уже в библиотеке как «%s»', (rawgTitle, own) => {
+    expect(inLibrary(rawgTitle, buildLibraryIndex([own]))).toBe(true);
+  });
+  it.each([
+    ['Final Fantasy VII Remake', 'Final Fantasy VII'],
+    ['Resident Evil 4 Remake', 'Resident Evil 4'],
+    ['Final Fantasy VII', 'FINAL FANTASY VII REMAKE INTERGRADE'.replace('VII', 'VIII')],
+    ['Hades II', 'Hades'],
+    ['Resident Evil 4', 'Resident Evil 2 Remake'],
+    ['Alan Wake 2', 'Alan Wake Remastered'],
+    ['Dark Souls II', 'Dark Souls III Deluxe Edition'],
+  ])('«%s» остаётся отдельной игрой при «%s»', (rawgTitle, own) => {
+    expect(inLibrary(rawgTitle, buildLibraryIndex([own]))).toBe(false);
   });
   it('русское название PSN не совпадёт с английским RAWG (спасает только hltb_name)', () => {
     expect(inLibrary('The Witcher 3: Wild Hunt', buildLibraryIndex(['Ведьмак 3: Дикая Охота']))).toBe(false);

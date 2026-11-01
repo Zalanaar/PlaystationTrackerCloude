@@ -169,7 +169,7 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
   }
 
   const when = meta ? pickedText(meta.generatedAt) : null;
-  const note = view === 'cards' && meta ? (meta.stale ? STALE_NOTE : meta.partial ? PARTIAL_NOTE : null) : null;
+  const notes = view === 'cards' && meta ? [meta.stale ? STALE_NOTE : null, meta.partial ? PARTIAL_NOTE : null].filter((n): n is string => n !== null) : [];
 
   return (
     <div className="ps-rec-mode" role="tabpanel" id="rec-panel-discover" aria-labelledby="rec-tab-discover" hidden={!active}>
@@ -183,8 +183,8 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => { setRefreshErr(false); void load(); }}>Повторить</button>
             </div>
           )}
-          {note && <p className="ps-rec-note"><Icon name="info" size={12} />{note}</p>}
-          <ol className="ps-rec-list" aria-busy={loading || undefined} data-fade={!initial || undefined}>
+          {notes.map((n) => <p key={n} className="ps-rec-note"><Icon name="info" size={12} />{n}</p>)}
+          <ol className="ps-rec-list" data-discover="" aria-busy={loading || undefined} data-fade={!initial || undefined}>
             {initial
               ? Array.from({ length: wide ? 3 : 2 }, (_, i) => i).map((i) => <RecSkeleton key={i} wide={wide} />)
               : items.map((it, i) => (

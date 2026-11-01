@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 type TriggerProps = {
   onClick: () => void;
@@ -20,8 +20,31 @@ export function Popover({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const close = useCallback(() => setOpen(false), []);
+
+  /** Переворот вверх, когда снизу не хватает места (нижняя навигация, край окна). Меряем offsetHeight: на transform анимации он не реагирует. */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const wrap = ref.current;
+      const panel = panelRef.current;
+      if (!wrap || !panel) return;
+      delete panel.dataset.flip;
+      const r = wrap.getBoundingClientRect();
+      const h = panel.offsetHeight + 6;
+      const tab = document.querySelector('.ps-tabbar');
+      const tabTop = tab && getComputedStyle(tab).display !== 'none' ? tab.getBoundingClientRect().top : window.innerHeight;
+      const bottomLimit = Math.min(window.innerHeight, tabTop) - 8;
+      const below = bottomLimit - r.bottom;
+      const above = r.top - 8;
+      if (h > below && above > below) panel.dataset.flip = 'up';
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +78,7 @@ export function Popover({
     <div ref={ref} className={`ps-pop ${className ?? ''}`} onKeyDown={onKey}>
       {trigger({ onClick: () => setOpen((v) => !v), 'aria-haspopup': 'menu', 'aria-expanded': open, 'aria-controls': open ? id : undefined })}
       {open && (
-        <div id={id} role="menu" className="ps-pop__panel" data-align={align}>
+        <div ref={panelRef} id={id} role="menu" className="ps-pop__panel" data-align={align}>
           {children(close)}
         </div>
       )}

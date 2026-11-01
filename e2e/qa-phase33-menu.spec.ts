@@ -8,7 +8,6 @@ const bl = (id: number, title: string): G => ({ id, title, lastPlayedAt: '2026-0
 
 test('меню нижних строк: последняя строка после скролла и строка у нижней навигации', async ({ page, context, baseURL }) => {
   test.skip((page.viewportSize()?.width ?? 1280) >= 768, 'мобильный');
-  test.fail(true, 'БАГ QA-33-1: пункты меню «…» последней строки уходят под нижнюю навигацию и недоступны; убрать после исправления');
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL as string }]);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await mockApi(page, Array.from({ length: 8 }, (_, i) => bl(i + 1, `Игра ${i + 1}`)));
