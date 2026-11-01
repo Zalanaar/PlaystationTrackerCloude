@@ -16,7 +16,7 @@ describe('QA-28 inbox', () => {
   beforeEach(() => t.reset());
   void sql;
 
-  it.fails('QA-28-1 (баг, открыт): первый запуск упал (failed, 0 игр), второй импортирует всю библиотеку: «новых» быть не должно', async () => {
+  it('QA-28-1: первый запуск упал (failed, 0 игр), второй импортирует всю библиотеку: «новых» быть не должно', async () => {
     await t.db.insert(syncRuns).values({ userId: TEST_USER, kind: 'daily', status: 'failed', errorReason: 'auth_expired', snapshotDate: '2026-11-01', startedAt: hAgo(30), finishedAt: hAgo(30) });
     await t.db.insert(syncRuns).values({ userId: TEST_USER, kind: 'manual', status: 'success', snapshotDate: '2026-11-01', startedAt: hAgo(5), finishedAt: hAgo(4.9) });
     for (let i = 0; i < 5; i++) await t.db.insert(games).values({ userId: TEST_USER, titleId: `G${i}`, name: `G${i}`, category: 'ps5_native_game', lastSeenAt: NOW, firstSeenAt: hAgo(5) });

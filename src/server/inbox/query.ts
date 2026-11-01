@@ -36,7 +36,7 @@ async function initialImportEnd(db: AnyDb, userId: UserId): Promise<Date | null>
   const [run] = await db
     .select({ startedAt: syncRuns.startedAt, finishedAt: syncRuns.finishedAt })
     .from(syncRuns)
-    .where(eq(syncRuns.userId, userId))
+    .where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'success')))
     .orderBy(asc(syncRuns.startedAt))
     .limit(1);
   if (run) return run.finishedAt ?? new Date(run.startedAt.getTime() + HOUR_MS);
