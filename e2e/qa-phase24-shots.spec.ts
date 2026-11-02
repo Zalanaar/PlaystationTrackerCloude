@@ -11,7 +11,8 @@ const setTheme = (page: Page, v: string) => page.evaluate((t) => { if (t === 'ni
 const noH = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const tourStub = JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } });
 const TOKEN = { issuedAt: '2026-10-22T10:00:00.000Z', ageSeconds: 9 * 86400 + 100, source: 'pasted', lastEvent: { event: 'expired', at: '2026-11-01T10:00:00.000Z', details: { reason: 'auth_expired' } } };
-const SECRET = 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0U1v2W3x4Y5z6A7b8C9d0E1f2';
+// Заведомо фиктивное значение формата NPSSO (64 латинских буквы и цифры), не похожее на настоящий токен
+const SECRET = 'E2EFAKENPSSO'.padEnd(64, '0');
 
 async function open(page: Page, role: 'owner' | 'member', post?: number) {
   const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
