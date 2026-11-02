@@ -67,7 +67,10 @@
   .ps-inbox__chev { display: none; }
   .ps-inbox__sk-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ps-inbox__sk-chip { width: auto; height: var(--tap-min); }
-  .ps-inbox__sk-chip:last-child { grid-column: 1 / -1; }
+  /* Высота скелета = типичная полоса (метка 22 px + один ряд из двух чипов), иначе сдвиг при загрузке */
+  .ps-inbox--sk { gap: var(--sp-2); }
+  .ps-inbox__sk-label { margin-block: 5px; }
+  .ps-inbox__sk-chip:last-child { display: none; }
 }
 
 @media (prefers-contrast: more) {

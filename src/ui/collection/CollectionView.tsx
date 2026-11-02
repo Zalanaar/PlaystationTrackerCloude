@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameStatusValue } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
@@ -41,8 +41,10 @@ import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
 import { InboxStrip } from '../inbox/InboxStrip';
 import { useInbox } from '../inbox/useInbox';
+import { expectHero, heroHintCookie } from './heroHint';
 
-export function CollectionView() {
+/** heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS). */
+export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -110,6 +112,13 @@ export function CollectionView() {
     empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
   } = L;
   const withStatus = summary ? summary.counts.all - summary.counts.none : null;
+  const summaryPlaying = summary ? summary.counts.playing : null;
+  const heroExpected = expectHero(summaryPlaying, heroHint);
+  // Запоминаем для следующего серверного рендера: есть ли что показать в hero
+  useEffect(() => {
+    if (summaryPlaying === null || (summaryPlaying > 0) === heroHint) return;
+    document.cookie = heroHintCookie(summaryPlaying > 0);
+  }, [summaryPlaying, heroHint]);
   // только чистая хроника: без поиска, статуса и платины (спека A.1)
   const inbox = useInbox(chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum);
   // пока полоса показывает чип «Проверить статусы», старый check-chip не рендерим (спека A.2)
@@ -164,7 +173,7 @@ export function CollectionView() {
 
       <InboxStrip ctl={inbox} />
 
-      {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && <HeroSkeleton />)}
+      {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
 
       {isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 

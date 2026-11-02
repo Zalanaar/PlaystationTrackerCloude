@@ -62,7 +62,8 @@ export function CollectionResultsSkeleton({ list = false }: { list?: boolean }) 
 }
 
 /** Коллекция целиком (Suspense и loading.tsx): StatLine, профиль, фильтры, hero, год, чипы месяцев, сетка. */
-export function CollectionPageSkeleton() {
+/** hero: false, когда по подсказке игр «Играю» нет (скелет hero не рисуем). */
+export function CollectionPageSkeleton({ hero = true }: { hero?: boolean } = {}) {
   return (
     <SkRoot className="ps-collection">
       <div className="ps-pagehead ps-pagehead--coll">
@@ -75,7 +76,7 @@ export function CollectionPageSkeleton() {
       <div className="ps-filters ps-filters--search ps-sk-m">
         <div className="ps-filters__srow"><span className="ps-skeleton ps-sk-msearch" /><span className="ps-skeleton ps-sk-fbtn" /></div>
       </div>
-      <HeroSkeleton />
+      {hero && <HeroSkeleton />}
       {/* десктоп: те же flex-блоки и ширины, что у FilterBar, поэтому перенос строк совпадает */}
       <div className="ps-filters ps-sk-d">
         <div className="ps-filters__row">
