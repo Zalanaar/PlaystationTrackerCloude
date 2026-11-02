@@ -96,19 +96,18 @@
 .ps-add-list { list-style: none; margin: 0; padding: 0; }
 .ps-add-row {
   display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-1) var(--sp-3);
-  min-height: 72px; padding: var(--sp-2) 0; border-bottom: var(--border-w) solid var(--border);
+  min-height: 72px; padding: var(--sp-2) 0 var(--sp-2) var(--sp-2); border-bottom: var(--border-w) solid var(--border); border-left: 3px solid transparent;
 }
+.ps-add-row[data-picked] { border-left-color: var(--accent); }   /* выбранная игра: форма (полоса), не только цвет */
 .ps-add-row .ps-add-row__cover { width: 48px; height: 64px; aspect-ratio: auto; padding: 0; border-radius: var(--r-sm); font-size: var(--fs-micro); }
 .ps-add-row .ps-cover--empty span { display: none; }
 .ps-add-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ps-add-row__title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font: 600 14px/18px var(--font-body); color: var(--text); }
 .ps-add-row__meta { font: 400 12px/16px var(--font-body); color: var(--text-2); }
-.ps-add-row__act { min-width: 0; }
-.ps-add-row__btn { height: 36px; padding: 0 var(--sp-3); gap: 6px; white-space: nowrap; }
-.ps-add-row__btn:hover:not(:disabled) { background: var(--surface-2); }
-.ps-add-row__btn:active:not(:disabled) { background: var(--surface-3); }
+.ps-add-row__act { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .ps-add-row__done { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/16px var(--font-body); color: var(--text); }
 .ps-add-row__done[data-kind="already"] { color: var(--text-2); }
+.ps-add-row__need { color: var(--text); }
 .ps-add-row__done:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
 .ps-add-row__err { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin: 0; font: 400 12px/16px var(--font-body); color: var(--text); }
 .ps-add-row__err svg { flex: none; }
@@ -139,17 +138,187 @@
   .ps-add__input { font-size: 16px; height: var(--tap-min); }
   .ps-add__go { height: var(--tap-min); }
   .ps-add__clear { width: var(--tap-min); }
-  .ps-add-row__btn { height: var(--tap-min); }
   .ps-add-warn__btns .ps-btn { height: var(--tap-min); }
 }
 @media (max-width: 400px) {
-  .ps-add-row { grid-template-columns: 48px minmax(0, 1fr); grid-template-areas: "cover text" "cover btn"; }
+  .ps-add-row { grid-template-columns: 48px minmax(0, 1fr); grid-template-areas: "cover text" "cover ctl"; }
   .ps-add-row .ps-add-row__cover { grid-area: cover; align-self: start; }
   .ps-add-row__text { grid-area: text; }
-  .ps-add-row__act { grid-area: btn; justify-self: start; }
+  .ps-add-row__act { grid-area: ctl; }
+  .ps-add-row__act .ps-add-buy { flex: 1 1 auto; max-width: 176px; }
   .ps-add-warn__btns { flex-direction: column; align-items: stretch; }
   .ps-add-warn__btns .ps-link { margin: 0 0 var(--sp-1); }
   .ps-add-warn__btns .ps-btn { width: 100%; justify-content: center; }
+}
+
+/* ---------- Фаза 43.1: «Купил / Не купил», корзина (design-system §19b.2, §19b.3) ---------- */
+.ps-add-buy { display: inline-flex; flex: none; width: 152px; height: 36px; padding: 2px; gap: 2px; background: var(--surface-2); border: 0; border-radius: var(--r-sm); box-sizing: border-box; }
+.ps-add-buy button {
+  flex: 1 1 0; min-width: 0; height: 32px; padding: 0 var(--sp-1); display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  background: none; border: 0; border-radius: calc(var(--r-sm) - 2px); color: var(--text-2); font: 500 var(--fs-small)/1 var(--font-body); white-space: nowrap; cursor: pointer;
+}
+.ps-add-buy button:hover:not(:disabled):not([aria-checked="true"]) { color: var(--text); }
+.ps-add-buy button[aria-checked="true"] { background: var(--surface-3); color: var(--text); font-weight: 600; }
+.ps-add-buy button:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-add-buy button:disabled { opacity: .6; cursor: default; }
+.ps-add-buy__ck { flex: none; }
+.ps-add-buy--compact { width: 168px; height: 32px; }
+.ps-add-buy--compact button { height: 28px; }
+.ps-add-row__pick { flex: none; width: 36px; height: 36px; padding: 0; justify-content: center; }
+.ps-add-row__pick:hover:not(:disabled) { background: var(--surface-2); }
+.ps-add-row__pick[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
+
+.ps-cart { flex: 0 1 auto; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-height: min(45dvh, 360px); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-cart__banner { flex: none; margin: var(--sp-2) var(--sp-2) 0; }
+.ps-cart__banner > span, .ps-bs__banner > span, .ps-add__banner > span { flex: 1 1 0; min-width: 0; }
+.ps-cart__banner:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-cart__listwrap { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; max-height: min(40dvh, 240px); overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--sp-3); }
+.ps-cart__listhead { display: flex; justify-content: flex-end; padding-top: var(--sp-1); }
+.ps-cart__limit { margin: 0; padding: var(--sp-1) var(--sp-3) 0; font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-cart__list { list-style: none; margin: 0; padding: 0; }
+.ps-cart__item { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; align-items: center; column-gap: var(--sp-2); min-height: 44px; border-top: var(--border-w) solid var(--border); }
+.ps-cart__item:first-child { border-top: 0; }
+.ps-cart__title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 400 14px/18px var(--font-body); color: var(--text); }
+.ps-cart__x { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; border-radius: var(--r-sm); color: var(--text-2); cursor: pointer; }
+.ps-cart__x:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
+.ps-cart__x:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-cart__err, .ps-cart__warn { grid-column: 1 / -1; }
+.ps-cart__err { padding-bottom: var(--sp-2); }
+.ps-cart__warn { margin: 0 0 var(--sp-2); background: var(--surface); animation: none; }
+.ps-cart__bar { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-height: 56px; padding: 0 var(--sp-2); border-top: var(--border-w) solid var(--border); }
+.ps-cart__bar:first-child { border-top: 0; }
+.ps-cart__toggle { flex: 1 1 auto; justify-content: flex-start; min-width: 0; gap: 6px; font-weight: 600; white-space: nowrap; }
+.ps-cart__toggle svg { flex: none; }
+.ps-cart__lbl-s { display: none; }
+.ps-cart__off { flex: none; font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-cart__go { flex: none; gap: 6px; white-space: nowrap; }
+.ps-cart--confirm { padding: var(--sp-3); gap: var(--sp-2); }
+.ps-cart__confirm-t { margin: 0; font: 600 14px/20px var(--font-body); color: var(--text); }
+.ps-cart__confirm-b { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+@media (max-width: 767px) {
+  .ps-add-buy { height: var(--tap-min); }
+  .ps-add-buy button { height: 40px; }
+  .ps-add-row__pick { width: var(--tap-min); height: var(--tap-min); }
+  .ps-cart__go { height: var(--tap-min); }
+  .ps-cart__toggle { height: var(--tap-min); }
+  .ps-cart__confirm-b .ps-btn { height: var(--tap-min); }
+}
+@media (max-width: 400px) {
+  .ps-add-buy, .ps-add-buy--compact { width: auto; }
+  .ps-add-buy button { padding: 0 6px; }
+  .ps-cart__item { grid-template-columns: minmax(0, 1fr) 44px; grid-template-areas: "t t" "seg x"; row-gap: 0; padding-top: var(--sp-1); }
+  .ps-cart__title { grid-area: t; }
+  .ps-cart__item .ps-add-buy { grid-area: seg; }
+  .ps-cart__x { grid-area: x; }
+  .ps-cart__confirm-b .ps-btn { flex: 1 1 100%; justify-content: center; }
+}
+@media (max-width: 340px) {
+  .ps-add-buy__ck { display: none; }
+  .ps-cart__lbl { display: none; }
+  .ps-cart__lbl-s { display: inline; }
+}
+
+/* ---------- Фаза 43.1: секция «Не куплено» (design-system §19b.4) ---------- */
+.ps-nbsec { margin-top: var(--sp-8); padding: var(--sp-3); background: var(--nb-sec-bg); border: var(--border-w) dashed var(--nb-sec-border); border-radius: var(--r-lg); min-width: 0; }
+.ps-nbsec .ps-bl-h { margin-top: 0; }
+.ps-nbsec__empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-4) var(--sp-3); text-align: center; color: var(--text-2); }
+.ps-nbsec__empty svg { color: var(--text-3); }
+.ps-nbsec__empty h3 { margin: 0; color: var(--text); }
+.ps-nbsec__empty p { margin: 0; }
+@media (min-width: 768px) { .ps-nbsec { padding: var(--sp-4); } }
+@media (max-width: 767px) { .ps-nbsec__toggle { height: var(--tap-min); } }
+
+/* ---------- Фаза 43.1: поле поиска Бэклога и умные подсказки (design-system §19b.4, §19b.5) ---------- */
+.ps-bs-row { margin: var(--sp-2) 0 var(--sp-3); min-height: var(--control-h); }
+.ps-bs { position: relative; width: min(100%, 360px); }
+.ps-bs__field { position: relative; display: block; }
+.ps-bs__field > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.ps-bs__input { width: 100%; box-sizing: border-box; height: var(--control-h); padding-left: 36px; padding-right: 40px; }
+.ps-bs__input::-webkit-search-cancel-button { display: none; }
+.ps-bs__clear { position: absolute; right: 0; top: 0; bottom: 0; width: 36px; display: grid; place-items: center; background: none; border: 0; border-radius: var(--r-sm); color: var(--text-2); cursor: pointer; }
+.ps-bs__clear:hover { color: var(--text); }
+.ps-bs__clear:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-bs__pop {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: var(--z-popup); min-width: 440px; max-width: calc(100vw - 32px); box-sizing: border-box;
+  background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+  max-height: min(70dvh, 520px); overflow-y: auto; overscroll-behavior: contain;
+}
+.ps-bs__cap { position: sticky; top: 0; z-index: 1; padding: var(--sp-2) 12px 4px; background: var(--surface); font: 600 11px/14px var(--font-body); color: var(--text-2); }
+.ps-bs-opt {
+  position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 48px; padding: 4px 12px;
+  box-sizing: border-box; cursor: pointer; color: var(--text);
+}
+.ps-bs-opt--store { min-height: 56px; }
+.ps-bs-opt:hover, .ps-bs-opt[aria-selected="true"] { background: var(--surface-2); }
+.ps-bs-opt[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+.ps-bs-opt[aria-disabled="true"] { cursor: default; }
+.ps-bs-opt .ps-bs-opt__cover { width: 32px; height: 42px; aspect-ratio: auto; padding: 0; border-radius: var(--r-sm); font-size: 10px; }
+.ps-bs-opt .ps-cover--empty span { display: none; }
+.ps-bs-opt__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-bs-opt__title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 14px/18px var(--font-body); }
+.ps-bs-opt__meta { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-bs-opt__act { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); min-width: 0; }
+.ps-bs-opt__plus { width: 36px; height: 36px; padding: 0; justify-content: center; }
+.ps-bs-opt__done { display: inline-flex; align-items: center; gap: 4px; font: 400 12px/16px var(--font-body); color: var(--text); text-align: right; }
+.ps-bs-opt__done--dim { color: var(--text-2); }
+.ps-bs-opt__btn { pointer-events: none; }
+.ps-bs-opt--more { grid-template-columns: auto minmax(0, 1fr); min-height: 44px; gap: var(--sp-2); font: 500 13px/16px var(--font-body); color: var(--text-2); }
+.ps-bs-opt--retry { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 48px; gap: var(--sp-2); font: 400 12px/16px var(--font-body); color: var(--text); }
+.ps-bs-opt--local > .ps-nb { flex: none; }
+.ps-hl { background: none; color: inherit; font-weight: 700; text-decoration: underline 2px var(--accent); text-underline-offset: 2px; }
+.ps-bs__line { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0; padding: 10px 12px; font: 400 12px/16px var(--font-body); color: var(--text-2); overflow-wrap: anywhere; }
+.ps-bs__line svg { flex: none; margin-top: 1px; }
+.ps-bs__none { padding: var(--sp-3) 12px; text-align: center; color: var(--text); font: 400 13px/18px var(--font-body); }
+.ps-bs__none p { margin: 0; display: flex; justify-content: center; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.ps-bs__none .ps-bs__sub { margin-top: 2px; color: var(--text-2); font-size: 12px; line-height: 16px; }
+.ps-bs__banner { margin: var(--sp-2); }
+.ps-bs__sk { display: flex; flex-direction: column; min-height: 168px; }   /* резерв под 3 строки: popup не прыгает вверх, когда приходят результаты */
+.ps-bs-sk { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: var(--sp-3); align-items: center; height: 56px; padding: 0 12px; }
+.ps-bs-sk__cover { display: block; width: 32px; height: 42px; border-radius: var(--r-sm); }
+.ps-bs-sk__lines { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-bs-sk__l1 { display: block; width: 60%; height: 14px; }
+.ps-bs-sk__l2 { display: block; width: 30%; height: 12px; }
+.ps-bs__attr { margin: 0; padding: 6px 12px; border-top: var(--border-w) solid var(--border); font: 400 11px/14px var(--font-body); color: var(--text-3); }
+.ps-bs__attr a { color: var(--text-2); text-decoration: underline; }
+
+.ps-bs-active { display: none; align-items: center; justify-content: space-between; gap: var(--sp-2); height: 36px; margin: 0 0 var(--sp-2); font: 400 var(--fs-small)/16px var(--font-body); color: var(--text-2); }
+.ps-bs-active__t { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ps-bl-bar__search { position: relative; flex: none; width: 40px; height: 40px; }
+.ps-bl-bar__search::after { content: ""; position: absolute; inset: -2px; }
+.ps-bl-bar__search[data-active="true"]::before { content: ""; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--accent); }
+
+.ps-sheet.ps-bs-sheet { display: flex; flex-direction: column; overflow: hidden; width: 100%; height: 92dvh; max-height: 92dvh; }
+.ps-bs-sheet .ps-sheet__body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ps-bs-sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.ps-bs-sheet__foot { padding-bottom: env(safe-area-inset-bottom); }
+.ps-bs[data-variant="sheet"] { width: 100%; }
+.ps-bs[data-variant="sheet"] .ps-bs__input { height: var(--tap-min); font-size: 16px; }
+.ps-bs[data-variant="sheet"] .ps-bs__clear { width: var(--tap-min); }
+.ps-bs[data-variant="sheet"] .ps-bs__pop { position: static; min-width: 0; max-width: none; max-height: none; margin-top: var(--sp-2); border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+.ps-bs[data-variant="sheet"] .ps-bs-opt { min-height: 56px; }
+.ps-bs[data-variant="sheet"] .ps-bs-opt--store { min-height: 64px; }
+.ps-bs[data-variant="sheet"] .ps-bs-opt__plus { width: var(--tap-min); height: var(--tap-min); }
+.ps-bs[data-variant="sheet"] .ps-bs__cap { top: 0; }
+
+@media (max-width: 767px) {
+  .ps-bs-row { display: none; }
+  .ps-bs-active { display: flex; }
+}
+
+/* ---------- Фаза 43.1: контраст, движение ---------- */
+@media (prefers-contrast: more) {
+  .ps-nbsec, .ps-bs__pop, .ps-cart { border-width: 2px; }
+  .ps-add-buy { outline: 2px solid var(--border-strong); outline-offset: -2px; }
+  .ps-bs__attr, .ps-cart__limit { color: var(--text-2); }
+}
+@media (forced-colors: active) {
+  .ps-nbsec, .ps-bs__pop { border-color: CanvasText; }
+  .ps-hl { background: Mark; color: MarkText; }
+  .ps-add-buy button[aria-checked="true"] { outline: 2px solid CanvasText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-bs-sk .ps-skeleton { animation: none; background: var(--surface-2); }
 }
 
 /* ---------- Подтверждение «Убрать из бэклога» (§19.5) ---------- */

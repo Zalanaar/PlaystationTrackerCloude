@@ -18,7 +18,7 @@ for (const theme of THEMES) {
     await mockManual(page, {
       items: [mgame(1, 'Очень длинное название игры, которое не помещается в одну строку списка'), mgame(2, 'Купленная', { notPurchased: false })],
       matches: [match],
-      addReplies: [{ status: 409, error: { code: 'duplicate_game', message: 'x', details: { duplicate: 'library', game: { gameId: 9, name: 'Hades II', imageUrl: null }, planned: null } } }],
+      batchDup: ['1'],
       candidates: [cand('1', 'Hades II', { duplicate: 'library' }), cand('2', 'Hades')],
     });
     await page.setViewportSize({ width: 360, height: 740 });
@@ -34,7 +34,8 @@ for (const theme of THEMES) {
     await page.getByTestId('add-input').fill('hades');
     await page.getByTestId('add-submit').click();
     await page.getByTestId('add-row').first().waitFor();
-    await page.getByTestId('add-row-btn').first().click();
+    await page.getByTestId('add-pick').first().click();
+    await page.getByTestId('add-cart-submit').click();
     await page.getByTestId('add-warn').waitFor();
     await page.screenshot({ path: `docs/qa/shots-43/${theme}-add.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), t).toBe(true);

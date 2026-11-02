@@ -78,7 +78,7 @@ export function GameCard({
   return (
     <article
       id={anchorId} tabIndex={anchorId ? -1 : undefined}
-      className="ps-card" data-status={key} data-platinum={plat || undefined} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
+      className="ps-card" data-game={game.id} data-status={key} data-platinum={plat || undefined} data-selected={selected || undefined} data-select={selectMode || undefined} data-active={active || undefined}
       data-excluded={month?.excluded || undefined} data-busy={busy || undefined}
     >
       <div className="ps-card__cover">

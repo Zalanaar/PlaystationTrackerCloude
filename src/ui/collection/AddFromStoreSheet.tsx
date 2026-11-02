@@ -110,13 +110,13 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
   }, [results.length]);
 
   // открытие с запросом из подсказки («Все результаты в магазине PS», Enter при мягком пределе): явный поиск сразу
-  const started = useRef(false);
+  const searchRef = useRef(search);
+  useEffect(() => { searchRef.current = search; }, [search]);
   useEffect(() => {
-    if (started.current || !initialQuery) return;
-    started.current = true;
-    const t = setTimeout(() => { setQ(initialQuery); void search(initialQuery); }, 0);
-    return () => { clearTimeout(t); started.current = false; };
-  }, [initialQuery, search]);
+    if (!initialQuery) return;
+    const t = setTimeout(() => { setQ(initialQuery); void searchRef.current(initialQuery); }, 0);
+    return () => clearTimeout(t);
+  }, [initialQuery]);
 
   function clear() {
     setQ('');

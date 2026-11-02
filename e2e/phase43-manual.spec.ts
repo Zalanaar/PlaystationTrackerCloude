@@ -33,6 +33,12 @@ const noHScroll = (page: Page) => page.evaluate(() => document.documentElement.s
 const hades = () => cand('3328', 'Hades II', { releaseDate: '2026-12-05' });
 const row = (page: Page, title: string) => page.locator('[data-manual]').filter({ hasText: title });
 
+/** Выбрать игру в строке результата и отправить корзину (по умолчанию «Не купил»). */
+async function addFirst(page: Page, n = 0) {
+  await page.getByTestId('add-row').nth(n).getByTestId('add-pick').click();
+  await page.getByTestId('add-cart-submit').click();
+}
+
 async function search(page: Page, q: string) {
   await page.getByTestId('add-input').fill(q);
   await page.getByTestId('add-submit').click();
@@ -65,13 +71,14 @@ test.describe('Поиск и добавление', () => {
     await expect(first).toContainText('Релиз 5 дек. 2026');
     await expect(first).toContainText('PS5 · PS4');
     await expect(page.getByTestId('add-row').nth(1)).toContainText('Дата не объявлена');
-    await first.getByTestId('add-row-btn').click();
-    await expect(first.getByTestId('add-row-done')).toHaveText('Добавлено в бэклог');
-    await expect(first.getByTestId('add-row-done')).toBeFocused();
-    expect(manual.addBodies[0]).toEqual({ externalSource: 'rawg', externalId: '3328', title: 'Hades II', coverUrl: null, releaseDate: '2026-12-05' });
-    // повторное добавление невозможно: кнопки нет, строка осталась
-    await expect(first.getByTestId('add-row-btn')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Закрыть', exact: true }).last().click();
+    await expect(first.getByTestId('add-buy-no')).toHaveAttribute('aria-checked', 'true');
+    await addFirst(page);
+    await expect(first.getByTestId('add-row-done')).toHaveText('Добавлено · Не куплено');
+    await expect(page.getByTestId('add-input')).toBeFocused();
+    expect(manual.batchBodies[0]).toEqual([{ externalSource: 'rawg', externalId: '3328', title: 'Hades II', coverUrl: null, releaseDate: '2026-12-05', notPurchased: true }]);
+    // повторное добавление невозможно: кнопки выбора нет, строка осталась
+    await expect(first.getByTestId('add-pick')).toHaveCount(0);
+    await page.getByTestId('add-close').click();
     await expect(sheet).toHaveCount(0);
     await expect(add).toBeFocused();
     await expect(page.getByRole('status').filter({ hasText: 'Добавлено в бэклог: «Hades II»' })).toBeVisible();
@@ -91,53 +98,52 @@ test.describe('Поиск и добавление', () => {
     await search(page, 'hades');
     const done = page.getByTestId('add-row-done');
     await expect(done).toHaveText('Уже в бэклоге');
-    await expect(page.getByTestId('add-row-btn')).toHaveCount(0);
+    await expect(page.getByTestId('add-pick')).toHaveCount(0);
   });
 
-  test('дубль: предупреждение, «Отмена» возвращает на кнопку, «Всё равно добавить» шлёт confirmDuplicate', async ({ page, context, baseURL }) => {
-    const dup = { status: 409, error: { code: 'duplicate_game', message: 'x', details: { duplicate: 'library', game: { gameId: 1, name: 'Hades (PSN)', imageUrl: null }, planned: { id: 4, title: 'Hades II', status: 'planned' } } } };
-    const { manual } = await open(page, context, baseURL!, { candidates: [hades()], addReplies: [dup, dup, dup] });
+  test('дубль: блок решения в корзине, «Всё равно добавить» шлёт confirmDuplicate, строка «Нужно решение»', async ({ page, context, baseURL }) => {
+    const { manual } = await open(page, context, baseURL!, { candidates: [hades()], batchDup: ['3328'] });
     await page.getByTestId('bl-add').click();
     await search(page, 'hades');
-    await page.getByTestId('add-row-btn').click();
+    await addFirst(page);
     const warn = page.getByTestId('add-warn');
     await expect(warn).toBeVisible();
-    await expect(warn).toBeFocused();
     await expect(warn).toContainText('Такая игра уже есть');
-    await expect(warn).toContainText('В твоей библиотеке PSN: «Hades (PSN)»');
-    await expect(warn).toContainText('В Плане: «Hades II»');
-    await expect(page.getByTestId('add-row-btn')).toBeDisabled();
+    await expect(warn).toContainText('В твоей библиотеке PSN: «Hades II (PSN)»');
+    await expect(page.getByTestId('add-row-need')).toHaveText('Нужно решение');
+    await expect(page.getByTestId('add-cart-submit')).toBeDisabled();
     expect(manual.items).toHaveLength(0);
-    await page.getByTestId('add-warn-cancel').click();
-    await expect(warn).toHaveCount(0);
-    await expect(page.getByTestId('add-row-btn')).toBeFocused();
-    expect(manual.items).toHaveLength(0);
-    // Esc закрывает только блок, второй Esc панель
-    await page.getByTestId('add-row-btn').click();
-    await expect(warn).toBeVisible();
+    // закрытие с непустой корзиной спрашивает подтверждение, Esc = «Вернуться»
     await page.keyboard.press('Escape');
-    await expect(warn).toHaveCount(0);
+    await expect(page.getByTestId('add-close-confirm')).toBeVisible();
+    await expect(page.getByTestId('add-close-back')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('add-close-confirm')).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: 'Добавить из магазина PS' })).toBeVisible();
-    await page.getByTestId('add-row-btn').click();
     await page.getByTestId('add-warn-confirm').click();
-    await expect(page.getByTestId('add-row-done')).toHaveText('Добавлено в бэклог');
-    expect(manual.addBodies.at(-1)).toMatchObject({ externalId: '3328', confirmDuplicate: true });
+    await expect(page.getByTestId('add-row-done')).toHaveText('Добавлено · Не куплено');
+    expect(manual.batchBodies.at(-1)).toEqual([expect.objectContaining({ externalId: '3328', confirmDuplicate: true })]);
     expect(manual.items).toHaveLength(1);
   });
 
-  test('ошибка добавления: лимит записей и общий сбой', async ({ page, context, baseURL }) => {
+  test('ошибка добавления: лимит записей у элемента и сбой всего запроса с повтором', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, {
-      candidates: [hades()],
-      addReplies: [{ status: 409, error: { code: 'manual_limit', message: 'x' } }, { status: 500, error: { code: 'internal', message: 'x' } }],
+      candidates: [hades()], batchFail: { '3328': 'manual_limit' }, batchReplies: [{ status: 500, error: { code: 'internal', message: 'x' } }],
     });
     await page.getByTestId('bl-add').click();
     await search(page, 'hades');
-    await page.getByTestId('add-row-btn').click();
+    await page.getByTestId('add-pick').click();
+    // сбой запроса целиком: корзина цела, «Повторить 1», повтор безопасен
+    await page.getByTestId('add-cart-submit').click();
+    await expect(page.getByTestId('add-cart-banner')).toContainText('Не удалось добавить. Повтори.');
+    await expect(page.getByTestId('add-cart-submit')).toHaveText('Повторить 1');
+    await page.getByTestId('add-cart-submit').click();
     await expect(page.getByRole('alert').filter({ hasText: 'уже 200 игр' })).toBeVisible();
-    await page.getByTestId('add-row-btn').click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Не удалось добавить. Повтори.' })).toBeVisible();
-    await page.getByTestId('add-row-btn').click();
-    await expect(page.getByTestId('add-row-done')).toHaveText('Добавлено в бэклог');
+    await expect(page.getByTestId('add-cart-banner')).toContainText('Добавлено 0 из 1. Остальные: исправь или убери.');
+    expect(manual.items).toHaveLength(0);
+    delete manual.batchFail['3328'];
+    await page.getByTestId('add-cart-submit').click();
+    await expect(page.getByTestId('add-row-done')).toHaveText('Добавлено · Не куплено');
     expect(manual.items).toHaveLength(1);
   });
 
@@ -308,7 +314,7 @@ test.describe('Запись «не куплено» в списке', () => {
     await expect(row(page, 'Не Куплена')).toHaveCount(1);
     await expect(row(page, 'Куплена Уже')).toHaveCount(0);
     await expect(page.getByText('Альфа Экшен')).toHaveCount(0);
-    await expect(page.getByTestId('bl-main-count')).toHaveText('1');
+    await expect(page.getByTestId('bl-nb-count')).toHaveText('1');
   });
 
   test('прямая ссылка ?nb=1', async ({ page, context, baseURL }) => {
@@ -374,12 +380,16 @@ test.describe('Список и карточки', () => {
       await page.getByTestId('bl-add').click();
       await search(page, 'hades');
       await expect(page.getByTestId('add-row')).toHaveCount(1);
-      const btn = await page.getByTestId('add-row-btn').boundingBox();
+      const btn = await page.getByTestId('add-pick').boundingBox();
       expect(btn!.height).toBeGreaterThanOrEqual(43.5);
+      const seg = await page.getByTestId('add-buy').boundingBox();
+      expect(seg!.height).toBeGreaterThanOrEqual(43.5);
+      expect(seg!.x + seg!.width).toBeLessThanOrEqual(btn!.x + 0.5);
       if (w <= 400) {
-        // кнопка уходит под текст
+        // сегмент и кнопка выбора уходят под текст
         const title = await page.locator('.ps-add-row__title').boundingBox();
         expect(btn!.y).toBeGreaterThan(title!.y + title!.height - 1);
+        expect(btn!.x + btn!.width).toBeLessThanOrEqual(w + 0.5);
       }
       const sheet = await page.getByTestId('add-sheet').boundingBox();
       expect(sheet!.x + sheet!.width).toBeLessThanOrEqual(w + 0.5);
