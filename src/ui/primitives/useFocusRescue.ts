@@ -11,6 +11,7 @@ const FALLBACK = '#coll-title, #h-bl-main';
  * Игра исчезла из списка (смена статуса, скрытие, пакетное действие) вместе с сфокусированным элементом: браузер роняет фокус на body.
  * Помним, на какой по счёту карточке стоял фокус; когда элемент удалён и фокус ушёл на body, ставим его на карточку с тем же номером
  * (то есть на следующую), а если карточек нет, на заголовок вида. Фокус не трогаем, если он ушёл в окно или другой элемент.
+ * Фокус внутри диалога не запоминаем; страницу при спасении фокуса не прокручиваем.
  */
 export function useFocusRescue(rootRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -21,6 +22,8 @@ export function useFocusRescue(rootRef: RefObject<HTMLElement | null>) {
     const onFocusIn = (e: FocusEvent) => {
       const el = e.target;
       if (!(el instanceof Element)) return;
+      // окно игры и другие диалоги внутри вида: их закрытие не «исчезновение карточки» (Safari на iPhone: фокус на body, вид прыгал к заголовку)
+      if (el.closest('[role="dialog"]')) { last = null; return; }
       const card = el.closest('article, li, tr');
       const hit = card?.querySelector(HITS) ?? (el.matches(HITS) ? el : null);
       const hits = Array.from(root.querySelectorAll(HITS));
@@ -40,7 +43,8 @@ export function useFocusRescue(rootRef: RefObject<HTMLElement | null>) {
       if (active && active !== document.body) return;
       const hits = Array.from(root.querySelectorAll<HTMLElement>(HITS));
       const target = index >= 0 && hits.length > 0 ? hits[Math.min(index, hits.length - 1)] : root.querySelector<HTMLElement>(FALLBACK);
-      target?.focus({ preventScroll: false });
+      // без прокрутки: спасение фокуса не должно сдвигать страницу
+      target?.focus({ preventScroll: true });
     };
     const mo = new MutationObserver(() => { if (!raf && last && !last.el.isConnected) raf = requestAnimationFrame(check); });
     mo.observe(root, { childList: true, subtree: true });
