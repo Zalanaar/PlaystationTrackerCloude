@@ -108,3 +108,18 @@ describe('тексты', () => {
     expect(hasNotPurchased([{ bought: true }, { bought: false }])).toBe(true);
   });
 });
+
+describe('exists и выбор «Купил» (QA-43.1-2)', () => {
+  const one = (bought: boolean, existingNotPurchased: boolean) => {
+    const c = cartAdd([], cand('7'), bought);
+    return applyBatch(c, c, [{ index: 0, externalId: '7', status: 'exists', item: item('7', existingNotPurchased) }]);
+  };
+  it('«Купил» для записи «не куплено»: нужен вызов /purchased по id записи', () => {
+    expect(one(true, true).toPurchase).toEqual([{ externalId: '7', id: 7, title: 'Игра 7' }]);
+  });
+  it('совпадающий выбор или «Не купил»: вызов не нужен', () => {
+    expect(one(true, false).toPurchase).toEqual([]);
+    expect(one(false, true).toPurchase).toEqual([]);
+    expect(one(false, false).toPurchase).toEqual([]);
+  });
+});

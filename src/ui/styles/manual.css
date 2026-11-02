@@ -197,8 +197,9 @@
 .ps-cart__confirm-b { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
 @media (max-width: 767px) {
-  .ps-add-buy { height: var(--tap-min); }
-  .ps-add-buy button { height: 40px; }
+  .ps-add-buy { height: var(--tap-min); padding: 0; gap: 0; }
+  .ps-add-buy button { height: var(--tap-min); }
+  .ps-cart__clear { height: var(--tap-min); }
   .ps-add-row__pick { width: var(--tap-min); height: var(--tap-min); }
   .ps-cart__go { height: var(--tap-min); }
   .ps-cart__toggle { height: var(--tap-min); }

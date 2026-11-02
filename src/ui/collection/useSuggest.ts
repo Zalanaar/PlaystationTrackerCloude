@@ -5,7 +5,7 @@ import type { GameItem } from '@/server/collection/types';
 import { registerCacheReset } from '../profiles/scope';
 import { fetchGames } from './api';
 import { suggestManual } from './manualApi';
-import type { SearchCandidate } from './manual';
+import { suggestCacheClear, suggestCacheGet, suggestCacheSet } from './suggestCache';
 import {
   LIST_DEBOUNCE_MS, SUGGEST_DEBOUNCE_MS, SUGGEST_MIN, cacheKey, classifySuggestError, createGuard, guardedState, matchesQuery, storeStateFor, suggestQuery,
   type StoreState,
@@ -13,9 +13,7 @@ import {
 
 /** Блокировки каталога живут, пока открыта вкладка: подсказки и Enter-поиск не бьют в лимит до resetAt (43.1.3). */
 export const catalogGuard = createGuard();
-/** Кэш подсказок клиента: тот же запрос не уходит повторно (флаги duplicate/inBacklog привязаны к профилю). */
-const suggestCache = new Map<string, SearchCandidate[]>();
-registerCacheReset(() => { catalogGuard.reset(); suggestCache.clear(); });
+registerCacheReset(() => { catalogGuard.reset(); suggestCacheClear(); });
 
 const subscribeOnline = (cb: () => void) => {
   window.addEventListener('online', cb);
@@ -37,9 +35,12 @@ export function useStoreSuggest(rawQuery: string, enabled: boolean, max: number)
   const [, force] = useState(0);
 
   const short = q.length < SUGGEST_MIN;
-  const cached = suggestCache.get(key) ?? null;
+  const cached = suggestCacheGet(key);
   const guard = guardedState(catalogGuard.status());
   const needsFetch = enabled && !short && cached === null && guard === null && online;
+
+  // поле очищено или набрано заново: следующий ввод получает свежие флаги (TTL и сброс при правках не покрывают правки на другом устройстве)
+  useEffect(() => { if (enabled && q.length === 0) suggestCacheClear(); }, [enabled, q]);
 
   useEffect(() => {
     if (!needsFetch) return;
@@ -48,7 +49,7 @@ export function useStoreSuggest(rawQuery: string, enabled: boolean, max: number)
       try {
         const r = await suggestManual(q, ctl.signal);
         if (ctl.signal.aborted) return;
-        suggestCache.set(key, r.candidates);
+        suggestCacheSet(key, r.candidates);
         setRes({ key, state: storeStateFor(q.length, r.candidates, max) });
       } catch (e) {
         if (ctl.signal.aborted) return;

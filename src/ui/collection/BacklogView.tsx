@@ -45,6 +45,8 @@ import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
+/** Предельное ожидание второстепенных запросов Бэклога до показа списка (мс). */
+const SKELETON_MAX_MS = 5000;
 const AddFromStoreSheet = dynamic(() => import('./AddFromStoreSheet').then((m) => m.AddFromStoreSheet), { ssr: false });
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
@@ -82,6 +84,11 @@ export function BacklogView() {
   const [manual, setManual] = useState<ManualGame[]>([]);
   const manualRef = useRef<ManualGame[]>([]);
   const [manualReady, setManualReady] = useState(false);
+  const [giveUp, setGiveUp] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGiveUp(true), SKELETON_MAX_MS);
+    return () => clearTimeout(t);
+  }, []);
   // чип «Это та игра?» и записи «не куплено» приходят позже списка: до их прихода держим скелетон, чтобы список не сдвигался (QA-43-3)
   const [matchReady, setMatchReady] = useState(false);
   const [auxReady, setAuxReady] = useState({ shelved: false, service: false });
@@ -394,7 +401,12 @@ export function BacklogView() {
   }
   function addedToast(added: readonly AddedItem[]) {
     void loadManual();
-    toast({ text: addedSummaryText(added), ttl: 6000, action: hasNotPurchased(added) ? { label: 'Показать', run: () => void showNb() } : undefined });
+    const fresh = added.filter((a) => !a.marked);
+    const marked = added.length - fresh.length;
+    const text = fresh.length === 0
+      ? (marked === 1 ? `Отмечено «Купил»: «${truncate(added[0].title)}»` : `Отмечено «Купил»: ${marked}`)
+      : addedSummaryText(fresh) + (marked > 0 ? `; отмечено «Купил»: ${marked}` : '');
+    toast({ text, ttl: 6000, action: hasNotPurchased(fresh) ? { label: 'Показать', run: () => void showNb() } : undefined });
   }
   function closeAdd(added: AddedItem[]) {
     setAddOpen(false);
@@ -468,7 +480,9 @@ export function BacklogView() {
   );
 
   // список готов: секции «Не куплено» и остальные блоки показываем только вместе со списком (скелет не даёт им прыгать, QA-43-3)
-  const ready = !!items && !(error && !items) && manualReady && matchReady && auxReady.shelved && auxReady.service;
+  // QA-43.1-7: зависший второстепенный запрос не держит скелет дольше SKELETON_MAX_MS, показываем то, что уже пришло
+  const auxDone = giveUp || (manualReady && matchReady && auxReady.shelved && auxReady.service);
+  const ready = !!items && !(error && !items) && auxDone;
   const tabs = [
     { id: 'h-bl-main', label: 'Бэклог', n: mainTotal, on: !filters.nb },
     { id: 'h-bl-nb', label: 'Не куплено', n: nbShown.length, on: showNbSection },
@@ -575,12 +589,12 @@ export function BacklogView() {
         </h2>
       )}
       {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
-      <MatchChip className="ps-bl-match" hold={!items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
+      <MatchChip className="ps-bl-match" hold={!items || !auxDone} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
-      ) : !items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service ? (
+      ) : !items || !auxDone ? (
         <div key="sk" aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
       ) : filters.nb && nbShown.length > 0 ? null : entries.length === 0 && nbShown.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text={filters.q ? `По запросу «${filters.q}» в бэклоге ничего нет.` : 'В бэклоге нет игр под выбранные фильтры.'}>

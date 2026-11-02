@@ -46,7 +46,10 @@ export function toBatchItems(entries: readonly CartEntry[], confirmDuplicate = f
   }));
 }
 
-export type RowOutcome = { kind: 'added'; bought: boolean; title: string } | { kind: 'already' };
+export type RowOutcome = { kind: 'added'; bought: boolean; title: string } | { kind: 'already' } | { kind: 'marked'; title: string };
+
+/** Запись уже была «Не куплено», а в корзине выбрано «Купил»: нужен POST /purchased по id записи (контракт: флаг меняется только им). */
+export type PurchaseTodo = { externalId: string; id: number; title: string };
 
 export type BatchApplied = {
   cart: CartEntry[];
@@ -57,6 +60,8 @@ export type BatchApplied = {
   counted: number;
   /** в корзине остались неудавшиеся */
   partial: boolean;
+  /** «Купил» для уже существующих записей с пометкой «не куплено» */
+  toPurchase: PurchaseTodo[];
 };
 
 export function batchErrorText(code: string): string {
@@ -74,13 +79,19 @@ export function applyBatch(cart: readonly CartEntry[], sent: readonly CartEntry[
   const patch = new Map<string, CartEntry | null>();
   let created = 0;
   let already = 0;
+  const toPurchase: PurchaseTodo[] = [];
   sent.forEach((e, i) => {
     const r = byIndex.get(i);
     if (!r) { patch.set(e.externalId, { ...e, state: 'error', error: batchErrorText('') }); return; }
     if (r.status === 'duplicate') patch.set(e.externalId, { ...e, state: 'duplicate', dup: r.details, error: undefined });
     else if (r.status === 'error') patch.set(e.externalId, { ...e, state: 'error', error: batchErrorText(r.code), dup: undefined });
     else if (r.status === 'created') { created++; outcomes[e.externalId] = { kind: 'added', bought: !r.item.notPurchased, title: e.title }; patch.set(e.externalId, null); }
-    else { already++; outcomes[e.externalId] = { kind: 'already' }; patch.set(e.externalId, null); }
+    else {
+      already++;
+      outcomes[e.externalId] = { kind: 'already' };
+      if (e.bought && r.item.notPurchased) toPurchase.push({ externalId: e.externalId, id: r.item.id, title: e.title });
+      patch.set(e.externalId, null);
+    }
   });
   const next: CartEntry[] = [];
   for (const e of cart) {
@@ -88,7 +99,7 @@ export function applyBatch(cart: readonly CartEntry[], sent: readonly CartEntry[
     const p = patch.get(e.externalId);
     if (p) next.push(p);
   }
-  return { cart: next, outcomes, created, counted: sent.length - already, partial: next.length > 0 };
+  return { cart: next, outcomes, created, counted: sent.length - already, partial: next.length > 0, toPurchase };
 }
 
 /** Баннер частичного успеха (§19b.3). */

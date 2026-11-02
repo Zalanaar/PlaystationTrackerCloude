@@ -5,7 +5,7 @@ import '../recommend.css';
 import { Icon } from '../icons';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
-import { addManualBatch, searchManual } from './manualApi';
+import { addManualBatch, markPurchased, searchManual } from './manualApi';
 import { AddCart } from './AddCart';
 import { BuySegment } from './BuySegment';
 import { Cover } from './Cover';
@@ -22,7 +22,7 @@ import { catalogGuard, useOnline } from './useSuggest';
 type Phase = 'initial' | 'loading' | 'results' | 'noresults' | 'unavailable';
 
 /** Итог сессии панели для тоста: что добавлено и «Купил» или «Не купил». */
-export type AddedItem = { title: string; bought: boolean };
+export type AddedItem = { title: string; bought: boolean; /** запись уже была, отмечено «Купил» */ marked?: boolean };
 
 const initialFailure = (): SearchFailure | null => {
   const g = catalogGuard.status();
@@ -153,6 +153,18 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
     try {
       const r = await addManualBatch(toBatchItems(sent, only !== undefined));
       const ap = applyBatch(cartRef.current, sent, r.results);
+      // игра уже лежала в «Не куплено», а выбрано «Купил»: отмечаем покупку, иначе выбор потерялся бы
+      for (const t of ap.toPurchase) {
+        try {
+          await markPurchased(t.id);
+          ap.outcomes[t.externalId] = { kind: 'marked', title: t.title };
+          addedRef.current.push({ title: t.title, bought: true, marked: true });
+        } catch {
+          const src = sent.find((s) => s.externalId === t.externalId);
+          delete ap.outcomes[t.externalId];
+          if (src) ap.cart = [...ap.cart, { ...src, state: 'error', error: 'Игра уже в бэклоге, но отметить «Купил» не удалось. Повтори.' }];
+        }
+      }
       cartRef.current = ap.cart;
       setCart(ap.cart);
       setDone((d) => ({ ...d, ...ap.outcomes }));
@@ -338,7 +350,7 @@ function AddRow({
         {done ? (
           <span className="ps-add-row__done" data-testid="add-row-done" data-kind={done.kind}>
             <Icon name="check" size={14} />
-            {done.kind === 'added' ? `Добавлено · ${done.bought ? 'Купил' : 'Не куплено'}` : 'Уже в бэклоге'}
+            {done.kind === 'added' ? `Добавлено · ${done.bought ? 'Купил' : 'Не куплено'}` : done.kind === 'marked' ? 'Уже в бэклоге · отмечено «Купил»' : 'Уже в бэклоге'}
           </span>
         ) : needsDecision ? (
           <span className="ps-add-row__done ps-add-row__need" data-testid="add-row-need"><Icon name="circle-alert" size={14} />Нужно решение</span>
