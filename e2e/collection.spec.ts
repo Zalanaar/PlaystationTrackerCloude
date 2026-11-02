@@ -605,6 +605,22 @@ for (const width of [390, 440]) {
       expect(mock.mutations.at(-1)).toMatchObject({ body: { status: 'shelved' } });
     });
 
+    test('тап по значку статуса на карточке открывает sheet статуса, зона ≥ 44', async ({ page, context, baseURL }) => {
+      const mock = await open(page, context, baseURL!);
+      const btn = coll(page).getByRole('button', { name: 'Статус: Stray' });
+      await btn.scrollIntoViewIfNeeded();
+      const z = await btn.evaluate((el) => { const r = el.getBoundingClientRect(); const a = getComputedStyle(el, '::after'); return { w: r.width - 2 * parseFloat(a.left), h: r.height - 2 * parseFloat(a.top) }; });
+      expect(z.w).toBeGreaterThanOrEqual(43.5);
+      expect(z.h).toBeGreaterThanOrEqual(43.5);
+      await btn.tap();
+      const dlg = page.getByRole('dialog', { name: 'Статус' });
+      await expect(dlg).toBeVisible();
+      await expect(page.getByRole('dialog', { name: 'Stray' })).toHaveCount(0);
+      await dlg.getByRole('menuitemradio', { name: 'Отложено' }).click();
+      await expect(dlg).toHaveCount(0);
+      expect(mock.mutations.at(-1)).toMatchObject({ body: { status: 'shelved' } });
+    });
+
     test('короткий тап открывает игру', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await coll(page).getByRole('button', { name: 'Открыть: Stray' }).tap();

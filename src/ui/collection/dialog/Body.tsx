@@ -120,7 +120,7 @@ export function Body({
         <div className="ps-gd__chips">
           {game && (
             <>
-              <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label="Изменить статус">
+              <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label="Изменить статус" triggerClassName="ps-gd__status">
                 <StatusChip status={game.status} /><Icon name="chevron-down" size={14} />
               </StatusMenu>
               {game.hiddenAt && <span className="ps-gd__hiddenmark"><Icon name="eye-off" size={14} />Убрана из коллекции</span>}

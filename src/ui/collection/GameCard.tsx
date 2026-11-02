@@ -126,6 +126,14 @@ export function GameCard({
         >
           <GlyphBadge status={game.status} />
         </StatusMenu>
+      ) : !selectMode && mobile ? (
+        // Мобильный: значок статуса сам открывает sheet (раньше только долгий тап, его не находили); зона 44 px
+        <button
+          type="button" className="ps-trigger ps-card__status ps-card__sbtn" aria-haspopup="dialog" aria-label={`Статус: ${game.title}`}
+          data-testid="card-status" onClick={() => setSheet(true)}
+        >
+          <GlyphBadge status={game.status} />
+        </button>
       ) : (
         <span className="ps-card__status"><GlyphBadge status={game.status} /></span>
       )}

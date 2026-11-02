@@ -215,6 +215,7 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-gd__title { font-size: 18px; line-height: 24px; }
   .ps-gd__plat { width: 20px; height: 20px; margin-top: 2px; }
   .ps-gd__chips { padding: 10px var(--sp-4) 0 calc(var(--sp-4) + var(--gd-cover-w) + var(--sp-3)); }
+  .ps-gd__status { min-height: var(--tap-min); }   /* «Изменить статус»: тап-зона 44, было 24 */
   .ps-gd__tiles { gap: var(--sp-2); padding: 0 var(--sp-4); grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ps-gd__tile { min-height: 80px; padding: 12px 14px; }
   .ps-gd__panel { flex: 1; padding: var(--sp-4) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom)); background: var(--surface); min-height: 0; }
