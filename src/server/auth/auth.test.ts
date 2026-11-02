@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { b64urlEncode, createSessionTokenV2, SESSION_TTL_SECONDS, verifySessionToken } from './session';
 import { checkBearer, checkPassword, hashIp, secureEqual } from './password';
-import { evaluateLimit } from './limiter';
+import { evaluateLimit, GLOBAL_LIMIT } from './limiter';
 import { getAuthEnv, getCronSecret, getSessionSecret } from '../env';
 import { safeNext } from '../http';
 
@@ -115,15 +115,20 @@ describe('лимитер входа', () => {
     const old = [16, 17, 18, 19, 20].map(ago);
     expect(evaluateLimit(old, old, now)).toEqual({ limited: false });
   });
-  it('глобальный лимит 20 за час при разных IP', () => {
+  it('20 неудач за час с разных IP больше не закрывают вход (лимит по IP)', () => {
     const all = Array.from({ length: 20 }, (_, i) => ago(i * 2 + 1));
+    expect(evaluateLimit([], all, now)).toEqual({ limited: false });
+    expect(evaluateLimit([1, 2, 3, 4, 5].map(ago), all, now).limited).toBe(true);
+  });
+  it('глобальный потолок GLOBAL_LIMIT.max за час при разных IP', () => {
+    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => ago(1 + (i * 58) / GLOBAL_LIMIT.max));
     const r = evaluateLimit([], all, now);
     expect(r.limited).toBe(true);
     expect(evaluateLimit([], all.slice(1), now)).toEqual({ limited: false });
   });
   it('при двух лимитах берётся больший Retry-After', () => {
     const ip = [14, 13, 12, 11, 10].map(ago);
-    const all = Array.from({ length: 20 }, (_, i) => ago(59 - i));
+    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => ago(59 - (i * 50) / GLOBAL_LIMIT.max));
     const r = evaluateLimit(ip, all, now);
     expect(r.limited && r.retryAfterSeconds).toBe(Math.max(60, 1 * 60));
   });
