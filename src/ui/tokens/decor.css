@@ -146,6 +146,8 @@
 [data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small { color: inherit; opacity: .65; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) small { color: inherit; opacity: .65; }
+/* счётчик активного чипа (--text-3 на белой заливке = 3:1): цвет текста чипа (Фаза 48, п. 13) */
+[data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) .ps-filterchip__n { color: inherit; }
 /* Чип «Платина» в PS5: pill тоже заливается, но платиновым льдом (не белым), знак тёмный: остаётся узнаваемым и отличается от остальных чипов */
 [data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] { background: var(--plat-fill); color: var(--plat-ink); border-color: transparent; }
 [data-theme="ps5"] .ps-filterchip--plat[aria-pressed="true"] :is(.ps-filterchip__plat, small, .ps-filterchip__n) { color: inherit; }

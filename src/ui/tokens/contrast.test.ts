@@ -117,6 +117,8 @@ describe('контраст тем', () => {
           it(`${fg} на ${bg} >= 4.5`, () => expect(ratio(get(t, fg), get(t, bg))).toBeGreaterThanOrEqual(4.5));
       it('--accent-ink на --accent >= 7', () => expect(ratio(get(t, '--accent-ink'), get(t, '--accent'))).toBeGreaterThanOrEqual(7));
       // Фаза 13: подсказка активного сегмента времени («Подскажи») лежит на --surface-3
+      // Фаза 48 (п. 13): третичный текст на приподнятых подложках (сегменты трофеев, плитки окна игры, блокировка профиля)
+      it('--text-3 на --surface-3 >= 4.5', () => expect(ratio(get(t, '--text-3'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
       it('--text-2 на --surface-3 >= 4.5', () => expect(ratio(get(t, '--text-2'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
       // Фаза 32: полоса «осталось» и цель года, заливка --accent на дорожке --surface-3 (нетекст >= 3)
       it('--accent на --surface-3 (полоса остатка и цели) >= 3', () => expect(ratio(get(t, '--accent'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(3));
@@ -168,6 +170,7 @@ describe('контраст тем', () => {
     // Сцена Итогов не зависит от светлых базовых токенов PS1: фон и поверхности тёмные
     for (const k of ['--bg', '--surface', '--surface-2', '--surface-3'])
       it(`сцена: ${k} тёмный (яркость <= 0.06)`, () => expect(L(sv(k))).toBeLessThanOrEqual(0.06));
+    it('сцена: --text-3 на --surface-3 >= 4.5', () => expect(ratio(sv('--text-3'), sv('--surface-3'))).toBeGreaterThanOrEqual(4.5));
     it('сцена: текст --text на --surface-3 >= 4.5', () => expect(ratio(sv('--text'), sv('--surface-3'))).toBeGreaterThanOrEqual(4.5));
   });
 

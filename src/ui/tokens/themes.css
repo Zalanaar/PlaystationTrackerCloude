@@ -20,7 +20,7 @@
   --bg: #0e0f16;
   --surface: #171925;      --surface-2: #202333;   --surface-3: #2a2e44;
   --border: #2a2e42;       --border-strong: #424868;
-  --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #868cab;
+  --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #999eb8;
   /* Только Night учитывает цвет обложки: --cover-tint (safeTint игры, #rrggbb) ставится inline на hero, мини-карточки и окно игры;
      без него действует акцент #b99cff. Остальные темы --cover-tint игнорируют (--tint = акцент темы).
      Важно: var() считается там, где объявлен токен. Для области действия (не весь сайт) пересчёт --tint, --accent и --tint-glow
@@ -33,7 +33,7 @@
   --shadow-alpha: 0.45;
   /* Платина: холодный лёд, заметное свечение */
   --plat-1: #e6f6ff;       --plat-2: #9fd3f5;      --plat-ink: #0b1a2b;    --plat-glow-a: 40%;
-  --plat-wash-a: 6%;       /* подложка: бюджет контраста --text-3 (4.71 на surface-2), см. §6 */
+  --plat-wash-a: 6%;       /* подложка: бюджет контраста --text-3 (5.6 на surface-2), см. §6 */
 }
 
 /* ---------- Graphite ---------- */
@@ -42,7 +42,7 @@
   --bg: #111113;
   --surface: #1a1a1d;      --surface-2: #232327;   --surface-3: #2d2d32;
   --border: #2c2c31;       --border-strong: #46464d;
-  --text: #ececee;         --text-2: #b0b0b8;      --text-3: #8e8e98;
+  --text: #ececee;         --text-2: #b0b0b8;      --text-3: #95959e;
   --tint: #d0d0d8;
   --accent: #d0d0d8;       --accent-ink: #121214;  --focus: #ffffff;
   --accent-soft: rgba(208, 208, 216, 0.14);
@@ -63,7 +63,7 @@
   --statusbar-bg: #1c1c22;  /* black-translucent рисует часы белыми: под ними тёмная полоса (контраст ~16:1) */
   --surface: #dedbd4;      --surface-2: #c4c0b8;   --surface-3: #b3afa6;
   --border: #b0aca3;       --border-strong: #8f8b82;
-  --text: #18181c;         --text-2: #3c3b40;      --text-3: #4c4b51;
+  --text: #18181c;         --text-2: #3c3b40;      --text-3: #424146;
   --tint: #2b2b31;
   --accent: #2b2b31;       --accent-ink: #e8e5de;  --focus: #18181c;
   --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -94,7 +94,7 @@
   --border: #2a2e42;       --border-strong: #424868;
   --accent: #ffffff;       --accent-ink: #0e0f16;  --focus: #ffffff;
   --platinum: #e6f6ff;
-  --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #868cab;
+  --text: #eef0fa;         --text-2: #aeb3cc;      --text-3: #999eb8;
   --st-playing: #c3b2ff;   --st-completed: #7fd1b9; --st-backlog: #e2bf75;  --st-dropped: #e69aa6;
   --st-shelved: #a3abc0;   --st-service: #78b4ff;
   --success: #7fd1b9;      --warning: #e2bf75;     --danger: #e69aa6;
