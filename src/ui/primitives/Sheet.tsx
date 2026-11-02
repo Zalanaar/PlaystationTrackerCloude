@@ -6,8 +6,17 @@ import { Icon } from '../icons';
 
 /** Модальное окно: на десктопе по центру, на мобильном bottom sheet. Портал в body (шапка с blur ломает fixed). */
 export function Sheet({
-  open, onClose, title, children, wide, className,
-}: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; className?: string }) {
+  open, onClose, title, children, wide, className, role = 'dialog', describedBy, initialFocus, busy,
+}: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; className?: string;
+  /** alertdialog для подтверждений (Фаза 43) */
+  role?: 'dialog' | 'alertdialog';
+  describedBy?: string;
+  /** CSS-селектор элемента внутри, на который падает фокус при открытии (по умолчанию сам диалог) */
+  initialFocus?: string;
+  /** Идёт запись: Esc, подложка и крестик не закрывают окно */
+  busy?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -16,11 +25,13 @@ export function Sheet({
     const prev = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    ref.current?.focus();
+    const target = initialFocus ? ref.current?.querySelector<HTMLElement>(initialFocus) : null;
+    (target ?? ref.current)?.focus();
     return () => {
       document.body.style.overflow = prevOverflow;
       prev?.focus?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- селектор фокуса нужен только в момент открытия
   }, [open]);
 
   if (!open || typeof document === 'undefined') return null;
@@ -28,7 +39,7 @@ export function Sheet({
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      onClose();
+      if (!busy) onClose();
       return;
     }
     if (e.key !== 'Tab' || !ref.current) return;
@@ -49,12 +60,12 @@ export function Sheet({
 
   return createPortal(
     <div className="ps-sheet-wrap" onKeyDown={onKey}>
-      <div className="ps-sheet-backdrop" onClick={onClose} aria-hidden="true" />
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={className ? `ps-sheet ${className}` : 'ps-sheet'} data-wide={wide ? 'true' : undefined}>
+      <div className="ps-sheet-backdrop" onClick={busy ? undefined : onClose} aria-hidden="true" />
+      <div ref={ref} role={role} aria-modal="true" aria-labelledby={titleId} aria-describedby={describedBy} aria-busy={busy || undefined} tabIndex={-1} className={className ? `ps-sheet ${className}` : 'ps-sheet'} data-wide={wide ? 'true' : undefined}>
         <div className="ps-sheet__handle" aria-hidden="true" />
         <div className="ps-sheet__head">
           <h2 id={titleId} className="ps-h3">{title}</h2>
-          <button type="button" className="ps-iconbtn" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="ps-iconbtn" onClick={onClose} aria-label="Закрыть" disabled={busy}>
             <Icon name="x" size={18} />
           </button>
         </div>
