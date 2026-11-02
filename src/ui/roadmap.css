@@ -305,7 +305,7 @@ button.ps-rm-state { cursor: pointer; }
 
 /* ---------- Предстоящие релизы, Не распределено, Игры-сервисы ---------- */
 .ps-rm-upc { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.ps-rm-upc__item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: 5px var(--sp-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-rm-upc__item { flex: 0 0 auto; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: 5px var(--sp-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
 .ps-rm-upc__item[data-state="planned"] { border-color: var(--border-strong); }
 .ps-rm-upc__act { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
 .ps-rm-upc__err { display: flex; align-items: center; gap: 4px; color: var(--text) !important; }
