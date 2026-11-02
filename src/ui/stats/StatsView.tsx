@@ -23,6 +23,7 @@ import { yearRange } from './allTime';
 import { PlayPatternPanel } from './PlayPatternPanel';
 import { WrappedBanner } from './WrappedBanner';
 import { TopGames } from './TopGames';
+import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { StatsDataSkeleton } from '../skeletons';
 import {
   type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
@@ -45,6 +46,7 @@ export function StatsView() {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [years, setYears] = useState<number[]>([]);
   const reqId = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (s: Selection, k: string, svc: boolean) => {
     const id = ++reqId.current;
@@ -126,7 +128,9 @@ export function StatsView() {
   const openRare = useCallback((g: StatsGenreGame) => openGameLink(g.id, 'trophies'), [openGameLink]);
 
   return (
-    <div className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
+    <>
+    <LoaderOverlay loading={loading && !failed} contentRef={rootRef} />
+    <div ref={rootRef} className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1">Статистика</h1>
         <Link href={sel.period === 'all' ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
@@ -152,6 +156,7 @@ export function StatsView() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

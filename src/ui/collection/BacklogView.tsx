@@ -24,6 +24,7 @@ import { HltbStatus, useHltbRunner } from './HltbRunner';
 import { useIsMobile } from '../primitives/hooks';
 import { useBacklogView } from './useBacklogView';
 import { useOpenGameFromPage } from './useGameLink';
+import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 
@@ -79,6 +80,7 @@ export function BacklogView() {
   if (!seenShelved && shelved && (shelved.length > 0 || shelvedTotal > 0)) setSeenShelved(true);
   // липкая плашка: сентинел + IntersectionObserver даёт data-stuck, scroll-spy даёт aria-current
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
   const [activeTab, setActiveTab] = useState('h-bl-main');
   const spyLock = useRef(false);
@@ -303,7 +305,9 @@ export function BacklogView() {
   }, [showJump, tabIds]);
 
   return (
-    <div className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
+    <>
+    <LoaderOverlay loading={loading && !error} contentRef={rootRef} />
+    <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
         {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
@@ -460,5 +464,6 @@ export function BacklogView() {
         </section>
       )}
     </div>
+    </>
   );
 }
