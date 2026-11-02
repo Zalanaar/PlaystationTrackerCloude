@@ -1,0 +1,47 @@
+/* Фаза 42B: лоадер загрузки (docs/design-system.md §18). Только токены тем; одна разметка для всех 7 тем. */
+.ps-loader {
+  position: fixed; left: 0; right: 0; top: var(--header-h); bottom: 0;
+  z-index: var(--z-loader); /* под шапкой, нижней навигацией, попапами и диалогами */
+  display: flex; align-items: center; justify-content: center;
+  background: var(--loader-veil);
+  -webkit-backdrop-filter: blur(var(--loader-blur)); backdrop-filter: blur(var(--loader-blur));
+  overflow: hidden; /* без горизонтального скролла */
+}
+/* Повторная загрузка: данные уже на экране. Без blur и без перехвата указателя, ввод и фокус не страдают */
+.ps-loader--soft {
+  background: var(--loader-veil-soft);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  pointer-events: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ps-loader:not(.ps-loader--soft) { background: var(--loader-veil-solid); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ps-loader, .ps-loader--soft { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .ps-loader { background: var(--loader-veil-solid); }
+  .ps-loader--soft { background: var(--loader-veil-soft); }
+  .ps-loader__signs { background: var(--bg); }
+}
+@media (max-width: 767px) {
+  .ps-loader { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
+}
+.ps-loader__signs {
+  display: flex; gap: var(--sp-4); align-items: center; justify-content: center;
+  padding: var(--sp-3) var(--sp-5); border-radius: var(--r-chip);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  border: var(--border-w) solid var(--border);
+}
+.ps-loader__sign {
+  flex: none; opacity: .3; transform: scale(.9);
+  animation: ps-loader-pulse calc(var(--loader-step) * 4) ease-in-out infinite;
+}
+@keyframes ps-loader-pulse {
+  0%, 30%, 100% { opacity: .3; transform: scale(.9); }
+  12% { opacity: 1; transform: scale(1.1); }
+}
+/* Скелет под оверлеем не мерцает: индикацию несёт оверлей, дублей нет */
+.ps-main:has(.ps-loader) .ps-skeleton { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-loader__sign { animation: none; opacity: .9; transform: none; }
+}

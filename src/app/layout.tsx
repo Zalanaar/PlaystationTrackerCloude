@@ -24,6 +24,8 @@ import '@/ui/styles/profiles.css';
 import './globals.css';
 import { cookies, headers } from 'next/headers';
 import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';
+import { ThemeColorSync } from '@/ui/pwa/ThemeColorSync';
+import { APPLE_STATUS_BAR_STYLE } from '@/ui/theme-meta';
 import { themeInitScript } from '@/ui/theme-script';
 import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
 import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
@@ -35,7 +37,7 @@ export const metadata: Metadata = {
   title: 'PS Tracker',
   description: 'Личный трекер игр PlayStation',
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: APPLE_STATUS_BAR_STYLE },
 };
 
 /** viewport-fit=cover (иначе env(safe-area-inset-*) на iPhone равен 0) и theme-color = --bg темы из cookie (§8.5). */
@@ -57,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <div className="ps-app min-h-screen">{children}</div>
         <ServiceWorkerRegister />
+        <ThemeColorSync />
       </body>
     </html>
   );

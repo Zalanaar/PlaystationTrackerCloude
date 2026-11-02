@@ -9,6 +9,7 @@ import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
 import { Cover } from '../collection/Cover';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
+import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { useMediaQuery, useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
 import { StatusMenu } from '../status';
@@ -39,6 +40,7 @@ export function TriageView() {
   const wide = useMediaQuery('(min-width: 1000px)');
   const params = useSearchParams();
   const check = params.get('mode') === 'check';
+  const rootRef = useRef<HTMLDivElement>(null);
   const forgotten = !check && params.get('forgotten') === '1';
   const hintCount = useCheckCount();
   const cq = useCheckQueue(check);
@@ -300,7 +302,13 @@ export function TriageView() {
   const ready = check
     ? (cq.error && !cq.state) || !!cq.state
     : (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
-  return <div className="ps-tour-page" data-tour-page="triage" data-tour-ready={String(!!ready)}>{render()}</div>;
+  const busy = check ? !cq.state && !cq.error : !error && (!state || !counts);
+  return (
+    <>
+      <LoaderOverlay loading={busy} contentRef={rootRef} />
+      <div ref={rootRef} className="ps-tour-page" data-tour-page="triage" data-tour-ready={String(!!ready)}>{render()}</div>
+    </>
+  );
 }
 
 function TriageSkeleton({ check, children }: { check?: boolean; children?: React.ReactNode }) {

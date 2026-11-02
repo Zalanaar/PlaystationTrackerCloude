@@ -158,7 +158,17 @@
   --tour-kb: 0px;                           /* высота экранной клавиатуры, выставляет скрипт тура из visualViewport */
 
   /* z-index */
-  --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5; --z-whatsnew: 65; --z-install: 62;
+  --z-loader: 40; --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5; --z-whatsnew: 65; --z-install: 62;
+
+  /* Лоадер загрузки (Фаза 42, docs/design-system.md §18). Цвета знаков берутся из токенов статусов, значений по темам нет */
+  --loader-blur: 6px;                       /* первичная загрузка; <480: 4 */
+  --loader-veil: color-mix(in srgb, var(--bg) 40%, transparent);        /* подложка первичной загрузки */
+  --loader-veil-soft: color-mix(in srgb, var(--bg) 22%, transparent);   /* повторная загрузка: контент слегка приглушён, без blur */
+  --loader-veil-solid: color-mix(in srgb, var(--bg) 82%, transparent);  /* без backdrop-filter и при prefers-reduced-transparency */
+  --loader-step: 300ms;                     /* шаг подсветки знаков; цикл = 4 шага */
+  --loader-delay: 200ms;                    /* не показывать, если загрузка короче (дублируется в gate.ts) */
+  --loader-min: 400ms;                      /* минимум показа после появления (дублируется в gate.ts) */
+  --statusbar-bg: var(--bg);                /* полоса под статус-баром PWA и theme-color; у светлой PS1 тёмная */
 
   /* Тени (цвета темой не меняются, интенсивность через --shadow-alpha) */
   --shadow-alpha: 0.45;
@@ -202,6 +212,10 @@
 }
 /* После медиа-блока, чтобы плотный режим выигрывал и на мобильном (одинаковая специфичность) */
 [data-density="dense"] { --plat-corner: 30px; --plat-corner-icon: 12px; }
+
+@media (max-width: 479px) {
+  :root { --loader-blur: 4px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --hover-lift: 0px; }

@@ -60,6 +60,7 @@
 [data-theme="ps1"] {
   color-scheme: light;
   --bg: #cfccc4;
+  --statusbar-bg: #1c1c22;  /* black-translucent рисует часы белыми: под ними тёмная полоса (контраст ~16:1) */
   --surface: #dedbd4;      --surface-2: #c4c0b8;   --surface-3: #b3afa6;
   --border: #b0aca3;       --border-strong: #8f8b82;
   --text: #18181c;         --text-2: #3c3b40;      --text-3: #4c4b51;

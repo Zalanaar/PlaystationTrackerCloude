@@ -7,6 +7,7 @@ import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
 import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
 import { ProfileCard, ProfileRow, ProfileRowSkeleton, ProfileSkeleton } from '../profile/ProfileCard';
+import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { AnchorsSkeleton, CollectionResultsSkeleton, HeroSkeleton } from '../skeletons';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel } from '../sync/status';
@@ -143,6 +144,8 @@ export function CollectionView() {
   };
 
   return (
+    <>
+    <LoaderOverlay loading={loading && !error} blocking={!pool} contentRef={rootRef} />
     <div ref={rootRef} className="ps-collection" data-tour-page="collection" data-tour-ready={String(!!pool || !!error || !loading)}>
       <div className="ps-pagehead ps-pagehead--coll">
         <div className="ps-pagehead__main">
@@ -267,5 +270,6 @@ export function CollectionView() {
       <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />
       <ResetAllDialog open={resetOpen} count={withStatus} onClose={() => setResetOpen(false)} onConfirm={resetAll} />
     </div>
+    </>
   );
 }
