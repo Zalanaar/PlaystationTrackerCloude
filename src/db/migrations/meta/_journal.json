@@ -183,6 +183,13 @@
       "when": 1793560049496,
       "tag": "0025_psn_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793608033949,
+      "tag": "0026_manual_games",
+      "breakpoints": true
     }
   ]
 }

@@ -703,3 +703,38 @@ export const ownedMarks = pgTable(
     check('owned_marks_covered_completed', sql`${t.coveredByGameId} is null or ${t.completed} = false`),
   ],
 );
+
+// Фаза 43 (контракт 43.1, миграция 0026): игры вне библиотеки PSN, добавленные вручную через поиск RAWG.
+// kind = ps_backlog («не куплено» в Бэклоге) | other_platform (Фаза 44). Ключ внешней игры — rawg_id. linked_game_id: игра библиотеки,
+// с которой запись склеена (после этого запись отдельно не показывается). suggested_game_id / rejected_game_ids: вопрос «Это та игра?» во «Входящих».
+export const manualGames = pgTable(
+  'manual_games',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: userIdCol(),
+    rawgId: text('rawg_id').notNull(),
+    title: text().notNull(),
+    coverUrl: text('cover_url'),
+    releaseDate: date('release_date', { mode: 'string' }),
+    kind: text().notNull(),
+    notPurchased: boolean('not_purchased').notNull().default(false),
+    linkedGameId: integer('linked_game_id'),
+    suggestedGameId: integer('suggested_game_id'),
+    rejectedGameIds: integer('rejected_game_ids').array().notNull().default(sql`'{}'::integer[]`),
+    platformLabel: text('platform_label'),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('manual_games_user_rawg_kind_key').on(t.userId, t.rawgId, t.kind),
+    foreignKey({ name: 'manual_games_user_linked_fk', columns: [t.userId, t.linkedGameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    foreignKey({ name: 'manual_games_user_suggested_fk', columns: [t.userId, t.suggestedGameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    index('manual_games_user_kind_idx').on(t.userId, t.kind),
+    index('manual_games_user_suggested_idx').on(t.userId, t.suggestedGameId).where(sql`${t.suggestedGameId} is not null`),
+    check('manual_games_title_check', sql`char_length(${t.title}) between 1 and 200`),
+    check('manual_games_kind_check', sql`${t.kind} in ('ps_backlog','other_platform')`),
+    check('manual_games_not_purchased_check', sql`${t.kind} = 'ps_backlog' or ${t.notPurchased} = false`),
+    check('manual_games_linked_check', sql`${t.linkedGameId} is null or (${t.notPurchased} = false and ${t.suggestedGameId} is null)`),
+    check('manual_games_platform_label_check', sql`${t.platformLabel} is null or char_length(${t.platformLabel}) between 1 and 60`),
+  ],
+);

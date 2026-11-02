@@ -8,7 +8,7 @@ import type { UserId } from '@/server/auth/user-id';
 import { libraryKey } from '@/server/recommend/discover-rank';
 import type { OwnedMarkInput } from './validation';
 
-const { ownedMarks: m, games: g } = schema;
+const { ownedMarks: m, games: g, manualGames: mg } = schema;
 
 export type OwnedMark = {
   externalSource: 'rawg';
@@ -120,10 +120,20 @@ export async function searchLibrary(db: AnyDb, userId: UserId, q: string, limit:
   return rows.map((r) => ({ id: r.id, name: r.name, imageUrl: r.imageUrl, coveredCount: byId.get(r.id) ?? 0 }));
 }
 
-/** rawg_id всех отметок пользователя: для исключения из выдач кандидатов RAWG. */
+/** RAWG id записей manual_games (Фаза 43/44): уже в Бэклоге или проходились вне PSN. Схема до 0026 (таблицы нет) = пусто. */
+async function manualIds(db: AnyDb, userId: UserId, only?: readonly string[]): Promise<string[]> {
+  try {
+    const rows = await db.select({ id: mg.rawgId }).from(mg).where(and(eq(mg.userId, userId), only ? inArray(mg.rawgId, [...only]) : undefined));
+    return rows.map((r) => r.id);
+  } catch {
+    return [];
+  }
+}
+
+/** rawg_id всех отметок пользователя и записей manual_games: для исключения из выдач кандидатов RAWG. */
 export async function ownedRawgIds(db: AnyDb, userId: UserId): Promise<Set<string>> {
   const rows = await db.select({ id: m.rawgId }).from(m).where(eq(m.userId, userId));
-  return new Set(rows.map((r) => r.id));
+  return new Set([...rows.map((r) => r.id), ...(await manualIds(db, userId))]);
 }
 
 /** Убирает из списка кандидатов RAWG отмеченные пользователем (по externalId). Порядок остальных не меняется. */
@@ -133,7 +143,7 @@ export async function filterOwned<T extends { externalId: string }>(db: AnyDb, u
     .select({ id: m.rawgId })
     .from(m)
     .where(and(eq(m.userId, userId), inArray(m.rawgId, candidates.map((c) => c.externalId))));
-  if (rows.length === 0) return [...candidates];
-  const hidden = new Set(rows.map((r) => r.id));
+  const hidden = new Set([...rows.map((r) => r.id), ...(await manualIds(db, userId, candidates.map((c) => c.externalId)))]);
+  if (hidden.size === 0) return [...candidates];
   return candidates.filter((c) => !hidden.has(c.externalId));
 }
