@@ -39,9 +39,6 @@ export function useStoreSuggest(rawQuery: string, enabled: boolean, max: number)
   const guard = guardedState(catalogGuard.status());
   const needsFetch = enabled && !short && cached === null && guard === null && online;
 
-  // поле очищено или набрано заново: следующий ввод получает свежие флаги (TTL и сброс при правках не покрывают правки на другом устройстве)
-  useEffect(() => { if (enabled && q.length === 0) suggestCacheClear(); }, [enabled, q]);
-
   useEffect(() => {
     if (!needsFetch) return;
     const ctl = new AbortController();

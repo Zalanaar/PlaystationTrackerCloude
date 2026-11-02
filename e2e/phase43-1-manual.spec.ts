@@ -647,3 +647,29 @@ test.describe('Панель поиска: строки и тап-зоны', () =
     expect((await r.boundingBox())!.height).toBeCloseTo(before, 0);
   });
 });
+
+test.describe('QA-43.1-2: «Купил» для игры, уже лежащей в «Не куплено»', () => {
+  test('exists + «Купил» вызывает /purchased и показывает явный текст', async ({ page, context, baseURL }) => {
+    const manual = await open(page, context, baseURL!, { candidates: [hades()], items: [mgame(21, 'Hades II', { externalId: '3328' })] });
+    await page.getByTestId('bl-add').click();
+    await search(page, 'hades');
+    const r = page.getByTestId('add-row').first();
+    await r.getByTestId('add-buy-yes').click();
+    await r.getByTestId('add-pick').click();
+    await page.getByTestId('add-cart-submit').click();
+    await expect(r.getByTestId('add-row-done')).toHaveText('Уже в бэклоге · отмечено «Купил»');
+    expect(manual.purchasedCalls).toEqual(['POST 21']);
+    await page.getByTestId('add-close').click();
+    await expect(page.getByRole('status').filter({ hasText: 'Отмечено «Купил»: «Hades II»' })).toBeVisible();
+  });
+  test('exists + «Не купил»: /purchased не вызывается', async ({ page, context, baseURL }) => {
+    const manual = await open(page, context, baseURL!, { candidates: [hades()], items: [mgame(21, 'Hades II', { externalId: '3328' })] });
+    await page.getByTestId('bl-add').click();
+    await search(page, 'hades');
+    const r = page.getByTestId('add-row').first();
+    await r.getByTestId('add-pick').click();
+    await page.getByTestId('add-cart-submit').click();
+    await expect(r.getByTestId('add-row-done')).toHaveText('Уже в бэклоге');
+    expect(manual.purchasedCalls).toEqual([]);
+  });
+});

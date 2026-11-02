@@ -45,11 +45,18 @@ test.describe('QA-43.1 расход запросов подсказок', () => 
     const input = await openField(page);
     await input.fill('hades');
     await expect(page.locator('[data-testid="bs-opt"][data-kind="store"]')).toHaveCount(1);
-    // запись удалили (в другом месте / позже), сервер теперь отвечает inBacklog=false
+    // запись убирают через интерфейс («Убрать из бэклога»): кэш подсказок должен сброситься, сервер теперь отвечает inBacklog=false
     m.candidates = [cand('1', 'Hades II', { inBacklog: false })];
-    m.items = [];
     await input.fill('');
-    await input.fill('hades');
+    await page.keyboard.press('Escape');
+    const toggle = page.getByTestId('bl-nb-toggle');
+    if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+    await page.getByRole('button', { name: 'Действия: Hades II' }).click();
+    await page.getByTestId('np-menu-remove').click();
+    await page.getByTestId('np-remove-confirm').click();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    const input2 = await openField(page);
+    await input2.fill('hades');
     await page.waitForTimeout(700);
     const st = await page.locator('[data-testid="bs-opt"][data-kind="store"]').first().getAttribute('data-state');
     console.log(`QA-STALE data-state=${st}, suggestCalls=${m.suggestCalls.length}`);

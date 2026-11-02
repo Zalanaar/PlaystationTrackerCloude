@@ -200,7 +200,7 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
 
   return (
     <Sheet open onClose={requestClose} title="Добавить из магазина PS" className="ps-add-sheet" initialFocus="[data-testid='add-input']" busy={busy}>
-      <div className="ps-add" data-testid="add-sheet">
+      <div className="ps-add" data-testid="add-sheet" data-cart={cart.length > 0 || undefined}>
         <p className="ps-sheet__sub ps-add__sub">
           Выбери «Купил» или «Не купил», нажми «+» у нужных игр и добавь всё сразу. «Не купил» попадёт в секцию «Не куплено», «Купил» будет ждать первого запуска.
         </p>

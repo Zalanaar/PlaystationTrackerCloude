@@ -168,7 +168,7 @@
 .ps-add-row__pick:hover:not(:disabled) { background: var(--surface-2); }
 .ps-add-row__pick[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
 
-.ps-cart { flex: 0 1 auto; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-height: min(45dvh, 360px); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-cart { flex: none; overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-height: min(45dvh, 360px); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
 .ps-cart__banner { flex: none; margin: var(--sp-2) var(--sp-2) 0; }
 .ps-cart__banner > span, .ps-bs__banner > span, .ps-add__banner > span { flex: 1 1 0; min-width: 0; }
 .ps-cart__banner:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
@@ -200,6 +200,9 @@
   .ps-add-buy { height: var(--tap-min); padding: 0; gap: 0; }
   .ps-add-buy button { height: var(--tap-min); }
   .ps-cart__clear { height: var(--tap-min); }
+  /* QA-43.1-5: пока есть выбранные игры, длинное пояснение прячем, чтобы корзина не обрезалась */
+  .ps-add[data-cart] .ps-add__sub { display: none; }
+  .ps-add__body { min-height: 96px; }
   .ps-add-row__pick { width: var(--tap-min); height: var(--tap-min); }
   .ps-cart__go { height: var(--tap-min); }
   .ps-cart__toggle { height: var(--tap-min); }
