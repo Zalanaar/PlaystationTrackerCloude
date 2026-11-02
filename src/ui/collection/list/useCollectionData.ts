@@ -122,9 +122,12 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
   }, [loadAll, loadSummary]);
 
   // после завершения синка перечитываем данные
-  const lastSuccess = sync.status?.lastSuccessAt ?? null;
+  // undefined, пока статус синка не загружен: первый ответ /api/sync/status — точка отсчёта, а не «синк завершился»
+  // (иначе коллекция перечитывалась целиком сразу после загрузки: двойные summary и /api/games)
+  const lastSuccess = sync.status ? sync.status.lastSuccessAt : undefined;
   const seenSuccess = useRef<string | null | undefined>(undefined);
   useEffect(() => {
+    if (lastSuccess === undefined) return;
     if (seenSuccess.current === undefined) {
       seenSuccess.current = lastSuccess;
       return;
