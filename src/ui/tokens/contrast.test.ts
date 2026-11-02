@@ -393,4 +393,21 @@ describe('контраст тем', () => {
       it(`${t}: кнопка «Убрать» (--bg на --danger) >= 4.5`, () => expect(ratio(get(t, '--bg'), get(t, '--danger'))).toBeGreaterThanOrEqual(4.5));
     }
   });
+
+  // Фаза 43.1 (design-system §19b.1): секция «Не куплено», сегмент «Купил / Не купил», опции поиска
+  describe('Фаза 43.1: секция, сегмент, подсказки', () => {
+    it('токены --nb-sec-* заданы в tokens.css и не переопределяются темами', () => {
+      for (const k of ['--nb-sec-bg', '--nb-sec-border']) {
+        expect(base[k], k).toBeTruthy();
+        for (const t of IDS) expect(themes[t][k], `${t} ${k}`).toBeUndefined();
+      }
+    });
+    for (const t of IDS) {
+      it(`${t}: --text-2 на --surface-2 (неактивный сегмент, мета опции) >= 4.5`, () => expect(ratio(get(t, '--text-2'), get(t, '--surface-2'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text на --surface-3 (активный сегмент, нажатая кнопка выбора) >= 4.5`, () => expect(ratio(get(t, '--text'), get(t, '--surface-3'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text на --nb-sec-bg (секция «Не куплено») >= 4.5`, () => expect(ratio(get(t, '--text'), get(t, '--nb-sec-bg'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --text-2 на --nb-sec-bg (подзаголовок, мета) >= 4.5`, () => expect(ratio(get(t, '--text-2'), get(t, '--nb-sec-bg'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: рамка секции (--nb-sec-border) на --bg >= 1.4 (граница читается, смысл несёт заголовок)`, () => expect(ratio(get(t, '--nb-sec-border'), get(t, '--bg'))).toBeGreaterThanOrEqual(1.4));
+    }
+  });
 });

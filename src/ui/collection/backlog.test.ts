@@ -19,7 +19,7 @@ describe('фильтры бэклога <-> URL', () => {
   });
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
-    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false });
+    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false, q: '' });
   });
   it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
     const f = parseBacklogFilters(p('genres=NONE,horror,None'));
@@ -37,7 +37,7 @@ describe('фильтры бэклога <-> URL', () => {
     expect(backlogToUrl({ ...DEFAULT_BACKLOG, sort: 'duration', order: 'asc' }).toString()).toBe('sort=duration');
   });
   it('query API: статус backlog, жанры ИЛИ, бакеты, сортировка', () => {
-    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false }, { limit: 300, offset: 0 });
+    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false, q: '' }, { limit: 300, offset: 0 });
     expect(q.get('status')).toBe('backlog');
     expect(q.get('genres')).toBe('ACTION,HORROR');
     expect(q.get('duration')).toBe('lt10,unknown');
@@ -52,7 +52,7 @@ describe('фильтры бэклога <-> URL', () => {
   it('toggleValue и сброс', () => {
     expect(toggleValue(['A'], 'B')).toEqual(['A', 'B']);
     expect(toggleValue(['A', 'B'], 'A')).toEqual(['B']);
-    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false });
+    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true, q: '' })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false });
   });
   it('чип «Не куплено»: ?nb=1 <-> фильтр, в API не уходит', () => {
     const f = parseBacklogFilters(p('nb=1'));

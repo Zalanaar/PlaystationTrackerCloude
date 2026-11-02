@@ -1,37 +1,66 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import '../recommend.css';
 import { Icon } from '../icons';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
-import { addManual, searchManual } from './manualApi';
+import { addManualBatch, searchManual } from './manualApi';
+import { AddCart } from './AddCart';
+import { BuySegment } from './BuySegment';
 import { Cover } from './Cover';
 import {
-  MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, manualErrorText, normalizeQuery, parseDuplicate, platformsText, searchReleaseText,
-  type DuplicateInfo, type SearchCandidate, type SearchFailure,
+  MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, platformsText, searchReleaseText,
+  type SearchCandidate, type SearchFailure,
 } from './manual';
+import {
+  BATCH_MAX, addedLiveText, applyBatch, cartAdd, cartAutoOpen, cartFind, cartFull, cartPayable, cartRemove, cartSetBought, partialBannerText, toBatchItems,
+  type CartEntry, type RowOutcome,
+} from './cart';
+import { catalogGuard, useOnline } from './useSuggest';
 
-type RowState = 'idle' | 'adding' | 'added' | 'already' | 'error' | 'dup';
-type RowInfo = { state: RowState; dup?: DuplicateInfo; error?: string };
 type Phase = 'initial' | 'loading' | 'results' | 'noresults' | 'unavailable';
 
-/** Панель «Добавить из магазина PS» (design-system §19.4). Запрос уходит только по Enter или «Найти». Грузится лениво. */
-export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]) => void }) {
+/** Итог сессии панели для тоста: что добавлено и «Купил» или «Не купил». */
+export type AddedItem = { title: string; bought: boolean };
+
+const initialFailure = (): SearchFailure | null => {
+  const g = catalogGuard.status();
+  return g.quota ? { kind: 'quota', resetAt: g.quotaResetAt } : null;
+};
+
+/**
+ * Панель «Добавить из магазина PS» (design-system §19.4, §19b): запрос по Enter или «Найти», «Купил / Не купил» у каждой игры,
+ * «+» выбирает в корзину, «Добавить N» отправляет пачку (POST /api/manual-games/batch). Грузится лениво.
+ */
+export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: AddedItem[]) => void; initialQuery?: string }) {
   const [q, setQ] = useState('');
   const [asked, setAsked] = useState('');
   const [phase, setPhase] = useState<Phase>('initial');
   const [results, setResults] = useState<SearchCandidate[]>([]);
-  const [failure, setFailure] = useState<SearchFailure | null>(null);
-  const [rows, setRows] = useState<Record<string, RowInfo>>({});
-  const [added, setAdded] = useState<string[]>([]);
+  const [failure, setFailure] = useState<SearchFailure | null>(initialFailure);
+  const [done, setDone] = useState<Record<string, RowOutcome>>({});
+  const [choice, setChoice] = useState<Record<string, boolean>>({});
+  const [cart, setCart] = useState<CartEntry[]>([]);
+  const [openPref, setOpenPref] = useState<boolean | null>(null);
+  const [hadResult, setHadResult] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
+  const [requestFailed, setRequestFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [live, setLive] = useState('');
+  const addedRef = useRef<AddedItem[]>([]);
+  const cartRef = useRef<CartEntry[]>([]);
+  useEffect(() => { cartRef.current = cart; }, [cart]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
   const seq = useRef(0);
   const ctl = useRef<AbortController | null>(null);
   const hintId = useId();
+  const confirmId = useId();
   const quotaRef = useRef<HTMLDivElement>(null);
+  const online = useOnline();
 
   useEffect(() => () => ctl.current?.abort(), []);
 
@@ -39,10 +68,13 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
   const ok = canSearch(q);
   // поле и «Найти» выключаются: фокус не должен упасть на body (Esc перестал бы работать), переносим на баннер
   useEffect(() => { if (quota) quotaRef.current?.focus(); }, [quota]);
+  useEffect(() => { if (confirming) backRef.current?.focus(); }, [confirming]);
 
   const search = useCallback(async (query: string) => {
     const text = normalizeQuery(query);
     if (!canSearch(text)) return;
+    const g = catalogGuard.status();
+    if (g.quota) { setFailure({ kind: 'quota', resetAt: g.quotaResetAt }); return; }
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       setFailure({ kind: 'offline' });
       return;
@@ -59,40 +91,32 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
       if (my !== seq.current) return;
       const list = r.candidates.slice(0, MAX_RESULTS);
       setResults(list);
-      setRows(Object.fromEntries(list.map((x) => [x.externalId, { state: x.inBacklog ? 'already' : 'idle' } as RowInfo])));
+      setChoice({}); // по умолчанию снова «Не купил»; у выбранных игр значение живёт в корзине
+      setDone((d) => {
+        const next = { ...d };
+        for (const x of list) if (x.inBacklog && !next[x.externalId]) next[x.externalId] = { kind: 'already' };
+        return next;
+      });
       setPhase(list.length > 0 ? 'results' : 'noresults');
       setLive(list.length > 0 ? `Найдено ${list.length} ${list.length === 1 ? 'игра' : 'игр'}` : 'Ничего не найдено');
     } catch (e) {
       if (my !== seq.current || c.signal.aborted) return;
       const f = classifySearchError(e, typeof navigator === 'undefined' || navigator.onLine !== false);
+      if (f.kind === 'quota') catalogGuard.quota(f.resetAt);
       setFailure(f);
       // каталог не настроен: отдельный экран; остальные сбои не стирают прежние результаты
       setPhase((p) => (f.kind === 'unavailable' ? 'unavailable' : p === 'loading' ? (results.length > 0 ? 'results' : 'initial') : p));
     }
   }, [results.length]);
 
-  function setRow(id: string, patch: RowInfo) {
-    setRows((r) => ({ ...r, [id]: patch }));
-  }
-
-  async function add(c: SearchCandidate, confirmDuplicate: boolean) {
-    setRow(c.externalId, { state: 'adding' });
-    try {
-      const r = await addManual({ externalSource: 'rawg', externalId: c.externalId, title: c.title, coverUrl: c.coverUrl, releaseDate: c.releaseDate, ...(confirmDuplicate ? { confirmDuplicate: true } : {}) });
-      if (r.created) {
-        setAdded((a) => [...a, c.title]);
-        setLive(`Добавлено в бэклог: ${c.title}`);
-        setRow(c.externalId, { state: 'added' });
-      } else {
-        setRow(c.externalId, { state: 'already' });
-      }
-    } catch (e) {
-      const dup = parseDuplicate(e);
-      if (dup) return setRow(c.externalId, { state: 'dup', dup });
-      if (typeof e === 'object' && e !== null && (e as { status?: number }).status === 409 && (e as { code?: string }).code !== 'manual_limit') return setRow(c.externalId, { state: 'already' });
-      setRow(c.externalId, { state: 'error', error: manualErrorText(e, 'Не удалось добавить. Повтори.') });
-    }
-  }
+  // открытие с запросом из подсказки («Все результаты в магазине PS», Enter при мягком пределе): явный поиск сразу
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !initialQuery) return;
+    started.current = true;
+    const t = setTimeout(() => { setQ(initialQuery); void search(initialQuery); }, 0);
+    return () => { clearTimeout(t); started.current = false; };
+  }, [initialQuery, search]);
 
   function clear() {
     setQ('');
@@ -109,13 +133,65 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
     inputRef.current?.focus();
   }
 
-  const busy = Object.values(rows).some((r) => r.state === 'adding');
-  const close = () => onClose(added);
+  // ---------- корзина ----------
+  const full = cartFull(cart);
+  const cartExpanded = openPref ?? cartAutoOpen(cart.length, hadResult);
+  function setBought(c: SearchCandidate, bought: boolean) {
+    if (cartFind(cart, c.externalId)) setCart((l) => cartSetBought(l, c.externalId, bought));
+    else setChoice((m) => ({ ...m, [c.externalId]: bought }));
+  }
+  function pick(c: SearchCandidate) {
+    if (cartFind(cart, c.externalId)) { setCart((l) => cartRemove(l, c.externalId)); return; }
+    setCart((l) => cartAdd(l, c, choice[c.externalId] ?? false));
+  }
+
+  async function submit(only?: CartEntry[]) {
+    const sent = only ?? cartPayable(cartRef.current);
+    if (sent.length === 0 || busy) return;
+    setBusy(true);
+    setRequestFailed(false);
+    try {
+      const r = await addManualBatch(toBatchItems(sent, only !== undefined));
+      const ap = applyBatch(cartRef.current, sent, r.results);
+      cartRef.current = ap.cart;
+      setCart(ap.cart);
+      setDone((d) => ({ ...d, ...ap.outcomes }));
+      for (const o of Object.values(ap.outcomes)) if (o.kind === 'added') addedRef.current.push({ title: o.title, bought: o.bought });
+      setHadResult(true);
+      setLive(addedLiveText(ap.created));
+      if (ap.cart.length === 0) {
+        setBanner(null);
+        setOpenPref(null);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      } else {
+        // для одиночного «Всё равно добавить» прежний баннер остаётся, пока в корзине есть неудавшиеся
+        if (only === undefined) setBanner(partialBannerText(ap.created, ap.counted));
+        setOpenPref(true);
+        if (only === undefined) requestAnimationFrame(() => bannerRef.current?.focus());
+      }
+    } catch {
+      // сеть/5xx: ничего не менялось, повтор безопасен (сервер идемпотентен)
+      setRequestFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ---------- закрытие ----------
+  const finish = () => onClose(addedRef.current);
+  function requestClose() {
+    if (busy) return;
+    if (confirming) { setConfirming(false); requestAnimationFrame(() => inputRef.current?.focus()); return; }
+    if (cart.length > 0) { setConfirming(true); return; }
+    finish();
+  }
 
   return (
-    <Sheet open onClose={close} title="Добавить из магазина PS" className="ps-add-sheet" initialFocus="[data-testid='add-input']" busy={busy}>
+    <Sheet open onClose={requestClose} title="Добавить из магазина PS" className="ps-add-sheet" initialFocus="[data-testid='add-input']" busy={busy}>
       <div className="ps-add" data-testid="add-sheet">
-        <p className="ps-sheet__sub ps-add__sub">Ищу игры для PS5 и PS4. Добавленная игра попадёт в Бэклог с пометкой «Не куплено».</p>
+        <p className="ps-sheet__sub ps-add__sub">
+          Выбери «Купил» или «Не купил», нажми «+» у нужных игр и добавь всё сразу. «Не купил» попадёт в секцию «Не куплено», «Купил» будет ждать первого запуска.
+        </p>
         <form
           className="ps-add__form" role="search"
           onSubmit={(e) => { e.preventDefault(); if (!quota) void search(q); }}
@@ -190,27 +266,51 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
               <Icon name="circle-alert" size={32} />
               <h3 className="ps-h3">Каталог игр недоступен</h3>
               <p>Поиск временно не работает. Остальной Бэклог доступен.</p>
-              <button type="button" className="ps-btn ps-btn--ghost" onClick={close}>Закрыть</button>
+              <button type="button" className="ps-btn ps-btn--ghost" onClick={finish}>Закрыть</button>
             </div>
           )}
           {phase === 'results' && (
             <>
-              <ul className="ps-add-list" aria-label="Результаты поиска">
-                {results.map((c) => (
-                  <AddRow key={c.externalId} c={c} info={rows[c.externalId] ?? { state: 'idle' }} onAdd={(confirm) => void add(c, confirm)} onCancel={() => setRow(c.externalId, { state: 'idle' })} onClose={close} />
-                ))}
+              <ul className="ps-add-list" aria-label="Результаты поиска" aria-busy={busy || undefined}>
+                {results.map((c) => {
+                  const entry = cartFind(cart, c.externalId);
+                  return (
+                    <AddRow
+                      key={c.externalId} c={c} done={done[c.externalId]} entry={entry} bought={entry ? entry.bought : choice[c.externalId] ?? false}
+                      limitReached={full && !entry} busy={busy} onBought={(b) => setBought(c, b)} onPick={() => pick(c)}
+                    />
+                  );
+                })}
               </ul>
               {results.length >= MAX_RESULTS && <p className="ps-add__more">Показаны первые {MAX_RESULTS}. Уточни название.</p>}
             </>
           )}
         </div>
 
+        {confirming ? (
+          <div className="ps-cart ps-cart--confirm" role="alertdialog" aria-labelledby={confirmId} data-testid="add-close-confirm">
+            <p id={confirmId} className="ps-cart__confirm-t">Выбрано {cart.length} {cart.length === 1 ? 'игра' : 'игр'}, они ещё не добавлены.</p>
+            <div className="ps-cart__confirm-b">
+              <button ref={backRef} type="button" className="ps-btn ps-btn--primary" data-testid="add-close-back" onClick={() => { setConfirming(false); requestAnimationFrame(() => inputRef.current?.focus()); }}>Вернуться</button>
+              <button type="button" className="ps-btn ps-btn--ghost" data-testid="add-close-discard" onClick={finish}>Закрыть без добавления</button>
+            </div>
+          </div>
+        ) : (
+          <AddCart
+            cart={cart} busy={busy} online={online} expanded={cartExpanded} onToggle={() => setOpenPref(!cartExpanded)}
+            onSetBought={(id, b) => setCart((l) => cartSetBought(l, id, b))} onRemove={(id) => setCart((l) => cartRemove(l, id))}
+            onClear={() => { setCart([]); setBanner(null); setRequestFailed(false); setOpenPref(null); requestAnimationFrame(() => inputRef.current?.focus()); }}
+            onSubmit={() => void submit()} onConfirmDuplicate={(id) => { const e = cartFind(cartRef.current, id); if (e) void submit([e]); }}
+            banner={banner} bannerRef={bannerRef} requestFailed={requestFailed} onOpenGame={finish}
+          />
+        )}
+
         <div className="ps-add__foot">
           <p className="ps-rec-note">
             <span>Данные об играх:</span>
             <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="RAWG (новая вкладка)">RAWG<Icon name="external-link" size={12} /></a>
           </p>
-          <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={close}>Закрыть</button>
+          <button type="button" className="ps-btn ps-btn--ghost" data-testid="add-close" disabled={busy} onClick={requestClose}>Закрыть</button>
         </div>
       </div>
     </Sheet>
@@ -218,39 +318,16 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
 }
 
 function AddRow({
-  c, info, onAdd, onCancel, onClose,
-}: { c: SearchCandidate; info: RowInfo; onAdd: (confirmDuplicate: boolean) => void; onCancel: () => void; onClose: () => void }) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const doneRef = useRef<HTMLSpanElement>(null);
-  const warnRef = useRef<HTMLDivElement>(null);
-  const prev = useRef<RowState>(info.state);
-  const warnId = useId();
-  const { state } = info;
-
-  // фокус следует за состоянием: добавлено -> статус, дубль -> блок, отмена дубля -> кнопка
-  useEffect(() => {
-    const was = prev.current;
-    prev.current = state;
-    if (was === state) return;
-    if (state === 'added') doneRef.current?.focus();
-    else if (state === 'dup') warnRef.current?.focus();
-    else if (state === 'idle' && was === 'dup') btnRef.current?.focus();
-    else if (state === 'error') btnRef.current?.focus();
-  }, [state]);
-
+  c, done, entry, bought, limitReached, busy, onBought, onPick,
+}: {
+  c: SearchCandidate; done: RowOutcome | undefined; entry: CartEntry | undefined; bought: boolean; limitReached: boolean; busy: boolean;
+  onBought: (bought: boolean) => void; onPick: () => void;
+}) {
   const plats = platformsText(c.platforms);
-  const done = state === 'added' || state === 'already';
-  const dup = info.dup;
-
-  function warnKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onCancel();
-    }
-  }
-
+  const picked = !!entry;
+  const needsDecision = entry?.state === 'duplicate';
   return (
-    <li className="ps-add-row" data-testid="add-row" data-state={state} aria-busy={state === 'adding' || undefined}>
+    <li className="ps-add-row" data-testid="add-row" data-state={done ? done.kind : needsDecision ? 'dup' : picked ? 'picked' : 'idle'} data-picked={picked || undefined} aria-busy={busy && picked ? true : undefined}>
       <Cover url={c.coverUrl} title={c.title} className="ps-add-row__cover" />
       <div className="ps-add-row__text">
         <span className="ps-add-row__title" title={c.title}>{c.title}</span>
@@ -259,33 +336,24 @@ function AddRow({
       </div>
       <div className="ps-add-row__act">
         {done ? (
-          <span ref={doneRef} className="ps-add-row__done" data-testid="add-row-done" data-kind={state} tabIndex={-1}>
-            <Icon name="check" size={14} />{state === 'added' ? 'Добавлено в бэклог' : 'Уже в бэклоге'}
+          <span className="ps-add-row__done" data-testid="add-row-done" data-kind={done.kind}>
+            <Icon name="check" size={14} />
+            {done.kind === 'added' ? `Добавлено · ${done.bought ? 'Купил' : 'Не куплено'}` : 'Уже в бэклоге'}
           </span>
+        ) : needsDecision ? (
+          <span className="ps-add-row__done ps-add-row__need" data-testid="add-row-need"><Icon name="circle-alert" size={14} />Нужно решение</span>
         ) : (
-          <button
-            ref={btnRef} type="button" className="ps-btn ps-btn--ghost ps-add-row__btn" data-testid="add-row-btn" aria-label={`В бэклог: ${c.title}`}
-            disabled={state === 'adding' || state === 'dup'} onClick={() => onAdd(false)}
-          >
-            {state === 'adding' ? <><Icon name="loader" size={14} className="ps-nb-spin" />Добавляю…</> : <><Icon name="plus" size={14} />В бэклог</>}
-          </button>
+          <>
+            <BuySegment title={c.title} bought={bought} disabled={busy} onChange={onBought} />
+            <button
+              type="button" className="ps-btn ps-btn--ghost ps-add-row__pick" data-testid="add-pick" aria-pressed={picked} disabled={busy || limitReached}
+              aria-label={limitReached ? `Лимит: ${BATCH_MAX} игр за раз` : picked ? `Убрать из выбранных: ${c.title}` : `Выбрать: ${c.title}`} onClick={onPick}
+            >
+              <Icon name={picked ? 'check' : 'plus'} size={14} />
+            </button>
+          </>
         )}
       </div>
-      {state === 'error' && (
-        <p className="ps-add-row__err" role="alert"><Icon name="circle-alert" size={14} />{info.error ?? 'Не удалось добавить. Повтори.'}</p>
-      )}
-      {state === 'dup' && dup && (
-        <div ref={warnRef} className="ps-add-warn" role="group" aria-labelledby={warnId} tabIndex={-1} data-testid="add-warn" onKeyDown={warnKey}>
-          <h4 id={warnId} className="ps-add-warn__h"><Icon name="circle-alert" size={16} />Такая игра уже есть</h4>
-          {dup.game && <p className="ps-add-warn__t">В твоей библиотеке PSN: «{dup.game.name}»</p>}
-          {dup.planned && <p className="ps-add-warn__t">В Плане: «{dup.planned.title}»</p>}
-          <div className="ps-add-warn__btns">
-            {dup.game && <Link href={`/?game=${dup.game.gameId}`} className="ps-link" onClick={onClose}>Открыть в библиотеке</Link>}
-            <button type="button" className="ps-btn ps-btn--primary" data-testid="add-warn-confirm" aria-label={`Всё равно добавить: ${c.title}`} onClick={() => onAdd(true)}>Всё равно добавить</button>
-            <button type="button" className="ps-btn ps-btn--ghost" data-testid="add-warn-cancel" onClick={onCancel}>Отмена</button>
-          </div>
-        </div>
-      )}
     </li>
   );
 }

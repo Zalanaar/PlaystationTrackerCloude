@@ -147,6 +147,9 @@
   --nb-icon: var(--text-2);
   --nb-h: 24px;               /* моб. 22, плотный режим карточек 20 */
   --nb-warn-bar: var(--warning);
+  /* Фаза 43.1 (§19b.1): секция «Не куплено» в Бэклоге; рамка того же языка, что у пометки, не жёлтая */
+  --nb-sec-bg: var(--surface);
+  --nb-sec-border: var(--nb-border);
 
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
