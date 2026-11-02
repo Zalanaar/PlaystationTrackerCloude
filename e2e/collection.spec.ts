@@ -525,13 +525,13 @@ for (const width of [390, 440]) {
 
     const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-    test('каркас: tab bar, нет горизонтального скролла, сортировка в sheet, чипы без подписей', async ({ page, context, baseURL }) => {
+    test('каркас: tab bar, нет горизонтального скролла, сортировка в sheet, чипы с подписями', async ({ page, context, baseURL }) => {
       const mock = await open(page, context, baseURL!);
       await expect(page.locator('nav.ps-tabbar')).toBeVisible();
       await expect(page.locator('nav.ps-nav')).toBeHidden();
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
-      // подпись только у «Все» и «Не разобрано»
-      await expect(tab(page, /Пройдено/).locator('.ps-filterchip__t')).toBeHidden();
+      // подписи у всех чипов статусов («Играю 3»), ряд прокручивается
+      await expect(tab(page, /Пройдено/).locator('.ps-filterchip__t')).toBeVisible();
       await expect(tab(page, /Не разобрано/).locator('.ps-filterchip__t')).toBeVisible();
       await page.getByRole('button', { name: /Фильтры/ }).click();
       const dlg = page.getByRole('dialog', { name: 'Фильтры' });

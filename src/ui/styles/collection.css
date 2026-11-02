@@ -165,6 +165,8 @@
   .ps-tabs__grp { flex-wrap: nowrap; }
   .ps-filterchip { scroll-snap-align: start; padding: 0 var(--sp-2); }
   .ps-filterchip:not([data-wide]) .ps-filterchip__t { display: none; }
+  /* Чипы статусов коллекции: с подписью («Играю 3»), ряд и так прокручивается по горизонтали */
+  .ps-filters--chips .ps-filterchip:not([data-wide]) .ps-filterchip__t { display: inline; }
 }
 @media (max-width: 767px) {
     .ps-detail__actions .ps-btn { flex: 1 1 auto; height: var(--tap-min); }
