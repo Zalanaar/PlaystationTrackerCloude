@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { RareTrophy, StatsGenreGame, StatsResponse } from '@/server/stats/types';
-import { Cover } from '../collection/Cover';
+import { Cover, THUMB_SIZES } from '../collection/Cover';
 import { Icon, PlatinumIcon } from '../icons';
 import { RARE_EMPTY, RARE_SUBTITLE, rareList, rareRows, type RareRow, type RareScope } from './rare';
 
@@ -73,7 +73,7 @@ export function RareTrophies({
                 <span className="ps-rare__tx">
                   <span className="ps-rare__nm" title={r.detail ?? undefined}>{r.name}</span>
                   <span className="ps-rare__gm">
-                    {game && r.coverUrl && <Cover url={r.coverUrl} title={r.gameName} className="ps-rare__th" />}
+                    {game && r.coverUrl && <Cover url={r.coverUrl} title={r.gameName} className="ps-rare__th" sizes={THUMB_SIZES} />}
                     <span className="ps-rare__gn">{r.gameName}</span>
                     <em>{r.date}</em>
                   </span>

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointer
 import type { GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
-import { Cover } from '../collection/Cover';
+import { Cover, THUMB_SIZES } from '../collection/Cover';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
@@ -380,7 +380,7 @@ function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canU
           {queue.map((g) => (
             <li key={g.id} className="ps-queue__q">
               <span className="ps-queue__thw">
-                <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" />
+                <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" sizes={THUMB_SIZES} />
                 {isForgotten(g, now) && <span className="ps-queue__dot" title="Забытая" role="img" aria-label="Забытая"><Icon name="clock" size={9} /></span>}
               </span>
               <span><span className="ps-queue__t">{g.title}</span><span className="ps-queue__m num">{formatPlayTime(g.playSeconds) ?? 'не запускалась'}</span></span>

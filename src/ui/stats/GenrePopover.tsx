@@ -1,7 +1,7 @@
 'use client';
 
 import type { StatsGenreGame } from '@/server/stats/types';
-import { Cover } from '../collection/Cover';
+import { Cover, THUMB_SIZES } from '../collection/Cover';
 import { HoverCard } from '../primitives/HoverCard';
 import { GENRE_POP_THUMBS, GENRE_SHEET_THUMBS, genreGames, genreSubtitle, type GenreBar } from './model';
 
@@ -47,7 +47,7 @@ export function GenreRow({
                       type="button" className="ps-gp__thumb" title={g.title} aria-label={g.title}
                       onClick={() => { closeToTrigger(); onOpenGame(g); }}
                     >
-                      <Cover url={g.coverUrl} title={g.title} className="ps-gp__cover" />
+                      <Cover url={g.coverUrl} title={g.title} className="ps-gp__cover" sizes={THUMB_SIZES} />
                       {sheet && <span className="ps-gp__name">{g.title}</span>}
                     </button>
                   </li>

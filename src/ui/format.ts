@@ -160,3 +160,33 @@ export function smallCoverUrl(u: string | null | undefined, width = 240): string
     return u;
   }
 }
+
+/**
+ * Обложка/арт PSN нужной ширины (Фаза 47): Image API PSN отдаёт уменьшенную копию по `?w=` (оригиналы 512–3840 px, 50–370 КБ).
+ * Чужие хосты, не-http значения и URL с уже заданной шириной возвращаются как есть.
+ */
+export function psnImageUrl(u: string, width: number): string {
+  try {
+    const url = new URL(u);
+    if (url.hostname !== 'image.api.playstation.com' || url.searchParams.has('w')) return u;
+    url.searchParams.set('w', String(width));
+    return url.toString();
+  } catch {
+    return u;
+  }
+}
+
+/** Ширины для srcset обложек: 240 (миниатюры и десктоп-сетка), 480 (сетка на мобильном с DPR 2–3). Оригинал остаётся запасным 1024w. */
+export const COVER_WIDTHS = [240, 480] as const;
+
+/** srcset обложки PSN; для чужих хостов undefined (браузер берёт src). */
+export function coverSrcSet(u: string): string | undefined {
+  if (psnImageUrl(u, 1) === u) return undefined;
+  return [...COVER_WIDTHS.map((w) => `${psnImageUrl(u, w)} ${w}w`), `${u} 1024w`].join(', ');
+}
+
+/** srcset баннера PSN (оригиналы до 3840 px и ~370 КБ): 720w для телефона, 1440w для десктопа. Для чужих хостов undefined. */
+export function bannerSrcSet(u: string): string | undefined {
+  if (psnImageUrl(u, 1) === u) return undefined;
+  return `${psnImageUrl(u, 720)} 720w, ${psnImageUrl(u, 1440)} 1440w`;
+}

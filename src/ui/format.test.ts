@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cssUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
+import { bannerSrcSet, coverSrcSet, cssUrl, psnImageUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
 
 const NOW = Date.parse('2026-10-27T09:00:00Z');
 
@@ -62,5 +62,27 @@ describe('smallCoverUrl', () => {
     expect(smallCoverUrl('https://cdn.example.com/a.png')).toBe('https://cdn.example.com/a.png');
     expect(smallCoverUrl('not a url')).toBe('not a url');
     expect(smallCoverUrl(null)).toBeNull();
+  });
+});
+
+describe('psnImageUrl / coverSrcSet (Фаза 47)', () => {
+  it('добавляет w только для Image API PSN', () => {
+    expect(psnImageUrl('https://image.api.playstation.com/a/b.png', 480)).toBe('https://image.api.playstation.com/a/b.png?w=480');
+    expect(psnImageUrl('https://image.api.playstation.com/a/b.png?w=100', 480)).toBe('https://image.api.playstation.com/a/b.png?w=100');
+    expect(psnImageUrl('https://cdn.example.com/a.png', 480)).toBe('https://cdn.example.com/a.png');
+    expect(psnImageUrl('not a url', 480)).toBe('not a url');
+  });
+  it('srcset: 240w, 480w и оригинал', () => {
+    expect(coverSrcSet('https://image.api.playstation.com/a.png')).toBe(
+      'https://image.api.playstation.com/a.png?w=240 240w, https://image.api.playstation.com/a.png?w=480 480w, https://image.api.playstation.com/a.png 1024w',
+    );
+    expect(coverSrcSet('https://cdn.example.com/a.png')).toBeUndefined();
+  });
+});
+
+describe('bannerSrcSet (Фаза 47)', () => {
+  it('720w и 1440w для PSN, undefined для чужих', () => {
+    expect(bannerSrcSet('https://image.api.playstation.com/b.jpg')).toBe('https://image.api.playstation.com/b.jpg?w=720 720w, https://image.api.playstation.com/b.jpg?w=1440 1440w');
+    expect(bannerSrcSet('https://cdn.example.com/b.jpg')).toBeUndefined();
   });
 });

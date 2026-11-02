@@ -2,7 +2,7 @@
 
 import type { NearPlatinumItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
-import { Cover } from './Cover';
+import { Cover, THUMB_SIZES } from './Cover';
 import { storeNearOpen, useNearOpen } from './nearOpen';
 import { APPROX_HINT, anyApproximate, avgRarityText, dlcLine, isApproximate, nearAria, remainingGrades } from './nearPlatinum';
 
@@ -13,7 +13,7 @@ function Item({ item, onOpen }: { item: NearPlatinumItem; onOpen: (g: NearPlatin
   return (
     <li>
       <button type="button" className="ps-near" aria-label={nearAria(game.title, f)} onClick={() => onOpen(game)}>
-        <Cover url={game.coverUrl} title={game.title} className="ps-near__c" />
+        <Cover url={game.coverUrl} title={game.title} className="ps-near__c" sizes={THUMB_SIZES} />
         <span className="ps-near__t">
           <b title={game.title}>{game.title}</b>
           <span className="ps-near__p">

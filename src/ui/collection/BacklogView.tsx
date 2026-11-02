@@ -50,6 +50,9 @@ const SKELETON_MAX_MS = 5000;
 const AddFromStoreSheet = dynamic(() => import('./AddFromStoreSheet').then((m) => m.AddFromStoreSheet), { ssr: false });
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
+/** Сколько первых обложек бэклога грузить сразу и с высоким приоритетом (первый экран, Фаза 47). */
+const FIRST_SCREEN = 6;
+
 export function BacklogView() {
   const router = useRouter();
   const pathname = usePathname();
@@ -458,8 +461,8 @@ export function BacklogView() {
   const shownTotal = total + shownManual.length;
   const mainTotal = filters.nb ? 0 : total + boughtShown.length;
 
-  const backlogCard = (g: GameItem) => (
-    <GameCard game={g} actions={actions} selectMode={false} selected={false}>
+  const backlogCard = (g: GameItem, priority = false) => (
+    <GameCard game={g} actions={actions} selectMode={false} selected={false} priority={priority}>
       <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
       {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
       <div className="ps-bl-actions">
@@ -616,15 +619,15 @@ export function BacklogView() {
         <div key="list" className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
         {view === 'list' ? (
           <ul className="ps-bl-rows" aria-label="Игры в бэклоге">
-            {entries.map((e) => (e.manual
+            {entries.map((e, i) => (e.manual
               ? <ManualRow key={`m${e.manual.id}`} game={e.manual} handlers={manualHandlers} today={today} />
-              : <BacklogRow key={e.game!.id} game={e.game!} onOpen={() => actions.open(e.game!)} onPlay={() => void change(e.game!, 'playing')} menu={menuFor(e.game!, 'backlog')} />))}
+              : <BacklogRow key={e.game!.id} game={e.game!} priority={i < FIRST_SCREEN} onOpen={() => actions.open(e.game!)} onPlay={() => void change(e.game!, 'playing')} menu={menuFor(e.game!, 'backlog')} />))}
           </ul>
         ) : (
         <GameGrid density="comfort" label="Игры в бэклоге">
-          {entries.map((e) => (e.manual
+          {entries.map((e, i) => (e.manual
             ? <GameGridItem key={`m${e.manual.id}`}><ManualCard game={e.manual} handlers={manualHandlers} today={today} /></GameGridItem>
-            : <GameGridItem key={e.game!.id}>{backlogCard(e.game!)}</GameGridItem>))}
+            : <GameGridItem key={e.game!.id}>{backlogCard(e.game!, i < FIRST_SCREEN)}</GameGridItem>))}
         </GameGrid>
         )}
         </div>

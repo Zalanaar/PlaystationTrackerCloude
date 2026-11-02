@@ -3,7 +3,7 @@
 import { useId, useMemo, useState } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import type { StatsTop } from '@/server/stats/types';
-import { Cover } from '../collection/Cover';
+import { Cover, THUMB_SIZES } from '../collection/Cover';
 import { Icon, PlatinumIcon } from '../icons';
 import { TOP_EMPTY, TOP_MODES, TOP_SUBTITLE, TROPHY_POINTS, topHoursRows, topTrophyRows, type TopMode, type TopRow } from './model';
 
@@ -12,7 +12,7 @@ function Row({ row, mode, onOpen }: { row: TopRow; mode: TopMode; onOpen: (g: Ga
     <li className="ps-top__li">
       <button type="button" className="ps-top__row" aria-label={`${row.rank}. ${row.game.title}. ${row.valueLabel}`} onClick={() => onOpen(row.game)} data-top={row.rank <= 3 || undefined}>
         <span className="ps-top__rank num">{row.rank}</span>
-        <Cover url={row.game.coverUrl} title={row.game.title} className="ps-top__cover" />
+        <Cover url={row.game.coverUrl} title={row.game.title} className="ps-top__cover" sizes={THUMB_SIZES} />
         <span className="ps-top__tx">
           <span className="ps-top__name" title={row.game.title}>{row.game.title}</span>
           {mode === 'hours' ? (

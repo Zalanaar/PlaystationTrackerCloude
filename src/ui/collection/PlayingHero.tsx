@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import type { GameItem } from '@/server/collection/types';
-import { cssUrl } from '../format';
+import { bannerSrcSet, cssUrl, psnImageUrl } from '../format';
 import { PlatinumIcon, StatusGlyph } from '../icons';
-import { Cover } from './Cover';
+import { Cover, THUMB_SIZES } from './Cover';
 import type { GameActions } from './GameCard';
 import { tintStyle } from './tint';
 import { hasTrophyData, heroAriaLabel, heroFacts, heroLabel, heroLayout, heroProgress, miniMeta } from './hero';
@@ -17,10 +17,10 @@ function HeroArt({ game, banner, onBannerError }: { game: GameItem; banner: stri
       <span className="ps-artbg" data-blur={!banner || undefined}>
         {banner ? (
           // eslint-disable-next-line @next/next/no-img-element -- внешний арт PSN, оптимизация next/image не нужна
-          <img src={banner} alt="" loading="eager" fetchPriority="high" decoding="async" referrerPolicy="no-referrer" onError={() => onBannerError(banner)} />
+          <img src={banner} srcSet={bannerSrcSet(banner)} sizes="(max-width: 640px) 100vw, 1100px" alt="" loading="eager" fetchPriority="high" decoding="async" referrerPolicy="no-referrer" onError={() => onBannerError(banner)} />
         ) : cover ? (
           // eslint-disable-next-line @next/next/no-img-element -- внешняя обложка PSN
-          <img src={cover} alt="" loading="eager" decoding="async" referrerPolicy="no-referrer" />
+          <img src={psnImageUrl(cover, 240)} alt="" loading="eager" decoding="async" referrerPolicy="no-referrer" />
         ) : null}
       </span>
       <span className="ps-hero__scrim" />
@@ -74,7 +74,7 @@ function Mini({ game, now, actions }: { game: GameItem; now: number; actions: Ga
       type="button" className="ps-hero__mini" style={tintStyle(game.tint)} data-platinum={t?.platinumEarned || undefined} onClick={() => actions.open(game)}
       aria-label={`Открыть: ${game.title}${t?.platinumEarned ? ', платина получена' : ''}`}
     >
-      <Cover url={game.coverUrl} title={game.title} className="ps-hero__thumb" />
+      <Cover url={game.coverUrl} title={game.title} className="ps-hero__thumb" sizes={THUMB_SIZES} />
       <span className="ps-hero__mtx">
         <span className="ps-hero__mt" title={game.title}>
           {t?.platinumEarned && <PlatinumIcon size={14} className="ps-hero__mplat" />}

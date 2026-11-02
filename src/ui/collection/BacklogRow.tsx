@@ -4,18 +4,18 @@ import type { GameItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { RemainingMeter } from './RemainingMeter';
-import { Cover } from './Cover';
+import { Cover, THUMB_SIZES } from './Cover';
 
 export type RowMenuItem = { label: string; run: () => void };
 
 /** Строка вида «Список» страницы «Бэклог» (Фаза 33): обложка, название, длительность, «Играть» и меню «…». Нажатие на строку открывает окно игры. */
 export function BacklogRow({
-  game, onOpen, onPlay, menu, hideBar = false,
-}: { game: GameItem; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean }) {
+  game, onOpen, onPlay, menu, hideBar = false, priority = false,
+}: { game: GameItem; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean; /** первый экран: eager + fetchpriority=high */ priority?: boolean }) {
   const plat = game.trophies?.platinumEarned === true;
   return (
     <li className="ps-blrow" data-testid="bl-row" data-game={game.id}>
-      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" />
+      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" sizes={THUMB_SIZES} priority={priority} />
       <div className="ps-blrow__text">
         <span className="ps-blrow__title" title={game.title}>
           {game.title}

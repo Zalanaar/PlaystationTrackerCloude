@@ -5,7 +5,7 @@ import { useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { STATUS_HINT_RULES } from '@/shared/status-hints';
 import { EmptyState } from '../EmptyState';
-import { Cover } from '../collection/Cover';
+import { Cover, THUMB_SIZES } from '../collection/Cover';
 import { formatPlayTime, launchesText, formatDayMonth } from '../format';
 import { StatusGlyph } from '../icons';
 import { StatusMenu } from '../status';
@@ -180,7 +180,7 @@ function CheckDesktop({ h, queue, a, canUndo, exiting }: { h: HintItem; queue: H
           {queue.map((q) => (
             <li key={q.gameId} className="ps-queue__q">
               <span className="ps-queue__thw">
-                <Cover url={q.game.coverUrl} title={q.game.title} className="ps-queue__th" />
+                <Cover url={q.game.coverUrl} title={q.game.title} className="ps-queue__th" sizes={THUMB_SIZES} />
                 <span className="ps-queue__dot" title={hintQuestion(q.rule)} role="img" aria-label={hintQuestion(q.rule)}><StatusGlyph status={primaryTarget(q)} size={9} /></span>
               </span>
               <span><span className="ps-queue__t">{q.game.title}</span><span className="ps-queue__m">{hintQuestion(q.rule)}</span></span>
