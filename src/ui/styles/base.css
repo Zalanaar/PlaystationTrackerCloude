@@ -157,6 +157,8 @@ a.ps-btn { text-decoration: none; }
   .ps-iconbtn.ps-mobile-only { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
 }
 @media (max-width: 767px) {
+  /* Иконки-кнопки на мобильном: тап-зона ≥ 44 px */
+  .ps-iconbtn { min-width: var(--tap-min); min-height: var(--tap-min); }
   .ps-btn--select { width: var(--control-h); padding: 0; }
   .ps-btn__t { display: none; }
 }

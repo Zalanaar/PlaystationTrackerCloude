@@ -208,7 +208,7 @@
     --fs-stat: 22px; --lh-stat: 26px;
     --gutter: 16px;
     --card-gap: 12px;
-    --control-h: 40px;
+    --control-h: 44px;     /* тап-зона ≥ 44 px (WCAG 2.5.5), раньше 40 */
     --nb-h: 22px;
     --ribbon-h: auto;
     --glyph-badge: 22px;

@@ -137,7 +137,7 @@
 
 .ps-bl-panel { gap: var(--sp-4); }
 .ps-bl-panel__h { margin: 0 0 var(--sp-2); color: var(--text-3); font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-micro); }
-.ps-bl-panel .ps-filterchip { height: 40px; border-color: var(--border); }
+.ps-bl-panel .ps-filterchip { height: var(--tap-min); border-color: var(--border); }
 .ps-bl-panel .ps-filterchip[aria-pressed="true"] { border-color: var(--border-strong); }
 .ps-bl-panel .ps-filterchip .ps-filterchip__t { display: inline; }
 .ps-bl-panel .ps-bl-group { gap: var(--sp-2); }

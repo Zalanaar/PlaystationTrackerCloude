@@ -181,6 +181,7 @@
   .ps-row--head, .ps-row__trophies, .ps-row__last, .ps-row__hours, .ps-row__sub { display: none; }
   .ps-row .ps-row__thumb { width: 44px; height: 44px; }
   .ps-row__status-t { display: none; }
+  .ps-row__status .ps-trigger { min-width: var(--tap-min); min-height: var(--tap-min); justify-content: center; }   /* был 16×16 */
   .ps-row__mobile-meta { display: block; color: var(--text-2); font-size: var(--fs-small); }
 }
 @media (max-width: 767px) {
