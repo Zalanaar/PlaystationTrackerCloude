@@ -14,7 +14,7 @@ export function BacklogRow({
 }: { game: GameItem; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean }) {
   const plat = game.trophies?.platinumEarned === true;
   return (
-    <li className="ps-blrow" data-testid="bl-row">
+    <li className="ps-blrow" data-testid="bl-row" data-game={game.id}>
       <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" />
       <div className="ps-blrow__text">
         <span className="ps-blrow__title" title={game.title}>

@@ -12,8 +12,18 @@ const addSchema = z.strictObject({
   coverUrl: z.string().max(2048).startsWith('https://').nullable(),
   releaseDate: z.string().refine(validDate).nullable(),
   confirmDuplicate: z.boolean().optional(),
+  /** Фаза 43.1: false = «Купил» (запись без пометки). По умолчанию true. */
+  notPurchased: z.boolean().optional(),
 });
 export type ManualAddInput = z.infer<typeof addSchema>;
+
+export const MANUAL_BATCH_MAX = 10;
+const batchSchema = z.strictObject({ items: z.array(addSchema).min(1).max(MANUAL_BATCH_MAX) });
+
+export function parseManualBatchBody(body: unknown): Parsed<ManualAddInput[]> {
+  const r = batchSchema.safeParse(body);
+  return r.success ? { ok: true, value: r.data.items } : { ok: false, message: `Нужно от 1 до ${MANUAL_BATCH_MAX} корректных игр.` };
+}
 
 export function parseManualAddBody(body: unknown): Parsed<ManualAddInput> {
   const r = addSchema.safeParse(body);
@@ -35,6 +45,18 @@ export function parseManualId(raw: string): number | null {
 export function parseManualSearchQuery(sp: URLSearchParams): Parsed<string> {
   const q = (sp.get('q') ?? '').trim();
   return q.length >= 2 && q.length <= 80 ? { ok: true, value: q } : { ok: false, message: 'Запрос: от 2 до 80 символов.' };
+}
+
+export const SUGGEST_MIN_CHARS = 3;
+
+/** Фаза 43.1: режим поиска. Без mode = поиск по Enter (q 2..80); mode=suggest = подсказки (q 3..80). */
+export function parseManualSearchParams(sp: URLSearchParams): Parsed<{ q: string; suggest: boolean }> {
+  const mode = sp.get('mode');
+  if (mode !== null && mode !== 'suggest') return { ok: false, message: 'Некорректный режим поиска.' };
+  const q = parseManualSearchQuery(sp);
+  if (!q.ok) return q;
+  if (mode === 'suggest' && q.value.length < SUGGEST_MIN_CHARS) return { ok: false, message: 'Подсказки: от 3 до 80 символов.' };
+  return { ok: true, value: { q: q.value, suggest: mode === 'suggest' } };
 }
 
 /** nb: только «1» включает фильтр; отсутствие = без фильтра; прочее = ошибка. */

@@ -60,10 +60,12 @@ export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; 
 
 /** Мобильная панель: кнопка «Фильтры» (sheet с сортировкой и фильтрами) и переключатель вида. */
 export function BacklogMobileBar({
-  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, view, onView, onChange, onReset,
+  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, view, onView, onChange, onReset, onSearch,
 }: {
   filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number; nbCount?: number;
   view: BacklogView; onView: (v: BacklogView) => void; onChange: (p: Partial<Filters>) => void; onReset: () => void;
+  /** иконка поиска между «Фильтры» и видом (Фаза 43.1): открывает лист «Поиск» */
+  onSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const n = activeBacklogCount(filters);
@@ -77,6 +79,14 @@ export function BacklogMobileBar({
         <span>Фильтры</span>
         {n > 0 && <span className="ps-filterchip__n num ps-bl-bar__n">{formatNumber(n)}</span>}
       </button>
+      {onSearch && (
+        <button
+          type="button" className="ps-btn ps-btn--icon ps-bl-bar__search" aria-haspopup="dialog" data-testid="bs-open" data-active={filters.q ? 'true' : undefined}
+          aria-label={filters.q ? 'Поиск по бэклогу, задан запрос' : 'Поиск по бэклогу'} onClick={onSearch}
+        >
+          <Icon name="search" size={18} />
+        </button>
+      )}
       <BacklogViewSeg view={view} onView={onView} />
       <Sheet open={open} onClose={() => setOpen(false)} title="Фильтры и сортировка">
         <BacklogFilterPanel

@@ -30,3 +30,50 @@ export async function searchPlayStation(q: string, deps: ManualSearchDeps): Prom
   cache.set(key, { at: now.getTime(), value: found });
   return { candidates: found, cached: false };
 }
+
+// --- Фаза 43.1 (контракт 43.1.3): подсказки при вводе
+
+export const SUGGEST_PAGE_SIZE = 8;
+export const SUGGEST_MIN_PREFIX = 3;
+
+type SuggestEntry = { at: number; value: CatalogCandidate[]; complete: boolean };
+export type SuggestCache = Map<string, SuggestEntry>;
+const suggestProcessCache: SuggestCache = new Map();
+
+export type SuggestDeps = ManualSearchDeps & { suggestCache?: SuggestCache };
+
+const norm = (s: string): string => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/** Локальный фильтр короткой выдачи под более длинный запрос: каждый токен запроса есть в названии. */
+export function filterByQuery(cands: readonly CatalogCandidate[], q: string): CatalogCandidate[] {
+  const tokens = norm(q).split(' ').filter(Boolean);
+  return cands.filter((c) => {
+    const t = norm(c.title);
+    return tokens.every((x) => t.includes(x));
+  });
+}
+
+/**
+ * Подсказки: точный или префиксный кэш (без RAWG и без лимита), иначе один запрос на 8 результатов.
+ * Префиксная выдача годится, только если она была полной (RAWG вернул меньше 8: обрезки нет).
+ */
+export async function suggestPlayStation(q: string, deps: SuggestDeps): Promise<{ candidates: CatalogCandidate[]; cached: boolean }> {
+  const now = (deps.now ?? new Date()).getTime();
+  const cache = deps.suggestCache ?? suggestProcessCache;
+  const key = searchCacheKey(q);
+  const fresh = (e: SuggestEntry) => now >= e.at && now - e.at < MANUAL_SEARCH_TTL_MS;
+  const exact = cache.get(key);
+  if (exact && fresh(exact)) return { candidates: exact.value, cached: true };
+  let best: { k: string; e: SuggestEntry } | null = null;
+  for (const [k, e] of cache) {
+    if (k.length >= SUGGEST_MIN_PREFIX && k.length < key.length && key.startsWith(k) && e.complete && fresh(e) && (!best || k.length > best.k.length)) best = { k, e };
+  }
+  if (best) return { candidates: filterByQuery(best.e.value, q).slice(0, SUGGEST_PAGE_SIZE), cached: true };
+  const all = await searchCatalog(q, { apiKey: deps.apiKey, fetch: deps.fetch, timeoutMs: deps.timeoutMs, reserve: deps.reserve, playstationOnly: true, pageSize: SUGGEST_PAGE_SIZE });
+  const found = all.filter((c) => c.playstation).slice(0, SUGGEST_PAGE_SIZE);
+  for (const [k, e] of cache) if (now - e.at >= MANUAL_SEARCH_TTL_MS) cache.delete(k);
+  if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value as string);
+  // «Полная» = RAWG вернул меньше page_size (до нашего фильтра): обрезки не было
+  cache.set(key, { at: now, value: found, complete: all.length < SUGGEST_PAGE_SIZE });
+  return { candidates: found, cached: false };
+}

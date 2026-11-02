@@ -4,7 +4,7 @@ import type { DuplicateInfo, ManualGame } from '@/server/manual/store';
 import type { DurationBucket, HltbStatus } from '@/server/collection/types';
 import { GENRE_NONE } from '@/shared/genres';
 
-export type { ManualGame, ManualMatch, GameRef, DuplicateInfo } from '@/server/manual/store';
+export type { ManualGame, ManualMatch, GameRef, DuplicateInfo, BatchResult } from '@/server/manual/store';
 
 /** Кандидат поиска с пометками сервера (43.3). */
 export type SearchCandidate = CatalogCandidate & { duplicate: 'library' | 'planned' | null; inBacklog: boolean };
@@ -17,6 +17,8 @@ export const MAX_RESULTS = 20;
 
 const MONTHS_SHORT = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
 
+/** Регистр и «ё/е» не различаются. */
+export const fold = (s: string): string => s.toLowerCase().replace(/ё/g, 'е');
 export const normalizeQuery = (q: string): string => q.trim().replace(/\s+/g, ' ');
 export const canSearch = (q: string): boolean => normalizeQuery(q).length >= MIN_QUERY;
 
@@ -90,10 +92,11 @@ export function manualPassesFilters(f: FilterLike): boolean {
     && (f.hltb.length === 0 || f.hltb.includes('unchecked'));
 }
 
-/** Записи Бэклога под текущие фильтры: «Не куплено» оставляет только notPurchased. */
-export function visibleManual(items: readonly ManualGame[], f: FilterLike & { nb: boolean }): ManualGame[] {
+/** Записи Бэклога под текущие фильтры: «Не куплено» оставляет только notPurchased, q = подстрока по названию (43.1.4). */
+export function visibleManual(items: readonly ManualGame[], f: FilterLike & { nb: boolean; q?: string }): ManualGame[] {
   if (!manualPassesFilters(f)) return [];
-  return f.nb ? items.filter((g) => g.notPurchased) : [...items];
+  const byQ = f.q ? items.filter((g) => fold(g.title).includes(fold(f.q!))) : [...items];
+  return f.nb ? byQ.filter((g) => g.notPurchased) : byQ;
 }
 
 export const countNotPurchased = (items: readonly ManualGame[] | null): number => (items ? items.filter((g) => g.notPurchased).length : 0);

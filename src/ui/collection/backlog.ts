@@ -1,6 +1,7 @@
 // Чистая логика бэклога (Фаза 11): фильтры жанр/длительность <-> URL <-> query API (контракт 16.4), показ длительности, ручной ввод.
 import type { DurationBucket, DurationCounts, GenreCounts, GameDuration, GameStatusValue, HltbStatus, ListSort, SortOrder } from '@/server/collection/types';
 import { GENRE_LABELS_RU, GENRE_NONE } from '@/shared/genres';
+import { suggestQuery } from './suggest';
 
 export const BACKLOG_PAGE = 300;
 
@@ -31,10 +32,13 @@ export function genreCount(c: GenreCounts | null, key: string): number | null {
 }
 
 export type BacklogSort = Extract<ListSort, 'last_played' | 'title' | 'duration'>;
-/** nb = чип «Не куплено» (Фаза 43, `?nb=1`): в списке только записи manual-games с пометкой, игры библиотеки скрыты. */
-export type BacklogFilters = { genres: string[]; duration: DurationBucket[]; hltb: HltbStatus[]; sort: BacklogSort; order: SortOrder | null; nb: boolean };
+/**
+ * nb = чип «Не куплено» (Фаза 43, `?nb=1`): показывается только секция «Не куплено», игры библиотеки скрыты.
+ * q = поиск по списку (Фаза 43.1, `?q=`): подстрока по названию, библиотека через GET /api/games?q=, записи «не куплено» локально.
+ */
+export type BacklogFilters = { genres: string[]; duration: DurationBucket[]; hltb: HltbStatus[]; sort: BacklogSort; order: SortOrder | null; nb: boolean; q: string };
 
-export const DEFAULT_BACKLOG: BacklogFilters = { genres: [], duration: [], hltb: [], sort: 'last_played', order: null, nb: false };
+export const DEFAULT_BACKLOG: BacklogFilters = { genres: [], duration: [], hltb: [], sort: 'last_played', order: null, nb: false, q: '' };
 export const BACKLOG_DEFAULT_ORDER: Record<BacklogSort, SortOrder> = { last_played: 'desc', title: 'asc', duration: 'asc' };
 
 /** Варианты селекта: направление длительности выбирается отдельным пунктом. */
@@ -64,7 +68,7 @@ export function parseBacklogFilters(params: ParamsLike): BacklogFilters {
   const sort: BacklogSort = s === 'title' || s === 'duration' ? s : 'last_played';
   const o = params.get('order');
   const order = (o === 'asc' || o === 'desc') && o !== BACKLOG_DEFAULT_ORDER[sort] ? o : null;
-  return { genres, duration, hltb, sort, order, nb: params.get('nb') === '1' };
+  return { genres, duration, hltb, sort, order, nb: params.get('nb') === '1', q: suggestQuery(params.get('q') ?? '') };
 }
 
 /** Адресная строка: только отличия от умолчаний. */
@@ -76,6 +80,7 @@ export function backlogToUrl(f: BacklogFilters): URLSearchParams {
   if (f.sort !== DEFAULT_BACKLOG.sort) p.set('sort', f.sort);
   if (f.order && f.order !== BACKLOG_DEFAULT_ORDER[f.sort]) p.set('order', f.order);
   if (f.nb) p.set('nb', '1');
+  if (f.q) p.set('q', f.q);
   return p;
 }
 
@@ -86,6 +91,7 @@ export function backlogToApi(f: BacklogFilters, page: { limit: number; offset: n
   if (f.genres.length) p.set('genres', f.genres.join(','));
   if (f.duration.length) p.set('duration', f.duration.join(','));
   if (f.hltb.length) p.set('hltb', f.hltb.join(','));
+  if (f.q) p.set('q', f.q);
   p.set('limit', String(page.limit));
   p.set('offset', String(page.offset));
   return p;
@@ -96,11 +102,11 @@ export function toggleValue<T>(list: readonly T[], v: T): T[] {
 }
 
 export function hasBacklogFilters(f: BacklogFilters): boolean {
-  return f.genres.length > 0 || f.duration.length > 0 || f.hltb.length > 0 || f.nb;
+  return f.genres.length > 0 || f.duration.length > 0 || f.hltb.length > 0 || f.nb || f.q !== '';
 }
 
 export function resetBacklogFilters(f: BacklogFilters): BacklogFilters {
-  return { ...f, genres: [], duration: [], hltb: [], nb: false };
+  return { ...f, genres: [], duration: [], hltb: [], nb: false, q: '' };
 }
 
 /** Часы для людей: «12», «7,5». */
@@ -203,7 +209,7 @@ export function resolveBacklogView(stored: string | null, mobile: boolean): Back
 /** Число активных настроек для бейджа кнопки «Фильтры»: фильтры + 1, если сортировка не по умолчанию. */
 export function activeBacklogCount(f: BacklogFilters): number {
   const sortChanged = f.sort !== DEFAULT_BACKLOG.sort || (f.order !== null && f.order !== BACKLOG_DEFAULT_ORDER[f.sort]);
-  return f.genres.length + f.duration.length + f.hltb.length + (f.nb ? 1 : 0) + (sortChanged ? 1 : 0);
+  return f.genres.length + f.duration.length + f.hltb.length + (f.nb ? 1 : 0) + (f.q ? 1 : 0) + (sortChanged ? 1 : 0);
 }
 
 /** Строка длительности в списке: null, если показывать нечего (нет часов и нет пометки «нет на HLTB»). */

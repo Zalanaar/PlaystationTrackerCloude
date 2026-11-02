@@ -213,6 +213,9 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     await btn.focus();
     await expect(btn).toBeFocused();
     await page.keyboard.press('Enter');
+    // с Фазы 43 первый пункт меню: «Добавить из магазина PS»
+    await expect(page.getByRole('menuitem', { name: /^Добавить из магазина PS/ })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('menuitem', { name: /^Подтянуть длительность с HLTB/ })).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('menuitem', { name: /^Перепроверить не найденные/ })).toBeFocused();

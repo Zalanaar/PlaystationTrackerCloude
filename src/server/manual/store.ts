@@ -170,14 +170,14 @@ export async function addManual(db: AnyDb, userId: UserId, v: ManualAddInput, no
   const rejectGid = v.confirmDuplicate && dup?.duplicate === 'library' && dup.game ? dup.game.gameId : null;
   if (existing) {
     // запись была склеена с библиотекой, пользователь явно подтвердил повторное добавление
-    await db.update(m).set({ linkedGameId: null, suggestedGameId: null, notPurchased: true, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, ...(rejectGid !== null && !existing.rejectedGameIds.includes(rejectGid) ? { rejectedGameIds: [...existing.rejectedGameIds, rejectGid] } : {}), updatedAt: now }).where(and(eq(m.userId, userId), eq(m.id, existing.id)));
+    await db.update(m).set({ linkedGameId: null, suggestedGameId: null, notPurchased: v.notPurchased ?? true, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, ...(rejectGid !== null && !existing.rejectedGameIds.includes(rejectGid) ? { rejectedGameIds: [...existing.rejectedGameIds, rejectGid] } : {}), updatedAt: now }).where(and(eq(m.userId, userId), eq(m.id, existing.id)));
     return { item: await readOne(db, userId, existing.id), created: true };
   }
   const [cnt] = await db.select({ n: sql<number>`count(*)::int` }).from(m).where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId)));
   if ((cnt?.n ?? 0) >= MANUAL_LIMIT) throw new ManualLimitError();
   const ins = await db
     .insert(m)
-    .values({ userId, rawgId: v.externalId, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, kind: 'ps_backlog', notPurchased: true, ...(rejectGid !== null ? { rejectedGameIds: [rejectGid] } : {}), createdAt: now, updatedAt: now })
+    .values({ userId, rawgId: v.externalId, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, kind: 'ps_backlog', notPurchased: v.notPurchased ?? true, ...(rejectGid !== null ? { rejectedGameIds: [rejectGid] } : {}), createdAt: now, updatedAt: now })
     .onConflictDoNothing()
     .returning({ id: m.id });
   if (ins.length === 0) {
@@ -186,6 +186,28 @@ export async function addManual(db: AnyDb, userId: UserId, v: ManualAddInput, no
     return { item: await readOne(db, userId, again.id), created: false };
   }
   return { item: await readOne(db, userId, ins[0].id), created: true };
+}
+
+export type BatchResult =
+  | { index: number; externalId: string; status: 'created' | 'exists'; item: ManualGame }
+  | { index: number; externalId: string; status: 'duplicate'; code: 'duplicate_game'; details: DuplicateInfo }
+  | { index: number; externalId: string; status: 'error'; code: 'manual_limit' | 'db_unavailable' };
+
+/** Фаза 43.1: пакетное добавление. Элементы независимы, ошибка одного не откатывает остальные. Идемпотентно. */
+export async function addManualBatch(db: AnyDb, userId: UserId, items: readonly ManualAddInput[], now: Date = new Date()): Promise<BatchResult[]> {
+  const out: BatchResult[] = [];
+  for (const [index, v] of items.entries()) {
+    const externalId = v.externalId;
+    try {
+      const r = await addManual(db, userId, v, now);
+      out.push(r.created ? { index, externalId, status: 'created', item: r.item } : { index, externalId, status: 'exists', item: r.item });
+    } catch (e) {
+      if (e instanceof ManualDuplicateError) out.push({ index, externalId, status: 'duplicate', code: 'duplicate_game', details: e.info });
+      else if (e instanceof ManualLimitError) out.push({ index, externalId, status: 'error', code: 'manual_limit' });
+      else out.push({ index, externalId, status: 'error', code: 'db_unavailable' });
+    }
+  }
+  return out;
 }
 
 /** «Купил» (false) и «Отменить» (true). Идемпотентно. Только несклеенные записи этого пользователя. */

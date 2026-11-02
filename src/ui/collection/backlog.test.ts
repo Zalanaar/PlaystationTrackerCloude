@@ -14,12 +14,12 @@ describe('фильтры бэклога <-> URL', () => {
   });
   it('круг: жанры (регистр), длительность, сортировка', () => {
     const f = parseBacklogFilters(p('genres=action,role_playing_games&duration=10_30,unknown&sort=duration&order=desc'));
-    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc', nb: false });
+    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '' });
     expect(backlogToUrl(f).toString()).toBe('genres=ACTION%2CROLE_PLAYING_GAMES&duration=10_30%2Cunknown&sort=duration&order=desc');
   });
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
-    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false });
+    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false, q: '' });
   });
   it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
     const f = parseBacklogFilters(p('genres=NONE,horror,None'));
@@ -37,7 +37,7 @@ describe('фильтры бэклога <-> URL', () => {
     expect(backlogToUrl({ ...DEFAULT_BACKLOG, sort: 'duration', order: 'asc' }).toString()).toBe('sort=duration');
   });
   it('query API: статус backlog, жанры ИЛИ, бакеты, сортировка', () => {
-    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false }, { limit: 300, offset: 0 });
+    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false, q: '' }, { limit: 300, offset: 0 });
     expect(q.get('status')).toBe('backlog');
     expect(q.get('genres')).toBe('ACTION,HORROR');
     expect(q.get('duration')).toBe('lt10,unknown');
@@ -52,7 +52,7 @@ describe('фильтры бэклога <-> URL', () => {
   it('toggleValue и сброс', () => {
     expect(toggleValue(['A'], 'B')).toEqual(['A', 'B']);
     expect(toggleValue(['A', 'B'], 'A')).toEqual(['B']);
-    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false });
+    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true, q: '' })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '' });
   });
   it('чип «Не куплено»: ?nb=1 <-> фильтр, в API не уходит', () => {
     const f = parseBacklogFilters(p('nb=1'));
@@ -187,5 +187,26 @@ describe('Фаза 33: вид и бейдж фильтров', () => {
     expect(rowDuration({ hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { ...hltb, status: 'not_found', mainHours: null } })).toEqual({ text: null, source: null, notOnHltb: true });
     expect(rowDuration({ hours: null, source: null, bucket: 'unknown', overrideHours: null, hltb: { ...hltb, status: 'unchecked', mainHours: null } })).toBeNull();
     expect(rowDuration(undefined)).toBeNull();
+  });
+});
+
+describe('поиск по списку ?q= (Фаза 43.1)', () => {
+  it('q читается из URL, нормализуется и обрезается до 80 символов', () => {
+    expect(parseBacklogFilters(new URLSearchParams('q=%20%20Hades%20%20II%20')).q).toBe('Hades II');
+    expect(parseBacklogFilters(new URLSearchParams(`q=${'a'.repeat(120)}`)).q).toHaveLength(80);
+    expect(parseBacklogFilters(new URLSearchParams('')).q).toBe('');
+  });
+  it('q уходит в адрес и в запрос GET /api/games', () => {
+    const f = { ...DEFAULT_BACKLOG, q: 'Hades II' };
+    expect(backlogToUrl(f).get('q')).toBe('Hades II');
+    expect(backlogToApi(f, { limit: 300, offset: 0 }).get('q')).toBe('Hades II');
+    expect(backlogToUrl(DEFAULT_BACKLOG).has('q')).toBe(false);
+    expect(backlogToApi(DEFAULT_BACKLOG, { limit: 300, offset: 0 }).has('q')).toBe(false);
+  });
+  it('q входит в счётчик активных настроек, hasBacklogFilters и сбрасывается', () => {
+    const f = { ...DEFAULT_BACKLOG, q: 'x' };
+    expect(activeBacklogCount(f)).toBe(1);
+    expect(hasBacklogFilters(f)).toBe(true);
+    expect(resetBacklogFilters(f).q).toBe('');
   });
 });
