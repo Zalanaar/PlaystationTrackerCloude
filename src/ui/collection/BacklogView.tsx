@@ -24,6 +24,7 @@ import { HltbStatus, useHltbRunner } from './HltbRunner';
 import { useIsMobile } from '../primitives/hooks';
 import { useBacklogView } from './useBacklogView';
 import { useOpenGameFromPage } from './useGameLink';
+import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
@@ -81,6 +82,7 @@ export function BacklogView() {
   // липкая плашка: сентинел + IntersectionObserver даёт data-stuck, scroll-spy даёт aria-current
   const sentinelRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  useFocusRescue(rootRef);
   const [stuck, setStuck] = useState(false);
   const [activeTab, setActiveTab] = useState('h-bl-main');
   const spyLock = useRef(false);

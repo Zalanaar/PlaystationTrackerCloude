@@ -7,6 +7,7 @@ import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
 import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
 import { ProfileCard, ProfileRow, ProfileRowSkeleton, ProfileSkeleton } from '../profile/ProfileCard';
+import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { AnchorsSkeleton, CollectionResultsSkeleton, HeroSkeleton } from '../skeletons';
 import { useSync } from '../sync/SyncProvider';
@@ -59,6 +60,7 @@ export function CollectionView() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   useTourCardAnchors(rootRef, selectMode);
+  useFocusRescue(rootRef);
   const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()));
   const { summary, summaryFailed, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
   // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
