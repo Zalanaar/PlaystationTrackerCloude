@@ -8,6 +8,8 @@ const launchOptions = executablePath ? { executablePath } : {};
 
 export default defineConfig({
   testDir: './e2e',
+  // Фаза 39: PWA-спеки требуют прод-сборки с Service Worker и идут только через e2e/pwa.config.ts (npm run e2e:pwa).
+  testIgnore: /phase39-.*\.spec\.ts/,
   fullyParallel: true,
   reporter: 'list',
   use: {

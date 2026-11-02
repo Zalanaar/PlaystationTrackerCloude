@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:pwa": "playwright test -c e2e/pwa.config.ts",
     "psn:probe": "tsx --env-file-if-exists=.env scripts/psn-probe.ts",
     "psn:typecheck": "tsc --noEmit -p tsconfig.probe.json",
     "db:generate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs generate",
