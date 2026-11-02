@@ -17,6 +17,49 @@ const addSchema = z.strictObject({
 });
 export type ManualAddInput = z.infer<typeof addSchema>;
 
+// Фаза 44: «Играл на другой платформе» (POST /api/manual-games с kind = 'other_platform'). Подпись платформы только текст; notPurchased не передаётся.
+const otherSchema = z.strictObject({
+  kind: z.literal('other_platform'),
+  externalSource: z.literal('rawg'),
+  externalId: addSchema.shape.externalId,
+  title: addSchema.shape.title,
+  coverUrl: addSchema.shape.coverUrl,
+  releaseDate: addSchema.shape.releaseDate,
+  confirmDuplicate: z.boolean().optional(),
+  platformLabel: z.string().trim().min(1).max(60).regex(/^[^\u0000-\u001f\u007f<>]+$/).nullable().optional().transform((x) => x ?? null),
+});
+export type OtherPlatformAddInput = z.infer<typeof otherSchema>;
+
+export function parseOtherPlatformAddBody(body: unknown): Parsed<OtherPlatformAddInput> {
+  const r = otherSchema.safeParse(body);
+  return r.success ? { ok: true, value: r.data } : { ok: false, message: 'Некорректные поля игры.' };
+}
+
+/** POST /api/manual-games: kind отсутствует или 'ps_backlog' = Бэклог (43), 'other_platform' = Фаза 44. */
+export function parseAnyManualAddBody(body: unknown): Parsed<{ kind: 'ps_backlog'; v: ManualAddInput } | { kind: 'other_platform'; v: OtherPlatformAddInput }> {
+  const kind = typeof body === 'object' && body !== null ? (body as { kind?: unknown }).kind : undefined;
+  if (kind === 'other_platform') {
+    const r = parseOtherPlatformAddBody(body);
+    return r.ok ? { ok: true, value: { kind: 'other_platform', v: r.value } } : r;
+  }
+  if (kind === 'ps_backlog') {
+    const { kind: _k, ...rest } = body as Record<string, unknown>;
+    void _k;
+    const r = parseManualAddBody(rest);
+    return r.ok ? { ok: true, value: { kind: 'ps_backlog', v: r.value } } : r;
+  }
+  const r = parseManualAddBody(body);
+  return r.ok ? { ok: true, value: { kind: 'ps_backlog', v: r.value } } : r;
+}
+
+export type ManualKind = 'ps_backlog' | 'other_platform';
+/** GET /api/manual-games?kind=: по умолчанию ps_backlog. */
+export function parseKindParam(sp: URLSearchParams): Parsed<ManualKind> {
+  const v = sp.get('kind');
+  if (v === null || v === 'ps_backlog') return { ok: true, value: 'ps_backlog' };
+  return v === 'other_platform' ? { ok: true, value: 'other_platform' } : { ok: false, message: 'Некорректный параметр kind.' };
+}
+
 export const MANUAL_BATCH_MAX = 10;
 const batchSchema = z.strictObject({ items: z.array(addSchema).min(1).max(MANUAL_BATCH_MAX) });
 
@@ -50,13 +93,17 @@ export function parseManualSearchQuery(sp: URLSearchParams): Parsed<string> {
 export const SUGGEST_MIN_CHARS = 3;
 
 /** Фаза 43.1: режим поиска. Без mode = поиск по Enter (q 2..80); mode=suggest = подсказки (q 3..80). */
-export function parseManualSearchParams(sp: URLSearchParams): Parsed<{ q: string; suggest: boolean }> {
+export function parseManualSearchParams(sp: URLSearchParams): Parsed<{ q: string; suggest: boolean; scopeAll: boolean }> {
   const mode = sp.get('mode');
+  const scope = sp.get('scope');
+  if (scope !== null && scope !== 'all' && scope !== 'ps') return { ok: false, message: 'Некорректная область поиска.' };
+  // Фаза 44: по всем платформам только поиск по Enter, без подсказок (экономия лимита RAWG)
+  if (scope === 'all' && mode !== null) return { ok: false, message: 'Подсказки доступны только для PlayStation.' };
   if (mode !== null && mode !== 'suggest') return { ok: false, message: 'Некорректный режим поиска.' };
   const q = parseManualSearchQuery(sp);
   if (!q.ok) return q;
   if (mode === 'suggest' && q.value.length < SUGGEST_MIN_CHARS) return { ok: false, message: 'Подсказки: от 3 до 80 символов.' };
-  return { ok: true, value: { q: q.value, suggest: mode === 'suggest' } };
+  return { ok: true, value: { q: q.value, suggest: mode === 'suggest', scopeAll: scope === 'all' } };
 }
 
 /** nb: только «1» включает фильтр; отсутствие = без фильтра; прочее = ошибка. */

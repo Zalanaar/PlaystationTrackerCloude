@@ -28,8 +28,8 @@ describe('валидация 43.1', () => {
   it('режим поиска: suggest от 3 символов, Enter от 2, чужой mode = ошибка', () => {
     const sp = (s: string) => new URLSearchParams(s);
     expect(parseManualSearchParams(sp('q=ha&mode=suggest')).ok).toBe(false);
-    expect(parseManualSearchParams(sp('q=had&mode=suggest'))).toEqual({ ok: true, value: { q: 'had', suggest: true } });
-    expect(parseManualSearchParams(sp('q=ha'))).toEqual({ ok: true, value: { q: 'ha', suggest: false } });
+    expect(parseManualSearchParams(sp('q=had&mode=suggest'))).toEqual({ ok: true, value: { q: 'had', suggest: true, scopeAll: false } });
+    expect(parseManualSearchParams(sp('q=ha'))).toEqual({ ok: true, value: { q: 'ha', suggest: false, scopeAll: false } });
     expect(parseManualSearchParams(sp('q=had&mode=x')).ok).toBe(false);
   });
 });

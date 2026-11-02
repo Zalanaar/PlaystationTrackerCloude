@@ -31,6 +31,21 @@ export async function searchPlayStation(q: string, deps: ManualSearchDeps): Prom
   return { candidates: found, cached: false };
 }
 
+/** Фаза 44 (контракт 44.3): поиск по всем платформам RAWG, отдельный кэш (ключ не пересекается с PS-поиском). */
+const anyProcessCache: SearchCache = new Map();
+export async function searchAnyPlatform(q: string, deps: ManualSearchDeps): Promise<{ candidates: CatalogCandidate[]; cached: boolean }> {
+  const now = deps.now ?? new Date();
+  const cache = deps.cache ?? anyProcessCache;
+  const key = searchCacheKey(q);
+  const hit = cache.get(key);
+  if (hit && now.getTime() >= hit.at && now.getTime() - hit.at < MANUAL_SEARCH_TTL_MS) return { candidates: hit.value, cached: true };
+  const found = await searchCatalog(q, { apiKey: deps.apiKey, fetch: deps.fetch, timeoutMs: deps.timeoutMs, reserve: deps.reserve });
+  for (const [k, v] of cache) if (now.getTime() - v.at >= MANUAL_SEARCH_TTL_MS) cache.delete(k);
+  if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value as string);
+  cache.set(key, { at: now.getTime(), value: found });
+  return { candidates: found, cached: false };
+}
+
 // --- Фаза 43.1 (контракт 43.1.3): подсказки при вводе
 
 export const SUGGEST_PAGE_SIZE = 8;

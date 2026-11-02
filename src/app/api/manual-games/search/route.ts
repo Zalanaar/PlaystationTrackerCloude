@@ -3,7 +3,7 @@ import { requireUser } from '@/server/auth/require-user';
 import { CatalogError } from '@/server/catalog/rawg';
 import { getRawgKey } from '@/server/env';
 import { fail, ok } from '@/server/http';
-import { rawgResetAt, searchPlayStation, suggestPlayStation } from '@/server/manual/search';
+import { rawgResetAt, searchAnyPlatform, searchPlayStation, suggestPlayStation } from '@/server/manual/search';
 import { flagCandidates } from '@/server/manual/store';
 import { parseManualSearchParams } from '@/server/manual/validation';
 import { rawgReserve, rawgSuggestReserve } from '@/server/usage/rawg-reserve';
@@ -20,7 +20,9 @@ export async function GET(req: Request) {
   const state = { quota: false };
   let found;
   try {
-    found = q.value.suggest
+    found = q.value.scopeAll
+      ? await searchAnyPlatform(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) })
+      : q.value.suggest
       ? await suggestPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgSuggestReserve(a.user.id, state) })
       : await searchPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) });
   } catch (e) {
@@ -35,6 +37,6 @@ export async function GET(req: Request) {
     return ok({ candidates: await flagCandidates(getDb(), a.user.id, found.candidates), cached: found.cached });
   } catch {
     // БД недоступна: поиск важнее пометок, но без них «В бэклог» не предупредит о дубле на этом шаге (POST проверит ещё раз)
-    return ok({ candidates: found.candidates.map((c) => ({ ...c, duplicate: null, inBacklog: false })), cached: found.cached });
+    return ok({ candidates: found.candidates.map((c) => ({ ...c, duplicate: null, inBacklog: false, inList: false })), cached: found.cached });
   }
 }
