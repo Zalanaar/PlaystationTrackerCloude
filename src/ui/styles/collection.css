@@ -164,6 +164,11 @@
   .ps-tabs::-webkit-scrollbar { display: none; }
   .ps-tabs__grp { flex-wrap: nowrap; }
   .ps-filterchip { scroll-snap-align: start; padding: 0 var(--sp-2); }
+  /* «Перейти:» одной прокручиваемой строкой вместо 2–3 строк; ссылки по --tap-min */
+  .ps-anchors { flex-wrap: nowrap; overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: var(--sp-1) var(--gutter) 0; scrollbar-width: none; white-space: nowrap; }
+  .ps-anchors::-webkit-scrollbar { display: none; }
+  .ps-anchors > * { flex: none; }
+  .ps-anchors a { display: inline-flex; align-items: center; min-height: var(--tap-min); padding: 0 var(--sp-3); }
   .ps-filterchip:not([data-wide]) .ps-filterchip__t { display: none; }
   /* Чипы статусов коллекции: с подписью («Играю 3»), ряд и так прокручивается по горизонтали */
   .ps-filters--chips .ps-filterchip:not([data-wide]) .ps-filterchip__t { display: inline; }
@@ -460,6 +465,9 @@
 .ps-near__dlc { overflow-wrap: anywhere; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
 .ps-near__s2 { font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
 .ps-near__sk { height: 112px; }
+.ps-nearblock__tgl { min-height: var(--tap-min); padding: 0 var(--sp-2); margin-right: calc(-1 * var(--sp-2)); }
+.ps-nearblock__hint + .ps-nearblock__tgl { margin-left: 0; }
+.ps-nearblock:not(:has(.ps-near__list)) .ps-block__head { margin-bottom: 0; }
 @media (max-width: 767px) {
   .ps-near__list { display: flex; gap: var(--sp-2); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); scroll-padding-left: var(--gutter); }
   .ps-near__list::-webkit-scrollbar { display: none; }

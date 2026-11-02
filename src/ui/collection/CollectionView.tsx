@@ -224,7 +224,7 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
           </EmptyState>
         ) : chronicleMode ? (
           <div className="ps-blocks">
-            {nearShown && (summary ? <NearPlatinum items={near} onOpen={openGameCard} /> : !summaryFailed && <NearPlatinumSkeleton />)}
+            {nearShown && (summary ? <NearPlatinum items={near} onOpen={openGameCard} collapsible={isMobile} /> : !summaryFailed && <NearPlatinumSkeleton collapsible={isMobile} />)}
             {blocks.map((b) => (
               <Fragment key={b}>
                 {failedBlocks.includes(b) && (

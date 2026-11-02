@@ -269,6 +269,11 @@ const forecast = (o: Record<string, unknown> = {}) => ({
 });
 
 test.describe('«Ближе всего к платине» (Коллекция)', () => {
+  // на мобильном блок по умолчанию свёрнут (отдельный тест ниже): в остальных тестах развёрнут
+  test.beforeEach(async ({ context }, info) => {
+    if (!info.title.includes('свёрнут')) await context.addInitScript(() => localStorage.setItem('ps-near-open', '1'));
+  });
+
   test('блок после «Играю»: прогресс, остаток по грейдам, редкость, клик открывает окно', async ({ page, context, baseURL }) => {
     const mock = await setup(page, context, baseURL!);
     mock.nearPlatinum = [{ id: 3, forecast: forecast() }, { id: 4, forecast: forecast({ progress: 70, avgEarnedRate: null, remaining: { gold: 0, silver: 2, bronze: 3, total: 5 }, approximate: false }) }];
@@ -319,6 +324,24 @@ test.describe('«Ближе всего к платине» (Коллекция)'
     await page.reload();
     await expect(page.locator('.ps-chron').first()).toBeVisible();
     await expect(page.locator('#near-platinum')).toHaveCount(0);
+  });
+
+  test('мобильный: по умолчанию свёрнут до шапки, «Показать» разворачивает и запоминается', async ({ page, context, baseURL }, info) => {
+    test.skip(info.project.name !== 'mobile', 'мобильный сценарий');
+    const mock = await setup(page, context, baseURL!);
+    mock.nearPlatinum = [3, 4].map((id) => ({ id, forecast: forecast() }));
+    await page.goto('/');
+    const block = page.locator('#near-platinum');
+    await expect(block.getByRole('heading', { name: 'Ближе всего к платине' })).toBeVisible();
+    await expect(block.locator('.ps-near')).toHaveCount(0);
+    const tgl = block.getByRole('button', { name: 'Показать' });
+    await expect(tgl).toHaveAttribute('aria-expanded', 'false');
+    expect((await tgl.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    await tgl.click();
+    await expect(block.locator('.ps-near')).toHaveCount(2);
+    await expect(block.getByRole('button', { name: 'Свернуть' })).toHaveAttribute('aria-expanded', 'true');
+    await page.reload();
+    await expect(block.locator('.ps-near')).toHaveCount(2);
   });
 
   test('мобильный: горизонтальный трек со snap, элемент 264, страница не ширится', async ({ page, context, baseURL }, info) => {

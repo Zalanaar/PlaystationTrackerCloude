@@ -19,6 +19,8 @@ const withGroups = () => trophyList().map((t, i) => ({ ...t, groupId: i === 2 ? 
 
 async function setup(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, forecast: Record<string, unknown>) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  // на мобильном «Ближе к платине» по умолчанию свёрнут: здесь проверяем содержимое карточек
+  await context.addInitScript(() => localStorage.setItem('ps-near-open', '1'));
   const m = await mockApi(page, seed());
   m.forecasts[3] = forecast;
   m.nearPlatinum = [{ id: 3, forecast }, { id: 4, forecast: { ...forecast, dlc: null } }];

@@ -82,3 +82,5 @@
   .ps-sk-switch { max-width: 100%; }
 }
 .ps-sk-anchors > span { display: inline-block; width: 64px; height: 24px; border-radius: var(--r-chip); }
+/* Мобильный: одна строка ссылок по --tap-min, как у настоящей «Перейти:» */
+@media (max-width: 767px) { .ps-sk-anchors { overflow: hidden; } .ps-sk-anchors > span { height: var(--tap-min); } }
