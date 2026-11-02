@@ -88,6 +88,29 @@ describe('Этап 2: синк', () => {
       expect(state.calls.defs ?? 0).toBeGreaterThanOrEqual(defs);
     });
 
+    it('добор частичный и идемпотентный: перезагружается только сет с NULL, заполненные не трогаются, повтор ничего не меняет (Фаза 36)', async () => {
+      await sync();
+      const sets = await t.db.selectDistinct({ id: trophies.trophySetId }).from(trophies);
+      expect(sets.length).toBeGreaterThan(1);
+      const target = sets[0].id;
+      await t.db.update(trophies).set({ groupId: null }).where(eq(trophies.trophySetId, target));
+      const total = (await t.db.select().from(trophies)).length;
+      const before = state.calls.defs ?? 0;
+      clock.t = DAY2.getTime() + 2 * 3600_000;
+      await sync();
+      expect(state.calls.defs ?? 0).toBe(before + 1); // одна перезагрузка определений: только сет с NULL
+      expect(await t.db.select().from(trophies).where(isNull(trophies.groupId)).then((r) => r.length)).toBe(0);
+      const rows = await t.db.select({ s: trophies.trophySetId, g: trophies.groupId }).from(trophies);
+      expect(rows).toHaveLength(total);
+      expect(rows.every((r) => r.g === 'default')).toBe(true);
+      // повторный синк через сутки: перезагрузок по group_id больше нет
+      const after = state.calls.defs ?? 0;
+      clock.t = DAY2.getTime() + 2 * 86400_000;
+      await sync();
+      expect(state.calls.defs ?? 0).toBe(after);
+      expect((await t.db.select().from(trophies)).length).toBe(total);
+    });
+
     it('DLC: прогноз платины считает базу отдельно от DLC; без group_id помечен приблизительным', async () => {
       const np = 'NPWR00003_00';
       const set = state.trophies[np] as { defs: Record<string, unknown>[]; earned: Record<string, unknown>[] };

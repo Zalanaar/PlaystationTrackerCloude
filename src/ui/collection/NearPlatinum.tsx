@@ -3,11 +3,12 @@
 import type { NearPlatinumItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
 import { Cover } from './Cover';
-import { APPROX_HINT, anyApproximate, avgRarityText, isApproximate, nearAria, remainingGrades } from './nearPlatinum';
+import { APPROX_HINT, anyApproximate, avgRarityText, dlcLine, isApproximate, nearAria, remainingGrades } from './nearPlatinum';
 
 function Item({ item, onOpen }: { item: NearPlatinumItem; onOpen: (g: NearPlatinumItem['game']) => void }) {
   const { game, forecast: f } = item;
   const approx = isApproximate(f);
+  const dlc = dlcLine(f);
   return (
     <li>
       <button type="button" className="ps-near" aria-label={nearAria(game.title, f)} onClick={() => onOpen(game)}>
@@ -25,6 +26,7 @@ function Item({ item, onOpen }: { item: NearPlatinumItem; onOpen: (g: NearPlatin
             ))}
           </span>
           <span className="ps-near__s2">{avgRarityText(f)}</span>
+          {dlc && <span className="ps-near__dlc">{dlc}</span>}
         </span>
       </button>
     </li>

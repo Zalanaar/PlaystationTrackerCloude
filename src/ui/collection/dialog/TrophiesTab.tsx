@@ -5,7 +5,7 @@ import type { GameTrophyItem } from '@/server/collection/types';
 import { formatDayMonth } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
 import {
-  filterTrophies, formatRate, HIDDEN_DETAIL, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
+  filterTrophies, formatRate, HIDDEN_DETAIL, isDlcTrophy, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
   TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from '../trophies';
 import type { DetailsState } from '../useGameDetails';
@@ -141,12 +141,13 @@ function TrophyIcon({ t }: { t: GameTrophyItem }) {
 function TrophyRow({ t }: { t: GameTrophyItem }) {
   const secret = t.name === null;
   return (
-    <li className="ps-trophy" data-type={t.type} data-earned={t.earned || undefined} aria-label={trophyAria(t)}>
+    <li className="ps-trophy" data-type={t.type} data-dlc={isDlcTrophy(t) || undefined} data-earned={t.earned || undefined} aria-label={trophyAria(t)}>
       <TrophyIcon t={t} />
       <div className="ps-trophy__tx">
         <p className="ps-trophy__name">
           <TypeIcon type={t.type} />
           <span>{trophyTitle(t)}</span>
+          {isDlcTrophy(t) && <span className="ps-trophy__dlc" title="Трофей дополнения: платине не мешает">DLC</span>}
           {t.hidden && t.earned && <Icon name="eye-off" size={12} className="ps-trophy__hid" />}
         </p>
         <p className="ps-trophy__det" title={t.detail ?? undefined} data-muted={secret || undefined}>{secret ? HIDDEN_DETAIL : (t.detail ?? '')}</p>

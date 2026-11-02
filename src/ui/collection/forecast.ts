@@ -1,6 +1,7 @@
 // Чистая логика секции «Путь к платине» (спека 9.1/15 п.8, контракт 14.2 и 15.3). Без DOM и React.
 import type { PlatinumForecast } from '@/server/collection/types';
 import { plural } from '../format';
+import { dlcLine } from './nearPlatinum';
 import { formatRate, rarityLabel, raritySegments } from './trophies';
 
 export const trophyWord = (n: number) => plural(n, ['трофей', 'трофея', 'трофеев']);
@@ -68,6 +69,6 @@ export function forecastView(f: PlatinumForecast): ForecastView {
       { id: 'plat', label: 'Платина у игроков', value: plat ?? 'нет данных', sub: '', segments: null, empty: plat === null },
     ],
     ratesNote: total > 0 && f.ratesKnown < total ? `Процент известен у ${f.ratesKnown} из ${total} оставшихся` : null,
-    dlcText: f.dlc ? `Трофеи DLC (для платины не нужны): получено ${f.dlc.earned} из ${f.dlc.required}, осталось ${f.dlc.remaining}` : null,
+    dlcText: dlcLine(f),
   };
 }
