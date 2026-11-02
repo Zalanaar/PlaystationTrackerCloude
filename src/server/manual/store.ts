@@ -52,7 +52,7 @@ export class ManualDuplicateError extends Error {
   }
 }
 export class ManualLimitError extends Error {
-  constructor() {
+  constructor(readonly limit: number = MANUAL_LIMIT) {
     super('manual_limit');
   }
 }
@@ -104,6 +104,7 @@ type DupIndex = {
   coveredByRawg: Map<string, number>;
   linkedByRawg: Map<string, number>;
   backlogRawg: Set<string>;
+  otherRawg: Set<string>;
   plannedById: Map<string, { id: number; title: string; status: string }>;
   plannedByKey: Map<string, { id: number; title: string; status: string }>;
 };
@@ -115,7 +116,7 @@ export async function loadDupIndex(db: AnyDb, userId: UserId): Promise<DupIndex>
       .from(g)
       .where(eq(g.userId, userId)),
     db.select({ rawgId: om.rawgId, gameId: om.coveredByGameId }).from(om).where(and(eq(om.userId, userId), isNotNull(om.coveredByGameId))).catch(() => []),
-    db.select({ rawgId: m.rawgId, linked: m.linkedGameId, unlinked: isNull(m.linkedGameId) }).from(m).where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'))),
+    db.select({ rawgId: m.rawgId, linked: m.linkedGameId, unlinked: isNull(m.linkedGameId), kind: m.kind }).from(m).where(eq(m.userId, userId)),
     db.select({ id: pg.id, title: pg.title, status: pg.status, source: pg.externalSource, extId: pg.externalId }).from(pg).where(and(eq(pg.userId, userId), inArray(pg.status, ['planned', 'done']))),
   ]);
   const groups = buildGroups(rows);
@@ -133,8 +134,9 @@ export async function loadDupIndex(db: AnyDb, userId: UserId): Promise<DupIndex>
     groups,
     byKey,
     coveredByRawg: new Map(marks.flatMap((x) => (x.gameId === null ? [] : [[x.rawgId, x.gameId] as const]))),
-    linkedByRawg: new Map(manual.flatMap((x) => (x.linked === null ? [] : [[x.rawgId, x.linked] as const]))),
-    backlogRawg: new Set(manual.filter((x) => x.unlinked).map((x) => x.rawgId)),
+    linkedByRawg: new Map(manual.filter((x) => x.kind === 'ps_backlog').flatMap((x) => (x.linked === null ? [] : [[x.rawgId, x.linked] as const]))),
+    backlogRawg: new Set(manual.filter((x) => x.kind === 'ps_backlog' && x.unlinked).map((x) => x.rawgId)),
+    otherRawg: new Set(manual.filter((x) => x.kind === 'other_platform').map((x) => x.rawgId)),
     plannedById,
     plannedByKey,
   };
@@ -152,11 +154,11 @@ export function duplicateOf(ix: DupIndex, rawgId: string, title: string): Duplic
   return null;
 }
 
-export type CandidateFlags = { duplicate: 'library' | 'planned' | null; inBacklog: boolean };
+export type CandidateFlags = { duplicate: 'library' | 'planned' | null; inBacklog: boolean; inList: boolean };
 
 export async function flagCandidates<T extends { externalId: string; title: string }>(db: AnyDb, userId: UserId, cands: readonly T[]): Promise<(T & CandidateFlags)[]> {
   const ix = await loadDupIndex(db, userId);
-  return cands.map((c) => ({ ...c, duplicate: duplicateOf(ix, c.externalId, c.title)?.duplicate ?? null, inBacklog: ix.backlogRawg.has(c.externalId) }));
+  return cands.map((c) => ({ ...c, duplicate: duplicateOf(ix, c.externalId, c.title)?.duplicate ?? null, inBacklog: ix.backlogRawg.has(c.externalId), inList: ix.otherRawg.has(c.externalId) }));
 }
 
 // --- запись
@@ -228,7 +230,7 @@ export async function removeManual(db: AnyDb, userId: UserId, id: number): Promi
 
 /** Статус смены для записи «не куплено» запрещён: true = запись существует (несклеенная). */
 export async function manualExists(db: AnyDb, userId: UserId, id: number): Promise<boolean> {
-  const rows = await db.select({ id: m.id }).from(m).where(and(eq(m.userId, userId), eq(m.id, id), isNull(m.linkedGameId)));
+  const rows = await db.select({ id: m.id }).from(m).where(and(eq(m.userId, userId), eq(m.id, id), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId)));
   return rows.length > 0;
 }
 
@@ -273,7 +275,7 @@ export async function countMatches(db: AnyDb, userId: UserId): Promise<number> {
     .select({ n: sql<number>`count(*)::int` })
     .from(m)
     .innerJoin(g, and(eq(g.userId, m.userId), eq(g.id, m.suggestedGameId)))
-    .where(and(eq(m.userId, userId), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)));
+    .where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)));
   return r?.n ?? 0;
 }
 
