@@ -22,6 +22,9 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], launchOptions } },
     { name: 'mobile', use: { ...devices['Pixel 7'], launchOptions } },
+    // WebKit как Safari на iPhone: только регресс прокрутки окна игры (в CI не запускается, там только desktop).
+    // Повторы: headless WPE иногда зависает на page.evaluate, это не ошибка приложения
+    { name: 'webkit-iphone', testMatch: /dialog-scroll\.spec\.ts/, retries: 2, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,
