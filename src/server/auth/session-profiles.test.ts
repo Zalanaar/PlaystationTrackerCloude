@@ -169,3 +169,22 @@ describe('токен: форма pid и продление', () => {
     expect(maxAge).toBeLessThan(SESSION_TTL_SECONDS - 2 * 86_400);
   });
 });
+
+describe('Фаза 48: подсказка hero при смене профиля', () => {
+  const hero = (res: Response) => res.headers.getSetCookie().find((c) => c.startsWith('ps-hero='));
+  it('ставит ps-hero по играм «Играю» нового профиля (не httpOnly, на весь сайт)', async () => {
+    const c = (t.pg as unknown as { $client: import('@electric-sql/pglite').PGlite }).$client;
+    await c.exec(`
+      insert into games (user_id, title_id, name, category, last_seen_at) values (4, 'CUSA1_00', 'Игра B2', 'ps4_game', now());
+      insert into game_status (user_id, game_id, status) select 4, id, 'playing' from games where user_id = 4;
+    `);
+    const cookie = await sessionCookie(2);
+    const on = await switchProfile(kitRequest('/api/me/profiles/active', { method: 'POST', cookie, body: { profileId: 4 } }));
+    expect(on.status).toBe(200);
+    expect(hero(on)).toMatch(/^ps-hero=1;/);
+    expect(hero(on)).toMatch(/Path=\//);
+    expect(hero(on)).not.toMatch(/HttpOnly/i);
+    const off = await switchProfile(kitRequest('/api/me/profiles/active', { method: 'POST', cookie, body: { profileId: 2 } }));
+    expect(hero(off)).toMatch(/^ps-hero=0;/);
+  });
+});

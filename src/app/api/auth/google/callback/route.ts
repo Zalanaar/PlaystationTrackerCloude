@@ -7,6 +7,7 @@ import { markLoginSuccess, reserveLoginAttempt } from '@/server/auth/attempts';
 import { exchangeCode, GoogleAuthError, OAUTH_COOKIE, OAUTH_COOKIE_PATH, readOAuthCookie, stateMatches, verifyIdToken } from '@/server/auth/google';
 import { createSessionTokenV2, SESSION_COOKIE, sessionCookieOptions } from '@/server/auth/session';
 import { completeLogin, lookupForLogin, normalizeEmail } from '@/server/auth/users';
+import { setHeroHintCookie } from '@/server/auth/hero-hint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,7 @@ export async function GET(req: Request) {
     const token = await createSessionTokenV2(secret, { uid: found.user.id, role: found.user.role === 'owner' ? 'owner' : 'member', amr: 'google', se: found.user.sessionEpoch });
     const res = finish(safeNext(saved.next));
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(secure));
+    await setHeroHintCookie(res, req, found.user.id);
     return res;
   } catch {
     return deny('oauth_failed');

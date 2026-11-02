@@ -1,6 +1,7 @@
 // Фаза 24: вставка NPSSO на панели синка. API эмулируется (контракт 27), PSN не вызывается.
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { signedSession } from './session';
+import { emptyGamesBody } from './collection-mock';
 
 // Заведомо фиктивное значение формата NPSSO (64 латинских буквы и цифры), не похожее на настоящий токен
 const SECRET = 'E2EFAKENPSSO'.padEnd(64, '0');
@@ -26,7 +27,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, cfg: C
     if (!p || p.status === 200) { expired = false; return json(r, { ok: true, data: { accepted: true, refreshExpiresAt: null, token: null } }); }
     return json(r, { ok: false, error: { code: p.code, message: 'x', ...(p.retry ? { details: { retryAfterSeconds: p.retry } } : {}) } }, p.status);
   });
-  await page.route('**/api/games**', (r) => json(r, { ok: true, data: { items: [], total: 0 } }));
+  await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.goto('/stats');
   await page.getByRole('button', { name: /Открыть синк/ }).click();
   await expect(page.getByRole('heading', { name: 'Синхронизация с PSN' })).toBeVisible();

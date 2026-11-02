@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { CollectionView } from '@/ui/collection/CollectionView';
-import { HERO_HINT_COOKIE, parseHeroHint } from '@/ui/collection/heroHint';
+import { HERO_HINT_COOKIE, parseHeroHint } from '@/shared/hero-hint';
 import { CollectionPageSkeleton } from '@/ui/skeletons';
 
 export default async function CollectionPage() {

@@ -2,6 +2,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signedSession } from './session';
 import { THEMES } from '../src/ui/tokens';
+import { emptyGamesBody } from './collection-mock';
 
 type St = { running: boolean; cancelled: boolean };
 
@@ -33,7 +34,7 @@ async function open(page: Page, baseURL: string, opts: { cancelResp?: { status: 
     if (opts.restartResp) return r.fulfill(json(opts.restartResp.body, opts.restartResp.status));
     return r.fulfill(json({ ok: true, data: { runId: 8, restarted: true, cancelledRunId: 7, resumed: true } }, 202));
   });
-  await page.route('**/api/games**', (r) => r.fulfill(json({ ok: true, data: { items: [], total: 0 } })));
+  await page.route('**/api/games**', (r) => r.fulfill(json(emptyGamesBody(r.request().url()))));
   await page.goto('/stats');
   await page.getByRole('button', { name: /Открыть синк/ }).click();
   await expect(page.getByRole('heading', { name: 'Синхронизация с PSN' })).toBeVisible();

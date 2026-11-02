@@ -108,6 +108,11 @@ export type GamesListResponse = {
   hltbCounts: HltbCounts;
 };
 
+/** 48.1: `GET /api/games/batch` — ответы 9.2 по порядку параметров `b`; упавшая выборка = `{ ok: false }`. */
+export type GamesBatchResponse = {
+  results: ({ ok: true; data: GamesListResponse } | { ok: false; code: 'db_unavailable' })[];
+};
+
 /** Профиль PSN-аккаунта (12.3). Любое поле, которого PSN не дал, null. */
 export type PsnProfile = {
   onlineId: string;

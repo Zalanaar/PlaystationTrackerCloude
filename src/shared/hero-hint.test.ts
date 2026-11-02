@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectHero, heroHintCookie, parseHeroHint } from './heroHint';
+import { expectHero, heroHintCookie, parseHeroHint } from './hero-hint';
 
 describe('heroHint', () => {
   it('parseHeroHint: 1/0, остальное undefined', () => {

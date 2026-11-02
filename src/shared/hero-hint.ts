@@ -2,6 +2,7 @@
  * Подсказка «есть ли игры в „Играю“» для первого рендера (CLS).
  * Скелет hero (≈320 px) без игр «Играю» исчезал после загрузки и сдвигал всю страницу.
  * Клиент запоминает последнее значение в cookie, сервер читает его и не рисует скелет зря.
+ * Вход и смена профиля PSN ставят cookie сразу (сервер, `src/server/auth/hero-hint.ts`): первый визит после входа без сдвига.
  */
 export const HERO_HINT_COOKIE = 'ps-hero';
 
@@ -24,4 +25,9 @@ export function heroHintCookie(hasPlaying: boolean): string {
 export function expectHero(summaryPlaying: number | null, hint: boolean | undefined): boolean {
   if (summaryPlaying !== null) return summaryPlaying > 0;
   return hint !== false;
+}
+
+/** Атрибуты cookie для ответа сервера (не httpOnly: клиент обновляет значение сам). */
+export function heroHintCookieOptions(secure: boolean) {
+  return { httpOnly: false, secure, sameSite: 'lax' as const, path: '/', maxAge: 31536000 };
 }

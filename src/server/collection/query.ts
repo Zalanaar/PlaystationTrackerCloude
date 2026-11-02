@@ -242,6 +242,16 @@ async function statusCounts(db: AnyDb, userId: UserId, where: SQL | undefined): 
 /** Только видимые игры (контракт 9.10). */
 export const visibleGames = visibleGameRow();
 
+/** Сколько видимых игр в «Играю» (как `counts.playing` сводки 9.3). Для подсказки hero при входе (Фаза 48). */
+export async function countPlaying(db: AnyDb, userId: UserId): Promise<number> {
+  const rows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(games)
+    .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), visibleGames, eq(gameStatus.status, 'playing')));
+  return rows[0]?.n ?? 0;
+}
+
 /** 14.4: забытая игра (видимая, без статуса, playtime > 0, последний запуск раньше now - 90 суток). Нужен leftJoin game_status. */
 export function forgottenSql(now: Date): SQL {
   return and(

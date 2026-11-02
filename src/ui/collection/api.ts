@@ -4,7 +4,7 @@ import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
-  BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameMutationResponse, GamesListResponse, GameStatusValue,
+  BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameMutationResponse, GamesBatchResponse, GamesListResponse, GameStatusValue,
   StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
@@ -29,6 +29,30 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 export const fetchSummary = () => cachedGet<CollectionSummaryResponse>('/api/collection/summary');
 export const fetchGames = (query: URLSearchParams, signal?: AbortSignal) =>
   cachedGet<GamesListResponse>(`/api/games?${query.toString()}`, signal);
+
+/** URL `GET /api/games/batch` (48.1): каждая выборка 9.2 отдельным параметром `b`, порядок сохраняется. */
+export function gamesBatchUrl(queries: readonly URLSearchParams[]): string {
+  const p = new URLSearchParams();
+  for (const q of queries) p.append('b', q.toString());
+  return `/api/games/batch?${p.toString()}`;
+}
+
+/**
+ * Несколько выборок 9.2 одним запросом (блоки хроники, Фаза 48). Результат как у Promise.allSettled по каждой выборке:
+ * упавший блок = rejected с ApiError 503, сбой всего запроса (сеть, 401, 503) = все rejected с этой ошибкой.
+ */
+export async function fetchGamesBatch(queries: readonly URLSearchParams[]): Promise<PromiseSettledResult<GamesListResponse>[]> {
+  let r: GamesBatchResponse;
+  try {
+    r = await cachedGet<GamesBatchResponse>(gamesBatchUrl(queries));
+    if (!Array.isArray(r?.results) || r.results.length !== queries.length) throw new ApiError(502, 'bad_response', 'bad batch response');
+  } catch (e) {
+    return queries.map(() => ({ status: 'rejected' as const, reason: e }));
+  }
+  return r.results.map((x) => (x.ok
+    ? { status: 'fulfilled' as const, value: x.data }
+    : { status: 'rejected' as const, reason: new ApiError(503, x.code, 'block failed') }));
+}
 
 /** Детали игры и список трофеев для окна (12.5). 404 = игра не найдена. */
 export const fetchGameDetails = (id: number, signal?: AbortSignal) => call<GameDetailsResponse>(`/api/games/${id}`, { signal });

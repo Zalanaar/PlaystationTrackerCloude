@@ -6,7 +6,7 @@ import { useToast } from '../../primitives/Toast';
 import { useProfile } from '../../profile/ProfileProvider';
 import { useSync } from '../../sync/SyncProvider';
 import { forgottenCountOf } from '../../triage/forgotten';
-import { ApiError, errorText, fetchGames, fetchSummary } from '../api';
+import { ApiError, errorText, fetchGames, fetchGamesBatch, fetchSummary } from '../api';
 import { blockGames, blockSort, blockStatuses, buildPlan, FULL_LIMIT, inBlock, visibleBlocks, type BlockId } from '../blocks';
 import { blockQuery, filtersToApi, isChronicleMode, type Filters } from '../filters';
 import { PAGE, PLATINUM_MAX_BATCHES, union, type Pool } from './pool';
@@ -55,7 +55,8 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
       let next: Pool;
       if (isChronicleMode(f)) {
         const plan = buildPlan(f.status, f.q, f.platinum);
-        const rs = await Promise.allSettled(plan.map((p) => fetchGames(p.query)));
+        // все блоки одним запросом (Фаза 48): раньше 6 параллельных /api/games, каждый со своей проверкой сессии
+        const rs = await fetchGamesBatch(plan.map((p) => p.query));
         const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
         if (ok.length === 0) {
           const first = rs[0];

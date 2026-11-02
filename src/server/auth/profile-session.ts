@@ -2,6 +2,7 @@
 import type { NextResponse } from 'next/server';
 import { getSessionSecret } from '@/server/env';
 import { readSessionToken, reissueSessionToken, sessionCookieOptions, sessionRemainingSeconds, SESSION_COOKIE } from './session';
+import { setHeroHintCookie } from './hero-hint';
 
 function cookieValue(req: Request): string | undefined {
   const raw = req.headers.get('cookie');
@@ -21,5 +22,6 @@ export async function setActiveProfileCookie(res: NextResponse, req: Request, pi
   const token = await reissueSessionToken(secret, session, pid);
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(':')[0];
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(host !== 'localhost' && host !== '127.0.0.1', sessionRemainingSeconds(session)));
+  await setHeroHintCookie(res, req, pid);
   return true;
 }

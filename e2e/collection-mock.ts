@@ -148,6 +148,10 @@ export type Mock = {
   games: G[];
   /** URL-ы запросов GET /api/games в порядке отправки */
   listCalls: URL[];
+  /** 48.1: запросы GET /api/games/batch, у каждого список выборок (они же продублированы в listCalls) */
+  batchCalls: URL[][];
+  /** 48.1: выборка внутри batch отвечает `{ ok: false }` (сбой одного блока) */
+  failBlock: (u: URL) => boolean;
   mutations: { method: string; url: string; body: unknown }[];
   /** задержка ответа списка по предикату на URL (мс) */
   delayList: (u: URL) => number;
@@ -251,7 +255,7 @@ export function activityFor(year: number, empty = false, firstDay?: string) {
 
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
-    games, listCalls: [], mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
+    games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
@@ -305,6 +309,22 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const wait = m.delayList(u);
     if (wait) await new Promise((res) => setTimeout(res, wait));
     if (m.listFails) return json(route, { code: 'db_unavailable', message: 'x' }, 503);
+    return json(route, listBody(u));
+  });
+
+  // 48.1: блоки хроники одним запросом; каждая выборка `b` пишется в listCalls как отдельный GET /api/games
+  await page.route(/\/api\/games\/batch(\?|$)/, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const subs = new URL(route.request().url()).searchParams.getAll('b').map((b) => new URL(`${new URL(route.request().url()).origin}/api/games?${b}`));
+    m.batchCalls.push(subs);
+    m.listCalls.push(...subs);
+    const wait = Math.max(0, ...subs.map((x) => m.delayList(x)));
+    if (wait) await new Promise((res) => setTimeout(res, wait));
+    if (m.listFails) return json(route, { code: 'db_unavailable', message: 'x' }, 503);
+    return json(route, { results: subs.map((x) => (m.failBlock(x) ? { ok: false, code: 'db_unavailable' } : { ok: true, data: listBody(x) })) });
+  });
+
+  function listBody(u: URL) {
     const q = (u.searchParams.get('q') ?? '').trim().toLowerCase();
     const st = u.searchParams.get('status');
     const year = u.searchParams.get('year');
@@ -345,11 +365,11 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
-    return json(route, {
+    return {
       items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts, genreCounts, hltbCounts,
       ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
-    });
-  });
+    };
+  }
 
   const liveHints = () => m.hints.filter((h) => !m.dismissals.some((d) => d.gameId === h.gameId && d.rule === h.rule));
   await page.route('**/api/status-hints/count', (r) => json(r, { count: liveHints().length }));
@@ -526,3 +546,12 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
 }
 
 export { ALL as STATUSES };
+
+/** Пустой ответ для заглушки `**\/api/games**` (48.1): у batch свой конверт `{ results }`, по одному на выборку `b`. */
+export function emptyGamesBody(url: string) {
+  const empty = { items: [], total: 0 };
+  const u = new URL(url);
+  return u.pathname.endsWith('/api/games/batch')
+    ? { ok: true, data: { results: u.searchParams.getAll('b').map(() => ({ ok: true, data: empty })) } }
+    : { ok: true, data: empty };
+}

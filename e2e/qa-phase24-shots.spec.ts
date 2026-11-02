@@ -1,7 +1,7 @@
 // QA Фазы 24: снимки панели синка с полем NPSSO в 7 темах (owner/member, ошибка, 360 и 320) и меню «…» Бэклога внизу (QA-33-1). Без SHOTS_DIR пропускается.
 // Запуск: SHOTS_DIR=docs/qa/phase-24 PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3352 npx playwright test -c e2e/qa.config.ts e2e/qa-phase24-shots.spec.ts --project=desktop
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { mockApi, type G } from './collection-mock';
+import { emptyGamesBody, mockApi, type G } from './collection-mock';
 import { signedSession } from './session';
 
 const SHOTS = process.env.SHOTS_DIR;
@@ -20,7 +20,7 @@ async function open(page: Page, role: 'owner' | 'member', post?: number) {
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role, amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuthExpiresAt: null, psnAuth: 'auth_expired', run: null, psnToken: TOKEN } }));
   await page.route('**/api/sync/npsso', (r) => json(r, { ok: false, error: { code: post === 429 ? 'rate_limited' : 'npsso_invalid', message: 'x', ...(post === 429 ? { details: { retryAfterSeconds: 600 } } : {}) } }, post ?? 422));
-  await page.route('**/api/games**', (r) => json(r, { ok: true, data: { items: [], total: 0 } }));
+  await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.goto('/stats');
   await page.getByRole('button', { name: /Открыть синк/ }).click();
   await expect(page.getByRole('heading', { name: 'Синхронизация с PSN' })).toBeVisible();

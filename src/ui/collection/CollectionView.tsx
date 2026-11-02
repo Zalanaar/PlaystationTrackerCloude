@@ -39,7 +39,7 @@ import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
 import { InboxStrip } from '../inbox/InboxStrip';
 import { useInbox } from '../inbox/useInbox';
-import { expectHero, heroHintCookie } from './heroHint';
+import { expectHero, heroHintCookie } from '@/shared/hero-hint';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });

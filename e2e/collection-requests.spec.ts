@@ -1,4 +1,4 @@
-// Главная без дублей запросов на загрузке: /api/auth/me, /api/me/tour, сводка и блоки хроники уходят по одному разу.
+// Главная без дублей запросов на загрузке: /api/auth/me, /api/me/tour, сводка и блоки хроники (один batch, Фаза 48) уходят по одному разу.
 // Раньше: auth/me ×3 (три хука), tour ×2 (тур и «Что нового»), summary и /api/games ×2 (первый ответ статуса синка принимался за «синк завершился»).
 import { test, expect } from '@playwright/test';
 import { mockApi } from './collection-mock';
@@ -17,6 +17,18 @@ test('коллекция: каждый запрос данных на загру
   expect(count('/api/auth/me'), calls.join('\n')).toBe(1);
   expect(count('/api/me/tour'), calls.join('\n')).toBe(1);
   expect(count('/api/collection/summary'), calls.join('\n')).toBe(1);
-  const games = calls.filter((c) => c.startsWith('/api/games?'));
-  expect(new Set(games).size, calls.join('\n')).toBe(games.length);
+  // Фаза 48: блоки хроники одним GET /api/games/batch, отдельных /api/games на загрузке нет
+  expect(count('/api/games/batch'), calls.join('\n')).toBe(1);
+  expect(calls.filter((c) => c.startsWith('/api/games?')), calls.join('\n')).toEqual([]);
+});
+
+test('коллекция: сбой одного блока в batch показывает ошибку блока, остальные блоки на месте', async ({ page, context, baseURL }) => {
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+  const m = await mockApi(page);
+  m.failBlock = (u) => u.searchParams.get('status') === 'backlog';
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toBeVisible();
+  await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
+  expect(m.batchCalls.length).toBeGreaterThan(0);
 });

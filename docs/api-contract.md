@@ -3442,3 +3442,17 @@ OtherPlatformGame = {
 
 ### 45.5 Тесты
 `src/server/auth/session-revocation.test.ts` (PGlite, настоящие cookie: sid/se, переключение профиля, старые токены, выход, выход везде, Origin, очистка), `src/db/release-sql-0027.test.ts`, `e2e/phase45-logout.spec.ts`.
+
+## Фаза 48. Главная: блоки хроники одним запросом и подсказка hero при входе (без миграции)
+
+### 48.1 `GET /api/games/batch`
+- Query: параметр `b` повторяется 1..8 раз, каждый — query-строка 9.2 (URL-кодированная). Пример: `?b=status%3Dplaying%26limit%3D12&b=status%3Dcompleted%252Cdropped%26sort%3Dcompleted_at`.
+- Валидация до БД: нет `b`, больше 8 или любой `b` не проходит 9.2 = `400 invalid_request` (в `message` индекс `b[i]`). Без сессии `401`.
+- Ответ 200 (`okRevalidated`: ETag, `private, no-cache`, 304 по `If-None-Match`): `{ "results": [ { "ok": true, "data": <ответ 9.2> } | { "ok": false, "code": "db_unavailable" } ] }` строго в порядке `b`. Каждый `data` совпадает с одиночным `GET /api/games?<b>`.
+- Упали все выборки = `503 db_unavailable`; часть = `200`, у упавших `ok: false` (клиент показывает «Не удалось загрузить блок», остальные блоки на месте).
+- Клиент: стартовая загрузка хроники (`useCollectionData.loadAll`, все блоки `buildPlan`) идёт одним batch вместо 6 параллельных `/api/games`. Подгрузка («Показать ещё»), плоский список и дозагрузка платины по-прежнему через 9.2.
+
+### 48.2 Cookie `ps-hero`
+- Подсказка для серверного скелета hero «Играю» (`src/shared/hero-hint.ts`): `1` есть видимые игры «Играю», `0` нет. Не httpOnly (клиент обновляет её после сводки 9.3), `Path=/`, `SameSite=Lax`, год.
+- С Фазы 48 сервер ставит её вместе с cookie сессии: `POST /api/auth/login`, Google callback и смена профиля (41.2, `setActiveProfileCookie`) по активному профилю. Ошибка БД вход не ломает (cookie просто не ставится).
+- Без cookie (сессия до Фазы 48, очищенные cookie) поведение прежнее: скелет hero рисуется до сводки.

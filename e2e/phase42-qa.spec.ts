@@ -8,7 +8,7 @@ async function setup(page: Page, context: BrowserContext, baseURL: string, delay
   state.delay = delay;
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page);
-  await page.route(/\/api\/games(\?|$)/, async (r) => {
+  await page.route(/\/api\/games(\/batch)?(\?|$)/, async (r) => { // 48.1: блоки хроники идут batch-ем
     await new Promise((res) => setTimeout(res, state.delay));
     await r.fallback();
   });

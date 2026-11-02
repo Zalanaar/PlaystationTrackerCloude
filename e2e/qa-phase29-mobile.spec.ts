@@ -1,6 +1,7 @@
 // QA Фазы 29: блок «Сводка в Telegram» на 320 и 390: нет горизонтального скролла, код в одну строку, кнопки >= 44.
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { signedSession } from './session';
+import { emptyGamesBody } from './collection-mock';
 
 const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -8,7 +9,7 @@ async function open(page: Page, baseURL: string, state: Record<string, unknown>)
   await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'member', amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
-  await page.route('**/api/games**', (r) => json(r, { ok: true, data: { items: [], total: 0 } }));
+  await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.route('**/api/me/telegram/link', (r) => json(r, { ok: true, data: { code: 'K7M2QX9H', expiresAt: new Date(Date.now() + 900_000).toISOString(), deepLink: 'https://t.me/ps_tracker_bot?start=K7M2QX9H' } }));
   await page.route('**/api/me/telegram', (r) => json(r, { ok: true, data: { botConfigured: true, botUsername: 'ps_tracker_bot', role: 'member', linked: false, linkedAt: null, deliversTo: 'none', lastSentAt: null, pendingCode: null, ...state } }));
   await page.goto('/stats');

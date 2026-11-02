@@ -9,7 +9,7 @@ async function setup(page: Page, context: BrowserContext, baseURL: string, delay
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page);
   // обработчик, добавленный позже, срабатывает первым; fallback передаёт запрос мок-обработчику
-  await page.route(/\/api\/games(\?|$)/, async (r) => {
+  await page.route(/\/api\/games(\/batch)?(\?|$)/, async (r) => { // 48.1: блоки хроники идут batch-ем
     await new Promise((res) => setTimeout(res, delay));
     await r.fallback();
   });

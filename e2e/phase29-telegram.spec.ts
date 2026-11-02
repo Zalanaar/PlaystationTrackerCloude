@@ -1,6 +1,7 @@
 // Фаза 29: блок «Сводка в Telegram» на панели синка. API эмулируется (контракт, раздел «Фаза 29»).
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { signedSession } from './session';
+import { emptyGamesBody } from './collection-mock';
 
 type St = {
   botConfigured: boolean; botUsername: string | null; role: 'owner' | 'member'; linked: boolean; linkedAt: string | null;
@@ -17,7 +18,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, cfg: C
   const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: st.role, amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
-  await page.route('**/api/games**', (r) => json(r, { ok: true, data: { items: [], total: 0 } }));
+  await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.route('**/api/me/telegram/link', async (r) => {
     calls.post++;
     const p = cfg.post ?? { status: 200 };

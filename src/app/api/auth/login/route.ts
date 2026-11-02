@@ -6,6 +6,7 @@ import { markLoginSuccess, reserveLoginAttempt } from '@/server/auth/attempts';
 import { getDb } from '@/db';
 import { getOwner } from '@/server/auth/users';
 import { createSessionTokenV2, SESSION_COOKIE, sessionCookieOptions } from '@/server/auth/session';
+import { setHeroHintCookie } from '@/server/auth/hero-hint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,5 +64,6 @@ export async function POST(req: Request) {
   const res = ok({ redirectTo: safeNext(parsed.next) });
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(':')[0];
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(host !== 'localhost' && host !== '127.0.0.1'));
+  await setHeroHintCookie(res, req, owner.id);
   return res;
 }
