@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { getDb } from '@/db';
 import { runWeeklyBackup, type BackupJobResult } from '@/server/backup/weekly';
 import { getCronSecret, getPsnEnv } from '@/server/env';
@@ -9,6 +9,8 @@ import { alertOwnerMissing, runSyncWatchdog, type WatchdogResult } from '@/serve
 import { runDigest, type DigestRunResult } from '@/server/digest/run';
 import { listSyncUsers } from '@/server/sync/users';
 import { purgeExpiredArchive } from '@/server/auth/profiles';
+import { findCatchupStart } from '@/server/sync/catchup';
+import { queueChain } from '@/server/sync/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,6 +51,17 @@ export async function GET(req: Request) {
   }
   const sync = users[0];
 
+  // догоняющий обход: ночной синк до кого-то не дошёл (обрыв цепочки, сбой PSN) -> обход с этого пользователя
+  // отдельным вызовом cron/sync (своя функция и свой бюджет времени). Не бросает.
+  let catchupFrom: number | null = null;
+  if (env) {
+    catchupFrom = await findCatchupStart(db, listed).catch(() => null);
+    if (catchupFrom !== null) {
+      const from = catchupFrom;
+      after(() => queueChain(from - 1));
+    }
+  }
+
   const results: BackupJobResult[] = [];
   for (let i = 0; i < targets.length; i += BACKUP_PARALLEL) {
     const part = targets.slice(i, i + BACKUP_PARALLEL);
@@ -61,7 +74,7 @@ export async function GET(req: Request) {
   // Фаза 29 (F29.2): недельная сводка в воскресенье МСК и догоняющий запуск в понедельник; в остальные дни digest = null. Не бросает.
   const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
   return NextResponse.json(
-    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, archivePurged } },
+    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, archivePurged, catchupFrom } },
     { headers: NO_STORE },
   );
 }

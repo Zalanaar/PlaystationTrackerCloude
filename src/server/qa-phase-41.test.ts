@@ -9,6 +9,8 @@ import { runDigest } from '@/server/digest/run';
 import { purgeExpiredArchive } from '@/server/auth/profiles';
 
 let t: TestDb;
+const afterCbs = vi.hoisted(() => [] as Array<() => unknown>);
+vi.mock('next/server', async (orig) => ({ ...(await orig<typeof import('next/server')>()), after: (fn: () => unknown) => void afterCbs.push(fn) }));
 vi.mock('@/db', async (orig) => ({ ...(await orig<typeof import('@/db')>()), getDb: () => t.db }));
 const pg = () => (t.pg as unknown as { $client: PGlite }).$client;
 const rows = async <T>(sql: string) => (await pg().query<T>(sql)).rows;

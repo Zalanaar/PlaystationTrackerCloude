@@ -7,6 +7,8 @@ import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
 const { allowedUsers, syncRuns, notifyLog, games } = schema;
 const SECRET = 'c'.repeat(40);
 let t: TestDb;
+const afterCbs = vi.hoisted(() => [] as Array<() => unknown>);
+vi.mock('next/server', async (orig) => ({ ...(await orig<typeof import('next/server')>()), after: (fn: () => unknown) => void afterCbs.push(fn) }));
 vi.mock('@/db', async (orig) => ({ ...(await orig<typeof import('@/db')>()), getDb: () => t.db }));
 const owner = vi.hoisted(() => ({ missing: false }));
 vi.mock('@/server/auth/users', async (orig) => {
@@ -39,6 +41,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-04T09:00:00Z'));
   owner.missing = false;
+  afterCbs.length = 0;
   sent.length = 0;
   docs.length = 0;
   await t.db.delete(notifyLog);
@@ -117,5 +120,30 @@ describe('watchdog по пользователям', () => {
 
   it('без Bearer: 401', async () => {
     expect((await GET(new Request('http://x/api/cron/watchdog'))).status).toBe(401);
+  });
+
+  it('догоняющий обход: ночной синк не дошёл -> самовызов cron/sync?queue=<первый просроченный-1>', async () => {
+    vi.stubEnv('SYNC_ORIGIN', 'https://app.example');
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(String(url));
+      return new Response('{"ok":true}', { status: 200 });
+    });
+    const fresh = new Date('2026-11-03T20:05:00Z'); // 13 ч назад: норма
+    await t.db.update(syncRuns).set({ startedAt: fresh, finishedAt: fresh }).where(eq(syncRuns.userId, 1));
+    const r = await GET(req());
+    expect(r.status).toBe(200);
+    expect((await r.json()).data.catchupFrom).toBe(ids.a);
+    for (const fn of afterCbs) await fn();
+    expect(calls.filter((u) => u.includes('/api/cron/sync'))).toEqual([`https://app.example/api/cron/sync?queue=${ids.a - 1}`]);
+    await t.db.update(syncRuns).set({ startedAt: OLD, finishedAt: OLD }).where(eq(syncRuns.userId, 1));
+  });
+
+  it('догоняющий обход: все синкнуты за 26 ч -> не запускается', async () => {
+    const fresh = new Date('2026-11-03T20:05:00Z');
+    await t.db.update(syncRuns).set({ startedAt: fresh, finishedAt: fresh });
+    expect((await (await GET(req())).json()).data.catchupFrom).toBeNull();
+    expect(afterCbs).toHaveLength(0);
+    await t.db.update(syncRuns).set({ startedAt: OLD, finishedAt: OLD });
   });
 });
