@@ -60,3 +60,16 @@
 2. Vercel Environment Variables: `APP_ORIGIN` (ссылки в сводке), `TELEGRAM_WEBHOOK_SECRET` (16–256 символов `A-Za-z0-9_-`), по желанию `TELEGRAM_BOT_USERNAME`. `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` уже заданы.
 3. Один раз зарегистрировать webhook, открыв в браузере (подставить свои значения): `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<APP_ORIGIN>/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`. Ответ `{"ok":true,...}`.
 4. Расписание watchdog в `vercel.json` теперь `0 16 * * *` (19:00 МСК): в воскресенье он же шлёт сводку, в понедельник догоняет пропущенную. Ручной запуск: `GET /api/cron/digest?force=1` с `Authorization: Bearer <CRON_SECRET>`.
+
+## 6. Миграции через CI (Фаза 46)
+
+Порядок на push в `main`: проверки (lint, Vitest, build) → `DB план (прод, только чтение)` (журнал прода против репозитория, артефакт `migration-plan-<sha>` с точным SQL) → при `-- DATA LOSS:` ожидание Approve Артёма → `DB migrate (prod)`: снимок прода (ветка `pre-migrate-*` на 7 дней), временная ветка `ci-migrate-*` от прода, apply + verify на ней, apply + verify на проде, удаление временной ветки. Vercel собирает деплой сразу, но выкатывает на домен только после зелёного `DB migrate (prod)` (Deployment Checks).
+
+Настройка (один раз, Артём):
+1. Neon → Organization → API keys → ключ с доступом только к проекту PS Tracker (project-scoped). GitHub → Settings → Environments → `production-db`: Deployment branches = только `main`; secrets `NEON_API_KEY` и `PROD_DATABASE_URL_UNPOOLED` (строка роли `neondb_owner`, хост без `-pooler`).
+2. GitHub → Settings → Variables (repository): `NEON_PROJECT_ID`, `NEON_PROD_BRANCH` (имя или id прод-ветки Neon), при необходимости `NEON_DATABASE` / `NEON_ROLE` (по умолчанию `neondb` / `neondb_owner`).
+3. Environment `production-db-approve`: Required reviewers = Zalanaar, без секретов.
+4. Пробный прогон: Actions → CI → Run workflow на `main` (`apply_prod` выключен, переменная `MIGRATIONS_CI` не нужна): статус журнала прода, план и (если есть ожидающие) verify на ветке Neon; прод не меняется. Сейчас ожидающих нет, job должен показать «применено 28, ожидают 0».
+5. Сразу друг за другом, без push между ними: Vercel → Project → Settings → Deployment Checks → Add → GitHub → `DB migrate (prod)` (автоназначение production-домена включено); GitHub → repo variable `MIGRATIONS_CI=on`. С этого момента `docs/release-neon-*.sql` не пишутся.
+
+Сбой: красный job = прод на старой схеме и старом коде (миграция в транзакции откатилась, деплой не выкачен). Исправить коммитом в `main` или Re-run job. Откат данных: Neon → Restore из ветки `pre-migrate-*` или point-in-time. Force Promote в Vercel не использовать: обходит гарантию «миграция до кода».

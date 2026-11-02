@@ -1,5 +1,7 @@
-# CI: проверки на каждый push и PR в main. Секреты не нужны: e2e работают на фиктивном e2e/env.ts, юнит-тесты — на PGlite.
-# Миграции здесь не применяются (их по-прежнему применяет Артём через Neon SQL Editor).
+# CI: проверки на каждый push и PR в main. Проверкам секреты не нужны: e2e работают на фиктивном e2e/env.ts, юнит-тесты — на PGlite.
+# Фаза 46: на push в main после зелёных проверок миграции применяются к проду (jobs db-*), сначала на временной ветке Neon от прода.
+# Vercel не выкатывает прод, пока нет зелёного check «DB migrate (prod)» (Vercel → Settings → Deployment Checks): миграция всегда раньше кода.
+# Секреты только в environment production-db (доступен только ветке main), в PR и форках их нет.
 name: CI
 
 on:
@@ -8,10 +10,16 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      apply_prod:
+        description: 'Применить миграции к проду (иначе только план и прогон на ветке Neon)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # на main не отменяем: прерванный прогон оставил бы деплой без check «DB migrate (prod)»
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -81,3 +89,125 @@ jobs:
           name: playwright-test-results
           path: test-results/
           retention-days: 7
+
+  # ---------- Миграции (Фаза 46) ----------
+  db-plan:
+    name: DB план (прод, только чтение)
+    # выключатель: repo variable MIGRATIONS_CI=on (пока не задана, миграции по-старому через SQL Editor); ручной запуск работает и без неё (пробный прогон)
+    if: (vars.MIGRATIONS_CI == 'on' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [checks, unit, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-db
+    outputs:
+      pending: ${{ steps.status.outputs.pending }}
+      data_loss: ${{ steps.status.outputs.data_loss }}
+    env:
+      MIGRATE_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_UNPOOLED }}
+      MIGRATE_TARGET_LABEL: прод
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - id: status
+        run: npm run -s db:ci status
+      - run: npm run -s db:ci plan migration-plan.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-plan-${{ github.sha }}
+          path: migration-plan.sql
+          retention-days: 90
+
+  db-approve:
+    name: DB подтверждение потери данных
+    needs: db-plan
+    if: needs.db-plan.outputs.data_loss == 'true'
+    runs-on: ubuntu-latest
+    # environment с обязательным ревьюером (Артём): job ждёт кнопку Approve в GitHub
+    environment: production-db-approve
+    steps:
+      - run: echo "Потеря данных подтверждена. План — в артефакте migration-plan-${{ github.sha }}."
+
+  db-migrate:
+    # Имя = Deployment Check в Vercel. Не переименовывать без правки настроек Vercel.
+    name: DB migrate (prod)
+    needs: [db-plan, db-approve]
+    if: always() && needs.db-plan.result == 'success' && (needs.db-approve.result == 'success' || needs.db-approve.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production-db
+    concurrency:
+      group: prod-db
+      cancel-in-progress: false
+    env:
+      PENDING: ${{ needs.db-plan.outputs.pending }}
+      APPLY_PROD: ${{ github.event_name == 'push' || inputs.apply_prod }}
+      MIGRATE_ALLOW_DATA_LOSS: ${{ needs.db-approve.result == 'success' && '1' || '0' }}
+      MIGRATE_SCHEMA_DRIFT: ${{ vars.MIGRATE_SCHEMA_DRIFT || 'fail' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Сроки жизни веток Neon
+        if: env.PENDING != '0'
+        run: |
+          echo "PREVIEW_EXPIRES=$(date -u --date '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "BACKUP_EXPIRES=$(date -u --date '+7 days' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Снимок прода (ветка Neon на 7 дней, для отката)
+        if: env.PENDING != '0' && env.APPLY_PROD == 'true'
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          parent_branch: ${{ vars.NEON_PROD_BRANCH }}
+          branch_name: pre-migrate-${{ github.run_id }}-${{ github.run_attempt }}
+          database: ${{ vars.NEON_DATABASE || 'neondb' }}
+          role: ${{ vars.NEON_ROLE || 'neondb_owner' }}
+          expires_at: ${{ env.BACKUP_EXPIRES }}
+      - name: Временная ветка Neon от прода
+        id: preview
+        if: env.PENDING != '0'
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          parent_branch: ${{ vars.NEON_PROD_BRANCH }}
+          branch_name: ci-migrate-${{ github.run_id }}-${{ github.run_attempt }}
+          database: ${{ vars.NEON_DATABASE || 'neondb' }}
+          role: ${{ vars.NEON_ROLE || 'neondb_owner' }}
+          expires_at: ${{ env.PREVIEW_EXPIRES }}
+      - name: Миграции на временной ветке
+        if: env.PENDING != '0'
+        env:
+          MIGRATE_DATABASE_URL: ${{ steps.preview.outputs.db_url }}
+          MIGRATE_TARGET_LABEL: ветка Neon
+        run: |
+          npm run -s db:ci apply
+          npm run -s db:ci verify
+      - name: Миграции на проде
+        if: env.PENDING != '0' && env.APPLY_PROD == 'true'
+        env:
+          MIGRATE_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_UNPOOLED }}
+          MIGRATE_TARGET_LABEL: прод
+        run: |
+          npm run -s db:ci apply
+          npm run -s db:ci verify
+      - name: Прод без ожидающих миграций
+        if: env.PENDING == '0'
+        env:
+          MIGRATE_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_UNPOOLED }}
+          MIGRATE_TARGET_LABEL: прод
+        run: npm run -s db:ci status
+      - name: Удалить временную ветку
+        if: always() && steps.preview.outputs.branch_id != ''
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: ${{ steps.preview.outputs.branch_id }}
