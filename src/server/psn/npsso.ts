@@ -1,7 +1,7 @@
 // Вставка NPSSO с сайта (контракт 27.1). NPSSO живёт только в аргументах и локальных переменных: не хранится, не логируется,
 // не попадает в сообщения ошибок. Результат обмена шифруется и сохраняется одной записью psn_auth.
 import type { AnyDb } from '@/db/types';
-import { defaultAuthApi, saveTokens, type AuthApi } from './auth';
+import { defaultAuthApi, lockPsnAuth, saveTokens, type AuthApi } from './auth';
 import { recordTokenEvent } from './token-events';
 
 const NPSSO_RE = /^[A-Za-z0-9]{64}$/;
@@ -33,7 +33,11 @@ export async function pasteNpsso(
   const now = o.now ?? new Date();
   const pair = await (o.api ?? defaultAuthApi).exchangeNpsso(o.npsso);
   if (!pair) return { kind: 'rejected' };
-  await saveTokens(db, { encryptionKey: o.encryptionKey }, pair, 'npsso', now);
+  // под той же блокировкой, что и refresh: идущий параллельно refresh не перезапишет новую пару старой цепочкой
+  await db.transaction(async (tx) => {
+    await lockPsnAuth(tx);
+    await saveTokens(tx, { encryptionKey: o.encryptionKey }, pair, 'npsso', now);
+  });
   await recordTokenEvent(db, 'pasted', { userId: o.userId, now, details: { refreshTokenExpiresInSec: pair.refreshTokenExpiresIn } });
   return { kind: 'ok', refreshExpiresAt: pair.refreshTokenExpiresIn > 0 ? new Date(now.getTime() + pair.refreshTokenExpiresIn * 1000) : null };
 }

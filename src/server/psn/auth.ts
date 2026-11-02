@@ -1,6 +1,6 @@
 // Авторизация PSN: NPSSO -> токены, refresh, хранение в psn_auth (AES-GCM). Контракт: 1.8.
 // Токены и NPSSO не логируются и не попадают в сообщения ошибок.
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import { decryptToken, encryptToken } from './crypto';
@@ -158,57 +158,98 @@ export async function saveTokens(db: AnyDb, cfg: Pick<AuthConfig, 'encryptionKey
   await db.insert(psnAuth).values(values).onConflictDoUpdate({ target: psnAuth.id, set: values });
 }
 
+/** Ключ advisory lock для обмена токенов PSN (одна запись psn_auth на всю систему). */
+export const PSN_AUTH_LOCK_KEY = 7204101;
+
+/** Блокировка обмена токенов: параллельные refresh/NPSSO идут строго по одному (refresh-токен ротируется). */
+export async function lockPsnAuth(tx: AnyDb): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(${PSN_AUTH_LOCK_KEY})`);
+}
+
+type AuthRow = typeof psnAuth.$inferSelect;
+
+function liveAccess(row: AuthRow | undefined, cfg: AuthConfig, now: Date): string | null {
+  try {
+    if (row?.accessTokenEnc && row.accessExpiresAt && row.accessExpiresAt.getTime() > now.getTime() + ACCESS_MARGIN_MS) {
+      return decryptToken(row.accessTokenEnc, cfg.encryptionKey);
+    }
+  } catch {
+    // ключ сменился или запись повреждена: как будто токенов нет
+  }
+  return null;
+}
+
+type Exchange =
+  | { kind: 'token'; token: string; event?: { kind: 'refreshed' | 'from_env'; expiresInSec: number } }
+  | { kind: 'fail'; hadRefresh: boolean; hadRow: boolean };
+
 /**
  * Порядок (контракт 1.8): живой access из БД -> refresh -> NPSSO -> ошибка.
  * auth_expired, если refresh был, но ни он, ни NPSSO не подошли; npsso_invalid, если refresh не было.
  * Временный сбой PSN (429/5xx/нет токенов без признака отказа) повторяется и бросается как rate_limited / psn_unavailable.
+ * Обмен идёт в транзакции под advisory lock: второй параллельный вызов ждёт и после блокировки перечитывает запись.
+ * Если её уже обновили, берёт свежий access вместо второго refresh (иначе ротированный refresh мог потеряться).
  */
 export async function getAccessToken(db: AnyDb, cfg: AuthConfig, opts: AuthOptions = {}): Promise<string> {
   const now = (opts.now ?? (() => new Date()))();
   const api = opts.api ?? defaultAuthApi;
-  const [row] = await db.select().from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+  const [seen] = await db.select().from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+  if (!opts.force) {
+    const live = liveAccess(seen, cfg, now);
+    if (live) return live;
+  }
 
-  let refresh: string | null = null;
-  if (row) {
-    try {
-      if (!opts.force && row.accessTokenEnc && row.accessExpiresAt && row.accessExpiresAt.getTime() > now.getTime() + ACCESS_MARGIN_MS) {
-        return decryptToken(row.accessTokenEnc, cfg.encryptionKey);
-      }
-    } catch {
-      // ключ сменился или запись повреждена: как будто токенов нет
+  const res = await db.transaction(async (tx): Promise<Exchange> => {
+    await lockPsnAuth(tx);
+    const [row] = await tx.select().from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+    // пока ждали блокировку, запись обновил другой вызов: его access свежий, повторный обмен не нужен (и при force)
+    const changed = !!row && (!seen || row.updatedAt.getTime() !== seen.updatedAt.getTime() || row.refreshTokenEnc !== seen.refreshTokenEnc);
+    if (changed || !opts.force) {
+      const live = liveAccess(row, cfg, now);
+      if (live) return { kind: 'token', token: live };
     }
-    try {
-      if (!row.refreshExpiresAt || row.refreshExpiresAt.getTime() > now.getTime()) {
-        refresh = decryptToken(row.refreshTokenEnc, cfg.encryptionKey);
-      }
-    } catch {
-      refresh = null;
-    }
-  }
-  const hadRefresh = refresh !== null;
 
-  if (refresh) {
-    const token = refresh;
-    const pair = await withRetry(() => api.exchangeRefresh(token), opts);
-    if (pair) {
-      await saveTokens(db, cfg, pair, 'refresh', now);
-      await recordTokenEvent(db, 'refreshed', { now, details: { refreshTokenExpiresInSec: pair.refreshTokenExpiresIn } });
-      return pair.accessToken;
+    let refresh: string | null = null;
+    if (row) {
+      try {
+        if (!row.refreshExpiresAt || row.refreshExpiresAt.getTime() > now.getTime()) {
+          refresh = decryptToken(row.refreshTokenEnc, cfg.encryptionKey);
+        }
+      } catch {
+        refresh = null;
+      }
     }
-  }
-  const npsso = cfg.npsso;
-  if (npsso) {
-    const pair = await withRetry(() => api.exchangeNpsso(npsso), opts);
-    if (pair) {
-      await saveTokens(db, cfg, pair, 'npsso', now);
-      await recordTokenEvent(db, 'from_env', { now, details: { refreshTokenExpiresInSec: pair.refreshTokenExpiresIn } });
-      return pair.accessToken;
+    const hadRefresh = refresh !== null;
+
+    if (refresh) {
+      const token = refresh;
+      const pair = await withRetry(() => api.exchangeRefresh(token), opts);
+      if (pair) {
+        await saveTokens(tx, cfg, pair, 'refresh', now);
+        return { kind: 'token', token: pair.accessToken, event: { kind: 'refreshed', expiresInSec: pair.refreshTokenExpiresIn } };
+      }
     }
+    const npsso = cfg.npsso;
+    if (npsso) {
+      const pair = await withRetry(() => api.exchangeNpsso(npsso), opts);
+      if (pair) {
+        await saveTokens(tx, cfg, pair, 'npsso', now);
+        return { kind: 'token', token: pair.accessToken, event: { kind: 'from_env', expiresInSec: pair.refreshTokenExpiresIn } };
+      }
+    }
+    return { kind: 'fail', hadRefresh, hadRow: !!row };
+  });
+
+  // журнал пишется после фиксации транзакции: его сбой не должен откатывать сохранённые токены
+  if (res.kind === 'token') {
+    if (res.event) await recordTokenEvent(db, res.event.kind, { now, details: { refreshTokenExpiresInSec: res.event.expiresInSec } });
+    return res.token;
   }
-  const reason = hadRefresh || row ? 'auth_expired' : 'npsso_invalid';
+  const { hadRefresh, hadRow } = res;
+  const reason = hadRefresh || hadRow ? 'auth_expired' : 'npsso_invalid';
   // npsso_invalid без сохранённых токенов и без NPSSO в env: протухания не было, просто токена нет
-  if (hadRefresh || row || cfg.npsso) await recordTokenEvent(db, 'expired', { now, details: { reason, hadRefresh } });
-  if (hadRefresh || row) {
+  if (hadRefresh || hadRow || cfg.npsso) await recordTokenEvent(db, 'expired', { now, details: { reason, hadRefresh } });
+  if (hadRefresh || hadRow) {
     throw new PsnError('auth_expired', 'Refresh token PSN не подошёл и NPSSO отвергнут или не задан: нужен новый NPSSO.');
   }
   throw new PsnError('npsso_invalid', cfg.npsso ? 'NPSSO отвергнут PSN: нужен новый NPSSO.' : 'PSN_NPSSO не задан и сохранённых токенов нет.');
