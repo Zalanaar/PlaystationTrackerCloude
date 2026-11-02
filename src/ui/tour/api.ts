@@ -17,16 +17,31 @@ async function parse(res: Response): Promise<TourApiState | null> {
   return { version: d.version, completedVersion: d.completedVersion, shouldAutoStart: d.shouldAutoStart };
 }
 
-export async function fetchTourState(signal?: AbortSignal): Promise<TourApiState | null> {
-  try {
-    return await parse(await fetch('/api/me/tour', { cache: 'no-store', signal }));
-  } catch {
-    return null;
+// Тур и «Что нового» спрашивают состояние на одной загрузке: один общий запрос, ответ живёт TOUR_STATE_TTL_MS
+// (сбрасывается при сохранении прохождения и смене профиля).
+const TOUR_STATE_TTL_MS = 10_000;
+let shared: { at: number; p: Promise<TourApiState | null> } | null = null;
+registerCacheReset(() => { shared = null; });
+
+function sharedTourState(): Promise<TourApiState | null> {
+  if (!shared || Date.now() - shared.at > TOUR_STATE_TTL_MS) {
+    const p = fetch('/api/me/tour', { cache: 'no-store' }).then(parse).catch(() => null);
+    const entry = { at: Date.now(), p };
+    shared = entry;
+    void p.then((v) => { if (v === null && shared === entry) shared = null; }); // сбой не кэшируем
   }
+  return shared.p;
+}
+
+export async function fetchTourState(signal?: AbortSignal): Promise<TourApiState | null> {
+  if (signal?.aborted) return null;
+  const v = await sharedTourState();
+  return signal?.aborted ? null : v;
 }
 
 /** done: true, version. Возвращает true при успехе; при неудаче ставит локальный запасной флаг, чтобы автозапуск не повторялся. */
 export async function saveTourDone(version: number): Promise<boolean> {
+  shared = null;
   try {
     const res = await fetch('/api/me/tour', {
       method: 'PUT', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true, version }),
