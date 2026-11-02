@@ -13,7 +13,7 @@ let t: TestDb;
 vi.mock('next/server', () => ({ after: (fn: () => unknown) => void afterCbs.push(fn) }));
 vi.mock('@/db', async (orig) => ({ ...(await orig<typeof import('@/db')>()), getDb: () => t.db }));
 
-const { continueChain, launchSync } = await import('./service');
+const { continueChain, launchSync, queueChain } = await import('./service');
 const SECRET = 's'.repeat(40);
 
 describe('continueChain', () => {
@@ -129,5 +129,45 @@ describe('launchSync: hops на принимающей стороне', () => {
   it('последнее допустимое звено (hop = 20) запускается', async () => {
     const id = await partial(MAX_HOPS);
     expect((await launchSync({ userId: TEST_USER, kind: 'daily', continueRunId: id, hop: MAX_HOPS })).kind).toBe('started');
+  });
+});
+
+describe('самовызов: повторы', () => {
+  const opts = (f: unknown, sleep = vi.fn(async () => undefined)) => ({ origin: 'https://a.example', secret: SECRET, fetchImpl: f as typeof fetch, sleep });
+
+  it('5xx и сетевой сбой повторяются, затем успех', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const f = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }));
+    const o = opts(f);
+    await continueChain(5, 2, o);
+    expect(f).toHaveBeenCalledTimes(3);
+    expect(o.sleep).toHaveBeenCalledTimes(2);
+    err.mockRestore();
+  });
+
+  it('не больше 3 попыток; тайм-аут и 4xx не повторяются', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const always = vi.fn(async () => new Response(null, { status: 502 }));
+    await queueChain(3, opts(always));
+    expect(always).toHaveBeenCalledTimes(3);
+    const timeout = vi.fn(async () => {
+      throw Object.assign(new Error('timeout'), { name: 'TimeoutError' });
+    });
+    await queueChain(3, opts(timeout));
+    expect(timeout).toHaveBeenCalledTimes(1);
+    const unauthorized = vi.fn(async () => new Response(null, { status: 401 }));
+    await continueChain(1, 1, opts(unauthorized));
+    expect(unauthorized).toHaveBeenCalledTimes(1);
+    err.mockRestore();
+  });
+
+  it('queueChain передаёт номер ожидания', async () => {
+    const f = vi.fn(async () => new Response(null, { status: 202 }));
+    await queueChain(0, { ...opts(f), wait: 4 });
+    expect(String((f.mock.calls[0] as unknown[])[0])).toBe('https://a.example/api/cron/sync?queue=0&wait=4');
   });
 });

@@ -144,41 +144,56 @@ async function work(db: AnyDb, env: PsnEnv, run: RunRow, onlineId: string): Prom
   if (run.kind === 'daily') await queueChain(run.userId);
 }
 
+export type SelfInvokeDeps = { origin?: string | null; secret?: string | null; fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void>; backoffMs?: readonly number[] };
+
+/** Паузы перед повторами самовызова. Повторы безопасны: принимающая сторона идемпотентна (hop/partial, already_running). */
+export const SELF_INVOKE_BACKOFF_MS = [1000, 2000] as const;
+
+const isTimeout = (e: unknown) => e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+
 /**
- * Самовызов следующего звена: GET {доверенный origin}/api/cron/sync?continue=<id>&hop=<N> с Bearer CRON_SECRET.
- * Origin только из env (getSyncOrigin), не из запроса. Принимающая сторона отвечает 202 сразу, поэтому ждём недолго.
- * Ошибка не критична: запасной путь = cron/кнопка.
+ * GET {доверенный origin}{path} с Bearer CRON_SECRET. Origin только из env (getSyncOrigin), не из запроса.
+ * Сетевой сбой, 429 и 5xx повторяются (до 3 попыток); тайм-аут не повторяется: запрос мог дойти, а время звена ограничено.
+ * Не бросает: запасной путь = догоняющий запуск watchdog, cron или кнопка.
  */
-export async function continueChain(
-  runId: number,
-  hop: number,
-  deps: { origin?: string | null; secret?: string | null; fetchImpl?: typeof fetch } = {},
-): Promise<void> {
+async function selfInvoke(path: string, what: string, deps: SelfInvokeDeps): Promise<boolean> {
   const secret = deps.secret === undefined ? getCronSecret() : deps.secret;
   const origin = deps.origin === undefined ? getSyncOrigin() : deps.origin;
-  if (!secret || !origin) return;
-  try {
-    const url = new URL(`/api/cron/sync?continue=${runId}&hop=${hop}`, origin);
-    const res = await (deps.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15_000), cache: 'no-store' });
-    await res.body?.cancel();
-  } catch (e) {
-    console.error('sync: самовызов не удался', safeErr(e, [secret]));
+  if (!secret || !origin) return false;
+  const delays = deps.backoffMs ?? SELF_INVOKE_BACKOFF_MS;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const url = new URL(path, origin);
+  for (let i = 0; ; i++) {
+    let retry = false;
+    try {
+      const res = await (deps.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15_000), cache: 'no-store' });
+      await res.body?.cancel();
+      if (res.status < 500 && res.status !== 429) return res.ok;
+      retry = true;
+      console.error(`sync: ${what}: ответ ${res.status}`);
+    } catch (e) {
+      console.error(`sync: ${what} не удался`, safeErr(e, [secret]));
+      retry = !isTimeout(e);
+    }
+    if (!retry || i >= delays.length) return false;
+    await sleep(delays[i]);
   }
 }
 
 /**
- * Самовызов обхода: GET {origin}/api/cron/sync?queue=<id только что закончившего пользователя>.
- * Принимающая сторона берёт следующего пользователя с большим id (каждый пользователь не больше раза за обход).
+ * Самовызов следующего звена: GET {origin}/api/cron/sync?continue=<id>&hop=<N>.
+ * Принимающая сторона отвечает 202 сразу, поэтому ждём недолго.
  */
-export async function queueChain(afterUserId: number, deps: { origin?: string | null; secret?: string | null; fetchImpl?: typeof fetch } = {}): Promise<void> {
-  const secret = deps.secret === undefined ? getCronSecret() : deps.secret;
-  const origin = deps.origin === undefined ? getSyncOrigin() : deps.origin;
-  if (!secret || !origin) return;
-  try {
-    const url = new URL(`/api/cron/sync?queue=${afterUserId}`, origin);
-    const res = await (deps.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15_000), cache: 'no-store' });
-    await res.body?.cancel();
-  } catch (e) {
-    console.error('sync: самовызов обхода не удался', safeErr(e, [secret]));
-  }
+export async function continueChain(runId: number, hop: number, deps: SelfInvokeDeps = {}): Promise<void> {
+  await selfInvoke(`/api/cron/sync?continue=${runId}&hop=${hop}`, 'самовызов', deps);
+}
+
+/**
+ * Самовызов обхода: GET {origin}/api/cron/sync?queue=<id только что закончившего пользователя>[&wait=<N>].
+ * Принимающая сторона берёт следующего пользователя с большим id (каждый пользователь не больше раза за обход).
+ * wait: номер повторной попытки, если слот был занят ручным синком или HLTB (см. cron/sync).
+ */
+export async function queueChain(afterUserId: number, deps: SelfInvokeDeps & { wait?: number } = {}): Promise<void> {
+  const wait = deps.wait !== undefined ? `&wait=${deps.wait}` : '';
+  await selfInvoke(`/api/cron/sync?queue=${afterUserId}${wait}`, 'самовызов обхода', deps);
 }
