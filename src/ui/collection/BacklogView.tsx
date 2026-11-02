@@ -496,7 +496,7 @@ export function BacklogView() {
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
       ) : !items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service ? (
-        <div aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
+        <div key="sk" aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
       ) : entries.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text="В бэклоге нет игр под выбранные фильтры.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setFilters(resetBacklogFilters(filters))}>Сбросить фильтры</button>
@@ -509,7 +509,7 @@ export function BacklogView() {
           </button>
         </EmptyState>
       ) : (
-        <div className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
+        <div key="list" className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
         {view === 'list' ? (
           <ul className="ps-bl-rows" aria-label="Игры в бэклоге">
             {entries.map((e) => (e.manual
