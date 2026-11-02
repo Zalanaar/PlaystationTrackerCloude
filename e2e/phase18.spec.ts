@@ -274,6 +274,8 @@ test.describe('Мобильный первый экран (18.2)', () => {
     expect(sb.y + sb.height).toBeLessThanOrEqual(640 - 56);
     const hero = page.getByRole('region', { name: 'Играю сейчас' });
     await expect(hero).toBeVisible();
+    // Скелет «С прошлого визита» (Фаза 28) схлопывается после ответа /api/inbox; пока он в потоке, hero ниже (y=399 в гонке).
+    await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0);
     const hb = (await hero.boundingBox())!;
     expect(hb.y).toBeLessThanOrEqual(232);
     expect(640 - 56 - hb.y).toBeGreaterThanOrEqual(100);

@@ -150,6 +150,7 @@ describe('moveBetweenLists: блоки бэклога и сервиса', () => 
   });
   it('запрос отложенных без фильтров бэклога', () => {
     expect(shelvedToApi(50).toString()).toBe('status=shelved&sort=last_played&limit=50&offset=0');
+    expect(shelvedToApi(50, 100).toString()).toBe('status=shelved&sort=last_played&limit=50&offset=100');
   });
   it('запрос сервиса без фильтров бэклога', () => {
     expect(serviceToApi(50).toString()).toBe('status=service&sort=last_played&limit=50&offset=0');

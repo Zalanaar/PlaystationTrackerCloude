@@ -113,12 +113,11 @@ describe('scoreBacklog', () => {
     expect(run({ candidates: [cand(1)], time: 'any' }).items[0].signals).toEqual([]);
   });
 
-  it('platinum_close: доля трофеев начатой игры; не начата, нет набора и DLC-хвост', () => {
+  it('platinum_close: доля трофеев начатой игры; не начата и нет набора', () => {
     expect(platinumClose(null)).toBe(0);
-    expect(platinumClose({ earned: 0, total: 40, dlcTail: false })).toBe(0);
-    expect(platinumClose({ earned: 30, total: 40, dlcTail: false })).toBe(0.75);
-    expect(platinumClose({ earned: 30, total: 40, dlcTail: true })).toBe(0.375);
-    const r = run({ candidates: [cand(1, { trophy: { earned: 20, total: 40, dlcTail: false } })] });
+    expect(platinumClose({ earned: 0, total: 40 })).toBe(0);
+    expect(platinumClose({ earned: 30, total: 40 })).toBe(0.75);
+    const r = run({ candidates: [cand(1, { trophy: { earned: 20, total: 40 } })] });
     expect(contrib(r, 0, 'platinum_close')).toBe(0.75);
   });
 
@@ -142,7 +141,7 @@ describe('scoreBacklog', () => {
 
   it('вес сигналов собирается в балл; скрытые нули не показываются, сигналы по убыванию |вклада|', () => {
     const history = [hist(10, 'completed', ['ACTION'], 100)];
-    const r = run({ candidates: [cand(1, { hours: 6, statusChangedAt: daysAgo(365), trophy: { earned: 10, total: 40, dlcTail: false } })], history, time: 'short' });
+    const r = run({ candidates: [cand(1, { hours: 6, statusChangedAt: daysAgo(365), trophy: { earned: 10, total: 40 } })], history, time: 'short' });
     const it0 = r.items[0];
     expect(it0.score).toBe(6.38);
     expect(it0.signals.map((s) => s.key)).toEqual(['genre_affinity', 'duration_fit', 'waiting', 'platinum_close']);

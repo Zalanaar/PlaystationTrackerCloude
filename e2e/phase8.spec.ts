@@ -245,7 +245,7 @@ test.describe('Фаза 8: скрытие игр', () => {
     // «Вернуть» в тосте
     await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
     await expect(card(page, 'Tetris Effect')).toHaveCount(1);
-    expect(mock.mutations.at(-1)?.body).toEqual({ hidden: false });
+    await expect.poll(() => mock.mutations.at(-1)?.body).toEqual({ hidden: false });
 
     // снова скрыть и вернуть через раздел «Скрытые»
     await card(page, 'Tetris Effect').locator('.ps-card__hit').click();
@@ -260,7 +260,7 @@ test.describe('Фаза 8: скрытие игр', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p8-hidden-${info.project.name}.png`, fullPage: true });
     await card(page, 'Tetris Effect').getByRole('button', { name: 'Вернуть в коллекцию: Tetris Effect' }).click();
-    expect(mock.mutations.at(-1)?.body).toEqual({ hidden: false });
+    await expect.poll(() => mock.mutations.at(-1)?.body).toEqual({ hidden: false });
     await expect(page.getByText('Скрытых игр нет')).toBeVisible();
     await page.getByRole('button', { name: 'К коллекции' }).click();
     await expect(page).not.toHaveURL(/hidden=1/);

@@ -46,10 +46,9 @@ describe('QA: формулы скоринга против 18.8 (посчита�
     // статус из будущего (часы разъехались) не даёт отрицательного вклада
     expect(sig(run({ candidates: [cand(1, { statusChangedAt: new Date(NOW.getTime() + 5 * DAY) })] }), 0, 'waiting')).toBeUndefined();
   });
-  it('platinum_close: earned/total * 1.5; DLC-хвост вдвое; earned > total не больше 1.5; total 0', () => {
-    const t = (earned: number, total: number, dlcTail = false) => run({ candidates: [cand(1, { trophy: { earned, total, dlcTail } })] });
+  it('platinum_close: earned/total * 1.5; earned > total не больше 1.5; total 0', () => {
+    const t = (earned: number, total: number) => run({ candidates: [cand(1, { trophy: { earned, total } })] });
     expect(sig(t(30, 40), 0, 'platinum_close')).toBe(1.13); // .75*1.5 = 1.125 -> 1.13
-    expect(sig(t(30, 40, true), 0, 'platinum_close')).toBe(0.56);
     expect(sig(t(50, 40), 0, 'platinum_close')).toBe(1.5);
     expect(sig(t(0, 40), 0, 'platinum_close')).toBeUndefined();
     expect(sig(t(5, 0), 0, 'platinum_close')).toBeUndefined();
@@ -70,7 +69,7 @@ describe('QA: формулы скоринга против 18.8 (посчита�
   it('score = сумма сырых вкладов, округление один раз до 0.01', () => {
     const history = [hist(1, 'completed', ['ACTION'], 100)];
     const r = run({
-      candidates: [cand(1, { hours: 5, trophy: { earned: 1, total: 3, dlcTail: false }, statusChangedAt: new Date(NOW.getTime() - 100 * DAY) })],
+      candidates: [cand(1, { hours: 5, trophy: { earned: 1, total: 3 }, statusChangedAt: new Date(NOW.getTime() - 100 * DAY) })],
       history, time: 'short',
     });
     const sum = r.items[0].signals.reduce((a, s) => a + s.contribution, 0);
@@ -135,10 +134,6 @@ describe('QA: граничные случаи скоринга', () => {
     const copy = JSON.stringify(cs);
     run({ candidates: cs });
     expect(JSON.stringify(cs)).toBe(copy);
-  });
-  it('DLC-хвост: игра с хвостом ниже такой же без хвоста', () => {
-    const r = run({ candidates: [cand(1, { trophy: { earned: 8, total: 10, dlcTail: true } }), cand(2, { trophy: { earned: 8, total: 10, dlcTail: false } })] });
-    expect(r.items[0].game.id).toBe(2);
   });
 });
 

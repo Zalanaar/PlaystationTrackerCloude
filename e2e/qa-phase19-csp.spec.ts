@@ -9,6 +9,14 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const COVER = 'https://image.api.playstation.com/vulcan/cover.png';
 const PAGES = ['/', '/stats', '/backlog', '/roadmap', '/recommend', '/wrapped', '/triage', '/?game=1', '/?game=1&tab=trophies'] as const;
 
+/** Вместо networkidle (в dev не наступает: HMR, неперехваченные запросы, повторные опросы): страница загружена, скелеты и aria-busy сняты, отрисовано два кадра. */
+async function settled(page: Page) {
+  await page.waitForLoadState('load');
+  await expect(page.locator('main').first()).toBeVisible();
+  await page.waitForFunction(() => document.querySelectorAll('.ps-skeleton, [aria-busy="true"]').length === 0);
+  await page.evaluate(() => new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res()))));
+}
+
 function watch(page: Page) {
   const v: string[] = [];
   page.on('console', (m) => { if (/content security policy|violates the following|Refused to/i.test(m.text())) v.push(m.text().slice(0, 200)); });
@@ -39,8 +47,7 @@ for (const theme of ['night', 'ps5'] as const) {
     for (const p of PAGES) {
       await page.goto(p);
       if (theme !== 'night') await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(400);
+      await settled(page);
     }
     expect(v.join('\n'), 'нарушения CSP').toBe('');
     test.info().annotations.push({ type: 'http-запросы к внешним хостам', description: insecure.join(' | ') || 'нет' });
