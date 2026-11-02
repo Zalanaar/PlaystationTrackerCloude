@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StatusCounts } from '@/server/collection/types';
-import { formatDate, formatNumber } from '../format';
+import { formatNumber } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
@@ -87,37 +87,20 @@ function ViewSeg({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => vo
 
 export type BackupInfo = { id: number; createdAt: string; count: number };
 
-/** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). */
-function CollectionMenuItems({ hidden, onHidden, onResetAll, backup, onRestoreBackup, close }: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void; backup: BackupInfo | null; onRestoreBackup: () => void; close: () => void }) {
+/** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). Сброс и откат статусов: меню профиля (Фаза 48). */
+function CollectionMenuItems({ hidden, onHidden, close }: { hidden: boolean; onHidden: (v: boolean) => void; close: () => void }) {
   return (
-    <>
-      <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onHidden(!hidden); }}>
-        <Icon name={hidden ? 'library' : 'eye-off'} size={16} />
-        <span className="ps-menu-item__label">
-          {hidden ? 'Вся коллекция' : 'Скрытые игры'}
-          {!hidden && <small className="ps-menu-item__hint">Убранные из коллекции, можно вернуть</small>}
-        </span>
-      </button>
-      {!hidden && backup && (
-        <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onRestoreBackup(); }}>
-          <Icon name="undo" size={16} />
-          <span className="ps-menu-item__label">
-            Вернуть статусы из копии…
-            <small className="ps-menu-item__hint">Копия от {formatDate(backup.createdAt) ?? 'неизвестной даты'}</small>
-          </span>
-        </button>
-      )}
-      {!hidden && (
-        <button type="button" role="menuitem" className={`ps-menu-item ps-menu-item--tall ps-menu-item--danger${backup ? '' : ' ps-menu-item--sep'}`} onClick={() => { close(); onResetAll(); }}>
-          <Icon name="undo" size={16} />
-          <span className="ps-menu-item__label">Сбросить все статусы…</span>
-        </button>
-      )}
-    </>
+    <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onHidden(!hidden); }}>
+      <Icon name={hidden ? 'library' : 'eye-off'} size={16} />
+      <span className="ps-menu-item__label">
+        {hidden ? 'Вся коллекция' : 'Скрытые игры'}
+        {!hidden && <small className="ps-menu-item__hint">Убранные из коллекции, можно вернуть</small>}
+      </span>
+    </button>
   );
 }
 
-function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onResetAll: () => void; backup: BackupInfo | null; onRestoreBackup: () => void }) {
+function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void }) {
   return (
     <Popover
       align="end" className="ps-collmenu"
@@ -140,10 +123,6 @@ type BarProps = {
   selectMode: boolean; onSelect: () => void; canSelect: boolean;
   /** Раздел «Скрытые»: войти (true) / выйти (false) */
   onHidden: (v: boolean) => void;
-  onResetAll: () => void;
-  /** Последняя копия `reset_all` (9.9a); null = нет, пункт скрыт */
-  backup: BackupInfo | null;
-  onRestoreBackup: () => void;
 };
 
 /** Чипы статуса и чип «Платина»: общие для десктопа и мобильного слота под hero. */
@@ -183,7 +162,7 @@ function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps
 
 /** Десктоп и планшет (768+): одна панель фильтров. Мобильный рендерит `MobileSearch` над hero и `MobileChips` под ним (§8.3). */
 export function FilterBar(p: BarProps) {
-  const { filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup } = p;
+  const { filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const active = hasActiveFilters(filters);
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
 
@@ -202,7 +181,7 @@ export function FilterBar(p: BarProps) {
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
         {active && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} />
+        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} />
       </div>
     </div>
   );
@@ -210,7 +189,7 @@ export function FilterBar(p: BarProps) {
 
 /** Мобильный слот 1: поиск + кнопка «Фильтры» (sheet: сортировка, вид, выбор игр, действия с коллекцией). */
 export function MobileSearch(p: BarProps) {
-  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden, onResetAll, backup, onRestoreBackup } = p;
+  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const [sheet, setSheet] = useState(false);
   const active = hasActiveFilters(filters);
   const dot = filtersDot(filters, view);
@@ -236,7 +215,7 @@ export function MobileSearch(p: BarProps) {
             <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={!canSelect && !selectMode} onClick={() => { setSheet(false); onSelect(); }}>
               <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">{selectMode ? 'Готово' : 'Выбрать игры'}</span>
             </button>
-            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onResetAll={onResetAll} backup={backup} onRestoreBackup={onRestoreBackup} close={() => setSheet(false)} />
+            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} close={() => setSheet(false)} />
           </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>

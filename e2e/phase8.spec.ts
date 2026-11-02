@@ -25,6 +25,14 @@ const card = (page: Page, title: string) =>
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const isMobile = (name: string) => name === 'mobile';
 
+/** Пункт меню профиля (Фаза 48, п. 12: сброс и откат статусов переехали из «…»/«Фильтров»): десктоп = поповер аватара, мобильный = sheet «Меню». */
+const openProfileMenu = (page: Page, mobile: boolean) =>
+  mobile ? page.getByRole('button', { name: 'Меню', exact: true }).click() : page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
+const profileItem = (page: Page, mobile: boolean, item: RegExp) => page.getByRole(mobile ? 'button' : 'menuitem', { name: item });
+async function statusMenu(page: Page, mobile: boolean, item: RegExp) {
+  await openProfileMenu(page, mobile);
+  await profileItem(page, mobile, item).click();
+}
 /** Пункт меню коллекции: десктоп = «…», мобильный = sheet «Фильтры». */
 async function collectionMenu(page: Page, mobile: boolean, item: RegExp) {
   if (mobile) await page.getByRole('button', { name: 'Фильтры' }).click();
@@ -158,16 +166,14 @@ test.describe('Фаза 8: сброс статуса', () => {
     const mobile = isMobile(info.project.name);
     const before = mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
     // копии нет: пункта в меню нет
-    if (!mobile) {
-      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-      await expect(page.getByRole('menuitem', { name: /Сбросить все статусы/ })).toBeVisible();
-      await expect(page.getByRole('menuitem', { name: /Вернуть статусы из копии/ })).toHaveCount(0);
-      await page.keyboard.press('Escape');
-    }
+    await openProfileMenu(page, mobile);
+    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
+    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toHaveCount(0);
+    await page.keyboard.press('Escape');
     mock.backups.push({ id: 1, reason: 'reset_all', rows: before.filter((g) => g.status) as never });
     for (const g of mock.games) { g.status = null; g.completedAt = null; g.droppedAt = null; }
     await page.reload();
-    await collectionMenu(page, mobile, /Вернуть статусы из копии/);
+    await statusMenu(page, mobile, /Вернуть статусы из копии/);
     const dlg = page.getByRole('dialog', { name: 'Вернуть статусы из копии' });
     await expect(dlg).toContainText('Копия от 27.10.2026');
     await dlg.getByRole('button', { name: 'Вернуть статусы' }).click();
@@ -175,16 +181,33 @@ test.describe('Фаза 8: сброс статуса', () => {
     expect(mock.mutations.at(-1)?.body).toEqual({ backupId: 1 });
     await expect(page.getByRole('status').filter({ hasText: 'Статусы возвращены: 8 игр' })).toBeVisible();
     expect(mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }))).toEqual(before);
-    if (!mobile) {
-      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-      await expect(page.getByRole('menuitem', { name: /Вернуть статусы из копии/ })).toHaveCount(0);
-    }
+    await openProfileMenu(page, mobile);
+    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
+    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toHaveCount(0);
+  });
+
+  test('Фаза 48 (п. 12): в «…» и «Фильтрах» коллекции нет сброса и отката статусов; копия читается при открытии меню, не при загрузке', async ({ page, context, baseURL }, info) => {
+    const mobile = isMobile(info.project.name);
+    const backupCalls: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('/api/games/status-backups')) backupCalls.push(r.url()); });
+    const mock = await openCollection(page, context, baseURL!);
+    mock.backups.push({ id: 1, reason: 'reset_all', rows: [] as never });
+    if (mobile) await page.getByRole('button', { name: 'Фильтры' }).click();
+    else await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+    await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Сбросить все статусы|Вернуть статусы из копии/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    expect(backupCalls).toEqual([]);
+    await openProfileMenu(page, mobile);
+    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toContainText('Копия от 27.10.2026');
+    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
+    expect(backupCalls.length).toBe(1);
   });
 
   test('вся коллекция: подтверждение словом «СБРОС», {"confirm":"RESET"}, «Вернуть» восстанавливает из копии', async ({ page, context, baseURL }, info) => {
     const mock = await openCollection(page, context, baseURL!);
     const before = mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
-    await collectionMenu(page, isMobile(info.project.name), /Сбросить все статусы/);
+    await statusMenu(page, isMobile(info.project.name), /Сбросить все статусы/);
     const dlg = page.getByRole('dialog', { name: 'Сбросить все статусы' });
     await expect(dlg).toBeVisible();
     await expect(dlg).toContainText('Статус будет сброшен у 8 игр');
@@ -216,7 +239,7 @@ test.describe('Фаза 8: сброс статуса', () => {
 
   test('вся коллекция: ошибка сервера остаётся в окне, статусы не тронуты', async ({ page, context, baseURL }, info) => {
     const mock = await openCollection(page, context, baseURL!);
-    await collectionMenu(page, isMobile(info.project.name), /Сбросить все статусы/);
+    await statusMenu(page, isMobile(info.project.name), /Сбросить все статусы/);
     const dlg = page.getByRole('dialog', { name: 'Сбросить все статусы' });
     await dlg.getByRole('textbox').fill('СБРОС');
     mock.failNextMutation = 503;

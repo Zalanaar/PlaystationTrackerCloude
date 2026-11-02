@@ -1,36 +1,37 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { formatNumber } from '../../format';
 import { useToast } from '../../primitives/Toast';
 import { ApiError, errorText, fetchStatusBackups, postResetAll, postRestore } from '../api';
 import type { BackupInfo } from '../FilterBar';
 import { gamesWord, UNDO_TTL_MS } from './pool';
 
-/** Сброс всех статусов (9.8) и откат из копии (9.9): состояние окон подтверждения и последней копии. */
+/**
+ * Сброс всех статусов (9.8) и откат из копии (9.9): состояние окон подтверждения и последней копии.
+ * Фаза 48 (п. 12): живёт в меню профиля; копию читает `loadBackup` при открытии меню, не при загрузке страницы.
+ */
 export function useStatusBackup(refresh: () => void) {
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [backup, setBackup] = useState<BackupInfo | null>(null);
+  /** 9.9a: копия после отката остаётся на сервере; уже использованную не предлагаем снова (меню перечитывает копию при каждом открытии) */
+  const used = useRef(new Set<number>());
 
   /** Откат сброса всех статусов из копии (9.9). */
   const loadBackup = useCallback(async () => {
     try {
       const r = await fetchStatusBackups();
-      setBackup(r.latest ? { id: r.latest.id, createdAt: r.latest.createdAt, count: r.latest.count } : null);
+      setBackup(r.latest && !used.current.has(r.latest.id) ? { id: r.latest.id, createdAt: r.latest.createdAt, count: r.latest.count } : null);
     } catch {
       /* пункт меню необязателен: без ответа он просто скрыт */
     }
   }, []);
-  useEffect(() => {
-    const t = setTimeout(() => void loadBackup(), 0);
-    return () => clearTimeout(t);
-  }, [loadBackup]);
-
   const restoreBackup = useCallback(async (backupId: number) => {
     try {
       const r = await postRestore(backupId);
+      used.current.add(backupId);
       setBackup(null);
       toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
     } catch (e) {
@@ -42,6 +43,7 @@ export function useStatusBackup(refresh: () => void) {
   /** Откат из меню: ошибку показывает окно подтверждения. */
   const restoreFromMenu = useCallback(async (backupId: number) => {
     const r = await postRestore(backupId);
+    used.current.add(backupId);
     setRestoreOpen(false);
     setBackup(null); // 9.9a: копия после отката остаётся на сервере, скрываем пункт сами
     toast({ text: `Статусы возвращены: ${formatNumber(r.restored)} ${gamesWord(r.restored)}` });
@@ -65,5 +67,5 @@ export function useStatusBackup(refresh: () => void) {
     refresh();
   }, [loadBackup, refresh, restoreBackup, toast]);
 
-  return { backup, resetOpen, setResetOpen, restoreOpen, setRestoreOpen, restoreFromMenu, resetAll };
+  return { backup, loadBackup, resetOpen, setResetOpen, restoreOpen, setRestoreOpen, restoreFromMenu, resetAll };
 }

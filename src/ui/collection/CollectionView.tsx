@@ -31,7 +31,7 @@ import { useCollectionLists } from './list/useCollectionLists';
 import { useGameMutations } from './list/useGameMutations';
 import { useOpenGame } from './list/useOpenGame';
 import { usePageArt } from './list/usePageArt';
-import { useStatusBackup } from './list/useStatusBackup';
+import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { StatLine } from './StatLine';
@@ -43,8 +43,6 @@ import { expectHero, heroHintCookie } from '@/shared/hero-hint';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
-const RestoreBackupDialog = dynamic(() => import('./RestoreBackupDialog').then((m) => m.RestoreBackupDialog), { ssr: false });
-const ResetAllDialog = dynamic(() => import('./ResetAllDialog').then((m) => m.ResetAllDialog), { ssr: false });
 
 /** heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS). */
 export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
@@ -79,7 +77,12 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
     poolRef, setPool: data.setPool, setOpen, refresh, selected, setSelected, setSelectMode, linkIdRef: game.linkIdRef, closeLinkRef: game.closeLinkRef,
   });
   const { setStatus, setHidden, setDate, bulk, bulkHidden, replaceGames } = m;
-  const { backup, resetOpen, setResetOpen, restoreOpen, setRestoreOpen, restoreFromMenu, resetAll } = useStatusBackup(refresh);
+  // сброс и откат статусов теперь в меню профиля (Фаза 48, п. 12): шапка сообщает событием, коллекция перечитывает данные
+  useEffect(() => {
+    const on = () => refresh();
+    window.addEventListener(STATUSES_CHANGED_EVENT, on);
+    return () => window.removeEventListener(STATUSES_CHANGED_EVENT, on);
+  }, [refresh]);
 
   // ---------- URL ----------
   const setFilters = useCallback((p: Partial<Filters>) => {
@@ -116,7 +119,6 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
     chronicleMode, counts, flat, blocks, byBlock, played, playedMode, density, cols, shownCount, shownGames, failedBlocks,
     empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
   } = L;
-  const withStatus = summary ? summary.counts.all - summary.counts.none : null;
   const summaryPlaying = summary ? summary.counts.playing : null;
   const heroExpected = expectHero(summaryPlaying, heroHint);
   // Запоминаем для следующего серверного рендера: есть ли что показать в hero
@@ -155,8 +157,7 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
   const barProps = {
     filters, view, counts: pool ? counts : null, platinumCount: summary ? summary.totals.platinumEarned : null, onChange: setFilters, onView: setView,
     onReset: () => setFilters(resetFilters(filters)), selectMode, onSelect: () => (selectMode ? exitSelect() : setSelectMode(true)),
-    canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); }, onResetAll: () => setResetOpen(true),
-    backup, onRestoreBackup: () => setRestoreOpen(true),
+    canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); },
   };
 
   return (
@@ -283,8 +284,6 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
         onNotDuplicate={(g) => { replaceGames([g]); refresh(); }}
       />
 
-      <RestoreBackupDialog open={restoreOpen} backup={backup} onClose={() => setRestoreOpen(false)} onConfirm={restoreFromMenu} />
-      <ResetAllDialog open={resetOpen} count={withStatus} onClose={() => setResetOpen(false)} onConfirm={resetAll} />
     </div>
     </>
   );

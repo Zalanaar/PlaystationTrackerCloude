@@ -20,6 +20,7 @@ import { invalidateApiCache } from '../data/http';
 import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
+import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
@@ -57,6 +58,7 @@ export function AppHeader() {
   const { busy, logout, logoutAll } = useLogout();
   const [more, setMore] = useState(false);
   const [restore, setRestore] = useState(false);
+  const statusMenu = useStatusMenu();
   const { profile } = useProfile();
   const { profiles, activeProfileId } = usePsnProfiles();
   const psnNick = profiles.length >= 2 ? (profiles.find((p) => p.id === activeProfileId)?.onlineId ?? null) : null;
@@ -141,6 +143,7 @@ export function AppHeader() {
                       <Icon name="upload" size={16} />
                       <span className="ps-menu-item__label">Восстановить из файла</span>
                     </button>
+                    <StatusMenuItems m={statusMenu} close={close} menu />
                     {isOwner && (
                       <Link href="/access" role="menuitem" className="ps-menu-item" onClick={close}>
                         <Icon name="users" size={16} />
@@ -216,6 +219,7 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); setRestore(true); }}>
             <Icon name="upload" size={16} /><span className="ps-menu-item__label">Восстановить из файла</span>
           </button>
+          {more && <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} />}
           {isOwner && (
             <Link href="/access" className="ps-menu-item" onClick={() => setMore(false)}>
               <Icon name="users" size={16} /><span className="ps-menu-item__label">Доступ</span>
@@ -235,6 +239,7 @@ export function AppHeader() {
         </div>
       </Sheet>
       <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />
+      <StatusDialogs m={statusMenu} />
     </>
   );
 }

@@ -15,10 +15,11 @@ const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]
 const card = (scope: ReturnType<Page['locator']>, page: Page, title: string) =>
   scope.locator('article.ps-card').filter({ has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) });
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+/** Пункт меню профиля (Фаза 48, п. 12): десктоп = поповер аватара, мобильный = sheet «Меню». */
 async function menu(page: Page, mobile: boolean, item: RegExp) {
-  if (mobile) await page.getByRole('button', { name: 'Фильтры' }).click();
-  else await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-  await page.getByRole('menuitem', { name: item }).click();
+  if (mobile) await page.getByRole('button', { name: 'Меню', exact: true }).click();
+  else await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
+  await page.getByRole(mobile ? 'button' : 'menuitem', { name: item }).click();
 }
 
 test.describe('QA Фаза 8: edge', () => {
@@ -78,7 +79,7 @@ test.describe('QA Фаза 8: edge', () => {
     await expect(page.getByRole('dialog', { name: 'God of War' })).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     await page.keyboard.press('Escape');
-    await menu(page, await page.getByRole('button', { name: 'Фильтры' }).isVisible(), /Сбросить все статусы/);
+    await menu(page, await page.getByRole('button', { name: 'Меню', exact: true }).isVisible(), /Сбросить все статусы/);
     await expect(page.getByRole('dialog', { name: 'Сбросить все статусы' })).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     await page.keyboard.press('Escape');
