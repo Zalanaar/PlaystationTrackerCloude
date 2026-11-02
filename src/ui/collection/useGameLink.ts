@@ -15,7 +15,8 @@ let pushedFor: number | null = null;
  * Элемент-источник, с которого открыли окно игры на другой странице (Статистика, Бэклог, Подскажи, Разбор).
  * Страница пересоздаётся при `back()`, поэтому элемент ищется заново по тегу, подписи и порядковому номеру (R-1).
  */
-export type FocusOrigin = { path: string; tag: string; label: string; nth: number };
+/** y: прокрутка страницы-источника, её восстанавливает FocusReturn (иначе focus() прокручивал к карточке, Бэклог уезжал вниз). */
+export type FocusOrigin = { path: string; tag: string; label: string; nth: number; y?: number };
 let focusOrigin: FocusOrigin | null = null;
 
 const labelOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -32,7 +33,7 @@ function captureFocusOrigin(path: string): void {
   const label = labelOf(target);
   const tag = target.tagName;
   const same = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.tagName === tag && labelOf(x) === label);
-  focusOrigin = { path, tag, label, nth: Math.max(0, same.indexOf(target)) };
+  focusOrigin = { path, tag, label, nth: Math.max(0, same.indexOf(target)), y: Math.round(window.scrollY) };
 }
 
 export function peekFocusOrigin(): FocusOrigin | null { return focusOrigin; }

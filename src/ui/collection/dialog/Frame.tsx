@@ -15,11 +15,18 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
   useLayoutEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
+    // Прокрутка под окном: возврат фокуса и смена адреса не должны её менять (правая колонка уезжала наверх)
+    const y = window.scrollY;
+    const path = window.location.pathname;
     document.body.style.overflow = 'hidden';
-    ref.current?.focus();
+    ref.current?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = prevOverflow;
-      prev?.focus?.();
+      prev?.focus?.({ preventScroll: true });
+      // окно открыли с другой страницы (адрес сменился): прокрутку там возвращает FocusReturn
+      const restore = () => { if (window.location.pathname === path && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y); };
+      restore();
+      requestAnimationFrame(restore);
     };
   }, []);
 
