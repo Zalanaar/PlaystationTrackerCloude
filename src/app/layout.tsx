@@ -4,10 +4,8 @@ import '@/ui/tokens/tokens.css';
 import '@/ui/tokens/themes.css';
 import '@/ui/tokens/decor.css';
 import '@/ui/styles/base.css';
-import '@/ui/styles/skeletons.css';
-import '@/ui/styles/access.css';
 import './globals.css';
-// Стили закрытой части — в @/ui/styles/app-styles (подключают (app)/layout, onboarding, offline, error, 404): /login их не грузит (Фаза 47)
+// Стили закрытой части (включая скелеты и доступ) — в @/ui/styles/app-styles (подключают (app)/layout, onboarding, offline, error, 404): /login их не грузит (Фаза 47)
 import { cookies, headers } from 'next/headers';
 import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';
 import { ThemeColorSync } from '@/ui/pwa/ThemeColorSync';
