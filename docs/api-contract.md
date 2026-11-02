@@ -371,7 +371,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | 404 | `not_found` | |
 | 403 | `forbidden` | роль не позволяет действие (например, member отменяет чужой синк, 8.8) |
 | 409 | `duplicate_game` | добавление в Бэклог «не куплено»: игра уже есть в библиотеке или в Плане (Фаза 43, 43.2); в `details` сведения о дубле |
-| 409 | `manual_limit` | в Бэклоге уже 200 несклеенных записей «не куплено» (43.2) |
+| 409 | `manual_limit` | в Бэклоге уже 200 несклеенных записей «не куплено» (43.2) или в списке «Играл на другой платформе» 300 записей (Фаза 44); всегда `details.limit` |
 | 409 | `manual_status_locked` | смена статуса записи «не куплено» (43.2) |
 | 409 | `sync_in_progress` | синк уже идёт (`POST /api/sync`), в `details.runId` id идущего запуска |
 | 409 | `planned_duplicate` | игра из каталога уже добавлена в планируемые (17.7) |
@@ -3370,3 +3370,50 @@ BatchResult =
 
 ### 43.1.5 Тесты
 `src/server/manual/manual-43-1.test.ts` (PGlite: `notPurchased=false`, пакет: частичный успех, дубли, лимиты 10 и 200, идемпотентность, изоляция; подсказки: точный и префиксный кэш, мягкий предел, общий лимит не ломается), `src/app/api/manual-games/batch-suggest.routes.test.ts` (400, 401, 429 с `resetAt`, `page_size`).
+
+## Фаза 44. «Играл на другой платформе» (без миграции)
+
+Ручной справочник игр, пройденных вне PSN (Xbox, Steam, Nintendo и др.): `manual_games.kind = 'other_platform'`, таблица и колонка `platform_label` из миграции 0026. Новых таблиц и колонок нет. Роуты 43 расширены, новых нет; сессия `requireUser`, `user_id` = активный профиль (Фаза 41); запись требует Origin и `Content-Type: application/json`; общие ошибки `401`, `400 invalid_request`, `503 db_unavailable`. Чужая запись (другой вход или другой профиль того же входа) неотличима от несуществующей.
+
+### 44.1 Правила записи
+- `not_purchased = false` всегда (CHECK `manual_games_not_purchased_check`: true допустим только для `ps_backlog`; поле в теле запрещено). Ни статуса, ни часов, ни трофеев, ни дат прохождения у записи нет.
+- Запись НЕ попадает в `games`/`game_status`: Статистика, Итоги, Бэклог (список, счётчик, «Не куплено»), План, прогнозы, часы не видят её по построению. Склейка с библиотекой (шаг синка 43.5), «Это та игра?», «Купил», смена статуса работают только с `ps_backlog`; для id записи `other_platform` эти роуты отвечают `404 not_found`.
+- `GET /api/manual-games` без `kind` возвращает ТОЛЬКО `ps_backlog`.
+- Уникальность `(user_id, rawg_id, kind)`: игра может лежать и в Бэклоге, и в этом списке; записи независимы.
+- Лимит: 300 записей `other_platform` на профиль (отдельно от 200 «не куплено»).
+
+### 44.2 Роуты
+Тип записи:
+```
+OtherPlatformGame = {
+  id: number; source: 'manual'; kind: 'other_platform';
+  externalSource: 'rawg'; externalId: string; title: string;
+  coverUrl: string | null; releaseDate: string | null;   // YYYY-MM-DD
+  platformLabel: string | null;   // подпись «на чём играл», только текст
+  createdAt: string               // ISO
+}
+```
+`GET /api/manual-games?kind=other_platform` — `200 { items: OtherPlatformGame[] }`, `createdAt` убыв., `id` убыв., только свой профиль. `kind` отсутствует или `ps_backlog` = Бэклог (43.2); другое значение = 400. `nb` для `other_platform` игнорируется.
+
+`POST /api/manual-games` с `kind: 'other_platform'` — тело (строгое, лишние поля, включая `notPurchased`, = 400):
+`{ "kind": "other_platform", "externalSource": "rawg", "externalId": "3328", "title": "...", "coverUrl": "https://..." | null, "releaseDate": "YYYY-MM-DD" | null, "platformLabel"?: string | null, "confirmDuplicate"?: boolean }`.
+- `externalId`, `title`, `coverUrl`, `releaseDate` валидируются как в 43.2. `platformLabel`: после trim 1..60, без управляющих символов и `<` `>`; отсутствует/`null` = без подписи. Берётся клиентом из `platforms` кандидата (сервер не сверяет с RAWG).
+- Успех: `200 { item: OtherPlatformGame, created: true }`.
+- Повтор по `(user_id, externalId, other_platform)`: `200 { item, created: false }`, запись и подпись не меняются; проверка до предупреждения о дубле и лимита. Идемпотентно при гонке. После `DELETE` тот же запрос снова создаёт запись (`created: true`): «Вернуть» работает; если запрос был с `confirmDuplicate`, клиент шлёт его снова.
+- Дубль с библиотекой PSN или активным пунктом Плана без `confirmDuplicate: true`: `409 duplicate_game`, `details` как в 43.2. С подтверждением запись создаётся (в `rejected_game_ids` ничего не пишется).
+- Лимит: `409 manual_limit`, `details: { limit: 300 }` (для Бэклога `details.limit = 200`).
+- Тело без `kind` или с `kind: 'ps_backlog'` = Бэклог (43.2) без изменений. Пакетный `POST /api/manual-games/batch` только для `ps_backlog`, `kind` в его элементах = 400.
+
+`DELETE /api/manual-games/{id}` — без изменений (43.2): удаляет свою запись любого kind, `200 { id, removed: boolean }`, идемпотентно.
+
+### 44.3 Поиск
+`GET /api/manual-games/search?q=...&scope=all` — RAWG по ВСЕМ платформам (без `platforms=187,18`, без фильтра `playstation`), `q` 2..80. Только по нажатию: `scope=all` вместе с `mode` = 400. `scope` отсутствует или `ps` = поиск PS5/PS4 (43.3); другое значение = 400. Отдельный кэш процесса 10 мин (ключ: запрос без регистра и лишних пробелов); попадание не тратит лимит; реальный запрос резервирует `provider_usage` (`rawg`, на профиль).
+`200 { candidates: (CatalogCandidate & { duplicate: 'library' | 'planned' | null; inBacklog: boolean; inList: boolean })[], cached: boolean }`. `CatalogCandidate.platforms` — полный список имён платформ RAWG (как отдаёт RAWG; порядок RAWG), `playstation: boolean`. `inList = true`, если игра уже в списке `other_platform` этого профиля; `inBacklog` — в Бэклоге (`ps_backlog`). Поле `inList` добавлено и в ответ PS-поиска (всегда присутствует). Ошибки как в 43.3: `503 catalog_unavailable` с `details.reason`, при `rate_limited` `details.resetAt`. БД недоступна: поиск работает, `duplicate = null`, `inBacklog = inList = false`.
+
+### 44.4 Исключения (как отметка «прошёл» Фазы 40)
+- «У тебя нет» и подборка «Новое», поиск и «Скоро» в Плане: `rawg_id` записи любого `kind` исключается на чтении (`ownedRawgIds`, `filterOwned`).
+- Профиль вкуса, скоринг «Подскажи» (бэклог библиотеки), «Новое от ИИ», Статистика, Итоги, План: строятся из `games`/`game_status`, запись на них не влияет (решение Артёма: только справочник).
+- Резервная копия разметки статусов записи не содержит.
+
+### 44.5 Тесты
+`src/server/manual/other-platform.test.ts` (PGlite: добавление, идемпотентность, дубль, лимит, изоляция входов и профилей, CHECK, несмешивание с `ps_backlog`, Статистика/Итоги/План/прогноз/Подскажи до и после, исключение из «У тебя нет»), `src/app/api/manual-games/other-platform.routes.test.ts` (401, валидация, Origin, 409, `kind`, поиск `scope=all`, 503 без утечек).
