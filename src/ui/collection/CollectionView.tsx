@@ -145,7 +145,7 @@ export function CollectionView() {
 
   return (
     <>
-    <LoaderOverlay loading={loading && !error} contentRef={rootRef} />
+    <LoaderOverlay loading={loading && !error} blocking={!pool} contentRef={rootRef} />
     <div ref={rootRef} className="ps-collection" data-tour-page="collection" data-tour-ready={String(!!pool || !!error || !loading)}>
       <div className="ps-pagehead ps-pagehead--coll">
         <div className="ps-pagehead__main">

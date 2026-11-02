@@ -306,7 +306,7 @@ export function BacklogView() {
 
   return (
     <>
-    <LoaderOverlay loading={loading && !error} contentRef={rootRef} />
+    <LoaderOverlay loading={loading && !error} blocking={!items} contentRef={rootRef} />
     <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>

@@ -38,3 +38,32 @@ test('поиск: медленная перезагрузка не отбира�
   await expect(input).toHaveValue('Ведьмак');
   await expect(input).toBeFocused();
 });
+
+test('смена статуса: refresh после мутации не делает корень inert, ввод в поиск работает', async ({ page, context, baseURL }) => {
+  await setup(page, context, baseURL!, 0);
+  await page.goto('/');
+  await expect(page.locator('.ps-card').first()).toBeVisible();
+  state.delay = 1500;
+  await page.getByRole('button', { name: 'Открыть: Stray' }).first().click(); // диалог: работает и на mobile
+  await page.getByRole('dialog', { name: 'Stray' }).getByRole('button', { name: 'Изменить статус' }).click();
+  await page.locator('[role=menuitemradio][aria-checked=false]').first().click(); // любой статус, отличный от текущего
+  await expect(overlay(page)).toBeVisible({ timeout: 3000 }); // refresh дольше 200 мс
+  expect(await overlay(page).getAttribute('data-blocking')).toBe('false');
+  expect(await page.locator('.ps-collection').getAttribute('inert')).toBeNull();
+  expect(await page.locator('.ps-collection').getAttribute('aria-busy')).toBeNull();
+  await page.keyboard.press('Escape'); // закрыть диалог игры
+  await expect(page.getByRole('dialog', { name: 'Stray' })).toHaveCount(0);
+  const input = page.getByRole('searchbox', { name: 'Поиск игры' });
+  await input.click();
+  await page.keyboard.type('God', { delay: 30 });
+  await expect(input).toHaveValue('God');
+  await expect(input).toBeFocused();
+});
+
+test('первичная загрузка блокирует корень (inert), повторная нет', async ({ page, context, baseURL }) => {
+  await setup(page, context, baseURL!, 1500);
+  await page.goto('/');
+  await expect(overlay(page)).toBeVisible({ timeout: 1200 });
+  expect(await overlay(page).getAttribute('data-blocking')).toBe('true');
+  expect(await page.locator('.ps-collection').getAttribute('inert')).not.toBeNull();
+});

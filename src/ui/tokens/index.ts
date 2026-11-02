@@ -72,9 +72,9 @@ export const BACKLOG_SUBNAV = [
 export const COLLAPSED_LIST_LIMIT = 5;
 /** Месяцы (МСК), когда на Статистике показан баннер «Итоги года»: декабрь и январь (в январе речь о прошлом годе). */
 export const WRAPPED_BANNER_MONTHS = [12, 1] as const;
-/** Цвет `<meta name="theme-color">` по теме = её `--bg` (§8.5). */
+/** theme-color и полоса под статус-баром = --statusbar-bg темы (у всех = --bg, кроме светлой PS1). */
 export const THEME_COLORS: Record<ThemeId, string> = {
-  night: '#0e0f16', graphite: '#111113', ps1: '#cfccc4', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c',
+  night: '#0e0f16', graphite: '#111113', ps1: '#1c1c22', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c',
 };
 
 /** «Разбор»: клавиши и свайпы (docs/design-system.md §4.9). */

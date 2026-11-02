@@ -129,7 +129,7 @@ export function StatsView() {
 
   return (
     <>
-    <LoaderOverlay loading={loading && !failed} contentRef={rootRef} />
+    <LoaderOverlay loading={loading && !failed} blocking={!data} contentRef={rootRef} />
     <div ref={rootRef} className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1">Статистика</h1>

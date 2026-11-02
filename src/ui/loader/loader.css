@@ -1,15 +1,26 @@
-/* Фаза 42B: лоадер загрузки. Только токены тем; одна разметка для всех 7 тем. */
+/* Фаза 42B: лоадер загрузки (docs/design-system.md §18). Только токены тем; одна разметка для всех 7 тем. */
 .ps-loader {
-  --loader-step: 300ms;
   position: fixed; left: 0; right: 0; top: var(--header-h); bottom: 0;
-  z-index: calc(var(--z-header) - 1); /* под шапкой, нижней навигацией, попапами и диалогами */
+  z-index: var(--z-loader); /* под шапкой, нижней навигацией, попапами и диалогами */
   display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  background: var(--loader-veil);
+  -webkit-backdrop-filter: blur(var(--loader-blur)); backdrop-filter: blur(var(--loader-blur));
   overflow: hidden; /* без горизонтального скролла */
 }
+/* Повторная загрузка: данные уже на экране. Без blur и без перехвата указателя, ввод и фокус не страдают */
+.ps-loader--soft {
+  background: var(--loader-veil-soft);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  pointer-events: none;
+}
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .ps-loader { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+  .ps-loader:not(.ps-loader--soft) { background: var(--loader-veil-solid); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ps-loader, .ps-loader--soft { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .ps-loader { background: var(--loader-veil-solid); }
+  .ps-loader--soft { background: var(--loader-veil-soft); }
+  .ps-loader__signs { background: var(--bg); }
 }
 @media (max-width: 767px) {
   .ps-loader { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }

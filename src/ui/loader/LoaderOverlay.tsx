@@ -27,20 +27,23 @@ export function useLoaderVisible(loading: boolean): boolean {
  * поэтому не двигает вёрстку, а шапка и навигация остаются резкими и кликабельными.
  * Правило со скелетонами: скелет остаётся каркасом первой отрисовки (под оверлеем без shimmer), индикацию несёт оверлей;
  * при повторной загрузке оверлей лежит поверх уже показанных данных.
- * `contentRef` — корень вида: на время показа получает inert и aria-busy. Диалоги живут в порталах вне корня и не затрагиваются.
+ * `blocking` (по умолчанию true) = первичная загрузка, данных на экране ещё нет: blur и `inert`/aria-busy на корне вида (`contentRef`).
+ * `blocking={false}` = повторная загрузка (поиск, фильтры, refresh после мутации, смена периода): данные уже показаны, поэтому
+ * без inert и без blur, оверлей с pointer-events:none, контент слегка приглушён; фокус и ввод не теряются.
+ * Диалоги живут в порталах вне корня и не затрагиваются.
  */
-export function LoaderOverlay({ loading, contentRef }: { loading: boolean; contentRef?: RefObject<HTMLElement | null> }) {
+export function LoaderOverlay({ loading, contentRef, blocking = true }: { loading: boolean; contentRef?: RefObject<HTMLElement | null>; blocking?: boolean }) {
   const visible = useLoaderVisible(loading);
   useEffect(() => {
     const el = contentRef?.current;
-    if (!el || !visible) return;
+    if (!el || !visible || !blocking) return;
     el.setAttribute('inert', '');
     el.setAttribute('aria-busy', 'true');
     return () => { el.removeAttribute('inert'); el.removeAttribute('aria-busy'); };
-  }, [visible, contentRef]);
+  }, [visible, blocking, contentRef]);
   if (!visible) return null;
   return (
-    <div className="ps-loader" role="status" aria-busy="true" data-testid="loader-overlay">
+    <div className={blocking ? 'ps-loader' : 'ps-loader ps-loader--soft'} role="status" aria-busy="true" data-testid="loader-overlay" data-blocking={String(blocking)}>
       <span className="ps-sr">Загрузка…</span>
       <div className="ps-loader__signs" aria-hidden="true">
         {SIGNS.map((s, i) => (

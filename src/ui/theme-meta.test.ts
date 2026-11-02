@@ -40,13 +40,14 @@ describe('syncThemeMeta', () => {
     expect(ap.content).toBe(APPLE_STATUS_BAR_STYLE);
     expect(APPLE_STATUS_BAR_STYLE).toBe('black-translucent');
   });
-  it('THEME_COLORS совпадает с --bg в themes.css для всех тем', () => {
+  it('THEME_COLORS совпадает с --statusbar-bg (иначе --bg) в themes.css для всех тем', () => {
     const css = readFileSync('src/ui/tokens/themes.css', 'utf8');
     for (const t of THEMES) {
       const sel = t.attr ? `[data-theme="${t.attr}"]` : ':root';
       const i = css.indexOf(sel);
       expect(i, sel).toBeGreaterThanOrEqual(0);
-      const m = css.slice(i).match(/--bg:\s*(#[0-9a-fA-F]{6})/);
+      const block = css.slice(i, css.indexOf('\n}', i));
+      const m = (t.attr ? block.match(/--statusbar-bg:\s*(#[0-9a-fA-F]{6})/) : null) ?? css.slice(i).match(/--bg:\s*(#[0-9a-fA-F]{6})/);
       expect(m?.[1].toLowerCase(), t.id).toBe(THEME_COLORS[t.id].toLowerCase());
     }
   });

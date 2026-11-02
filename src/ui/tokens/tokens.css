@@ -160,20 +160,15 @@
   /* z-index */
   --z-loader: 40; --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5; --z-whatsnew: 65; --z-install: 62;
 
-  /* Лоадер загрузки (Фаза 42, docs/design-system.md §18). Цвета берутся из токенов темы, значений по темам нет */
-  --loader-size: 36px;                      /* диаметр кольца; <480: 32 */
-  --loader-stroke: 3px;
-  --loader-disc: 76px;                      /* круглая подложка под кольцом; <480: 68 */
-  --loader-disc-bg: var(--surface);
-  --loader-arc: var(--accent);              /* дуга */
-  --loader-track: color-mix(in srgb, var(--text) 20%, transparent);
-  --loader-blur: 6px;                       /* <480: 4 */
-  --loader-veil: color-mix(in srgb, var(--bg) 48%, transparent);
-  --loader-veil-solid: color-mix(in srgb, var(--bg) 84%, transparent);  /* без backdrop-filter и при prefers-reduced-transparency */
-  --loader-delay: 200ms;                    /* не показывать, если загрузка короче */
-  --loader-min: 400ms;                      /* минимум показа после появления */
-  --loader-spin: 800ms;
-  --loader-late: 8000ms;                    /* после этого под кольцом подпись «Это занимает дольше обычного» */
+  /* Лоадер загрузки (Фаза 42, docs/design-system.md §18). Цвета знаков берутся из токенов статусов, значений по темам нет */
+  --loader-blur: 6px;                       /* первичная загрузка; <480: 4 */
+  --loader-veil: color-mix(in srgb, var(--bg) 40%, transparent);        /* подложка первичной загрузки */
+  --loader-veil-soft: color-mix(in srgb, var(--bg) 22%, transparent);   /* повторная загрузка: контент слегка приглушён, без blur */
+  --loader-veil-solid: color-mix(in srgb, var(--bg) 82%, transparent);  /* без backdrop-filter и при prefers-reduced-transparency */
+  --loader-step: 300ms;                     /* шаг подсветки знаков; цикл = 4 шага */
+  --loader-delay: 200ms;                    /* не показывать, если загрузка короче (дублируется в gate.ts) */
+  --loader-min: 400ms;                      /* минимум показа после появления (дублируется в gate.ts) */
+  --statusbar-bg: var(--bg);                /* полоса под статус-баром PWA и theme-color; у светлой PS1 тёмная */
 
   /* Тени (цвета темой не меняются, интенсивность через --shadow-alpha) */
   --shadow-alpha: 0.45;
@@ -219,7 +214,7 @@
 [data-density="dense"] { --plat-corner: 30px; --plat-corner-icon: 12px; }
 
 @media (max-width: 479px) {
-  :root { --loader-size: 32px; --loader-disc: 68px; --loader-blur: 4px; }
+  :root { --loader-blur: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

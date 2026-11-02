@@ -304,7 +304,7 @@ test.describe('QA 18: CLS Плана и Подскажи', () => {
 });
 
 test.describe('QA 18: theme-color по теме', () => {
-  const COLORS: Record<string, string> = { night: '#0e0f16', graphite: '#111113', ps1: '#cfccc4', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c' };
+  const COLORS: Record<string, string> = { night: '#0e0f16', graphite: '#111113', ps1: '#1c1c22', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c' };
   for (const [theme, color] of Object.entries(COLORS)) {
     test(`cookie ${theme}: meta theme-color ${color}`, async ({ page, context, baseURL }, info) => {
       test.skip(info.project.name === 'mobile', 'логика одинакова');
@@ -322,6 +322,6 @@ test.describe('QA 18: theme-color по теме', () => {
     const sel = page.locator('header').getByRole('button', { name: /Тема/ });
     await sel.click();
     await page.getByRole('option', { name: /PS1/ }).or(page.getByRole('menuitemradio', { name: /PS1/ })).first().click();
-    await expect(page.locator('meta[name=theme-color]').first()).toHaveAttribute('content', '#cfccc4');
+    await expect(page.locator('meta[name=theme-color]').first()).toHaveAttribute('content', '#1c1c22');
   });
 });
