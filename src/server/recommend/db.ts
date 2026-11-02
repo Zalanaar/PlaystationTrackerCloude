@@ -59,7 +59,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
       })
       .from(gameTrophySets)
       .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
-      .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.gameId, ids), sql`${trophies.groupId} is not null`, ne(trophies.groupId, 'default')))
+      .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.gameId, ids), sql`${trophies.groupId} is not null`, ne(trophies.groupId, 'default'), ne(trophies.type, 'platinum')))
       .groupBy(gameTrophySets.gameId),
   ]);
   const sumBy = new Map(sums.map((s) => [s.gameId, s]));
@@ -75,7 +75,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
     return {
       id: r.id, name: r.name, imageUrl: r.imageUrl, bannerUrl: r.bannerUrl, genres: effectiveGenres(r.psn, r.override),
       hours: rem.remaining, totalHours: d.hours, hoursSource: d.source, statusChangedAt: r.changedAt,
-      trophy: total > 0 ? { earned: Math.min(earned, total), total, dlcTail: false } : null, // DLC отделён: хвост не штрафуется
+      trophy: total > 0 ? { earned: Math.min(earned, total), total } : null, // DLC отделён из сумм
     };
   });
 }

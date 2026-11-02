@@ -80,10 +80,10 @@ export function durationFit(hours: number | null, time: TimeWish): number | null
   return 1 - 2 * Math.min(miss / DURATION_MISS_SCALE_HOURS, 1);
 }
 
-/** Доля полученных трофеев у начатой игры; DLC-хвост вдвое снижает; не начата или набора нет = 0. */
+/** Доля полученных трофеев у начатой игры; не начата или набора нет = 0. */
 export function platinumClose(t: Candidate['trophy']): number {
   if (!t || t.total <= 0 || t.earned <= 0) return 0;
-  return clamp(t.earned / t.total, 0, 1) * (t.dlcTail ? 0.5 : 1);
+  return clamp(t.earned / t.total, 0, 1);
 }
 
 export function waitingValue(since: Date, now: Date): number {
@@ -140,7 +140,7 @@ export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreSt
   // platinum_close
   const pc = platinumClose(c.trophy);
   if (pc > 0 && c.trophy) {
-    push('platinum_close', pc, `Трофеи: ${c.trophy.earned} из ${c.trophy.total}${c.trophy.dlcTail ? ', есть DLC-хвост' : ''}`);
+    push('platinum_close', pc, `Трофеи: ${c.trophy.earned} из ${c.trophy.total}`);
   }
 
   // waiting

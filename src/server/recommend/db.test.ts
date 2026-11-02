@@ -91,6 +91,15 @@ describe('recommend на БД', () => {
     expect(sig(id('D'))?.contribution).toBe(1.5);
       });
 
+  it('платина в DLC-группе не вычитается из сумм (QA-36-2)', async () => {
+    const id = await seed();
+    const [ts] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
+    await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id('D'), trophySetId: ts.id, source: 'manual' });
+    await t.db.insert(trophies).values([{ userId: 1, trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'platinum', earned: false }]);
+    const c = (await loadCandidates(t.db, TEST_USER)).find((x) => x.id === id('D'))!;
+    expect(c.trophy).toEqual({ earned: 8, total: 10 });
+  });
+
   it('изоляция: DLC и сеты другого пользователя не влияют на прогресс (оба считаются по своим данным)', async () => {
     const id = await seed();
     const [ts] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
@@ -107,8 +116,8 @@ describe('recommend на БД', () => {
     ]);
     const c1 = (await loadCandidates(t.db, TEST_USER)).find((c) => c.id === id('D'))!;
     const c2 = (await loadCandidates(t.db, u2.id as typeof TEST_USER)).find((c) => c.id === g2.id)!;
-    expect(c1.trophy).toEqual({ earned: 8, total: 10, dlcTail: false });
-    expect(c2.trophy).toEqual({ earned: 8, total: 8, dlcTail: false });
+    expect(c1.trophy).toEqual({ earned: 8, total: 10 });
+    expect(c2.trophy).toEqual({ earned: 8, total: 8 });
   });
 
   it('дизлайк исключает игру, снятие возвращает; идемпотентность и 404', async () => {

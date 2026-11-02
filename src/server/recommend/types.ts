@@ -14,8 +14,8 @@ export type HistoryGame = {
   playSeconds: number;
 };
 
-/** Трофейный набор игры: суммы по привязанным наборам без трофеев DLC (Фаза 36). dlcTail оставлен для совместимости, db.ts всегда false. */
-export type TrophyInfo = { earned: number; total: number; dlcTail: boolean };
+/** Трофейный набор игры: суммы по привязанным наборам без трофеев DLC (Фаза 36). */
+export type TrophyInfo = { earned: number; total: number };
 
 export type Candidate = {
   id: number;

@@ -43,6 +43,7 @@ describe('describeHltb', () => {
 describe('describeLlm', () => {
   it('нет провайдера / нет ключа / лимит 0', () => {
     expect(describeLlm({})).toMatchObject({ state: 'disabled', reason: 'no_provider', provider: null });
+    expect(describeLlm({ LLM_API_KEY: 'k', LLM_PROVIDER: 'bogus' })).toMatchObject({ state: 'disabled', reason: 'no_provider', provider: null });
     expect(describeLlm({ LLM_PROVIDER: 'groq' })).toMatchObject({ state: 'disabled', reason: 'no_key', provider: 'groq' });
     expect(describeLlm({ LLM_PROVIDER: 'groq', LLM_API_KEY: 'k', LLM_DAILY_LIMIT: '0' })).toMatchObject({ state: 'disabled', reason: 'limit_zero', totalLimit: 0 });
   });
