@@ -11,6 +11,8 @@ const { syncRuns, psnAuth, notifyLog } = schema;
 
 export const STALE_SYNC_MS = 3 * 86400_000;
 export const TOKEN_AGE_MS = 7 * 86400_000;
+/** За сколько до конца жизни refresh-токена предупреждать (раз в сутки): срок фиксирован от вставки NPSSO, не продлевается. */
+export const TOKEN_EXPIRING_MS = 3 * 86400_000;
 export const TELEGRAM_TIMEOUT_MS = 8000;
 export const TELEGRAM_DOC_TIMEOUT_MS = 15_000;
 const DAY_MS = 86400_000;
@@ -152,7 +154,7 @@ export async function releaseSend(db: AnyDb, kind: string, claim: SendClaim, now
   }
 }
 
-export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age' | 'sync_missed';
+export type NotifyKind = 'auth_expired' | 'npsso_invalid' | 'sync_stale' | 'token_age' | 'sync_missed' | 'token_expiring';
 
 const days = (ms: number) => Math.max(1, Math.floor(ms / DAY_MS));
 
@@ -168,7 +170,7 @@ const checkHint = (label?: string, vercel = false): string =>
     ? 'Вероятно, профиль PSN пользователя закрыт или нет дружбы с техническим аккаунтом. Если синк не идёт и у остальных, проверьте cron и NPSSO.'
     : `Проверьте cron${vercel ? ' на Vercel' : ''} и NPSSO.`;
 
-export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string } = {}): string {
+export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string; expiresAt?: Date } = {}): string {
   switch (kind) {
     case 'auth_expired':
       return `PS Tracker: PSN отклонил токен обновления, синк остановлен. Нужен новый NPSSO.\n${DOC}`;
@@ -179,6 +181,11 @@ export function messageFor(kind: NotifyKind, o: { ageMs?: number; label?: string
     case 'sync_missed': {
       const h = Math.max(1, Math.floor((o.ageMs ?? 0) / 3_600_000));
       return `PS Tracker: синк не выполнялся успешно уже ${h} ч (порог 30 ч). ${checkHint(o.label, true)}${forUser(o.label)}\n${DOC}`;
+    }
+    case 'token_expiring': {
+      const left = Math.max(1, Math.floor((o.ageMs ?? 0) / 3_600_000));
+      const when = o.expiresAt ? ` (${o.expiresAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} МСК)` : '';
+      return `PS Tracker: токен обновления PSN истекает через ${left} ч${when}. Если PSN_NPSSO на Vercel уже не действует, после этого синк остановится. Заранее вставьте новый NPSSO.\n${DOC}`;
     }
     case 'token_age':
       return `PS Tracker: токены PSN не обновлялись ${days(o.ageMs ?? TOKEN_AGE_MS)} сут., refresh живёт около 10 суток. Возможно, скоро понадобится новый NPSSO.\n${DOC}`;
@@ -198,7 +205,7 @@ export type NotifyAfterSyncOpts = {
 };
 
 /**
- * Определяет самый приоритетный сработавший триггер (auth > stale > token_age) и шлёт не чаще раза в сутки МСК на тип.
+ * Определяет самый приоритетный сработавший триггер (auth > stale > token_expiring > token_age) и шлёт не чаще раза в сутки МСК на тип.
  * Возвращает отправленный тип или null. Не бросает.
  */
 export async function notifyAfterSync(db: AnyDb, userId: UserId, o: NotifyAfterSyncOpts = {}): Promise<NotifyKind | null> {
@@ -216,7 +223,7 @@ export async function notifyAfterSync(db: AnyDb, userId: UserId, o: NotifyAfterS
     const prev = await lastSentOn(db, key);
     if (prev && prev >= today) return null;
 
-    const sent = await sendTelegram(messageFor(trigger.kind, { ageMs: trigger.ageMs, label: trigger.kind === 'sync_stale' ? o.label : undefined }), { env, fetchImpl: o.fetchImpl });
+    const sent = await sendTelegram(messageFor(trigger.kind, { ageMs: trigger.ageMs, expiresAt: trigger.expiresAt, label: trigger.kind === 'sync_stale' ? o.label : undefined }), { env, fetchImpl: o.fetchImpl });
     if (!sent) return null;
     await markSent(db, key, now);
     return trigger.kind;
@@ -226,7 +233,7 @@ export async function notifyAfterSync(db: AnyDb, userId: UserId, o: NotifyAfterS
   }
 }
 
-async function pickTrigger(db: AnyDb, userId: UserId, now: Date, errorReason: string | null): Promise<{ kind: NotifyKind; ageMs?: number } | null> {
+async function pickTrigger(db: AnyDb, userId: UserId, now: Date, errorReason: string | null): Promise<{ kind: NotifyKind; ageMs?: number; expiresAt?: Date } | null> {
   if (errorReason === 'auth_expired' || errorReason === 'npsso_invalid') return { kind: errorReason };
 
   const [lastSuccess] = await db
@@ -242,7 +249,9 @@ async function pickTrigger(db: AnyDb, userId: UserId, now: Date, errorReason: st
   }
   if (reference && now.getTime() - reference.getTime() > STALE_SYNC_MS) return { kind: 'sync_stale', ageMs: now.getTime() - reference.getTime() };
 
-  const [auth] = await db.select({ updatedAt: psnAuth.updatedAt }).from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+  const [auth] = await db.select({ updatedAt: psnAuth.updatedAt, refreshExpiresAt: psnAuth.refreshExpiresAt }).from(psnAuth).where(eq(psnAuth.id, 1)).limit(1);
+  const left = auth?.refreshExpiresAt ? auth.refreshExpiresAt.getTime() - now.getTime() : null;
+  if (auth?.refreshExpiresAt && left !== null && left > 0 && left <= TOKEN_EXPIRING_MS) return { kind: 'token_expiring', ageMs: left, expiresAt: auth.refreshExpiresAt };
   if (auth && now.getTime() - auth.updatedAt.getTime() >= TOKEN_AGE_MS) return { kind: 'token_age', ageMs: now.getTime() - auth.updatedAt.getTime() };
   return null;
 }

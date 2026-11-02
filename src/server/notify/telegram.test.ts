@@ -36,7 +36,7 @@ describe('telegram: env и отправка', () => {
     spy.mockRestore();
   });
   it('тексты на русском со ссылкой на docs/release.md', () => {
-    for (const k of ['auth_expired', 'npsso_invalid', 'sync_stale', 'token_age'] as const) {
+    for (const k of ['auth_expired', 'npsso_invalid', 'sync_stale', 'token_age', 'token_expiring'] as const) {
       const m = messageFor(k, { ageMs: 4 * DAY });
       expect(m).toContain('docs/release.md');
       expect(m).toMatch(/[а-я]/i);
@@ -108,6 +108,25 @@ describe('notifyAfterSync (PGlite)', () => {
     expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).toBeNull();
     await t.db.update(psnAuth).set({ updatedAt: new Date(NOW.getTime() - 7 * DAY) });
     expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).toBe('token_age');
+  });
+
+  it('token_expiring: refresh истекает в ближайшие 3 суток (дата МСК в тексте); раньше и после истечения нет; раз в сутки', async () => {
+    await run('success', new Date(NOW.getTime() - DAY));
+    const exp = new Date(NOW.getTime() + 4 * DAY);
+    await t.db.insert(psnAuth).values({ id: 1, refreshTokenEnc: 'x', source: 'refresh', updatedAt: NOW, refreshExpiresAt: exp });
+    expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).toBeNull();
+    const f = okFetch();
+    const soon = new Date(NOW.getTime() + 2 * DAY + 3_600_000);
+    await t.db.update(psnAuth).set({ refreshExpiresAt: soon });
+    expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f })).toBe('token_expiring');
+    expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: f })).toBeNull();
+    expect(f).toHaveBeenCalledTimes(1);
+    const body = String(((f.mock.calls[0] as unknown[])[1] as RequestInit).body);
+    expect(body).toContain('49 ч');
+    expect(body).toContain('МСК');
+    await t.db.delete(notifyLog);
+    await t.db.update(psnAuth).set({ refreshExpiresAt: new Date(NOW.getTime() - 1000) });
+    expect(await notifyAfterSync(t.db, TEST_USER, { now: NOW, env: ENV, fetchImpl: okFetch() })).toBeNull();
   });
 
   it('если сообщение высшего триггера уже было сегодня, нижние не шлются (нет дублей)', async () => {
