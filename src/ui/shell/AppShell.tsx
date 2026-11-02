@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -15,15 +16,17 @@ import { Sheet } from '../primitives/Sheet';
 import { useSync } from '../sync/SyncProvider';
 import { useInstall } from '../pwa/InstallPrompt';
 import { purgeServiceWorkerCaches } from '../pwa/sw-messages';
+import { invalidateApiCache } from '../data/http';
 import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { SyncIndicator } from './SyncIndicator';
-import { RestoreFileDialog } from '../backup/RestoreFileDialog';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
 import { ThemeList, ThemePicker } from './ThemePicker';
+
+const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
 function useLogout() {
   const router = useRouter();
@@ -34,6 +37,7 @@ function useLogout() {
       await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     } finally {
       void purgeServiceWorkerCaches();
+      invalidateApiCache(); // данные прошлого входа не должны пережить клиентский переход на /login
       router.replace('/login');
       router.refresh();
     }

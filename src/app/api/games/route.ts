@@ -1,7 +1,7 @@
 import { getDb } from '@/db';
 import { listGames } from '@/server/collection/query';
 import { parseListQuery } from '@/server/collection/validation';
-import { fail, ok } from '@/server/http';
+import { fail, okRevalidated } from '@/server/http';
 import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const p = parseListQuery(new URL(req.url).searchParams);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
-    return ok(await listGames(getDb(), a.user.id, p.value));
+    return okRevalidated(req, await listGames(getDb(), a.user.id, p.value));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

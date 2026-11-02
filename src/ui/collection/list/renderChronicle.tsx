@@ -12,7 +12,7 @@ export function renderChronicle(c: RenderCtx): ReactNode {
   const totalChron = filters.status === 'completed' ? counts.completed : filters.status === 'dropped' ? counts.dropped : counts.completed + counts.dropped;
   return (
     <>
-      {chron.years.map((y) => {
+      {chron.years.map((y, yi) => {
         const open = isOpen(y.year);
         return (
           <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
@@ -22,7 +22,7 @@ export function renderChronicle(c: RenderCtx): ReactNode {
             />
             {open && yearMonthChips(y).length > 0 && <MonthChips key={y.year} year={y.year} chips={yearMonthChips(y)} />}
             <div id={`y${y.year}-body`} className="ps-chron__body" hidden={!open}>
-              {open && renderGames(c, flatYearGames(y), { anchors: anchorsByGame(y) })}
+              {open && renderGames(c, flatYearGames(y), { anchors: anchorsByGame(y), eager: yi === 0 ? c.cols : 0 })}
             </div>
           </section>
         );

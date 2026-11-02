@@ -1,11 +1,12 @@
 // Клиент API «не куплено» (docs/api-contract.md, Фаза 43). Только типы из server.
 import type { BatchResult, GameRef, ManualGame, ManualMatch, SearchResponse } from './manual';
 import { call } from './api';
+import { cachedGet } from '../data/http';
 import { suggestCacheClear } from './suggestCache';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const fetchManual = (signal?: AbortSignal) => call<{ items: ManualGame[] }>('/api/manual-games', { signal });
+export const fetchManual = (signal?: AbortSignal) => cachedGet<{ items: ManualGame[] }>('/api/manual-games', signal);
 
 export const searchManual = (q: string, signal?: AbortSignal) =>
   call<SearchResponse>(`/api/manual-games/search?q=${encodeURIComponent(q)}`, { signal });
@@ -31,6 +32,6 @@ export const markPurchased = (id: number) => changed(call<{ item: ManualGame }>(
 export const unmarkPurchased = (id: number) => changed(call<{ item: ManualGame }>(`/api/manual-games/${id}/purchased`, { method: 'DELETE' }));
 export const removeManual = (id: number) => changed(call<{ id: number; removed: boolean }>(`/api/manual-games/${id}`, { method: 'DELETE' }));
 
-export const fetchMatches = (signal?: AbortSignal) => call<{ matches: ManualMatch[] }>('/api/manual-games/matches', { signal });
+export const fetchMatches = (signal?: AbortSignal) => cachedGet<{ matches: ManualMatch[] }>('/api/manual-games/matches', signal);
 export const answerMatch = (id: number, answer: 'yes' | 'no') =>
   call<{ id: number; answer: 'yes' | 'no'; linked: GameRef | null }>(`/api/manual-games/${id}/match`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ answer }) });

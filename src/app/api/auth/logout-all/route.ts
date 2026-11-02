@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }
-  const res = ok({});
+  const res = ok({}, { headers: { 'Clear-Site-Data': '"cache"' } }); // HTTP-кэш тяжёлых GET (Фаза 47)
   res.cookies.set(SESSION_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 });
   return res;
 }

@@ -1,3 +1,4 @@
+import '@/ui/styles/app-styles';
 import { redirectToOnboardingIfNeeded } from './onboarding-guard';
 import { ToastProvider } from '@/ui/primitives/Toast';
 import { ProfileProvider } from '@/ui/profile/ProfileProvider';

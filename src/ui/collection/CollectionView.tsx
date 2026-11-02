@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameStatusValue } from '@/server/collection/types';
@@ -17,7 +18,6 @@ import { BlockHead } from './Chronicle';
 import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
 import { effectiveView, filtersToUrl, parseFilters, resetFilters, type Filters } from './filters';
 import type { GameActions } from './GameCard';
-import { GameDialog } from './GameDialog';
 import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
 import type { RenderCtx } from './list/renderCtx';
 import { CheckChip, renderBlock } from './list/renderBlocks';
@@ -34,14 +34,17 @@ import { usePageArt } from './list/usePageArt';
 import { useStatusBackup } from './list/useStatusBackup';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
-import { ResetAllDialog } from './ResetAllDialog';
-import { RestoreBackupDialog } from './RestoreBackupDialog';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
 import { InboxStrip } from '../inbox/InboxStrip';
 import { useInbox } from '../inbox/useInbox';
 import { expectHero, heroHintCookie } from './heroHint';
+
+// Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
+const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
+const RestoreBackupDialog = dynamic(() => import('./RestoreBackupDialog').then((m) => m.RestoreBackupDialog), { ssr: false });
+const ResetAllDialog = dynamic(() => import('./ResetAllDialog').then((m) => m.ResetAllDialog), { ssr: false });
 
 /** heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS). */
 export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {

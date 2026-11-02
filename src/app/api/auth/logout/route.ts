@@ -34,7 +34,8 @@ export async function POST(req: Request) {
       revoked = false;
     }
   }
-  const res = ok({ revoked });
+  // Фаза 47: тяжёлые GET лежат в HTTP-кэше браузера (private, no-cache + ETag): при выходе он очищается
+  const res = ok({ revoked }, { headers: { 'Clear-Site-Data': '"cache"' } });
   res.cookies.set(SESSION_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 });
   return res;
 }

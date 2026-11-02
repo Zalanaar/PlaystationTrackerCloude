@@ -2,11 +2,12 @@
 import type { GoalMode, GoalView } from './goal-model';
 import type { PlannedGameDto, RoadmapResponse, SettingsView } from '@/server/roadmap/types';
 import { ApiError, call } from '../collection/api';
+import { cachedGet } from '../data/http';
 import { mutationErrorText, type CatalogCandidateView, type PlannedBody, type UpcomingCandidate } from './model';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const fetchRoadmap = (signal?: AbortSignal) => call<RoadmapResponse>('/api/roadmap', { signal });
+export const fetchRoadmap = (signal?: AbortSignal) => cachedGet<RoadmapResponse>('/api/roadmap', signal);
 export const putSettings = (year: number, hoursPerWeek: number) =>
   call<{ settings: SettingsView }>('/api/roadmap/settings', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ year, hoursPerWeek }) });
 /** Цель года (контракт 17.3a): PUT = upsert, DELETE идемпотентен. */

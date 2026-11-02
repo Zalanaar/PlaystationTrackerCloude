@@ -1,5 +1,5 @@
 import { getDb } from '@/db';
-import { fail, ok } from '@/server/http';
+import { fail, okRevalidated } from '@/server/http';
 import { getRoadmap } from '@/server/roadmap/db';
 import { requireUser } from '@/server/auth/require-user';
 
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const a = await requireUser(req);
   if (!a.ok) return a.response;
   try {
-    return ok(await getRoadmap(getDb(), a.user.id));
+    return okRevalidated(req, await getRoadmap(getDb(), a.user.id));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

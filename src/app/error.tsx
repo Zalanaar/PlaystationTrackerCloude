@@ -1,5 +1,6 @@
 'use client';
 
+import '@/ui/styles/app-styles';
 import { ErrorPanel } from '@/ui/ErrorPanel';
 
 // Ошибка вне шелла приложения (например /login).

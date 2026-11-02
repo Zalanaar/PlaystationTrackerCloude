@@ -1,5 +1,5 @@
 import { getDb } from '@/db';
-import { fail, ok } from '@/server/http';
+import { fail, okRevalidated } from '@/server/http';
 import { mskDate } from '@/server/stats/period';
 import { getStats } from '@/server/stats/query';
 import { parseStatsQuery } from '@/server/stats/validation';
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const p = parseStatsQuery(new URL(req.url).searchParams, mskDate(new Date()).year);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   try {
-    return ok(await getStats(getDb(), a.user.id, p.value));
+    return okRevalidated(req, await getStats(getDb(), a.user.id, p.value));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

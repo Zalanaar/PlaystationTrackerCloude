@@ -1,3 +1,4 @@
+import '@/ui/styles/app-styles';
 import type { Metadata } from 'next';
 import { NotFound } from '@/ui/NotFound';
 

@@ -1,10 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { invalidateApiCache } from '../data/http';
 import { Sheet } from '../primitives/Sheet';
-import { SyncPanel } from './SyncPanel';
-import { TelegramDigestPanel } from '../telegram/TelegramDigestPanel';
 import { startErrorText, stopErrorText, type SyncStatus } from './status';
+
+// Панель синка открывается по клику: отдельный чанк (Фаза 47)
+const SyncPanel = dynamic(() => import('./SyncPanel').then((m) => m.SyncPanel), { ssr: false });
+const TelegramDigestPanel = dynamic(() => import('../telegram/TelegramDigestPanel').then((m) => m.TelegramDigestPanel), { ssr: false });
 
 const POLL_MS = 3000;
 
@@ -42,13 +46,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [stopping, setStopping] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const busy = useRef(false); // синхронная защита от двойного клика
+  const lastSuccessRef = useRef<string | null | undefined>(undefined);
 
   const reload = useCallback(async () => {
     try {
       const res = await fetch('/api/sync/status', { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error('bad status');
-      setStatus(json.data as SyncStatus);
+      const next = json.data as SyncStatus;
+      // синк завершился (новый lastSuccessAt): кэш GET устарел до того, как экраны перечитают данные
+      if (lastSuccessRef.current !== undefined && lastSuccessRef.current !== next.lastSuccessAt) invalidateApiCache();
+      lastSuccessRef.current = next.lastSuccessAt;
+      setStatus(next);
       setLoadError(false);
     } catch {
       setLoadError(true);

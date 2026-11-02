@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { TOUR_VERSION } from '@/shared/tour';
@@ -9,7 +10,9 @@ import {
   AUTO_DELAY_MS, canAutoStart, nextIndex, parseResume, prevIndex, TOUR_SEEN_KEY, TOUR_SHOWN_KEY, TOUR_STEP_KEY,
 } from './model';
 import { TOUR_STEPS, type TourRoute } from './steps';
-import { TourOverlay } from './TourOverlay';
+
+// Оверлей тура нужен раз в жизни аккаунта: отдельный чанк (Фаза 47)
+const TourOverlay = dynamic(() => import('./TourOverlay').then((m) => m.TourOverlay), { ssr: false });
 
 type Ctx = { start: () => void; active: boolean };
 const C = createContext<Ctx>({ start: () => {}, active: false });

@@ -1,4 +1,5 @@
 // Конверт ответов API (контракт 4.1) и общие проверки запросов.
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 export type ErrorCode =
@@ -42,6 +43,21 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 
 export function ok<T>(data: T, init?: { headers?: HeadersInit }): NextResponse {
   return NextResponse.json({ ok: true, data }, { status: 200, headers: { ...NO_STORE, ...(init?.headers as Record<string, string>) } });
+}
+
+/**
+ * Тяжёлые GET (статистика, план, итоги года; Фаза 47): ETag по телу ответа и `Cache-Control: private, no-cache`.
+ * Браузер хранит ответ, но каждый раз сверяется с сервером (If-None-Match): совпало = 304 без тела.
+ * ETag от тела, а не от времени синка: правки статусов/дат/плана меняют ответ без синка, сверка всегда верна.
+ * Данные чужого входа не отдаются: сервер каждый раз проверяет сессию и считает тело заново; на выходе Clear-Site-Data.
+ */
+export function okRevalidated<T>(req: Request, data: T): Response {
+  const body = JSON.stringify({ ok: true, data });
+  const etag = `W/"${createHash('sha1').update(body).digest('base64url')}"`;
+  const headers = { 'Cache-Control': 'private, no-cache', Vary: 'Cookie', ETag: etag };
+  const inm = req.headers.get('if-none-match');
+  if (inm && inm.split(',').some((t) => t.trim() === etag)) return new Response(null, { status: 304, headers });
+  return new Response(body, { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
 }
 
 export function fail(status: number, code: ErrorCode, message: string, details?: Record<string, unknown>, headers?: Record<string, string>): NextResponse {

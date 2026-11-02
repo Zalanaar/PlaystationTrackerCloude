@@ -10,7 +10,11 @@ export function coverVariant(title: string): number {
 }
 
 /** Обложка 3/4. Нет картинки или не загрузилась: градиент из токенов (вариант по названию) + название. */
-export function Cover({ url, title, className }: { url: string | null; title: string; className?: string }) {
+export function Cover({ url, title, className, priority }: {
+  url: string | null; title: string; className?: string;
+  /** первый ряд экрана (кандидат в LCP): грузить сразу и с высоким приоритетом (Фаза 47) */
+  priority?: boolean;
+}) {
   const [failed, setFailed] = useState<string | null>(null);
   const bad = !url || failed === url;
   if (bad) {
@@ -23,7 +27,7 @@ export function Cover({ url, title, className }: { url: string | null; title: st
   return (
     // eslint-disable-next-line @next/next/no-img-element -- внешние обложки PSN, оптимизация next/image не нужна
     <img
-      src={url} alt="" decoding="async" loading="lazy" referrerPolicy="no-referrer"
+      src={url} alt="" decoding="async" loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : undefined} referrerPolicy="no-referrer"
       className={`ps-cover ps-cover-img ${className ?? ''}`} onError={() => setFailed(url)}
     />
   );

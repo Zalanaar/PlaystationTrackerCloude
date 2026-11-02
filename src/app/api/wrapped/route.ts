@@ -1,5 +1,5 @@
 import { getDb } from '@/db';
-import { fail, ok } from '@/server/http';
+import { fail, okRevalidated } from '@/server/http';
 import { mskDate } from '@/server/stats/period';
 import { getWrapped } from '@/server/wrapped/query';
 import { parseWrappedQuery } from '@/server/wrapped/validation';
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   try {
     // Ник пользователя из его профиля (allowed_users.psn_online_id); иначе getWrapped возьмёт его из сохранённого профиля PSN. Env с ником владельца чужим не отдаётся.
     const onlineId = a.user.row.psnOnlineId?.trim() || null;
-    return ok(await getWrapped(getDb(), a.user.id, p.value.year, onlineId, new Date(), { withService: p.value.withService }));
+    return okRevalidated(req, await getWrapped(getDb(), a.user.id, p.value.year, onlineId, new Date(), { withService: p.value.withService }));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

@@ -8,11 +8,10 @@ import type {
   StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
-export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string, public reason?: string, public details?: unknown) {
-    super(message);
-  }
-}
+import { ApiError, cachedGet, call } from '../data/http';
+
+// call/ApiError живут в общем слое ../data/http; реэкспорт для модулей API экранов
+export { ApiError, call, invalidateApiCache } from '../data/http';
 
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) {
@@ -25,41 +24,24 @@ export function errorText(e: unknown): string {
   return 'Нет связи с сервером.';
 }
 
-export async function call<T>(url: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url, { cache: 'no-store', ...init });
-  } catch {
-    throw new ApiError(0, 'network', 'network');
-  }
-  const json = await res.json().catch(() => null);
-  if (res.status === 401 && typeof window !== 'undefined') {
-    // полная перезагрузка: сброс клиентского состояния на странице входа
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-  }
-  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error', json?.error?.details?.reason, json?.error?.details);
-  return json.data as T;
-}
-
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const fetchSummary = () => call<CollectionSummaryResponse>('/api/collection/summary');
+export const fetchSummary = () => cachedGet<CollectionSummaryResponse>('/api/collection/summary');
 export const fetchGames = (query: URLSearchParams, signal?: AbortSignal) =>
-  call<GamesListResponse>(`/api/games?${query.toString()}`, { signal });
+  cachedGet<GamesListResponse>(`/api/games?${query.toString()}`, signal);
 
 /** Детали игры и список трофеев для окна (12.5). 404 = игра не найдена. */
 export const fetchGameDetails = (id: number, signal?: AbortSignal) => call<GameDetailsResponse>(`/api/games/${id}`, { signal });
 
 export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
-  call<StatsResponse>(`/api/stats?${query.toString()}`, { signal });
+  cachedGet<StatsResponse>(`/api/stats?${query.toString()}`, signal);
 
 /** Стрик и карта активности года (14.3). Грузится лениво, отдельно от /api/stats. */
 export const fetchActivity = (year: number, signal?: AbortSignal) =>
-  call<ActivityResponse>(`/api/stats/activity?year=${year}`, { signal });
+  cachedGet<ActivityResponse>(`/api/stats/activity?year=${year}`, signal);
 
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) =>
-  call<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, { signal });
+  cachedGet<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, signal);
 
 /** PUT status. `expectedStatus` (ключ есть, даже null) = оптимистичная проверка, 409 `status_conflict`; `restore` = откат строки статуса (контракт 28.9). */
 export const putStatus = (
@@ -109,7 +91,7 @@ export const postRestore = (backupId: number) =>
   call<StatusRestoreResponse>('/api/games/status-restore', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ backupId }) });
 
 /** Последняя копия статусов `reset_all` (9.9a). */
-export const fetchStatusBackups = (signal?: AbortSignal) => call<StatusBackupsResponse>('/api/games/status-backups', { signal });
+export const fetchStatusBackups = (signal?: AbortSignal) => cachedGet<StatusBackupsResponse>('/api/games/status-backups', signal);
 
 export type { GameItem };
 

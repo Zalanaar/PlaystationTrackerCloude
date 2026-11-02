@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { invalidateApiCache } from '../data/http';
 
 export function LogoutButton() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export function LogoutButton() {
     try {
       await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     } finally {
+      invalidateApiCache();
       router.replace('/login');
       router.refresh();
     }

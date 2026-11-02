@@ -9,7 +9,7 @@ import { GameGrid, GameGridItem } from '../GameGrid';
 import { GameRow, RowHeader } from '../GameRow';
 import type { RenderCtx } from './renderCtx';
 
-export type GamesOpts = { dateYear?: boolean; withHeader?: boolean; anchors?: Map<number, string> };
+export type GamesOpts = { dateYear?: boolean; withHeader?: boolean; anchors?: Map<number, string>; /** сколько первых обложек грузить с приоритетом (первый ряд) */ eager?: number };
 
 export function renderGames(c: RenderCtx, list: GameItem[], opts: GamesOpts = {}): ReactNode {
   const { view, filters, actions, selectMode, selected, hiddenView, density, setFilters, setHidden } = c;
@@ -25,9 +25,9 @@ export function renderGames(c: RenderCtx, list: GameItem[], opts: GamesOpts = {}
   }
   return (
     <GameGrid density={density}>
-      {list.map((g) => (
+      {list.map((g, i) => (
         <GameGridItem key={g.id}>
-          <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear} anchorId={opts.anchors?.get(g.id)}>
+          <GameCard game={g} actions={actions} selectMode={selectMode} selected={selected.has(g.id)} dateWithYear={opts.dateYear} anchorId={opts.anchors?.get(g.id)} priority={i < (opts.eager ?? 0)}>
             {hiddenView && !selectMode && (
               <button type="button" className="ps-btn ps-btn--sm ps-card__restore" aria-label={`Вернуть в коллекцию: ${g.title}`} onClick={() => void setHidden(g, false)}>
                 <Icon name="undo" size={14} /><span>Вернуть в коллекцию</span>
