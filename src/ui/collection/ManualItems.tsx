@@ -12,7 +12,12 @@ function BoughtButton({ game, handlers, className }: { game: ManualGame; handler
   return (
     <button
       type="button" className={`ps-btn ps-btn--ghost ps-nb-bought ${className ?? ''}`} data-testid="np-bought"
-      aria-label={`Купил: ${game.title}`} onClick={(e) => handlers.bought(game, () => (e.currentTarget.closest('[data-manual]')?.querySelector<HTMLElement>('.ps-nbmore'))?.focus())}
+      aria-label={`Купил: ${game.title}`}
+      onClick={(e) => {
+        // currentTarget нужно прочитать сразу: к моменту возврата фокуса событие уже обнулено
+        const more = e.currentTarget.closest('[data-manual]')?.querySelector<HTMLElement>('.ps-nbmore');
+        handlers.bought(game, () => more?.focus());
+      }}
     >
       <Icon name="check" size={14} />Купил
     </button>

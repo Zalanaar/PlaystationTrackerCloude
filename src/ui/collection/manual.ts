@@ -98,14 +98,25 @@ export function visibleManual(items: readonly ManualGame[], f: FilterLike & { nb
 
 export const countNotPurchased = (items: readonly ManualGame[] | null): number => (items ? items.filter((g) => g.notPurchased).length : 0);
 
-/** Единый порядок показа: записи без данных идут после игр библиотеки; при сортировке по названию встают по алфавиту. */
+/**
+ * Единый порядок показа: записи без данных идут после игр библиотеки (как «без данных» в сортировках);
+ * при сортировке по названию встают на своё место по алфавиту. Порядок игр библиотеки (серверный) не меняется.
+ */
 export function mergeBacklog<T extends { title: string }>(games: readonly T[], manual: readonly ManualGame[], sort: 'last_played' | 'title' | 'duration', order: 'asc' | 'desc' | null): { game: T | null; manual: ManualGame | null }[] {
   const g = games.map((game) => ({ game, manual: null as ManualGame | null }));
   const m = manual.map((item) => ({ game: null as T | null, manual: item }));
   if (sort !== 'title') return [...g, ...m];
   const dir = order === 'desc' ? -1 : 1;
-  const name = (x: { game: T | null; manual: ManualGame | null }) => (x.game?.title ?? x.manual?.title ?? '');
-  return [...g, ...m].sort((a, b) => dir * name(a).localeCompare(name(b), 'ru'));
+  const cmp = (a: string, b: string) => dir * a.localeCompare(b, 'ru');
+  const ms = [...m].sort((a, b) => cmp(a.manual!.title, b.manual!.title));
+  const res: { game: T | null; manual: ManualGame | null }[] = [];
+  let i = 0;
+  for (const x of g) {
+    while (i < ms.length && cmp(ms[i].manual!.title, x.game!.title) < 0) res.push(ms[i++]);
+    res.push(x);
+  }
+  while (i < ms.length) res.push(ms[i++]);
+  return res;
 }
 
 // ---------- ошибки ----------

@@ -371,4 +371,26 @@ describe('контраст тем', () => {
       it(`${t}: обычный столбец --accent .55 на --surface >= 3 (нетекстовый)`, () => expect(ratio(over(get(t, '--accent'), 0.55, get(t, '--surface')), get(t, '--surface'))).toBeGreaterThanOrEqual(3));
     }
   });
+
+  // Фаза 43 (design-system §19.1, §19.5): пометка «Не куплено» и кнопка «Убрать»
+  describe('Фаза 43: «Не куплено»', () => {
+    it('токены --nb-* заданы в tokens.css и не переопределяются темами', () => {
+      for (const k of ['--nb-cover-bg', '--nb-cover-text', '--nb-cover-border', '--nb-bg', '--nb-text', '--nb-border', '--nb-icon', '--nb-h', '--nb-warn-bar']) {
+        expect(base[k], k).toBeTruthy();
+        for (const t of IDS) expect(themes[t][k], `${t} ${k}`).toBeUndefined();
+      }
+    });
+    for (const t of IDS) {
+      it(`${t}: --nb-text на --nb-bg (пометка в строке) >= 4.5`, () => expect(ratio(get(t, '--nb-text'), get(t, '--nb-bg'))).toBeGreaterThanOrEqual(4.5));
+      it(`${t}: --nb-text на --nb-bg поверх --surface и --bg >= 4.5`, () => {
+        for (const under of ['--surface', '--bg']) expect(ratio(get(t, '--nb-text'), get(t, under))).toBeGreaterThanOrEqual(4.5);
+      });
+      it(`${t}: --nb-icon на --nb-bg >= 3`, () => expect(ratio(get(t, '--nb-icon'), get(t, '--nb-bg'))).toBeGreaterThanOrEqual(3));
+      it(`${t}: текст пометки на обложке (худший случай: белая обложка) >= 7`, () => {
+        const bg = parseColor(resolve(merged(t), '--nb-cover-bg'));
+        expect(ratio(get(t, '--nb-cover-text'), over(bg.hex, bg.a, '#ffffff'))).toBeGreaterThanOrEqual(7);
+      });
+      it(`${t}: кнопка «Убрать» (--bg на --danger) >= 4.5`, () => expect(ratio(get(t, '--bg'), get(t, '--danger'))).toBeGreaterThanOrEqual(4.5));
+    }
+  });
 });

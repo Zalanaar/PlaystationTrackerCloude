@@ -20,7 +20,7 @@ export function BacklogViewSeg({ view, onView }: { view: BacklogView; onView: (v
 }
 
 /** Меню страницы «…»: подгрузка длительности с HLTB и перепроверка не найденных. */
-export function BacklogPageMenu({ running, onHltb }: { running: boolean; onHltb: (recheckNotFound: boolean) => void }) {
+export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; onHltb: (recheckNotFound: boolean) => void; onAdd?: () => void }) {
   return (
     <Popover
       align="end" className="ps-bl-pagemenu"
@@ -32,6 +32,12 @@ export function BacklogPageMenu({ running, onHltb }: { running: boolean; onHltb:
     >
       {(close) => (
         <>
+          {onAdd && (
+            <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="bl-menu-add" onClick={() => { close(); onAdd(); }}>
+              <Icon name="plus" size={16} />
+              <span className="ps-menu-item__label">Добавить из магазина PS</span>
+            </button>
+          )}
           <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={running} data-testid="hltb-start" onClick={() => { close(); onHltb(false); }}>
             <Icon name="cloud-download" size={16} />
             <span className="ps-menu-item__label">
@@ -54,9 +60,9 @@ export function BacklogPageMenu({ running, onHltb }: { running: boolean; onHltb:
 
 /** Мобильная панель: кнопка «Фильтры» (sheet с сортировкой и фильтрами) и переключатель вида. */
 export function BacklogMobileBar({
-  filters, counts, genreCounts, hltbCounts, total, view, onView, onChange, onReset,
+  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, view, onView, onChange, onReset,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number; nbCount?: number;
   view: BacklogView; onView: (v: BacklogView) => void; onChange: (p: Partial<Filters>) => void; onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -74,7 +80,7 @@ export function BacklogMobileBar({
       <BacklogViewSeg view={view} onView={onView} />
       <Sheet open={open} onClose={() => setOpen(false)} title="Фильтры и сортировка">
         <BacklogFilterPanel
-          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={total}
+          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={total} nbCount={nbCount}
           onChange={onChange} onReset={onReset} onDone={() => setOpen(false)}
         />
       </Sheet>

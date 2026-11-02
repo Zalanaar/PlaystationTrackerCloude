@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildChips, compareHours, isHiddenToday, mskDay, segText, splitMobile, type InboxResponse } from './model';
+import { buildChips, chipsWhenHidden, compareHours, isHiddenToday, mskDay, segText, splitMobile, type InboxResponse } from './model';
 
 const base: InboxResponse = {
   now: '2026-11-01T12:00:00.000Z', newGames: 0, newGamesWindow: null, newUnsorted: 0, trophies: 0, platinums: 0, trophiesWindow: null,
@@ -102,5 +102,33 @@ describe('скрытие до 00:00 МСК', () => {
     expect(isHiddenToday('2026-11-01', Date.parse('2026-11-01T21:00:00Z'))).toBe(false); // после полуночи МСК
     expect(isHiddenToday(null, at)).toBe(false);
     expect(isHiddenToday('мусор', at)).toBe(false);
+  });
+});
+
+describe('чип «Это та игра?» (Фаза 43)', () => {
+  it('нет matchCount или 0: чипа нет, остальной порядок прежний', () => {
+    expect(buildChips({ ...full, matchCount: 0 }).some((c) => c.id === 'match')).toBe(false);
+    expect(buildChips({ ...full, matchCount: null }).some((c) => c.id === 'match')).toBe(false);
+  });
+  it('первый по порядку, кнопка листа, тексты', () => {
+    const c = buildChips({ ...full, matchCount: 2 });
+    expect(c.map((x) => x.testid)).toEqual(['inbox-match', 'inbox-new', 'inbox-trophies', 'inbox-hours', 'inbox-check', 'inbox-forgotten']);
+    expect(c[0].opensSheet).toBe(true);
+    expect(segText(c[0].desktop)).toBe('Это та игра? 2');
+    expect(segText(c[0].mobile)).toBe('Это та игра? 2');
+    expect(c[0].aria).toBe('Это та игра? Совпадений: 2');
+  });
+  it('«Скрыть на сегодня» оставляет только его', () => {
+    expect(chipsWhenHidden(buildChips({ ...full, matchCount: 1 })).map((x) => x.id)).toEqual(['match']);
+    expect(chipsWhenHidden(buildChips(full))).toEqual([]);
+  });
+  it('на мобильном не прячется под «Ещё»', () => {
+    const c = buildChips({ ...full, matchCount: 1 });
+    const { visible, hidden } = splitMobile(c, false);
+    expect(visible[0].id).toBe('match');
+    expect(hidden.some((x) => x.id === 'match')).toBe(false);
+    expect(visible).toHaveLength(4);
+    const only = buildChips({ ...base, matchCount: 3 });
+    expect(splitMobile(only, false).visible.map((x) => x.id)).toEqual(['match']);
   });
 });

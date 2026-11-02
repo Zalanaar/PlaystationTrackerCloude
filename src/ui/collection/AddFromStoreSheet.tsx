@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import '../recommend.css';
 import { Icon } from '../icons';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
@@ -30,11 +31,14 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
   const seq = useRef(0);
   const ctl = useRef<AbortController | null>(null);
   const hintId = useId();
+  const quotaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => ctl.current?.abort(), []);
 
   const quota = failure?.kind === 'quota';
   const ok = canSearch(q);
+  // поле и «Найти» выключаются: фокус не должен упасть на body (Esc перестал бы работать), переносим на баннер
+  useEffect(() => { if (quota) quotaRef.current?.focus(); }, [quota]);
 
   const search = useCallback(async (query: string) => {
     const text = normalizeQuery(query);
@@ -128,7 +132,7 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
             )}
           </label>
           <button
-            type="submit" className="ps-btn ps-btn--primary ps-add__go" data-testid="add-submit" disabled={!ok || quota || phase === 'loading'}
+            type="submit" className="ps-btn ps-btn--primary ps-add__go" data-testid="add-submit" disabled={!ok || quota} aria-busy={phase === 'loading' || undefined}
             aria-describedby={!ok ? hintId : undefined}
           >
             {phase === 'loading' ? <><Icon name="loader" size={14} className="ps-nb-spin" />Ищу…</> : 'Найти'}
@@ -139,7 +143,7 @@ export function AddFromStoreSheet({ onClose }: { onClose: (addedTitles: string[]
         <div className="ps-add__body">
           <p className="ps-sr" aria-live="polite">{live}</p>
           {failure?.kind === 'quota' && (
-            <div className="ps-rec-banner ps-add__banner" role="status" data-testid="add-quota">
+            <div ref={quotaRef} tabIndex={-1} className="ps-rec-banner ps-add__banner" role="status" data-testid="add-quota">
               <Icon name="circle-alert" size={16} />
               <span>
                 Лимит запросов к каталогу исчерпан. Новый поиск станет доступен {failure.resetAt ? (formatDayMonth(failure.resetAt) ?? 'позже') : 'позже'}.
