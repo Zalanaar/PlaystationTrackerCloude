@@ -1,5 +1,6 @@
 // Клиент профилей PSN (контракт docs/api-contract.md, Фаза 41, 41.3). Типы свои: рантайм из src/server не импортируем.
 import type { ApiFail } from './model';
+import { fetchAuthMe } from '../access/authMe';
 
 export type LightProfile = { id: number; onlineId: string | null; isPrimary: boolean };
 export type Profile = {
@@ -74,7 +75,18 @@ export const unlinkProfile = (id: number, confirmOnlineId: string, purge: boolea
 /** Лёгкие данные для шапки: активный профиль и список (GET /api/auth/me, 41.3). null = не удалось (сбой не показываем). */
 export async function fetchAuthSnapshot(signal?: AbortSignal): Promise<AuthSnapshot | null> {
   try {
-    const d = await req<{ activeProfileId?: unknown; loginId?: unknown; profiles?: unknown }>('/api/auth/me', { signal });
+    let d: { activeProfileId?: unknown; loginId?: unknown; profiles?: unknown };
+    if (signal) d = await req<typeof d>('/api/auth/me', { signal });
+    else {
+      // общий запрос с useMe/useIsOwner (src/ui/access/authMe.ts); 401 ведёт на вход, как и в req()
+      const r = await fetchAuthMe();
+      if (r?.status === 401 && typeof window !== 'undefined') {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      }
+      if (!r || r.status < 200 || r.status >= 300 || !r.json?.ok) return null;
+      d = (r.json.data ?? {}) as typeof d;
+    }
     if (typeof d.activeProfileId !== 'number') return null;
     const profiles = Array.isArray(d.profiles)
       ? (d.profiles as unknown[]).flatMap((p): LightProfile[] => {
