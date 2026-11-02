@@ -187,6 +187,24 @@ export function BacklogView() {
     }
   }
 
+  const [moreShelved, setMoreShelved] = useState(false);
+  async function loadMoreShelved() {
+    const have = shelvedRef.current ?? [];
+    setMoreShelved(true);
+    try {
+      const r = await fetchGames(shelvedToApi(BACKLOG_PAGE, have.length));
+      const ids = new Set(have.map((g) => g.id));
+      const next = [...have, ...r.items.filter((g) => !ids.has(g.id))];
+      shelvedRef.current = next;
+      setShelved(next);
+      setShelvedTotal(r.total);
+    } catch (e) {
+      toast({ kind: 'error', text: `Не удалось загрузить ещё. ${errorText(e)}` });
+    } finally {
+      setMoreShelved(false);
+    }
+  }
+
   const change = useCallback(async (game: GameItem, status: GameStatusValue | null) => {
     if (game.status === status) return;
     // игра переезжает между блоками сразу; при ошибке возвращается на место
@@ -427,6 +445,13 @@ export function BacklogView() {
                     </GameGridItem>
                   ))}
                 </GameGrid>
+              )}
+              {shelved.length > 0 && shelved.length < shelvedTotal && (
+                <div className="ps-more">
+                  <button type="button" className="ps-btn" data-testid="bl-shelved-more" onClick={() => void loadMoreShelved()} disabled={moreShelved}>
+                    {moreShelved ? 'Загрузка…' : `Показать ещё (${formatNumber(shelvedTotal - shelved.length)})`}
+                  </button>
+                </div>
               )}
             </div>
           )}

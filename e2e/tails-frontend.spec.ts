@@ -114,3 +114,21 @@ test('Бэклог: ушли все игры, фокус на заголовок
   await expect(page.locator('.ps-card')).toHaveCount(0);
   await expect.poll(async () => (await activeInfo(page)).tag).not.toBe('BODY');
 });
+
+test('Бэклог: «Отложено» подгружается кнопкой «Показать ещё»', async ({ page, context, baseURL }) => {
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+  const many: G[] = Array.from({ length: 320 }, (_, i) => ({ ...bl(100 + i, `Отложенная ${i + 1}`), status: 'shelved' as const }));
+  await mockApi(page, [bl(1, 'Альфа Экшен'), ...many]);
+  await page.goto('/backlog');
+  const sec = page.getByTestId('bl-shelved');
+  await expect(sec).toBeVisible();
+  const cards = sec.locator('.ps-card, .ps-blrow');
+  const first = await cards.count();
+  expect(first).toBeGreaterThan(0);
+  expect(first).toBeLessThan(320);
+  const more = sec.getByTestId('bl-shelved-more');
+  await expect(more).toContainText(`Показать ещё (${320 - first})`);
+  await more.click();
+  await expect(cards).toHaveCount(320);
+  await expect(more).toHaveCount(0);
+});

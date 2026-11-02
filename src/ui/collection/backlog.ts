@@ -176,8 +176,8 @@ export function moveBetweenLists<T extends { id: number; status: GameStatusValue
 }
 
 /** Запрос блока «Отложено»: фильтры бэклога его не затрагивают. */
-export function shelvedToApi(limit = BACKLOG_PAGE): URLSearchParams {
-  return new URLSearchParams({ status: 'shelved', sort: 'last_played', limit: String(limit), offset: '0' });
+export function shelvedToApi(limit = BACKLOG_PAGE, offset = 0): URLSearchParams {
+  return new URLSearchParams({ status: 'shelved', sort: 'last_played', limit: String(limit), offset: String(offset) });
 }
 
 /** Запрос блока «Сервис»: фильтры бэклога его не затрагивают. */
