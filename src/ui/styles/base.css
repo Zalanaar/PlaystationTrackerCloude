@@ -286,3 +286,10 @@ html { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; background: var(-
 html[data-standalone], html[data-standalone] body { overscroll-behavior-y: none; }
 html[data-standalone] .ps-tabbar, html[data-standalone] .ps-header { -webkit-user-select: none; user-select: none; }
 html[data-standalone] .ps-tab, html[data-standalone] .ps-nav-item, html[data-standalone] .ps-header a, html[data-standalone] .ps-tabbar a { -webkit-touch-callout: none; }
+
+/* Фаза 42: полоса под статус-баром PWA (iOS black-translucent) красится --bg текущей темы, не цветом из момента запуска. */
+html { background-color: var(--bg); }
+body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg);
+  z-index: calc(var(--z-header) - 1); pointer-events: none;
+}
