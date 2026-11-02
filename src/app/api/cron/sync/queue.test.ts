@@ -133,6 +133,42 @@ describe('обход пользователей', () => {
   });
 });
 
+describe('слот занят ручным синком или HLTB (обход не обрывается)', () => {
+  const busy = async (kind: 'manual' | 'hltb') => {
+    const [row] = await t.db.insert(syncRuns).values({ userId: ids.a, kind, status: 'running', snapshotDate: '2026-11-02', startedAt: new Date(), phase: 'games', cursor: { phase: 'games', hops: 0, heartbeat: new Date().toISOString() } }).returning();
+    return row;
+  };
+  const finish = (id: number) => t.db.update(syncRuns).set({ status: 'success', finishedAt: new Date() }).where(eq(syncRuns.id, id));
+
+  for (const kind of ['manual', 'hltb'] as const) {
+    it(`${kind}: cron ждёт слот и проходит всех после освобождения`, async () => {
+      vi.stubEnv('SYNC_QUEUE_WAIT_MS', '0');
+      const run = await busy(kind);
+      const r = await cronGet(req());
+      expect(r.status).toBe(202);
+      expect((await r.json()).data).toEqual({ started: false, reason: 'waiting_slot', wait: 1 });
+      expect(connected).toEqual([]);
+      await finish(run.id);
+      await drain();
+      expect(connected).toEqual(['Owner_Fallback', 'User_A', 'User_B', 'User_Last']);
+      expect((await runsOf(ids.owner)).filter((x) => x.kind === 'daily')).toHaveLength(1);
+    });
+  }
+
+  it('слот занят слишком долго: после QUEUE_MAX_WAITS попыток busy_gave_up без новых самовызовов', async () => {
+    const { QUEUE_MAX_WAITS } = await import('./route');
+    await busy('manual');
+    const r = await cronGet(req(`?queue=0&wait=${QUEUE_MAX_WAITS}`));
+    expect(r.status).toBe(200);
+    expect((await r.json()).data).toEqual({ started: false, reason: 'busy_gave_up' });
+    expect(afterCbs).toHaveLength(0);
+  });
+
+  it('wait без queue или вне диапазона: 400', async () => {
+    for (const q of ['?wait=1', '?queue=0&wait=0', '?queue=0&wait=999', '?queue=0&wait=x']) expect((await cronGet(req(q))).status, q).toBe(400);
+  });
+});
+
 describe('?continue= и blocked', () => {
   const partial = async (userId: number) => {
     const [row] = await t.db
