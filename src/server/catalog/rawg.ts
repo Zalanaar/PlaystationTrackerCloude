@@ -37,6 +37,8 @@ export type CatalogDeps = {
   playstationOnly?: boolean;
   /** Вызывается перед каждым реальным запросом (кэш не считается). false = лимит исчерпан, запрос не уходит (контракт 24.2). */
   reserve?: () => Promise<boolean>;
+  /** Размер страницы RAWG (по умолчанию RAWG_PAGE_SIZE); подсказки просят меньше. */
+  pageSize?: number;
 };
 
 /** id платформ RAWG (GET /api/platforms): PlayStation 5 = 187, PlayStation 4 = 18. */
@@ -131,7 +133,7 @@ export async function searchCatalog(query: string, deps: CatalogDeps): Promise<C
   const url = new URL(RAWG_BASE);
   url.searchParams.set('key', deps.apiKey);
   url.searchParams.set('search', query);
-  url.searchParams.set('page_size', String(RAWG_PAGE_SIZE));
+  url.searchParams.set('page_size', String(deps.pageSize ?? RAWG_PAGE_SIZE));
   if (deps.playstationOnly) url.searchParams.set('platforms', RAWG_PLAYSTATION_PLATFORMS);
   return mapResults(await requestJson(url, deps));
 }
