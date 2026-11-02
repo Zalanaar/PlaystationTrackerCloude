@@ -19,7 +19,7 @@ type Fatal = null | 'db' | 'other';
 type HiddenList = { items: DislikeItem[]; ttlDays: number; at: number };
 
 /** Режим «Из бэклога» экрана «Подскажи»: до 9 игр бэклога с причиной. Выбирает расчёт на сервере, UI только показывает (спека фазы 13). */
-export function BacklogMode({ active, onCandidates, onTime }: { active: boolean; onCandidates: (n: number | null) => void; onTime: (t: TimeValue) => void }) {
+export function BacklogMode({ active, onCandidates, onTime }: { active: boolean; onCandidates: (n: number | null, total: number | null) => void; onTime: (t: TimeValue) => void }) {
   const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
@@ -214,7 +214,8 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
 
   // подзаголовок «Из N игр бэклога…» рисует оболочка
   const cand = data && !empty ? data.meta.candidates : null;
-  useEffect(() => { if (active) onCandidates(cand); }, [active, cand, onCandidates]);
+  const candTotal = data && !empty && typeof data.meta.backlog === 'number' ? data.meta.backlog : null;
+  useEffect(() => { if (active) onCandidates(cand, candTotal); }, [active, cand, candTotal, onCandidates]);
   // возврат в режим: показываем прежний ответ и тихо перезапрашиваем
   const wasActive = useRef(active);
   useEffect(() => {

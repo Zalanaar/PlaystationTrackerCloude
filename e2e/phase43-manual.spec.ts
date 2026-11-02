@@ -467,3 +467,11 @@ test.describe('«Это та игра?»', () => {
     await expect(page.getByTestId('inbox-match')).toHaveCount(0);
   });
 });
+
+test.describe('Фаза 48 (п. 11): единое число бэклога', () => {
+  test('число бэклога = игры библиотеки; записи вручную подписаны отдельно', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [mgame(21, 'Ручная Один'), mgame(22, 'Ручная Два', { notPurchased: false })] });
+    await expect(page.getByTestId('bl-total')).toHaveText('2 в бэклоге · ещё 2 записи вручную, из них 1 не куплено');
+    await expect(page.getByTestId('bl-main-count')).toHaveText('2');
+  });
+});

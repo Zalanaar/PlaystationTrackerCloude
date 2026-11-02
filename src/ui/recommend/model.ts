@@ -1,5 +1,6 @@
 // Чистая логика экрана «Подскажи» (спека фазы 13, контракт §18). Без React и сети.
 import { DISLIKE_TTL_DAYS } from '@/shared/recommend';
+import { recommendPoolText } from '@/shared/backlog';
 import { GENRE_LABELS_RU, type GenreKey } from '@/shared/genres';
 import { formatPlayTime, plural } from '../format';
 
@@ -27,8 +28,9 @@ export function timeHintText(time: TimeValue): string {
   return time === 'any' ? 'Подбираю по жанрам и истории' : 'Окно считается по оценке времени прохождения';
 }
 
-export function candidatesText(n: number): string {
-  return `Из ${n} ${plural(n, ['игры', 'игр', 'игр'])} бэклога по твоей истории`;
+/** Подзаголовок «Из N игр бэклога…»; total (Фаза 48) = всё число бэклога, разница подписывается. */
+export function candidatesText(n: number, total?: number | null): string {
+  return recommendPoolText(n, total);
 }
 
 /** «≈ 22 ч 30 м»; null, если часов нет. */

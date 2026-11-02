@@ -43,6 +43,7 @@ import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
+import { BACKLOG_DEFINITION, backlogManualText } from '@/shared/backlog';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
 /** Предельное ожидание второстепенных запросов Бэклога до показа списка (мс). */
@@ -459,7 +460,10 @@ export function BacklogView() {
   const manualPart = filters.sort === 'title' || !items || items.length >= total ? boughtShown : [];
   const entries = items && !filters.nb ? mergeBacklog(items, manualPart, filters.sort, filters.order) : [];
   const shownTotal = total + shownManual.length;
-  const mainTotal = filters.nb ? 0 : total + boughtShown.length;
+  // Фаза 48 (п. 11): число бэклога = игры библиотеки (как чип коллекции, «Подскажи» и «План»); записи вручную подписаны отдельно
+  const mainTotal = filters.nb ? 0 : total;
+  const narrowed = !!(filters.q || filters.genres.length || filters.duration.length || filters.hltb.length || filters.nb);
+  const manualNote = backlogManualText(manual.length, nbCount);
 
   const backlogCard = (g: GameItem, priority = false) => (
     <GameCard game={g} actions={actions} selectMode={false} selected={false} priority={priority}>
@@ -538,7 +542,9 @@ export function BacklogView() {
     <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
-        {items && shownTotal > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(shownTotal)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
+        {items && !narrowed && (total > 0 || manual.length > 0) ? (
+          <p className="ps-statline ps-num" data-testid="bl-total" title={BACKLOG_DEFINITION}><b>{formatNumber(total)}</b> в бэклоге{manualNote && <> · {manualNote}</>}</p>
+        ) : items && shownTotal > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(shownTotal)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
         <div className="ps-bl-pagehead__tools">
           <button
             ref={addBtnRef} type="button" className={mobile ? 'ps-btn ps-nb-add' : 'ps-btn ps-btn--primary ps-nb-add'} data-testid="bl-add"

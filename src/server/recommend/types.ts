@@ -75,7 +75,14 @@ export type RecommendItem = Omit<ScoredItem, 'topGenre'> & { reason: Reason };
 export type RecommendResponse = {
   items: RecommendItem[];
   /** llmPending: карточек с шаблоном при включённом LLM (фразу создаст ночной синк, контракт 20.4). */
-  meta: { llm: LlmMeta; candidates: number; time: TimeWish; llmPending: number };
+  meta: {
+    llm: LlmMeta;
+    candidates: number;
+    /** Фаза 48: всего игр в бэклоге (countBacklog); candidates = backlog минус «Не предлагать». */
+    backlog: number;
+    time: TimeWish;
+    llmPending: number;
+  };
 };
 
 /** GET /api/recommend/dislikes (18.9). */

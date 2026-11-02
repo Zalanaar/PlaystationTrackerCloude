@@ -274,7 +274,7 @@ describe('QA: БД, лимит, гонки, утечки', () => {
     const ids = await seed(2);
     await t.db.insert(recommendDislikes).values(ids.map((gameId) => ({ userId: 1, gameId })));
     const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
-    expect(r).toEqual({ items: [], meta: { llm: 'ok', candidates: 0, time: 'any', llmPending: 0 } });
+    expect(r).toEqual({ items: [], meta: { llm: 'ok', candidates: 0, backlog: 2, time: 'any', llmPending: 0 } });
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });
   it('одна игра в бэклоге: ответ из одной карточки с фразой из кэша', async () => {

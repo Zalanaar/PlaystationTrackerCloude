@@ -10,6 +10,7 @@ import {
 } from './model';
 import { flashElement, reducedMotion, Thumb } from './parts';
 import { plural } from '../format';
+import { BACKLOG_DEFINITION } from '@/shared/backlog';
 import type { Conflict } from '@/server/roadmap/types';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -42,8 +43,10 @@ function PlanCell({ row, conflicts }: { row: QueueRow; conflicts: number[] }) {
 
 /** Блок «Очередь бэклога»: ручной порядок. Drag&drop (мышь), кнопки «выше/ниже», Alt+стрелки, меню «⋯». */
 export function QueuePanel({
-  rows, conflicts, error, loading, saveState, onReorder, onRetry, onRetrySave, onNeedHours, onRemove,
+  rows, conflicts, error, loading, saveState, onReorder, onRetry, onRetrySave, onNeedHours, onRemove, backlogNote = '',
 }: {
+  /** Фаза 48: «64 игры в бэклоге: 56 в очереди, 8 убрано из плана» (то же число, что в коллекции). */
+  backlogNote?: string;
   rows: QueueRow[] | null; conflicts: readonly Conflict[]; error: boolean; loading: boolean; saveState: SaveState;
   onReorder: (keys: string[]) => void; onRetry: () => void; onRetrySave: () => void; onNeedHours: (key: string) => void;
   onRemove: (e: QueueRow['entry']) => void;
@@ -287,6 +290,7 @@ export function QueuePanel({
           {saveState === 'error' && <><Icon name="circle-alert" size={12} />Порядок не сохранён <button type="button" className="ps-link" onClick={onRetrySave}>Повторить</button></>}
         </span>
       </div>
+      {backlogNote && <p className="ps-rm-sub ps-num" data-testid="rm-backlog-total" title={BACKLOG_DEFINITION}>{backlogNote}</p>}
       <p className="ps-rm-sub">Порядок бэклога задаёшь ты; релизы с галкой стоят по дате выхода и двигаться не могут.</p>
       <p className="ps-sr" aria-live="polite" data-testid="rm-live">{live}</p>
       {body}

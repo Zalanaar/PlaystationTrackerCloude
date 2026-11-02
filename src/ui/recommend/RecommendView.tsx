@@ -17,7 +17,8 @@ export function RecommendView() {
   const params = useSearchParams();
   const [tab, setTabState] = useState<TabValue>(() => parseTab(params.get('tab')));
   const [visited, setVisited] = useState<ReadonlySet<TabValue>>(() => new Set([parseTab(params.get('tab'))]));
-  const [candidates, setCandidates] = useState<number | null>(null);
+  const [cands, setCands] = useState<{ n: number | null; total: number | null }>({ n: null, total: null });
+  const setCandidates = useCallback((n: number | null, total: number | null) => setCands((c) => (c.n === n && c.total === total ? c : { n, total })), []);
   const [announce, setAnnounce] = useState('');
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const tabRef = useRef(tab);
@@ -57,7 +58,7 @@ export function RecommendView() {
     tabs.current[to]?.focus();
   };
 
-  const sub = tab === 'discover' ? DISCOVER_SUB : candidates !== null ? candidatesText(candidates) : null;
+  const sub = tab === 'discover' ? DISCOVER_SUB : cands.n !== null ? candidatesText(cands.n, cands.total) : null;
 
   return (
     <div className="ps-rec-page">

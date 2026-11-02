@@ -568,3 +568,13 @@ test.describe('План: единое расписание в очереди', (
     expect(s.calls.orders).toEqual([[3, 1, 2, 4]]);
   });
 });
+
+test.describe('Фаза 48 (п. 11): число бэклога в «Плане»', () => {
+  test('очередь подписана от общего числа бэклога, убранные из плана считаются отдельно', async ({ page, context, baseURL }) => {
+    const s = baseState();
+    s.excluded = [s.games[0].id];
+    await open(page, context, baseURL as string, s);
+    const n = s.games.length;
+    await expect(page.getByTestId('rm-backlog-total')).toHaveText(new RegExp(`^${n} игр[аы]? в бэклоге: ${n - 1} в очереди, 1 убрана из плана$`));
+  });
+});

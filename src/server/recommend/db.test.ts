@@ -50,7 +50,7 @@ describe('recommend на БД', () => {
   it('без LLM: кандидаты только видимый backlog, шаблоны, disabled; service и скрытые не участвуют', async () => {
     const id = await seed();
     const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
-    expect(r.meta).toEqual({ llm: 'disabled', candidates: 3, time: 'any', llmPending: 0 });
+    expect(r.meta).toEqual({ llm: 'disabled', candidates: 3, backlog: 3, time: 'any', llmPending: 0 });
     expect(r.items.map((i) => i.game.id)).not.toContain(id('C'));
     expect(r.items.map((i) => i.game.id)).not.toContain(id('S'));
     expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
@@ -72,7 +72,7 @@ describe('recommend на БД', () => {
 
   it('пустой бэклог: items [], candidates 0', async () => {
     const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
-    expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any', llmPending: 0 } });
+    expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, backlog: 0, time: 'any', llmPending: 0 } });
   });
 
   it('трофеи: начатая игра с набором получает platinum_close; DLC вычитается из базы и не штрафует (Фаза 36)', async () => {
@@ -218,7 +218,7 @@ describe('recommend на БД', () => {
   it('экран: LLM не вызывается и счётчик не растёт; без кэша шаблон и llmPending', async () => {
     await seed();
     const r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: ENV });
-    expect(r.meta).toEqual({ llm: 'ok', candidates: 3, time: 'any', llmPending: 3 });
+    expect(r.meta).toEqual({ llm: 'ok', candidates: 3, backlog: 3, time: 'any', llmPending: 3 });
     expect(r.items.every((i) => i.reason.source === 'template')).toBe(true);
     expect(await t.db.select().from(recommendLlmUsage)).toEqual([]);
   });

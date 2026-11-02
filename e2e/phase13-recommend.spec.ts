@@ -47,7 +47,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, s: Rec
     if (f) return fail(r, f, f === 503 ? 'db_unavailable' : 'internal');
     if (s.failAlways) return fail(r, s.failAlways, s.failAlways === 503 ? 'db_unavailable' : 'internal');
     const items = s.all.filter((i) => !s.disliked.includes(i.game.id)).slice(0, 9);
-    return ok(r, { items, meta: { llm: s.llm, candidates: items.length === 0 ? 0 : s.backlogCount, time: q } });
+    return ok(r, { items, meta: { llm: s.llm, candidates: items.length === 0 ? 0 : s.backlogCount, backlog: items.length === 0 ? 0 : s.backlogCount + s.disliked.length, time: q } });
   });
   await page.route(/\/api\/recommend\/dislikes$/, (r) => {
     s.calls.dislikes += 1;
@@ -91,7 +91,7 @@ test.describe('Подскажи: нормальный ответ', () => {
   test('вкладка, три карточки, причина, источник, часы, жанры', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
     await expect(h1(page)).toBeVisible();
-    await expect(page.getByText('Из 37 игр бэклога по твоей истории')).toBeVisible();
+    await expect(page.getByText('Из 37 игр бэклога по твоей истории', { exact: true })).toBeVisible();
     await expect(cards(page)).toHaveCount(3);
     const first = page.getByRole('listitem', { name: 'Рекомендация 1 из 3: Хейдес' });
     await expect(first.getByText('Экшен · Приключения')).toBeVisible();
@@ -438,4 +438,11 @@ test.describe('Подскажи: адаптив', () => {
       await expect(bar.getByRole('link', { name: 'Статистика' })).toContainText('Статистика');
     });
   }
+});
+
+test.describe('Фаза 48 (п. 11): число бэклога в «Подскажи»', () => {
+  test('скрытые «Не предлагать» подписаны от общего числа бэклога', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, state({ backlogCount: 35, disliked: [7, 8] }));
+    await expect(page.getByText('Из 35 игр бэклога по твоей истории · ещё 2 скрыты через «Не предлагать»')).toBeVisible();
+  });
 });

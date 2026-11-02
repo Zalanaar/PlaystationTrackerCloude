@@ -192,6 +192,7 @@ export function buildRoadmap(s: RmState) {
       ...s.planned.filter((p) => p.status === 'cancelled').map((p) => ({ key: `p:${p.id}`, kind: p.wantAtRelease ? 'release' : 'planned', gameId: null, plannedId: p.id, title: p.title, coverUrl: p.coverUrl, hours: p.hoursManual, hoursSource: p.hoursManual ? 'manual' : null, releaseDate: p.releaseDate, wantAtRelease: p.wantAtRelease })),
     ],
     serviceGames: s.serviceGames,
+    backlogTotal: s.games.length,
     progress: b > 0 ? { status: 'behind', from: yearStart, asOf: '2026-10-28', plannedHours: 280.5, actualHours: 262, diffHours: -18.5, toleranceHours: 2, budgetHours: 390 } : null,
   };
 }

@@ -14,6 +14,7 @@ import { GoalPanel } from './GoalPanel';
 import { flashElement } from './parts';
 import { ProgressPanel } from './ProgressPanel';
 import { QueuePanel, type SaveState } from './QueuePanel';
+import { roadmapBacklogText } from '@/shared/backlog';
 import { ReleasesPanel } from './ReleasesPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { TimelinePanel } from './Timeline';
@@ -367,6 +368,7 @@ export function RoadmapView() {
         </section>
         <section className="ps-rm-panel" id="rm-queue" data-area="queue" aria-label="Очередь бэклога">
           <QueuePanel
+            backlogNote={data ? roadmapBacklogText(data.backlogTotal, (data.unallocated ?? []).filter((u) => u.kind === 'backlog').length) : ''}
             rows={rows} conflicts={data?.conflicts ?? []} error={error} loading={recalculating} saveState={saveState}
             onReorder={reorder} onRetry={() => { setError(false); void load(); }} onRetrySave={retrySave} onNeedHours={focusNeed} onRemove={(e) => void removeFromPlan(e)}
           />

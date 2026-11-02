@@ -2,6 +2,7 @@
 import { and, desc, asc, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import { visibleGameRow } from '@/server/collection/visibility';
+import { backlogGameWhere, countBacklog } from '@/server/collection/backlog';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveDuration } from '@/server/collection/duration';
@@ -27,7 +28,7 @@ export async function getDislikedIds(db: AnyDb, userId: UserId, now: Date = new 
   return new Set(rows.map((r) => r.id));
 }
 
-/** Кандидаты: видимые игры со статусом backlog (service не участвует). Дизлайки отфильтровывает скоринг. */
+/** Кандидаты: бэклог (backlogGameWhere, Фаза 48; service не участвует). Дизлайки отфильтровывает скоринг. */
 export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candidate[]> {
   const rows = await db
     .select({
@@ -36,7 +37,7 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
     })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow()));
+    .where(and(eq(games.userId, userId), backlogGameWhere()));
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const [sums, dlc] = await Promise.all([
@@ -137,11 +138,11 @@ export async function resolveReasons(db: AnyDb, userId: UserId, items: readonly 
 
 /** GET /api/recommend (18.4). Ошибки БД пробрасываются (503 в роуте). */
 export async function getRecommendations(db: AnyDb, userId: UserId, time: TimeWish, now: Date = new Date(), deps: RecommendDeps = {}): Promise<RecommendResponse> {
-  const [candidates, history, dislikedIds] = await Promise.all([loadCandidates(db, userId), loadHistory(db, userId), getDislikedIds(db, userId, now)]);
+  const [candidates, history, dislikedIds, backlog] = await Promise.all([loadCandidates(db, userId), loadHistory(db, userId), getDislikedIds(db, userId, now), countBacklog(db, userId)]);
   const scored = scoreBacklog({ candidates, history, dislikedIds, time, now });
   const { reasons, llm, pending } = await resolveReasons(db, userId, scored.items, deps);
   const items = scored.items.map((i) => ({ game: i.game, score: i.score, signals: i.signals, reason: reasons.get(i.game.id)! }));
-  return { items, meta: { llm, candidates: scored.candidates, time, llmPending: pending } };
+  return { items, meta: { llm, candidates: scored.candidates, backlog, time, llmPending: pending } };
 }
 
 // --- дизлайки (18.5)
@@ -166,7 +167,7 @@ export async function listDislikes(db: AnyDb, userId: UserId, now: Date = new Da
     .from(recommendDislikes)
     .innerJoin(games, and(eq(games.id, recommendDislikes.gameId), eq(games.userId, userId)))
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(recommendDislikes.userId, userId), gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)), eq(gameStatus.status, 'backlog'), visibleGameRow()))
+    .where(and(eq(recommendDislikes.userId, userId), gt(recommendDislikes.createdAt, new Date(now.getTime() - DISLIKE_TTL_MS)), backlogGameWhere()))
     .orderBy(desc(recommendDislikes.createdAt), asc(games.id));
   return {
     items: rows.map((r) => ({

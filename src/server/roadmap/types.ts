@@ -95,6 +95,8 @@ export type RoadmapResponse = Plan & {
   /** 17.12: «Не распределено» (исключённый бэклог и отменённые релизы). */
   unallocated: RoadmapEntry[];
   serviceGames: ServiceGame[];
+  /** Фаза 48: всего игр в бэклоге (countBacklog), включая убранные из плана и не влезшие в год. */
+  backlogTotal: number;
 };
 
 export type PlannedGameStatus = 'planned' | 'done' | 'cancelled';

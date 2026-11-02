@@ -8,6 +8,7 @@ import { effectiveDuration } from '@/server/collection/duration';
 import { effectiveSecondsSql } from '@/server/collection/query';
 import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import { snapshotGameVisible, visibleGameRow } from '@/server/collection/visibility';
+import { backlogGameWhere, countBacklog } from '@/server/collection/backlog';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
 import { mskDate, mskDateString, mskMidnightUtc } from '@/server/stats/period';
 import { yearBounds } from './dates';
@@ -87,7 +88,7 @@ async function goalFacts(db: AnyDb, userId: UserId, year: number): Promise<{ com
       .select({ n: sql<number>`count(*)::int` })
       .from(gameStatus)
       .innerJoin(games, and(eq(games.id, gameStatus.gameId), eq(games.userId, userId)))
-      .where(and(eq(gameStatus.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow())),
+      .where(and(eq(gameStatus.userId, userId), backlogGameWhere())),
   ]);
   return { completedInYear: done[0]?.n ?? 0, backlogNow: backlog[0]?.n ?? 0 };
 }
@@ -224,7 +225,7 @@ export async function getBacklogEntries(db: AnyDb, userId: UserId): Promise<Road
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .leftJoin(roadmapOrder, and(eq(roadmapOrder.gameId, games.id), eq(roadmapOrder.userId, userId)))
     .leftJoin(roadmapExcluded, and(eq(roadmapExcluded.gameId, games.id), eq(roadmapExcluded.userId, userId)))
-    .where(and(eq(games.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow(), isNull(roadmapExcluded.gameId)))
+    .where(and(eq(games.userId, userId), backlogGameWhere(), isNull(roadmapExcluded.gameId)))
     .orderBy(sql`${roadmapOrder.position} asc nulls last`, asc(gameStatus.statusChangedAt), asc(games.id));
   return rows.map(backlogEntry);
 }
@@ -298,7 +299,7 @@ export async function getUnallocated(db: AnyDb, userId: UserId): Promise<Roadmap
     .from(roadmapExcluded)
     .innerJoin(games, and(eq(games.id, roadmapExcluded.gameId), eq(games.userId, userId)))
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .where(and(eq(roadmapExcluded.userId, userId), eq(gameStatus.status, 'backlog'), visibleGameRow()))
+    .where(and(eq(roadmapExcluded.userId, userId), backlogGameWhere()))
     .orderBy(desc(roadmapExcluded.createdAt), asc(games.id));
   const fromBacklog = backlogRows.map(backlogEntry);
   const rows = await db.select().from(plannedGames).where(and(eq(plannedGames.userId, userId), eq(plannedGames.status, 'cancelled'))).orderBy(desc(plannedGames.updatedAt), asc(plannedGames.id));
@@ -351,8 +352,9 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
 /** GET /api/roadmap: план на лету (17.5). */
 export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<RoadmapResponse> {
   const today = mskDateString(now);
-  const [settings, backlog, planned, unallocated, serviceGames, goal] = await Promise.all([
+  const [settings, backlog, planned, unallocated, serviceGames, goal, backlogTotal] = await Promise.all([
     getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId), getGoal(db, userId, now),
+    countBacklog(db, userId),
   ]);
   const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
   let progress = null;
@@ -364,7 +366,7 @@ export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
-  return { ...plan, settings, today, progress, goal, unallocated, serviceGames };
+  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal };
 }
 
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };
