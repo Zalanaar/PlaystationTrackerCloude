@@ -237,6 +237,8 @@ test.describe('Фаза 9.1: окно игры', () => {
     await page.locator('article.ps-card', { has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) }).locator('.ps-card__hit').click();
     const dlg = page.getByRole('dialog', { name: title });
     await expect(dlg).toBeVisible();
+    // Окно въезжает анимацией (translateY); boundingBox разных элементов снимается в разных кадрах, под нагрузкой это даёт расхождение на десятки px.
+    await dlg.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)).then(() => undefined));
     return dlg;
   };
   const base = (): G[] => seed().map((g) => (g.id === 3 ? { ...g, bannerUrl: 'https://img.test/banner.svg', coverUrl: 'https://img.test/cover.svg' } : g.id === 4 ? { ...g, coverUrl: 'https://img.test/cover.svg' } : g));
