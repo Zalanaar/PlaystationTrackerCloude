@@ -176,17 +176,8 @@ export function psnImageUrl(u: string, width: number): string {
   }
 }
 
-/** Ширины для srcset обложек: 240 (миниатюры и десктоп-сетка), 480 (сетка на мобильном с DPR 2–3). Оригинал остаётся запасным 1024w. */
-export const COVER_WIDTHS = [240, 480] as const;
-
-/** srcset обложки PSN; для чужих хостов undefined (браузер берёт src). */
-export function coverSrcSet(u: string): string | undefined {
-  if (psnImageUrl(u, 1) === u) return undefined;
-  return [...COVER_WIDTHS.map((w) => `${psnImageUrl(u, w)} ${w}w`), `${u} 1024w`].join(', ');
-}
-
-/** srcset баннера PSN (оригиналы до 3840 px и ~370 КБ): 720w для телефона, 1440w для десктопа. Для чужих хостов undefined. */
-export function bannerSrcSet(u: string): string | undefined {
-  if (psnImageUrl(u, 1) === u) return undefined;
-  return `${psnImageUrl(u, 720)} 720w, ${psnImageUrl(u, 1440)} 1440w`;
-}
+/**
+ * Ширины для Image API PSN в CSS-пикселях: CDN сам умножает `w` на DPR устройства (w=240 на DPR 1.75 отдаёт 504 px),
+ * поэтому srcset с w-дескрипторами давал двойное увеличение; передаём ширину элемента на экране.
+ */
+export const PSN_W = { card: 240, thumb: 120, large: 360, banner: 960 } as const;

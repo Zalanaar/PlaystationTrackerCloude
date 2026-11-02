@@ -4,7 +4,7 @@ import type { GameItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { RemainingMeter } from './RemainingMeter';
-import { Cover, THUMB_SIZES } from './Cover';
+import { Cover, THUMB_W } from './Cover';
 
 export type RowMenuItem = { label: string; run: () => void };
 
@@ -15,7 +15,7 @@ export function BacklogRow({
   const plat = game.trophies?.platinumEarned === true;
   return (
     <li className="ps-blrow" data-testid="bl-row" data-game={game.id}>
-      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" sizes={THUMB_SIZES} priority={priority} />
+      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" w={THUMB_W} priority={priority} />
       <div className="ps-blrow__text">
         <span className="ps-blrow__title" title={game.title}>
           {game.title}

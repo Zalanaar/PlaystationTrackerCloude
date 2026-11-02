@@ -5,7 +5,7 @@ import { useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { STATUS_HINT_RULES } from '@/shared/status-hints';
 import { EmptyState } from '../EmptyState';
-import { Cover, THUMB_SIZES } from '../collection/Cover';
+import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
 import { formatPlayTime, launchesText, formatDayMonth } from '../format';
 import { StatusGlyph } from '../icons';
 import { StatusMenu } from '../status';
@@ -140,8 +140,8 @@ function CheckDesktop({ h, queue, a, canUndo, exiting }: { h: HintItem; queue: H
   return (
     <div className="ps-tri__grid">
       <div className="ps-tri__coverwrap">
-        <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-tri__cover" />
-        {exiting && <Cover key={`x${exiting.game.id}`} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-tri__cover ps-tri__ghost" />}
+        <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-tri__cover" w={LARGE_W} />
+        {exiting && <Cover key={`x${exiting.game.id}`} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-tri__cover ps-tri__ghost" w={LARGE_W} />}
       </div>
       <div className="ps-tri__center">
         <h2 className="ps-tri__title" title={game.title}>{game.title}</h2>
@@ -180,7 +180,7 @@ function CheckDesktop({ h, queue, a, canUndo, exiting }: { h: HintItem; queue: H
           {queue.map((q) => (
             <li key={q.gameId} className="ps-queue__q">
               <span className="ps-queue__thw">
-                <Cover url={q.game.coverUrl} title={q.game.title} className="ps-queue__th" sizes={THUMB_SIZES} />
+                <Cover url={q.game.coverUrl} title={q.game.title} className="ps-queue__th" w={THUMB_W} />
                 <span className="ps-queue__dot" title={hintQuestion(q.rule)} role="img" aria-label={hintQuestion(q.rule)}><StatusGlyph status={primaryTarget(q)} size={9} /></span>
               </span>
               <span><span className="ps-queue__t">{q.game.title}</span><span className="ps-queue__m">{hintQuestion(q.rule)}</span></span>
@@ -230,7 +230,7 @@ function CheckMobile({ h, next, a, canUndo, exiting }: { h: HintItem; next?: Gam
           key={game.id} className="ps-stack3__top" style={style} onPointerDown={down} onPointerMove={move} onPointerUp={up}
           onPointerCancel={() => { start.current = null; setDrag(null); }} aria-label={game.title}
         >
-          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" />
+          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} />
           <span className="ps-stack3__fg"><StatusGlyph status={target} size={12} />{hintQuestion(h.rule)}</span>
           <div className="ps-stack3__cap">
             <h2>{game.title}</h2>
@@ -239,7 +239,7 @@ function CheckMobile({ h, next, a, canUndo, exiting }: { h: HintItem; next?: Gam
           {cand === 'accept' && <span className="ps-stamp" data-status={target}><StatusGlyph status={target} size={16} />Принять</span>}
           {cand === 'keep' && <span className="ps-stamp" data-status="none"><StatusGlyph status="none" size={16} />Оставить</span>}
         </div>
-        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" /></div>}
+        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
       </div>
       <Block h={h} />
       <div className="ps-tri__row2 ps-sg__row">

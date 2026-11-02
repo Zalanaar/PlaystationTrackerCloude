@@ -5,7 +5,7 @@ import type { GameItem } from '@/server/collection/types';
 import { cssUrl } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
 import { StatusChip, StatusMenu } from '../../status';
-import { Cover, THUMB_SIZES } from '../Cover';
+import { Cover, THUMB_W } from '../Cover';
 import { artMode, DETAIL_TABS, detailSubtitle, detailTiles, nextTab, type DetailTab } from '../details';
 import { platinumEarnedAt } from '../trophies';
 import { linkedVersionsOf } from '../linked';
@@ -102,7 +102,7 @@ export function Body({
             mode={mode} bannerUrl={game?.bannerUrl ?? null} coverUrl={hasCover ? coverUrl : null} loading={!game}
             onBannerError={() => setBannerFailed(game?.bannerUrl ?? null)}
           />
-          <Cover url={coverUrl} title={title} className="ps-gd__cover" sizes={THUMB_SIZES} />
+          <Cover url={coverUrl} title={title} className="ps-gd__cover" w={THUMB_W} />
           <div className="ps-gd__tt">
             <div className="ps-gd__titlerow">
               <h2 id={titleId} className="ps-gd__title">

@@ -2,7 +2,7 @@
 
 import { Icon, StatusGlyph } from '../icons';
 import { STATUS_META } from '../tokens';
-import { Cover, THUMB_SIZES } from './Cover';
+import { Cover, THUMB_W } from './Cover';
 import { manualAria, manualMeta, releaseMeta, type ManualGame } from './manual';
 import { ManualMenu, type ManualHandlers } from './manualMenu';
 import { NotPurchasedBadge } from './NotPurchasedBadge';
@@ -64,7 +64,7 @@ export function ManualCard({ game, handlers, today }: { game: ManualGame; handle
 export function ManualRow({ game, handlers, today }: { game: ManualGame; handlers: ManualHandlers; today: string }) {
   return (
     <li className="ps-blrow ps-blrow--manual" data-testid="bl-row" data-manual={game.id} data-not-purchased={game.notPurchased || undefined}>
-      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" sizes={THUMB_SIZES} />
+      <Cover url={game.coverUrl} title={game.title} className="ps-blrow__thumb" w={THUMB_W} />
       <div className="ps-blrow__text">
         <span className="ps-blrow__title" title={game.title}>{game.title}</span>
         <span className="ps-nb-meta">

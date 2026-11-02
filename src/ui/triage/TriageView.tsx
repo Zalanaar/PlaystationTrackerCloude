@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointer
 import type { GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
-import { Cover, THUMB_SIZES } from '../collection/Cover';
+import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
@@ -343,8 +343,8 @@ function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canU
   return (
     <div className="ps-tri__grid">
       <div className="ps-tri__coverwrap">
-        <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-tri__cover" />
-        {exiting && <Cover key={`x${exiting.game.id}`} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-tri__cover ps-tri__ghost" />}
+        <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-tri__cover" w={LARGE_W} />
+        {exiting && <Cover key={`x${exiting.game.id}`} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-tri__cover ps-tri__ghost" w={LARGE_W} />}
       </div>
       <div className="ps-tri__center">
         {isForgotten(game, now) && <span className="ps-fchip"><Icon name="clock" size={12} />{forgottenChipText(game.lastPlayedAt, now)}</span>}
@@ -380,7 +380,7 @@ function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canU
           {queue.map((g) => (
             <li key={g.id} className="ps-queue__q">
               <span className="ps-queue__thw">
-                <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" sizes={THUMB_SIZES} />
+                <Cover url={g.coverUrl} title={g.title} className="ps-queue__th" w={THUMB_W} />
                 {isForgotten(g, now) && <span className="ps-queue__dot" title="Забытая" role="img" aria-label="Забытая"><Icon name="clock" size={9} /></span>}
               </span>
               <span><span className="ps-queue__t">{g.title}</span><span className="ps-queue__m num">{formatPlayTime(g.playSeconds) ?? 'не запускалась'}</span></span>
@@ -427,7 +427,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
           key={game.id} className="ps-stack3__top" style={style} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { start.current = null; setDrag(null); }}
           aria-label={game.title}
         >
-          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" />
+          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} />
           {isForgotten(game, now) && <span className="ps-stack3__fg"><Icon name="clock" size={12} />Забытая</span>}
           <div className="ps-stack3__cap">
             <h2>{game.title}</h2>
@@ -438,7 +438,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
           )}
           {cand === 'skip' && <span className="ps-stamp" data-status="none"><StatusGlyph status="none" size={16} />Пропустить</span>}
         </div>
-        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" /></div>}
+        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
       </div>
       <p className="ps-tri__edges" aria-hidden="true">
         <span><StatusGlyph status="dropped" size={12} />влево</span>

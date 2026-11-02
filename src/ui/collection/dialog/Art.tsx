@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { bannerSrcSet, psnImageUrl } from '../../format';
+import { PSN_W, psnImageUrl } from '../../format';
 import type { ArtMode } from '../details';
 
 /**
@@ -20,7 +20,7 @@ export function Art({ mode, bannerUrl, coverUrl, loading, onBannerError }: {
       {src && (
         // eslint-disable-next-line @next/next/no-img-element -- внешний арт и обложки PSN
         <img
-          ref={imgRef} src={mode === 'blur' ? psnImageUrl(src, 240) : src} srcSet={mode === 'banner' ? bannerSrcSet(src) : undefined} sizes={mode === 'banner' ? '(max-width: 767px) 100vw, 880px' : undefined} alt="" decoding="async" referrerPolicy="no-referrer" data-shown={shown === src || undefined}
+          ref={imgRef} src={psnImageUrl(src, mode === 'banner' ? PSN_W.banner : PSN_W.card)} alt="" decoding="async" referrerPolicy="no-referrer" data-shown={shown === src || undefined}
           onLoad={() => setShown(src)} onError={() => { if (mode === 'banner') onBannerError(); }}
         />
       )}

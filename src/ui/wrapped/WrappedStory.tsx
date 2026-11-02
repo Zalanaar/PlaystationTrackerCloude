@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { createPortal } from 'react-dom';
 import type { GameItem } from '@/server/collection/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
-import { Cover } from '../collection/Cover';
+import { Cover, LARGE_W } from '../collection/Cover';
 import { cssUrl, plural } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { Avatar } from '../primitives/Avatar';
@@ -369,7 +369,7 @@ function SlideView({
       return (
         <div className="ps-story__center">
           <Rise n={0} rm={rm}><h2 className="ps-story__title">Самая долгая игра</h2></Rise>
-          <Rise n={1} rm={rm}><div className="ps-story__hero"><Cover url={l.game.coverUrl} title={l.game.title} /></div></Rise>
+          <Rise n={1} rm={rm}><div className="ps-story__hero"><Cover url={l.game.coverUrl} title={l.game.title} w={LARGE_W} /></div></Rise>
           <Rise n={2} rm={rm}><p className="ps-story__gtitle">{l.game.title}</p></Rise>
           <Rise n={3} rm={rm}><p className="ps-story__sub ps-num">{approxHours(l.hours, l.estimated)} ч · {launchesLabel(l.playCount)}</p></Rise>
         </div>
@@ -495,7 +495,7 @@ function FirstGameSlide({ data, rm }: { data: WrappedResponse; rm: boolean }) {
   return (
     <div className="ps-story__center">
       <Rise n={0} rm={rm}><h2 className="ps-story__title">С чего всё началось</h2></Rise>
-      <div className="ps-story__rise ps-story__rise--cover" style={{ animationDelay: '0ms' }}><div className="ps-story__hero"><Cover url={f.game.coverUrl} title={f.game.title} /></div></div>
+      <div className="ps-story__rise ps-story__rise--cover" style={{ animationDelay: '0ms' }}><div className="ps-story__hero"><Cover url={f.game.coverUrl} title={f.game.title} w={LARGE_W} /></div></div>
       <Rise n={2} rm={rm}><p className="ps-story__gtitle ps-story__gtitle--2" title={f.game.title}>{f.game.title}</p></Rise>
       {caption && <Rise n={3} rm={rm}><p className="ps-story__sub" aria-label={dayMonthYear(f.at) ?? undefined}>{caption}</p></Rise>}
       {ago && <Rise n={4} rm={rm}><p className="ps-story__label ps-story__label--soft">{ago}</p></Rise>}
