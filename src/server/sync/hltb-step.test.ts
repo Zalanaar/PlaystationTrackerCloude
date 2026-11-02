@@ -132,6 +132,20 @@ describe('hltbStep', () => {
     expect(c.warnings.map((w) => w.code)).toContain('hltb_empty');
   });
 
+  it('ранний выход по hltb_empty: ошибки той же пачки всё равно дают hltb_failed', async () => {
+    for (let i = 0; i < 4; i++) await add(`Mixed${i}`, {}, 'backlog');
+    const c = await ctx();
+    let n = 0;
+    const r = await hltbStep(c, deps(async () => {
+      if (n++ === 0) throw new HltbError('network', 'down');
+      return [];
+    }));
+    expect(r).toMatchObject({ checked: 0, failed: 1 });
+    const codes = c.warnings.map((w) => w.code);
+    expect(codes).toContain('hltb_empty');
+    expect(codes).toContain('hltb_failed');
+  });
+
   it.each([1, 4])('малая партия (%i игр), все выдачи пустые: not_found не пишется, hltb_empty', async (n) => {
     for (let i = 0; i < n; i++) await add(`Small${i}`, {}, 'backlog');
     const c = await ctx();
