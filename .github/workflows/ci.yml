@@ -147,6 +147,8 @@ jobs:
       APPLY_PROD: ${{ github.event_name == 'push' || inputs.apply_prod }}
       MIGRATE_ALLOW_DATA_LOSS: ${{ needs.db-approve.result == 'success' && '1' || '0' }}
       MIGRATE_SCHEMA_DRIFT: ${{ vars.MIGRATE_SCHEMA_DRIFT || 'fail' }}
+      # временная ветка: когда есть что применять, и всегда при ручном запуске (проверка доступа к Neon и схемы прода без записи в прод)
+      PREVIEW: ${{ needs.db-plan.outputs.pending != '0' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -155,7 +157,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Сроки жизни веток Neon
-        if: env.PENDING != '0'
+        if: env.PREVIEW == 'true'
         run: |
           echo "PREVIEW_EXPIRES=$(date -u --date '+2 hours' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           echo "BACKUP_EXPIRES=$(date -u --date '+7 days' +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
@@ -172,7 +174,7 @@ jobs:
           expires_at: ${{ env.BACKUP_EXPIRES }}
       - name: Временная ветка Neon от прода
         id: preview
-        if: env.PENDING != '0'
+        if: env.PREVIEW == 'true'
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
@@ -183,7 +185,7 @@ jobs:
           role: ${{ vars.NEON_ROLE || 'neondb_owner' }}
           expires_at: ${{ env.PREVIEW_EXPIRES }}
       - name: Миграции на временной ветке
-        if: env.PENDING != '0'
+        if: env.PREVIEW == 'true'
         env:
           MIGRATE_DATABASE_URL: ${{ steps.preview.outputs.db_url }}
           MIGRATE_TARGET_LABEL: ветка Neon
