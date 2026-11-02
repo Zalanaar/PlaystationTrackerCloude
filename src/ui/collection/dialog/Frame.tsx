@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { tintStyle } from '../tint';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -10,7 +10,9 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  useEffect(() => {
+  // Layout-эффекты: окно открывается в переходе роутера, и обычный эффект мог выполниться уже после отрисовки.
+  // Тогда Esc сразу после появления окна уходил на кнопку под ним и терялся.
+  useLayoutEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -25,7 +27,7 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
   // События из вложенных порталов (sheet статуса) сюда не относятся: они сами обрабатывают Esc и Tab.
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
       const root = ref.current;
       if (!root || e.defaultPrevented) return;
