@@ -25,7 +25,7 @@ function authed() {
   const row = {
     id: testSession.userId, email: `u${testSession.userId}@example.com`, role: testSession.role, status: 'active', googleSub: null, displayName: null,
     psnOnlineId: testSession.role === 'owner' ? 'Target' : `psn${testSession.userId}`, psnAccountId: null, psnAccessMode: 'public', psnAccessStatus: 'ok',
-    psnAccessCheckedAt: null, onboardedAt: null, tourVersion: null, tourCompletedAt: null, lastLoginAt: null, invitedBy: null, primaryUserId: testSession.loginId, archivedAt: null, createdAt: new Date(0), updatedAt: new Date(0),
+    psnAccessCheckedAt: null, onboardedAt: null, tourVersion: null, tourCompletedAt: null, lastLoginAt: null, invitedBy: null, primaryUserId: testSession.loginId, archivedAt: null, sessionEpoch: 0, createdAt: new Date(0), updatedAt: new Date(0),
   };
   return { ok: true as const, user: { id, loginId: asUserId(testSession.loginId ?? testSession.userId), email: row.email, role: testSession.role, profileRole: testSession.loginId === null ? testSession.role : ('member' as const), amr: 'google' as const, row } };
 }

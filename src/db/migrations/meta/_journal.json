@@ -190,6 +190,13 @@
       "when": 1793608033949,
       "tag": "0026_manual_games",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793647361240,
+      "tag": "0027_session_revocation",
+      "breakpoints": true
     }
   ]
 }

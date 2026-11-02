@@ -542,7 +542,7 @@ test.describe('Фаза 9: профиль PSN', () => {
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Artem_PS');
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Ур. 312 · 38 платин');
     await expect(menu.getByRole('menuitem').filter({ hasText: 'Разобрать игры' })).toHaveCount(0); // Фаза 18: есть вкладка «Разбор»
-    await expect(menu.getByRole('menuitem').filter({ hasText: /Скрытые игры|Выйти/ })).toHaveText([/Скрытые игры/, /Выйти/]);
+    await expect(menu.getByRole('menuitem').filter({ hasText: /Скрытые игры|Выйти/ })).toHaveText([/Скрытые игры/, /^Выйти$/, /Выйти на всех устройствах/]);
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
   });
@@ -552,7 +552,7 @@ test.describe('Фаза 9: профиль PSN', () => {
     await open(page, context, baseURL!, { profile: null });
     await page.getByRole('button', { name: 'Меню профиля' }).click();
     await expect(page.locator('.ps-profmenu__head')).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: 'Выйти' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Выйти', exact: true })).toBeVisible();
   });
 
   test('на других страницах профиль берётся из сводки (Бэклог)', async ({ page, context, baseURL }, info) => {

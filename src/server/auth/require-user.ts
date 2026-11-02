@@ -1,9 +1,10 @@
-// Проверка пользователя в route handler (контракт 22.3). proxy.ts проверяет только подпись/срок, роль и статус берутся из БД.
+// Проверка пользователя в route handler (контракт 22.3). proxy.ts проверяет только подпись/срок, роль, статус и отзыв сессии берутся из БД.
 import { NextResponse } from 'next/server';
 import { getDb } from '@/db';
 import { getSessionSecret } from '@/server/env';
 import { fail } from '@/server/http';
 import { readSessionToken, SESSION_COOKIE, type SessionAmr, type SessionRole } from './session';
+import { isSessionRevoked } from './revocation';
 import { asUserId, type UserId } from './user-id';
 import { resolveAuthContext, type UserRow } from './users';
 
@@ -39,18 +40,21 @@ function unauthorized(clearCookie: boolean): AuthResult {
   return { ok: false, response };
 }
 
-/** Сессия валидна и вход/профиль в БД active (41.2: принадлежность pid проверяется на КАЖДОМ запросе). Роль берётся из БД, не из cookie. */
+/** Сессия валидна, не отозвана (Фаза 45) и вход/профиль в БД active (41.2: принадлежность pid проверяется на КАЖДОМ запросе). Роль берётся из БД, не из cookie. */
 export async function requireUser(req: Request): Promise<AuthResult> {
   const token = cookieValue(req, SESSION_COOKIE);
   const session = await readSessionToken(token, getSessionSecret());
   if (!session) return unauthorized(!!token);
   let ctx: Awaited<ReturnType<typeof resolveAuthContext>>;
+  let revoked: boolean;
   try {
-    ctx = await resolveAuthContext(getDb(), session.uid, session.pid);
+    const db = getDb();
+    [ctx, revoked] = await Promise.all([resolveAuthContext(db, session.uid, session.pid), isSessionRevoked(db, session)]);
   } catch {
     return { ok: false, response: fail(503, 'db_unavailable', 'База данных недоступна.') };
   }
-  if (!ctx) return unauthorized(true);
+  // Фаза 45: сессия отозвана выходом или «Выйти на всех устройствах» (эпоха входа сменилась)
+  if (!ctx || revoked || ctx.login.sessionEpoch !== session.se) return unauthorized(true);
   const { profile: row, login } = ctx;
   return {
     ok: true,

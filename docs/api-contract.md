@@ -341,8 +341,9 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 
 **`POST /api/auth/logout`**
 - Запрос: без тела, но `Content-Type: application/json` обязателен; `Origin`, если есть, должен совпадать с хостом, иначе `400 invalid_request` (3.4).
-- 200: `{"ok":true,"data":{}}` + `Set-Cookie: pst_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`.
+- 200: `{"ok":true,"data":{"revoked":boolean}}` + `Set-Cookie: pst_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`.
 - Идемпотентен: без сессии тоже 200.
+- Фаза 45: валидная сессия отзывается на сервере (`revoked_sessions`), копия cookie больше не пускает; `revoked: false` = сессии не было или БД недоступна (cookie очищается всё равно).
 
 **`GET /api/cron/sync`** (описание эндпоинта в плане синка; здесь только защита): `Authorization: Bearer <CRON_SECRET>` обязателен.
 
@@ -3417,3 +3418,26 @@ OtherPlatformGame = {
 
 ### 44.5 Тесты
 `src/server/manual/other-platform.test.ts` (PGlite: добавление, идемпотентность, дубль, лимит, изоляция входов и профилей, CHECK, несмешивание с `ps_backlog`, Статистика/Итоги/План/прогноз/Подскажи до и после, исключение из «У тебя нет»), `src/app/api/manual-games/other-platform.routes.test.ts` (401, валидация, Origin, 409, `kind`, поиск `scope=all`, 503 без утечек).
+
+## Фаза 45. Отзыв сессий на сервере (миграция 0027)
+
+### 45.1 Схема (миграция `0027_session_revocation`, только добавляет)
+- `allowed_users.session_epoch integer NOT NULL DEFAULT 0` — эпоха сессий входа (значима только у основной строки, `primary_user_id IS NULL`).
+- `revoked_sessions (sid text PK, user_id → allowed_users ON DELETE CASCADE, expires_at timestamptz, revoked_at timestamptz DEFAULT now())`, индекс `revoked_sessions_expires_idx`.
+- Прод: Артём применяет `docs/release-neon-0027.sql` (идемпотентный, журнал drizzle) и `docs/release-neon-0027-check.sql` ДО деплоя кода; тест `src/db/release-sql-0027.test.ts`. Новый код на старой схеме не читает `allowed_users` (все роуты 503), старый код на новой схеме работает.
+
+### 45.2 Токен
+- v:2 дополняется полями `sid` (случайные 128 бит, base64url, при каждом входе) и `se` (эпоха входа на момент входа; 0 не пишется). Переключение профиля (41.2) сохраняет `sid`/`se`.
+- Токены до Фазы 45 (без `sid`/`se`) действуют: `se = 0`, ключ отзыва `legacy-<uid>-<iat>`.
+
+### 45.3 Проверка
+- `requireUser`: вместе с `resolveAuthContext` (тот же запрос строки входа) проверяется `login.session_epoch = se` и отсутствие ключа сессии в `revoked_sessions` (PK-поиск, параллельно). Иначе `401 unauthorized` и очистка cookie; клиент по 401 уходит на `/login`.
+- `proxy.ts` по-прежнему проверяет только подпись и срок (без БД); страницы без данных отрисовываются, все данные идут через `/api/*` под `requireUser`.
+
+### 45.4 Эндпоинты
+- `POST /api/auth/logout` — см. 3.5: отзывает текущую сессию; просроченные записи `revoked_sessions` удаляются тем же вызовом.
+- `POST /api/auth/logout-all` — «Выйти на всех устройствах» (owner и member). Требует сессию (`requireUser`), `Content-Type: application/json`, `Origin` как в 3.4. `session_epoch` основной строки входа + 1, все сессии входа (включая доп. профили и текущую) отклоняются. `200 {"ok":true,"data":{}}` + очистка cookie; `401` без сессии; `400 invalid_request`; `503 db_unavailable`.
+- UI: пункт «Выйти на всех устройствах» в меню профиля (десктоп) и в листе «Меню» (мобильный), с подтверждением.
+
+### 45.5 Тесты
+`src/server/auth/session-revocation.test.ts` (PGlite, настоящие cookie: sid/se, переключение профиля, старые токены, выход, выход везде, Origin, очистка), `src/db/release-sql-0027.test.ts`, `e2e/phase45-logout.spec.ts`.

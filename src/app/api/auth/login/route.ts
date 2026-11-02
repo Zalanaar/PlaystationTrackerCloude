@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }
 
-  const token = await createSessionTokenV2(env.sessionSecret, { uid: owner.id, role: 'owner', amr: 'pwd' });
+  const token = await createSessionTokenV2(env.sessionSecret, { uid: owner.id, role: 'owner', amr: 'pwd', se: owner.sessionEpoch });
   const res = ok({ redirectTo: safeNext(parsed.next) });
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(':')[0];
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(host !== 'localhost' && host !== '127.0.0.1'));

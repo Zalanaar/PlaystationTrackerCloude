@@ -60,8 +60,27 @@ export async function verifyJson(secret: string | null | undefined, token: strin
 export type SessionRole = 'owner' | 'member';
 export type SessionAmr = 'google' | 'pwd';
 /** uid = id основного профиля (вход), pid = id активного профиля (Фаза 41, контракт 41.2); нет pid = pid = uid. */
-export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr; pid?: number };
-export type Session = SessionClaims & { v: 2; iat: number; exp: number };
+/** Фаза 45: sid = id сессии (отзыв «Выйти»), se = эпоха сессий входа (allowed_users.session_epoch, «Выйти на всех устройствах»). */
+export type SessionClaims = { uid: number; role: SessionRole; amr: SessionAmr; pid?: number; se?: number };
+export type Session = Omit<SessionClaims, 'se'> & { v: 2; iat: number; exp: number; sid?: string; se: number };
+
+const SID_RE = /^[A-Za-z0-9_-]{16,64}$/;
+
+/** Случайный id сессии (128 бит, base64url). */
+export function newSessionId(): string {
+  return b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+}
+
+/** Ключ отзыва: sid; у токенов до Фазы 44 (без sid) стабильная пара uid+iat (iat не меняется при переключении профиля). */
+export function sessionRevocationKey(session: Session): string {
+  return session.sid ?? `legacy-${session.uid}-${session.iat}`;
+}
+
+function epochField(se: number | undefined): { se?: number } {
+  if (se === undefined || se === 0) return {};
+  if (!Number.isInteger(se) || se < 0) throw new Error('invalid session epoch');
+  return { se };
+}
 
 async function signBody(secret: string, body: Record<string, unknown>): Promise<string> {
   const payload = b64urlEncode(enc.encode(JSON.stringify(body)));
@@ -84,13 +103,33 @@ export async function createSessionTokenV2(
   if (!validSecret(secret)) throw new Error('session secret is missing or too short');
   if (!Number.isInteger(claims.uid) || claims.uid <= 0) throw new Error('invalid uid');
   const iat = Math.floor(nowMs / 1000);
-  return signBody(secret, { v: 2, uid: claims.uid, role: claims.role, amr: claims.amr, ...pidField(claims.uid, claims.pid), iat, exp: iat + SESSION_TTL_SECONDS });
+  return signBody(secret, {
+    v: 2,
+    uid: claims.uid,
+    role: claims.role,
+    amr: claims.amr,
+    ...pidField(claims.uid, claims.pid),
+    sid: newSessionId(),
+    ...epochField(claims.se),
+    iat,
+    exp: iat + SESSION_TTL_SECONDS,
+  });
 }
 
-/** Переключение профиля (41.2): новый токен с теми же uid/role/amr/iat/exp, срок НЕ продлевается. pid = uid или undefined убирает pid. */
+/** Переключение профиля (41.2): новый токен с теми же uid/role/amr/sid/se/iat/exp, срок НЕ продлевается. pid = uid или undefined убирает pid. */
 export async function reissueSessionToken(secret: string | null | undefined, session: Session, pid: number | undefined): Promise<string> {
   if (!validSecret(secret)) throw new Error('session secret is missing or too short');
-  return signBody(secret, { v: 2, uid: session.uid, role: session.role, amr: session.amr, ...pidField(session.uid, pid), iat: session.iat, exp: session.exp });
+  return signBody(secret, {
+    v: 2,
+    uid: session.uid,
+    role: session.role,
+    amr: session.amr,
+    ...pidField(session.uid, pid),
+    ...(session.sid !== undefined ? { sid: session.sid } : {}),
+    ...epochField(session.se),
+    iat: session.iat,
+    exp: session.exp,
+  });
 }
 
 /** Остаток жизни токена в секундах (для maxAge cookie при переключении профиля). */
@@ -123,12 +162,14 @@ export async function readSessionToken(
     const nowS = Math.floor(nowMs / 1000);
     if (!(nowS < exp) || iat > nowS + 60) return null;
     if (v === 2) {
-      const { uid, role, amr, pid } = d;
+      const { uid, role, amr, pid, sid, se } = d;
       if (typeof uid !== 'number' || !Number.isInteger(uid) || uid <= 0) return null;
       if (role !== 'owner' && role !== 'member') return null;
       if (amr !== 'google' && amr !== 'pwd') return null;
       if (pid !== undefined && (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0)) return null;
-      return { v: 2, uid, role, amr, ...(pid !== undefined && pid !== uid ? { pid } : {}), iat, exp };
+      if (sid !== undefined && (typeof sid !== 'string' || !SID_RE.test(sid))) return null;
+      if (se !== undefined && (typeof se !== 'number' || !Number.isInteger(se) || se < 0)) return null;
+      return { v: 2, uid, role, amr, ...(pid !== undefined && pid !== uid ? { pid } : {}), ...(sid !== undefined ? { sid } : {}), se: se ?? 0, iat, exp };
     }
     return null;
   } catch {

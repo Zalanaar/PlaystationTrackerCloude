@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     const found = email ? await lookupForLogin(db, identity.sub, email) : ({ ok: false } as const);
     if (!found.ok || !(await completeLogin(db, found.user, identity.sub, identity.name))) return deny('access_denied');
     await markLoginSuccess(attemptId);
-    const token = await createSessionTokenV2(secret, { uid: found.user.id, role: found.user.role === 'owner' ? 'owner' : 'member', amr: 'google' });
+    const token = await createSessionTokenV2(secret, { uid: found.user.id, role: found.user.role === 'owner' ? 'owner' : 'member', amr: 'google', se: found.user.sessionEpoch });
     const res = finish(safeNext(saved.next));
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(secure));
     return res;

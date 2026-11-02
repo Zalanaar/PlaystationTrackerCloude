@@ -330,6 +330,8 @@ export const allowedUsers = pgTable(
     primaryUserId: integer('primary_user_id').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
     // Фаза 41: момент отвязки профиля (status = 'archived')
     archivedAt: tz('archived_at'),
+    // Фаза 45 (отзыв сессий): эпоха сессий входа; «Выйти на всех устройствах» увеличивает её, сессии с другой эпохой отклоняются
+    sessionEpoch: integer('session_epoch').notNull().default(0),
     createdAt: tz('created_at').notNull().defaultNow(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
@@ -356,6 +358,20 @@ export const allowedUsers = pgTable(
       sql`(${t.primaryUserId} is null or (${t.primaryUserId} <> ${t.id} and ${t.role} = 'member' and ${t.googleSub} is null)) and ((${t.status} = 'archived') = (${t.archivedAt} is not null)) and (${t.status} <> 'archived' or ${t.primaryUserId} is not null)`,
     ),
   ],
+);
+
+// Фаза 45: отозванные сессии («Выйти»). sid из cookie; строка нужна только до истечения сессии, просроченные удаляются при следующем выходе.
+export const revokedSessions = pgTable(
+  'revoked_sessions',
+  {
+    sid: text().primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    expiresAt: tz('expires_at').notNull(),
+    revokedAt: tz('revoked_at').notNull().defaultNow(),
+  },
+  (t) => [index('revoked_sessions_expires_idx').on(t.expiresAt)],
 );
 
 // Фаза 8 (контракт 1.12): копии game_status перед сбросом всей коллекции и перед откатом. Без FK намеренно.

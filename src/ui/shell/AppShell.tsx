@@ -28,23 +28,29 @@ import { ThemeList, ThemePicker } from './ThemePicker';
 function useLogout() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  async function logout() {
+  async function leave(url: string) {
     setBusy(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     } finally {
       void purgeServiceWorkerCaches();
       router.replace('/login');
       router.refresh();
     }
   }
-  return { busy, logout };
+  const logout = () => leave('/api/auth/logout');
+  /** Фаза 45: все сессии входа (телефон, PWA, другие браузеры) перестают действовать, включая эту. */
+  async function logoutAll() {
+    if (!window.confirm('Выйти на всех устройствах? Войти заново придётся везде, включая это устройство.')) return;
+    await leave('/api/auth/logout-all');
+  }
+  return { busy, logout, logoutAll };
 }
 
 export function AppHeader() {
   const pathname = usePathname();
   const { openPanel } = useSync();
-  const { busy, logout } = useLogout();
+  const { busy, logout, logoutAll } = useLogout();
   const [more, setMore] = useState(false);
   const [restore, setRestore] = useState(false);
   const { profile } = useProfile();
@@ -147,6 +153,10 @@ export function AppHeader() {
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти</span>
                     </button>
+                    <button type="button" role="menuitem" className="ps-menu-item" data-testid="menu-logout-all" onClick={() => void logoutAll()} disabled={busy}>
+                      <Icon name="logout" size={16} />
+                      <span className="ps-menu-item__label">Выйти на всех устройствах</span>
+                    </button>
                   </>
                 )}
               </Popover>
@@ -214,6 +224,9 @@ export function AppHeader() {
           )}
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти</span>
+          </button>
+          <button type="button" className="ps-menu-item" data-testid="sheet-logout-all" onClick={() => void logoutAll()} disabled={busy}>
+            <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти на всех устройствах</span>
           </button>
         </div>
       </Sheet>
