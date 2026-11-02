@@ -495,7 +495,7 @@ export function BacklogView() {
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
-      ) : !items || (entries.length === 0 && !manualReady) ? (
+      ) : !items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service ? (
         <div aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
       ) : entries.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text="В бэклоге нет игр под выбранные фильтры.">
