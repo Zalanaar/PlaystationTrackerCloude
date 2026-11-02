@@ -328,7 +328,7 @@ test.describe('Фаза 9.1: окно игры', () => {
     await expect(sec).toContainText('12,4%');
     await expect(sec).toContainText('Процент известен у 4 из 5 оставшихся');
     await expect(sec).toContainText('Приблизительно: считаем все трофеи набора, включая DLC.');
-    await expect(sec).toContainText('получено 5 из 12, осталось 7');
+    await expect(sec).toContainText('DLC: 5 из 12, платине не мешают');
   });
 
   test('прогноз без approximate: без «≈» и сноски; остался один трофей', async ({ page, context, baseURL }) => {

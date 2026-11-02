@@ -7,7 +7,7 @@ import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers
 import { dislikeGame, getRecommendations, listDislikes, loadCandidates, loadHistory, NotFoundError, resolveReasons, undislikeGame, writeCachedReasons } from './db';
 import { scoreBacklog } from './score';
 
-const { games, gameStatus, recommendDislikes, recommendReasons, recommendLlmUsage, trophySets, gameTrophySets, trophies } = schema;
+const { games, gameStatus, recommendDislikes, recommendReasons, recommendLlmUsage, trophySets, gameTrophySets, trophies, allowedUsers } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z');
 const ENV: LlmEnv = { provider: 'groq', apiKey: 'k', model: null, dailyLimit: 2 };
 
@@ -75,16 +75,40 @@ describe('recommend на БД', () => {
     expect(r).toEqual({ items: [], meta: { llm: 'disabled', candidates: 0, time: 'any', llmPending: 0 } });
   });
 
-  it('трофеи: начатая игра с набором получает platinum_close, DLC-хвост снижает', async () => {
+  it('трофеи: начатая игра с набором получает platinum_close; DLC вычитается из базы и не штрафует (Фаза 36)', async () => {
     const id = await seed();
     const [ts] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
     await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id('D'), trophySetId: ts.id, source: 'manual' });
     let r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
     const sig = (gid: number) => r.items.find((i) => i.game.id === gid)!.signals.find((s) => s.key === 'platinum_close');
     expect(sig(id('D'))?.contribution).toBe(1.2); // 8/10 * 1.5
-    await t.db.insert(trophies).values({ userId: 1, trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false });
+    // 2 неполученных трофея DLC входят в defined PSN (10 = 8 база + 2 DLC): база 8/8 = 100%
+    await t.db.insert(trophies).values([
+      { userId: 1, trophySetId: ts.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false },
+      { userId: 1, trophySetId: ts.id, trophyId: 2, groupId: '001', type: 'bronze', earned: false },
+    ]);
     r = await getRecommendations(t.db, TEST_USER, 'any', NOW, { llm: null });
-    expect(sig(id('D'))?.contribution).toBe(0.6);
+    expect(sig(id('D'))?.contribution).toBe(1.5);
+      });
+
+  it('изоляция: DLC и сеты другого пользователя не влияют на прогресс (оба считаются по своим данным)', async () => {
+    const id = await seed();
+    const [ts] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
+    await t.db.insert(gameTrophySets).values({ userId: 1, gameId: id('D'), trophySetId: ts.id, source: 'manual' });
+    // второй пользователь: тот же npCommunicationId, свой сет с 2 неполученными DLC, своя игра в бэклоге
+    const [u2] = await t.db.insert(allowedUsers).values({ email: 'u2@example.com', role: 'member', status: 'active' }).returning({ id: allowedUsers.id });
+    const [g2] = await t.db.insert(games).values({ userId: u2.id, category: 'ps5_native_game', lastSeenAt: NOW, titleId: 'D', name: 'Delta', psnGenres: ['ACTION'] }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: u2.id, gameId: g2.id, status: 'backlog', statusChangedAt: NOW });
+    const [ts2] = await t.db.insert(trophySets).values({ userId: u2.id, npCommunicationId: 'NP1', npServiceName: 'trophy', name: 'x', definedBronze: 8, definedGold: 2, earnedBronze: 6, earnedGold: 2 }).returning({ id: trophySets.id });
+    await t.db.insert(gameTrophySets).values({ userId: u2.id, gameId: g2.id, trophySetId: ts2.id, source: 'manual' });
+    await t.db.insert(trophies).values([
+      { userId: u2.id, trophySetId: ts2.id, trophyId: 1, groupId: '001', type: 'bronze', earned: false },
+      { userId: u2.id, trophySetId: ts2.id, trophyId: 2, groupId: '001', type: 'bronze', earned: false },
+    ]);
+    const c1 = (await loadCandidates(t.db, TEST_USER)).find((c) => c.id === id('D'))!;
+    const c2 = (await loadCandidates(t.db, u2.id as typeof TEST_USER)).find((c) => c.id === g2.id)!;
+    expect(c1.trophy).toEqual({ earned: 8, total: 10, dlcTail: false });
+    expect(c2.trophy).toEqual({ earned: 8, total: 8, dlcTail: false });
   });
 
   it('дизлайк исключает игру, снятие возвращает; идемпотентность и 404', async () => {

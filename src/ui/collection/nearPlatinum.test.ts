@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NearPlatinumItem, PlatinumForecast } from '@/server/collection/types';
-import { anyApproximate, avgRarityText, isApproximate, nearAria, nearItems, nearVisible, remainingGrades, trophiesWord } from './nearPlatinum';
+import { anyApproximate, avgRarityText, dlcLine, isApproximate, nearAria, nearItems, nearVisible, remainingGrades, trophiesWord } from './nearPlatinum';
 
 const fc = (o: Partial<PlatinumForecast> = {}): PlatinumForecast => ({
   setId: 1, required: 54, earned: 49, progress: 91, remaining: { gold: 1, silver: 1, bronze: 3, total: 5 }, remainingHidden: 0,
@@ -28,7 +28,9 @@ describe('тексты', () => {
     expect(avgRarityText(fc({ avgEarnedRate: null }))).toBe('редкость неизвестна');
   });
   it('aria-label элемента по спеке', () => {
-    expect(nearAria('Horizon', fc())).toBe('Horizon. Прогресс к платине примерно 91%, осталось 5 трофеев');
+    expect(nearAria('Horizon', fc({ approximate: true }))).toBe('Horizon. Прогресс к платине примерно 91%, осталось 5 трофеев');
+    expect(nearAria('Horizon', fc())).toBe('Horizon. Прогресс к платине 91%, осталось 5 трофеев');
+    expect(nearAria('Horizon', fc({ dlc: { required: 12, earned: 5, remaining: 7 } }))).toBe('Horizon. Прогресс к платине 91%, осталось 5 трофеев. DLC: 5 из 12, платине не мешают');
     expect(nearAria('Horizon', fc({ approximate: false }))).toBe('Horizon. Прогресс к платине 91%, осталось 5 трофеев');
   });
   it('нулевые грейды не выводятся', () => {
@@ -36,9 +38,19 @@ describe('тексты', () => {
   });
 });
 
+describe('строка DLC', () => {
+  it('есть только при dlc != null', () => {
+    expect(dlcLine(fc())).toBeNull();
+    expect(dlcLine(fc({ dlc: null }))).toBeNull();
+    expect(dlcLine(fc({ dlc: { required: 12, earned: 5, remaining: 7 } }))).toBe('DLC: 5 из 12, платине не мешают');
+    expect(dlcLine(fc({ dlc: { required: 8, earned: 0, remaining: 8 } }))).toBe('DLC: 0 из 8, платине не мешают');
+  });
+});
+
 describe('приблизительность и данные', () => {
-  it('по умолчанию «≈», флаг сервера её снимает', () => {
-    expect(isApproximate(fc())).toBe(true);
+  it('«≈» только при approximate=true', () => {
+    expect(isApproximate(fc())).toBe(false);
+    expect(isApproximate(fc({ approximate: undefined }))).toBe(false);
     expect(isApproximate(fc({ approximate: true }))).toBe(true);
     expect(isApproximate(fc({ approximate: false }))).toBe(false);
     expect(anyApproximate([item(1, fc({ approximate: false }))])).toBe(false);

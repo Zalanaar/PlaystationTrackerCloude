@@ -50,23 +50,32 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
       .innerJoin(trophySets, and(eq(trophySets.id, gameTrophySets.trophySetId), eq(trophySets.userId, userId)))
       .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.gameId, ids)))
       .groupBy(gameTrophySets.gameId),
+    // Фаза 36 (15.3): трофеи DLC (group_id не default и не NULL) вычитаются из сумм сетов, прогресс идёт по базовой группе
     db
-      .selectDistinct({ gameId: gameTrophySets.gameId })
+      .select({
+        gameId: gameTrophySets.gameId,
+        total: sql<number>`(count(*))::int`,
+        earned: sql<number>`(count(*) filter (where ${trophies.earned}))::int`,
+      })
       .from(gameTrophySets)
       .innerJoin(trophies, and(eq(trophies.trophySetId, gameTrophySets.trophySetId), eq(trophies.userId, userId)))
-      .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.gameId, ids), eq(trophies.earned, false), sql`${trophies.groupId} is not null`, ne(trophies.groupId, 'default'))),
+      .where(and(eq(gameTrophySets.userId, userId), inArray(gameTrophySets.gameId, ids), sql`${trophies.groupId} is not null`, ne(trophies.groupId, 'default')))
+      .groupBy(gameTrophySets.gameId),
   ]);
   const sumBy = new Map(sums.map((s) => [s.gameId, s]));
-  const dlcSet = new Set(dlc.map((d) => d.gameId));
+  const dlcBy = new Map(dlc.map((d) => [d.gameId, d]));
   return rows.map((r) => {
     const d = effectiveDuration({ override: r.durOverride, main: r.main });
     // 18.3 (Фаза 32, D3): скоринг и текст видят ОСТАТОК часов, а не полную длительность.
     const rem = remainingHours(d.hours, r.seconds);
     const s = sumBy.get(r.id);
+    const x = dlcBy.get(r.id);
+    const total = s ? Math.max(0, s.total - (x?.total ?? 0)) : 0;
+    const earned = s ? Math.max(0, s.earned - (x?.earned ?? 0)) : 0;
     return {
       id: r.id, name: r.name, imageUrl: r.imageUrl, bannerUrl: r.bannerUrl, genres: effectiveGenres(r.psn, r.override),
       hours: rem.remaining, totalHours: d.hours, hoursSource: d.source, statusChangedAt: r.changedAt,
-      trophy: s && s.total > 0 ? { earned: s.earned, total: s.total, dlcTail: dlcSet.has(r.id) } : null,
+      trophy: total > 0 ? { earned: Math.min(earned, total), total, dlcTail: false } : null, // DLC отделён: хвост не штрафуется
     };
   });
 }

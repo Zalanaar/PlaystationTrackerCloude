@@ -61,6 +61,10 @@ export function sortTrophies(list: readonly GameTrophyItem[], sort: TrophySort):
   }
 }
 
+/** DLC-трофей: группа задана и не `default` (контракт 15.3). Платина всегда в базе. */
+export const isDlcTrophy = (t: Pick<GameTrophyItem, 'groupId' | 'type'>): boolean =>
+  t.type !== 'platinum' && t.groupId != null && t.groupId !== 'default';
+
 export const trophyTitle = (t: Pick<GameTrophyItem, 'name'>): string => t.name ?? HIDDEN_TITLE;
 
 /** «Ультра-редкий» и т.д.; null = редкость неизвестна. */
@@ -93,7 +97,7 @@ export function platinumEarnedAt(list: readonly GameTrophyItem[]): string | null
 
 /** aria-label строки: тип, название, состояние. */
 export function trophyAria(t: GameTrophyItem): string {
-  return `${TROPHY_TYPE_LABELS[t.type]}: ${trophyTitle(t)}${t.earned ? '' : ', не получено'}`;
+  return `${TROPHY_TYPE_LABELS[t.type]}: ${trophyTitle(t)}${isDlcTrophy(t) ? ', DLC' : ''}${t.earned ? '' : ', не получено'}`;
 }
 
 export const launchWord = (n: number) => plural(n, ['запуск', 'запуска', 'запусков']);

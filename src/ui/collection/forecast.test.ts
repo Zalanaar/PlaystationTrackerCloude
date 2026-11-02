@@ -54,7 +54,7 @@ describe('прогноз платины для окна', () => {
     expect(forecastView({ ...base, approximate: false }).approximate).toBe(false);
     expect(forecastView({ ...base, approximate: undefined }).approximate).toBe(false);
     expect(forecastView({ ...base, approximate: false, dlc: { required: 12, earned: 5, remaining: 7 } }).dlcText)
-      .toBe('Трофеи DLC (для платины не нужны): получено 5 из 12, осталось 7');
+      .toBe('DLC: 5 из 12, платине не мешают');
   });
   it('прогресс ограничен 0..100', () => {
     expect(forecastView({ ...base, progress: 140 }).pct).toBe('100%');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameTrophyItem } from '@/server/collection/types';
 import {
-  filterTrophies, formatRate, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount,
+  filterTrophies, formatRate, isDlcTrophy, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount,
 } from './trophies';
 
 const t = (trophyId: number, o: Partial<GameTrophyItem> = {}): GameTrophyItem => ({
@@ -76,5 +76,23 @@ describe('трофеи окна игры', () => {
     expect(platinumEarnedAt(list)).toBe('2026-10-05T18:00:00.000Z');
     expect(platinumEarnedAt([t(0, { type: 'platinum' })])).toBeNull();
     expect(platinumEarnedAt([])).toBeNull();
+  });
+});
+
+describe('isDlcTrophy (Фаза 36)', () => {
+  const t = (groupId: string | null | undefined, type: GameTrophyItem['type'] = 'bronze') => ({ groupId, type });
+  it('DLC: группа задана и не default', () => {
+    expect(isDlcTrophy(t('001'))).toBe(true);
+    expect(isDlcTrophy(t('default'))).toBe(false);
+    expect(isDlcTrophy(t(null))).toBe(false);
+    expect(isDlcTrophy(t(undefined))).toBe(false);
+    expect(isDlcTrophy(t('001', 'platinum'))).toBe(false);
+  });
+  it('пометка не меняет порядок сортировки', () => {
+    const list = [1, 2, 3].map((id) => ({ setId: 1, trophyId: id, groupId: id === 2 ? '001' : 'default', rarity: 3, earnedRate: 50, earned: false, earnedAt: null }) as GameTrophyItem);
+    expect(sortTrophies(list, 'game').map((x) => x.trophyId)).toEqual([1, 2, 3]);
+  });
+  it('aria-label содержит «DLC»', () => {
+    expect(trophyAria({ type: 'bronze', name: 'Х', earned: true, groupId: '001' } as GameTrophyItem)).toBe('Бронза: Х, DLC');
   });
 });

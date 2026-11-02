@@ -3,12 +3,15 @@ import type { NearPlatinumItem, PlatinumForecast } from '@/server/collection/typ
 import { plural } from '../format';
 import { formatRate } from './trophies';
 
-/** До миграции group_id (15.3) прогноз приблизительный из-за DLC: «≈» по умолчанию. Сервер с `approximate: false` снимает знак. */
-export const FORECAST_APPROX = true;
 export const APPROX_HINT = 'Приблизительно: учитываются и трофеи DLC';
+
+/** Отдельная строка про DLC (Фаза 36): «DLC: 5 из 12, платине не мешают»; null, если у игры нет DLC-трофеев. */
+export function dlcLine(f: Pick<PlatinumForecast, 'dlc'>): string | null {
+  return f.dlc ? `DLC: ${f.dlc.earned} из ${f.dlc.required}, платине не мешают` : null;
+}
 export const NEAR_LIMIT = 5;
 
-export const isApproximate = (f: Pick<PlatinumForecast, 'approximate'>): boolean => f.approximate ?? FORECAST_APPROX;
+export const isApproximate = (f: Pick<PlatinumForecast, 'approximate'>): boolean => f.approximate === true;
 
 export const trophiesWord = (n: number) => `${n} ${plural(n, ['трофей', 'трофея', 'трофеев'])}`;
 
@@ -29,7 +32,8 @@ export function avgRarityText(f: Pick<PlatinumForecast, 'avgEarnedRate'>): strin
 }
 
 export function nearAria(title: string, f: PlatinumForecast): string {
-  return `${title}. Прогресс к платине${isApproximate(f) ? ' примерно' : ''} ${f.progress}%, осталось ${trophiesWord(f.remaining.total)}`;
+  const dlc = f.dlc ? `. DLC: ${f.dlc.earned} из ${f.dlc.required}, платине не мешают` : '';
+  return `${title}. Прогресс к платине${isApproximate(f) ? ' примерно' : ''} ${f.progress}%, осталось ${trophiesWord(f.remaining.total)}${dlc}`;
 }
 
 /** Остаток по грейдам без нулевых, в порядке золото, серебро, бронза. */

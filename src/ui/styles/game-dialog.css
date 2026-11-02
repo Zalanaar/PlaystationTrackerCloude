@@ -47,6 +47,7 @@
 .ps-trophy__type[data-type="silver"] { color: var(--silver); }
 .ps-trophy__type[data-type="bronze"] { color: var(--bronze); }
 svg.ps-trophy__type { color: var(--plat-text); }
+.ps-trophy__name > .ps-trophy__dlc { display: inline-block; flex: none; margin-top: 2px; padding: 0 6px; border: var(--border-w) solid var(--border); border-radius: var(--r-sm); font: 600 11px/16px var(--font-body); letter-spacing: .04em; color: var(--text-2); overflow: visible; }
 .ps-trophy__hid { flex: none; margin-top: 4px; color: var(--text-3); }
 .ps-trophy__det { margin: 2px 0 0; font: 400 13px/18px var(--font-body); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ps-trophy__det[data-muted] { color: var(--text-3); }

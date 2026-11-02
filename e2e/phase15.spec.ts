@@ -265,7 +265,7 @@ test.describe('Карта активности (Статистика)', () => {
 
 const forecast = (o: Record<string, unknown> = {}) => ({
   setId: 1, required: 54, earned: 49, progress: 91, remaining: { gold: 1, silver: 1, bronze: 3, total: 5 }, remainingHidden: 0,
-  avgEarnedRate: 12.4, minEarnedRate: 1.2, ratesKnown: 5, platinumEarnedRate: 4.3, ...o,
+  avgEarnedRate: 12.4, minEarnedRate: 1.2, ratesKnown: 5, platinumEarnedRate: 4.3, approximate: true, dlc: null, ...o,
 });
 
 test.describe('«Ближе всего к платине» (Коллекция)', () => {
