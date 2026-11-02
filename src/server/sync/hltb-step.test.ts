@@ -137,7 +137,7 @@ describe('hltbStep', () => {
     const c = await ctx();
     let n = 0;
     const r = await hltbStep(c, deps(async () => {
-      if (n++ === 0) throw new HltbError('network', 'down');
+      if (n++ === 0) throw new HltbError('blocked', 'down');
       return [];
     }));
     expect(r).toMatchObject({ checked: 0, failed: 1 });
