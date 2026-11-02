@@ -1,6 +1,6 @@
 // Фаза 13: экран /recommend. API «Подскажи» эмулируется по контракту §18, остальное через mockApi.
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
-import { mockApi } from './collection-mock';
+import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
 
 type Item = {
@@ -34,9 +34,9 @@ const state = (o: Partial<Rec> = {}): Rec => ({
   calls: { get: [], dislikes: 0, dislike: [], undislike: [], status: [] }, ...o,
 });
 
-async function open(page: Page, context: BrowserContext, baseURL: string, s: Rec = state(), path = '/recommend'): Promise<Rec> {
+async function open(page: Page, context: BrowserContext, baseURL: string, s: Rec = state(), path = '/recommend', games: Parameters<typeof mockApi>[1] = []): Promise<Rec> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
-  await mockApi(page, []);
+  await mockApi(page, games);
   const ok = (r: Route, data: unknown) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data }) });
   const fail = (r: Route, status: number, code: string) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code, message: 'x' } }) });
   await page.route(/\/api\/recommend(\?.*)?$/, async (r) => {
@@ -139,7 +139,8 @@ test.describe('Подскажи: нормальный ответ', () => {
   });
 
   test('название открывает окно игры', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL as string);
+    // игра должна быть в библиотеке: на 404 окно закрывается и возвращает на страницу (R-2)
+    await open(page, context, baseURL as string, state(), '/recommend', seed().filter((g) => g.id === 1));
     await page.getByRole('button', { name: 'Хейдес', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
   });
