@@ -15,9 +15,17 @@ let pushedFor: number | null = null;
  * Элемент-источник, с которого открыли окно игры на другой странице (Статистика, Бэклог, Подскажи, Разбор).
  * Страница пересоздаётся при `back()`, поэтому элемент ищется заново по тегу, подписи и порядковому номеру (R-1).
  */
-/** y: прокрутка страницы-источника, её восстанавливает FocusReturn (иначе focus() прокручивал к карточке, Бэклог уезжал вниз). */
-export type FocusOrigin = { path: string; tag: string; label: string; nth: number; y?: number };
+export type FocusOrigin = { path: string; tag: string; label: string; nth: number };
 let focusOrigin: FocusOrigin | null = null;
+
+/**
+ * Прокрутка страницы-источника: её восстанавливает FocusReturn после `back()`.
+ * Хранится отдельно от фокуса: Safari на iPhone не ставит фокус на нажатую кнопку, источника фокуса нет, а прокрутку вернуть нужно.
+ */
+export type ScrollOrigin = { path: string; y: number };
+let scrollOrigin: ScrollOrigin | null = null;
+export function peekScrollOrigin(): ScrollOrigin | null { return scrollOrigin; }
+export function clearScrollOrigin(): void { scrollOrigin = null; }
 
 const labelOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
 const FOCUSABLE = 'a[href],button,[role="button"],[tabindex]:not([tabindex="-1"])';
@@ -33,7 +41,7 @@ function captureFocusOrigin(path: string): void {
   const label = labelOf(target);
   const tag = target.tagName;
   const same = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((x) => x.tagName === tag && labelOf(x) === label);
-  focusOrigin = { path, tag, label, nth: Math.max(0, same.indexOf(target)), y: Math.round(window.scrollY) };
+  focusOrigin = { path, tag, label, nth: Math.max(0, same.indexOf(target)) };
 }
 
 export function peekFocusOrigin(): FocusOrigin | null { return focusOrigin; }
@@ -121,7 +129,7 @@ export function useOpenGameFromPage() {
   const pathname = usePathname();
   return useCallback((id: number, tab?: GameLinkTab) => {
     pushedFor = id;
-    if (pathname !== '/') captureFocusOrigin(pathname);
+    if (pathname !== '/') { scrollOrigin = { path: pathname, y: Math.round(window.scrollY) }; captureFocusOrigin(pathname); }
     router.push(gameHref('', id, tab), { scroll: false });
   }, [pathname, router]);
 }

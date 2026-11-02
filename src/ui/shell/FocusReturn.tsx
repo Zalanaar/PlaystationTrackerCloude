@@ -2,38 +2,48 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { clearFocusOrigin, findFocusOrigin, peekFocusOrigin } from '../collection/useGameLink';
+import { clearFocusOrigin, clearScrollOrigin, findFocusOrigin, peekFocusOrigin, peekScrollOrigin } from '../collection/useGameLink';
+import { holdScroll } from './holdScroll';
 
 /**
- * Возврат фокуса на элемент-источник после закрытия окна игры, открытого с другой страницы (R-1).
- * Ждёт, пока страница загрузит данные (до 4 с); любое действие пользователя отменяет возврат.
- * Прокрутка возвращается к сохранённой при открытии окна, фокус ставится без прокрутки.
+ * Возврат на страницу-источник после закрытия окна игры, открытого с другой страницы (R-1): прежняя прокрутка и фокус.
+ * Прокрутка возвращается всегда, даже без источника фокуса (Safari на iPhone не фокусирует нажатую кнопку, Бэклог уезжал вниз).
+ * Ждёт, пока страница загрузит данные (до 4 с); любое действие пользователя отменяет возврат. Фокус ставится без прокрутки.
  */
 export function FocusReturn() {
   const pathname = usePathname();
   useEffect(() => {
     const o = peekFocusOrigin();
-    if (!o) return;
+    const s = peekScrollOrigin();
+    if (!o && !s) return;
     if (pathname === '/') return; // окно открыто на Коллекции, ждём возврата
-    if (pathname !== o.path) { clearFocusOrigin(); return; }
-    let done = false;
-    const stop = () => { done = true; clearFocusOrigin(); clearInterval(timer); clearTimeout(limit); window.removeEventListener('pointerdown', stop, true); window.removeEventListener('keydown', stop, true); };
-    const timer = setInterval(() => {
-      if (done) return;
-      const el = findFocusOrigin(o);
-      if (!el) return;
-      // прежняя прокрутка, когда страница уже достаточно высокая; фокус без прокрутки к элементу
-      if (o.y !== undefined) {
-        if (document.documentElement.scrollHeight - window.innerHeight < o.y - 1) return;
-        window.scrollTo(0, o.y);
-      }
-      stop();
+    if (o && pathname !== o.path) clearFocusOrigin();
+    if (s && pathname !== s.path) clearScrollOrigin();
+    const focus = o && pathname === o.path ? o : null;
+    const scroll = s && pathname === s.path ? s : null;
+    clearFocusOrigin();
+    clearScrollOrigin();
+    if (!focus && !scroll) return;
+    let focused = !focus;
+    const tryFocus = () => {
+      if (focused || !focus) return true;
+      const el = findFocusOrigin(focus);
+      if (!el) return false;
+      focused = true;
       el.focus({ preventScroll: true });
-    }, 100);
-    const limit = setTimeout(stop, 4000);
-    window.addEventListener('pointerdown', stop, true);
-    window.addEventListener('keydown', stop, true);
-    return () => { if (!done) { clearInterval(timer); clearTimeout(limit); window.removeEventListener('pointerdown', stop, true); window.removeEventListener('keydown', stop, true); } };
+      return true;
+    };
+    if (!scroll) {
+      // только фокус: ждём элемент, как раньше
+      const timer = setInterval(() => { if (tryFocus()) cleanup(); }, 100);
+      const limit = setTimeout(() => cleanup(), 4000);
+      const cleanup = () => { clearInterval(timer); clearTimeout(limit); window.removeEventListener('pointerdown', cleanup, true); window.removeEventListener('keydown', cleanup, true); };
+      window.addEventListener('pointerdown', cleanup, true);
+      window.addEventListener('keydown', cleanup, true);
+      return cleanup;
+    }
+    // страница готова, когда данные дорисованы до сохранённой прокрутки (и найден элемент фокуса, если он был)
+    return holdScroll(scroll.y, () => (focus ? findFocusOrigin(focus) !== null : true), tryFocus);
   }, [pathname]);
   return null;
 }

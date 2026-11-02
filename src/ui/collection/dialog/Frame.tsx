@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { tintStyle } from '../tint';
+import { holdScroll } from '../../shell/holdScroll';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -24,9 +25,7 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
       document.body.style.overflow = prevOverflow;
       prev?.focus?.({ preventScroll: true });
       // окно открыли с другой страницы (адрес сменился): прокрутку там возвращает FocusReturn
-      const restore = () => { if (window.location.pathname === path && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y); };
-      restore();
-      requestAnimationFrame(restore);
+      if (window.location.pathname === path) holdScroll(y);
     };
   }, []);
 
