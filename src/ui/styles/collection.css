@@ -195,6 +195,8 @@
 }
 @media (max-width: 767px) {
   .ps-selbar { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-2)); flex-wrap: wrap; }
+  /* Плашка выбора в 2 ряда кнопок по 44 px закрывала последний ряд карточек: запас снизу под неё */
+  .ps-app:has(.ps-selbar) .ps-main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 160px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ps-card__cover { transition: none; }
