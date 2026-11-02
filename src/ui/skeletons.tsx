@@ -73,10 +73,28 @@ export function CollectionPageSkeleton({ hero = true }: { hero?: boolean } = {})
         </div>
         <div className="ps-skeleton ps-sk-profile" />
       </div>
-      <div className="ps-filters ps-filters--search ps-sk-m">
-        <div className="ps-filters__srow"><span className="ps-skeleton ps-sk-msearch" /><span className="ps-skeleton ps-sk-fbtn" /></div>
-      </div>
+      <MobileSearchSkeleton />
       {hero && <HeroSkeleton />}
+      <FilterBarSkeleton />
+      <AnchorsSkeleton />
+      <CollectionResultsSkeleton />
+    </SkRoot>
+  );
+}
+
+/** Мобильный поиск коллекции (виден только на мобильном, CSS). */
+export function MobileSearchSkeleton() {
+  return (
+    <div className="ps-filters ps-filters--search ps-sk-m">
+      <div className="ps-filters__srow"><span className="ps-skeleton ps-sk-msearch" /><span className="ps-skeleton ps-sk-fbtn" /></div>
+    </div>
+  );
+}
+
+/** Фильтры коллекции: десктопная строка и мобильные чипы, нужная видна по media-запросу (CSS). */
+export function FilterBarSkeleton() {
+  return (
+    <>
       {/* десктоп: те же flex-блоки и ширины, что у FilterBar, поэтому перенос строк совпадает */}
       <div className="ps-filters ps-sk-d">
         <div className="ps-filters__row">
@@ -95,9 +113,7 @@ export function CollectionPageSkeleton({ hero = true }: { hero?: boolean } = {})
       <div className="ps-filters ps-filters--chips ps-sk-m">
         <div className="ps-tabs">{Array.from({ length: 7 }, (_, i) => <span key={i} className="ps-skeleton ps-sk-chip" style={{ width: 56 }} />)}</div>
       </div>
-      <AnchorsSkeleton />
-      <CollectionResultsSkeleton />
-    </SkRoot>
+    </>
   );
 }
 

@@ -5,11 +5,11 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { GameStatusValue } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
-import { useIsMobile, useNow, useViewportWidth } from '../primitives/hooks';
+import { useIsMobileOrUnknown, useNow, useViewportWidth } from '../primitives/hooks';
 import { ProfileCard, ProfileRow, ProfileRowSkeleton, ProfileSkeleton } from '../profile/ProfileCard';
 import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
-import { AnchorsSkeleton, CollectionResultsSkeleton, HeroSkeleton } from '../skeletons';
+import { AnchorsSkeleton, CollectionResultsSkeleton, FilterBarSkeleton, HeroSkeleton, MobileSearchSkeleton } from '../skeletons';
 import { useSync } from '../sync/SyncProvider';
 import { buttonLabel } from '../sync/status';
 import type { ViewMode } from '../tokens';
@@ -55,7 +55,9 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
   const now = useNow();
   const sync = useSync();
   const width = useViewportWidth();
-  const isMobile = useIsMobile();
+  // null на сервере и при гидрации: там рисуем адаптивные скелеты, а не десктопную вёрстку (на телефоне она сдвигала страницу)
+  const mobileMq = useIsMobileOrUnknown();
+  const isMobile = mobileMq === true;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -165,17 +167,17 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
           {checkCount > 0 && !unsortedShown && <p className="ps-pagehead__check"><CheckChip n={checkCount} /></p>}
         </div>
         {!summary
-          ? (!pool ? (isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
+          ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
           : isMobile ? <ProfileRow profile={summary.profile ?? null} /> : <ProfileCard profile={summary.profile ?? null} />}
       </div>
 
-      {isMobile && <MobileSearch {...barProps} />}
+      {mobileMq === null ? <MobileSearchSkeleton /> : isMobile && <MobileSearch {...barProps} />}
 
       <InboxStrip ctl={inbox} />
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
 
-      {isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
+      {mobileMq === null ? <FilterBarSkeleton /> : isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 
       {playedMode && played.years.length + (played.never.length > 0 ? 1 : 0) > 1 && (
         <nav className="ps-anchors" aria-label="Годы">

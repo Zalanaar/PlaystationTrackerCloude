@@ -25,6 +25,9 @@
 .ps-sk-select { width: 110px; height: var(--control-h); border-radius: var(--r-md); }
 .ps-sk-menu { width: 36px; height: var(--control-h); border-radius: var(--r-md); }
 .ps-sk-m { display: none; }
+/* Обёртки для серверного рендера, пока неизвестно, мобильный ли экран: прозрачны для вёрстки, лишняя скрыта */
+.ps-only-d { display: contents; }
+.ps-only-m { display: none; }
 .ps-sk-msearch { flex: 1 1 auto; min-width: 0; height: 40px; border-radius: var(--r-chip); }
 .ps-sk-fbtn { flex: none; width: var(--tap-min); height: 40px; border-radius: var(--r-md); }
 .ps-sk-blfilters { height: 80px; border-radius: var(--r-md); }
@@ -69,6 +72,8 @@
   .ps-sk-grid > li:nth-child(n+7) { display: none; }
   .ps-sk-profile { width: 100%; height: var(--profile-row-h); margin-top: var(--sp-3); }
   .ps-sk-m { display: block; }
+  .ps-only-m { display: contents; }
+  .ps-only-d { display: none; }
   .ps-sk-d { display: none; }
   .ps-sk-chip { height: var(--control-h); }
   .ps-sk-bltool { width: 40px; height: 40px; }
