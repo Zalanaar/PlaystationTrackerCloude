@@ -181,10 +181,8 @@ describe('manual_games на БД', () => {
   });
 
   it('синк: уверенное совпадение + запуск снимает пометку, переносит backlog, запись не показывается; идемпотентно', async () => {
-    const gid = await addGame(1, 'Dying Light 2 Stay Human', { lastPlayedAt: played, playDurationSeconds: 3600 });
-    const { item } = await addManual(t.db, U1, add('10', 'Dying Light 2 Stay Human - Deluxe Edition'), new Date('2026-10-01T00:00:00Z')).catch(async () => ({ item: null as never }));
-    expect(item).toBeNull(); // совпал с библиотекой => сначала предупреждение
-    const rec = (await addManual(t.db, U1, add('10', 'Dying Light 2 Stay Human - Deluxe Edition', { confirmDuplicate: true }), new Date('2026-10-01T00:00:00Z'))).item;
+    const rec = (await addManual(t.db, U1, add('10', 'Dying Light 2 Stay Human - Deluxe Edition'), new Date('2026-10-01T00:00:00Z'))).item;
+    const gid = await addGame(1, 'Dying Light 2 Stay Human', { lastPlayedAt: played, playDurationSeconds: 3600 }); // игра появилась в библиотеке после добавления записи
     const r1 = await manualMatchStep(await ctx());
     expect(r1).toEqual({ checked: 1, linked: 1, suggested: 0 });
     expect(await listManual(t.db, U1)).toEqual([]);
@@ -202,8 +200,10 @@ describe('manual_games на БД', () => {
     await t.db.insert(gameStatus).values({ userId: 1, gameId: gid, status: 'playing', statusChangedAt: NOW });
     const idle = await addGame(1, 'Beta');
     expect(idle).toBeGreaterThan(0);
-    await addManual(t.db, U1, add('1', 'Alpha', { confirmDuplicate: true }));
-    await addManual(t.db, U1, add('2', 'Beta', { confirmDuplicate: true }));
+    await t.db.insert(manualGames).values([
+      { userId: 1, rawgId: '1', title: 'Alpha', kind: 'ps_backlog', notPurchased: true },
+      { userId: 1, rawgId: '2', title: 'Beta', kind: 'ps_backlog', notPurchased: true },
+    ]);
     await manualMatchStep(await ctx());
     expect((await t.db.select().from(gameStatus).where(eq(gameStatus.gameId, gid)))[0].status).toBe('playing');
     const left = await listManual(t.db, U1);
@@ -212,8 +212,8 @@ describe('manual_games на БД', () => {
 
   it('синк: owned_marks (RAWG id -> игра) даёт уверенное совпадение при другом названии', async () => {
     const gid = await addGame(1, 'Uncharted: Legacy of Thieves Collection', { lastPlayedAt: played });
+    const rec = await addManual(t.db, U1, add('300', 'Uncharted 4'), NOW);
     await upsertOwnedMark(t.db, U1, { externalSource: 'rawg', externalId: '300', title: 'Uncharted 4', coverUrl: null, kind: 'covered', coveredByGameId: gid });
-    const rec = (await addManual(t.db, U1, add('300', 'Uncharted 4'), NOW).catch(() => null)) ?? (await addManual(t.db, U1, add('300', 'Uncharted 4', { confirmDuplicate: true }), NOW));
     expect(rec.item.id).toBeGreaterThan(0);
     expect((await manualMatchStep(await ctx())).linked).toBe(1);
   });

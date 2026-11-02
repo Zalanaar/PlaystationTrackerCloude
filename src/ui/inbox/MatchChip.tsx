@@ -9,16 +9,19 @@ import { MatchSheet } from './MatchSheet';
  * Чип «Это та игра? N» на странице «Бэклог» (Фаза 43): полосы «С прошлого визита» здесь нет, а подтверждение нужно рядом со списком.
  * Число берётся из GET /api/manual-games/matches; нет вопросов или сбой = чипа нет.
  */
-export function MatchChip({ className, onChanged }: { className?: string; onChanged: () => void }) {
+export function MatchChip({ className, onChanged, onSettled, hold }: { className?: string; onChanged: () => void; onSettled?: () => void; hold?: boolean }) {
   const [n, setN] = useState(0);
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
+  const settled = useRef(onSettled);
+  useEffect(() => { settled.current = onSettled; }, [onSettled]);
   useEffect(() => {
     let alive = true;
-    fetchMatches().then((r) => { if (alive) setN(r.matches.length); }, () => {});
+    fetchMatches().then((r) => { if (alive) setN(r.matches.length); }, () => {}).finally(() => { if (alive) settled.current?.(); });
     return () => { alive = false; };
   }, []);
-  if (n <= 0 && !open) return null;
+  // hold: чип не рисуется, пока страница держит скелетон (иначе он сдвигает список, QA-43-3)
+  if (hold || (n <= 0 && !open)) return null;
   return (
     <div className={className}>
       <button

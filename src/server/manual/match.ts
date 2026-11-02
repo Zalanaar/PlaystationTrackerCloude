@@ -74,6 +74,8 @@ export function decideMatch(rec: { title: string }, groups: readonly LibraryGrou
   const exact = usable.filter((g) => g.keys.includes(key));
   if (exact.length === 1) return { kind: 'confident', groupId: exact[0].primaryId };
   if (exact.length > 1) return { kind: 'suggest', groupId: bestOf(exact).primaryId };
+  // точная пара есть в библиотеке (даже без запуска или отклонённая): слабые совпадения с другими играми не предлагаем
+  if (groups.some((g) => g.keys.includes(key))) return { kind: 'none' };
   const weak = usable.filter((g) => g.keys.some((k) => tokensContained(key, k) || tokensContained(k, key)));
   if (weak.length > 0) return { kind: 'suggest', groupId: bestOf(weak).primaryId };
   return { kind: 'none' };

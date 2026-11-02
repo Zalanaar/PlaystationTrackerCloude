@@ -22,8 +22,6 @@ for (const [w, h] of [[1440, 900], [390, 844]] as const) {
   for (const withNew of [false, true]) {
     test(`CLS Бэклога ${w}, новые данные Фазы 43: ${withNew}`, async ({ page, context, baseURL }, info) => {
       test.skip(info.project.name === 'mobile', 'размер задаётся вручную');
-      // QA-43-3: чип «Это та игра?» и записи «не куплено» приезжают позже списка и сдвигают его; снять fail после исправления
-      test.fail(withNew, 'QA-43-3');
       await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
       const m = await mockApi(page);
       m.delayList = () => 1500;

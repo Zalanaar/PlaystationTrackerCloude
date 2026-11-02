@@ -164,20 +164,20 @@ export async function flagCandidates<T extends { externalId: string; title: stri
 export async function addManual(db: AnyDb, userId: UserId, v: ManualAddInput, now: Date = new Date()): Promise<{ item: ManualGame; created: boolean }> {
   const [existing] = await db.select().from(m).where(and(eq(m.userId, userId), eq(m.rawgId, v.externalId), eq(m.kind, 'ps_backlog')));
   if (existing && existing.linkedGameId === null) return { item: await readOne(db, userId, existing.id), created: false };
-  if (!v.confirmDuplicate) {
-    const dup = duplicateOf(await loadDupIndex(db, userId), v.externalId, v.title);
-    if (dup) throw new ManualDuplicateError(dup);
-  }
+  const dup = duplicateOf(await loadDupIndex(db, userId), v.externalId, v.title);
+  if (dup && !v.confirmDuplicate) throw new ManualDuplicateError(dup);
+  // «Всё равно добавить» поверх игры библиотеки: пара запоминается, синк её не склеивает и не предлагает (QA-43-1)
+  const rejectGid = v.confirmDuplicate && dup?.duplicate === 'library' && dup.game ? dup.game.gameId : null;
   if (existing) {
     // запись была склеена с библиотекой, пользователь явно подтвердил повторное добавление
-    await db.update(m).set({ linkedGameId: null, suggestedGameId: null, notPurchased: true, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, updatedAt: now }).where(and(eq(m.userId, userId), eq(m.id, existing.id)));
+    await db.update(m).set({ linkedGameId: null, suggestedGameId: null, notPurchased: true, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, ...(rejectGid !== null && !existing.rejectedGameIds.includes(rejectGid) ? { rejectedGameIds: [...existing.rejectedGameIds, rejectGid] } : {}), updatedAt: now }).where(and(eq(m.userId, userId), eq(m.id, existing.id)));
     return { item: await readOne(db, userId, existing.id), created: true };
   }
   const [cnt] = await db.select({ n: sql<number>`count(*)::int` }).from(m).where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId)));
   if ((cnt?.n ?? 0) >= MANUAL_LIMIT) throw new ManualLimitError();
   const ins = await db
     .insert(m)
-    .values({ userId, rawgId: v.externalId, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, kind: 'ps_backlog', notPurchased: true, createdAt: now, updatedAt: now })
+    .values({ userId, rawgId: v.externalId, title: v.title, coverUrl: v.coverUrl, releaseDate: v.releaseDate, kind: 'ps_backlog', notPurchased: true, ...(rejectGid !== null ? { rejectedGameIds: [rejectGid] } : {}), createdAt: now, updatedAt: now })
     .onConflictDoNothing()
     .returning({ id: m.id });
   if (ins.length === 0) {

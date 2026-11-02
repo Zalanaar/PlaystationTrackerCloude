@@ -39,14 +39,14 @@ describe('QA-43', () => {
     return new RunContext(t.db, s.run, () => NOW, 1_000_000);
   }
 
-  it.fails('QA-43-1: «Всё равно добавить» поверх запущенной игры библиотеки переживает ближайший синк', async () => {
+  it('QA-43-1: «Всё равно добавить» поверх запущенной игры библиотеки переживает ближайший синк', async () => {
     await addGame(1, 'Hades', { lastPlayedAt: played });
     await addManual(t.db, U1, add('10', 'Hades', true), NOW);
     await manualMatchStep(await ctx());
     expect((await listManual(t.db, U1)).map((x) => x.externalId)).toEqual(['10']);
   });
 
-  it.fails('QA-43-2: «Hades» в библиотеке без запуска + «Hades II» с запуском: вопрос про Hades II не задаётся, пока точная пара не запущена', async () => {
+  it('QA-43-2: «Hades» в библиотеке без запуска + «Hades II» с запуском: вопрос про Hades II не задаётся, пока точная пара не запущена', async () => {
     await addGame(1, 'Hades');
     await addGame(1, 'Hades II', { lastPlayedAt: played });
     await addManual(t.db, U1, add('10', 'Hades', true), NOW);
@@ -55,15 +55,15 @@ describe('QA-43', () => {
   });
 
   it('шаг синка не трогает записи другого профиля того же входа', async () => {
+    await addManual(t.db, U3, add('1', 'Alpha'), NOW);
     await addGame(1, 'Alpha', { lastPlayedAt: played });
-    await addManual(t.db, U3, add('1', 'Alpha', true), NOW);
     await manualMatchStep(await ctx(U1));
     expect(await listManual(t.db, U3)).toHaveLength(1);
   });
 
   it('«Купил» на склеенной записи: 404, не воскрешает', async () => {
+    const { item } = await addManual(t.db, U1, add('1', 'Alpha'), NOW);
     await addGame(1, 'Alpha', { lastPlayedAt: played });
-    const { item } = await addManual(t.db, U1, add('1', 'Alpha', true), NOW);
     await manualMatchStep(await ctx());
     await expect(setNotPurchased(t.db, U1, item.id, true)).rejects.toThrow();
   });

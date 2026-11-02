@@ -77,6 +77,10 @@ export function BacklogView() {
   const [manual, setManual] = useState<ManualGame[]>([]);
   const manualRef = useRef<ManualGame[]>([]);
   const [manualReady, setManualReady] = useState(false);
+  // чип «Это та игра?» и записи «не куплено» приходят позже списка: до их прихода держим скелетон, чтобы список не сдвигался (QA-43-3)
+  const [matchReady, setMatchReady] = useState(false);
+  const [auxReady, setAuxReady] = useState({ shelved: false, service: false });
+  const onMatchSettled = useCallback(() => setMatchReady(true), []);
   const [today] = useState(() => mskDay(Date.now()));
   const [addOpen, setAddOpen] = useState(false);
   const [removing, setRemoving] = useState<ManualGame | null>(null);
@@ -148,6 +152,8 @@ export function BacklogView() {
       setShelvedTotal(r.total);
     } catch {
       // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    } finally {
+      setAuxReady((a) => (a.shelved ? a : { ...a, shelved: true }));
     }
   }, []);
   useEffect(() => {
@@ -163,6 +169,8 @@ export function BacklogView() {
       setServiceTotal(r.total);
     } catch {
       // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    } finally {
+      setAuxReady((a) => (a.service ? a : { ...a, service: true }));
     }
   }, []);
   useEffect(() => {
@@ -461,7 +469,6 @@ export function BacklogView() {
       ) : (
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} nbCount={nbCount} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       ))}
-      <MatchChip className="ps-bl-match" onChanged={() => { void loadManual(); void load(); }} />
       <HltbStatus runner={hltb} />
       {showJump && (
         <>
@@ -482,6 +489,8 @@ export function BacklogView() {
           <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(shownTotal)}</small>}
         </h2>
       )}
+      {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
+      <MatchChip className="ps-bl-match" hold={!items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
