@@ -167,6 +167,8 @@ test.describe('«Купил / Не купил» и корзина', () => {
     await page.getByTestId('add-close-back').click();
     await expect(dlg).toHaveCount(0);
     await expect(page.getByTestId('add-cart')).toContainText('К добавлению: 1');
+    // фокус возвращается в поле через rAF: Esc раньше этого уходил в никуда
+    await expect(page.getByTestId('add-input')).toBeFocused();
     await page.keyboard.press('Escape');
     await page.getByTestId('add-close-discard').click();
     await expect(page.getByRole('dialog', { name: 'Добавить из магазина PS' })).toHaveCount(0);
