@@ -370,6 +370,9 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 | 401 | `invalid_credentials` | неверный пароль |
 | 404 | `not_found` | |
 | 403 | `forbidden` | роль не позволяет действие (например, member отменяет чужой синк, 8.8) |
+| 409 | `duplicate_game` | добавление в Бэклог «не куплено»: игра уже есть в библиотеке или в Плане (Фаза 43, 43.2); в `details` сведения о дубле |
+| 409 | `manual_limit` | в Бэклоге уже 200 несклеенных записей «не куплено» (43.2) |
+| 409 | `manual_status_locked` | смена статуса записи «не куплено» (43.2) |
 | 409 | `sync_in_progress` | синк уже идёт (`POST /api/sync`), в `details.runId` id идущего запуска |
 | 409 | `planned_duplicate` | игра из каталога уже добавлена в планируемые (17.7) |
 | 409 | `status_conflict` | дату завершения/броска правят у игры, чей статус не соответствует (9.5) |
@@ -3239,3 +3242,89 @@ Profile = { id: number; isPrimary: boolean; onlineId: string | null; accessStatu
 ### F35.3 Безопасность и тесты
 - Секреты (NPSSO, access/refresh, `CRON_SECRET`, `LLM_API_KEY`, `RAWG_API_KEY`, сессия) в ответ не попадают ни в каком виде, `details` токенных событий отдаются как есть (в журнале 27.3 там только числа и причины).
 - Тесты: `src/server/health/*.test.ts` (чистая логика: потолки, критерии, возраст), `src/app/api/health/overview/route.test.ts` (PGlite: 401, 403 member и дополнительного профиля member-входа, нет секретов и `google_sub`/`psn_account_id`/`error_message` в теле, данные всех профилей только для owner). Роут автоматически под `blocked.test.ts` (без сессии 401).
+
+## Фаза 43. Бэклог: игры «не куплено» из магазина PS (миграция 0026)
+
+Пользователь ищет игру в RAWG (только PS5/PS4) и добавляет её в Бэклог: статус всегда `backlog`, пометка «не куплено» обязательна. Пометка снимается вручную («Купил») или синком, когда в библиотеке PSN появилась совпавшая игра, в которую играли. Все роуты: сессия `requireUser`, `user_id` = активный профиль (Фаза 41), запись требует Origin и (где есть тело) `Content-Type: application/json`; общие ошибки `401 unauthorized`, `400 invalid_request`, `503 db_unavailable` (без текста исключения). Запись чужого профиля или входа неотличима от несуществующей (`404 not_found` / `removed: false`).
+
+### 43.1 Схема (миграция `0026_manual_games`, только добавляет таблицу)
+```
+manual_games
+  id                  integer PK identity
+  user_id             integer NOT NULL  FK allowed_users(id) ON DELETE CASCADE
+  rawg_id             text    NOT NULL                      -- ключ внешней игры
+  title               text    NOT NULL  CHECK 1..200
+  cover_url           text    NULL
+  release_date        date    NULL
+  kind                text    NOT NULL  CHECK in ('ps_backlog','other_platform')   -- other_platform: Фаза 44
+  not_purchased       boolean NOT NULL DEFAULT false        -- CHECK: true только при kind = 'ps_backlog'
+  linked_game_id      integer NULL      FK (user_id, linked_game_id) -> games(user_id, id) ON DELETE CASCADE
+  suggested_game_id   integer NULL      FK (user_id, suggested_game_id) -> games(user_id, id) ON DELETE CASCADE   -- вопрос «Это та игра?»
+  rejected_game_ids   integer[] NOT NULL DEFAULT '{}'       -- пары (rawg_id <-> игра), на которые ответили «Нет»
+  platform_label      text    NULL      CHECK 1..60         -- Фаза 44, подпись платформы
+  created_at, updated_at timestamptz NOT NULL DEFAULT now()
+  UNIQUE (user_id, rawg_id, kind)
+  CHECK manual_games_linked_check: linked_game_id IS NULL OR (not_purchased = false AND suggested_game_id IS NULL)
+  INDEX (user_id, kind); INDEX (user_id, suggested_game_id) WHERE suggested_game_id IS NOT NULL
+```
+Колонки `suggested_game_id` и `rejected_game_ids` добавлены сверх брифа (нужны для «Входящих» и запоминания «Нет», решение оркестратора 2). Запись `linked_game_id IS NOT NULL` остаётся в таблице (защита от повторного предложения), но в Бэклоге отдельно не показывается. Миграцию на прод применяет Артём: `docs/release-neon-0026.sql` (идемпотентный, журнал drizzle), `docs/release-neon-0026-check.sql`, тест `src/db/release-sql-0026.test.ts`. Новый код на старой схеме: роуты `manual-games` отвечают `503`, шаг синка даёт предупреждение `manual_match_failed`, «У тебя нет», План и Входящие работают.
+
+Игры «не куплено» живут ТОЛЬКО в `manual_games`, не в `games`/`game_status`. Поэтому Статистика, Итоги, часы, прогноз платины, «Подскажи» (скоринг бэклога библиотеки) их не видят по построению; `rawg_id` записей исключается из «У тебя нет» и из поиска/«Скоро» в План (`ownedRawgIds`/`filterOwned`, как отметки Фазы 40).
+
+### 43.2 Роуты
+
+Тип записи Бэклога:
+```
+ManualGame = {
+  id: number;                     // id записи manual_games (НЕ games.id: пространства id разные)
+  source: 'manual'; kind: 'ps_backlog';
+  externalSource: 'rawg'; externalId: string; title: string; coverUrl: string | null;
+  releaseDate: string | null;     // YYYY-MM-DD
+  status: 'backlog';              // всегда
+  notPurchased: boolean;          // true после добавления; false после «Купил»
+  matchSuggestion: { gameId: number; name: string; imageUrl: string | null } | null;   // ждёт ответа «Это та игра?»
+  createdAt: string; updatedAt: string   // ISO
+}
+```
+
+`GET /api/manual-games[?nb=1]` — записи Бэклога, несклеенные с библиотекой, новые сверху (`createdAt` убыв., `id` убыв.). `nb=1` («Не куплено») оставляет только `notPurchased = true`; `nb` отсутствует или `0` = все; другое значение = 400. `/api/games` и список библиотеки не меняются (игры библиотеки никогда не «не куплено»): при `nb=1` фронт показывает только этот список. `200 { items: ManualGame[] }`.
+
+`POST /api/manual-games` — «В бэклог». Тело (строгое, лишние поля = 400):
+`{ "externalSource": "rawg", "externalId": "3328", "title": "...", "coverUrl": "https://..." | null, "releaseDate": "YYYY-MM-DD" | null, "confirmDuplicate"?: boolean }`.
+- Запись уже есть (несклеенная): `200 { item, created: false }` без изменений (идемпотентно).
+- Дубль с игрой библиотеки (совпал RAWG id через `owned_marks`/прежнюю склейку или нормализованное название `libraryKey`) или с активным пунктом Плана (`planned_games.status in ('planned','done')`, по RAWG id или названию), без `confirmDuplicate: true`: `409 duplicate_game`, `details: { duplicate: 'library' | 'planned', game: {gameId, name, imageUrl} | null, planned: {id, title, status} | null }`. Клиент показывает предупреждение и по явному подтверждению повторяет запрос с `confirmDuplicate: true`. Если запись была склеена с библиотекой раньше и добавляется повторно с подтверждением, она снова становится «не куплено».
+- Успех: `200 { item: ManualGame, created: true }`; `notPurchased: true`, `status: 'backlog'`.
+- Лимит: 200 несклеенных записей, дальше `409 manual_limit`.
+
+`POST /api/manual-games/{id}/purchased` — «Купил»: `notPurchased = false`. Идемпотентно. Запись остаётся в Бэклоге без данных PSN (мета «Ждём первый запуск») до склейки с игрой библиотеки. `200 { item }`; `404 not_found` (чужая, несуществующая, уже склеенная).
+`DELETE /api/manual-games/{id}/purchased` — «Отменить» снятие пометки: `notPurchased = true`. Идемпотентно, те же ошибки. `200 { item }`.
+
+`DELETE /api/manual-games/{id}` — удалить запись. Идемпотентно. `200 { id, removed: boolean }`.
+
+`PUT /api/manual-games/{id}/status` — НЕ меняет ничего: у несклеенной записи статус всегда `backlog`. `409 manual_status_locked` для своей несклеенной записи, `404 not_found` иначе. Окна игры и смены статуса для таких записей у frontend нет (у записи нет `gameId`). Склеенная запись становится обычной игрой библиотеки (`/api/games/{id}/status`).
+
+### 43.3 Поиск
+`GET /api/manual-games/search?q=hades` — `q` 2..80 символов после trim (иначе 400). Поиск по нажатию (запрос уходит только по действию пользователя; автопоиска на каждый символ нет). RAWG с `platforms=187,18` (PS5/PS4), ответ дополнительно фильтруется `playstation = true`. Кэш процесса 10 мин по ключу «запрос без регистра и лишних пробелов» (ключ API не входит): попадание не тратит лимит и не пишется в `provider_usage`. Реальный запрос резервирует вызов `provider_usage` (`rawg`, лимит на профиль, `RAWG_USER_DAILY_LIMIT` и общий потолок, как у остальных вызовов RAWG).
+`200 { candidates: (CatalogCandidate & { duplicate: 'library' | 'planned' | null; inBacklog: boolean })[], cached: boolean }`. `CatalogCandidate` как в 17.9 (`externalSource, externalId, title, releaseDate, coverUrl, platforms, playstation`). Кандидаты, уже лежащие в Бэклоге, не скрываются, а помечаются `inBacklog: true`.
+Ошибки: `503 catalog_unavailable` с `details.reason` (`no_key | timeout | network | http_error | rate_limited | bad_response`); при `rate_limited` в `details.resetAt` ISO начала следующих суток МСК, когда лимит обнулится. БД недоступна: поиск работает, `duplicate = null`, `inBacklog = false` (POST проверит дубль ещё раз).
+
+### 43.4 Что исключается
+- Статистика, Итоги (Wrapped), часы, прогноз платины, «Подскажи», План (в него записи не попадают сами): их выборки идут по `games`/`game_status`, `manual_games` туда не входит; тест сравнивает `getStats` до и после добавления записей.
+- «У тебя нет», поиск и «Скоро» в Плане: фильтр по RAWG id записей (любой `kind`, любое состояние), на чтении, как отметки Фазы 40 (см. 40.3).
+- Резервная копия разметки статусов записи не содержит.
+
+### 43.5 Склейка с библиотекой: шаг синка и «Это та игра?»
+Шаг `manualMatchStep` (`src/server/sync/manual-match-step.ts`) идёт в конце успешного звена после склейки дублей (Фаза 23), без сети, батчами по 50 записей с проверкой бюджета времени, ошибка = предупреждение `manual_match_failed`, итог синка не меняется. Обрабатывает все несклеенные записи `ps_backlog` (и «не куплено», и уже «Купил»). Игры библиотеки берутся группами «главная игра + дубли», скрытые игнорируются; «играли» = у любой игры группы `last_played_at IS NOT NULL` или `play_duration_seconds > 0`.
+- Уверенное совпадение: (а) RAWG id записи есть в `owned_marks` как `covered` игрой библиотеки; (б) `libraryKey(title)` записи равен ключу названия ровно одной группы. Если группа играна: `linked_game_id = главная игра`, `not_purchased = false`, `suggested_game_id = NULL`; игре без своего статуса ставится `backlog` (`status_changed_at` = момент добавления записи в Бэклог, чтобы подсказка «Начал играть» сработала на более поздний запуск); уже стоящий статус не меняется. Ручных полей у записи нет, переносить больше нечего. Запись из `GET /api/manual-games` исчезает (без дубля).
+- Неуверенное совпадение (несколько групп с одним ключом: берётся играннее; название одной целиком входит в другую цепочкой слов: «Hades» и «Hades II», не короче 4 символов): ничего не склеивается, пишется `suggested_game_id`, запись получает `matchSuggestion`, во «Входящих» появляется вопрос. Совпавшая, но неиграная игра не даёт ни склейки, ни вопроса (пометка остаётся).
+- Пары, на которые ответили «Нет» (`rejected_game_ids`), не предлагаются и не склеиваются автоматом никогда (в том числе по `owned_marks`).
+- «Всё равно добавить» (`POST /api/manual-games` с `confirmDuplicate=true`) при дубле с игрой библиотеки (по ключу названия или `owned_marks`) записывает id главной игры этой группы в `rejected_game_ids` (также при повторном добавлении склеенной записи): синк такую пару не склеивает и не предлагает (QA-43-1). Дубль с Планом пары не создаёт.
+- Если ключ названия записи точно совпал с игрой библиотеки (даже неиграной или отклонённой), слабые совпадения с другими играми («Hades» против «Hades II») не предлагаются: запись ждёт запуска точной пары (QA-43-2).
+- Идемпотентность: повторный запуск без изменений данных ничего не пишет; предложение, ставшее неактуальным, сбрасывается в `NULL`.
+
+`GET /api/manual-games/matches` — карточки «Это та игра?»: `200 { matches: { id: number; title: string; coverUrl: string | null; notPurchased: boolean; game: { gameId: number; name: string; imageUrl: string | null; lastPlayedAt: string | null; hours: number } }[] }`, старые записи первыми.
+`POST /api/manual-games/{id}/match` — тело `{ "answer": "yes" | "no" }`. `yes`: склейка с предложенной игрой (id берётся из БД, не от клиента), как в уверенном совпадении; `200 { id, answer, linked: { gameId, name, imageUrl } }`. `no`: пара запоминается, вопрос исчезает, запись остаётся в Бэклоге; `200 { id, answer, linked: null }`. Нет вопроса по этой записи (в том числе уже отвечен, чужая запись): `404 not_found`.
+Дополнение `GET /api/inbox` (F28.1): поле `matchCount: number | null` — число вопросов «Это та игра?». Вне `failed`/`partial` (сбой счёта даёт `null`, на схеме до 0026 тоже `null`); `isEmpty = false`, если `matchCount > 0`.
+
+### 43.6 Тесты
+`src/server/manual/manual.test.ts` (PGlite: чистое сопоставление, изоляция двух входов и профиля одного входа, уверенное и неуверенное совпадение, «Да»/«Нет», идемпотентность шага, ручное «Купил»/«Отменить», дубль с библиотекой и Планом, исключение из выдач, Статистика не меняется), `src/app/api/manual-games/routes.test.ts` (401, валидация, Origin, 409, resetAt, запрет статуса, 503 без утечек), `src/db/release-sql-0026.test.ts`, охранный `user-scope.test.ts` (`manualGames`).

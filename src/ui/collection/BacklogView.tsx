@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DurationCounts, GameItem, GenreCounts, GameStatusValue, HltbCounts } from '@/server/collection/types';
 import '../backlog.css';
@@ -11,6 +12,15 @@ import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchGames, putStatus } from './api';
+import { mskDay } from '../inbox/model';
+import { MatchChip } from '../inbox/MatchChip';
+import { ManualCard, ManualRow } from './ManualItems';
+import type { ManualHandlers } from './manualMenu';
+import {
+  addedToastText, countNotPurchased, isGoneOrDone, manualErrorText, mergeBacklog, removeManualById, setNotPurchased, truncate, visibleManual, type ManualGame,
+} from './manual';
+import { fetchManual, markPurchased, removeManual, unmarkPurchased } from './manualApi';
+import { RemoveManualSheet } from './RemoveManualSheet';
 import { BacklogFilters } from './BacklogFilters';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
@@ -28,6 +38,9 @@ import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
+
+// Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
+const AddFromStoreSheet = dynamic(() => import('./AddFromStoreSheet').then((m) => m.AddFromStoreSheet), { ssr: false });
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
 export function BacklogView() {
@@ -60,6 +73,33 @@ export function BacklogView() {
   const [more, setMore] = useState(false);
   const itemsRef = useRef<GameItem[] | null>(null);
   useEffect(() => { itemsRef.current = items; }, [items]);
+  // записи «не куплено» (Фаза 43): отдельный список manual-games; сбой (в том числе 503 на старой схеме) = пусто, страница работает
+  const [manual, setManual] = useState<ManualGame[]>([]);
+  const manualRef = useRef<ManualGame[]>([]);
+  const [manualReady, setManualReady] = useState(false);
+  // чип «Это та игра?» и записи «не куплено» приходят позже списка: до их прихода держим скелетон, чтобы список не сдвигался (QA-43-3)
+  const [matchReady, setMatchReady] = useState(false);
+  const [auxReady, setAuxReady] = useState({ shelved: false, service: false });
+  const onMatchSettled = useCallback(() => setMatchReady(true), []);
+  const [today] = useState(() => mskDay(Date.now()));
+  const [addOpen, setAddOpen] = useState(false);
+  const [removing, setRemoving] = useState<ManualGame | null>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const setManualList = useCallback((next: ManualGame[]) => { manualRef.current = next; setManual(next); }, []);
+  const loadManual = useCallback(async () => {
+    try {
+      const r = await fetchManual();
+      setManualList(r.items);
+    } catch {
+      // оставляем последний список
+    } finally {
+      setManualReady(true);
+    }
+  }, [setManualList]);
+  useEffect(() => {
+    const t = setTimeout(() => void loadManual(), 0);
+    return () => clearTimeout(t);
+  }, [loadManual]);
   // блок «Сервис»: отдельный запрос status=service, фильтры бэклога его не затрагивают
   const [service, setService] = useState<GameItem[] | null>(null);
   const [serviceTotal, setServiceTotal] = useState(0);
@@ -112,6 +152,8 @@ export function BacklogView() {
       setShelvedTotal(r.total);
     } catch {
       // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    } finally {
+      setAuxReady((a) => (a.shelved ? a : { ...a, shelved: true }));
     }
   }, []);
   useEffect(() => {
@@ -127,6 +169,8 @@ export function BacklogView() {
       setServiceTotal(r.total);
     } catch {
       // блок вспомогательный: при ошибке остаётся последний список (или скрыт, если его не было)
+    } finally {
+      setAuxReady((a) => (a.service ? a : { ...a, service: true }));
     }
   }, []);
   useEffect(() => {
@@ -139,10 +183,12 @@ export function BacklogView() {
     setError(false);
     setLoading(true);
     try {
-      const r = await fetchGames(backlogToApi(filtersRef.current, { limit: BACKLOG_PAGE, offset: 0 }));
+      const nb = filtersRef.current.nb;
+      // «Не куплено»: игры библиотеки не показываем (контракт 43.2), запрос нужен только за счётчиками фильтров
+      const r = await fetchGames(backlogToApi(filtersRef.current, { limit: nb ? 1 : BACKLOG_PAGE, offset: 0 }));
       if (my !== reqRef.current) return;
-      setItems(r.items);
-      setTotal(r.total);
+      setItems(nb ? [] : r.items);
+      setTotal(nb ? 0 : r.total);
       setCounts(r.durationCounts ?? null);
       setGenreCounts(r.genreCounts ?? null);
       setHltbCounts(r.hltbCounts ?? null);
@@ -274,6 +320,78 @@ export function BacklogView() {
     ...(kind === 'shelved' ? [{ label: 'Вернуть в бэклог', run: () => void change(g, 'backlog') }] : []),
     ...(kind === 'service' ? [{ label: 'Вернуть в бэклог', run: () => void change(g, 'backlog') }, { label: 'Убрать из сервиса', run: () => void change(g, null) }] : []),
   ];
+  // ---------- записи «не куплено» (Фаза 43) ----------
+  async function undoBought(g: ManualGame) {
+    setManualList(setNotPurchased(manualRef.current, g.id, true));
+    try {
+      await unmarkPurchased(g.id);
+    } catch (e) {
+      if (isGoneOrDone(e)) { void loadManual(); return; }
+      setManualList(setNotPurchased(manualRef.current, g.id, false));
+      toast({ kind: 'error', text: manualErrorText(e, 'Не удалось вернуть пометку. Повтори.') });
+    }
+  }
+  async function bought(g: ManualGame, restoreFocus: () => void) {
+    setManualList(setNotPurchased(manualRef.current, g.id, false));
+    requestAnimationFrame(restoreFocus);
+    try {
+      await markPurchased(g.id);
+    } catch (e) {
+      // уже склеена с игрой библиотеки или убрана: список перезагружаем, ошибки нет
+      if (isGoneOrDone(e)) { void loadManual(); return; }
+      setManualList(setNotPurchased(manualRef.current, g.id, true));
+      toast({ kind: 'error', text: manualErrorText(e, 'Не удалось снять пометку. Повтори.'), action: { label: 'Повторить', run: () => void bought(g, restoreFocus) } });
+      return;
+    }
+    toast({ text: `Пометка снята: «${truncate(g.title)}»`, ttl: 8000, action: { label: 'Отменить', run: () => void undoBought(g) } });
+  }
+  async function confirmRemove(g: ManualGame) {
+    const all = Array.from(document.querySelectorAll<HTMLElement>('.ps-bl-list [data-manual]'));
+    const at = all.findIndex((el) => el.dataset.manual === String(g.id));
+    const neighbour = at >= 0 ? (all[at + 1] ?? all[at - 1]) : undefined;
+    await removeManual(g.id);
+    setManualList(removeManualById(manualRef.current, g.id));
+    setRemoving(null);
+    toast({ text: `Убрано из бэклога: «${truncate(g.title)}»` });
+    requestAnimationFrame(() => {
+      const next = neighbour?.dataset.manual ? document.querySelector<HTMLElement>(`[data-manual="${neighbour.dataset.manual}"] .ps-nbmore`) : null;
+      (next ?? document.getElementById('h-bl-main'))?.focus();
+    });
+  }
+  const manualHandlers: ManualHandlers = { bought: (g, f) => void bought(g, f), remove: (g) => setRemoving(g) };
+  function openAdd() {
+    addBtnRef.current?.focus();
+    setAddOpen(true);
+  }
+  function closeAdd(added: string[]) {
+    setAddOpen(false);
+    if (added.length > 0) {
+      void loadManual();
+      toast({ text: addedToastText(added), ttl: 6000 });
+    }
+  }
+  const shownManual = visibleManual(manual, filters);
+  const nbCount = countNotPurchased(manual);
+  // записи без данных идут после игр; пока подгружаются не все игры, в конец не ставим (иначе встанут посреди списка)
+  const manualPart = filters.sort === 'title' || !items || items.length >= total ? shownManual : [];
+  const entries = items ? mergeBacklog(items, manualPart, filters.sort, filters.order) : [];
+  const shownTotal = total + shownManual.length;
+
+  const backlogCard = (g: GameItem) => (
+    <GameCard game={g} actions={actions} selectMode={false} selected={false}>
+      <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
+      {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
+      <div className="ps-bl-actions">
+        <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
+          <StatusGlyph status="playing" size={14} />Начать играть
+        </button>
+        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'service')}>
+          <StatusGlyph status="service" size={14} />В сервис
+        </button>
+        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из бэклога</button>
+      </div>
+    </GameCard>
+  );
   const rows = (list: GameItem[], kind: 'backlog' | 'shelved' | 'service', label: string) => (
     <ul className="ps-bl-rows" aria-label={label}>
       {list.map((g) => (
@@ -283,7 +401,7 @@ export function BacklogView() {
   );
 
   const tabs = [
-    { id: 'h-bl-main', label: 'Бэклог', n: total, on: true },
+    { id: 'h-bl-main', label: 'Бэклог', n: shownTotal, on: true },
     { id: 'h-bl-shelved', label: 'Отложено', n: shelvedTotal, on: showShelved },
     { id: 'h-bl-service', label: 'Сервис', n: serviceTotal, on: showService },
   ].filter((t) => t.on);
@@ -330,20 +448,26 @@ export function BacklogView() {
     <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
-        {items && items.length > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(total)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
+        {items && shownTotal > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(shownTotal)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
         <div className="ps-bl-pagehead__tools">
+          <button
+            ref={addBtnRef} type="button" className={mobile ? 'ps-btn ps-nb-add' : 'ps-btn ps-btn--primary ps-nb-add'} data-testid="bl-add"
+            aria-haspopup="dialog" aria-label="Добавить из магазина PS" onClick={openAdd}
+          >
+            <Icon name="plus" size={16} />{mobile ? 'Добавить' : 'Добавить из магазина PS'}
+          </button>
           {!mobile && (items || counts) && <BacklogViewSeg view={view} onView={setView} />}
-          <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} />
+          <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} onAdd={openAdd} />
         </div>
       </div>
       {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
       {(items || counts) && (mobile ? (
         <BacklogMobileBar
-          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={total} view={view} onView={setView}
+          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={shownTotal} nbCount={nbCount} view={view} onView={setView}
           onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))}
         />
       ) : (
-        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
+        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} nbCount={nbCount} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       ))}
       <HltbStatus runner={hltb} />
       {showJump && (
@@ -362,44 +486,41 @@ export function BacklogView() {
       )}
       {(items || !error) && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
-          <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(total)}</small>}
+          <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(shownTotal)}</small>}
         </h2>
       )}
+      {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
+      <MatchChip className="ps-bl-match" hold={!items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>
         </EmptyState>
-      ) : !items ? (
-        <div aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
-      ) : items.length === 0 && hasBacklogFilters(filters) ? (
+      ) : !items || !manualReady || !matchReady || !auxReady.shelved || !auxReady.service ? (
+        <div key="sk" aria-busy="true"><span role="status" className="ps-sr">Загрузка…</span><CardGridSkeleton /></div>
+      ) : entries.length === 0 && hasBacklogFilters(filters) ? (
         <EmptyState icon="search" title="Ничего не найдено" text="В бэклоге нет игр под выбранные фильтры.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setFilters(resetBacklogFilters(filters))}>Сбросить фильтры</button>
         </EmptyState>
-      ) : items.length === 0 ? (
-        <EmptyState icon={<StatusGlyph status="backlog" size={40} />} title="Бэклог пуст" text="Поставь играм статус «Бэклог» в коллекции">
+      ) : entries.length === 0 ? (
+        <EmptyState icon={<StatusGlyph status="backlog" size={40} />} title="Бэклог пуст" text="Поставь играм статус «Бэклог» в коллекции или добавь игру из магазина PS">
           <Link href="/" className="ps-btn ps-btn--primary">К коллекции</Link>
+          <button type="button" className="ps-btn ps-btn--primary" data-testid="bl-add-empty" aria-haspopup="dialog" onClick={openAdd}>
+            <Icon name="plus" size={16} />Добавить из магазина PS
+          </button>
         </EmptyState>
       ) : (
-        <div className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
-        {view === 'list' ? rows(items, 'backlog', 'Игры в бэклоге') : (
+        <div key="list" className="ps-bl-list" data-tour="backlog-list" data-view={view} aria-busy={loading || undefined} data-loading={loading || undefined}>
+        {view === 'list' ? (
+          <ul className="ps-bl-rows" aria-label="Игры в бэклоге">
+            {entries.map((e) => (e.manual
+              ? <ManualRow key={`m${e.manual.id}`} game={e.manual} handlers={manualHandlers} today={today} />
+              : <BacklogRow key={e.game!.id} game={e.game!} onOpen={() => actions.open(e.game!)} onPlay={() => void change(e.game!, 'playing')} menu={menuFor(e.game!, 'backlog')} />))}
+          </ul>
+        ) : (
         <GameGrid density="comfort" label="Игры в бэклоге">
-          {items.map((g) => (
-            <GameGridItem key={g.id}>
-              <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
-                {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
-                <div className="ps-bl-actions">
-                  <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
-                    <StatusGlyph status="playing" size={14} />Начать играть
-                  </button>
-                  <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'service')}>
-                    <StatusGlyph status="service" size={14} />В сервис
-                  </button>
-                  <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из бэклога</button>
-                </div>
-              </GameCard>
-            </GameGridItem>
-          ))}
+          {entries.map((e) => (e.manual
+            ? <GameGridItem key={`m${e.manual.id}`}><ManualCard game={e.manual} handlers={manualHandlers} today={today} /></GameGridItem>
+            : <GameGridItem key={e.game!.id}>{backlogCard(e.game!)}</GameGridItem>))}
         </GameGrid>
         )}
         </div>
@@ -490,6 +611,8 @@ export function BacklogView() {
           )}
         </section>
       )}
+      <RemoveManualSheet game={removing} onClose={() => setRemoving(null)} onConfirm={confirmRemove} />
+      {addOpen && <AddFromStoreSheet onClose={closeAdd} />}
     </div>
     </>
   );

@@ -13,6 +13,7 @@ import { asUserId, type UserId } from '@/server/auth/user-id';
 import { failRun, runChunk, type SyncDeps } from './engine';
 import type { RunRow } from './context';
 import { defaultDiscoverDeps } from './discover-step';
+import { defaultManualMatchDeps } from './manual-match-step';
 import { defaultHltbDeps } from './hltb-step';
 import { defaultLlmDeps } from './llm-step';
 import { defaultTintDeps } from './tint';
@@ -31,6 +32,7 @@ export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetO
     hltb: defaultHltbDeps(),
     llm: defaultLlmDeps,
     discover: defaultDiscoverDeps,
+    manualMatch: defaultManualMatchDeps,
     connect: () =>
       connectPsn({
         getAccessToken: (force) => getAccessToken(db, cfg, { force }),

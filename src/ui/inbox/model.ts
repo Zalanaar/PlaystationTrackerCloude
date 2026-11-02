@@ -4,14 +4,17 @@ import { formatPlayTime, mskParts, plural } from '../format';
 
 export type { InboxResponse };
 
-export type ChipId = 'new' | 'trophies' | 'hours' | 'check' | 'forgotten';
+export type ChipId = 'match' | 'new' | 'trophies' | 'hours' | 'check' | 'forgotten';
 export type Seg = { t: string; num?: boolean };
-export type InboxIcon = 'plus-circle' | 'trophy' | 'trending-up' | 'trending-down' | 'minus' | 'check-circle' | 'clock';
+export type InboxIcon = 'circle-help' | 'plus-circle' | 'trophy' | 'trending-up' | 'trending-down' | 'minus' | 'check-circle' | 'clock';
 
 export type Chip = {
   id: ChipId;
   testid: string;
+  /** Чип-ссылка. У чипа «Это та игра?» ссылки нет: он открывает лист (Фаза 43) */
   href: string;
+  /** true = кнопка, открывает лист подтверждения вместо перехода */
+  opensSheet?: boolean;
   icon: InboxIcon;
   /** Окно чипов 1-2 (data-window) */
   window?: 'h24' | 'd7';
@@ -39,6 +42,16 @@ const toWin = (w: '24h' | '7d' | null): 'h24' | 'd7' | null => (w === '24h' ? 'h
 
 const secs = (hours: number | null | undefined): number => (typeof hours === 'number' && Number.isFinite(hours) && hours > 0 ? Math.round(hours * 3600) : 0);
 const dur = (s: number): string => formatPlayTime(s) ?? '0 м';
+
+/** Фаза 43: вопросы «Это та игра?». Первый по порядку; ✕ его не скрывает, на мобильном он не прячется под «Ещё». */
+function matchChip(d: InboxResponse): Chip | null {
+  if (!pos(d.matchCount)) return null;
+  const n = d.matchCount;
+  return {
+    id: 'match', testid: 'inbox-match', href: '', opensSheet: true, icon: 'circle-help', action: true,
+    desktop: [txt('Это та игра? '), num(n)], mobile: [txt('Это та игра? '), num(n)], aria: `Это та игра? Совпадений: ${n}`,
+  };
+}
 
 function newChip(d: InboxResponse): Chip | null {
   const w = toWin(d.newGamesWindow);
@@ -104,7 +117,7 @@ function hoursChip(d: InboxResponse): Chip | null {
 /** Чипы в порядке A.2; пустые не включаются. Окна и пороги считает сервер, здесь только показ. */
 export function buildChips(d: InboxResponse | null): Chip[] {
   if (!d) return [];
-  const out: (Chip | null)[] = [newChip(d), trophiesChip(d), hoursChip(d)];
+  const out: (Chip | null)[] = [matchChip(d), newChip(d), trophiesChip(d), hoursChip(d)];
   if (pos(d.checkCount)) {
     out.push({
       id: 'check', testid: 'inbox-check', href: '/triage?mode=check', icon: 'check-circle', action: true,
@@ -126,10 +139,20 @@ export function splitMobile(chips: readonly Chip[], expanded: boolean): { visibl
   const hidden: Chip[] = [];
   const visible = [...chips];
   const hoursAt = visible.findIndex((c) => c.id === 'hours');
-  // часы скрываются первыми; если их нет, скрывается последний чип
-  hidden.push(...visible.splice(hoursAt >= 0 ? hoursAt : visible.length - 1, 1));
-  while (visible.length > MOBILE_LIMIT) hidden.unshift(...visible.splice(visible.length - 1, 1));
+  // часы скрываются первыми; если их нет, скрывается последний чип (но не «Это та игра?»)
+  const last = visible.length - 1;
+  hidden.push(...visible.splice(hoursAt >= 0 ? hoursAt : visible[last].id === 'match' ? 0 : last, 1));
+  while (visible.length > MOBILE_LIMIT) {
+    const at = visible.length - 1;
+    if (visible[at].id === 'match') break;
+    hidden.unshift(...visible.splice(at, 1));
+  }
   return { visible, hidden };
+}
+
+/** Чипы, которые остаются при «Скрыть на сегодня»: подтверждение совпадений не прячется, пока вопросы есть (Фаза 43). */
+export function chipsWhenHidden(chips: readonly Chip[]): Chip[] {
+  return chips.filter((c) => c.id === 'match');
 }
 
 export function segText(segs: readonly Seg[]): string {

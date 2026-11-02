@@ -10,9 +10,12 @@ import {
 
 /** Фильтры бэклога: «Длительность» (чипы со счётчиками), «Жанр» (раскрывающийся список чипов), сортировка. Всё переносится по строкам, без горизонтальной прокрутки. */
 export function BacklogFilters({
-  filters, counts, genreCounts, hltbCounts, onChange, onReset,
+  filters, counts, genreCounts, hltbCounts, nbCount = 0, onChange, onReset,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; onChange: (p: Partial<Filters>) => void; onReset: () => void;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null;
+  /** записей «не куплено» (Фаза 43); чип показываем, если они есть или он уже включён */
+  nbCount?: number;
+  onChange: (p: Partial<Filters>) => void; onReset: () => void;
 }) {
   const [open, setOpen] = useState(filters.genres.length > 0);
   const panelId = useId();
@@ -72,6 +75,15 @@ export function BacklogFilters({
             </button>
           );
         })}
+        {(nbCount > 0 || filters.nb) && (
+          <button
+            type="button" className="ps-filterchip ps-chip" data-testid="bl-nb-chip" aria-pressed={filters.nb} aria-label={`Не куплено: ${formatNumber(nbCount)}`}
+            onClick={() => onChange({ nb: !filters.nb })}
+          >
+            <span className="ps-filterchip__t">Не куплено</span>
+            <span className="ps-filterchip__n num">{formatNumber(nbCount)}</span>
+          </button>
+        )}
         {hasBacklogFilters(filters) && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
       </div>
       {open && (

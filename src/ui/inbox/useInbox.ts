@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useMe } from '../access/useMe';
 import { fetchInbox } from './api';
-import { buildChips, hideKey, isHiddenToday, mskDay, SKELETON_MAX_MS, type Chip, type InboxResponse, type InboxState } from './model';
+import { buildChips, chipsWhenHidden, hideKey, isHiddenToday, mskDay, SKELETON_MAX_MS, type Chip, type InboxResponse, type InboxState } from './model';
 
 export type InboxCtl = {
   enabled: boolean;
@@ -12,6 +12,8 @@ export type InboxCtl = {
   hidden: boolean;
   hide: () => void;
   retry: () => void;
+  /** Новое число вопросов «Это та игра?» после ответов в листе (Фаза 43) */
+  setMatchCount: (n: number) => void;
   /** Полоса сейчас показывает чип «Проверить статусы»: старый check-chip не рендерим */
   showsCheck: boolean;
 };
@@ -66,10 +68,10 @@ export function useInbox(enabled: boolean): InboxCtl {
   }, []);
 
   useEffect(() => {
-    if (!enabled || !checked || hidden || started.current) return;
+    if (!enabled || !checked || started.current) return;
     started.current = true;
     load();
-  }, [enabled, checked, hidden, load]);
+  }, [enabled, checked, load]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const hide = useCallback(() => {
@@ -77,7 +79,10 @@ export function useInbox(enabled: boolean): InboxCtl {
     hideListeners.forEach((l) => l());
   }, [key]);
 
-  const chips = useMemo(() => buildChips(data), [data]);
-  const visible = enabled && !hidden && phase === 'ready' && chips.length > 0;
-  return { enabled, phase, chips, hidden, hide, retry: load, showsCheck: visible && chips.some((c) => c.id === 'check') };
+  const setMatchCount = useCallback((n: number) => setData((d) => (d ? { ...d, matchCount: n } : d)), []);
+  const all = useMemo(() => buildChips(data), [data]);
+  // скрыто на сегодня: остаётся только чип подтверждения совпадений
+  const chips = useMemo(() => (hidden ? chipsWhenHidden(all) : all), [all, hidden]);
+  const visible = enabled && phase === 'ready' && chips.length > 0;
+  return { enabled, phase, chips, hidden, hide, retry: load, setMatchCount, showsCheck: visible && chips.some((c) => c.id === 'check') };
 }

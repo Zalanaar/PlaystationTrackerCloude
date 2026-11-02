@@ -9,7 +9,7 @@ import type {
 } from '@/server/collection/types';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string, public reason?: string) {
+  constructor(public status: number, public code: string, message: string, public reason?: string, public details?: unknown) {
     super(message);
   }
 }
@@ -38,7 +38,7 @@ export async function call<T>(url: string, init?: RequestInit): Promise<T> {
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
-  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error', json?.error?.details?.reason);
+  if (!res.ok || !json?.ok) throw new ApiError(res.status, json?.error?.code ?? 'unknown', json?.error?.message ?? 'error', json?.error?.details?.reason, json?.error?.details);
   return json.data as T;
 }
 

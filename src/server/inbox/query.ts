@@ -7,6 +7,7 @@ import { forgottenSql, visibleGames } from '@/server/collection/query';
 import { snapshotGameVisible, trophySetCounted } from '@/server/collection/visibility';
 import { getDuplicateMap, mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import type { Snapshot } from '@/server/stats/hours';
+import { countMatches } from '@/server/manual/store';
 import { countStatusHints } from '@/server/sync/status-hints-db';
 import { calcInboxHours, countByWindow, INBOX_PARTS, inWindow, isInboxEmpty, weekRanges, windowSince, type InboxHours, type NewGamesPart, type TrophiesPart } from './calc';
 
@@ -26,6 +27,8 @@ export type InboxResponse = {
   hoursNoHistory: boolean | null;
   checkCount: number | null;
   forgottenCount: number | null;
+  /** Фаза 43: вопросы «Это та игра?» (игры «не куплено» с неуверенным совпадением). null = не удалось посчитать (в failed/partial не входит). */
+  matchCount?: number | null;
   partial: boolean;
   failed: (typeof INBOX_PARTS)[number][];
   isEmpty: boolean;
@@ -102,6 +105,7 @@ const forgottenPart = async (db: AnyDb, userId: UserId, now: Date) => {
 };
 
 export async function getInbox(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<InboxResponse> {
+  const matchCount = await countMatches(db, userId).catch(() => null);
   const settled = await Promise.allSettled([
     newGamesPart(db, userId, now),
     trophiesPart(db, userId, now),
@@ -125,9 +129,10 @@ export async function getInbox(db: AnyDb, userId: UserId, now: Date = new Date()
     hoursNoHistory: p.hours?.hoursNoHistory ?? null,
     checkCount: p.checkCount,
     forgottenCount: p.forgottenCount,
+    matchCount,
     partial: failed.length > 0,
     failed,
-    isEmpty: isInboxEmpty(p),
+    isEmpty: isInboxEmpty(p) && (matchCount ?? 0) === 0,
   };
 }
 

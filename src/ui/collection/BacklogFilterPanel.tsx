@@ -9,9 +9,9 @@ import {
 
 /** Содержимое sheet «Фильтры и сортировка» (мобильный, Фаза 33): сортировка радиогруппой, чипы длительности, жанров и HLTB без аккордеона. Изменения применяются сразу. */
 export function BacklogFilterPanel({
-  filters, counts, genreCounts, hltbCounts, total, onChange, onReset, onDone,
+  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, onChange, onReset, onDone,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number; nbCount?: number;
   onChange: (p: Partial<Filters>) => void; onReset: () => void; onDone: () => void;
 }) {
   const sortId = backlogSortId(filters);
@@ -90,6 +90,20 @@ export function BacklogFilterPanel({
                 </button>
               );
             })}
+          </div>
+        </section>
+      )}
+      {(nbCount > 0 || filters.nb) && (
+        <section className="ps-bl-panel__sec" aria-labelledby="bl-p-nb">
+          <h3 id="bl-p-nb" className="ps-bl-panel__h">Покупка</h3>
+          <div className="ps-bl-group" role="group" aria-labelledby="bl-p-nb">
+            <button
+              type="button" className="ps-filterchip ps-chip" data-testid="bl-nb-chip" aria-pressed={filters.nb} aria-label={`Не куплено: ${formatNumber(nbCount)}`}
+              onClick={() => onChange({ nb: !filters.nb })}
+            >
+              <span className="ps-filterchip__t">Не куплено</span>
+              <span className="ps-filterchip__n num">{formatNumber(nbCount)}</span>
+            </button>
           </div>
         </section>
       )}

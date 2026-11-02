@@ -136,6 +136,18 @@
   --dot-notify: 8px;         /* точка-уведомление на вкладке (Итоги года) */
   --sk-title-block: 44px;    /* скелет под обложкой: отступ 8 + строка названия 16 + зазор 4 + строка меты 16 */
 
+  /* Фаза 43 (design-system §19.1): пометка «Не куплено». Новых цветов нет, всё из существующих токенов. Значения общие для всех тем */
+  --nb-cover-bg: var(--on-cover-bg);
+  --nb-cover-text: var(--on-cover-text);
+  --nb-cover-border: rgba(255, 255, 255, .55);
+  --nb-cover-shadow: 0 1px 2px rgba(0, 0, 0, .6);   /* как у плашки даты */
+  --nb-bg: var(--surface-2);
+  --nb-text: var(--text);
+  --nb-border: var(--border-strong);
+  --nb-icon: var(--text-2);
+  --nb-h: 24px;               /* моб. 22, плотный режим карточек 20 */
+  --nb-warn-bar: var(--warning);
+
   /* Анимации */
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 360ms;
   --dur-slide: 7000ms; /* автопереход Wrapped */
@@ -194,6 +206,7 @@
     --gutter: 16px;
     --card-gap: 12px;
     --control-h: 40px;
+    --nb-h: 22px;
     --ribbon-h: auto;
     --glyph-badge: 22px;
     --hero-h: 240px;
@@ -212,6 +225,7 @@
 }
 /* После медиа-блока, чтобы плотный режим выигрывал и на мобильном (одинаковая специфичность) */
 [data-density="dense"] { --plat-corner: 30px; --plat-corner-icon: 12px; }
+[data-density="dense"] { --nb-h: 20px; }
 
 @media (max-width: 479px) {
   :root { --loader-blur: 4px; }

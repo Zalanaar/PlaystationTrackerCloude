@@ -10,6 +10,7 @@ import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './p
 import { applyDuplicates } from './duplicates';
 import { hltbStep, type HltbDeps } from './hltb-step';
 import { discoverStep, type DiscoverStepDeps } from './discover-step';
+import { manualMatchStep, type ManualMatchDeps } from './manual-match-step';
 import { llmStep, type LlmStepDeps } from './llm-step';
 import { tintStep, type TintDeps } from './tint';
 
@@ -33,6 +34,8 @@ export type SyncDeps = {
   llm?: LlmStepDeps;
   /** Шаг «У тебя нет» (Фаза 30, 30.4) после LLM: подборка игр вне библиотеки из RAWG раз в сутки. Нет = шаг отключён (тесты). */
   discover?: DiscoverStepDeps;
+  /** Шаг «не куплено» (Фаза 43, 43.5) после склейки дублей: сопоставление manual_games с библиотекой. Нет = шаг отключён (тесты). */
+  manualMatch?: ManualMatchDeps;
 };
 
 export type ChunkResult = {
@@ -98,6 +101,15 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     } catch {
       // склейка дублей необязательна: сбой оставляет прежние пометки
       ctx.warn('duplicates_failed', 'Шаг склейки дублей завершился ошибкой.');
+    }
+    if (deps.manualMatch) {
+      try {
+        await manualMatchStep(ctx, deps.manualMatch);
+      } catch (e) {
+        if (e instanceof RunCancelledError) throw e;
+        // записи «не куплено» остаются как были (на схеме до 0026 таблицы нет): ошибка шага не влияет на итог синка
+        ctx.warn('manual_match_failed', 'Шаг «не куплено» завершился ошибкой.');
+      }
     }
     if (deps.tint) {
       try {
