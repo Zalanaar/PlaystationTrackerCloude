@@ -1,0 +1,5 @@
+/* Фаза 47: Tailwind повторно ПОСЛЕ стилей экранов. В корневом layout (globals.css) он идёт после базы, а стили экранов
+   теперь подключаются позже; без повтора они перебивали preflight, например [hidden] { display: none } у элементов с классом. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
