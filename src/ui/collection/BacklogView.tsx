@@ -147,6 +147,8 @@ export function BacklogView() {
   const [activeTab, setActiveTab] = useState('h-bl-main');
   const spyLock = useRef(false);
   const spyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // пересчёт scroll-spy после снятия блокировки: прокрутка во время неё иначе не учитывалась
+  const spyRun = useRef<() => void>(() => {});
   useEffect(() => () => { if (spyTimer.current) clearTimeout(spyTimer.current); }, []);
   // прокрутка к заголовку блока: ниже шапки и липкой панели переключателя (высоты меряем, на мобильном они другие)
   const scrollToEl = (el: HTMLElement) => {
@@ -164,7 +166,7 @@ export function BacklogView() {
     setActiveTab(id);
     spyLock.current = true;
     if (spyTimer.current) clearTimeout(spyTimer.current);
-    spyTimer.current = setTimeout(() => { spyLock.current = false; }, 900);
+    spyTimer.current = setTimeout(() => { spyLock.current = false; spyRun.current(); }, 900);
   };
   const loadShelved = useCallback(async () => {
     const my = ++shelvedReq.current;
@@ -518,6 +520,7 @@ export function BacklogView() {
       if (window.scrollY <= 0) cur = ids[0];
       setActiveTab(cur);
     };
+    spyRun.current = onScroll;
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
