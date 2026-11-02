@@ -402,3 +402,97 @@
   .ps-nb--cover { transition: none; }
   .ps-add-sk .ps-skeleton, .ps-match-sk { animation: none; background: var(--surface-2); }
 }
+
+/* ======================================================================
+   Фаза 44: «Играл на другой платформе» (design-system §19c). Классы .ps-op*, .ps-plat*.
+   Только токены: hex/rgb запрещены.
+   ====================================================================== */
+.ps-oppage { max-width: 720px; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-pagehead--op { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); flex-wrap: nowrap; padding-bottom: 0; }
+.ps-pagehead--op__text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 auto; }
+.ps-pagehead--op h1 { margin: 0; overflow-wrap: anywhere; }
+.ps-pagehead--op h1:focus { outline: none; }
+.ps-pagehead--op h1:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+.ps-op-lead { margin: 0; font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-op-add { flex: none; gap: 6px; white-space: nowrap; }
+.ps-op-add__short { display: none; }
+.ps-op-sub { margin: 0; font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-op-note { margin: 0; font: 400 12px/16px var(--font-body); color: var(--text-2); max-width: 44ch; }
+.ps-op-filter { display: block; }
+.ps-op-filter__field { width: min(100%, 360px); }
+.ps-op-nores { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-6) var(--sp-3); text-align: center; color: var(--text-2); }
+.ps-op-nores svg { color: var(--text-3); }
+.ps-op-nores p { margin: 0; overflow-wrap: anywhere; }
+.ps-op-more { align-self: flex-start; }
+.ps-menu-item__count { color: var(--text-3); }
+
+.ps-oplist { list-style: none; margin: 0; padding: 0; }
+.ps-op {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 44px; align-items: start; gap: var(--sp-3);
+  padding: var(--sp-3) 0; min-height: 88px; box-sizing: border-box; border-bottom: var(--border-w) solid var(--border);
+  max-height: 240px; overflow: hidden;
+  transition: max-height var(--dur-base) var(--ease-out), padding var(--dur-base) var(--ease-out), min-height var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+}
+.ps-op[data-collapsing] { max-height: 0; min-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; border-bottom-width: 0; }
+.ps-op .ps-op__cover { width: 48px; height: 64px; aspect-ratio: auto; padding: 0; border-radius: var(--r-sm); object-fit: cover; object-position: center; font-size: var(--fs-micro); }
+.ps-op .ps-cover--empty span { display: none; }
+.ps-op__text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.ps-op__title {
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+  font: 600 14px/18px var(--font-body); color: var(--text); cursor: default;
+}
+.ps-op__date, .ps-op__none { font: 400 12px/16px var(--font-body); color: var(--text-2); }
+.ps-plat-tag {
+  display: inline-block; box-sizing: border-box; max-width: 100%; height: 22px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 12px/20px var(--font-body); color: var(--text); background: var(--surface-2);
+  border: var(--border-w) solid var(--border-strong); border-radius: max(2px, calc(var(--r-cover) - 4px));
+}
+.ps-op__rm { position: relative; width: 40px; height: 40px; color: var(--text-2); }
+.ps-op__rm::after { content: ""; position: absolute; inset: -2px; }
+.ps-op__rm:hover:not(:disabled) { background: var(--surface-2); }
+
+.ps-op--sk { max-height: none; }
+.ps-op-sk__cover { display: block; width: 48px; height: 64px; border-radius: var(--r-sm); }
+.ps-op-sk__lines { display: flex; flex-direction: column; gap: var(--sp-2); grid-column: 2 / -1; }
+.ps-op-sk__l1 { display: block; width: 60%; height: 14px; }
+.ps-op-sk__tag { display: block; width: 30%; height: 22px; }
+.ps-op-sk__l3 { display: block; width: 25%; height: 12px; }
+
+/* панель поиска: строка результата с выбором платформы (§19c.4.1) */
+.ps-add-row--op {
+  grid-template-columns: 48px minmax(0, 1fr); grid-template-areas: "cover text" "cover ctl"; align-items: start;
+  padding-left: 0; border-left: 0; padding-top: var(--sp-2);
+}
+.ps-add-row--op .ps-add-row__cover { grid-area: cover; align-self: start; }
+.ps-add-row--op .ps-add-row__text { grid-area: text; }
+.ps-add-row--op .ps-add-row__act { grid-area: ctl; flex-wrap: nowrap; justify-content: flex-start; width: 100%; }
+.ps-add-row--op .ps-add-warn, .ps-add-row--op .ps-add-row__err { grid-column: 1 / -1; grid-area: auto; }
+.ps-plat { width: 180px; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.ps-op-addbtn { flex: none; gap: 6px; white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .ps-pagehead--op { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+  .ps-op-add { width: 100%; height: var(--tap-min); justify-content: center; }
+  .ps-op-add__long { display: none; }
+  .ps-op-add__short { display: inline; }
+  .ps-op-filter__field { width: 100%; }
+  .ps-plat { height: var(--tap-min); font-size: 16px; }
+  .ps-op-addbtn { height: var(--tap-min); }
+  .ps-op-more { height: var(--tap-min); }
+}
+@media (max-width: 400px) {
+  .ps-add-row--op .ps-plat { flex: 1 1 0; width: auto; min-width: 0; }
+  .ps-add-row--op .ps-op-addbtn { padding: 0 12px; }
+}
+@media (prefers-contrast: more) {
+  .ps-plat-tag, .ps-plat, .ps-op-filter .ps-input { border-width: 2px; }
+  .ps-op__date, .ps-op__none, .ps-op-sub, .ps-op-lead, .ps-op-note { color: var(--text); }
+  .ps-menu-item__count { color: var(--text-2); }
+}
+@media (forced-colors: active) {
+  .ps-plat-tag { border-color: CanvasText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-op { transition: none; }
+  .ps-op-sk__cover, .ps-op-sk__lines .ps-skeleton { animation: none; background: var(--surface-2); }
+}
