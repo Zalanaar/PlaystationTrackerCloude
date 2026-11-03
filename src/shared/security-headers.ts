@@ -41,6 +41,9 @@ export function baseSecurityHeaders(): HeaderPair[] {
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
     { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+    // Окно приложения не делит browsing context group с чужими (OAuth Google — редирект, не popup), ресурсы не встраиваются чужими сайтами.
+    { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+    { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
   ];
 }
 

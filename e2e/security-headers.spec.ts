@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { signedSession } from './session';
 
-const REQUIRED = ['content-security-policy', 'x-content-type-options', 'referrer-policy', 'x-frame-options', 'permissions-policy', 'strict-transport-security'];
+const REQUIRED = ['content-security-policy', 'x-content-type-options', 'referrer-policy', 'x-frame-options', 'permissions-policy', 'strict-transport-security', 'cross-origin-opener-policy', 'cross-origin-resource-policy'];
 
 test('заголовки безопасности на странице, /login, /api (в т.ч. 401) и manifest', async ({ request, baseURL }) => {
   for (const path of ['/login', '/api/auth/me', '/manifest.webmanifest', '/icon.svg', '/']) {
     const res = await request.get(path, { maxRedirects: 0 });
     for (const h of REQUIRED) expect(res.headers()[h], `${path}: ${h}`).toBeTruthy();
     expect(res.headers()['x-frame-options']).toBe('DENY');
+    expect(res.headers()['x-powered-by'], `${path}: x-powered-by`).toBeUndefined();
   }
   const m = await request.get('/manifest.webmanifest');
   expect(m.status()).toBe(200);

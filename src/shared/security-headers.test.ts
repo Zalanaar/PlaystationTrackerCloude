@@ -12,6 +12,11 @@ describe('security headers', () => {
     expect(get(h, 'X-Frame-Options')).toBe('DENY');
     expect(get(h, 'Permissions-Policy')).toMatch(/camera=\(\).*microphone=\(\).*geolocation=\(\)/);
     expect(get(h, 'Strict-Transport-Security')).toMatch(/max-age=\d+/);
+    expect(get(h, 'Cross-Origin-Opener-Policy')).toBe('same-origin');
+    expect(get(h, 'Cross-Origin-Resource-Policy')).toBe('same-origin');
+  });
+  it('next.config: без X-Powered-By', () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
   });
   it('CSP: prod без eval, с запретом фреймов и объектов', () => {
     const csp = buildCsp();

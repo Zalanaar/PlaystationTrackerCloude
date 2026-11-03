@@ -1982,6 +1982,9 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 | X-Frame-Options | `DENY` (и `frame-ancestors 'none'` в CSP) |
 | Permissions-Policy | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
 | Strict-Transport-Security | `max-age=31536000` (без includeSubDomains и preload: домен `*.vercel.app` не наш) |
+| Cross-Origin-Opener-Policy | `same-origin` (вход Google — редирект, не popup) |
+| Cross-Origin-Resource-Policy | `same-origin` |
+| X-Powered-By | не отдаётся (`poweredByHeader: false` в `next.config.ts`) |
 | Content-Security-Policy | см. ниже |
 
 CSP (enforce, не Report-Only): `default-src 'self'`; `script-src 'self' 'nonce-<на запрос>'` (без `'unsafe-inline'`); `style-src 'self' 'unsafe-inline'`; `img-src 'self' data: blob: https:`; `font-src 'self' data:` (next/font отдаёт шрифты с нашего origin); `connect-src 'self'` (браузер ходит только в наш API, PSN/RAWG/HLTB/Groq/Telegram вызывает сервер); `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'`; `upgrade-insecure-requests`. В dev добавляются `'unsafe-eval'` и `ws:`.
