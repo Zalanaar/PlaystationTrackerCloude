@@ -1,14 +1,15 @@
 // Чистая логика лимита неудачных входов (контракт 3.3). Данные берутся из login_attempts в attempts.ts.
 export const IP_LIMIT = { max: 5, windowMs: 15 * 60 * 1000 };
 /**
- * Глобальный потолок на все IP: только от массовой ротации адресов. Раньше был 20 за час, и любой мог держать
- * аварийный вход по паролю закрытым для владельца. Основная защита от перебора — лимит по IP выше.
+ * Глобальный потолок на все IP: только от массовой ротации адресов. Основная защита от перебора — лимит по IP выше.
+ * Потолок не закрывает вход (P2-9): сверх max за окно пропускается одна попытка на всех раз в throttleMs,
+ * иначе ротацией IP можно было держать аварийный вход по паролю закрытым для владельца весь час.
  */
-export const GLOBAL_LIMIT = { max: 300, windowMs: 60 * 60 * 1000 };
+export const GLOBAL_LIMIT: Rule = { max: 300, windowMs: 60 * 60 * 1000, throttleMs: 10 * 1000 };
 
 /** Лимит попыток входа через Google (контракт 22.4): счётчики независимы от пароля. */
 export const GOOGLE_IP_LIMIT = { max: 10, windowMs: 15 * 60 * 1000 };
-export const GOOGLE_GLOBAL_LIMIT = { max: 40, windowMs: 60 * 60 * 1000 };
+export const GOOGLE_GLOBAL_LIMIT: Rule = { max: 40, windowMs: 60 * 60 * 1000, throttleMs: 10 * 1000 };
 
 /** Вставка NPSSO с сайта (контракт 27.2): только owner, поэтому строже. */
 export const NPSSO_IP_LIMIT = { max: 3, windowMs: 15 * 60 * 1000 };
@@ -22,12 +23,17 @@ export const NPSSO_RULES: LimitRules = { ip: NPSSO_IP_LIMIT, global: NPSSO_GLOBA
 
 export type LimitResult = { limited: false } | { limited: true; retryAfterSeconds: number };
 
-type Rule = { max: number; windowMs: number };
+/** throttleMs: сверх max не блокировать, а пропускать одну попытку раз в throttleMs после последней. */
+export type Rule = { max: number; windowMs: number; throttleMs?: number };
 
 function check(failures: readonly Date[], now: Date, rule: Rule): LimitResult {
   const from = now.getTime() - rule.windowMs;
   const inWindow = failures.map((d) => d.getTime()).filter((t) => t > from && t <= now.getTime()).sort((a, b) => a - b);
   if (inWindow.length < rule.max) return { limited: false };
+  if (rule.throttleMs) {
+    const wait = inWindow[inWindow.length - 1] + rule.throttleMs - now.getTime();
+    return wait <= 0 ? { limited: false } : { limited: true, retryAfterSeconds: Math.max(1, Math.ceil(wait / 1000)) };
+  }
   // освободится слот, когда из окна выпадет попытка, после которой останется max-1
   const releasing = inWindow[inWindow.length - rule.max];
   const retryAfterSeconds = Math.max(1, Math.ceil((releasing + rule.windowMs - now.getTime()) / 1000));

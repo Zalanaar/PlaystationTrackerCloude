@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { b64urlEncode, createSessionTokenV2, SESSION_TTL_SECONDS, verifySessionToken } from './session';
 import { checkBearer, checkPassword, hashIp, secureEqual } from './password';
-import { evaluateLimit, GLOBAL_LIMIT } from './limiter';
+import { evaluateLimit, GLOBAL_LIMIT, NPSSO_RULES } from './limiter';
 import { getAuthEnv, getCronSecret, getSessionSecret } from '../env';
 import { safeNext } from '../http';
 
@@ -120,17 +120,29 @@ describe('лимитер входа', () => {
     expect(evaluateLimit([], all, now)).toEqual({ limited: false });
     expect(evaluateLimit([1, 2, 3, 4, 5].map(ago), all, now).limited).toBe(true);
   });
-  it('глобальный потолок GLOBAL_LIMIT.max за час при разных IP', () => {
-    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => ago(1 + (i * 58) / GLOBAL_LIMIT.max));
-    const r = evaluateLimit([], all, now);
-    expect(r.limited).toBe(true);
+  it('глобальный потолок не закрывает вход: сверх max одна попытка на всех раз в throttleMs (P2-9)', () => {
+    const t = GLOBAL_LIMIT.throttleMs!;
+    // max неудач за час с разных IP, последняя только что: следующая ждёт throttleMs
+    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => new Date(NOW - 1000 - i * 10_000));
+    expect(evaluateLimit([], all, now)).toEqual({ limited: true, retryAfterSeconds: Math.ceil((t - 1000) / 1000) });
+    // через throttleMs после последней попытка проходит, хотя потолок ещё превышен
+    expect(evaluateLimit([], all, new Date(NOW - 1000 + t))).toEqual({ limited: false });
+    // и даже при 10×max (массовая ротация) Retry-After не больше throttleMs
+    const flood = Array.from({ length: GLOBAL_LIMIT.max * 10 }, (_, i) => new Date(NOW - i * 1000));
+    const r = evaluateLimit([], flood, now);
+    expect(r.limited && r.retryAfterSeconds).toBe(t / 1000);
     expect(evaluateLimit([], all.slice(1), now)).toEqual({ limited: false });
   });
-  it('при двух лимитах берётся больший Retry-After', () => {
+  it('лимит по IP при этом остаётся жёстким: больший Retry-After', () => {
     const ip = [14, 13, 12, 11, 10].map(ago);
-    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => ago(59 - (i * 50) / GLOBAL_LIMIT.max));
+    const all = Array.from({ length: GLOBAL_LIMIT.max }, (_, i) => new Date(NOW - i * 1000));
     const r = evaluateLimit(ip, all, now);
-    expect(r.limited && r.retryAfterSeconds).toBe(Math.max(60, 1 * 60));
+    expect(r.limited && r.retryAfterSeconds).toBe(60);
+  });
+  it('NPSSO: глобальный потолок по-прежнему блокирует (только owner)', () => {
+    const all = Array.from({ length: NPSSO_RULES.global.max }, (_, i) => ago(1 + i));
+    expect(evaluateLimit([], all, now, NPSSO_RULES).limited).toBe(true);
+    expect(NPSSO_RULES.global.throttleMs).toBeUndefined();
   });
 });
 
