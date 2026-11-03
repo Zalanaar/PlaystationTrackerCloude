@@ -171,6 +171,14 @@
   .ps-bl-pagehead { gap: 6px var(--sp-3); }
   .ps-bl-pagehead .ps-btn--icon { width: 40px; height: 40px; }
   .ps-bl-pagehead__tools { margin-left: auto; }
+  /* число бэклога отдельной строкой под h1 и кнопками, одной линией; скелет держит ту же строку (CLS).
+     Сетка, а не перенос flex: до гидратации кнопки шире (десктопная подпись) и не должны уезжать на вторую строку */
+  .ps-bl-pagehead { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .ps-bl-pagehead__tools { grid-column: 2; grid-row: 1; justify-self: end; }
+  .ps-bl-total, .ps-bl-total-sk { grid-column: 1 / -1; grid-row: 2; }
+  .ps-bl-total { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ps-bl-total-sk { justify-self: start; }
+  .ps-bl-total__np { display: none; }
   .ps-bl-pagemenu .ps-pop__panel { width: min(320px, calc(100vw - 2 * var(--gutter))); }
   .ps-bl-pagemenu .ps-menu-item, .ps-blrow__menu .ps-menu-item { min-height: 48px; }
   .ps-blrow { gap: var(--sp-2) var(--sp-3); }

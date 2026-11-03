@@ -43,7 +43,7 @@ import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
-import { BACKLOG_DEFINITION, backlogManualText } from '@/shared/backlog';
+import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
 /** Предельное ожидание второстепенных запросов Бэклога до показа списка (мс). */
@@ -463,7 +463,7 @@ export function BacklogView() {
   // Фаза 48 (п. 11): число бэклога = игры библиотеки (как чип коллекции, «Подскажи» и «План»); записи вручную подписаны отдельно
   const mainTotal = filters.nb ? 0 : total;
   const narrowed = !!(filters.q || filters.genres.length || filters.duration.length || filters.hltb.length || filters.nb);
-  const manualNote = backlogManualText(manual.length, nbCount);
+  const manualNote = backlogManualParts(manual.length, nbCount);
 
   const backlogCard = (g: GameItem, priority = false) => (
     <GameCard game={g} actions={actions} selectMode={false} selected={false} priority={priority}>
@@ -542,9 +542,13 @@ export function BacklogView() {
     <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1">Бэклог</h1>
-        {items && !narrowed && (total > 0 || manual.length > 0) ? (
-          <p className="ps-statline ps-num" data-testid="bl-total" title={BACKLOG_DEFINITION}><b>{formatNumber(total)}</b> в бэклоге{manualNote && <> · {manualNote}</>}</p>
-        ) : items && shownTotal > 0 ? <p className="ps-statline ps-num"><b>{formatNumber(shownTotal)}</b> в списке</p> : !items && !error && <span className="ps-skeleton ps-sk-stat120" aria-hidden="true" />}
+        {/* строка числа ждёт ручные записи вместе со списком (ready), до того на её месте скелет той же высоты.
+            На < 768 она отдельной строкой в одну линию: подпись «ещё N вручную…» в одном ряду с h1 сжималась до 4 строк и двигала страницу (CLS) */}
+        {ready && !narrowed && (total > 0 || manual.length > 0) ? (
+          <p className="ps-statline ps-num ps-bl-total" data-testid="bl-total" title={BACKLOG_DEFINITION}>
+            <b>{formatNumber(total)}</b> в бэклоге{manualNote && <> · {manualNote.main}{manualNote.np && <span className="ps-bl-total__np">{manualNote.np}</span>}</>}
+          </p>
+        ) : ready && shownTotal > 0 ? <p className="ps-statline ps-num ps-bl-total"><b>{formatNumber(shownTotal)}</b> в списке</p> : !ready && !error && <span className="ps-skeleton ps-sk-stat120 ps-bl-total-sk" aria-hidden="true" />}
         <div className="ps-bl-pagehead__tools">
           <button
             ref={addBtnRef} type="button" className={mobile ? 'ps-btn ps-nb-add' : 'ps-btn ps-btn--primary ps-nb-add'} data-testid="bl-add"

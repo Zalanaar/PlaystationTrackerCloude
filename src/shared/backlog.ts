@@ -21,9 +21,14 @@ export function backlogTotalText(total: number): string {
 
 /** Записи «вручную» (Фаза 43) идут сверх числа бэклога: «ещё 5 вручную, из них 3 не куплено». Пусто, если записей нет. */
 export function backlogManualText(manual: number, notPurchased: number): string {
-  if (manual <= 0) return '';
-  const np = notPurchased > 0 ? `, из них ${notPurchased} не куплено` : '';
-  return `ещё ${manual} ${ru(manual, ['запись', 'записи', 'записей'])} вручную${np}`;
+  const p = backlogManualParts(manual, notPurchased);
+  return p ? p.main + p.np : '';
+}
+
+/** То же по частям: `np` («, из них 3 не куплено») на узком экране прячется, число «Не куплено» есть во вкладке блоков. */
+export function backlogManualParts(manual: number, notPurchased: number): { main: string; np: string } | null {
+  if (manual <= 0) return null;
+  return { main: `ещё ${manual} ${ru(manual, ['запись', 'записи', 'записей'])} вручную`, np: notPurchased > 0 ? `, из них ${notPurchased} не куплено` : '' };
 }
 
 /** «Подскажи»: кандидаты = бэклог минус «Не предлагать». total не пришёл (старый сервер) = без уточнения. */
