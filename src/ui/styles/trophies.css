@@ -1,0 +1,46 @@
+/* F3 «Лента трофеев» (design-system §20). Без backdrop-filter на строках (WebKit). Высоты фиксированы: скелет = реальные строки (CLS 0). */
+.ps-tf { display: flex; flex-direction: column; gap: var(--sp-3); max-width: 760px; }
+.ps-tf__head { padding-bottom: 0; }
+.ps-tf__head .ps-h1 { margin: 0; }
+.ps-tf__sum { margin: 0; min-height: 22px; font: 400 var(--fs-body)/22px var(--font-body); color: var(--text-2); }
+.ps-tf__sum b { color: var(--text); font-weight: 700; }
+/* узкий экран: разбивка по типам всегда второй строкой, высота сводки постоянна (без сдвига чипов) */
+@media (max-width: 599px) {
+  .ps-tf__sum { min-height: 44px; }
+  .ps-tf__types { display: block; }
+  .ps-tf__dot { display: none; }
+}
+.ps-tf__sum-sk { display: inline-block; width: 260px; max-width: 70%; height: 16px; border-radius: var(--r-sm); background: var(--surface-2); }
+.ps-tf__chips { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--sp-1)); padding: 0 var(--sp-1); }
+.ps-tf__chips::-webkit-scrollbar { display: none; }
+.ps-tf__chip {
+  flex: none; display: inline-flex; align-items: center; height: 40px; padding: 0 var(--sp-4); border-radius: var(--r-pill);
+  border: var(--border-w) solid var(--border-strong); background: transparent; color: var(--text); font: 500 var(--fs-body)/1 var(--font-body); white-space: nowrap; cursor: pointer;
+}
+.ps-tf__chip:hover { background: var(--surface-2); }
+.ps-tf__chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ps-tf__chip:focus-visible { box-shadow: var(--shadow-focus); outline: none; }
+.ps-tf__chip--sk { width: 84px; border: 0; }
+.ps-tf__list { display: flex; flex-direction: column; gap: var(--sp-2); transition: opacity var(--dur-fast) var(--ease-ui); }
+.ps-tf__list[data-busy] { opacity: .55; }
+.ps-tf__day { display: flex; flex-direction: column; }
+.ps-tf__dayh { margin: var(--sp-2) 0 var(--sp-1); font: 600 var(--fs-micro)/16px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.ps-tf__rows { list-style: none; margin: 0; padding: 0; }
+.ps-tf__rows li + li .ps-tf__row { border-top: var(--border-w) solid var(--border); }
+.ps-tf__row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 72px; padding: var(--sp-2) var(--sp-1);
+  color: inherit; text-decoration: none; border-radius: var(--r-sm);
+}
+a.ps-tf__row:hover { background: var(--surface-2); }
+a.ps-tf__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ps-tf__icw { position: relative; width: 44px; height: 44px; }
+.ps-tf__icw .ps-tf__ic { width: 44px; height: 44px; }
+.ps-tf__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-tf__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--fs-body)/22px var(--font-body); color: var(--text); }
+.ps-tf__gm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); }
+.ps-tf__rate { font: 600 var(--fs-body)/22px var(--font-body); color: var(--text-2); white-space: nowrap; }
+.ps-tf__rate[data-r="0"] { color: var(--rar-0); }
+.ps-tf__rate[data-r="1"] { color: var(--rar-1); }
+.ps-tf__empty { display: grid; place-items: center; min-height: 160px; margin: 0; color: var(--text-3); text-align: center; }
+.ps-tf__more { align-self: center; margin: var(--sp-3) 0; min-width: 200px; height: var(--tap-min, 44px); }
+.ps-tf__row-sk { display: block; height: 72px; margin-top: var(--sp-1); border-radius: var(--r-sm); }

@@ -76,7 +76,7 @@ test.describe('Полоса «С прошлого визита»', () => {
     }
     await expect(strip.getByTestId('inbox-new')).toHaveAttribute('href', '/triage');
     await expect(strip.getByTestId('inbox-new')).toHaveAttribute('data-window', 'h24');
-    await expect(strip.getByTestId('inbox-trophies')).toHaveAttribute('href', '/stats');
+    await expect(strip.getByTestId('inbox-trophies')).toHaveAttribute('href', '/trophies?period=7d');
     await expect(strip.getByTestId('inbox-check')).toHaveAttribute('href', '/triage?mode=check');
     await expect(strip.getByTestId('inbox-forgotten')).toHaveAttribute('href', '/triage?forgotten=1');
     // чип в одном ряду: порядок слева направо

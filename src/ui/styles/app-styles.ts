@@ -19,4 +19,5 @@ import './telegram.css';
 import './install.css';
 import './profiles.css';
 import './manual.css';
+import './trophies.css';
 import './app-tail.css'; // последним: каскад как до разделения (Tailwind после стилей экранов)

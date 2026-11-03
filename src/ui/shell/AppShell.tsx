@@ -137,6 +137,10 @@ export function AppHeader() {
                       <Icon name="info" size={16} />
                       <span className="ps-menu-item__label">Что нового</span>
                     </button>
+                    <Link href="/trophies" role="menuitem" className="ps-menu-item" data-testid="menu-trophies" onClick={close}>
+                      <Icon name="trophy" size={16} />
+                      <span className="ps-menu-item__label">Лента трофеев</span>
+                    </Link>
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
@@ -219,6 +223,9 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
+          <Link href="/trophies" className="ps-menu-item" data-testid="more-menu-trophies" onClick={() => setMore(false)}>
+            <Icon name="trophy" size={16} /><span className="ps-menu-item__label">Лента трофеев</span>
+          </Link>
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
           </Link>

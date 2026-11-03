@@ -72,7 +72,7 @@ function trophiesChip(d: InboxResponse): Chip | null {
   const n = d.trophies;
   const p = pos(d.platinums) ? d.platinums : 0;
   return {
-    id: 'trophies', testid: 'inbox-trophies', href: '/stats', icon: 'trophy', window: w, platinum: p > 0, action: false,
+    id: 'trophies', testid: 'inbox-trophies', href: '/trophies?period=7d', icon: 'trophy', window: w, platinum: p > 0, action: false,
     desktop: [txt('+'), num(n), txt(` ${plural(n, ['трофей', 'трофея', 'трофеев'])} ${winLabel(w)}`), ...(p > 0 ? [txt(', платин: '), num(p)] : [])],
     mobile: [txt('+'), num(n), txt(` ${plural(n, ['трофей', 'трофея', 'трофеев'])}`), ...(p > 0 ? [txt(', '), num(p), txt(' плат.')] : [])],
     aria: `Трофеи: ${n} ${winAria(w)}${p > 0 ? `, платин: ${p}` : ''}`,

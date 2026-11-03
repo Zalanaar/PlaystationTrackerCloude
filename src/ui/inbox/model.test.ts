@@ -18,7 +18,7 @@ describe('buildChips', () => {
   it('полный ответ: 5 чипов в порядке A.2 со ссылками', () => {
     const c = buildChips(full);
     expect(c.map((x) => x.testid)).toEqual(['inbox-new', 'inbox-trophies', 'inbox-hours', 'inbox-check', 'inbox-forgotten']);
-    expect(c.map((x) => x.href)).toEqual(['/triage', '/stats', '/stats', '/triage?mode=check', '/triage?forgotten=1']);
+    expect(c.map((x) => x.href)).toEqual(['/triage', '/trophies?period=7d', '/stats', '/triage?mode=check', '/triage?forgotten=1']);
   });
   it('чип игр: тексты, склонение, окно', () => {
     const [n] = buildChips(full);

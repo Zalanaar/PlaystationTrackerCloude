@@ -59,7 +59,7 @@ export type CollectionBlock = (typeof COLLECTION_BLOCKS)[number];
 export const NAV_TABS = [
   { id: 'collection', href: '/', label: 'Коллекция', icon: 'library', match: ['/'], exact: true },
   { id: 'backlog', href: '/backlog', label: 'Бэклог', icon: 'bookmark', match: ['/backlog', '/roadmap', '/recommend'] },
-  { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped'] },
+  { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped', '/trophies'] },
   { id: 'triage', href: '/triage', label: 'Разбор', icon: 'list-checks', match: ['/triage'] },
 ] as const;
 /** Подвкладки группы «Бэклог» (ссылки, не кнопки). */

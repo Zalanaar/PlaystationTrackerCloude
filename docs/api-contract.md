@@ -3526,3 +3526,14 @@ OtherPlatformGame = {
 - Загрузка документа `/?game=<id>` (можно `&tab=trophies`, других параметров нет; `Sec-Fetch-Mode: navigate` или без заголовка) получает тот же первый экран, что `/` (Item 4), и поле `initial.linkGame` — полный `GameItem` этой игры (не облегчённый, с баннером). Чужая или несуществующая игра = поля нет; её сбой не мешает первому экрану.
 - В `<head>` уходит `<link rel="preload" as="image" fetchpriority="high">` арта шапки окна (баннер 960 px, без баннера — обложка 240 px), `referrerpolicy="no-referrer"` как у `<img>`.
 - Окно игры берёт `linkGame`, пока нет деталей (облегчённая карточка того же id из списка без баннера уступает ей). API не менялся.
+
+## F3. Лента трофеев (пакет 3, без миграции)
+
+`GET /api/trophies/feed?period=7d|month|all&rare=1&cursor=<c>&limit=50` — заработанные трофеи активного профиля, новые сверху.
+- `period`: `7d` — последние 7×24 ч, `month` — последние 30×24 ч (скользящее окно, на экране «За 30 дней»), `all` — всё время (трофеи без даты в конце). По умолчанию `7d`.
+- `rare=1` — только `earned_rate < 5` (%). Игры-сервисы входят; наборы только скрытых игр не входят (`trophySetCounted`, как чип «+N трофеев» в полосе «С прошлого визита»). Трофеи наборов без игры в коллекции — `game: null`.
+- Порядок `earned_at desc nulls last, id desc`, пагинация keyset: `nextCursor` (`<ms|n>_<id>`) или `null`. `limit` 1–100.
+- Ответ `{ period, rare, today, summary: { total, platinum, gold, silver, bronze }, items: FeedItem[], nextCursor }`. `summary` — на всю выборку, считается только на первой странице (с `cursor` — нули). `day` у строки — дата МСК `YYYY-MM-DD` (группы «Сегодня / Вчера / Пн, 26 окт.»), `today` — сегодня по МСК.
+- `FeedItem`: `id, setId, trophyId, type, name, detail, iconUrl, earnedAt, day, earnedRate, rarity, setName, game: { id, title } | null`.
+- Ошибки: 400 `bad_request` (параметры, курсор), 401, 503 `db_unavailable`. ETag, `private, no-cache`.
+- Страница `/trophies` (SSR первой страницы, выбор в URL `?period=&rare=1`), вход: чип «+N трофеев» (`/trophies?period=7d`), меню «Лента трофеев», ссылка «Вся лента трофеев» в Статистике.
