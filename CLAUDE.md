@@ -32,7 +32,7 @@
 - `psn-api` (неофициальная). Доступ к PSN только через `src/server/psn/`.
 - Vercel Cron раз в сутки: `/api/cron/sync`, защита `CRON_SECRET`.
 - Вход: один пароль `ADMIN_PASSWORD`, подписанная cookie. Весь сайт закрыт. С Фазы 20: вход только по белому списку (способ входа — решение Артёма), `ADMIN_PASSWORD` остаётся аварийным входом владельца.
-- Тесты: Vitest (логика), Playwright (e2e).
+- Тесты: Vitest (логика), Playwright (e2e). В CI на каждый push в main и PR: полный e2e (chromium desktop+mobile, 4 шарда), проект webkit-iphone и PWA (`npm run e2e:pwa`), без retries: флаки чинятся по причине, а не повторами.
 
 ## Структура
 ```
