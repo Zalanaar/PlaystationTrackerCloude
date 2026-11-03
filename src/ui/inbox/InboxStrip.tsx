@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { splitMobile, type Chip } from './model';
@@ -33,53 +33,92 @@ function ChipLink({ c, mobile, onOpen }: { c: Chip; mobile: boolean; onOpen?: ()
   );
 }
 
-/** Полоса «С прошлого визита» над «Играю» (спека A). Пустая и скрытая не рендерится. */
+type BoxState = 'loading' | 'empty' | 'error' | 'gone' | 'hidden';
+
+/**
+ * Место под полосу, пока чипов нет (п. B). Скелет занимает место сразу; если чипов так и не будет (пустой ответ, ошибка,
+ * сводка недоступна), коробка остаётся той же высоты и показывает строку состояния поверх невидимого скелета.
+ * Так нет сдвига вёрстки: раньше пустой ответ схлопывал скелет анимацией высоты (CLS ~0.04 при медленном ответе).
+ */
+function ReservedBox({ state, ctl, onHide }: { state: BoxState; ctl: InboxCtl; onHide: () => void }) {
+  const loading = state === 'loading';
+  const sk = loading ? 'ps-skeleton ' : '';
+  return (
+    <section
+      className="ps-inbox ps-inbox--sk" data-state={state} aria-busy={loading ? 'true' : undefined}
+      aria-label={loading ? 'Загрузка сводки' : 'С прошлого визита'} data-testid={loading ? 'inbox-skeleton' : 'inbox-reserved'}
+    >
+      {/* после загрузки те же размеры, но без класса ps-skeleton: страница не должна выглядеть «ещё грузится» */}
+      <span className={`${sk}ps-inbox__sk-label`} aria-hidden="true" />
+      <span className="ps-inbox__sk-row" aria-hidden="true">
+        <span className={`${sk}ps-inbox__sk-chip`} /><span className={`${sk}ps-inbox__sk-chip`} /><span className={`${sk}ps-inbox__sk-chip`} />
+      </span>
+      {state === 'empty' && (
+        <div className="ps-inbox__note" role="status" data-testid="inbox-empty">
+          <span className="ps-micro ps-inbox__label">С прошлого визита</span>
+          <span className="ps-inbox__note-txt">ничего нового</span>
+          {!ctl.hidden && (
+            <button type="button" className="ps-iconbtn ps-inbox__x" aria-label="Скрыть на сегодня" data-testid="inbox-hide" onClick={onHide}>
+              <Icon name="x" size={16} />
+            </button>
+          )}
+        </div>
+      )}
+      {state === 'hidden' && (
+        <div className="ps-inbox__note" role="status" data-testid="inbox-hidden-note">
+          <span className="ps-micro ps-inbox__label">С прошлого визита</span>
+          <span className="ps-inbox__note-txt">скрыто до 00:00 МСК</span>
+        </div>
+      )}
+      {state === 'error' && (
+        <p className="ps-inbox__note ps-inbox--err" role="status" data-testid="inbox-error">
+          <Icon name="circle-alert" size={14} />
+          <span>Сводку загрузить не удалось</span>
+          <button type="button" className="ps-link" data-testid="inbox-retry" onClick={ctl.retry}>Повторить</button>
+        </p>
+      )}
+      {state === 'gone' && (
+        <p className="ps-inbox__note ps-inbox--err" role="status" data-testid="inbox-gone">
+          <Icon name="circle-alert" size={14} />
+          <span>Сводка сейчас недоступна</span>
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Полоса «С прошлого визита» над «Играю» (спека A). Пустая и скрытая не рендерится, если место под неё ещё не было занято. */
 export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
   const mobile = useIsMobile();
   const [expanded, setExpanded] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
-  // Пустой ответ после скелета: скелет плавно схлопывается по высоте (без скачка вёрстки), потом снимается
-  const [prevPhase, setPrevPhase] = useState(ctl.phase);
-  const [collapse, setCollapse] = useState<'no' | 'run' | 'done'>('no');
-  const empty = (ctl.phase === 'ready' && ctl.chips.length === 0) || ctl.phase === 'gone';
-  if (prevPhase !== ctl.phase) {
-    setPrevPhase(ctl.phase);
-    if (prevPhase === 'loading' && empty) setCollapse('run');
-  }
-  useEffect(() => {
-    if (collapse !== 'run') return;
-    const ms = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260;
-    const t = setTimeout(() => setCollapse('done'), ms);
-    return () => clearTimeout(t);
-  }, [collapse]);
+  // Скелет уже занял место: дальше без чипов держим ту же коробку, а не убираем её (иначе сдвиг вёрстки)
+  const [reserved, setReserved] = useState(false);
+  // ✕ нажат здесь: убрать полосу целиком (сдвиг по действию пользователя допустим). Скрытие, узнанное позже из localStorage, держит место.
+  const [userHid, setUserHid] = useState(false);
+  const hide = () => { setUserHid(true); ctl.hide(); };
+  const skeleton = ctl.enabled && ctl.phase === 'loading' && !ctl.hidden;
+  if (skeleton && !reserved) setReserved(true);
   if (!ctl.enabled) return null;
-  // «Скрыть на сегодня»: полоса остаётся только ради чипа «Это та игра?» (Фаза 43)
-  if (ctl.hidden && (ctl.phase !== 'ready' || ctl.chips.length === 0)) return null;
+  const hasChips = ctl.phase === 'ready' && ctl.chips.length > 0;
+  // «Скрыть на сегодня»: полоса остаётся только ради чипа «Это та игра?» (Фаза 43); скрытие — действие пользователя, сдвиг допустим
+  if (ctl.hidden && !hasChips) return reserved && !userHid ? <ReservedBox state="hidden" ctl={ctl} onHide={hide} /> : null;
 
-  if (ctl.phase === 'loading' || collapse === 'run') {
-    return (
-      <div className="ps-inbox-wrap" data-collapsed={collapse === 'run' ? 'true' : undefined}>
-        <div className="ps-inbox-wrap__in">
-          <section className="ps-inbox ps-inbox--sk" aria-busy="true" aria-label="Загрузка сводки" data-testid="inbox-skeleton">
-            <span className="ps-skeleton ps-inbox__sk-label" />
-            <span className="ps-inbox__sk-row">
-              <span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" /><span className="ps-skeleton ps-inbox__sk-chip" />
-            </span>
-          </section>
-        </div>
-      </div>
-    );
+  if (ctl.phase === 'loading') return <ReservedBox state="loading" ctl={ctl} onHide={hide} />;
+  if (!hasChips) {
+    const state: BoxState = ctl.phase === 'error' ? 'error' : ctl.phase === 'gone' ? 'gone' : 'empty';
+    if (reserved || skeleton) return <ReservedBox state={state} ctl={ctl} onHide={hide} />;
+    if (state === 'error') {
+      return (
+        <p className="ps-inbox--err" role="status" data-testid="inbox-error">
+          <Icon name="circle-alert" size={14} />
+          <span>Сводку загрузить не удалось</span>
+          <button type="button" className="ps-link" data-testid="inbox-retry" onClick={ctl.retry}>Повторить</button>
+        </p>
+      );
+    }
+    return null;
   }
-  if (ctl.phase === 'error') {
-    return (
-      <p className="ps-inbox--err" role="status" data-testid="inbox-error">
-        <Icon name="circle-alert" size={14} />
-        <span>Сводку загрузить не удалось</span>
-        <button type="button" className="ps-link" data-testid="inbox-retry" onClick={ctl.retry}>Повторить</button>
-      </p>
-    );
-  }
-  if (ctl.phase !== 'ready' || ctl.chips.length === 0) return null;
 
   const { visible, hidden } = mobile ? splitMobile(ctl.chips, expanded) : { visible: ctl.chips, hidden: [] };
   const extra = mobile && (hidden.length > 0 || expanded) ? ctl.chips.length - splitMobile(ctl.chips, false).visible.length : 0;
@@ -88,7 +127,7 @@ export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
       <div className="ps-inbox__row">
         <h2 id="inbox-h" className="ps-micro ps-inbox__label">С прошлого визита</h2>
         {!ctl.hidden && (
-          <button type="button" className="ps-iconbtn ps-inbox__x" aria-label="Скрыть на сегодня" data-testid="inbox-hide" onClick={ctl.hide}>
+          <button type="button" className="ps-iconbtn ps-inbox__x" aria-label="Скрыть на сегодня" data-testid="inbox-hide" onClick={hide}>
             <Icon name="x" size={16} />
           </button>
         )}

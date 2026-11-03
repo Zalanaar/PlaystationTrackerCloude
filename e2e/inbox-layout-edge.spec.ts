@@ -1,4 +1,4 @@
-// QA Фазы 28: раскладка (360x640, 390x844, 1280), CLS при пустом ответе, контраст в 7 темах, скриншоты.
+// QA Фазы 28: раскладка (360x640, 390x844, 1280), без сдвига при пустом ответе и ошибке (п. B), память вкладки, контраст в 7 темах, скриншоты.
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
@@ -12,44 +12,98 @@ const FULL = {
 };
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'] as const;
 
-async function open(page: Page, context: BrowserContext, baseURL: string, inbox: Record<string, unknown> | null, delay = 0) {
+async function open(page: Page, context: BrowserContext, baseURL: string, inbox: Record<string, unknown> | null, delay = 0, fails = 0) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const mock = await mockApi(page, seed());
   mock.inbox = inbox;
   mock.inboxDelay = delay;
+  mock.inboxFails = fails;
   await page.addInitScript(() => { if (!localStorage.getItem('ps-wn-seen:1')) localStorage.setItem('ps-wn-seen:1', '12'); });
   await page.route('**/api/auth/me', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }) }));
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await page.goto('/');
+  return mock;
 }
 const setTheme = (page: Page, v: string) => page.evaluate((t) => { if (t === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }, v);
 
-test('QA-28: скачок вёрстки при пустом ответе (скелет -> ничего)', async ({ page, context, baseURL }) => {
+/** layout-shift без недавнего ввода, с момента сброса (п. B). */
+async function trackShifts(page: Page) {
+  await page.addInitScript(() => {
+    type LS = PerformanceEntry & { value: number; hadRecentInput: boolean };
+    const w = window as unknown as { __ls: number[] };
+    w.__ls = [];
+    new PerformanceObserver((l) => { for (const e of l.getEntries() as LS[]) if (!e.hadRecentInput) w.__ls.push(e.value); }).observe({ type: 'layout-shift', buffered: true });
+  });
+}
+const resetShifts = (page: Page) => page.evaluate(() => { (window as unknown as { __ls: number[] }).__ls.length = 0; });
+const shifts = (page: Page) => page.evaluate(() => (window as unknown as { __ls: number[] }).__ls.reduce((s, v) => s + v, 0));
+const frames = (page: Page) => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+
+// п. B: раньше пустой ответ схлопывал скелет анимацией высоты (Фаза 28), при медленном ответе это давало CLS ~0.04.
+// Теперь место, занятое скелетом, остаётся той же высоты со строкой «ничего нового»: Коллекция не сдвигается.
+test('QA-28: пустой ответ после скелета — без сдвига вёрстки', async ({ page, context, baseURL }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await trackShifts(page);
   await open(page, context, baseURL!, null, 1200);
-  await page.getByTestId('inbox-skeleton').waitFor();
+  const sk = page.getByTestId('inbox-skeleton');
+  await sk.waitFor();
   const card = page.locator('.ps-card').first();
-  const before = (await card.boundingBox())?.y ?? 0;
-  await page.getByTestId('inbox-skeleton').waitFor({ state: 'detached' });
-  const after = (await card.boundingBox())?.y ?? 0;
-  console.log(`CLS-shift ${page.viewportSize()?.width}: card y ${before} -> ${after} (delta ${before - after})`);
-  expect(after).toBeLessThan(before); // схлопнулся, но через анимацию высоты (см. следующий тест)
+  await card.waitFor();
+  const before = (await card.boundingBox())!.y;
+  const boxH = (await sk.boundingBox())!.height;
+  await frames(page);
+  await resetShifts(page);
+  await sk.waitFor({ state: 'detached' });
+  await expect(page.getByTestId('inbox-empty')).toBeVisible();
+  await expect(page.getByTestId('inbox-empty')).toContainText('ничего нового');
+  await page.waitForTimeout(600); // дольше прежней анимации схлопывания
+  expect((await card.boundingBox())!.y).toBe(before);
+  expect((await page.getByTestId('inbox-reserved').boundingBox())!.height).toBe(boxH);
+  expect(await shifts(page)).toBe(0);
+  // ✕ — действие пользователя: коробка уходит
+  await page.getByTestId('inbox-hide').click();
+  await expect(page.getByTestId('inbox-reserved')).toHaveCount(0);
 });
 
-test('QA-28-2: схлопывание скелета идёт анимацией, без мгновенного скачка', async ({ page, context, baseURL }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await open(page, context, baseURL!, null, 1200);
-  await page.getByTestId('inbox-skeleton').waitFor();
+test('QA-28-2: ошибка и «недоступно» после скелета держат ту же высоту', async ({ page, context, baseURL }) => {
+  await trackShifts(page);
+  await open(page, context, baseURL!, FULL, 800, 2);
+  const sk = page.getByTestId('inbox-skeleton');
+  await sk.waitFor();
   const card = page.locator('.ps-card').first();
+  await card.waitFor();
   const before = (await card.boundingBox())!.y;
-  const ys: number[] = [];
-  const t0 = Date.now();
-  while (Date.now() - t0 < 2200) {
-    ys.push((await card.boundingBox())!.y);
-    await page.waitForTimeout(20);
-  }
-  const steps = ys.slice(1).map((y, i) => ys[i] - y).filter((d) => d > 0);
-  expect(ys.at(-1)!).toBeLessThan(before);
-  expect(steps.length).toBeGreaterThan(2); // несколько промежуточных кадров, а не один скачок
+  await frames(page);
+  await resetShifts(page);
+  await expect(page.getByTestId('inbox-error')).toBeVisible();
+  expect((await card.boundingBox())!.y).toBe(before);
+  expect(await shifts(page)).toBe(0);
+  await page.getByTestId('inbox-retry').click();
+  await expect(page.getByTestId('inbox-gone')).toBeVisible();
+  expect((await card.boundingBox())!.y).toBe(before);
+});
+
+test('QA-28-3: возврат на Коллекцию из другой вкладки — полоса из памяти, без скелета', async ({ page, context, baseURL }, info) => {
+  test.skip(info.project.name === 'mobile', 'вкладки в шапке только на десктопе');
+  const mock = await open(page, context, baseURL!, FULL);
+  await page.getByTestId('inbox-strip').waitFor();
+  await page.getByRole('link', { name: 'Бэклог', exact: true }).first().click();
+  await page.waitForURL(/\/backlog/);
+  mock.inboxDelay = 1500;
+  const callsBefore = mock.inboxCalls;
+  await page.evaluate(() => {
+    const w = window as unknown as { __sk: boolean };
+    w.__sk = false;
+    new MutationObserver(() => { if (document.querySelector('[data-testid="inbox-skeleton"]')) w.__sk = true; }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.getByRole('link', { name: 'Коллекция', exact: true }).first().click();
+  await page.waitForURL((u) => u.pathname === '/');
+  await expect(page.getByTestId('inbox-strip')).toBeVisible();
+  // фоновое обновление дошло (задержка 1,5 с), скелета не было ни разу
+  await expect.poll(() => mock.inboxCalls, { timeout: 5000 }).toBeGreaterThan(callsBefore);
+  await page.waitForTimeout(1700);
+  expect(await page.evaluate(() => (window as unknown as { __sk: boolean }).__sk)).toBe(false);
+  await expect(page.getByTestId('inbox-strip')).toHaveAttribute('data-count', '5');
 });
 
 test('QA-28-5: тост скрывает «Что нового» и карточка возвращается', async ({ page, context, baseURL }) => {

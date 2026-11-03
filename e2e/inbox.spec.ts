@@ -36,10 +36,11 @@ const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
 const noHScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test.describe('Полоса «С прошлого визита»', () => {
-  test('пустой ответ: полосы нет, скелет ушёл, Коллекция на месте', async ({ page, context, baseURL }) => {
+  test('пустой ответ: чипов нет, скелет ушёл, на его месте «ничего нового» (п. B), Коллекция на месте', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0);
     await expect(page.getByTestId('inbox-strip')).toHaveCount(0);
+    await expect(page.getByTestId('inbox-empty')).toBeVisible();
     await expect(page.getByTestId('inbox-error')).toHaveCount(0);
     await expect(page.locator('.ps-card').first()).toBeVisible();
   });
@@ -152,10 +153,11 @@ test.describe('Полоса «С прошлого визита»', () => {
     await expect(err).toHaveCount(0);
   });
 
-  test('второй подряд сбой: строка исчезает', async ({ page, context, baseURL }) => {
+  test('второй подряд сбой: строка ошибки сменяется «недоступно» на том же месте', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { inbox: FULL, fails: 2 });
     await page.getByTestId('inbox-retry').click();
     await expect(page.getByTestId('inbox-error')).toHaveCount(0);
+    await expect(page.getByTestId('inbox-gone')).toBeVisible();
     await expect(page.getByTestId('inbox-strip')).toHaveCount(0);
     await expect(page.locator('.ps-card').first()).toBeVisible();
   });

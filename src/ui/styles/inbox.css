@@ -36,12 +36,18 @@
 }
 .ps-inbox--err svg { flex: none; }
 
-/* Скелет */
-.ps-inbox-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
-.ps-inbox-wrap[data-collapsed="true"] { grid-template-rows: 0fr; opacity: 0; }
-.ps-inbox-wrap__in { min-height: 0; overflow: hidden; }
-@media (prefers-reduced-motion: reduce) { .ps-inbox-wrap { transition: none; } }
-.ps-inbox--sk { display: flex; flex-direction: column; gap: var(--sp-3); animation: none; }
+/* Скелет и занятое им место (п. B): без чипов коробка не схлопывается, строка состояния ложится поверх невидимого скелета */
+.ps-inbox--sk { position: relative; display: flex; flex-direction: column; gap: var(--sp-3); animation: none; }
+.ps-inbox--sk:not([data-state="loading"]) > .ps-inbox__sk-label,
+.ps-inbox--sk:not([data-state="loading"]) .ps-inbox__sk-row { visibility: hidden; }
+.ps-inbox__note {
+  position: absolute; inset: 0; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-4); min-width: 0;
+  color: var(--text-2); font: 400 var(--fs-small)/var(--lh-small) var(--font-body);
+  animation: ps-inbox-in var(--dur-base) var(--ease-out);
+}
+.ps-inbox__note.ps-inbox--err { height: auto; margin: 0; gap: var(--sp-2); }
+.ps-inbox__note-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-inbox__note .ps-inbox__x { margin-left: auto; }
 .ps-inbox__sk-label { display: block; width: 120px; height: 12px; }
 .ps-inbox__sk-row { display: flex; gap: var(--sp-2); }
 .ps-inbox__sk-chip { display: block; width: 140px; height: calc(var(--control-h) - 4px); border-radius: var(--r-chip); }
@@ -67,6 +73,8 @@
   .ps-inbox__chev { display: none; }
   .ps-inbox__sk-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ps-inbox__sk-chip { width: auto; height: var(--tap-min); }
+  .ps-inbox__note { padding: 0 var(--sp-3); }
+  .ps-inbox__note .ps-inbox__x { margin: 0 calc(-1 * var(--sp-2)) 0 auto; }
   /* Высота скелета = типичная полоса (метка 22 px + один ряд из двух чипов), иначе сдвиг при загрузке */
   .ps-inbox--sk { gap: var(--sp-2); }
   .ps-inbox__sk-label { margin-block: 5px; }

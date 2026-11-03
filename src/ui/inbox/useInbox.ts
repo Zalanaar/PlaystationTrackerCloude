@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useMe } from '../access/useMe';
+import { registerCacheReset } from '../profiles/scope';
 import { fetchInbox } from './api';
 import { buildChips, chipsWhenHidden, hideKey, isHiddenToday, mskDay, SKELETON_MAX_MS, type Chip, type InboxResponse, type InboxState } from './model';
 
@@ -17,6 +18,16 @@ export type InboxCtl = {
   /** Полоса сейчас показывает чип «Проверить статусы»: старый check-chip не рендерим */
   showsCheck: boolean;
 };
+
+/**
+ * Последний ответ /api/inbox в памяти вкладки (п. B): при возврате на `/` (клиентская навигация) полоса сразу показывает его,
+ * без скелета и без сдвига вёрстки, а свежий ответ подменяет его молча. Сбрасывается сменой профиля PSN; на сервере не используется.
+ */
+let memory: InboxResponse | null = null;
+registerCacheReset(() => { memory = null; });
+/** Только для тестов. */
+export function resetInboxMemory(): void { memory = null; }
+const remember = (d: InboxResponse | null) => { if (typeof window !== 'undefined' && d) memory = d; };
 
 const hideListeners = new Set<() => void>();
 function subscribeHide(cb: () => void): () => void {
@@ -38,8 +49,13 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
   const ready = me !== undefined;
   // seed (item 4): ответ /api/inbox из серверного рендера `/` и подсказка «скрыто сегодня» — полоса сразу в HTML, без скелета и сдвига
   const seeded = !!seed?.data;
-  const [phase, setPhase] = useState<InboxState>(seeded ? 'ready' : 'loading');
-  const [data, setData] = useState<InboxResponse | null>(seed?.data ?? null);
+  // память вкладки: только при монтировании на клиенте после прошлого показа (при гидрации она пуста, разметка совпадает с сервером)
+  const [fromMemory] = useState(() => !seeded && typeof window !== 'undefined' && memory !== null);
+  const [phase, setPhase] = useState<InboxState>(seeded || fromMemory ? 'ready' : 'loading');
+  const [data, setData] = useState<InboxResponse | null>(() => {
+    if (seeded) { remember(seed!.data); return seed!.data; }
+    return fromMemory ? memory : null;
+  });
   const serverHidden = seed?.hidden ?? false;
   // пока /api/auth/me не ответил, ключ скрытия неизвестен: держим подсказку сервера, иначе полоса мигнула бы
   const hidden = useSyncExternalStore(subscribeHide, () => (ready ? isHiddenToday(readStored(key), Date.now()) : serverHidden), () => serverHidden);
@@ -49,33 +65,38 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
   const started = useRef(seeded);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(() => {
+  /** silent: полоса уже показана из памяти; без скелета, сбой оставляет показанное. */
+  const load = useCallback((silent = false) => {
     const my = ++seq.current;
-    setPhase('loading');
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { if (seq.current === my) setPhase((p) => (p === 'loading' ? 'error' : p)); }, SKELETON_MAX_MS);
+    if (!silent) {
+      setPhase('loading');
+      timer.current = setTimeout(() => { if (seq.current === my) setPhase((p) => (p === 'loading' ? 'error' : p)); }, SKELETON_MAX_MS);
+    }
     fetchInbox().then(
       (d) => {
         if (seq.current !== my) return;
         if (timer.current) clearTimeout(timer.current);
         fails.current = 0;
+        remember(d);
         setData(d);
         setPhase('ready');
       },
       () => {
-        if (seq.current !== my) return;
+        if (seq.current !== my || silent) return;
         if (timer.current) clearTimeout(timer.current);
         fails.current += 1;
         setPhase(fails.current >= 2 ? 'gone' : 'error');
       },
     );
   }, []);
+  const retry = useCallback(() => load(false), [load]);
 
   useEffect(() => {
     if (!enabled || !checked || started.current) return;
     started.current = true;
-    load();
-  }, [enabled, checked, load]);
+    load(fromMemory);
+  }, [enabled, checked, load, fromMemory]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const hide = useCallback(() => {
@@ -83,10 +104,14 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
     hideListeners.forEach((l) => l());
   }, [key]);
 
-  const setMatchCount = useCallback((n: number) => setData((d) => (d ? { ...d, matchCount: n } : d)), []);
+  const setMatchCount = useCallback((n: number) => setData((d) => {
+    const next = d ? { ...d, matchCount: n } : d;
+    remember(next);
+    return next;
+  }), []);
   const all = useMemo(() => buildChips(data), [data]);
   // скрыто на сегодня: остаётся только чип подтверждения совпадений
   const chips = useMemo(() => (hidden ? chipsWhenHidden(all) : all), [all, hidden]);
   const visible = enabled && phase === 'ready' && chips.length > 0;
-  return { enabled, phase, chips, hidden, hide, retry: load, setMatchCount, showsCheck: visible && chips.some((c) => c.id === 'check') };
+  return { enabled, phase, chips, hidden, hide, retry, setMatchCount, showsCheck: visible && chips.some((c) => c.id === 'check') };
 }

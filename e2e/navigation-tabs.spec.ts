@@ -57,8 +57,8 @@ async function trackCls(page: Page) {
 const resetCls = async (page: Page) => {
   await page.locator('.ps-skeleton').first().waitFor();
   await page.waitForTimeout(500);
-  // Полоса «С прошлого визита» при пустом ответе схлопывает свой скелет анимацией (Фаза 28, ~260 мс), это отдельная проверка.
-  // Без нагрузки она успевала до сброса, под нагрузкой (CI) попадала в замер (+0.04..0.05). Ждём её конца детерминированно.
+  // Полоса «С прошлого визита»: её скелет больше не схлопывается (п. B, без сдвига — проверка в inbox-layout-edge.spec.ts).
+  // Ждём конец её загрузки, чтобы замер касался только подмены скелетов экрана данными.
   await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0, { timeout: 10_000 });
   await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
   await page.evaluate(() => { (window as unknown as { __ls: unknown[] }).__ls.length = 0; });
@@ -278,10 +278,16 @@ test.describe('Мобильный первый экран (18.2)', () => {
     expect(sb.y + sb.height).toBeLessThanOrEqual(640 - 56);
     const hero = page.getByRole('region', { name: 'Играю сейчас' });
     await expect(hero).toBeVisible();
-    // Скелет «С прошлого визита» (Фаза 28) схлопывается после ответа /api/inbox; пока он в потоке, hero ниже (y=399 в гонке).
+    // «С прошлого визита» (Фаза 28): в e2e нет серверного seed, поэтому сначала скелет. С п. B он не схлопывается при пустом ответе
+    // (иначе CLS ~0.04), а остаётся коробкой «ничего нового». На проде `/` приходит с ответом в HTML, и пустая полоса не рендерится,
+    // поэтому правило 18.2 (hero не ниже 232) проверяем для раскладки без этой коробки: hero сразу под ней.
     await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0);
     const hb = (await hero.boundingBox())!;
-    expect(hb.y).toBeLessThanOrEqual(232);
+    const reserved = page.getByTestId('inbox-reserved');
+    const rb = (await reserved.count()) ? await reserved.boundingBox() : null;
+    const above = rb ? hb.y - rb.y : 0;
+    expect(above).toBeLessThanOrEqual(rb ? rb.height + 24 : 0);
+    expect(hb.y - above).toBeLessThanOrEqual(232);
     expect(640 - 56 - hb.y).toBeGreaterThanOrEqual(100);
     const chips = page.getByRole('group', { name: 'Статус' });
     expect((await chips.boundingBox())!.y).toBeGreaterThan(hb.y + hb.height - 1);
