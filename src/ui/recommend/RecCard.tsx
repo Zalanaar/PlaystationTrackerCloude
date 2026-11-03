@@ -88,7 +88,8 @@ export function RecCard({
           <button type="button" className="ps-rec__whybtn" aria-expanded={open} aria-controls={whyId} onClick={onToggle}>
             <Icon name="chevron-down" size={14} className="ps-rec__chev" />
             <span className="ps-rec__whyt">Почему эта игра</span>
-            <small className="ps-rec__src" title={source.title}>{source.label}</small>
+            {/* Фаза 48 (п. 15): метку «шаблон» не показываем (это обычный случай, не новость); пояснение остаётся внутри блока */}
+            {reason.source !== 'template' && <small className="ps-rec__src" title={source.title}>{source.label}</small>}
           </button>
           <div className="ps-rec__whybody" id={whyId} data-open={open || undefined}>
             <div className="ps-rec__whyin">

@@ -24,10 +24,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <WhatsNewProvider>
                 <InstallProvider>
                   <FocusReturn />
+                  {/* Фаза 48 (п. 15): ссылка «К содержимому» первой в порядке Tab */}
+                  <a href="#main" className="ps-skip">К содержимому</a>
                   <AppHeader />
                   <OfflineBar />
                   <SyncBanner />
-                  <main className="ps-main ps-container">{children}</main>
+                  <main id="main" tabIndex={-1} className="ps-main ps-container">{children}</main>
                   <WhatsNew />
                   <TabBar />
                 </InstallProvider>

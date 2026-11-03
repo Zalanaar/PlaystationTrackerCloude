@@ -73,3 +73,33 @@ test.describe('Фаза 48 (п. 14): разметка вида «Список»'
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 });
+
+test.describe('Фаза 48 (п. 15): ссылка «К содержимому», пустой поиск', () => {
+  test('первый Tab = «К содержимому», Enter переводит фокус в main', async ({ page, context, baseURL, browserName }) => {
+    test.skip(browserName === 'webkit', 'Safari по Tab не фокусирует ссылки без настройки');
+    await open(page, context, baseURL!, '/');
+    const skip = page.getByRole('link', { name: 'К содержимому' });
+    await expect(skip).not.toBeInViewport();
+    await page.keyboard.press('Tab');
+    await expect(skip).toBeFocused();
+    await expect(skip).toBeInViewport();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('main#main')).toBeFocused();
+  });
+  test('пустой поиск: платина 0 (не общий итог), один сброс фильтров', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?q=zzzz');
+    await expect(page.getByRole('heading', { name: 'Ничего не найдено' })).toBeVisible();
+    const plat = page.getByRole('button', { name: /^Платина/ });
+    await expect(plat).toHaveAccessibleName('Платина: 0');
+    await expect(page.getByRole('button', { name: /^Сбросить/ }).filter({ visible: true })).toHaveCount(1);
+    await page.getByRole('button', { name: 'Сбросить фильтры' }).click();
+    await expect(page).toHaveURL((u) => !u.searchParams.has('q'));
+    await expect(plat).not.toHaveAccessibleName('Платина: 0');
+  });
+  test('/triage: есть h1 «Разбор»', async ({ page, context, baseURL }) => {
+    await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+    await mockApi(page, seed());
+    await page.goto('/triage');
+    await expect(page.getByRole('heading', { level: 1, name: 'Разбор' })).toBeAttached();
+  });
+});

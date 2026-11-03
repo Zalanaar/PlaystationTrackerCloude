@@ -16,6 +16,7 @@ import { buttonLabel } from '../sync/status';
 import type { ViewMode } from '../tokens';
 import { BlockHead } from './Chronicle';
 import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
+import { platinumChipCount } from './platinumCount';
 import { effectiveView, filtersToUrl, parseFilters, resetFilters, type Filters } from './filters';
 import type { GameActions } from './GameCard';
 import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
@@ -155,7 +156,7 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
   }
 
   const barProps = {
-    filters, view, counts: pool ? counts : null, platinumCount: summary ? summary.totals.platinumEarned : null, onChange: setFilters, onView: setView,
+    filters, view, counts: pool ? counts : null, platinumCount: platinumChipCount(summary ? summary.totals.platinumEarned : null, filters, pool), empty, onChange: setFilters, onView: setView,
     onReset: () => setFilters(resetFilters(filters)), selectMode, onSelect: () => (selectMode ? exitSelect() : setSelectMode(true)),
     canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); },
   };

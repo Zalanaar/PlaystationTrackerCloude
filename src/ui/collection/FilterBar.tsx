@@ -117,12 +117,14 @@ function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void }) 
 
 type BarProps = {
   filters: Filters; view: ViewMode; counts: StatusCounts | null;
-  /** Игр с платиной (`summary.totals.platinumEarned`); null, пока сводка грузится */
+  /** Игр с платиной (`platinumChipCount`: сводка или, при поиске, текущая выборка); null, пока сводка грузится */
   platinumCount: number | null;
   onChange: (p: Partial<Filters>) => void; onView: (v: ViewMode) => void; onReset: () => void;
   selectMode: boolean; onSelect: () => void; canSelect: boolean;
   /** Раздел «Скрытые»: войти (true) / выйти (false) */
   onHidden: (v: boolean) => void;
+  /** Ничего не найдено: сброс уже есть в пустом состоянии, второй ссылки в панели не нужно (Фаза 48, п. 15) */
+  empty?: boolean;
 };
 
 /** Чипы статуса и чип «Платина»: общие для десктопа и мобильного слота под hero. */
@@ -180,7 +182,7 @@ export function FilterBar(p: BarProps) {
         <SortSelect f={filters} onChange={onChange} />
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
-        {active && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
+        {active && !p.empty && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
         <CollectionMenu hidden={filters.hidden} onHidden={onHidden} />
       </div>
     </div>
