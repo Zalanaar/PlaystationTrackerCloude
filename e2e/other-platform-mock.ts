@@ -4,6 +4,8 @@ import type { Page, Route } from '@playwright/test';
 export type OP = {
   id: number; source: 'manual'; kind: 'other_platform'; externalSource: 'rawg'; externalId: string; title: string; coverUrl: string | null;
   releaseDate: string | null; platformLabel: string | null; createdAt: string;
+  /** пакет 5 */
+  status: 'playing' | 'completed' | 'backlog' | 'dropped' | null; statusChangedAt: string | null; rating: number | null; note: string | null;
 };
 export type OCand = {
   externalSource: 'rawg'; externalId: string; title: string; releaseDate: string | null; coverUrl: string | null; platforms: string[]; playstation: boolean;
@@ -13,7 +15,7 @@ type Reply = { status: number; data?: unknown; error?: { code: string; message: 
 
 export const op = (id: number, title: string, o: Partial<OP> = {}): OP => ({
   id, source: 'manual', kind: 'other_platform', externalSource: 'rawg', externalId: String(7000 + id), title, coverUrl: null, releaseDate: '2020-05-01',
-  platformLabel: 'Xbox One', createdAt: new Date(Date.UTC(2026, 10, 3, 12, 0, 0) - id * 60_000).toISOString(), ...o,
+  platformLabel: 'Xbox One', createdAt: new Date(Date.UTC(2026, 10, 3, 12, 0, 0) - id * 60_000).toISOString(), status: null, statusChangedAt: null, rating: null, note: null, ...o,
 });
 export const ocand = (id: string, title: string, o: Partial<OCand> = {}): OCand => ({
   externalSource: 'rawg', externalId: id, title, releaseDate: '2020-09-17', coverUrl: null, platforms: ['PlayStation 4', 'Xbox One', 'PC'], playstation: true,
@@ -36,12 +38,16 @@ export type OPMock = {
   /** externalId, для которых POST отвечает duplicate_game, пока нет confirmDuplicate */
   dup: string[];
   listCalls: number;
+  /** пакет 5: тела PATCH /api/manual-games/{id} */
+  patchBodies: Record<string, unknown>[];
+  /** Очередь ответов на PATCH (иначе успех) */
+  patchReplies: Reply[];
 };
 
 export async function mockOtherPlatforms(page: Page, init: Partial<OPMock> = {}): Promise<OPMock> {
   const m: OPMock = {
     items: [], candidates: [], listReply: null, listDelay: 0, searchReply: null, searchUrls: [], addBodies: [], addReplies: [], removeCalls: [], removeReplies: [],
-    dup: [], listCalls: 0, ...init,
+    dup: [], listCalls: 0, patchBodies: [], patchReplies: [], ...init,
   };
   let seq = 0;
   const send = (route: Route, r: Reply) =>
@@ -71,6 +77,7 @@ export async function mockOtherPlatforms(page: Page, init: Partial<OPMock> = {})
       id: maxId + 1, source: 'manual', kind: 'other_platform', externalSource: 'rawg', externalId: String(body.externalId), title: String(body.title),
       coverUrl: (body.coverUrl as string | null) ?? null, releaseDate: (body.releaseDate as string | null) ?? null,
       platformLabel: (body.platformLabel as string | null | undefined) ?? null, createdAt: new Date(Date.UTC(2030, 0, 1) + (seq += 1) * 1000).toISOString(),
+      status: null, statusChangedAt: null, rating: null, note: null,
     };
     m.items.unshift(item);
     return ok(route, { item, created: true });
@@ -87,6 +94,17 @@ export async function mockOtherPlatforms(page: Page, init: Partial<OPMock> = {})
   });
   await page.route(/\/api\/manual-games\/(\d+)$/, (route) => {
     const id = Number(/manual-games\/(\d+)$/.exec(route.request().url())![1]);
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as Partial<OP>;
+      m.patchBodies.push(body as Record<string, unknown>);
+      const queued = m.patchReplies.shift();
+      if (queued) return send(route, queued);
+      const cur = m.items.find((x) => x.id === id);
+      if (!cur) return send(route, { status: 404, error: { code: 'not_found', message: 'x' } });
+      const changed = body.status !== undefined && body.status !== cur.status;
+      Object.assign(cur, body, changed ? { statusChangedAt: body.status === null ? null : '2026-11-03T12:00:00.000Z' } : {});
+      return ok(route, { item: cur });
+    }
     m.removeCalls.push(id);
     const queued = m.removeReplies.shift();
     if (queued) return send(route, queued);

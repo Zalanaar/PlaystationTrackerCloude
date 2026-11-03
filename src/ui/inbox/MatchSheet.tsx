@@ -86,7 +86,7 @@ export function MatchSheet({
   return (
     <Sheet open onClose={onClose} title="Подтверди совпадения" className="ps-match-sheet" busy={any}>
       <div className="ps-match-wrap" ref={bodyRef}>
-        <p className="ps-sheet__sub">Мы нашли игры в твоей библиотеке PSN, похожие на те, что ты добавил как «не куплено». Подтверди, одна ли это игра.</p>
+        <p className="ps-sheet__sub">Мы нашли игры в твоей библиотеке PSN, похожие на те, что ты добавил вручную («не куплено» или с другой платформы). Подтверди, одна ли это игра.</p>
         <p className="ps-sr" aria-live="polite">{live}</p>
         <div className="ps-match-body">
           {phase === 'loading' && (

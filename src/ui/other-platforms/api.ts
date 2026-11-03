@@ -35,3 +35,8 @@ export function restoreBody(g: OtherPlatformGame, confirmDuplicate = false): Oth
 }
 
 export type { DuplicateInfo };
+
+/** Пакет 5: PATCH платформы, статуса △ ○ □ ✕, оценки 0..10 и заметки. null = очистить. */
+export type OtherPatchBody = { platformLabel?: string | null; status?: OtherPlatformGame['status']; rating?: number | null; note?: string | null };
+export const updateOtherPlatform = (id: number, body: OtherPatchBody, init?: Pick<RequestInit, 'keepalive'>) =>
+  call<{ item: OtherPlatformGame }>(`/api/manual-games/${id}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body), ...init });

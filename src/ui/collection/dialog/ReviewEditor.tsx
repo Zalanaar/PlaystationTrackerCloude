@@ -9,7 +9,7 @@ import { ApiError, errorText, putReview } from '../api';
 export const NOTE_DEBOUNCE_MS = 800;
 const SCORES = Array.from({ length: RATING_MAX - RATING_MIN + 1 }, (_, i) => RATING_MIN + i);
 
-type Saved = { rating: number | null; note: string | null };
+export type Saved = { rating: number | null; note: string | null };
 type Phase = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; text: string };
 
 const normNote = (s: string) => {
@@ -21,7 +21,11 @@ const normNote = (s: string) => {
  * «Моя оценка» в окне игры (F1, контракт F1): 11 шагов 0–10 (0 — настоящая оценка, «Сбросить» = без оценки) и заметка ≤500.
  * Запросы идут по одному: новая правка ждёт ответа предыдущей и уходит с последними значениями (порядок на сервере = порядок правок).
  */
-export function ReviewEditor({ game, review, onChanged }: { game: GameItem; review: GameReview | null; onChanged?: (g: GameItem) => void }) {
+export function ReviewEditor({ game, review, onChanged, save }: {
+  game?: GameItem; review: GameReview | Saved | null; onChanged?: (g: GameItem) => void;
+  /** Пакет 5: свой способ сохранения (запись «с другой платформы», PATCH /api/manual-games/{id}); иначе PUT отзыва игры */
+  save?: (v: Saved, keepalive: boolean) => Promise<Saved>;
+}) {
   const hId = useId();
   const noteId = useId();
   const cntId = useId();
@@ -48,9 +52,13 @@ export function ReviewEditor({ game, review, onChanged }: { game: GameItem; revi
     inflight.current = true;
     if (alive.current) setPhase({ kind: 'saving' });
     try {
-      const r = await putReview(game.id, { rating: w.rating, note: w.note }, keepalive ? { keepalive: true } : undefined);
-      saved.current = { rating: r.review?.rating ?? null, note: r.review?.note ?? null };
-      changedCb.current?.(r.game);
+      if (save) {
+        saved.current = await save({ rating: w.rating, note: w.note }, keepalive);
+      } else if (game) {
+        const r = await putReview(game.id, { rating: w.rating, note: w.note }, keepalive ? { keepalive: true } : undefined);
+        saved.current = { rating: r.review?.rating ?? null, note: r.review?.note ?? null };
+        changedCb.current?.(r.game);
+      }
       if (alive.current) setPhase({ kind: 'saved' });
     } catch (e) {
       if (alive.current) setPhase({ kind: 'error', text: e instanceof ApiError && e.status === 400 ? 'Сервер не принял оценку или заметку.' : `Не сохранено. ${errorText(e)}` });

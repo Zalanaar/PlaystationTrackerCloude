@@ -52,6 +52,30 @@ export function parseAnyManualAddBody(body: unknown): Parsed<{ kind: 'ps_backlog
   return r.ok ? { ok: true, value: { kind: 'ps_backlog', v: r.value } } : r;
 }
 
+// Пакет 5: PATCH /api/manual-games/{id} для записи other_platform. Хоть одно поле; null = очистить.
+export const OTHER_STATUSES = ['playing', 'completed', 'backlog', 'dropped'] as const;
+export type OtherStatus = (typeof OTHER_STATUSES)[number];
+const otherPatchSchema = z
+  .strictObject({
+    platformLabel: otherSchema.shape.platformLabel.optional(),
+    status: z.enum(OTHER_STATUSES).nullable().optional(),
+    rating: z.number().int().min(0).max(10).nullable().optional(),
+    note: z.string().max(500).nullable().optional().transform((x) => (x === undefined ? undefined : x === null || x.trim() === '' ? null : x.trim())),
+  })
+  .refine((v) => Object.keys(v).length > 0);
+export type OtherPlatformPatch = { platformLabel?: string | null; status?: OtherStatus | null; rating?: number | null; note?: string | null };
+
+export function parseOtherPlatformPatch(body: unknown): Parsed<OtherPlatformPatch> {
+  const r = otherPatchSchema.safeParse(body);
+  if (!r.success) return { ok: false, message: 'Некорректные поля записи.' };
+  const v: OtherPlatformPatch = {};
+  if ('platformLabel' in (body as object)) v.platformLabel = r.data.platformLabel ?? null;
+  if (r.data.status !== undefined) v.status = r.data.status;
+  if (r.data.rating !== undefined) v.rating = r.data.rating;
+  if (r.data.note !== undefined) v.note = r.data.note;
+  return { ok: true, value: v };
+}
+
 export type ManualKind = 'ps_backlog' | 'other_platform';
 /** GET /api/manual-games?kind=: по умолчанию ps_backlog. */
 export function parseKindParam(sp: URLSearchParams): Parsed<ManualKind> {

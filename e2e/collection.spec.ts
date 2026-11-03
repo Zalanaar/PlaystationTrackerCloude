@@ -35,7 +35,7 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Horizon Forbidden West');
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('28 ч 17 м');
     // блоки в порядке: хроника, бэклог, отложено, не разобрано
-    await expect(coll(page).locator('h2')).toHaveText([/^Сейчас/, /^2026/, /^2025/, /^2024/, /^Бэклог/, /^Отложено/, /^Не разобрано/]);
+    await expect(coll(page).locator('h2')).toHaveText([/^Сейчас/, /^2026/, /^2025/, /^2024/, /^Бэклог/, /^Отложено/, /^Не разобрано/, /^Игры с других платформ/]);
     await expect(tab(page, /^Все/)).toContainText('10');
     await expect(tab(page, /Пройдено/)).toContainText('3');
     await expect(tab(page, /Брошено/)).toContainText('2');
@@ -293,8 +293,8 @@ test.describe('коллекция (desktop)', () => {
     await page.getByRole('button', { name: 'Список' }).click();
     await expect(page).toHaveURL(/view=list/);
     await expect(coll(page).getByRole('table', { name: 'Игры' }).first()).toBeVisible();
-    // колонки «Платформа» нет
-    await expect(coll(page).getByText('Платформа')).toHaveCount(0);
+    // колонки «Платформа» нет (в таблицах игр; блок «Игры с других платформ» ниже — отдельный)
+    await expect(coll(page).getByRole('table', { name: 'Игры' }).getByText('Платформа')).toHaveCount(0);
   });
 
   test('карточка: 6 колонок «Крупно», обложка 3:4, часы одной строкой, фигура статуса и платина', async ({ page, context, baseURL }) => {

@@ -3,7 +3,7 @@ import type { OtherPlatformGame } from './api';
 import { addErrorText, addedDateText, addedToastText, filterOther, mergeOther, removedToastText, sortOther } from './model';
 
 const g = (id: number, title: string, createdAt = '2026-11-03T10:00:00.000Z'): OtherPlatformGame => ({
-  id, source: 'manual', kind: 'other_platform', externalSource: 'rawg', externalId: String(id), title, coverUrl: null, releaseDate: null, platformLabel: null, createdAt,
+  id, source: 'manual', kind: 'other_platform', externalSource: 'rawg', externalId: String(id), title, coverUrl: null, releaseDate: null, platformLabel: null, createdAt, status: null, statusChangedAt: null, rating: null, note: null,
 });
 
 describe('other-platforms model', () => {

@@ -1,7 +1,8 @@
 // Шаг синка «не куплено» (Фаза 43, контракт 43.5): сопоставляет записи manual_games с играми библиотеки. Без сети.
 // Идемпотентен: повторный запуск ничего не меняет. Батчи по BATCH записей, между батчами проверяется бюджет времени.
 // Уверенное совпадение + запуск/часы -> запись склеивается (пометка снята, статус backlog перенесён). Слабое -> suggested_game_id (вопрос во «Входящих»).
-import { and, eq, isNull } from 'drizzle-orm';
+// Пакет 5: записи «с другой платформы» сами не склеиваются никогда: любое совпадение = вопрос «Это та игра?» (куплена ли игра на PS, решает пользователь).
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { schema } from '@/db';
 import { buildGroups, decideMatch } from '@/server/manual/match';
 import { linkToGame } from '@/server/manual/store';
@@ -24,7 +25,7 @@ export async function manualMatchStep(ctx: RunContext, deps: ManualMatchDeps = {
   const recs = await db
     .select()
     .from(m)
-    .where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId)))
+    .where(and(eq(m.userId, userId), inArray(m.kind, ['ps_backlog', 'other_platform']), isNull(m.linkedGameId)))
     .orderBy(m.id);
   if (recs.length === 0) return res;
   const rows = await db
@@ -42,7 +43,8 @@ export async function manualMatchStep(ctx: RunContext, deps: ManualMatchDeps = {
     }
     for (const r of recs.slice(i, i + MANUAL_MATCH_BATCH)) {
       res.checked++;
-      const d = decideMatch(r, groups, covered.get(r.rawgId) ?? null, r.rejectedGameIds);
+      const raw = decideMatch(r, groups, covered.get(r.rawgId) ?? null, r.rejectedGameIds);
+      const d = raw.kind === 'confident' && r.kind === 'other_platform' ? { kind: 'suggest' as const, groupId: raw.groupId } : raw;
       if (d.kind === 'confident') {
         if (await linkToGame(db, userId, r.id, d.groupId, ctx.now())) res.linked++;
       } else {

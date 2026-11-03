@@ -25,7 +25,9 @@ export function MatchCard({
             <Cover url={match.coverUrl} title={match.title} className="ps-match__cover" />
             <div className="ps-match__text">
               <span className="ps-match__title" title={match.title}>{match.title}</span>
-              {match.notPurchased && <NotPurchasedBadge />}
+              {match.kind === 'other_platform'
+                ? <span className="ps-plat-tag" data-testid="match-platform">{match.platformLabel ?? 'Другая платформа'}</span>
+                : match.notPurchased && <NotPurchasedBadge />}
             </div>
           </div>
         </div>
@@ -59,7 +61,11 @@ export function MatchCard({
         </button>
       </div>
       {error && <p className="ps-match__err" role="alert"><Icon name="circle-alert" size={14} />Не удалось сохранить. Повтори.</p>}
-      <p className="ps-match__hint">«Да» снимет пометку «Не куплено» и свяжет записи. «Нет» оставит игру в бэклоге, эту пару мы больше не предложим.</p>
+      <p className="ps-match__hint">
+        {match.kind === 'other_platform'
+          ? '«Да»: игра куплена на PlayStation, запись с другой платформы скроется. «Нет» оставит её в блоке «Игры с других платформ», эту пару мы больше не предложим.'
+          : '«Да» снимет пометку «Не куплено» и свяжет записи. «Нет» оставит игру в бэклоге, эту пару мы больше не предложим.'}
+      </p>
     </li>
   );
 }

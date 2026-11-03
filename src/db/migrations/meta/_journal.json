@@ -232,6 +232,13 @@
       "when": 1793728456422,
       "tag": "0032_trophy_groups_locale",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793729080998,
+      "tag": "0033_other_platform_meta",
+      "breakpoints": true
     }
   ]
 }

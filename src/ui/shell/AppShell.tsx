@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
-import { useOtherCount } from '../other-platforms/countStore';
 import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
 import { Popover } from '../primitives/Popover';
@@ -66,7 +65,6 @@ export function AppHeader() {
   const line = profile ? profileLine(profile) : null;
   const offer = useSeasonOffer();
   const isOwner = useIsOwner();
-  const otherCount = useOtherCount();
   const { start: startTour } = useTour();
   const install = useInstall();
   const { open: openWhatsNew } = useWhatsNew();
@@ -144,11 +142,6 @@ export function AppHeader() {
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
-                    </Link>
-                    <Link href="/other-platforms" role="menuitem" className="ps-menu-item" data-testid="profile-menu-other" onClick={close}>
-                      <Icon name="library" size={16} />
-                      <span className="ps-menu-item__label">Играл на другой платформе</span>
-                      {otherCount !== null && <small className="num ps-menu-item__count">{otherCount}</small>}
                     </Link>
                     <Link href="/profiles" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="users" size={16} />
@@ -228,9 +221,6 @@ export function AppHeader() {
           </Link>
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
-          </Link>
-          <Link href="/other-platforms" className="ps-menu-item ps-menu-item--tall" data-testid="more-menu-other" onClick={() => setMore(false)}>
-            <Icon name="library" size={16} /><span className="ps-menu-item__label">Играл на другой платформе</span>
           </Link>
           <Link href="/profiles" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="users" size={16} /><span className="ps-menu-item__label">PSN-профили</span>

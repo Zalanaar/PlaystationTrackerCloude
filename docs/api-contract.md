@@ -3556,3 +3556,13 @@ OtherPlatformGame = {
 - Синк запрашивает описания трофеев с `Accept-Language: ru-RU`; группы (`getTitleTrophyGroups`) — только для сетов, где есть группа не `default`. После загрузки сет помечается в `trophy_set_locales`.
 - Дозагрузка: за звено до 20 уже загруженных сетов без пометки `ru-RU` перечитываются (описания + группы). Получение, даты и редкость не трогаются (upsert с `coalesce`, `earned` не откатывается). Ошибка PSN = предупреждение `trophy_locale_failed`, синк продолжается. На схеме до `0032` дозагрузка и группы пропускаются.
 
+
+### Пакет 5: игры с других платформ — статус, оценка, заметка, склейка (миграция `0033`)
+Меняет §44.1 и §44.4 по решению Артёма (t155u/t156u, 2026-11-03).
+- Таблица `other_platform_meta` (только `CREATE TABLE`): `manual_game_id` PK → `manual_games.id` ON DELETE CASCADE, `user_id`, `status` (`playing|completed|backlog|dropped`, null), `status_changed_at`, `rating` smallint 0..10, `note` 1..500, `updated_at`. До применения `0033` чтение отдаёт поля `null`, PATCH статуса/оценки/заметки = `503 db_unavailable` (платформа пишется в `manual_games`).
+- `OtherPlatformGame` дополнен: `status: 'playing'|'completed'|'backlog'|'dropped'|null`, `statusChangedAt: string|null`, `rating: number|null`, `note: string|null`.
+- `PATCH /api/manual-games/{id}` (только своя несклеенная запись `other_platform`, иначе `404 not_found`; Origin + JSON). Тело строгое, хотя бы одно поле: `{ platformLabel?: string|null (1..60), status?: …|null, rating?: 0..10 int|null, note?: string ≤500|null (пустая = null) }`. `200 { item }`. `statusChangedAt` = время запроса только при смене статуса; `status: null` обнуляет дату.
+- Склейка: шаг синка 43.5 смотрит и `other_platform`, но **никогда не склеивает сам** — уверенное совпадение тоже становится вопросом «Это та игра?» (`ManualMatch.kind = 'other_platform'`, `platformLabel`). «Да» ставит `linked_game_id`, запись скрывается из списка и блока, статус PS-игры не трогается (в отличие от `ps_backlog`). «Нет» — пара в `rejected_game_ids`. Явное повторное добавление склеенной записи возвращает её в блок (`created: false`), пара больше не предлагается.
+- Лимит 300 и «уже в списке» считают только несклеенные записи; исключение из «У тебя нет» (§44.4) — по-прежнему любой `kind`, включая склеенные.
+- Статистика, Итоги, счётчики шапки, Бэклог, План не читают `manual_games`/`other_platform_meta`: исключение по построению. Сводка — только в блоке Коллекции (на клиенте).
+- Тесты: `src/server/manual/other-platform-batch5.test.ts` (PATCH-валидация, дата статуса только при смене, 404 чужой, каскад, вопрос вместо автосклейки, «да» без статуса PS-игре, «нет», возврат).

@@ -36,6 +36,9 @@ export type ManualMatch = {
   title: string;
   coverUrl: string | null;
   notPurchased: boolean;
+  /** Пакет 5: 'other_platform' = запись «с другой платформы» (купил на PS?). Необязательное в типе (фикстуры UI). */
+  kind?: 'ps_backlog' | 'other_platform';
+  platformLabel?: string | null;
   game: GameRef & { lastPlayedAt: string | null; hours: number };
 };
 
@@ -245,8 +248,10 @@ export async function linkToGame(db: AnyDb, userId: UserId, manualId: number, ga
       .update(m)
       .set({ linkedGameId: gameId, notPurchased: false, suggestedGameId: null, updatedAt: now })
       .where(and(eq(m.userId, userId), eq(m.id, manualId), isNull(m.linkedGameId)))
-      .returning({ createdAt: m.createdAt });
+      .returning({ createdAt: m.createdAt, kind: m.kind });
     if (rows.length === 0) return false;
+    // пакет 5: запись «с другой платформы» просто скрывается, статус PS-игры не трогаем
+    if (rows[0].kind === 'other_platform') return true;
     await tx.insert(gs).values({ gameId, userId, status: 'backlog', statusChangedAt: rows[0].createdAt, createdAt: now, updatedAt: now }).onConflictDoNothing();
     return true;
   });
@@ -259,13 +264,15 @@ export async function listMatches(db: AnyDb, userId: UserId): Promise<ManualMatc
     .select({ r: m, gName: g.name, gImage: g.imageUrl, last: g.lastPlayedAt, sec: g.playDurationSeconds })
     .from(m)
     .innerJoin(g, and(eq(g.userId, m.userId), eq(g.id, m.suggestedGameId)))
-    .where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)))
+    .where(and(eq(m.userId, userId), inArray(m.kind, ['ps_backlog', 'other_platform']), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)))
     .orderBy(asc(m.createdAt), asc(m.id));
   return rows.map((x) => ({
     id: x.r.id,
     title: x.r.title,
     coverUrl: x.r.coverUrl,
     notPurchased: x.r.notPurchased,
+    kind: x.r.kind === 'other_platform' ? 'other_platform' : 'ps_backlog',
+    platformLabel: x.r.platformLabel,
     game: { gameId: x.r.suggestedGameId as number, name: x.gName, imageUrl: x.gImage, lastPlayedAt: x.last ? x.last.toISOString() : null, hours: Math.round(x.sec / 36) / 100 },
   }));
 }
@@ -275,7 +282,7 @@ export async function countMatches(db: AnyDb, userId: UserId): Promise<number> {
     .select({ n: sql<number>`count(*)::int` })
     .from(m)
     .innerJoin(g, and(eq(g.userId, m.userId), eq(g.id, m.suggestedGameId)))
-    .where(and(eq(m.userId, userId), eq(m.kind, 'ps_backlog'), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)));
+    .where(and(eq(m.userId, userId), inArray(m.kind, ['ps_backlog', 'other_platform']), isNull(m.linkedGameId), isNotNull(m.suggestedGameId)));
   return r?.n ?? 0;
 }
 

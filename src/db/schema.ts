@@ -847,6 +847,29 @@ export const manualGames = pgTable(
 );
 
 /**
+ * Пакет 5: статус (△ ○ □ ✕), оценка 0–10 и заметка записи «с другой платформы» (manual_games.kind = 'other_platform').
+ * Отдельная таблица, а не колонки manual_games: код читает её с запасным путём, пока миграция 0033 не применена.
+ */
+export const otherPlatformMeta = pgTable(
+  'other_platform_meta',
+  {
+    manualGameId: integer('manual_game_id').primaryKey().references(() => manualGames.id, { onDelete: 'cascade' }),
+    userId: userIdCol(),
+    status: text(),
+    statusChangedAt: tz('status_changed_at'),
+    rating: smallint(),
+    note: text(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('other_platform_meta_user_idx').on(t.userId),
+    check('other_platform_meta_status_check', sql`${t.status} is null or ${t.status} in ('playing','completed','backlog','dropped')`),
+    check('other_platform_meta_rating_check', sql`${t.rating} is null or ${t.rating} between 0 and 10`),
+    check('other_platform_meta_note_check', sql`${t.note} is null or char_length(${t.note}) between 1 and 500`),
+  ],
+);
+
+/**
  * F2-B (пакет 3): недельный снимок индекса гайдов (PowerPyx /guides/). Глобальный каталог, не пользовательский.
  * Снимок заменяется целиком только при успешной загрузке (челлендж / мало строк — старый остаётся).
  */

@@ -49,6 +49,8 @@ import { platformCookie, type PlatformKey } from '@/shared/platform-filter';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
+// Пакет 5: блок «Игры с других платформ» в самом низу хроники, своим чанком
+const OtherPlatformsBlock = dynamic(() => import('../other-platforms/OtherPlatformsBlock').then((m) => m.OtherPlatformsBlock), { ssr: false });
 
 /**
  * heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS).
@@ -167,6 +169,8 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     layoutSent.current = v;
     document.cookie = layoutHintCookie(v);
   }, [mobileMq, stored, nearOpen, width, inboxHidden]);
+  // Пакет 5: только чистая хроника (без поиска, статуса, платины, платформы и «Скрытых»)
+  const otherShown = chronicleMode && !!pool && filters.status === 'all' && !filters.q.trim() && !filters.platinum && !filters.platform && !hiddenView;
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
@@ -295,6 +299,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
                   : !summaryFailed && <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinumSkeleton collapsible /></span>)}
               </Fragment>
             ))}
+            {otherShown && <OtherPlatformsBlock />}
           </div>
         ) : (
           <div className="ps-block">

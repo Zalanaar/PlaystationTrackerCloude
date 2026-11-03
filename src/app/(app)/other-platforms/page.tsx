@@ -1,9 +1,6 @@
-import type { Metadata } from 'next';
-import { OtherPlatformsPage } from '@/ui/other-platforms/OtherPlatformsPage';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Играл на другой платформе · PS Tracker' };
-
-// Список читает клиент (GET /api/manual-games?kind=other_platform): страница не содержит пользовательских данных.
+// Пакет 5: отдельного экрана больше нет; игры с других платформ — блок в самом низу Коллекции (старые ссылки и закладки ведут туда).
 export default function Page() {
-  return <OtherPlatformsPage />;
+  redirect('/');
 }

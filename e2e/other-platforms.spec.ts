@@ -1,4 +1,4 @@
-// Фаза 44: «Играл на другой платформе» (design-system §19c). API эмулируется (other-platform-mock.ts).
+// Фаза 44 + пакет 5: «Игры с других платформ» — блок в самом низу Коллекции (design-system §19c). API эмулируется (other-platform-mock.ts).
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { mockManual } from './manual-mock';
@@ -10,7 +10,7 @@ const lib = (): G[] => [{ id: 1, title: 'Альфа Экшен', lastPlayedAt: '
 const tourStub = JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } });
 const noHScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
-async function open(page: Page, context: BrowserContext, baseURL: string, o: Partial<OPMock> = {}, url = '/other-platforms'): Promise<OPMock> {
+async function open(page: Page, context: BrowserContext, baseURL: string, o: Partial<OPMock> = {}, url = '/'): Promise<OPMock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
   await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
@@ -18,7 +18,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, o: Par
   await mockManual(page); // Бэклог: пустые записи ps_backlog
   const m = await mockOtherPlatforms(page, o);
   await page.goto(url);
-  if (url === '/other-platforms') await page.getByRole('heading', { name: 'Играл на другой платформе', level: 1 }).waitFor();
+  if (url === '/') await page.getByTestId('op-block').waitFor();
   else await page.locator('main').waitFor();
   return m;
 }
@@ -28,40 +28,65 @@ async function search(page: Page, q: string) {
   await page.getByTestId('op-input').fill(q);
   await page.getByTestId('op-submit').click();
 }
+const dialog = (page: Page) => page.getByTestId('op-dialog');
+async function openRow(page: Page, title: string) {
+  await rows(page).filter({ hasText: title }).getByTestId('op-open').click();
+  await expect(dialog(page)).toBeVisible();
+}
 
-test.describe('Экран и меню', () => {
-  test('пункт в меню профиля (десктоп) и sheet «⋯» (моб.), вкладка не подсвечена', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { items: [op(1, 'Forza'), op(2, 'Halo')] }, '/');
+test.describe('Блок в Коллекции', () => {
+  test('пунктов меню больше нет; старый адрес ведёт в Коллекцию; блок последний в хронике', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [op(1, 'Forza'), op(2, 'Halo')] });
     if (isMobile(page)) {
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      const item = page.getByTestId('more-menu-other');
-      await expect(item).toHaveText('Играл на другой платформе');
-      await item.click();
+      await expect(page.getByTestId('more-menu-trophies')).toBeVisible();
+      await expect(page.getByTestId('more-menu-other')).toHaveCount(0);
+      await page.keyboard.press('Escape');
     } else {
       await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-      const item = page.getByTestId('profile-menu-other');
-      await expect(item).toContainText('Играл на другой платформе');
-      await item.click();
+      await expect(page.getByTestId('menu-trophies')).toBeVisible();
+      await expect(page.getByTestId('profile-menu-other')).toHaveCount(0);
+      await page.keyboard.press('Escape');
     }
-    await expect(page).toHaveURL(/\/other-platforms$/);
-    await expect(page.getByRole('heading', { name: 'Играл на другой платформе', level: 1 })).toBeVisible();
-    await expect(page.locator('nav [aria-current="page"]')).toHaveCount(0);
+    await expect(page.getByText('Играл на другой платформе')).toHaveCount(0);
+    const last = await page.locator('.ps-blocks > *').last().getAttribute('data-testid');
+    expect(last).toBe('op-block');
+    await page.goto('/other-platforms');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId('op-block')).toBeVisible();
   });
 
-  test('карточка: обложка, название, плашка платформы, дата; нет часов/статуса/фигур; сортировка и счётчик', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { items: [op(1, 'Forza Horizon', { platformLabel: 'Xbox One' }), op(2, 'Без платформы', { platformLabel: null })] });
-    await expect(rows(page)).toHaveCount(2);
-    const first = rows(page).first();
-    await expect(first).toContainText('Forza Horizon');
-    await expect(first.getByTestId('op-row-platform')).toHaveText('Xbox One');
-    await expect(first.getByTestId('op-row-date')).toHaveText('Добавлено 3 нояб. 2026');
-    await expect(rows(page).nth(1).getByTestId('op-row-platform')).toHaveText('Платформа не указана');
-    await expect(first.locator('.ps-status, [data-status], .ps-glyph')).toHaveCount(0);
-    await expect(first).not.toContainText(/ч\b|Играть|Купил|Не куплено/);
-    await expect(page.getByTestId('op-list')).toHaveAttribute('aria-label', 'Игры, в которые играл на других платформах');
-    await expect(page.getByText('В списке: 2')).toBeVisible();
-    await expect(page.getByTestId('op-filter')).toHaveCount(0);
-    await expect(first.getByTestId('op-remove')).toHaveAttribute('aria-label', 'Убрать из списка: Forza Horizon');
+  test('строка: обложка, название, платформа, статус, оценка; группы по году и «Не распределено»; сводка', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, {
+      items: [
+        op(1, 'Forza Horizon', { platformLabel: 'Xbox One', status: 'completed', statusChangedAt: '2025-06-01T10:00:00.000Z', rating: 9 }),
+        op(2, 'Без платформы', { platformLabel: null }),
+        op(3, 'Zelda', { platformLabel: 'Nintendo Switch', status: 'dropped', statusChangedAt: '2026-02-01T10:00:00.000Z', rating: 6 }),
+        op(4, 'Hades', { platformLabel: 'PC', status: 'playing', statusChangedAt: '2026-10-01T10:00:00.000Z' }),
+      ],
+    });
+    const block = page.getByTestId('op-block');
+    await expect(block.getByRole('heading', { name: 'Игры с других платформ', level: 2 })).toBeVisible();
+    await expect(page.getByTestId('op-group').locator('h3')).toHaveText(['2026 1', '2025 1', 'Не распределено 2']);
+    const forza = rows(page).filter({ hasText: 'Forza Horizon' });
+    await expect(forza.getByTestId('op-row-platform')).toHaveText('Xbox One');
+    await expect(forza.getByTestId('op-row-status')).toHaveText('Пройдено');
+    await expect(forza.getByTestId('op-row-rating')).toHaveText('9/10');
+    await expect(rows(page).filter({ hasText: 'Без платформы' }).getByTestId('op-row-platform')).toHaveText('Платформа не указана');
+    await expect(forza).not.toContainText(/ч\b|Купил|Не куплено/);
+    const st = page.getByTestId('op-stats');
+    await expect(st).toContainText('4 игры');
+    await expect(st).toContainText('Switch 1 · Xbox 1 · PC 1 · Не указана 1');
+    await expect(st).toContainText('7,5/10');
+    await expect(st.locator('[data-status="completed"]')).toHaveAttribute('aria-label', 'Пройдено: 1');
+  });
+
+  test('блок только в чистой хронике: поиск и фильтр статуса его прячут', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [op(1, 'Forza')] });
+    await page.goto('/?status=backlog');
+    await page.locator('main').waitFor();
+    await expect(page.getByText('Альфа Экшен').first()).toBeVisible();
+    await expect(page.getByTestId('op-block')).toHaveCount(0);
   });
 
   test('Бэклог не показывает записи other_platform (запрос без kind)', async ({ page, context, baseURL }) => {
@@ -70,116 +95,95 @@ test.describe('Экран и меню', () => {
     await expect(page.getByTestId('bl-nb')).toHaveCount(0);
   });
 
-  test('пустое состояние: объяснение, кнопка открывает панель', async ({ page, context, baseURL }) => {
+  test('пусто: пояснение и «+ Другая платформа» открывает панель', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { items: [] });
-    const empty = page.getByTestId('op-empty');
-    await expect(empty).toContainText('Здесь будут игры не с PlayStation');
-    await expect(empty).toContainText('Xbox, Nintendo Switch или ПК');
-    await empty.getByRole('button', { name: 'Играл на другой платформе' }).click();
+    await expect(page.getByTestId('op-empty')).toContainText('Switch, Xbox или ПК');
+    await expect(page.getByTestId('op-stats')).toHaveCount(0);
+    await page.getByTestId('op-add').click();
     await expect(page.getByTestId('op-sheet')).toBeVisible();
     await expect(page.getByTestId('op-input')).toBeFocused();
   });
 
-  test('загрузка: скелеты 5 строк, aria-busy, кнопка добавления активна', async ({ page, context, baseURL }) => {
-    await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
-    await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
-    await mockApi(page, lib());
-    await mockOtherPlatforms(page, { items: many(3), listDelay: 800 });
-    await page.goto('/other-platforms');
-    const sk = page.getByTestId('op-skeleton');
-    await expect(sk).toHaveAttribute('aria-busy', 'true');
-    await expect(sk.locator('li')).toHaveCount(5);
-    await expect(page.getByTestId('op-add')).toBeEnabled();
-    await expect(rows(page)).toHaveCount(3);
-    await expect(sk).toHaveCount(0);
-  });
-
-  test('ошибка загрузки: баннер, «Повторить» возвращает список', async ({ page, context, baseURL }) => {
+  test('ошибка загрузки: сообщение, «Повторить» возвращает список', async ({ page, context, baseURL }) => {
     const m = await open(page, context, baseURL!, { items: many(2), listReply: { status: 500, error: { code: 'internal', message: 'x' } } });
     const err = page.getByTestId('op-error');
-    await expect(err).toHaveAttribute('role', 'alert');
-    await expect(err).toContainText('Не удалось загрузить список.');
+    await expect(err).toContainText('Не удалось загрузить игры с других платформ.');
     await expect(page.getByTestId('op-add')).toBeEnabled();
     m.listReply = null;
-    await page.getByTestId('op-retry').click();
+    await err.getByRole('button', { name: 'Повторить' }).click();
     await expect(rows(page)).toHaveCount(2);
     await expect(err).toHaveCount(0);
   });
-
-  test('офлайн: баннер «Нет соединения»', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { items: many(2) });
-    await context.setOffline(true);
-    await expect(page.getByTestId('op-offline')).toContainText('Нет соединения. Список может быть неактуален.');
-    await expect(page.getByTestId('op-add')).toBeEnabled();
-    await context.setOffline(false);
-  });
-
-  test('фильтр при > 10 записях, «Показать ещё» по 30 без запроса, очистка', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, { items: many(35) });
-    await expect(rows(page)).toHaveCount(30);
-    const calls = m.listCalls;
-    await page.getByTestId('op-more').click();
-    await expect(rows(page)).toHaveCount(35);
-    await expect(page.getByTestId('op-more')).toHaveCount(0);
-    expect(m.listCalls).toBe(calls);
-    await page.getByTestId('op-filter').fill('игра 07');
-    await expect(rows(page)).toHaveCount(1);
-    await expect(page.getByText('Найдено: 1 из 35')).toBeVisible();
-    await page.getByTestId('op-filter').fill('яяя');
-    await expect(page.getByTestId('op-nores')).toContainText('Ничего не найдено по «яяя»');
-    await page.getByRole('button', { name: 'Очистить фильтр' }).click();
-    await expect(rows(page)).toHaveCount(30);
-    expect(m.listCalls).toBe(calls);
-  });
 });
 
-test.describe('Удаление', () => {
-  test('без диалога: строка уходит, тост «Вернуть» 8 с, возврат теми же данными, фокус на корзину соседа', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, { items: [op(1, 'Первая', { platformLabel: 'PC' }), op(2, 'Вторая'), op(3, 'Третья')] });
-    await rows(page).nth(1).getByTestId('op-remove').click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(rows(page)).toHaveCount(2);
-    expect(m.removeCalls).toEqual([2]);
-    await expect(rows(page).nth(1).getByTestId('op-remove')).toBeFocused();
-    const toast = page.getByRole('status').filter({ hasText: 'Убрано из списка: «Вторая»' });
-    await expect(toast).toBeVisible();
-    await toast.getByRole('button', { name: 'Вернуть' }).click();
-    await expect(rows(page)).toHaveCount(3);
-    expect(m.addBodies).toHaveLength(1);
-    expect(m.addBodies[0]).toMatchObject({ kind: 'other_platform', externalId: '7002', title: 'Вторая', platformLabel: 'Xbox One' });
-    expect(m.addBodies[0].confirmDuplicate).toBeUndefined();
-    await expect(rows(page).first()).toContainText('Вторая');
+test.describe('Окно записи', () => {
+  test('как окно игры: часы и трофеи «нет», платформа Switch/Xbox/PC/нет, статус △○□✕/нет', async ({ page, context, baseURL }) => {
+    const m = await open(page, context, baseURL!, { items: [op(1, 'Halo', { platformLabel: 'Xbox Series S/X' })] });
+    await openRow(page, 'Halo');
+    const d = dialog(page);
+    await expect(page.getByRole('dialog', { name: 'Halo' })).toBeVisible();
+    await expect(d.getByRole('listitem', { name: 'Часы: нет' })).toBeVisible();
+    await expect(d.getByRole('listitem', { name: 'Трофеи: нет' })).toBeVisible();
+    const plat = d.getByTestId('op-platform-chips').getByRole('button');
+    await expect(plat).toHaveText(['Switch', 'Xbox', 'PC', 'нет']);
+    await expect(d.locator('[data-platform="Xbox"]')).toHaveAttribute('aria-pressed', 'true');
+    await d.locator('[data-platform="Switch"]').click();
+    await expect(d.locator('[data-platform="Switch"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(d.getByTestId('op-dialog-sub')).toContainText('Switch');
+    const sts = d.getByTestId('op-status-chips').getByRole('button');
+    await expect(sts).toHaveText(['Играю', 'Пройдено', 'Бэклог', 'Брошено', 'нет']);
+    await expect(d.locator('[data-status="none"]')).toHaveAttribute('aria-pressed', 'true');
+    await d.locator('button[data-status="completed"]').click();
+    await expect(d.locator('button[data-status="completed"]')).toHaveAttribute('aria-pressed', 'true');
+    expect(m.patchBodies).toEqual([{ platformLabel: 'Switch' }, { status: 'completed' }]);
+    // в Коллекции у строки появились статус и год
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(rows(page).first().getByTestId('op-row-status')).toHaveText('Пройдено');
+    await expect(page.getByTestId('op-group').first().locator('h3')).toHaveText('2026 1');
+    await expect(rows(page).first().getByTestId('op-open')).toBeFocused();
   });
 
-  test('последняя запись: пустое состояние, фокус на кнопку', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { items: [op(1, 'Единственная')] });
-    await rows(page).first().getByTestId('op-remove').click();
-    await expect(page.getByTestId('op-empty')).toBeVisible();
-    await expect(page.getByTestId('op-empty-add')).toBeFocused();
+  test('оценка 0–10 и заметка сохраняются PATCH; ошибка статуса: сообщение', async ({ page, context, baseURL }) => {
+    const m = await open(page, context, baseURL!, { items: [op(1, 'Halo')] });
+    await openRow(page, 'Halo');
+    const d = dialog(page);
+    await d.locator('.ps-rate__opt').filter({ hasText: /^8$/ }).click();
+    await expect(d.getByTestId('review-value')).toHaveText('8/10');
+    await expect.poll(() => m.patchBodies.length).toBe(1);
+    expect(m.patchBodies[0]).toEqual({ rating: 8, note: null });
+    await d.getByRole('textbox', { name: 'Заметка' }).fill('Отличная');
+    await d.getByRole('textbox', { name: 'Заметка' }).blur();
+    await expect.poll(() => m.patchBodies.length).toBe(2);
+    expect(m.patchBodies[1]).toEqual({ rating: 8, note: 'Отличная' });
+    await expect(d.getByText('Сохранено')).toBeVisible();
+    m.patchReplies.push({ status: 503, error: { code: 'db_unavailable', message: 'x' } });
+    await d.locator('button[data-status="playing"]').click();
+    await expect(d.getByTestId('op-dialog-err')).toHaveText('Не сохранено. Повтори.');
+    await expect(d.locator('button[data-status="playing"]')).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Escape');
+    await expect(rows(page).first().getByTestId('op-row-rating')).toHaveText('8/10');
   });
 
-  test('ошибка удаления: строка возвращается, тост с «Повторить»', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, { items: [op(1, 'Первая'), op(2, 'Вторая')], removeReplies: [{ status: 500, error: { code: 'internal', message: 'x' } }] });
-    await rows(page).first().getByTestId('op-remove').click();
-    const toast = page.getByRole('alert').filter({ hasText: 'Не удалось убрать. Повтори.' });
-    await expect(toast).toBeVisible();
-    await expect(rows(page)).toHaveCount(2);
-    await expect(rows(page).first().getByTestId('op-remove')).toBeEnabled();
-    await toast.getByRole('button', { name: 'Повторить' }).click();
+  test('удаление из окна: строка уходит, тост «Вернуть» возвращает запись теми же данными', async ({ page, context, baseURL }) => {
+    const m = await open(page, context, baseURL!, { items: [op(1, 'Первая', { platformLabel: 'PC' }), op(2, 'Вторая')] });
+    await openRow(page, 'Вторая');
+    await dialog(page).getByTestId('op-dialog-remove').click();
+    await expect(dialog(page)).toHaveCount(0);
     await expect(rows(page)).toHaveCount(1);
-    expect(m.removeCalls).toEqual([1, 1]);
+    expect(m.removeCalls).toEqual([2]);
+    const toast = page.getByRole('status').filter({ hasText: 'Убрано из списка: «Вторая»' });
+    await toast.getByRole('button', { name: 'Вернуть' }).click();
+    await expect(rows(page)).toHaveCount(2);
+    expect(m.addBodies[0]).toMatchObject({ kind: 'other_platform', externalId: '7002', title: 'Вторая', platformLabel: 'Xbox One' });
   });
 
-  test('«Вернуть» после дубля: повтор с confirmDuplicate; ошибка возврата: тост', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, { items: [op(1, 'Первая'), op(2, 'Вторая')], dup: ['7001'] });
-    await rows(page).first().getByTestId('op-remove').click();
-    await page.getByRole('status').filter({ hasText: 'Убрано из списка: «Первая»' }).getByRole('button', { name: 'Вернуть' }).click();
-    await expect(rows(page)).toHaveCount(2);
-    expect(m.addBodies.map((b) => b.confirmDuplicate)).toEqual([undefined, true]);
-    m.addReplies.push({ status: 500, error: { code: 'internal', message: 'x' } });
-    await rows(page).first().getByTestId('op-remove').click();
-    await page.getByRole('status').filter({ hasText: 'Убрано из списка' }).getByRole('button', { name: 'Вернуть' }).click();
-    await expect(page.getByRole('alert').filter({ hasText: 'Не удалось вернуть. Найди игру через «Играл на другой платформе».' })).toBeVisible();
+  test('ошибка удаления: окно остаётся, тост об ошибке', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [op(1, 'Первая')], removeReplies: [{ status: 500, error: { code: 'internal', message: 'x' } }] });
+    await openRow(page, 'Первая');
+    await dialog(page).getByTestId('op-dialog-remove').click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Не удалось удалить. Повтори.' })).toBeVisible();
+    await expect(dialog(page)).toBeVisible();
   });
 });
 
@@ -193,7 +197,7 @@ test.describe('Панель поиска', () => {
   test('поиск по Enter/«Найти» scope=all, платформы: не PS первыми, «Не указывать» в конце', async ({ page, context, baseURL }) => {
     const m = await open(page, context, baseURL!, { candidates: cands() });
     await page.getByTestId('op-add').click();
-    const dlg = page.getByRole('dialog', { name: 'Играл на другой платформе' });
+    const dlg = page.getByTestId('op-sheet');
     await expect(dlg).toBeVisible();
     await expect(page.getByTestId('op-input')).toBeFocused();
     await expect(page.getByTestId('op-submit')).toBeDisabled();
@@ -330,49 +334,48 @@ test.describe('Панель поиска', () => {
 
 test.describe('Вёрстка: темы и ширины', () => {
   const themes = [null, 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5'];
-  test('7 тем: страница и панель без горизонтального скролла', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { items: [op(1, 'Очень длинное название игры для проверки переноса строк на узком экране', { platformLabel: 'Nintendo Switch Online Classic Edition Extra Long Label' }), ...many(3).map((g) => ({ ...g, id: g.id + 10 }))], candidates: [ocand('1', 'Halo Infinite Legendary Edition Extra Long Title', { platforms: ['Xbox One', 'PlayStation 5'] })] });
+  const long = () => [
+    op(1, 'Очень длинное название игры для проверки переноса строк на узком экране телефона', { platformLabel: 'Nintendo Switch Online Classic Edition Extra Long Label', status: 'completed', statusChangedAt: '2026-01-01T10:00:00.000Z', rating: 10 }),
+    ...many(3).map((g) => ({ ...g, id: g.id + 10 })),
+  ];
+  test('7 тем: блок и окно без горизонтального скролла', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: long() });
     for (const t of themes) {
       await page.evaluate((v) => { if (v) document.documentElement.setAttribute('data-theme', v); else document.documentElement.removeAttribute('data-theme'); }, t);
       expect(await noHScroll(page), String(t)).toBe(true);
       const tag = await rows(page).first().getByTestId('op-row-platform').evaluate((el) => { const c = getComputedStyle(el); return { s: c.borderTopStyle, w: c.borderTopWidth }; });
       expect(tag).toEqual({ s: 'solid', w: '1px' });
     }
+    await rows(page).first().getByTestId('op-open').click();
+    await expect(dialog(page)).toBeVisible();
+    const over = await dialog(page).evaluate((el) => { const s = el.closest('.ps-gd__scroll') as HTMLElement; return s.scrollWidth - s.clientWidth; });
+    expect(over).toBeLessThanOrEqual(0);
   });
 
   for (const w of [320, 360, 390, 412]) {
-    test(`${w} px: нет горизонтального скролла, тап-зоны >= 44, строка результата помещается`, async ({ page, context, baseURL }) => {
+    test(`${w} px: нет горизонтального скролла, тап-зоны >= 44 в блоке и окне`, async ({ page, context, baseURL }) => {
       test.skip(!isMobile(page), 'мобильные ширины');
       await page.setViewportSize({ width: w, height: 760 });
-      await open(page, context, baseURL!, {
-        items: [op(1, 'Очень длинное название игры для проверки переноса строк на узком экране телефона', { platformLabel: 'Nintendo Switch Online Classic Edition Extra Long Label' })],
-        candidates: [ocand('1', 'Halo Infinite Очень длинное название для узкой строки результата', { platforms: ['Nintendo Switch Online Classic Edition Extra Long Label', 'PlayStation 5'] })],
-      });
+      await open(page, context, baseURL!, { items: long() });
       expect(await noHScroll(page)).toBe(true);
       const add = (await page.getByTestId('op-add').boundingBox())!;
       expect(add.height).toBeGreaterThanOrEqual(43.5);
-      expect(add.width).toBeGreaterThan(w - 2 * 24);
-      await expect(page.locator('.ps-op-add__short')).toBeVisible();
-      await expect(page.locator('.ps-op-add__long')).toBeHidden();
-      const rm = (await page.getByTestId('op-remove').boundingBox())!;
-      expect(rm.width).toBeGreaterThanOrEqual(39.5);
+      const row = (await rows(page).first().getByTestId('op-open').boundingBox())!;
+      expect(row.height).toBeGreaterThanOrEqual(43.5);
+      expect(row.x + row.width).toBeLessThanOrEqual(w + 0.5);
+      await rows(page).first().getByTestId('op-open').click();
+      await expect(dialog(page)).toBeVisible();
+      for (const b of await dialog(page).locator('.ps-opd__chip').all()) {
+        const bb = (await b.boundingBox())!;
+        expect(bb.height).toBeGreaterThanOrEqual(43.5);
+        expect(bb.x + bb.width).toBeLessThanOrEqual(w + 0.5);
+      }
+      const rm = (await dialog(page).getByTestId('op-dialog-remove').boundingBox())!;
+      expect(rm.height).toBeGreaterThanOrEqual(43.5);
+      await page.keyboard.press('Escape');
       await page.getByTestId('op-add').click();
-      await search(page, 'halo');
-      const sel = (await page.getByTestId('op-platform').boundingBox())!;
-      const btn = (await page.getByTestId('op-add-btn').boundingBox())!;
-      expect(sel.height).toBeGreaterThanOrEqual(43.5);
-      expect(btn.height).toBeGreaterThanOrEqual(43.5);
-      expect(btn.x + btn.width).toBeLessThanOrEqual(w + 0.5);
-      expect(sel.x + sel.width).toBeLessThanOrEqual(btn.x + 0.5);
+      await search(page, 'zzz');
       expect(await noHScroll(page)).toBe(true);
     });
   }
-
-  test('reduced-motion: схлопывание без анимации', async ({ page, context, baseURL }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await open(page, context, baseURL!, { items: [op(1, 'Первая'), op(2, 'Вторая')] });
-    expect(await rows(page).first().evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
-    await rows(page).first().getByTestId('op-remove').click();
-    await expect(rows(page)).toHaveCount(1);
-  });
 });
