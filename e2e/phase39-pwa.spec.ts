@@ -156,6 +156,9 @@ test.describe('service worker', () => {
     await page.goto('/stats');
     const before = Object.values(await cacheDump(page)).flat();
     expect(before.filter((p) => ['/stats', '/backlog', '/', '/login'].includes(p) || p.startsWith('/api'))).toEqual([]);
+    // Выход делаем со страницы /offline: она не ходит в /api. Иначе запрос открытой /stats получал 401 и http.ts сам уводил
+    // на /login?next=..., и эта навигация обрывала наш goto('/login') (net::ERR_ABORTED в CI).
+    await page.goto('/offline');
     // выход как в приложении: POST /api/auth/logout, затем purge (AppShell.useLogout)
     const out = await page.evaluate(() => fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.status));
     expect(out).toBeLessThan(400);
