@@ -34,6 +34,24 @@ export function Sheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- селектор фокуса нужен только в момент открытия
   }, [open]);
 
+  // Фокус мог упасть на body: сфокусированная кнопка внутри исчезла (например, «Повторить» сменилась сообщением),
+  // а onKeyDown панели ловит только события изнутри. Тогда Esc ловим на документе, но только верхней модалкой.
+  const closeRef = useRef({ onClose, busy });
+  useEffect(() => { closeRef.current = { onClose, busy }; });
+  useEffect(() => {
+    if (!open) return;
+    const onDocKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const a = document.activeElement;
+      if (a && a !== document.body) return;
+      const modals = document.querySelectorAll('[aria-modal="true"]');
+      if (modals[modals.length - 1] !== ref.current) return;
+      if (!closeRef.current.busy) closeRef.current.onClose();
+    };
+    document.addEventListener('keydown', onDocKey);
+    return () => document.removeEventListener('keydown', onDocKey);
+  }, [open]);
+
   if (!open || typeof document === 'undefined') return null;
 
   function onKey(e: KeyboardEvent) {
