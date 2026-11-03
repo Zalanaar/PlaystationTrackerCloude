@@ -124,6 +124,10 @@ test.describe('кнопка «Наверх»', () => {
     test.skip(!isMobile, 'только мобильный');
     const m = await login(page, context, baseURL!);
     m.trophies[3] = manyTrophies();
+    // мгновенная прокрутка: плавную scrollTo внутреннего контейнера ведут кадры, а headless WebKit под нагрузкой с открытым окном
+    // их не выдаёт — анимация вставала на полпути (CI dae7161: 641 вместо 0; локально 5/100 при 12 воркерах, клик доходил).
+    // Плавный путь проверяет тест окна страницы выше; здесь — что кнопка своя и крутит именно окно игры.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/?game=3&tab=trophies');
     const d = page.getByRole('dialog', { name: 'Horizon Forbidden West' });
     await expect(d.getByText('Трофей 40')).toBeAttached();

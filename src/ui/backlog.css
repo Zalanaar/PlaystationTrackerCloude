@@ -128,7 +128,7 @@
 .ps-bl-hltb { margin: var(--sp-2) 0; }
 .ps-bl-hltb__row { justify-content: space-between; flex-wrap: nowrap; }
 
-.ps-bl-bar { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); min-width: 0; }
+.ps-bl-bar { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-3); min-width: 0; }   /* верх 4, а не 8: панель стала 44 (P2-13), первая строка остаётся над нижней навигацией на 320x568 */
 .ps-bl-bar__filters { flex: 1 1 auto; justify-content: flex-start; gap: var(--sp-2); height: var(--tap-min); min-width: 0; }
 .ps-bl-bar__filters[data-active] { border-color: var(--border-strong); }
 .ps-bl-bar__n { margin-left: auto; padding: 0 6px; min-width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-weight: 600; }

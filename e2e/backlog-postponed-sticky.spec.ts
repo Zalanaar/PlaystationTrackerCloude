@@ -87,6 +87,7 @@ test.describe('Бэклог: липкая плашка', () => {
   test('360 px: нет горизонтального скролла, 3 вкладки в одну строку высотой 44', async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await open(page, context, baseURL as string, [...games(), g(200, 'Сервис 1', { status: 'service' })]);
+    await expect(jump(page).getByRole('button')).toHaveCount(3); // ряд вкладок появляется вместе со списком (P2-6)
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     const boxes = await jump(page).getByRole('button').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height) }; }));
     expect(boxes).toHaveLength(3);

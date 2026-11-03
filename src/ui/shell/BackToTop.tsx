@@ -18,21 +18,19 @@ export function BackToTop({ scroller, inDialog = false }: { scroller?: RefObject
     const mq = window.matchMedia('(max-width: 767px)');
     const el = scroller?.current ?? null;
     const target: HTMLElement | Window = el ?? window;
-    let raf = 0;
-    const measure = () => {
-      raf = 0;
+    // прямо в обработчике, без requestAnimationFrame: в WebKit под открытым окном кадры могут не идти (см. holdScroll),
+    // а чтение scrollTop/clientHeight дёшево; setState с тем же значением не перерисовывает
+    const onScroll = () => {
       const y = el ? el.scrollTop : window.scrollY;
       const h = el ? el.clientHeight : window.innerHeight;
       setShow(mq.matches && y > h * BACK_TO_TOP_SCREENS);
     };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(measure); };
     target.addEventListener('scroll', onScroll, { passive: true });
     mq.addEventListener('change', onScroll);
     onScroll();
     return () => {
       target.removeEventListener('scroll', onScroll);
       mq.removeEventListener('change', onScroll);
-      if (raf) cancelAnimationFrame(raf);
     };
   }, [scroller]);
 
