@@ -44,6 +44,8 @@ import { mskDay } from '../inbox/model';
 import { expectHero, heroHintCookie } from '@/shared/hero-hint';
 import { formatLayoutHint, layoutHintCookie, type LayoutHint } from '@/shared/layout-hint';
 import { useNearOpen } from './nearOpen';
+import { useHeaderAction } from '../shell/headerActions';
+import { platformCookie, type PlatformKey } from '@/shared/platform-filter';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
@@ -51,12 +53,20 @@ const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog
 /**
  * heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS).
  * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
+ * platformDefault (F4): запомненная платформа из cookie; параметр URL главнее.
  */
-export function CollectionView({ heroHint, initial, layout }: { heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint } = {}) {
+export function CollectionView({ heroHint, initial, layout, platformDefault = null }: {
+  heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint; platformDefault?: PlatformKey | null;
+} = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const filters = useMemo(() => parseFilters(params), [params]);
+  // F4: запомненная платформа живёт и на клиенте: после «Все» cookie стёрт, а серверный prop ещё старый
+  const [platDefault, setPlatDefault] = useState<PlatformKey | null>(platformDefault);
+  const filters = useMemo(() => parseFilters(params, platDefault), [params, platDefault]);
+  // D-P1: на телефоне поле поиска открывает кнопка шапки, строка видна, пока открыта или есть запрос
+  const [searchOpen, setSearchOpen] = useState(false);
+  useHeaderAction('search', () => setSearchOpen(true));
   const stored = useStoredView(layout?.view ?? null);
   const view: ViewMode = effectiveView(filters, stored);
   const filtersKey = filtersToUrl({ ...filters, view: null }).toString();
@@ -96,6 +106,10 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
   const setFilters = useCallback((p: Partial<Filters>) => {
     // база: последнее запрошенное состояние, а не фильтры текущего рендера: два вызова в один кадр не теряются
     const next = { ...filtersRef.current, ...p };
+    if ('platform' in p && (p.platform ?? null) !== (filtersRef.current.platform ?? null)) {
+      document.cookie = platformCookie(p.platform ?? null);
+      setPlatDefault(p.platform ?? null);
+    }
     filtersRef.current = next;
     const qs = filtersToUrl(next).toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -176,8 +190,11 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
     setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
   }
 
+  // блок, после которого на телефоне идёт «Ближе к платине»: хроника, иначе последний
+  const nearAfter = blocks.includes('chronicle') ? 'chronicle' : blocks[blocks.length - 1];
+
   const barProps = {
-    filters, view, counts: pool ? counts : null, platinumCount: platinumChipCount(summary ? summary.totals.platinumEarned : null, filters, pool), empty, onChange: setFilters, onView: setView,
+    filters, view, counts: pool ? counts : null, platformCounts: summary?.platformCounts ?? null, platinumCount: platinumChipCount(summary ? summary.totals.platinumEarned : null, filters, pool), empty, onChange: setFilters, onView: setView,
     onReset: () => setFilters(resetFilters(filters)), selectMode, onSelect: () => (selectMode ? exitSelect() : setSelectMode(true)),
     canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); },
   };
@@ -196,11 +213,13 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
           ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
           : mobileMq === null
             // сводка из HTML (item 4): до гидрации обе раскладки, CSS показывает нужную
-            ? <><span className="ps-only-m"><ProfileRow profile={summary.profile ?? null} /></span><span className="ps-only-d"><ProfileCard profile={summary.profile ?? null} /></span></>
-            : isMobile ? <ProfileRow profile={summary.profile ?? null} /> : <ProfileCard profile={summary.profile ?? null} />}
+            ? <><span className="ps-only-m"><ProfileRow profile={summary.profile ?? null} totals={summary.totals} /></span><span className="ps-only-d"><ProfileCard profile={summary.profile ?? null} /></span></>
+            : isMobile ? <ProfileRow profile={summary.profile ?? null} totals={summary.totals} /> : <ProfileCard profile={summary.profile ?? null} />}
       </div>
 
-      {mobileMq === null ? <MobileSearchSkeleton /> : isMobile && <MobileSearch {...barProps} />}
+      {mobileMq === null
+        ? filters.q.trim() !== '' && <MobileSearchSkeleton />
+        : isMobile && (searchOpen || filters.q !== '') && <MobileSearch {...barProps} autoFocus={searchOpen && filters.q === ''} onClose={() => setSearchOpen(false)} />}
 
       <InboxStrip ctl={inbox} />
 
@@ -257,9 +276,9 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
           <div className="ps-blocks">
             {nearShown && (summary
               ? (mobileMq === null
-                ? <><span className="ps-only-m"><NearPlatinum items={near} onOpen={openGameCard} collapsible serverOpen={layout?.near} /></span><span className="ps-only-d"><NearPlatinum items={near} onOpen={openGameCard} /></span></>
-                : <NearPlatinum items={near} onOpen={openGameCard} collapsible={isMobile} serverOpen={layout?.near} />)
-              : !summaryFailed && <NearPlatinumSkeleton collapsible={isMobile} />)}
+                ? <span className="ps-only-d"><NearPlatinum items={near} onOpen={openGameCard} /></span>
+                : !isMobile && <NearPlatinum items={near} onOpen={openGameCard} />)
+              : !summaryFailed && !isMobile && <span className={mobileMq === null ? 'ps-only-d' : undefined}><NearPlatinumSkeleton /></span>)}
             {blocks.map((b) => (
               <Fragment key={b}>
                 {failedBlocks.includes(b) && (
@@ -270,6 +289,10 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
                   </p>
                 )}
                 {renderBlock(renderCtx, b)}
+                {/* D-P1: на телефоне «Ближе к платине» после хроники, первый экран отдаётся обложкам */}
+                {b === nearAfter && mobileMq !== false && nearShown && (summary
+                  ? <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinum items={near} onOpen={openGameCard} collapsible serverOpen={layout?.near} /></span>
+                  : !summaryFailed && <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinumSkeleton collapsible /></span>)}
               </Fragment>
             ))}
           </div>

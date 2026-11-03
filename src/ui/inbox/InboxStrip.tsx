@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Icon } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
-import { splitMobile, type Chip } from './model';
+import type { Chip } from './model';
 import type { InboxCtl } from './useInbox';
 import { MatchSheet } from './MatchSheet';
 
@@ -90,7 +90,6 @@ function ReservedBox({ state, ctl, onHide }: { state: BoxState; ctl: InboxCtl; o
 /** Полоса «С прошлого визита» над «Играю» (спека A). Пустая и скрытая не рендерится, если место под неё ещё не было занято. */
 export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
   const mobile = useIsMobile();
-  const [expanded, setExpanded] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   // Скелет уже занял место: дальше без чипов держим ту же коробку, а не убираем её (иначе сдвиг вёрстки)
   const [reserved, setReserved] = useState(false);
@@ -122,8 +121,6 @@ export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
     return null;
   }
 
-  const { visible, hidden } = mobile ? splitMobile(ctl.chips, expanded) : { visible: ctl.chips, hidden: [] };
-  const extra = mobile && (hidden.length > 0 || expanded) ? ctl.chips.length - splitMobile(ctl.chips, false).visible.length : 0;
   return (
     <section className="ps-inbox" aria-labelledby="inbox-h" data-testid="inbox-strip" data-count={ctl.chips.length}>
       <div className="ps-inbox__row">
@@ -134,14 +131,8 @@ export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
           </button>
         )}
         <ul className="ps-inbox__list" aria-label={`Список из ${ctl.chips.length}`}>
-          {visible.map((c) => <li key={c.id}><ChipLink c={c} mobile={mobile} onOpen={() => setMatchOpen(true)} /></li>)}
-          {extra > 0 && (
-            <li>
-              <button type="button" className="ps-chipbtn ps-inbox__chip ps-inbox__more" aria-expanded={expanded} data-testid="inbox-more" onClick={() => setExpanded((v) => !v)}>
-                {expanded ? 'Свернуть' : `Ещё ${extra}`}
-              </button>
-            </li>
-          )}
+          {/* D-P1: на телефоне все чипы одной прокручиваемой строкой (без «Ещё N») */}
+          {ctl.chips.map((c) => <li key={c.id}><ChipLink c={c} mobile={mobile} onOpen={() => setMatchOpen(true)} /></li>)}
         </ul>
       </div>
       {matchOpen && (

@@ -22,6 +22,7 @@
 .ps-sk-chip { flex: none; height: var(--control-h); border-radius: var(--r-chip); }
 .ps-sk-sort { width: 187px; height: var(--control-h); border-radius: var(--r-sm); }
 .ps-sk-view { width: 198px; height: var(--control-h); border-radius: var(--r-sm); }
+.ps-sk-plat { width: 160px; height: var(--control-h); border-radius: var(--r-sm); }
 .ps-sk-select { width: 110px; height: var(--control-h); border-radius: var(--r-md); }
 .ps-sk-menu { width: 36px; height: var(--control-h); border-radius: var(--r-md); }
 .ps-sk-m { display: none; }
@@ -72,6 +73,7 @@
   .ps-sk-grid > li:nth-child(n+7) { display: none; }
   .ps-sk-profile { width: 100%; height: var(--profile-row-h); margin-top: var(--sp-3); }
   .ps-sk-m { display: block; }
+  .ps-filters--chips.ps-sk-m { display: flex; }
   .ps-only-m { display: contents; }
   .ps-only-d { display: none; }
   .ps-sk-d { display: none; }

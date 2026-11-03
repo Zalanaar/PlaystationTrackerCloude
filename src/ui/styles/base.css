@@ -66,6 +66,7 @@ a.ps-btn { text-decoration: none; }
 .ps-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
 .ps-btn--sync, .ps-btn--theme { background: transparent; border-color: transparent; font-size: var(--fs-small); color: var(--text-2); }
 .ps-sync-text-m { display: none; }
+.ps-header__title { display: none; }
 .ps-btn--theme { border-color: var(--border); color: var(--text-2); height: 32px; border-radius: var(--r-chip); }
 .ps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); display: inline-block; flex: none; }
 .ps-dot[data-tone="ok"] { background: var(--success); }
@@ -154,7 +155,12 @@ a.ps-btn { text-decoration: none; }
   .ps-header__in { gap: var(--sp-3); }
   .ps-nav { display: none; }
   .ps-sync-text { display: none; }
-  .ps-sync-text-m { display: inline; min-width: 0; max-width: 24vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-micro); }
+  /* D2 (P2-14): «● 12 ч» без обрезки; ширина постоянная, чтобы шапка не сдвигалась, когда приходит статус */
+  .ps-sync-text-m { display: inline-block; width: 6.5ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: var(--fs-small); }
+  /* D-P2: название раздела вместо логотипа */
+  .ps-logo[data-section] { display: none; }
+  .ps-header__title { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-h1) var(--fs-h1)/var(--lh-h1) var(--font-display); color: var(--text); flex: 0 1 auto; }
+  .ps-header__right .ps-iconbtn.ps-mobile-only { flex: none; }
   .ps-btn--sync { padding: 0 var(--sp-2); gap: var(--sp-1); min-width: var(--tap-min); height: var(--tap-min); }
   .ps-btn--sync[data-tone="bad"] { color: var(--danger); }
   .ps-iconbtn.ps-mobile-only { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
@@ -254,7 +260,9 @@ a.ps-btn { text-decoration: none; }
 .ps-btn.ps-btn--fsheet { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--tap-min); height: 40px; padding: 0; }
 .ps-btn--fsheet .ps-notify-dot { position: absolute; top: 6px; right: 8px; }
 @media (max-width: 767px) {
-  .ps-h1--coll { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* D-P2: название раздела уже в шапке; «Добавить» на Бэклоге — кнопка «+» шапки */
+  .ps-bl-add-page { display: none !important; }
+  .ps-h1--coll, .ps-h1--hdr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .ps-rec-list > li { min-height: 172px; }
 /* ---------- Ошибка и 404 ---------- */

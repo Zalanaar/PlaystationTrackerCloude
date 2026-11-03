@@ -1,6 +1,8 @@
 'use client';
 
 import type { DurationCounts, GenreCounts, HltbCounts } from '@/server/collection/types';
+import { platformChoices, type PlatformCounts } from '@/shared/platform-filter';
+import { PlatformChips } from './PlatformChips';
 import { formatNumber } from '../format';
 import { Icon } from '../icons';
 import {
@@ -9,9 +11,9 @@ import {
 
 /** Содержимое sheet «Фильтры и сортировка» (мобильный, Фаза 33): сортировка радиогруппой, чипы длительности, жанров и HLTB без аккордеона. Изменения применяются сразу. */
 export function BacklogFilterPanel({
-  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, onChange, onReset, onDone,
+  filters, counts, genreCounts, hltbCounts, platformCounts = null, total, nbCount = 0, onChange, onReset, onDone,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number; nbCount?: number;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; platformCounts?: PlatformCounts | null; total: number; nbCount?: number;
   onChange: (p: Partial<Filters>) => void; onReset: () => void; onDone: () => void;
 }) {
   const sortId = backlogSortId(filters);
@@ -32,6 +34,12 @@ export function BacklogFilterPanel({
           ))}
         </div>
       </section>
+      {platformChoices(platformCounts, filters.platform).length > 0 && (
+        <section className="ps-bl-panel__sec" aria-labelledby="bl-p-plat">
+          <h3 id="bl-p-plat" className="ps-bl-panel__h">Платформа</h3>
+          <PlatformChips value={filters.platform} counts={platformCounts} onChange={(platform) => onChange({ platform })} />
+        </section>
+      )}
       <section className="ps-bl-panel__sec" aria-labelledby="bl-p-dur">
         <h3 id="bl-p-dur" className="ps-bl-panel__h">Длительность</h3>
         <div className="ps-bl-group" role="group" aria-labelledby="bl-p-dur">

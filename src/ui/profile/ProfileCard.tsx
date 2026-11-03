@@ -1,8 +1,8 @@
 'use client';
 
-import type { PsnProfile } from '@/server/collection/types';
+import type { CollectionSummaryResponse, PsnProfile } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
-import { formatNumber } from '../format';
+import { formatNumber, plural } from '../format';
 import { Avatar } from '../primitives/Avatar';
 import { levelBarPercent, levelProgressText, levelText, trophyCells, usableProfile } from './model';
 
@@ -32,9 +32,18 @@ export function ProfileRowSkeleton() {
  * Профиль одной строкой (мобильный, §8.3): аватар 36, ник, pill уровня, платина с числом; прогресс уровня полосой 3px по низу.
  * Золото, серебро, бронза и «Всего» не показываются (они в меню профиля). Нет уровня: pill и полоса скрыты; нет платин: счётчик скрыт.
  */
-export function ProfileRow({ profile }: { profile: PsnProfile | null }) {
+export function ProfileRow({ profile, totals = null }: { profile: PsnProfile | null; totals?: CollectionSummaryResponse['totals'] | null }) {
   const p = usableProfile(profile);
-  if (!p) return null;
+  // D1: строка итогов коллекции («10 игр · 262 ч») на мобильном живёт здесь, под ником; без профиля строка только с итогами
+  const sub = totals && totals.games > 0 ? `${formatNumber(totals.games)} ${plural(totals.games, ['игра', 'игры', 'игр'])} · ${formatNumber(totals.hours)} ч` : null;
+  if (!p) {
+    if (!sub) return null;
+    return (
+      <section className="ps-panel ps-profile ps-profile--row ps-profile--totals" aria-label="Итоги коллекции">
+        <p className="ps-profile__nick ps-num" data-testid="profile-row-totals">{sub}</p>
+      </section>
+    );
+  }
   const lvl = levelText(p);
   const next = levelProgressText(p);
   const bar = levelBarPercent(p);
@@ -42,7 +51,10 @@ export function ProfileRow({ profile }: { profile: PsnProfile | null }) {
   return (
     <section className="ps-panel ps-profile ps-profile--row" aria-label={`Профиль PSN ${p.onlineId}`}>
       <Avatar url={p.avatarUrl} name={p.onlineId} size={36} />
-      <p className="ps-profile__nick" title={p.onlineId}>{p.onlineId}</p>
+      <div className="ps-profile__id">
+        <p className="ps-profile__nick" title={p.onlineId}>{p.onlineId}</p>
+        {sub && <span className="ps-profile__sub num" data-testid="profile-row-totals">{sub}</span>}
+      </div>
       {lvl && <span className="ps-profile__pill num" title={next ?? undefined}>{lvl}</span>}
       {plat !== null && (
         <span className="ps-profile__plat" aria-label={`Платина ${formatNumber(plat)}`}>

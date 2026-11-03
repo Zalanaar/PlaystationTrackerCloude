@@ -19,7 +19,7 @@ describe('фильтры <-> URL', () => {
   });
   it('круг: разбор и сборка', () => {
     const f = parseFilters(p('status=completed&sort=hours&order=asc&q=halo&view=dense'));
-    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false, platinum: false });
+    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false, platinum: false, platform: null });
     expect(filtersToUrl(f).toString()).toBe('status=completed&sort=hours&order=asc&q=halo&view=dense');
   });
   it('мусор откатывается, год из URL игнорируется', () => {
@@ -62,6 +62,21 @@ describe('фильтры <-> URL', () => {
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, platinum: true })).toBe(true);
     expect(resetFilters(f)).toEqual({ ...f, status: 'all', platinum: false });
     expect(resetFilters({ ...DEFAULT_FILTERS, hidden: true, platinum: true })).toEqual({ ...DEFAULT_FILTERS, hidden: true });
+  });
+  it('платформа (F4): URL главнее запомненной, all = все, уходит в API и в блоки, сброс снимает', () => {
+    expect(parseFilters(p('')).platform).toBeNull();
+    expect(parseFilters(p(''), 'ps5').platform).toBe('ps5');
+    expect(parseFilters(p('platform=ps4'), 'ps5').platform).toBe('ps4');
+    expect(parseFilters(p('platform=all'), 'ps5').platform).toBeNull();
+    expect(parseFilters(p('platform=xbox')).platform).toBeNull();
+    const f = parseFilters(p('platform=ps4'));
+    expect(filtersToUrl(f).toString()).toBe('platform=ps4');
+    expect(filtersToApi(f, { limit: 60, offset: 0 }).get('platform')).toBe('ps4');
+    expect(blockQuery(['completed'], 'completed_at', '', { limit: 12, offset: 0 }, 'ps5').get('platform')).toBe('ps5');
+    expect(blockQuery(['completed'], 'completed_at', '', { limit: 12, offset: 0 }).has('platform')).toBe(false);
+    expect(hasActiveFilters(f)).toBe(true);
+    expect(filtersDot(f, 'comfort')).toBe(true);
+    expect(resetFilters(f).platform).toBeNull();
   });
   it('applyPlatinum: только platinumEarned, без чипа список как есть', () => {
     const t = (platinumEarned: boolean) => ({ earned: 1, defined: 2, progress: 50, platinumDefined: true, platinumEarned, byType: { platinum: { earned: 0, defined: 1 }, gold: { earned: 0, defined: 0 }, silver: { earned: 0, defined: 0 }, bronze: { earned: 0, defined: 0 } } });

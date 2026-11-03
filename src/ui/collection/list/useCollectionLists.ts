@@ -76,7 +76,7 @@ export function useCollectionLists({ filters, pool, raw, summary, now, view, wid
   const playing = byBlock.playing ?? [];
   const near = useMemo(() => nearItems(summary?.nearPlatinum), [summary]);
   // «Ближе всего к платине» (п.8.2): только на чистой коллекции; пока сводка грузится, вместо блока скелет
-  const nearShown = nearVisible({ count: summary ? near.length : 1, chronicle: chronicleMode, status: filters.status, q: filters.q, platinum: filters.platinum, selectMode, hidden: filters.hidden });
+  const nearShown = nearVisible({ count: summary ? near.length : 1, chronicle: chronicleMode, status: filters.status, q: filters.q, platinum: filters.platinum, selectMode, hidden: filters.hidden, platform: filters.platform });
   const years = chron.years.map((y) => y.year);
   const showAnchors = chronicleMode && filters.status === 'all' && (years.length > 0 || (byBlock.backlog?.length ?? 0) > 0 || (byBlock.service?.length ?? 0) > 0 || (byBlock.unsorted?.length ?? 0) > 0);
 

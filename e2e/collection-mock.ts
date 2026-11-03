@@ -24,6 +24,8 @@ export type G = {
   /** Фаза 32 (17.4): отдавать duration.remainingHours/progress (иначе поля нет, как у старой схемы) */
   withRemaining?: boolean;
   linked?: { gameId: number; title: string; platform: 'PS4' | 'PS5'; hours: number }[];
+  /** F4: ключи платформ (главная + скрытые дубли); по умолчанию из platform */
+  platforms?: ('ps5' | 'ps4' | 'pc')[];
   /** F1: личная оценка 0–10 и заметка */
   rating?: number | null;
   note?: string | null;
@@ -138,6 +140,14 @@ function item(g: G) {
 }
 
 /** Забытая (14.4): без статуса, играл, не запускалась больше 90 суток. */
+/** F4: платформы игры для фильтра (PS5-игра с PS4-версией — обе) */
+export const platformsOf = (g: G): ('ps5' | 'ps4' | 'pc')[] => g.platforms ?? [g.platform === 'PS4' ? 'ps4' : 'ps5'];
+const platformTally = (list: G[]) => {
+  const c = { ps5: 0, ps4: 0, pc: 0 };
+  for (const g of list) for (const k of platformsOf(g)) c[k]++;
+  return c;
+};
+
 export function isForgotten(g: G): boolean {
   return g.status === null && g.playSeconds > 0 && !!g.lastPlayedAt && Date.now() - new Date(g.lastPlayedAt).getTime() > 90 * 86_400_000;
 }
@@ -298,6 +308,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     return json(r, {
       totals: { games: games.length, playSeconds: sec, hours: Math.round(sec / 360) / 10, trophiesEarned: 132, platinumEarned: games.filter((g) => g.trophies?.plat).length },
       counts: counts(games),
+      platformCounts: platformTally(games),
       playing: games.filter((g) => g.status === 'playing').sort(byRecent).map(item),
       services: games.filter((g) => g.status === 'service').sort(byRecent).slice(0, 50).map(item),
       continue: games.filter((g) => g.lastPlayedAt && g.status !== 'completed' && g.status !== 'dropped').sort(byRecent).slice(0, 8).map(item),
@@ -336,7 +347,9 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const limit = Number(u.searchParams.get('limit') ?? 60);
     const offset = Number(u.searchParams.get('offset') ?? 0);
     const scope = u.searchParams.get('hidden') === 'only' ? m.games.filter((g) => g.hiddenAt) : visible();
-    const base = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
+    const plat = u.searchParams.get('platform') as 'ps5' | 'ps4' | 'pc' | null;
+    const base0 = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
+    const base = plat ? base0.filter((g) => platformsOf(g).includes(plat)) : base0;
     const wanted = st ? st.split(',') : null;
     const genresQ = u.searchParams.get('genres')?.split(',').map((x) => x.toUpperCase()) ?? null;
     const durQ = u.searchParams.get('duration')?.split(',') ?? null;
@@ -378,6 +391,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
     return {
       items: sorted.slice(offset, offset + limit).map(item), total: sorted.length, limit, offset, counts: counts(inScope.filter((g) => !durQ || durQ.includes(bucketOf(hoursOf(g))))), years, durationCounts: durCounts, genreCounts, hltbCounts,
+      ...(u.searchParams.get('platform_counts') === '1' ? { platformCounts: platformTally(base0.filter((g) => !wanted || wanted.includes(g.status ?? 'none'))) } : {}),
       ...(m.legacySummary ? {} : { forgottenCount: visible().filter(isForgotten).length }),
     };
   }

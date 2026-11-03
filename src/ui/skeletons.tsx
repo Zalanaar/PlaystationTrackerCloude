@@ -73,7 +73,6 @@ export function CollectionPageSkeleton({ hero = true }: { hero?: boolean } = {})
         </div>
         <div className="ps-skeleton ps-sk-profile" />
       </div>
-      <MobileSearchSkeleton />
       {hero && <HeroSkeleton />}
       <FilterBarSkeleton />
       <AnchorsSkeleton />
@@ -104,6 +103,7 @@ export function FilterBarSkeleton() {
             <span className="ps-tabs__sep" aria-hidden="true" />
             <span className="ps-skeleton ps-sk-chip" style={{ width: 118 }} />
           </div>
+          <span className="ps-skeleton ps-sk-plat" />
           <span className="ps-skeleton ps-sk-sort" />
           <span className="ps-skeleton ps-sk-view" />
           <span className="ps-skeleton ps-sk-select" />
@@ -111,6 +111,7 @@ export function FilterBarSkeleton() {
         </div>
       </div>
       <div className="ps-filters ps-filters--chips ps-sk-m">
+        <span className="ps-skeleton ps-sk-fbtn" />
         <div className="ps-tabs">{Array.from({ length: 7 }, (_, i) => <span key={i} className="ps-skeleton ps-sk-chip" style={{ width: 56 }} />)}</div>
       </div>
     </>
@@ -123,7 +124,7 @@ export function BacklogPageSkeleton({ subnav = true }: { /** false, когда �
     <>
       {subnav && <BacklogSubnav />}
       <SkRoot className="ps-collection">
-        <div className="ps-pagehead ps-bl-pagehead"><h1 className="ps-h1">Бэклог</h1><span className="ps-skeleton ps-sk-stat120" /><div className="ps-bl-pagehead__tools"><span className="ps-skeleton ps-sk-bltool" /></div></div>
+        <div className="ps-pagehead ps-bl-pagehead"><h1 className="ps-h1 ps-h1--hdr">Бэклог</h1><span className="ps-skeleton ps-sk-stat120" /><div className="ps-bl-pagehead__tools"><span className="ps-skeleton ps-sk-bltool" /></div></div>
         <div className="ps-skeleton ps-sk-blfilters" />
         {/* место заголовка блока: BacklogView рисует его сразу, без него список прыгает при смене скелета */}
         <div className="ps-h2 ps-h2--icon ps-bl-h" aria-hidden="true">&nbsp;</div>

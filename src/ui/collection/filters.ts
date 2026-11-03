@@ -1,5 +1,6 @@
 // Чистая логика коллекции: фильтры <-> URL <-> query API, дата завершения, оптимистичные правки.
 import type { GameItem, GameSort, GameStatusValue, SortOrder, StatusCounts, StatusFilterValue } from '@/server/collection/types';
+import { PLATFORM_ALL, parsePlatform, type PlatformKey } from '@/shared/platform-filter';
 import { DEFAULT_VIEW, UNSORTED_LABEL, VIEW_MODES, type ViewMode } from '../tokens';
 
 export type StatusTab = 'all' | StatusFilterValue;
@@ -17,11 +18,13 @@ export type Filters = {
   hidden: boolean;
   /** Чип «Платина»: только игры с полученной платиной, считается на клиенте (12.6), в URL `?platinum=1` */
   platinum: boolean;
+  /** F4: платформа (`?platform=ps5`), null = все. Без параметра в URL берётся запомненная (cookie). */
+  platform: PlatformKey | null;
 };
 
 /** Сортировка по умолчанию = дата завершения: включает хронику (design-system §4.3). */
 export const DEFAULT_SORT: GameSort = 'completed_at';
-export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null, hidden: false, platinum: false };
+export const DEFAULT_FILTERS: Filters = { status: 'all', sort: DEFAULT_SORT, order: null, q: '', view: null, hidden: false, platinum: false, platform: null };
 
 export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -57,8 +60,14 @@ export function isViewMode(v: string | null | undefined): v is ViewMode {
   return !!v && (VIEW_MODES as readonly string[]).includes(v);
 }
 
-/** Разбор URL. Неизвестные и битые значения откатываются к умолчаниям. */
-export function parseFilters(params: ParamsLike): Filters {
+/** Платформа из URL: `all` = все, без параметра = запомненная, мусор = все. */
+export function parsePlatformParam(raw: string | null, remembered: PlatformKey | null = null): PlatformKey | null {
+  if (raw === null) return remembered;
+  return raw === PLATFORM_ALL ? null : parsePlatform(raw);
+}
+
+/** Разбор URL. Неизвестные и битые значения откатываются к умолчаниям. `platformDefault`: запомненная платформа (F4). */
+export function parseFilters(params: ParamsLike, platformDefault: PlatformKey | null = null): Filters {
   const status = params.get('status') as StatusTab | null;
   const sortRaw = params.get('sort') as GameSort | null;
   const sort = sortRaw && SORT_IDS.includes(sortRaw) ? sortRaw : DEFAULT_FILTERS.sort;
@@ -73,6 +82,7 @@ export function parseFilters(params: ParamsLike): Filters {
     view: isViewMode(viewRaw) ? viewRaw : null,
     hidden: params.get('hidden') === '1',
     platinum: params.get('platinum') === '1',
+    platform: parsePlatformParam(params.get('platform'), platformDefault),
   };
 }
 
@@ -91,6 +101,7 @@ export function filtersToUrl(f: Filters): URLSearchParams {
   if (f.view) p.set('view', f.view);
   if (f.hidden) p.set('hidden', '1');
   if (f.platinum) p.set('platinum', '1');
+  if (f.platform) p.set('platform', f.platform);
   return p;
 }
 
@@ -103,18 +114,22 @@ export function filtersToApi(f: Filters, page: { limit: number; offset: number }
   p.set('sort', f.sort);
   if (f.order !== null) p.set('order', f.order);
   if (f.hidden) p.set('hidden', 'only');
+  if (f.platform) p.set('platform', f.platform);
   p.set('limit', String(page.limit));
   p.set('offset', String(page.offset));
   return p;
 }
 
 /** Query блока коллекции: статусы через запятую, свой порядок, поиск общий. */
-export function blockQuery(statuses: readonly StatusFilterValue[], sort: GameSort, q: string, page: { limit: number; offset: number }): URLSearchParams {
+export function blockQuery(
+  statuses: readonly StatusFilterValue[], sort: GameSort, q: string, page: { limit: number; offset: number }, platform: PlatformKey | null = null,
+): URLSearchParams {
   const p = new URLSearchParams();
   const t = q.trim();
   if (t) p.set('q', t.slice(0, MAX_QUERY_LENGTH));
   p.set('status', statuses.join(','));
   p.set('sort', sort);
+  if (platform) p.set('platform', platform);
   p.set('limit', String(page.limit));
   p.set('offset', String(page.offset));
   return p;
@@ -132,17 +147,17 @@ export function matchesStatusTab(g: Pick<GameItem, 'status'>, tab: StatusTab): b
 
 /** Фильтры, которые сбрасывает «Сбросить» (сортировка, вид и раздел «Скрытые» не считаются). */
 export function hasActiveFilters(f: Filters): boolean {
-  return f.status !== 'all' || f.q.trim() !== '' || f.platinum;
+  return f.status !== 'all' || f.q.trim() !== '' || f.platinum || f.platform !== null;
 }
 
 /** Точка на кнопке «Фильтры» (моб., §8.3): сортировка не по умолчанию, выбран статус, платина или вид не «Крупно». Поиск видно в самом поле. */
-export function filtersDot(f: Pick<Filters, 'sort' | 'status' | 'platinum'>, view: ViewMode): boolean {
-  return f.sort !== DEFAULT_SORT || f.status !== 'all' || f.platinum || view !== DEFAULT_VIEW;
+export function filtersDot(f: Pick<Filters, 'sort' | 'status' | 'platinum'> & Partial<Pick<Filters, 'platform'>>, view: ViewMode): boolean {
+  return f.sort !== DEFAULT_SORT || f.status !== 'all' || f.platinum || !!f.platform || view !== DEFAULT_VIEW;
 }
 
-/** Сброс статуса, поиска и чипа «Платина»; раздел («Скрытые» или вся коллекция) остаётся. */
+/** Сброс статуса, поиска, чипа «Платина» и платформы; раздел («Скрытые» или вся коллекция) остаётся. */
 export function resetFilters(f: Filters): Filters {
-  return { ...f, status: 'all', q: '', platinum: false };
+  return { ...f, status: 'all', q: '', platinum: false, platform: null };
 }
 
 /** Платина получена (12.6): единственный признак для чипа «Платина». */

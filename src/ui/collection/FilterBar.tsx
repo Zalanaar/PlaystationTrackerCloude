@@ -8,10 +8,11 @@ import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
 import { filtersDot, hasActiveFilters, SORT_OPTIONS, STATUS_TABS, type Filters, type StatusTab } from './filters';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
+import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
 
 const DEBOUNCE_MS = 250;
 
-function SearchBox({ value, onCommit }: { value: string; onCommit: (q: string) => void }) {
+function SearchBox({ value, onCommit, autoFocus, onEscape }: { value: string; onCommit: (q: string) => void; autoFocus?: boolean; onEscape?: () => void }) {
   const [text, setText] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
   const last = useRef(value);
@@ -46,12 +47,18 @@ function SearchBox({ value, onCommit }: { value: string; onCommit: (q: string) =
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // D-P1: открыто кнопкой шапки — курсор сразу в поле (iOS показывает клавиатуру, жест пользователя тот же кадр)
+  useEffect(() => {
+    if (autoFocus) ref.current?.focus();
+  }, [autoFocus]);
+
   return (
     <div className="ps-search" data-tour="search">
       <Icon name="search" size={16} className="ps-search__icon" />
       <input
         ref={ref} type="search" className="ps-search__input" placeholder="Поиск игры…" aria-label="Поиск игры" value={text} maxLength={100}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape' && onEscape && !text) onEscape(); }}
       />
       {!text && <kbd className="ps-search__kbd" aria-hidden="true">/</kbd>}
       {text && (
@@ -117,6 +124,8 @@ function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void }) 
 
 type BarProps = {
   filters: Filters; view: ViewMode; counts: StatusCounts | null;
+  /** F4: игр по платформам из сводки; null, пока сводка грузится */
+  platformCounts: PlatformCounts | null;
   /** Игр с платиной (`platinumChipCount`: сводка или, при поиске, текущая выборка); null, пока сводка грузится */
   platinumCount: number | null;
   onChange: (p: Partial<Filters>) => void; onView: (v: ViewMode) => void; onReset: () => void;
@@ -179,6 +188,7 @@ export function FilterBar(p: BarProps) {
       <div className="ps-filters__row">
         <SearchBox value={filters.q} onCommit={commit} />
         <StatusChips filters={filters} counts={counts} platinumCount={platinumCount} onChange={onChange} />
+        <PlatformSelect filters={filters} platformCounts={p.platformCounts} onChange={onChange} />
         <SortSelect f={filters} onChange={onChange} />
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
@@ -189,27 +199,82 @@ export function FilterBar(p: BarProps) {
   );
 }
 
-/** Мобильный слот 1: поиск + кнопка «Фильтры» (sheet: сортировка, вид, выбор игр, действия с коллекцией). */
-export function MobileSearch(p: BarProps) {
-  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
-  const [sheet, setSheet] = useState(false);
-  const active = hasActiveFilters(filters);
-  const dot = filtersDot(filters, view);
+/** Мобильный слот 1 (D-P1): поле поиска. Открывается кнопкой с лупой в шапке, видно, пока открыто или есть запрос. */
+export function MobileSearch(p: BarProps & { autoFocus?: boolean; onClose: () => void }) {
+  const { filters, onChange, onClose } = p;
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
   return (
     <div className="ps-filters ps-filters--search">
       <div className="ps-filters__srow">
-        <SearchBox value={filters.q} onCommit={commit} />
-        <button
-          type="button" className="ps-btn ps-btn--filters ps-btn--fsheet" data-tour="filters-btn" onClick={() => setSheet(true)} aria-haspopup="dialog"
-          aria-label={dot ? 'Фильтры и сортировка (есть изменения)' : 'Фильтры и сортировка'} data-active={dot || undefined}
-        >
-          <Icon name="sliders-h" size={20} />
-          {dot && <span className="ps-notify-dot" aria-hidden="true" />}
-        </button>
+        <SearchBox value={filters.q} onCommit={commit} autoFocus={p.autoFocus} onEscape={filters.q ? undefined : onClose} />
+        {!filters.q && (
+          <button type="button" className="ps-btn ps-btn--ghost ps-filters__sclose" onClick={onClose}>Отмена</button>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** F4: выбор платформы. Десктоп: select фиксированной ширины (место есть всегда, без сдвига); варианты по сводке. */
+function PlatformSelect({ filters, platformCounts, onChange }: Pick<BarProps, 'filters' | 'platformCounts' | 'onChange'>) {
+  const opts = platformChoices(platformCounts, filters.platform);
+  return (
+    <label className="ps-select ps-select--plat" data-active={filters.platform ? true : undefined}>
+      <span className="ps-sr">Платформа</span>
+      <select
+        value={filters.platform ?? ''} disabled={opts.length === 0 && !filters.platform} data-testid="platform-select"
+        onChange={(e) => onChange({ platform: parsePlatform(e.target.value) })}
+      >
+        <option value="">Все платформы</option>
+        {opts.map((o) => <option key={o.id} value={o.id}>{o.label}{o.n ? ` · ${formatNumber(o.n)}` : ''}</option>)}
+      </select>
+      <Icon name="chevron-down" size={14} />
+    </label>
+  );
+}
+
+/** F4, мобильный sheet «Фильтры»: сегмент платформ (только если вариантов больше одного или платформа выбрана). */
+function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filters' | 'platformCounts' | 'onChange'>) {
+  const opts = platformChoices(platformCounts, filters.platform);
+  if (opts.length === 0) return null;
+  return (
+    <div className="ps-stack ps-stack--tight">
+      <span className="ps-label">Платформа</span>
+      <div className="ps-seg" role="group" aria-label="Платформа" data-testid="platform-seg">
+        <button type="button" aria-pressed={!filters.platform} onClick={() => onChange({ platform: null })}>Все</button>
+        {opts.map((o) => <button key={o.id} type="button" aria-pressed={filters.platform === o.id} onClick={() => onChange({ platform: o.id })}>{o.label}</button>)}
+      </div>
+    </div>
+  );
+}
+
+/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид, выбор игр, действия с коллекцией) и чипы статусов. */
+export function MobileChips(p: BarProps) {
+  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
+  const [sheet, setSheet] = useState(false);
+  const active = hasActiveFilters(filters);
+  const dot = filtersDot(filters, view);
+  return (
+    <div className="ps-filters ps-filters--chips">
+      <button
+        type="button" className="ps-btn ps-btn--filters ps-btn--fsheet" data-tour="filters-btn" onClick={() => setSheet(true)} aria-haspopup="dialog"
+        aria-label={dot ? 'Фильтры и сортировка (есть изменения)' : 'Фильтры и сортировка'} data-active={dot || undefined}
+      >
+        <Icon name="sliders-h" size={20} />
+        {dot && <span className="ps-notify-dot" aria-hidden="true" />}
+      </button>
+      {filters.platform && (
+        <button
+          type="button" className="ps-filterchip ps-chip ps-filterchip--platx" aria-pressed="true" data-testid="platform-chip"
+          aria-label={`Платформа ${PLATFORM_KEY_LABEL[filters.platform]}: показать все`} onClick={() => onChange({ platform: null })}
+        >
+          <span className="ps-filterchip__t">{PLATFORM_KEY_LABEL[filters.platform]}</span><Icon name="x" size={14} />
+        </button>
+      )}
+      <StatusChips filters={filters} counts={p.counts} platinumCount={p.platinumCount} onChange={onChange} />
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
         <div className="ps-stack">
+          <PlatformSeg filters={filters} platformCounts={p.platformCounts} onChange={onChange} />
           <SortSelect f={filters} onChange={onChange} />
           <ViewSeg view={view} onView={onView} />
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
@@ -222,15 +287,6 @@ export function MobileSearch(p: BarProps) {
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
       </Sheet>
-    </div>
-  );
-}
-
-/** Мобильный слот 2: чипы статусов (горизонтальный скролл) под hero, над Хроникой. */
-export function MobileChips(p: BarProps) {
-  return (
-    <div className="ps-filters ps-filters--chips">
-      <StatusChips filters={p.filters} counts={p.counts} platinumCount={p.platinumCount} onChange={p.onChange} />
     </div>
   );
 }

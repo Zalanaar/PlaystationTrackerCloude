@@ -11,6 +11,7 @@ import { buildPlan } from '@/ui/collection/blocks';
 import { DEFAULT_FILTERS } from '@/ui/collection/filters';
 import { parseGameParam } from '@/ui/collection/gameLink';
 import { PSN_W, psnImageUrl } from '@/ui/format';
+import { PLATFORM_COOKIE, parsePlatform, type PlatformKey } from '@/shared/platform-filter';
 
 /** P1-2: адрес только с окном игры (`?game=<id>`, можно `&tab=trophies`) — первый экран тот же, что у `/`, плюс сама игра. */
 function linkOnly(sp: Record<string, string | string[] | undefined>): { ok: boolean; id: number | null } {
@@ -21,8 +22,9 @@ function linkOnly(sp: Record<string, string | string[] | undefined>): { ok: bool
   return g.kind === 'ok' ? { ok: true, id: g.id } : { ok: false, id: null };
 }
 
-/** URL пакета блоков для `/` без параметров: ровно тот, что посчитает клиент (useCollectionData → buildPlan). */
-const DEFAULT_BATCH_URL = gamesBatchUrl(buildPlan(DEFAULT_FILTERS.status, DEFAULT_FILTERS.q, DEFAULT_FILTERS.platinum).map((p) => p.query));
+/** URL пакета блоков для `/` без параметров: ровно тот, что посчитает клиент (useCollectionData → buildPlan). F4: с запомненной платформой. */
+const batchUrlFor = (platform: PlatformKey | null) =>
+  gamesBatchUrl(buildPlan(DEFAULT_FILTERS.status, DEFAULT_FILTERS.q, DEFAULT_FILTERS.platinum, platform).map((p) => p.query));
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -30,6 +32,8 @@ export default async function CollectionPage({ searchParams }: Props) {
   const jar = await cookies();
   // Подсказка «есть ли игры „Играю“» с прошлого визита: без неё скелет hero исчезал и сдвигал страницу
   const heroHint = parseHeroHint(jar.get(HERO_HINT_COOKIE)?.value);
+  // F4: запомненная платформа; параметр URL всё равно главнее (CollectionView)
+  const platform = parsePlatform(jar.get(PLATFORM_COOKIE)?.value);
   const h = await headers();
   // без cookie-подсказки (первый визит) ширина по устройству: телефон рисуется в 2 колонки сразу, приоритет только у 2 обложек первого ряда
   const layout = withDeviceWidth(parseLayoutHint(jar.get(LAYOUT_HINT_COOKIE)?.value), h.get('sec-ch-ua-mobile'), h.get('user-agent'));
@@ -44,17 +48,19 @@ export default async function CollectionPage({ searchParams }: Props) {
   const cookieHeader = ssr ? h.get('cookie') : null;
   return (
     <Suspense fallback={<CollectionPageSkeleton hero={heroHint !== false} />}>
-      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} />
+      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} />
     </Suspense>
   );
 }
 
 /** Внутри Suspense: скелет страницы уходит в первом куске HTML, коллекция дописывается тем же ответом, как только готова БД. */
-async function CollectionWithData({ heroHint, layout, cookieHeader, linkId }: { heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null }) {
-  const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, DEFAULT_BATCH_URL, linkId) : null;
+async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform }: {
+  heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null; platform: PlatformKey | null;
+}) {
+  const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, batchUrlFor(platform), linkId) : null;
   // P1-2 (LCP = арт шапки окна): браузер начинает качать его вместе с HTML, а не после запроса деталей с клиента
   const lg = initial?.linkGame;
   const art = lg ? (lg.bannerUrl ? psnImageUrl(lg.bannerUrl, PSN_W.banner) : lg.coverUrl ? psnImageUrl(lg.coverUrl, PSN_W.card) : null) : null;
   if (art) preload(art, { as: 'image', fetchPriority: 'high', referrerPolicy: 'no-referrer' });
-  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} />;
+  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} />;
 }

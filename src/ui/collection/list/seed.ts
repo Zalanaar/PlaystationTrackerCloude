@@ -25,7 +25,7 @@ export type Seed = { summary: CollectionInitial['summary']; pool: Pool; initial:
  */
 export function seedFromInitial(initial: CollectionInitial | null | undefined, f: Filters): Seed | null {
   if (!initial || !isChronicleMode(f) || f.platinum) return null;
-  const plan = buildPlan(f.status, f.q, f.platinum);
+  const plan = buildPlan(f.status, f.q, f.platinum, f.platform);
   if (gamesBatchUrl(plan.map((p) => p.query)) !== initial.batchUrl) return null;
   if (!Array.isArray(initial.batch?.results) || initial.batch.results.length !== plan.length) return null;
   const pool = chroniclePool(plan, settleBatch(initial.batch), [], f);

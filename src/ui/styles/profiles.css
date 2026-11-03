@@ -67,7 +67,7 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-header__in { min-width: 0; }
   .ps-header__right { min-width: 0; flex: 0 1 auto; gap: var(--sp-1); }
   .ps-header__right .ps-btn--sync { flex: 0 1 auto; min-width: 0; overflow: hidden; }
-  .ps-header__right .ps-sync-text-m { max-width: 16vw; }
+  .ps-header__right .ps-sync-text-m { max-width: none; }
 }
 
 /* ---------- Страница /profiles (§17.3) ---------- */

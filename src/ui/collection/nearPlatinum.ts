@@ -21,8 +21,8 @@ export function nearItems(raw: readonly NearPlatinumItem[] | undefined | null): 
 }
 
 /** Блок показывается только на «чистой» коллекции: без поиска, статуса, «Платины», нестандартной сортировки и режима выбора. */
-export function nearVisible(a: { count: number; chronicle: boolean; status: string; q: string; platinum: boolean; selectMode: boolean; hidden?: boolean }): boolean {
-  return a.count > 0 && a.chronicle && a.status === 'all' && a.q.trim() === '' && !a.platinum && !a.selectMode && !a.hidden;
+export function nearVisible(a: { count: number; chronicle: boolean; status: string; q: string; platinum: boolean; selectMode: boolean; hidden?: boolean; platform?: string | null }): boolean {
+  return a.count > 0 && a.chronicle && a.status === 'all' && a.q.trim() === '' && !a.platinum && !a.selectMode && !a.hidden && !a.platform;
 }
 
 /** «ср. редкость 12,4%» / «редкость неизвестна». */

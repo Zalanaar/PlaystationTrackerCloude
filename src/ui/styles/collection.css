@@ -26,7 +26,10 @@
 .ps-filterchip:hover { background: var(--surface-2); color: var(--text); }
 .ps-filterchip[aria-pressed="true"] { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); }
 .ps-filterchip__n { font-size: var(--fs-small); color: var(--text-3); }
-.ps-filters__row > .ps-select { margin-left: auto; }
+.ps-filters__row > .ps-select:first-of-type { margin-left: auto; }
+/* F4: платформа, фиксированная ширина: варианты приходят со сводкой, ряд не перестраивается */
+.ps-select--plat select { width: 160px; }
+.ps-select--plat[data-active] select { border-color: var(--border-strong); color: var(--text); }
 .ps-select { position: relative; display: inline-flex; align-items: center; }
 .ps-select select { appearance: none; height: var(--control-h); padding: 0 32px 0 var(--sp-3); background: transparent; border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text-2); font: inherit; cursor: pointer; }
 .ps-select select option { background: var(--surface-2); color: var(--text); }
@@ -494,10 +497,28 @@
 .ps-filters--chips { margin-top: var(--sp-1); }
 .ps-filters__srow { display: flex; align-items: center; gap: var(--sp-2); }
 .ps-filters__srow .ps-search { flex: 1 1 auto; width: auto; max-width: none; }
+.ps-filters__sclose { flex: none; height: 40px; }
+.ps-filterchip--platx { gap: 4px; }
+@media (max-width: 767px) {
+  /* D-P1: кнопка «Фильтры» слева от чипов статусов, одна строка вместо двух */
+  .ps-filters--chips { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: var(--sp-1); }
+  .ps-filters--chips > .ps-tabs { flex: 1 1 auto; min-width: 0; margin: 0 calc(-1 * var(--gutter)) 0 0; padding: 0 var(--gutter) 0 0; scroll-padding-left: 0; }
+  .ps-filters--chips > .ps-btn--fsheet { height: var(--control-h); }
+  /* D-P1: плотнее над хроникой: отступы задаёт gap колонки .ps-collection */
+  .ps-collection > .ps-inbox, .ps-collection > .ps-inbox--err { margin-bottom: 0; }
+  .ps-collection > .ps-filters--chips { margin-top: 0; }
+  .ps-collection > .ps-filters--chips ~ .ps-results { margin-top: 0; }
+  /* заголовок страницы в шапке (D-P2), строка профиля сразу под ней */
+  .ps-pagehead--coll .ps-profile, .ps-pagehead--coll .ps-sk-profile { margin-top: 0; }
+  /* «Перейти:» на телефоне не показываем: первый экран отдан обложкам, заголовки лет и так видны */
+  .ps-anchors { display: none; }
+}
 .ps-filters--search .ps-search__input { height: 40px; }
 @media (max-width: 767px) {
   .ps-statline { font-size: var(--fs-body); }
   .ps-pagehead--coll { padding-bottom: 0; }
+  /* D1: итоги коллекции на телефоне внутри строки профиля (ProfileRow) */
+  .ps-pagehead--coll .ps-statline, .ps-pagehead--coll .ps-statline__sk { display: none; }
   .ps-hero__main { min-height: var(--hero-box-h); }
 }
 /* Фаза 27: вход в «Проверить» одной строкой под StatLine, когда блока «Не разобрано» нет */

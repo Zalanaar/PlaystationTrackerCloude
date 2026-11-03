@@ -14,12 +14,12 @@ describe('фильтры бэклога <-> URL', () => {
   });
   it('круг: жанры (регистр), длительность, сортировка', () => {
     const f = parseBacklogFilters(p('genres=action,role_playing_games&duration=10_30,unknown&sort=duration&order=desc'));
-    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '' });
+    expect(f).toEqual({ genres: ['ACTION', 'ROLE_PLAYING_GAMES'], duration: ['10_30', 'unknown'], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '', platform: null });
     expect(backlogToUrl(f).toString()).toBe('genres=ACTION%2CROLE_PLAYING_GAMES&duration=10_30%2Cunknown&sort=duration&order=desc');
   });
   it('мусор и дубли отбрасываются', () => {
     const f = parseBacklogFilters(p('genres=ACTION,zzz,ACTION&duration=bad,lt10&sort=hours&order=up'));
-    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false, q: '' });
+    expect(f).toEqual({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'last_played', order: null, nb: false, q: '', platform: null });
   });
   it('служебный жанр none: круг URL, любой регистр, сочетание с обычными, в query API', () => {
     const f = parseBacklogFilters(p('genres=NONE,horror,None'));
@@ -37,7 +37,7 @@ describe('фильтры бэклога <-> URL', () => {
     expect(backlogToUrl({ ...DEFAULT_BACKLOG, sort: 'duration', order: 'asc' }).toString()).toBe('sort=duration');
   });
   it('query API: статус backlog, жанры ИЛИ, бакеты, сортировка', () => {
-    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false, q: '' }, { limit: 300, offset: 0 });
+    const q = backlogToApi({ genres: ['ACTION', 'HORROR'], duration: ['lt10', 'unknown'], hltb: [], sort: 'duration', order: null, nb: false, q: '', platform: null }, { limit: 300, offset: 0 });
     expect(q.get('status')).toBe('backlog');
     expect(q.get('genres')).toBe('ACTION,HORROR');
     expect(q.get('duration')).toBe('lt10,unknown');
@@ -52,7 +52,19 @@ describe('фильтры бэклога <-> URL', () => {
   it('toggleValue и сброс', () => {
     expect(toggleValue(['A'], 'B')).toEqual(['A', 'B']);
     expect(toggleValue(['A', 'B'], 'A')).toEqual(['B']);
-    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true, q: '' })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '' });
+    expect(resetBacklogFilters({ genres: ['ACTION'], duration: ['lt10'], hltb: [], sort: 'duration', order: 'desc', nb: true, q: '', platform: 'ps4' })).toEqual({ genres: [], duration: [], hltb: [], sort: 'duration', order: 'desc', nb: false, q: '', platform: null });
+  });
+  it('платформа (F4): URL главнее запомненной, all = все, в API уходит со счётчиками', () => {
+    expect(parseBacklogFilters(p('')).platform).toBeNull();
+    expect(parseBacklogFilters(p(''), 'ps5').platform).toBe('ps5');
+    expect(parseBacklogFilters(p('platform=ps4'), 'ps5').platform).toBe('ps4');
+    expect(parseBacklogFilters(p('platform=all'), 'ps5').platform).toBeNull();
+    const f = { ...DEFAULT_BACKLOG, platform: 'ps4' as const };
+    expect(backlogToUrl(f).toString()).toBe('platform=ps4');
+    expect(backlogToApi(f, { limit: 300, offset: 0 }).get('platform')).toBe('ps4');
+    expect(backlogToApi(DEFAULT_BACKLOG, { limit: 300, offset: 0 }).get('platform_counts')).toBe('1');
+    expect(hasBacklogFilters(f)).toBe(true);
+    expect(activeBacklogCount(f)).toBe(1);
   });
   it('чип «Не куплено»: ?nb=1 <-> фильтр, в API не уходит', () => {
     const f = parseBacklogFilters(p('nb=1'));

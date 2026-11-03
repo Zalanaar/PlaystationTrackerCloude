@@ -2,6 +2,8 @@
 
 import { useId, useState } from 'react';
 import type { DurationCounts, GenreCounts, HltbCounts } from '@/server/collection/types';
+import type { PlatformCounts } from '@/shared/platform-filter';
+import { PlatformChips } from './PlatformChips';
 import { formatNumber } from '../format';
 import { Icon } from '../icons';
 import {
@@ -10,9 +12,11 @@ import {
 
 /** Фильтры бэклога: «Длительность» (чипы со счётчиками), «Жанр» (раскрывающийся список чипов), сортировка. Всё переносится по строкам, без горизонтальной прокрутки. */
 export function BacklogFilters({
-  filters, counts, genreCounts, hltbCounts, nbCount = 0, onChange, onReset,
+  filters, counts, genreCounts, hltbCounts, platformCounts = null, nbCount = 0, onChange, onReset,
 }: {
   filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null;
+  /** F4: игр бэклога по платформам */
+  platformCounts?: PlatformCounts | null;
   /** записей «не куплено» (Фаза 43); чип показываем, если они есть или он уже включён */
   nbCount?: number;
   onChange: (p: Partial<Filters>) => void; onReset: () => void;
@@ -60,6 +64,7 @@ export function BacklogFilters({
           Жанр{filters.genres.length > 0 && <span className="ps-filterchip__n num">{filters.genres.length}</span>}
           <Icon name="chevron-down" size={14} />
         </button>
+        <PlatformChips value={filters.platform} counts={platformCounts} onChange={(platform) => onChange({ platform })} />
         {HLTB_CHIPS.map((c) => {
           const n = hltbCounts ? hltbCounts[c.id] : 0;
           const on = filters.hltb.includes(c.id);

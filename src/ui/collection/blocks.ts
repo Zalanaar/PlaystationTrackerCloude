@@ -1,4 +1,5 @@
 // План загрузки блоков Коллекции (design-system §4.3): какие блоки видны при выбранной вкладке статуса и какими запросами они грузятся.
+import type { PlatformKey } from '@/shared/platform-filter';
 import type { GameItem, GameSort, StatusFilterValue } from '@/server/collection/types';
 import { byLastPlayed } from './chronicle';
 import { blockQuery, type StatusTab } from './filters';
@@ -42,10 +43,10 @@ export type PlanItem = { block: BlockId; query: URLSearchParams };
  * Запросы для режима хроники. `all` (чип «Платина», фильтр на клиенте): превью-блоки грузятся целиком,
  * иначе игры с платиной за пределами первых 12 не попали бы в выдачу.
  */
-export function buildPlan(tab: StatusTab, q: string, all = false): PlanItem[] {
+export function buildPlan(tab: StatusTab, q: string, all = false, platform: PlatformKey | null = null): PlanItem[] {
   return visibleBlocks(tab).map((block) => {
     const limit = block === 'playing' && tab === 'all' ? PLAYING_LIMIT : isFull(block, tab, all) ? FULL_LIMIT : PREVIEW_LIMIT;
-    return { block, query: blockQuery(blockStatuses(block, tab), blockSort(block), q, { limit, offset: 0 }) };
+    return { block, query: blockQuery(blockStatuses(block, tab), blockSort(block), q, { limit, offset: 0 }, platform) };
   });
 }
 

@@ -40,13 +40,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
     note: 'Когда в Коллекции появятся игры, статус меняется так же: через фигуру в углу карточки.', noteMobile: null,
   }),
   s({
-    id: 'search', route: '/', target: 'search', targetMobile: 'search', place: 'bottom', title: 'Поиск',
-    text: 'Ищет по названию. Клавиша «/» ставит курсор в поле.', textMobile: 'Ищет по названию игры.', note: null, noteMobile: null,
+    id: 'search', route: '/', target: 'search', targetMobile: 'search-hdr', place: 'bottom', title: 'Поиск',
+    text: 'Ищет по названию. Клавиша «/» ставит курсор в поле.', textMobile: 'Лупа в шапке открывает поиск по названию игры.', note: null, noteMobile: null,
   }),
   s({
     id: 'filters', route: '/', target: 'filters', targetMobile: 'filters-btn', place: 'bottom', title: 'Фильтры',
     text: 'Чипы статусов с числом игр и чип «Платина». Ещё сортировка и вид: крупно, плотно, список.',
-    textMobile: 'Кнопка «Фильтры»: сортировка и вид (крупно, плотно, список). Чипы статусов под блоком «Играю».',
+    textMobile: 'Кнопка «Фильтры» слева от чипов статусов: платформа, сортировка и вид (крупно, плотно, список).',
     note: 'Фильтры появятся после первой загрузки игр.', noteMobile: null,
   }),
   s({

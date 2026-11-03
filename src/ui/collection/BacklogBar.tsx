@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { DurationCounts, GenreCounts, HltbCounts } from '@/server/collection/types';
+import { PLATFORM_KEY_LABEL, type PlatformCounts } from '@/shared/platform-filter';
 import { formatNumber } from '../format';
 import { Icon } from '../icons';
 import { Popover } from '../primitives/Popover';
@@ -60,9 +61,9 @@ export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; 
 
 /** Мобильная панель: кнопка «Фильтры» (sheet с сортировкой и фильтрами) и переключатель вида. */
 export function BacklogMobileBar({
-  filters, counts, genreCounts, hltbCounts, total, nbCount = 0, view, onView, onChange, onReset, onSearch,
+  filters, counts, genreCounts, hltbCounts, platformCounts = null, total, nbCount = 0, view, onView, onChange, onReset, onSearch,
 }: {
-  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; total: number; nbCount?: number;
+  filters: Filters; counts: DurationCounts | null; genreCounts: GenreCounts | null; hltbCounts: HltbCounts | null; platformCounts?: PlatformCounts | null; total: number; nbCount?: number;
   view: BacklogView; onView: (v: BacklogView) => void; onChange: (p: Partial<Filters>) => void; onReset: () => void;
   /** иконка поиска между «Фильтры» и видом (Фаза 43.1): открывает лист «Поиск» */
   onSearch?: () => void;
@@ -87,10 +88,18 @@ export function BacklogMobileBar({
           <Icon name="search" size={18} />
         </button>
       )}
+      {filters.platform && (
+        <button
+          type="button" className="ps-filterchip ps-chip ps-filterchip--platx" aria-pressed="true" data-testid="platform-chip"
+          aria-label={`Платформа ${PLATFORM_KEY_LABEL[filters.platform]}: показать все`} onClick={() => onChange({ platform: null })}
+        >
+          <span className="ps-filterchip__t">{PLATFORM_KEY_LABEL[filters.platform]}</span><Icon name="x" size={14} />
+        </button>
+      )}
       <BacklogViewSeg view={view} onView={onView} />
       <Sheet open={open} onClose={() => setOpen(false)} title="Фильтры и сортировка">
         <BacklogFilterPanel
-          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={total} nbCount={nbCount}
+          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} platformCounts={platformCounts} total={total} nbCount={nbCount}
           onChange={onChange} onReset={onReset} onDone={() => setOpen(false)}
         />
       </Sheet>

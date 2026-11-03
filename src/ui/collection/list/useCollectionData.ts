@@ -70,7 +70,7 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
     try {
       let next: Pool;
       if (isChronicleMode(f)) {
-        const plan = buildPlan(f.status, f.q, f.platinum);
+        const plan = buildPlan(f.status, f.q, f.platinum, f.platform);
         // все блоки одним запросом (Фаза 48): раньше 6 параллельных /api/games, каждый со своей проверкой сессии
         const rs = await fetchGamesBatch(plan.map((p) => p.query));
         // у упавшего блока остаются ранее загруженные игры его статусов
@@ -95,7 +95,7 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
             if (!visibleBlocks(f.status).includes('chronicle')) break;
             const have = blockGames(next.items, 'chronicle', f.status).length;
             if (have >= chronTotal) break;
-            q = blockQuery(blockStatuses('chronicle', f.status), blockSort('chronicle'), f.q, { limit: FULL_LIMIT, offset: have });
+            q = blockQuery(blockStatuses('chronicle', f.status), blockSort('chronicle'), f.q, { limit: FULL_LIMIT, offset: have }, f.platform);
           } else {
             if (next.items.length >= next.total) break;
             q = filtersToApi(f, { limit: FULL_LIMIT, offset: next.items.length });
@@ -178,7 +178,7 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
       let query: URLSearchParams;
       if (block) {
         const have = blockGames(p.items, block, f.status).length;
-        query = blockQuery(blockStatuses(block, f.status), blockSort(block), f.q, { limit: FULL_LIMIT, offset: have });
+        query = blockQuery(blockStatuses(block, f.status), blockSort(block), f.q, { limit: FULL_LIMIT, offset: have }, f.platform);
       } else {
         query = filtersToApi(f, { limit: PAGE, offset: p.items.length });
       }

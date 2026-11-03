@@ -22,6 +22,7 @@ import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
+import { emitHeaderAction, headerActionsFor } from './headerActions';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
@@ -69,12 +70,16 @@ export function AppHeader() {
   const { start: startTour } = useTour();
   const install = useInstall();
   const { open: openWhatsNew } = useWhatsNew();
+  // D-P2: на мобильном вместо логотипа название раздела, рядом «Поиск» и «+» той страницы, где они есть
+  const section = NAV_TABS.find((n) => isTabActive(pathname, n)) ?? null;
+  const hdr = headerActionsFor(pathname);
 
   return (
     <>
       <header className="ps-header">
         <div className="ps-header__in ps-container">
-          <Link href="/" className="ps-logo">PS TRACKER</Link>
+          <Link href="/" className="ps-logo" data-section={section ? '' : undefined}>PS TRACKER</Link>
+          {section && <span className="ps-header__title" aria-hidden="true">{section.label}</span>}
           <nav className="ps-nav" aria-label="Разделы" data-tour="nav">
             {NAV_TABS.map((n) => {
               const dot = n.id === 'stats' && offer !== null;
@@ -90,6 +95,16 @@ export function AppHeader() {
             })}
           </nav>
           <div className="ps-header__right">
+            {hdr.search && (
+              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру" onClick={() => emitHeaderAction('search')}>
+                <Icon name="search" size={22} />
+              </button>
+            )}
+            {hdr.add && (
+              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid="hdr-add" aria-label="Добавить игру в бэклог" aria-haspopup="dialog" onClick={() => emitHeaderAction('add')}>
+                <Icon name="plus" size={22} />
+              </button>
+            )}
             <SyncIndicator />
             <PsnProfileSwitcher />
             <div className="ps-desktop-only"><ThemePicker /></div>

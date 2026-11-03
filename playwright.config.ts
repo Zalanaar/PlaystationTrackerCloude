@@ -23,10 +23,10 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], launchOptions } },
     { name: 'mobile', use: { ...devices['Pixel 7'], launchOptions } },
-    // WebKit как Safari на iPhone: только регресс прокрутки окна игры (в CI — отдельная job).
+    // WebKit как Safari на iPhone: регресс прокрутки окна игры и первый экран Коллекции (D-P1); в CI — отдельная job.
     // Раньше здесь был workers: 1 из-за «зависаний WPE». Настоящая причина — backdrop-filter на бейдже каждой карточки
     // (см. .ps-card__glyph в collection.css): поток композитора WPE уходил в 100% CPU и съедал память до OOM.
-    { name: 'webkit-iphone', testMatch: /dialog-scroll\.spec\.ts/, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
+    { name: 'webkit-iphone', testMatch: /(dialog-scroll|first-screen-iphone)\.spec\.ts/, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,

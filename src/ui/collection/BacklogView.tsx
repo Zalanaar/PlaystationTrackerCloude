@@ -27,6 +27,8 @@ import type { AddedItem } from './AddFromStoreSheet';
 import { fetchManual, markPurchased, removeManual, unmarkPurchased } from './manualApi';
 import { RemoveManualSheet } from './RemoveManualSheet';
 import { BacklogFilters } from './BacklogFilters';
+import { platformCookie, type PlatformCounts, type PlatformKey } from '@/shared/platform-filter';
+import { useHeaderAction } from '../shell/headerActions';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
 import { BacklogRow, type RowMenuItem } from './BacklogRow';
@@ -54,21 +56,23 @@ const AddFromStoreSheet = dynamic(() => import('./AddFromStoreSheet').then((m) =
 /** Сколько первых обложек бэклога грузить сразу и с высоким приоритетом (первый экран, Фаза 47). */
 const FIRST_SCREEN = 6;
 
-export function BacklogView() {
+/** platformDefault (F4): запомненная платформа из cookie, общая с Коллекцией; параметр URL главнее. */
+export function BacklogView({ platformDefault = null }: { platformDefault?: PlatformKey | null } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const urlKey = params.toString();
   // Источник правды для запросов: локальное состояние (мгновенно, без гонок при быстрых кликах); адрес только отражает его.
   // Внешняя навигация (назад/вперёд) определяется по ключам адреса, которые мы сами не записывали.
-  const [filters, setFiltersState] = useState<Filters>(() => parseBacklogFilters(params));
+  const platRef = useRef<PlatformKey | null>(platformDefault);
+  const [filters, setFiltersState] = useState<Filters>(() => parseBacklogFilters(params, platRef.current));
   const filtersRef = useRef(filters);
   const pendingRef = useRef<Set<string>>(new Set());
   const filtersKey = backlogToUrl(filters).toString();
   useEffect(() => {
-    const incoming = backlogToUrl(parseBacklogFilters(new URLSearchParams(urlKey))).toString();
+    const incoming = backlogToUrl(parseBacklogFilters(new URLSearchParams(urlKey), platRef.current)).toString();
     if (pendingRef.current.delete(incoming) || incoming === backlogToUrl(filtersRef.current).toString()) return;
-    const next = parseBacklogFilters(new URLSearchParams(urlKey));
+    const next = parseBacklogFilters(new URLSearchParams(urlKey), platRef.current);
     filtersRef.current = next;
     setFiltersState(next);
   }, [urlKey]);
@@ -77,6 +81,7 @@ export function BacklogView() {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<DurationCounts | null>(null);
   const [genreCounts, setGenreCounts] = useState<GenreCounts | null>(null);
+  const [platformCounts, setPlatformCounts] = useState<PlatformCounts | null>(null);
   const [hltbCounts, setHltbCounts] = useState<HltbCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const reqRef = useRef(0);
@@ -221,6 +226,7 @@ export function BacklogView() {
       setCounts(r.durationCounts ?? null);
       setGenreCounts(r.genreCounts ?? null);
       setHltbCounts(r.hltbCounts ?? null);
+      setPlatformCounts(r.platformCounts ?? null);
     } catch (e) {
       if (my !== reqRef.current) return;
       if (e instanceof ApiError && e.status === 401) return;
@@ -240,6 +246,10 @@ export function BacklogView() {
 
   const setFilters = useCallback((p: Partial<Filters>) => {
     const next = { ...filtersRef.current, ...p };
+    if ('platform' in p && (p.platform ?? null) !== filtersRef.current.platform) {
+      platRef.current = p.platform ?? null;
+      document.cookie = platformCookie(platRef.current);
+    }
     filtersRef.current = next;
     setFiltersState(next);
     const qs = backlogToUrl(next).toString();
@@ -394,6 +404,9 @@ export function BacklogView() {
     });
   }
   const manualHandlers: ManualHandlers = { bought: (g, f) => void bought(g, f), remove: (g) => setRemoving(g) };
+  // D-P2: «Поиск» и «+» мобильной шапки
+  useHeaderAction('search', () => setSearchOpen(true));
+  useHeaderAction('add', () => openAdd());
   function openAdd(query?: string) {
     addBtnRef.current?.focus();
     setAddQuery(query);
@@ -541,7 +554,7 @@ export function BacklogView() {
     <LoaderOverlay loading={loading && !error} blocking={!items} contentRef={rootRef} />
     <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
       <div className="ps-pagehead ps-bl-pagehead">
-        <h1 className="ps-h1">Бэклог</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Бэклог</h1>
         {/* строка числа ждёт ручные записи вместе со списком (ready), до того на её месте скелет той же высоты.
             На < 768 она отдельной строкой в одну линию: подпись «ещё N вручную…» в одном ряду с h1 сжималась до 4 строк и двигала страницу (CLS) */}
         {ready && !narrowed && (total > 0 || manual.length > 0) ? (
@@ -551,7 +564,7 @@ export function BacklogView() {
         ) : ready && shownTotal > 0 ? <p className="ps-statline ps-num ps-bl-total"><b>{formatNumber(shownTotal)}</b> в списке</p> : !ready && !error && <span className="ps-skeleton ps-sk-stat120 ps-bl-total-sk" aria-hidden="true" />}
         <div className="ps-bl-pagehead__tools">
           <button
-            ref={addBtnRef} type="button" className={mobile ? 'ps-btn ps-nb-add' : 'ps-btn ps-btn--primary ps-nb-add'} data-testid="bl-add"
+            ref={addBtnRef} type="button" className={mobile ? 'ps-btn ps-nb-add ps-bl-add-page' : 'ps-btn ps-btn--primary ps-nb-add ps-bl-add-page'} data-testid="bl-add"
             aria-haspopup="dialog" aria-label="Добавить из магазина PS" onClick={() => openAdd()}
           >
             <Icon name="plus" size={16} />{mobile ? 'Добавить' : 'Добавить из магазина PS'}
@@ -572,11 +585,11 @@ export function BacklogView() {
       {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
       {(items || counts) && (mobile ? (
         <BacklogMobileBar
-          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} total={shownTotal} nbCount={nbCount} view={view} onView={setView}
+          filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} platformCounts={platformCounts} total={shownTotal} nbCount={nbCount} view={view} onView={setView}
           onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} onSearch={() => setSearchOpen(true)}
         />
       ) : (
-        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} nbCount={nbCount} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
+        <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} platformCounts={platformCounts} nbCount={nbCount} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       ))}
       {mobile && filters.q && (
         <div className="ps-bs-active" data-testid="bs-active">

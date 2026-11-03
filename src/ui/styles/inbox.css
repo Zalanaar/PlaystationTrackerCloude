@@ -57,28 +57,25 @@
   .ps-inbox__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label x" "list list"; row-gap: var(--sp-2); }
 }
 
-/* Мобильный: сетка 2 колонки, чипы по --tap-min */
+/* Мобильный (D-P1): одна прокручиваемая строка чипов и ✕ справа, метка только для скринридера. Было 2 колонки и «Ещё N» (~245 px первого экрана) */
 @media (max-width: 767px) {
-  .ps-inbox { padding: var(--sp-3); margin-bottom: var(--sp-3); }
-  .ps-inbox__x { width: var(--tap-min); height: var(--tap-min); margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; }
-  .ps-inbox__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ps-inbox__list > li:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .ps-inbox .ps-chipbtn.ps-inbox__chip {
-    width: 100%; height: auto; min-height: var(--tap-min); padding-block: var(--sp-1); white-space: normal; text-align: left; border-radius: var(--r-chip);
-  }
-  .ps-inbox .ps-chipbtn.ps-inbox__chip.ps-inbox__more { justify-content: center; }
-  .ps-inbox__txt {
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
-  }
+  .ps-inbox { padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+  .ps-inbox__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "list x"; row-gap: 0; column-gap: var(--sp-1); }
+  .ps-inbox__row > .ps-inbox__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .ps-inbox__x { width: var(--tap-min); height: var(--tap-min); }
+  .ps-inbox__list { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .ps-inbox__list::-webkit-scrollbar { display: none; }
+  .ps-inbox__list > li { flex: none; max-width: 85%; }
+  .ps-inbox .ps-chipbtn.ps-inbox__chip { height: var(--tap-min); white-space: nowrap; border-radius: var(--r-chip); }
+  .ps-inbox__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ps-inbox__chev { display: none; }
-  .ps-inbox__sk-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ps-inbox__sk-chip { width: auto; height: var(--tap-min); }
   .ps-inbox__note { padding: 0 var(--sp-3); }
   .ps-inbox__note .ps-inbox__x { margin: 0 calc(-1 * var(--sp-2)) 0 auto; }
-  /* Высота скелета = типичная полоса (метка 22 px + один ряд из двух чипов), иначе сдвиг при загрузке */
-  .ps-inbox--sk { gap: var(--sp-2); }
-  .ps-inbox__sk-label { margin-block: 5px; }
-  .ps-inbox__sk-chip:last-child { display: none; }
+  /* Скелет той же высоты: один ряд чипов по --tap-min, без метки */
+  .ps-inbox--sk { flex-direction: row; gap: var(--sp-2); }
+  .ps-inbox--sk > .ps-inbox__sk-label { display: none; }
+  .ps-inbox__sk-row { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .ps-inbox__sk-chip { flex: none; height: var(--tap-min); }
 }
 
 @media (prefers-contrast: more) {
@@ -111,9 +108,19 @@
 .ps-wn__text { margin: 0; font: 400 var(--fs-body)/var(--lh-body) var(--font-body); color: var(--text-2); overflow-wrap: anywhere; }
 .ps-wn__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); margin-top: var(--sp-2); }
 .ps-wn__go { margin-right: auto; }
+/* P2-16: на телефоне компактная карточка (~2 строки текста), а не ~40 % экрана */
 @media (max-width: 767px) {
-  .ps-wn { left: var(--gutter); right: var(--gutter); width: auto; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3)); }
-  .ps-wn__x { width: var(--tap-min); height: var(--tap-min); }
+  .ps-wn {
+    left: var(--gutter); right: var(--gutter); width: auto; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-2));
+    gap: var(--sp-1); padding: var(--sp-2) var(--sp-3);
+  }
+  .ps-wn__x { width: var(--tap-min); height: var(--tap-min); margin-block: calc(-1 * var(--sp-2)); }
+  .ps-wn__title { font: var(--fw-h3) var(--fs-h3)/var(--lh-h3) var(--font-display); }
+  .ps-wn__text {
+    font: 400 var(--fs-small)/var(--lh-small) var(--font-body);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  }
+  .ps-wn__foot { margin-top: 0; gap: var(--sp-3); }
   .ps-wn__foot .ps-btn { height: var(--tap-min); }
   .ps-wn__go { display: inline-flex; align-items: center; min-height: var(--tap-min); }
 }
