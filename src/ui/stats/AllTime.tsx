@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { FeedLink } from './FeedLink';
 import type { StatsResponse } from '@/server/stats/types';
 import { formatNumber, plural } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
@@ -203,6 +204,7 @@ export function TrophiesByYearPanel({ data, currentYear }: { data: StatsResponse
         ))}
       </ul>
       {has ? <YearChart id="trophies-by-year" slots={slots} ariaLabel="Трофеи по годам" kind="trophies" panel={panel} /> : <EmptyBlock icon="trophy" title="Трофеев пока нет" />}
+      <FeedLink />
     </Panel>
   );
 }

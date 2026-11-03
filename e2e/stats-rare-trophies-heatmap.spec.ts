@@ -161,6 +161,8 @@ test.describe('Карта активности (Статистика)', () => {
     test.skip(info.project.name !== 'desktop', 'клавиатура');
     await setup(page, context, baseURL!);
     await page.goto('/stats');
+    // D-P5: липкая полоса разделов сдвинула панель ниже зоны подгрузки
+    await page.getByRole('region', { name: 'Активность' }).scrollIntoViewIfNeeded();
     const cells = page.getByRole('region', { name: 'Активность' }).getByRole('gridcell');
     await expect(cells.first()).toBeVisible();
     await expect(page.locator('.ps-heat__c[tabindex="0"]')).toHaveCount(1);

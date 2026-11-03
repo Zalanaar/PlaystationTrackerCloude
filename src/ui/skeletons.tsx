@@ -202,6 +202,7 @@ export function StatsPageSkeleton() {
     <SkRoot className="ps-stats-page">
       <div className="ps-pagehead ps-st-pagehead"><h1 className="ps-h1">Статистика</h1></div>
       <span className="ps-skeleton ps-sk-switch" />
+      <span className="ps-sk-secs" />
       <StatsDataSkeleton />
     </SkRoot>
   );

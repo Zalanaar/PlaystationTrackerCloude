@@ -448,3 +448,22 @@
 @media (prefers-contrast: more) {
   .ps-pp__fill { opacity: 1; }
 }
+
+/* D-P5: липкие чипы разделов. Высота фиксирована (скелет держит то же место). Фон сплошной на всю ширину, без blur. */
+.ps-st-secs {
+  position: sticky; top: calc(var(--header-h) + 1px + env(safe-area-inset-top, 0px)); z-index: 5; height: 52px; margin: calc(-1 * var(--sp-2)) 0;
+  background: var(--bg); box-shadow: 0 0 0 100vmax var(--bg); clip-path: inset(0 -100vmax); border-bottom: var(--border-w) solid var(--border);
+}
+.ps-st-secs__in { display: flex; align-items: center; gap: var(--sp-2); height: 100%; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.ps-st-secs__in::-webkit-scrollbar { display: none; }
+.ps-st-secs__chip {
+  flex: none; height: 36px; padding: 0 var(--sp-4); border-radius: var(--r-pill); border: var(--border-w) solid var(--border-strong);
+  background: transparent; color: var(--text); font: 500 var(--fs-small)/1 var(--font-body); white-space: nowrap; cursor: pointer;
+}
+.ps-st-secs__chip:hover { background: var(--surface-2); }
+.ps-st-secs__chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ps-st-secs__chip:focus-visible { box-shadow: var(--shadow-focus); outline: none; }
+.ps-stats-page .ps-panel, .ps-stats-page .ps-st-played { scroll-margin-top: calc(var(--header-h) + 1px + env(safe-area-inset-top, 0px) + 52px + var(--sp-3)); }
+.ps-st-feedlink { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-1); color: var(--accent); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); text-decoration: none; }
+.ps-st-feedlink:hover { text-decoration: underline; }
+.ps-sk-secs { display: block; height: 52px; margin: calc(-1 * var(--sp-2)) 0; }

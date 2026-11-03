@@ -18,6 +18,8 @@ import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
 import { Panel } from './Panel';
+import { SectionChips } from './SectionChips';
+import { FeedLink } from './FeedLink';
 import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel } from './AllTime';
 import { yearRange } from './allTime';
 import { PlayPatternPanel } from './PlayPatternPanel';
@@ -142,6 +144,7 @@ export function StatsView() {
         sel={sel} today={today} years={years} onType={(p) => go(setPeriodType(sel, p, today, lastYear.current), true)}
         onPrev={prev ? () => go(prev) : null} onNext={next ? () => go(next) : null}
       />
+      {!failed && <SectionChips rootRef={rootRef} />}
       {failed ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text={`Не удалось загрузить статистику. ${errorText(failed)}`}>
           <button type="button" className="ps-btn ps-btn--primary" onClick={reload}>Повторить</button>
@@ -378,7 +381,7 @@ function TrophiesPanel({ data, sel }: { data: StatsResponse; sel: Selection }) {
   const points = useMemo(() => linePoints(data.trophies.byMonth.map((m) => m.total), LINE_W, LINE_H, 10), [data.trophies.byMonth]);
   const hasLine = data.trophies.byMonth.some((m) => m.total > 0);
   return (
-    <Panel title="Трофеи" sub={`Получено за период: ${formatNumber(c.total)}`} labelId="st-trophies" className="ps-st-panel--wide">
+    <Panel title="Трофеи" sub={`Получено за период: ${formatNumber(c.total)}`} labelId="st-trophies" className="ps-st-panel--wide" aside={<FeedLink />}>
       <ul className="ps-st-troph">
         {TROPHY_KINDS.map((k) => (
           <li key={k.id} data-kind={k.id} aria-label={`${k.label}: ${formatNumber(c[k.id])}`}>
