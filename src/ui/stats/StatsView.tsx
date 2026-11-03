@@ -301,7 +301,7 @@ function HoursPanel({ data, sel, today, wide }: { data: StatsResponse; sel: Sele
       <div className="ps-st-bars" ref={groupRef} role="group" aria-label={`Часы по месяцам, ${sel.year}`} onMouseLeave={() => { if (!pinned) setActive(null); }}>
         {bars.map((b, i) => (
           <button
-            key={b.month} type="button" className="ps-st-bar" aria-label={b.text} data-nodata={b.value === null || undefined}
+            key={b.month} type="button" className="ps-st-bar" aria-label={`${b.label} — ${b.text}`} data-nodata={b.value === null || undefined}
             data-cur={hl === b.month || undefined} data-active={active === i || undefined} data-est={b.estimated > 0 || undefined}
             onMouseEnter={() => { if (!pinned) setActive(i); }} onFocus={() => { if (!pinned) setActive(i); }}
             onBlur={() => { if (!pinned) setActive((a) => (a === i ? null : a)); }}

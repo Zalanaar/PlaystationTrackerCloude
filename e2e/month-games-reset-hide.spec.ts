@@ -90,7 +90,7 @@ test.describe('Фаза 8: «Игры месяца» на /stats', () => {
     await expect(oneMarch.locator('.ps-card__date')).toHaveText('10 мар.');
     await expect(march.locator('article.ps-card').filter({ has: page.locator('[title="Игра Три"]') }).locator('.ps-card__glyph')).toHaveCount(0);
     await expect(oneMarch.locator('.ps-card__meta')).toHaveText('12 ч 30 м');
-    await block.getByRole('button', { name: /^Февраль/ }).click();
+    await block.getByRole('button', { name: /— Февраль/ }).click();
     await expect(block.locator('h3.ps-month')).toHaveText([/Февраль.*1 игра/]);
     const feb = block.locator('.ps-st-played__month');
     const oneFeb = feb.locator('article.ps-card').filter({ has: page.locator('[title="Игра Один"]') });

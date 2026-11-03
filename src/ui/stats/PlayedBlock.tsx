@@ -94,9 +94,9 @@ export function PlayedBlock({
           {[...groups].sort((a, b) => b.month.localeCompare(a.month)).map((g) => (
             <button
               key={g.month} type="button" className="ps-chip ps-mchip" aria-pressed={g.month === chosen}
-              aria-label={`${monthName(g.monthNumber)}: ${g.items.length} ${g.items.length === 1 ? 'игра' : 'игр'}`} onClick={() => pick(g.month)}
+              aria-label={`${MONTH_CHIP_LABELS[g.monthNumber - 1]} ${g.items.length} — ${monthName(g.monthNumber)}: ${g.items.length} ${g.items.length === 1 ? 'игра' : 'игр'}`} onClick={() => pick(g.month)}
             >
-              {MONTH_CHIP_LABELS[g.monthNumber - 1]}<small className="num">{g.items.length}</small>
+              {MONTH_CHIP_LABELS[g.monthNumber - 1]}{' '}<small className="num">{g.items.length}</small>
             </button>
           ))}
         </div>

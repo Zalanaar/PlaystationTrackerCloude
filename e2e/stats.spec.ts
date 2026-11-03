@@ -65,8 +65,8 @@ test.describe('/stats', () => {
     await expect(page.locator('.ps-st-head')).toContainText('≈ 123,4 ч');
     await expect(page.locator('.ps-st-head [title="Часть часов оценена"]')).toBeVisible();
     // aria-label с обеими частями
-    await expect(feb).toHaveAttribute('aria-label', `Февраль ${TODAY.year}: 11 ч, из них 4 ч оценка`);
-    await expect(jan).toHaveAttribute('aria-label', `Январь ${TODAY.year}: 5 ч, из них 5 ч оценка`);
+    await expect(feb).toHaveAttribute('aria-label', `Фев — Февраль ${TODAY.year}: 11 ч, из них 4 ч оценка`);
+    await expect(jan).toHaveAttribute('aria-label', `Янв — Январь ${TODAY.year}: 5 ч, из них 5 ч оценка`);
     // подсказка: обе части
     await feb.hover();
     const tip = page.getByRole('tooltip');

@@ -19,7 +19,7 @@ export function PlatformChips({ value, counts, onChange, className = 'ps-bl-grou
           key={o.id} type="button" className="ps-filterchip ps-chip" data-platform={o.id} aria-pressed={value === o.id}
           aria-label={counts ? `${o.label}: ${formatNumber(o.n)}` : o.label} onClick={() => onChange(value === o.id ? null : o.id)}
         >
-          <span className="ps-filterchip__t">{o.label}</span>
+          <span className="ps-filterchip__t">{o.label}</span>{' '}
           {counts && <span className="ps-filterchip__n num">{formatNumber(o.n)}</span>}
         </button>
       ))}

@@ -37,7 +37,7 @@ export function BacklogFilters({
                 aria-label={n !== null ? `${b.label}: ${formatNumber(n)}` : b.label}
                 onClick={() => onChange({ duration: toggleValue(filters.duration, b.id) })}
               >
-                <span className="ps-filterchip__t">{b.label}</span>
+                <span className="ps-filterchip__t">{b.label}</span>{' '}
                 {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
               </button>
             );
@@ -75,7 +75,7 @@ export function BacklogFilters({
               key={c.id} type="button" className="ps-filterchip ps-chip" data-hltb={c.id} aria-pressed={on} aria-label={`${c.label}: ${formatNumber(n)}`}
               onClick={() => onChange({ hltb: toggleValue(filters.hltb, c.id) })}
             >
-              <span className="ps-filterchip__t">{c.label}</span>
+              <span className="ps-filterchip__t">{c.label}</span>{' '}
               <span className="ps-filterchip__n num">{formatNumber(n)}</span>
             </button>
           );
@@ -85,7 +85,7 @@ export function BacklogFilters({
             type="button" className="ps-filterchip ps-chip" data-testid="bl-nb-chip" aria-pressed={filters.nb} aria-label={`Не куплено: ${formatNumber(nbCount)}`}
             onClick={() => onChange({ nb: !filters.nb })}
           >
-            <span className="ps-filterchip__t">Не куплено</span>
+            <span className="ps-filterchip__t">Не куплено</span>{' '}
             <span className="ps-filterchip__n num">{formatNumber(nbCount)}</span>
           </button>
         )}
@@ -104,7 +104,7 @@ export function BacklogFilters({
                   aria-label={n !== null ? `${g.label}: ${formatNumber(n)}` : g.label}
                   onClick={() => onChange({ genres: toggleValue(filters.genres, g.key) })}
                 >
-                  <span className="ps-filterchip__t">{g.label}</span>
+                  <span className="ps-filterchip__t">{g.label}</span>{' '}
                   {n !== null && <span className="ps-filterchip__n num">{formatNumber(n)}</span>}
                 </button>
               );

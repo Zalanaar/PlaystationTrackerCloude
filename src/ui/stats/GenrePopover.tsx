@@ -14,7 +14,7 @@ export function GenreRow({
 }: { bar: GenreBar; games: Readonly<Record<string, StatsGenreGame>>; onOpenGame: (g: StatsGenreGame) => void }) {
   const row = (
     <>
-      <span className="ps-st-genres__n">{bar.label}</span>
+      <span className="ps-st-genres__n">{bar.label}</span>{' '}
       <span className="ps-st-genres__bar" aria-hidden="true"><i style={{ width: `${bar.widthPct}%` }} /></span>
       <span className="ps-st-genres__v ps-num">{bar.text}</span>
     </>

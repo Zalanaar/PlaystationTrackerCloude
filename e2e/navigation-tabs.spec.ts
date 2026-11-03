@@ -200,8 +200,8 @@ test.describe('Длинные страницы (18.1)', () => {
     await expect(chips).toBeVisible();
     const buttons = chips.getByRole('button');
     await expect(buttons).toHaveCount(2);
-    await expect(buttons.nth(0)).toHaveAttribute('aria-label', /^Февраль: 1 пройдено$/);
-    await expect(buttons.nth(1)).toHaveAttribute('aria-label', /^Январь: 1 брошено$/);
+    await expect(buttons.nth(0)).toHaveAttribute('aria-label', /^Фев 1 — Февраль: 1 пройдено$/);
+    await expect(buttons.nth(1)).toHaveAttribute('aria-label', /^Янв 1 — Январь: 1 брошено$/);
     await buttons.nth(1).click();
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('m2026-01');
     await expect(buttons.nth(1)).toHaveAttribute('aria-current', 'true');
@@ -248,7 +248,7 @@ test.describe('Длинные страницы (18.1)', () => {
     await expect(sec.locator('.ps-month')).toContainText('Май');
     const chips = sec.getByRole('button', { pressed: true });
     await expect(chips).toHaveCount(1);
-    await sec.getByRole('button', { name: /^Март/ }).click();
+    await sec.getByRole('button', { name: /— Март/ }).click();
     await expect(page).toHaveURL(/[?&]m=\d{4}-03/);
     await expect(sec.locator('.ps-month')).toContainText('Март');
     await page.reload();

@@ -46,7 +46,7 @@ export function GameRow({
         </span>
       </div>
       <div className="ps-row__status" role="cell">
-        <StatusMenu value={game.status} onPick={(s) => actions.setStatus(game, s)} label={`Статус: ${game.title}`} extra={dateMenuItem(game, actions)}>
+        <StatusMenu value={game.status} onPick={(s) => actions.setStatus(game, s)} label={`${label}${doneDate ? ` · ${doneDate.replace(/\.$/, '')}` : ''}. Статус: ${game.title}`} extra={dateMenuItem(game, actions)}>
           <StatusGlyph status={key} size={16} />
           <span className="ps-row__status-t" title={STATUS_META[key].title}>{label}{doneDate ? ` · ${doneDate}` : ''}</span>
         </StatusMenu>

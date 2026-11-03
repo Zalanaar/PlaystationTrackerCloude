@@ -60,7 +60,7 @@ describe('slimGame', () => {
 /** Где src/ui читает поля, которых нет в облегчённых данных. Новый читатель на `/` = облегчённая игра без поля: проверь и допиши сюда. */
 const ALLOWED: Record<string, RegExp> = {
   byType: /^$/, // нигде
-  duration: /^src\/ui\/(collection\/(Backlog\w*|DurationEditor|backlog|manual|dialog\/\w+)|wrapped\/\w+)\.tsx?$/,
+  duration: /^src\/ui\/(collection\/(Backlog\w*|NextUpCard|DurationEditor|backlog|manual|dialog\/\w+)|wrapped\/\w+)\.tsx?$/,
   bannerUrl: /^src\/ui\/collection\/(PlayingHero|dialog\/\w+|GameDialog)\.tsx?$/,
   services: /^$/,
   continue: /^$/,

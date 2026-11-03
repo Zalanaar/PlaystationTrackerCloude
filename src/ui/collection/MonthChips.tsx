@@ -69,10 +69,10 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
     <nav ref={nav} className="ps-mchips" aria-label={`Месяцы ${year}`}>
       {chips.map((c) => (
         <button
-          key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={c.aria}
+          key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}
           onClick={() => { setCur(c.key); onPick?.(c); jumpToAnchor(c.anchorId); }}
         >
-          {c.label}<small className="num">{c.count}</small>
+          {c.label}{' '}<small className="num">{c.count}</small>
         </button>
       ))}
     </nav>
