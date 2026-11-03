@@ -10,7 +10,7 @@ import { runDigest, type DigestRunResult } from '@/server/digest/run';
 import { listSyncUsers } from '@/server/sync/users';
 import { purgeExpiredArchive } from '@/server/auth/profiles';
 import { findCatchupStart } from '@/server/sync/catchup';
-import { queueChain } from '@/server/sync/service';
+import { queueChain, queueGuideRefresh } from '@/server/sync/service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +61,10 @@ export async function GET(req: Request) {
       after(() => queueChain(from - 1));
     }
   }
+
+  // F2-B: индекс гайдов PowerPyx — отдельный вызов /api/cron/guides (своя функция, не в слоте и не в бюджете синка PSN).
+  // Сам маршрут решает, пора ли (7 дней / одна попытка в 20 ч); тут только пинок, сбой глотается.
+  if (process.env.VERCEL_ENV === 'production') after(() => queueGuideRefresh().catch(() => undefined));
 
   const results: BackupJobResult[] = [];
   for (let i = 0; i < targets.length; i += BACKUP_PARALLEL) {

@@ -188,6 +188,11 @@ export async function continueChain(runId: number, hop: number, deps: SelfInvoke
   await selfInvoke(`/api/cron/sync?continue=${runId}&hop=${hop}`, 'самовызов', deps);
 }
 
+/** F2-B: обновление индекса гайдов отдельной функцией (свой бюджет времени), не в звене синка PSN. Не бросает. */
+export async function queueGuideRefresh(deps: SelfInvokeDeps = {}): Promise<void> {
+  await selfInvoke('/api/cron/guides', 'запуск обновления гайдов', { backoffMs: [], ...deps });
+}
+
 /**
  * Самовызов обхода: GET {origin}/api/cron/sync?queue=<id только что закончившего пользователя>[&wait=<N>].
  * Принимающая сторона берёт следующего пользователя с большим id (каждый пользователь не больше раза за обход).
