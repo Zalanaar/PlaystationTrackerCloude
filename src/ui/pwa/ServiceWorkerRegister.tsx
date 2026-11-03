@@ -16,7 +16,8 @@ export function ServiceWorkerRegister() {
     const onChange = () => { if (!userAccepted.current || reloading) return; reloading = true; window.location.reload(); };
     let cancelled = false;
     navigator.serviceWorker.register(SW_URL, { scope: '/' }).then((reg) => {
-      if (cancelled) return;
+      // register() может вернуть undefined (SW заблокирован политикой/автоматизацией): без SW, без необработанного reject (P2-12)
+      if (cancelled || !reg) return;
       const watch = (w: ServiceWorker | null) => {
         if (!w) return;
         w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) setWaiting(w); });

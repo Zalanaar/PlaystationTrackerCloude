@@ -175,7 +175,7 @@ test.describe('service worker', () => {
   test('обновление SW: новая версия ждёт, баннер без авто-перезагрузки, старый кэш чистится после согласия', async ({ page, context, isMobile }) => {
     // Playwright не перехватывает запросы обновления SW, поэтому между браузером и приложением ставим прокси, подменяющий VERSION в /sw.js.
     const { createServer } = await import('node:http');
-    let version = 'v1';
+    let version = '';
     const proxy = createServer((req, res) => {
       void (async () => {
         const headers: Record<string, string> = {};
@@ -186,7 +186,7 @@ test.describe('service worker', () => {
         const sc = up.headers.getSetCookie();
         if (sc.length) h['set-cookie'] = sc;
         let body: Buffer | string = Buffer.from(await up.arrayBuffer());
-        if (req.url === '/sw.js') body = body.toString().replace("var VERSION = 'v1'", `var VERSION = '${version}'`);
+        if (req.url === '/sw.js' && version) body = body.toString().replace(/var VERSION = '[^']*'/, `var VERSION = '${version}'`);
         res.writeHead(up.status, h);
         res.end(body);
       })().catch(() => { res.statusCode = 502; res.end(); });
@@ -198,7 +198,8 @@ test.describe('service worker', () => {
       await page.goto(`${base}/stats`);
       await swReady(page);
       const v1 = Object.keys(await cacheDump(page));
-      expect(v1).toEqual(['ps-static-v1']);
+      expect(v1).toHaveLength(1); // ps-static-<хэш sw.js>
+      expect(v1[0]).toMatch(/^ps-static-c[0-9a-f]{8}$/);
       version = 'v2';
       await page.evaluate(() => { (window as unknown as { __marker: number }).__marker = 1; });
       await page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); await r?.update(); });
@@ -207,7 +208,7 @@ test.describe('service worker', () => {
       await expect(page.getByTestId('sw-update'), 'QA-39-3: баннер обновления невидим на десктопе').toBeVisible({ timeout: 2000 }).catch((e) => { if (!isMobile) test.info().annotations.push({ type: 'QA-39-3', description: 'banner hidden on desktop' }); else throw e; });
       // без согласия: страница не перезагружалась, старый кэш на месте
       expect(await page.evaluate(() => (window as unknown as { __marker?: number }).__marker)).toBe(1);
-      expect(Object.keys(await cacheDump(page)).sort()).toEqual(['ps-static-v1', 'ps-static-v2']);
+      expect(Object.keys(await cacheDump(page)).sort()).toEqual([v1[0], 'ps-static-v2'].sort());
       await page.getByTestId('sw-update').locator('button', { hasText: 'Обновить' }).dispatchEvent('click');
       await page.waitForFunction(() => (window as unknown as { __marker?: number }).__marker === undefined, undefined, { timeout: 15_000 });
       await page.waitForLoadState('load');

@@ -51,6 +51,11 @@ describe('sw: стратегия кэша', () => {
 });
 
 describe('sw: версия и очистка', () => {
+  it('VERSION = хэш содержимого (P2-12): после правки sw.js запустить node scripts/sw-version.mjs --write', async () => {
+    // @ts-expect-error: .mjs без типов
+    const { swContentVersion } = (await import('../../../scripts/sw-version.mjs')) as { swContentVersion: (s: string) => string };
+    expect(sw.VERSION, 'sw.js изменён без новой VERSION: node scripts/sw-version.mjs --write').toBe(swContentVersion(swSource));
+  });
   it('имя кэша содержит версию, чужие кэши не трогаем', () => {
     expect(sw.CACHE).toBe(`ps-static-${sw.VERSION}`);
     expect(sw.isOwnCache('ps-static-v0')).toBe(true);
