@@ -65,6 +65,10 @@ test.describe('QA 21: блокировка ввода', () => {
     expect(calls.statusPuts).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
+    // тур на шаге 7 сам переходит на /triage, Разбор монтируется заново и грузит очередь: под нагрузкой это дольше паузы выше,
+    // и «1» приходилась на загрузку (очереди нет, клавиша законно ничего не делает). Ждём готовую очередь.
+    await expect(page.locator('[data-tour-page="triage"]')).toHaveAttribute('data-tour-ready', 'true');
+    await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
     // после закрытия горячие клавиши работают снова
     await page.keyboard.press('1');
     await expect.poll(() => calls.statusPuts.length, { timeout: 4000 }).toBeGreaterThan(0);

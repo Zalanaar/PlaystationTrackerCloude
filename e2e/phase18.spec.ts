@@ -57,6 +57,10 @@ async function trackCls(page: Page) {
 const resetCls = async (page: Page) => {
   await page.locator('.ps-skeleton').first().waitFor();
   await page.waitForTimeout(500);
+  // Полоса «С прошлого визита» при пустом ответе схлопывает свой скелет анимацией (Фаза 28, ~260 мс), это отдельная проверка.
+  // Без нагрузки она успевала до сброса, под нагрузкой (CI) попадала в замер (+0.04..0.05). Ждём её конца детерминированно.
+  await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0, { timeout: 10_000 });
+  await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
   await page.evaluate(() => { (window as unknown as { __ls: unknown[] }).__ls.length = 0; });
 };
 const cls = (page: Page) => page.evaluate(() => {
@@ -395,13 +399,14 @@ test.describe('Скелеты без скачков, CLS <= 0.05 (18.4)', () => 
     test(`Коллекция и Статистика, ${name}`, async ({ page, context, baseURL }, info) => {
       test.skip(info.project.name === 'mobile', 'размер задаётся вручную');
       const m = await setup(page, context, baseURL!);
-      m.delayList = () => 1500;
+      m.delayList = () => 3000; // с запасом: замер должен начаться, пока список ещё скелет
       m.profile = { onlineId: 'ArtemPS', avatarUrl: null, level: 312, levelProgress: 47, tier: 5, trophies: { platinum: 38, gold: 100, silver: 200, bronze: 500, total: 838 } };
       await mockStats(page, 1500);
       await page.setViewportSize({ width: w, height: h });
       await trackCls(page);
       await page.goto('/');
       await resetCls(page);
+      await expect(page.locator('.ps-sk-hero2'), 'замер начат до подмены скелета данными').toBeVisible({ timeout: 1 });
       await expect(page.getByRole('heading', { name: '2026', level: 2 })).toBeVisible();
       await page.waitForTimeout(600);
       const c1 = await cls(page);

@@ -96,6 +96,8 @@ const slideId = (page: Page) => page.locator('.ps-story__stage').getAttribute('d
 async function watch(page: Page) {
   await page.getByRole('button', { name: 'Смотреть итоги' }).click();
   await expect(page.locator('.ps-story__stage')).toBeVisible();
+  // ловушку фокуса и клавиши вешает эффект после отрисовки: ждём фокус на сцене, иначе под нагрузкой Tab уходил за диалог
+  await expect(page.locator('.ps-story__stage')).toBeFocused();
 }
 async function tap(page: Page, side: 'left' | 'right') {
   const b = (await page.locator('.ps-story__stage').boundingBox())!;

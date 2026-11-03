@@ -245,7 +245,9 @@ test.describe('Панель поиска', () => {
     await expect(reach.getByTestId('op-add-btn')).toHaveCount(0);
     const inf = page.getByTestId('op-add-row').filter({ hasText: 'Halo Infinite' });
     await inf.getByTestId('op-add-btn').click();
-    await expect(inf.getByTestId('op-add-done')).toBeVisible();
+    // фокус переходит на «Добавлено» эффектом после отрисовки; Escape обрабатывает лист (onKeyDown), поэтому ждём фокус,
+    // а не только видимость: под нагрузкой (CI) Escape уходил в body между удалением кнопки и переносом фокуса
+    await expect(inf.getByTestId('op-add-done')).toBeFocused();
     expect(m.addBodies).toHaveLength(1);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('status').filter({ hasText: 'Добавлено в список: «Halo Infinite»' })).toBeVisible();
