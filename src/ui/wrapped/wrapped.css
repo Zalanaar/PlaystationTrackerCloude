@@ -103,6 +103,7 @@
 
 .ps-story__hero { width: 160px; border-radius: var(--r-cover); overflow: hidden; box-shadow: var(--shadow-pop); }
 .ps-story__gtitle { margin: 0; font: var(--fw-h3) var(--fs-h3)/var(--lh-h3) var(--font-display); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ps-story__best { margin: 0; font: var(--fw-display) 28px/34px var(--font-display); color: var(--story-fg); }
 
 .ps-story__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); margin-top: var(--sp-4); }
 .ps-story__btn { min-height: var(--tap-min); gap: var(--sp-2); background: transparent; border-color: var(--story-track); color: var(--story-fg); }

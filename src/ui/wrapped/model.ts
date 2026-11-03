@@ -22,7 +22,7 @@ export const RARE_SLIDE = 'rareTrophies' as const;
 export type StorySlideId = WrappedSlideId | typeof RARE_SLIDE;
 
 const KNOWN: readonly WrappedSlideId[] = [
-  'start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final', 'empty', 'playPattern', 'firstGame', 'platinumYears', 'busiestYear',
+  'start', 'hours', 'topGames', 'finished', 'trophies', 'genres', 'longestGame', 'final', 'empty', 'playPattern', 'firstGame', 'platinumYears', 'busiestYear', 'bestGame',
 ];
 
 export type WrappedScope = number | 'all';
@@ -222,6 +222,7 @@ export function slideCover(id: StorySlideId, d: WrappedResponse): { url: string 
     : id === 'finished' ? (d.finished.completed.items[0] ?? d.finished.dropped.items[0])?.game
     : id === 'trophies' ? (d.trophies.platinum.rarest ?? d.trophies.platinum.last)?.game
     : id === 'longestGame' ? d.longestGame.game
+    : id === 'bestGame' ? d.bestGame?.game
     : id === RARE_SLIDE ? d.trophies.rare?.[0]?.game
     : id === 'firstGame' ? d.allTime?.firstGame.game
     : null;
@@ -303,6 +304,7 @@ export function slideTitle(id: StorySlideId, scope: 'year' | 'all'): string {
     case RARE_SLIDE: return 'Самое редкое';
     case 'genres': return scope === 'all' ? 'Любимый жанр' : 'Любимые жанры';
     case 'longestGame': return 'Самая долгая игра';
+    case 'bestGame': return 'Лучшая игра года';
     case 'firstGame': return 'С чего всё началось';
     case 'platinumYears': return 'Платины';
     case 'busiestYear': return 'Самый игровой год';
@@ -312,3 +314,6 @@ export function slideTitle(id: StorySlideId, scope: 'year' | 'all'): string {
     default: return '';
   }
 }
+
+/** «★ 9 из 10» — подпись оценки на слайде «Лучшая игра года» (и её текст для чтения). */
+export const bestRatingText = (rating: number) => `★ ${rating} из 10`;

@@ -14,7 +14,7 @@ import { RARE_SLIDE_TITLE, rareRows } from '../stats/rare';
 import { hourBars, hourLabel, patternHeadline, patternReady, patternSlideLabel, PATTERN_CAPTION, trophiesCount, weekdayBars, WEEKDAY_NOM, type PatternBar } from '../stats/playPattern';
 import {
   allEstimateBadge, allRangeText, busiestBars, dayMonthYear, firstGameCaption, platinumRows, slideTitle, yearsAgoText, yearsWord,
-  estimateBadge, approxHours, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
+  estimateBadge, approxHours, bestRatingText, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
   keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, slideCover, stepIndex,
   syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type StorySlideId, type TimerState,
 } from './model';
@@ -372,6 +372,20 @@ function SlideView({
           <Rise n={1} rm={rm}><div className="ps-story__hero"><Cover url={l.game.coverUrl} title={l.game.title} w={LARGE_W} /></div></Rise>
           <Rise n={2} rm={rm}><p className="ps-story__gtitle">{l.game.title}</p></Rise>
           <Rise n={3} rm={rm}><p className="ps-story__sub ps-num">{approxHours(l.hours, l.estimated)} ч · {launchesLabel(l.playCount)}</p></Rise>
+        </div>
+      );
+    }
+    case 'bestGame': {
+      const b = data.bestGame;
+      if (!b?.game || b.rating === null) return null;
+      return (
+        <div className="ps-story__center">
+          <Rise n={0} rm={rm}><h2 className="ps-story__title">Лучшая игра года</h2></Rise>
+          <Rise n={1} rm={rm}><div className="ps-story__hero"><Cover url={b.game.coverUrl} title={b.game.title} w={LARGE_W} /></div></Rise>
+          <Rise n={2} rm={rm}><p className="ps-story__gtitle">{b.game.title}</p></Rise>
+          <Rise n={3} rm={rm}><p className="ps-story__best ps-num" data-testid="best-rating">{bestRatingText(b.rating)}</p></Rise>
+          {b.hours > 0 && <Rise n={4} rm={rm}><p className="ps-story__sub ps-num">{approxHours(b.hours, b.estimated)} ч в этом году</p></Rise>}
+          <Rise n={5} rm={rm}><p className="ps-story__small">По твоей оценке</p></Rise>
         </div>
       );
     }

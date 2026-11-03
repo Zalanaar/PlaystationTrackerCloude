@@ -3545,3 +3545,7 @@ OtherPlatformGame = {
 - `GET /api/games/{id}` → `guide: { match: { title, url, wikiUrl } | null, override: string | null, dismissed: boolean }` (главная карточка дубля; сбой индекса — `match: null`). `match` = null при `dismissed`.
 - `PUT /api/games/{id}/guide` `{ override?: "https://…" | null | "", dismissed?: boolean }` → `{ gameId, guide }`. 400 `invalid_request` (не https, пробелы, > 500, лишние поля), 404 чужая/нет игры, 503.
 - UI: своя ссылка → найденный гайд (видно название гайда: ремейк/оригинал) → ссылки-поиск PowerPyx и PSNProfiles (всегда).
+
+## 11.x. Итоги: «Лучшая игра года» (пакет 3)
+- `GET /api/wrapped?year=YYYY` → `bestGame: { hasData, rating: 0..10 | null, hours, estimated, game: GameItem | null }` и слайд `bestGame` (перед `final`), если есть оценённая мной игра года.
+- Кандидаты: игры с часами в году > 0 или пройденные в году (МСК); оценка из `game_reviews` (главная карточка дубля), скрытые не учитываются. Выбор: наивысшая оценка → больше часов в году → lower(title), id. Без кандидатов — `hasData: false`, слайда нет. В `year=all` поля и слайда нет. Старый клиент неизвестный слайд пропускает.
