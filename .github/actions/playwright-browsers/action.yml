@@ -1,0 +1,25 @@
+# Браузеры Playwright с кэшем: ключ = версия @playwright/test из package-lock.json и набор браузеров.
+# При попадании в кэш ставятся только системные зависимости (apt), сами браузеры не скачиваются.
+name: Playwright browsers
+description: Установить браузеры Playwright с кэшем ~/.cache/ms-playwright
+inputs:
+  browsers:
+    description: 'Браузеры через пробел (chromium, webkit)'
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: echo "pw=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.version.outputs.pw }}-${{ inputs.browsers }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps ${{ inputs.browsers }}
+    - if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps ${{ inputs.browsers }}

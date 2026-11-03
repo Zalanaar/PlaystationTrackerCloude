@@ -80,13 +80,88 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
-      # Короткий стабильный набор (вход, коллекция, API коллекции). Полный e2e (~17 мин, есть флаки) и PWA (npm run e2e:pwa) пока запускаются вручную.
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
+      # Короткий стабильный набор (вход, коллекция, API коллекции): быстрый сигнал. Полный набор — в e2e-full, e2e-webkit, e2e-pwa.
       - run: npx playwright test e2e/auth.spec.ts e2e/collection.spec.ts e2e/collection-api.spec.ts --project=desktop
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+
+  # Полный e2e на chromium (проекты desktop и mobile), 4 шарда параллельно. Без повторов: флаки чинятся, а не прячутся.
+  e2e-full:
+    name: E2E full (chromium ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
+      - run: npx playwright test --project=desktop --project=mobile --shard=${{ matrix.shard }}/4
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-full-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  # WebKit как Safari на iPhone (Артём пользуется Safari/PWA): регресс прокрутки окна игры. Проект сам ограничен одним воркером.
+  e2e-webkit:
+    name: E2E webkit (iPhone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit
+      - run: npx playwright test --project=webkit-iphone
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-webkit
+          path: test-results/
+          retention-days: 7
+
+  # PWA (Фаза 39): Service Worker есть только в прод-сборке, конфиг сам делает next build и next start.
+  e2e-pwa:
+    name: E2E PWA
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
+      - run: npm run e2e:pwa
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-pwa
           path: test-results/
           retention-days: 7
 
