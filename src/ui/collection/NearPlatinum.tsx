@@ -47,8 +47,8 @@ function NearToggle({ open }: { open: boolean }) {
  * «Ближе всего к платине» (п.8.2): до 5 игр по прогнозу платины. Сетка на десктопе, горизонтальный трек на мобильном.
  * collapsible (мобильный): по умолчанию свёрнут до шапки, чтобы первый экран занимали игры; выбор запоминается.
  */
-export function NearPlatinum({ items, onOpen, collapsible = false }: { items: NearPlatinumItem[]; onOpen: (g: NearPlatinumItem['game']) => void; collapsible?: boolean }) {
-  const stored = useNearOpen();
+export function NearPlatinum({ items, onOpen, collapsible = false, serverOpen }: { items: NearPlatinumItem[]; onOpen: (g: NearPlatinumItem['game']) => void; collapsible?: boolean; serverOpen?: boolean }) {
+  const stored = useNearOpen(serverOpen);
   const open = !collapsible || stored;
   return (
     <section className="ps-block ps-nearblock" id="near-platinum" aria-labelledby="h-near">

@@ -11,8 +11,8 @@ function read(): string | null {
   return readProfileValue(VIEW_STORAGE_KEY, { legacy: true });
 }
 
-/** Сохранённый вид сетки (localStorage['ps-view:{activeProfileId}'], до Фазы 41 общий 'ps-view'); на сервере null. */
-export function useStoredView(): string | null {
+/** Сохранённый вид сетки (localStorage['ps-view:{activeProfileId}'], до Фазы 41 общий 'ps-view'); на сервере serverView (подсказка из cookie, item 4) или null. */
+export function useStoredView(serverView: string | null = null): string | null {
   return useSyncExternalStore(
     (cb) => {
       window.addEventListener(EVENT, cb); window.addEventListener('storage', cb);
@@ -20,7 +20,7 @@ export function useStoredView(): string | null {
       return () => { window.removeEventListener(EVENT, cb); window.removeEventListener('storage', cb); off(); };
     },
     read,
-    () => null,
+    () => serverView,
   );
 }
 

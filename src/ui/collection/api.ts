@@ -9,6 +9,7 @@ import type {
 } from '@/server/collection/types';
 
 import { ApiError, cachedGet, call } from '../data/http';
+import { gamesBatchUrl } from './batchUrl';
 
 // call/ApiError живут в общем слое ../data/http; реэкспорт для модулей API экранов
 export { ApiError, call, invalidateApiCache } from '../data/http';
@@ -30,12 +31,8 @@ export const fetchSummary = () => cachedGet<CollectionSummaryResponse>('/api/col
 export const fetchGames = (query: URLSearchParams, signal?: AbortSignal) =>
   cachedGet<GamesListResponse>(`/api/games?${query.toString()}`, signal);
 
-/** URL `GET /api/games/batch` (48.1): каждая выборка 9.2 отдельным параметром `b`, порядок сохраняется. */
-export function gamesBatchUrl(queries: readonly URLSearchParams[]): string {
-  const p = new URLSearchParams();
-  for (const q of queries) p.append('b', q.toString());
-  return `/api/games/batch?${p.toString()}`;
-}
+// URL пакета в чистом модуле: его считает и серверная страница `/` (item 4), а этот модуль тянет клиентский кэш
+export { gamesBatchUrl };
 
 /**
  * Несколько выборок 9.2 одним запросом (блоки хроники, Фаза 48). Результат как у Promise.allSettled по каждой выборке:
@@ -49,6 +46,11 @@ export async function fetchGamesBatch(queries: readonly URLSearchParams[]): Prom
   } catch (e) {
     return queries.map(() => ({ status: 'rejected' as const, reason: e }));
   }
+  return settleBatch(r);
+}
+
+/** Ответ пакета → как Promise.allSettled по выборкам (общий путь для сети и данных из HTML, item 4). */
+export function settleBatch(r: GamesBatchResponse): PromiseSettledResult<GamesListResponse>[] {
   return r.results.map((x) => (x.ok
     ? { status: 'fulfilled' as const, value: x.data }
     : { status: 'rejected' as const, reason: new ApiError(503, x.code, 'block failed') }));

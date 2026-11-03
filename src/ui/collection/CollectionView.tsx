@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GameStatusValue } from '@/server/collection/types';
+import type { CollectionInitial, GameStatusValue } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
 import { useIsMobileOrUnknown, useNow, useViewportWidth } from '../primitives/hooks';
@@ -40,23 +40,30 @@ import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
 import { InboxStrip } from '../inbox/InboxStrip';
 import { useInbox } from '../inbox/useInbox';
+import { mskDay } from '../inbox/model';
 import { expectHero, heroHintCookie } from '@/shared/hero-hint';
+import { formatLayoutHint, layoutHintCookie, type LayoutHint } from '@/shared/layout-hint';
+import { useNearOpen } from './nearOpen';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
 
-/** heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS). */
-export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
+/**
+ * heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS).
+ * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
+ */
+export function CollectionView({ heroHint, initial, layout }: { heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const filters = useMemo(() => parseFilters(params), [params]);
-  const stored = useStoredView();
+  const stored = useStoredView(layout?.view ?? null);
   const view: ViewMode = effectiveView(filters, stored);
   const filtersKey = filtersToUrl({ ...filters, view: null }).toString();
-  const now = useNow();
+  const now = useNow(60_000, initial?.now ?? 0);
   const sync = useSync();
-  const width = useViewportWidth();
+  const width = useViewportWidth(layout?.width);
+  const nearOpen = useNearOpen(layout?.near);
   // null на сервере и при гидрации: там рисуем адаптивные скелеты, а не десктопную вёрстку (на телефоне она сдвигала страницу)
   const mobileMq = useIsMobileOrUnknown();
   const isMobile = mobileMq === true;
@@ -67,7 +74,7 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
 
   useTourCardAnchors(rootRef, selectMode);
   useFocusRescue(rootRef);
-  const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()));
+  const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()), initial);
   const { summary, summaryFailed, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
   // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
   const raw = useMemo(() => pool?.items ?? [], [pool]);
@@ -127,11 +134,25 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
     if (summaryPlaying === null || (summaryPlaying > 0) === heroHint) return;
     document.cookie = heroHintCookie(summaryPlaying > 0);
   }, [summaryPlaying, heroHint]);
+  // Раскладка для следующего серверного рендера (item 4): вид, «Ближе к платине», ширина. Пишем только после гидрации и при изменении.
   // только чистая хроника: без поиска, статуса и платины (спека A.1)
-  const inbox = useInbox(chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum);
+  const inbox = useInbox(
+    chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum,
+    data.seeded && initial ? { data: initial.inbox, hidden: !!layout?.day && layout.day === mskDay(initial.now) } : undefined,
+  );
   // пока полоса показывает чип «Проверить статусы», старый check-chip не рендерим (спека A.2)
   const rawCheckCount = useCheckCount() ?? 0;
   const checkCount = inbox.showsCheck ? 0 : rawCheckCount;
+  // Раскладка для следующего серверного рендера (item 4): вид, «Ближе к платине», ширина, «скрыто сегодня». Пишем только после гидрации и при изменении.
+  const layoutSent = useRef<string | null>(layout ? formatLayoutHint({ view: layout.view ?? '', near: layout.near ?? false, width: layout.width ?? 0, day: layout.day }) : null);
+  const inboxHidden = inbox.hidden;
+  useEffect(() => {
+    if (mobileMq === null) return;
+    const v = formatLayoutHint({ view: stored ?? '', near: nearOpen, width, day: inboxHidden ? mskDay(Date.now()) : null });
+    if (v === layoutSent.current) return;
+    layoutSent.current = v;
+    document.cookie = layoutHintCookie(v);
+  }, [mobileMq, stored, nearOpen, width, inboxHidden]);
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
@@ -173,7 +194,10 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
         </div>
         {!summary
           ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
-          : isMobile ? <ProfileRow profile={summary.profile ?? null} /> : <ProfileCard profile={summary.profile ?? null} />}
+          : mobileMq === null
+            // сводка из HTML (item 4): до гидрации обе раскладки, CSS показывает нужную
+            ? <><span className="ps-only-m"><ProfileRow profile={summary.profile ?? null} /></span><span className="ps-only-d"><ProfileCard profile={summary.profile ?? null} /></span></>
+            : isMobile ? <ProfileRow profile={summary.profile ?? null} /> : <ProfileCard profile={summary.profile ?? null} />}
       </div>
 
       {mobileMq === null ? <MobileSearchSkeleton /> : isMobile && <MobileSearch {...barProps} />}
@@ -231,7 +255,11 @@ export function CollectionView({ heroHint }: { heroHint?: boolean } = {}) {
           </EmptyState>
         ) : chronicleMode ? (
           <div className="ps-blocks">
-            {nearShown && (summary ? <NearPlatinum items={near} onOpen={openGameCard} collapsible={isMobile} /> : !summaryFailed && <NearPlatinumSkeleton collapsible={isMobile} />)}
+            {nearShown && (summary
+              ? (mobileMq === null
+                ? <><span className="ps-only-m"><NearPlatinum items={near} onOpen={openGameCard} collapsible serverOpen={layout?.near} /></span><span className="ps-only-d"><NearPlatinum items={near} onOpen={openGameCard} /></span></>
+                : <NearPlatinum items={near} onOpen={openGameCard} collapsible={isMobile} serverOpen={layout?.near} />)
+              : !summaryFailed && <NearPlatinumSkeleton collapsible={isMobile} />)}
             {blocks.map((b) => (
               <Fragment key={b}>
                 {failedBlocks.includes(b) && (

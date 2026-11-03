@@ -10,14 +10,15 @@ function read(): boolean {
   try { return localStorage.getItem(NEAR_OPEN_KEY) === '1'; } catch { return false; }
 }
 
-export function useNearOpen(): boolean {
+/** serverOpen: подсказка из cookie для серверного рендера (item 4). */
+export function useNearOpen(serverOpen = false): boolean {
   return useSyncExternalStore(
     (cb) => {
       window.addEventListener(EVENT, cb); window.addEventListener('storage', cb);
       return () => { window.removeEventListener(EVENT, cb); window.removeEventListener('storage', cb); };
     },
     read,
-    () => false,
+    () => serverOpen,
   );
 }
 

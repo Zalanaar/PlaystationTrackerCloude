@@ -58,6 +58,17 @@ export function invalidateApiCache(): void {
 registerCacheReset(invalidateApiCache);
 
 /**
+ * Положить в кэш GET ответ, который сервер уже отдал в HTML (первый экран `/`, item 4): тот же URL не запрашивается повторно.
+ * Свежий ответ в кэше не перетирается.
+ */
+export function primeApiCache(url: string, data: unknown): void {
+  if (typeof window === 'undefined') return;
+  const hit = done.get(url);
+  if (hit && Date.now() - hit.at < GET_CACHE_TTL_MS) return;
+  done.set(url, { at: Date.now(), data });
+}
+
+/**
  * GET с кэшем: свежий ответ из памяти; одинаковые параллельные запросы без `signal` делят один fetch.
  * Запрос с `signal` идёт своим fetch (отмена одного потребителя не рвёт ответ другим), но результат кладёт в кэш.
  * Только для чтений без побочных эффектов и без опроса (опрос должен видеть свежие данные).

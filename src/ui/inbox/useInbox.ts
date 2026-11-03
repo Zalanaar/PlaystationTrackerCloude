@@ -32,17 +32,21 @@ function readStored(key: string): string | null {
  * Скелет живёт максимум 3 с, потом строка ошибки; второй подряд сбой убирает строку до перезагрузки страницы.
  * Скрытие «до 00:00 МСК» хранится в localStorage по пользователю.
  */
-export function useInbox(enabled: boolean): InboxCtl {
+export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; hidden: boolean }): InboxCtl {
   const me = useMe();
   const key = hideKey(me === undefined ? '' : me?.id ?? 'unknown');
   const ready = me !== undefined;
-  const [phase, setPhase] = useState<InboxState>('loading');
-  const [data, setData] = useState<InboxResponse | null>(null);
-  const hidden = useSyncExternalStore(subscribeHide, () => isHiddenToday(readStored(key), Date.now()), () => false);
+  // seed (item 4): ответ /api/inbox из серверного рендера `/` и подсказка «скрыто сегодня» — полоса сразу в HTML, без скелета и сдвига
+  const seeded = !!seed?.data;
+  const [phase, setPhase] = useState<InboxState>(seeded ? 'ready' : 'loading');
+  const [data, setData] = useState<InboxResponse | null>(seed?.data ?? null);
+  const serverHidden = seed?.hidden ?? false;
+  // пока /api/auth/me не ответил, ключ скрытия неизвестен: держим подсказку сервера, иначе полоса мигнула бы
+  const hidden = useSyncExternalStore(subscribeHide, () => (ready ? isHiddenToday(readStored(key), Date.now()) : serverHidden), () => serverHidden);
   const checked = ready;
   const seq = useRef(0);
   const fails = useRef(0);
-  const started = useRef(false);
+  const started = useRef(seeded);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {

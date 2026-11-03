@@ -1,28 +1,43 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CollectionSummaryResponse } from '@/server/collection/types';
+import type { CollectionInitial, CollectionSummaryResponse } from '@/server/collection/types';
 import { useToast } from '../../primitives/Toast';
 import { useProfile } from '../../profile/ProfileProvider';
 import { useSync } from '../../sync/SyncProvider';
 import { forgottenCountOf } from '../../triage/forgotten';
+import { primeApiCache } from '../../data/http';
 import { ApiError, errorText, fetchGames, fetchGamesBatch, fetchSummary } from '../api';
-import { blockGames, blockSort, blockStatuses, buildPlan, FULL_LIMIT, inBlock, visibleBlocks, type BlockId } from '../blocks';
+import { blockGames, blockSort, blockStatuses, buildPlan, FULL_LIMIT, visibleBlocks, type BlockId } from '../blocks';
 import { blockQuery, filtersToApi, isChronicleMode, type Filters } from '../filters';
 import { PAGE, PLATINUM_MAX_BATCHES, union, type Pool } from './pool';
+import { chroniclePool, seedFromInitial, type Seed } from './seed';
 
 /**
  * Загрузка данных коллекции: сводка, пул игр (хроника блоками или плоский список), подгрузка, перечитывание после синка.
  * `onFiltersKeyChange` вызывается перед перезагрузкой при смене фильтров (сброс выбора).
+ * `initial` (item 4): сводка и пакет блоков из серверного рендера `/`. Подходят к фильтрам: первый рендер (и HTML) сразу с играми,
+ * ответы ложатся в кэш GET, первая загрузка после гидрации пропускается.
  */
-export function useCollectionData(filters: Filters, filtersKey: string, onFiltersKeyChange: () => void) {
+export function useCollectionData(filters: Filters, filtersKey: string, onFiltersKeyChange: () => void, initial?: CollectionInitial | null) {
   const toast = useToast();
   const sync = useSync();
   const { publish: publishProfile } = useProfile();
-  const [summary, setSummary] = useState<CollectionSummaryResponse | null>(null);
-  const [pool, setPool] = useState<Pool | null>(null);
+  // только первый рендер: новые initial при клиентской навигации не перетирают живое состояние
+  const [seed] = useState<Seed | null>(() => {
+    const s = seedFromInitial(initial, filters);
+    if (s) {
+      primeApiCache(s.initial.summaryUrl, s.initial.summary);
+      primeApiCache(s.initial.batchUrl, s.initial.batch);
+    }
+    return s;
+  });
+  const [summary, setSummary] = useState<CollectionSummaryResponse | null>(seed?.summary ?? null);
+  const [pool, setPool] = useState<Pool | null>(seed?.pool ?? null);
   const [summaryFailed, setSummaryFailed] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seed);
+  const skipSummary = useRef(!!seed);
+  const skipLoadKey = useRef<string | null>(seed ? filtersKey : null);
   const [error, setError] = useState(false);
   const [more, setMore] = useState(false);
 
@@ -57,17 +72,14 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
         const plan = buildPlan(f.status, f.q, f.platinum);
         // все блоки одним запросом (Фаза 48): раньше 6 параллельных /api/games, каждый со своей проверкой сессии
         const rs = await fetchGamesBatch(plan.map((p) => p.query));
-        const ok = rs.flatMap((r, i) => (r.status === 'fulfilled' ? [{ block: plan[i].block, r: r.value }] : []));
-        if (ok.length === 0) {
+        // у упавшего блока остаются ранее загруженные игры его статусов
+        const built = chroniclePool(plan, rs, poolRef.current?.items ?? [], f);
+        if (!built) {
           const first = rs[0];
           if (first.status === 'rejected' && first.reason instanceof ApiError && first.reason.status === 401) return;
           throw new Error('all blocks failed');
         }
-        const failed = plan.filter((_, i) => rs[i].status === 'rejected').map((p) => p.block);
-        // у упавшего блока остаются ранее загруженные игры его статусов
-        const kept = (poolRef.current?.items ?? []).filter((g) => failed.some((b) => inBlock(g, b, f.status)));
-        const chron = ok.find((x) => x.block === 'chronicle');
-        next = { items: union([...ok.map((x) => x.r.items), kept]), counts: ok[0].r.counts, total: chron ? chron.r.total : ok[0].r.total, failed, forgotten: forgottenCountOf(ok[0].r.forgottenCount), order: f.order ?? 'desc' };
+        next = built;
       } else {
         const r = await fetchGames(filtersToApi(f, { limit: Math.max(PAGE, keep), offset: 0 }));
         next = { items: r.items, counts: r.counts, total: r.total, failed: [], forgotten: forgottenCountOf(r.forgottenCount), order: f.order ?? 'desc' };
@@ -105,11 +117,22 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
   }, []);
 
   useEffect(() => {
+    if (skipSummary.current && seed) {
+      // сводка уже из HTML: только профиль для шапки
+      skipSummary.current = false;
+      publishProfile(seed.summary.profile ?? null);
+      return;
+    }
     const t = setTimeout(() => void loadSummary(), 0);
     return () => clearTimeout(t);
-  }, [loadSummary]);
+  }, [loadSummary, publishProfile, seed]);
 
   useEffect(() => {
+    if (skipLoadKey.current !== null) {
+      const same = skipLoadKey.current === filtersKey;
+      skipLoadKey.current = null;
+      if (same) return; // пул уже из HTML
+    }
     const t = setTimeout(() => {
       filtersKeyCb.current(); // выбор не должен захватывать игры из прошлой выдачи
       void loadAll(filtersRef.current, PAGE);
@@ -169,5 +192,5 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
     }
   }
 
-  return { summary, summaryFailed, pool, setPool, loading, error, more, poolRef, filtersRef, loadAll, loadMore, refresh };
+  return { summary, summaryFailed, pool, setPool, loading, error, more, poolRef, filtersRef, loadAll, loadMore, refresh, seeded: seed !== null };
 }

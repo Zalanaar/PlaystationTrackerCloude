@@ -35,22 +35,23 @@ export function useIsMobileOrUnknown(): boolean | null {
 }
 
 /** Текущее время, обновляется раз в минуту (для «3 ч назад»). */
-export function useNow(intervalMs = 60_000): number {
+export function useNow(intervalMs = 60_000, serverNow = 0): number {
   return useSyncExternalStore(
     (cb) => {
       const t = setInterval(cb, intervalMs);
       return () => clearInterval(t);
     },
     () => Math.floor(Date.now() / intervalMs) * intervalMs,
-    () => 0,
+    // serverNow: время серверного рендера (item 4), иначе 0 = «время неизвестно»
+    () => serverNow,
   );
 }
 
-/** Ширина окна (для числа колонок превью). На сервере 1440. */
-export function useViewportWidth(): number {
+/** Ширина окна (для числа колонок превью). На сервере serverWidth (подсказка из cookie, item 4), иначе 1440. */
+export function useViewportWidth(serverWidth = 1440): number {
   return useSyncExternalStore(
     (cb) => { window.addEventListener('resize', cb); return () => window.removeEventListener('resize', cb); },
     () => window.innerWidth,
-    () => 1440,
+    () => serverWidth,
   );
 }
