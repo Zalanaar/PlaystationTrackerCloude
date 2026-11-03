@@ -5,6 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
 import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, uncheckedPendingSql, effectiveHoursSql, type DurationRow } from './duration';
+import { PLATFORM_CATEGORY, type PlatformCounts, type PlatformKey } from '@/shared/platform-filter';
 import type {
   CollectionSummaryResponse,
   DurationCounts,
@@ -246,6 +247,15 @@ async function statusCounts(db: AnyDb, userId: UserId, where: SQL | undefined): 
 /** Только видимые игры (контракт 9.10). */
 export const visibleGames = visibleGameRow();
 
+/**
+ * F4: игра на платформе сама или через привязанную версию (дубль `duplicate_of_game_id`).
+ * Игра PS5 с версией PS4 попадает и в фильтр PS5, и в фильтр PS4.
+ */
+export function platformSql(key: PlatformKey): SQL {
+  const cat = PLATFORM_CATEGORY[key];
+  return sql`(${games.category} = ${cat} or exists (select 1 from games d where d.user_id = ${games.userId} and d.duplicate_of_game_id = ${games.id} and d.category = ${cat}))`;
+}
+
 /** Сколько видимых игр в «Играю» (как `counts.playing` сводки 9.3). Для подсказки hero при входе (Фаза 48). */
 export async function countPlaying(db: AnyDb, userId: UserId): Promise<number> {
   const rows = await db
@@ -325,14 +335,34 @@ async function durationCounts(db: AnyDb, userId: UserId, where: SQL | undefined)
   return out;
 }
 
+/** F4: игр по платформам в выборке (с привязанными версиями). */
+async function platformCountsFor(db: AnyDb, userId: UserId, where: SQL | undefined): Promise<PlatformCounts> {
+  const rows = await db
+    .select({
+      ps5: sql<number>`(count(*) filter (where ${platformSql('ps5')}))::int`,
+      ps4: sql<number>`(count(*) filter (where ${platformSql('ps4')}))::int`,
+      pc: sql<number>`(count(*) filter (where ${platformSql('pc')}))::int`,
+    })
+    .from(games)
+    .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .where(and(eq(games.userId, userId), where));
+  const r = rows[0];
+  return { ps5: r?.ps5 ?? 0, ps4: r?.ps4 ?? 0, pc: r?.pc ?? 0 };
+}
+
 export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
   const scope = and(eq(games.userId, userId), p.hiddenOnly ? and(isNotNull(games.hiddenAt), isNull(games.duplicateOfGameId)) : visibleGames);
   const textYear: (SQL | undefined)[] = [
     scope,
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,
     p.year !== null ? sql`${yearExpr} = ${p.year}` : undefined,
+    p.platform ? platformSql(p.platform) : undefined,
   ];
   const whereText = and(...textYear);
+  // F4: счётчики платформ той же выборки, но без фильтра платформы (иначе не переключиться); только по запросу
+  const whereNoPlatform = p.platformCounts
+    ? and(...textYear.slice(0, 3), await genreFilterSql(db, userId, p.genres, and(...textYear.slice(0, 3))), statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationFilterSql(p.durations), hltbFilterSql(p.hltb))
+    : null;
   const genreSql = await genreFilterSql(db, userId, p.genres, whereText);
   const durationSql = durationFilterSql(p.durations);
   // 16.4: счётчики статусов и бакетов учитывают жанры; счётчики статусов ещё и длительность, бакеты нет
@@ -356,7 +386,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
     rating: [sql`${gameReviews.rating} ${dir} nulls last`],
   };
 
-  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts, hCounts] = await Promise.all([
+  const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts, hCounts, pCounts] = await Promise.all([
     q
       .where(and(eq(games.userId, userId), whereAll))
       .orderBy(...sortKeys[p.sort], asc(sql`lower(${games.name})`), asc(games.id))
@@ -381,6 +411,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
     durationCounts(db, userId, whereNoDuration),
     genreCountsFor(db, userId, and(whereText, statusFilterSql(p.statuses), p.forgottenOnly ? forgottenSql(now) : undefined, durationSql, hltbSql)),
     hltbCountsFor(db, userId, whereNoHltb),
+    whereNoPlatform ? platformCountsFor(db, userId, whereNoPlatform) : Promise.resolve(null),
   ]);
 
   return {
@@ -397,6 +428,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
     durationCounts: dCounts,
     genreCounts: gCounts,
     hltbCounts: hCounts,
+    ...(pCounts ? { platformCounts: pCounts } : {}),
   };
 }
 
@@ -404,7 +436,12 @@ export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<C
   const byRecent = [sql`${games.lastPlayedAt} desc nulls last`, asc(sql`lower(${games.name})`), asc(games.id)];
   const [gameTotals, trophyTotals, counts, playingRows, serviceRows, continueRows, profile, near] = await Promise.all([
     db
-      .select({ n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${effectiveSecondsSql}), 0)::float8` })
+      .select({
+        n: sql<number>`count(*)::int`, sec: sql<number>`coalesce(sum(${effectiveSecondsSql}), 0)::float8`,
+        ps5: sql<number>`(count(*) filter (where ${platformSql('ps5')}))::int`,
+        ps4: sql<number>`(count(*) filter (where ${platformSql('ps4')}))::int`,
+        pc: sql<number>`(count(*) filter (where ${platformSql('pc')}))::int`,
+      })
       .from(games)
       .where(and(eq(games.userId, userId), visibleGames)),
     db
@@ -438,6 +475,7 @@ export async function getCollectionSummary(db: AnyDb, userId: UserId): Promise<C
       platinumEarned: trophyTotals[0]?.plat ?? 0,
     },
     counts,
+    platformCounts: { ps5: gameTotals[0]?.ps5 ?? 0, ps4: gameTotals[0]?.ps4 ?? 0, pc: gameTotals[0]?.pc ?? 0 },
     ...(await (async () => {
       const [playing, services, cont] = await Promise.all(
         [playingRows, serviceRows, continueRows].map((rs) => attachLinkedVersions(db, userId, rs.map((r) => toGameItem(normalizeRow(r as never))))),

@@ -1,5 +1,6 @@
 // Разбор и проверка входных данных раздела 9 (чистые функции, без БД).
 import { z } from 'zod';
+import { PLATFORM_ALL, parsePlatform, type PlatformKey } from '@/shared/platform-filter';
 import { GENRE_LABELS_RU, GENRE_NONE, normalizeGenre, type GenreFilterKey, type GenreKey } from '@/shared/genres';
 import { DURATION_BUCKETS, HLTB_STATUSES, DURATION_MAX_HOURS, normalizeOverrideHours } from './duration';
 import type { DurationBucket, HltbStatus, GameStatusValue, ListSort, SortOrder, StatusFilterValue } from './types';
@@ -38,6 +39,10 @@ export type ListQuery = {
   /** 16.4: бакеты длительности (ИЛИ) или null. */
   durations: DurationBucket[] | null;
   hltb: HltbStatus[] | null;
+  /** F4: платформа игры или её привязанной версии; null = все. */
+  platform: PlatformKey | null;
+  /** F4: `platform_counts=1` — вернуть счётчики платформ для этой выборки без учёта фильтра платформы (Бэклог). */
+  platformCounts: boolean;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -118,7 +123,10 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
     if (parts.some((p) => !(HLTB_STATUSES as readonly string[]).includes(p))) return bad('Неизвестный статус HLTB.');
     hltb = [...new Set(parts)] as HltbStatus[];
   }
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations, hltb } };
+  const platRaw = sp.get('platform')?.trim().toLowerCase() ?? '';
+  const platform = platRaw === '' || platRaw === PLATFORM_ALL ? null : parsePlatform(platRaw);
+  if (platRaw !== '' && platRaw !== PLATFORM_ALL && !platform) return bad('platform: ps5, ps4, pc или all.');
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations, hltb, platform, platformCounts: sp.get('platform_counts') === '1' } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);

@@ -56,8 +56,30 @@ describe('коллекция (PGlite)', () => {
     const s = await getCollectionSummary(t.db, TEST_USER);
     expect(s).toEqual({
       totals: { games: 0, playSeconds: 0, hours: 0, trophiesEarned: 0, platinumEarned: 0 },
-      counts: r.counts, playing: [], services: [], continue: [], profile: null, nearPlatinum: [],
+      counts: r.counts, platformCounts: { ps5: 0, ps4: 0, pc: 0 }, playing: [], services: [], continue: [], profile: null, nearPlatinum: [],
     });
+  });
+
+  it('F4: фильтр платформы учитывает привязанные версии; счётчики в сводке', async () => {
+    const main = await game('Both', { category: 'ps5_native_game' });
+    await game('Both PS4', { category: 'ps4_game', duplicateOfGameId: main, hiddenAt: NOW });
+    await game('Only5', { category: 'ps5_native_game' });
+    await game('Only4', { category: 'ps4_game' });
+    await game('Pc', { category: 'pspc_game' });
+    const sorted = async (qs: string) => (await names(qs)).sort();
+    expect(await sorted('platform=ps5')).toEqual(['Both', 'Only5']);
+    expect(await sorted('platform=ps4')).toEqual(['Both', 'Only4']);
+    expect(await sorted('platform=pc')).toEqual(['Pc']);
+    expect(await sorted('platform=all')).toEqual(['Both', 'Only4', 'Only5', 'Pc']);
+    const r = await listGames(t.db, TEST_USER, lq('platform=ps4'));
+    expect(r.counts.all).toBe(2);
+    expect(r.total).toBe(2);
+    expect(r.platformCounts).toBeUndefined();
+    const withCounts = await listGames(t.db, TEST_USER, lq('platform=ps4&platform_counts=1'));
+    expect(withCounts.platformCounts).toEqual({ ps5: 2, ps4: 2, pc: 1 });
+    const s = await getCollectionSummary(t.db, TEST_USER);
+    expect(s.platformCounts).toEqual({ ps5: 2, ps4: 2, pc: 1 });
+    expect(s.totals.games).toBe(4);
   });
 
   it('поля игры: платформа, часы, жанры, без сета и без last_played_at', async () => {

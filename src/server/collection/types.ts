@@ -1,5 +1,6 @@
 // Типы ответов раздела 9 docs/api-contract.md. Только типы: frontend импортирует через `import type`.
 import type { GameHistory } from './history';
+import type { PlatformCounts } from '@/shared/platform-filter';
 export type { GameHistory, HistoryWeek } from './history';
 export type GameStatusValue = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type StatusFilterValue = GameStatusValue | 'none';
@@ -111,6 +112,8 @@ export type GamesListResponse = {
   genreCounts: GenreCounts;
   /** 16.4: счётчики статусов HLTB в области запроса без фильтра `hltb`. */
   hltbCounts: HltbCounts;
+  /** F4: только при `platform_counts=1`; выборка без фильтра платформы. */
+  platformCounts?: PlatformCounts;
 };
 
 /** 48.1: `GET /api/games/batch` — ответы 9.2 по порядку параметров `b`; упавшая выборка = `{ ok: false }`. */
@@ -161,6 +164,8 @@ export type NearPlatinumItem = { game: GameItem; forecast: PlatinumForecast };
 export type CollectionSummaryResponse = {
   totals: { games: number; playSeconds: number; hours: number; trophiesEarned: number; platinumEarned: number };
   counts: StatusCounts;
+  /** F4: видимых игр по платформам (с учётом привязанных версий: PS5 с версией PS4 считается в обеих). */
+  platformCounts: PlatformCounts;
   playing: GameItem[];
   /** Игры со статусом `service`, last_played_at desc; всего их `counts.service`. */
   services: GameItem[];
