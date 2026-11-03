@@ -28,8 +28,14 @@ export function useOpenGame(raw: GameItem[]) {
   useEffect(() => {
     if (!openTitle) return;
     const prev = document.title;
-    document.title = `${openTitle} · PS Tracker`;
-    return () => { document.title = prev; };
+    const want = `${openTitle} · PS Tracker`;
+    const apply = () => { if (document.title !== want) document.title = want; };
+    apply();
+    // Next стримит metadata (<title> из layout) и может вставить его уже после этого эффекта (медленная сеть/CPU, прямая ссылка
+    // /?game=): тогда заголовок окна затирался на «PS Tracker». Пока окно открыто, возвращаем свой заголовок.
+    const mo = new MutationObserver(apply);
+    mo.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => { mo.disconnect(); document.title = prev; };
   }, [openTitle]);
   // после закрытия окна фокус на h1, если вернуть его некуда (прямая ссылка)
   const wasOpen = useRef(false);
