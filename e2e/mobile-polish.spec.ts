@@ -28,6 +28,8 @@ test.describe('окно игры: вкладки', () => {
     const d = page.getByRole('dialog', { name: 'Horizon Forbidden West' });
     const tabs = d.getByRole('tab');
     await expect(d.getByRole('tab', { name: /Трофеи/ })).toBeVisible();
+    // мобильное окно выезжает снизу (translateY): меряем после конца анимации, иначе дробные top округляются по-разному
+    await d.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)).then(() => undefined));
     const m = await d.getByRole('tablist').evaluate((list) => {
       const boxes = [...list.querySelectorAll('[role="tab"]')].map((t) => t.getBoundingClientRect());
       const sel = list.querySelector('[aria-selected="true"]')!;
