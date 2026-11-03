@@ -6,7 +6,7 @@ import type { DurationBucket, HltbStatus, GameStatusValue, ListSort, SortOrder, 
 
 export const STATUS_VALUES = ['playing', 'completed', 'dropped', 'backlog', 'shelved', 'service'] as const satisfies readonly GameStatusValue[];
 const FILTER_VALUES: readonly string[] = [...STATUS_VALUES, 'none'];
-export const SORTS = ['last_played', 'hours', 'title', 'trophies_progress', 'completed_at', 'duration'] as const satisfies readonly ListSort[];
+export const SORTS = ['last_played', 'hours', 'title', 'trophies_progress', 'completed_at', 'duration', 'rating'] as const satisfies readonly ListSort[];
 export const DEFAULT_ORDER: Record<ListSort, SortOrder> = {
   duration: 'asc',
   last_played: 'desc',
@@ -14,6 +14,7 @@ export const DEFAULT_ORDER: Record<ListSort, SortOrder> = {
   title: 'asc',
   trophies_progress: 'desc',
   completed_at: 'desc',
+  rating: 'desc',
 };
 export const LIMIT_DEFAULT = 60;
 export const LIMIT_MAX = 300;

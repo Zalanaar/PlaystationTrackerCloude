@@ -23,7 +23,7 @@ import { getPsnProfile } from './profile';
 import type { ListQuery } from './validation';
 import { trophySetCounted, visibleGameRow } from './visibility';
 
-const { games, gameStatus, gameTrophySets, trophySets, trophies } = schema;
+const { games, gameStatus, gameTrophySets, trophySets, trophies, gameReviews } = schema;
 
 export const CONTINUE_LIMIT = 8;
 export const PLAYING_LIMIT = 20;
@@ -100,6 +100,7 @@ type Row = DurationRow & {
   droppedAt: Date | null;
   hiddenAt: Date | null;
   duplicateOfGameId: number | null;
+  rating?: number | null;
   tr: { dB: number; dS: number; dG: number; dP: number; eB: number; eS: number; eG: number; eP: number } | null;
 };
 
@@ -145,6 +146,7 @@ export function toGameItem(r: Row): GameItem {
     duration: buildDuration(r),
     linkedVersions: [],
     duplicateOfGameId: r.duplicateOfGameId,
+    rating: r.rating ?? null,
   };
 }
 
@@ -168,6 +170,7 @@ function itemsQuery(db: AnyDb, userId: UserId) {
       droppedAt: gameStatus.droppedAt,
       hiddenAt: games.hiddenAt,
       duplicateOfGameId: games.duplicateOfGameId,
+      rating: gameReviews.rating,
       durationOverrideHours: games.durationOverrideHours,
       hltbId: games.hltbId,
       hltbName: games.hltbName,
@@ -182,7 +185,8 @@ function itemsQuery(db: AnyDb, userId: UserId) {
     })
     .from(games)
     .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-    .leftJoin(tr, eq(tr.gameId, games.id));
+    .leftJoin(tr, eq(tr.gameId, games.id))
+    .leftJoin(gameReviews, and(eq(gameReviews.gameId, games.id), eq(gameReviews.userId, userId)));
   return { q, tr };
 }
 
@@ -349,6 +353,7 @@ export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Da
     trophies_progress: [sql`${progress} ${dir} nulls last`, sql`${earnedAll} ${dir} nulls last`],
     completed_at: [sql`coalesce(${gameStatus.completedAt}, ${gameStatus.droppedAt}) ${dir} nulls last`],
     duration: [sql`${effectiveHoursSql} ${dir} nulls last`],
+    rating: [sql`${gameReviews.rating} ${dir} nulls last`],
   };
 
   const [rows, totalRows, counts, yearRows, forgottenRows, dCounts, gCounts, hCounts] = await Promise.all([

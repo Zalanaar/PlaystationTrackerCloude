@@ -10,7 +10,7 @@ import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
 import type { GameDetailsResponse, GameTrophyItem } from './types';
 
-const { games, gameStatus, gameMonthExclusions, gameTrophySets, playtimeSnapshots, trophies } = schema;
+const { games, gameStatus, gameReviews, gameMonthExclusions, gameTrophySets, playtimeSnapshots, trophies } = schema;
 
 export type TrophyRow = {
   setId: number;
@@ -98,9 +98,16 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
   const [[game], [meta], rows, historyInput] = await Promise.all([
     getGamesByIds(db, userId, [id]).then((g) => [g[0]] as const),
     db
-      .select({ firstPlayedAt: games.firstPlayedAt, statusChangedAt: gameStatus.statusChangedAt })
+      .select({
+        firstPlayedAt: games.firstPlayedAt,
+        statusChangedAt: gameStatus.statusChangedAt,
+        reviewRating: gameReviews.rating,
+        reviewNote: gameReviews.note,
+        reviewUpdatedAt: gameReviews.updatedAt,
+      })
       .from(games)
       .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .leftJoin(gameReviews, and(eq(gameReviews.gameId, games.id), eq(gameReviews.userId, userId)))
       .where(and(eq(games.id, id), eq(games.userId, userId)))
       .limit(1)
       .then((m) => [m[0]] as const),
@@ -138,5 +145,6 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
     // 14.2: из уже загруженного списка, без нового запроса
     platinumForecast: platinumForecast(setAggsFromTrophies(trophyList)),
     history,
+    review: meta.reviewUpdatedAt ? { rating: meta.reviewRating, note: meta.reviewNote, updatedAt: meta.reviewUpdatedAt.toISOString() } : null,
   };
 }

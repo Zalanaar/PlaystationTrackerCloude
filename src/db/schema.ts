@@ -124,6 +124,28 @@ export const gameStatus = pgTable(
   ],
 );
 
+/** F1 (2026-11-03): личная оценка 0–10 и заметка к игре. Нет строки = не оценена; 0 — настоящая оценка. Пишется на главную карточку (не дубль). */
+export const gameReviews = pgTable(
+  'game_reviews',
+  {
+    gameId: integer('game_id')
+      .primaryKey()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    userId: userIdCol(),
+    rating: smallint(),
+    note: text(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('game_reviews_user_rating_idx').on(t.userId, t.rating),
+    foreignKey({ name: 'game_reviews_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    check('game_reviews_rating_check', sql`${t.rating} is null or ${t.rating} between 0 and 10`),
+    check('game_reviews_note_check', sql`${t.note} is null or char_length(${t.note}) between 1 and 500`),
+    check('game_reviews_not_empty_check', sql`${t.rating} is not null or ${t.note} is not null`),
+  ],
+);
+
 export const trophySets = pgTable(
   'trophy_sets',
   {

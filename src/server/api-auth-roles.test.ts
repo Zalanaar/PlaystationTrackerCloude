@@ -180,6 +180,7 @@ describe('роуты с чужими id: B получает 404/пусто, да
     holder.db = t.db;
     const dur = await import('@/app/api/games/[id]/duration/route');
     const sd = await import('@/app/api/games/[id]/status-date/route');
+    const rv = await import('@/app/api/games/[id]/review/route');
     const me = await import('@/app/api/games/[id]/month-exclusions/route');
     const bulk = await import('@/app/api/games/status-bulk/route');
     const restore = await import('@/app/api/games/status-restore/route');
@@ -193,6 +194,7 @@ describe('роуты с чужими id: B получает 404/пусто, да
       await dur.PATCH(await asB('/x', 'PATCH', { hours: 5 }), pid(aGame)),
       await sd.PATCH(await asB('/x', 'PATCH', { completedAt: '2026-01-01T00:00:00Z' }), pid(aGame)),
       await me.PUT(await asB('/x', 'PUT', { month: '2026-02', excluded: true }), pid(aGame)),
+      await rv.PUT(await asB('/x', 'PUT', { rating: 7, note: 'чужая' }), pid(aGame)),
       await bulk.POST(await asB('/x', 'POST', { ids: [aGame], status: 'dropped' })),
       await restore.POST(await asB('/x', 'POST', { backupId: aBackup })),
       await ex.POST(await asB('/x', 'POST', { gameId: aGame })),
@@ -205,12 +207,12 @@ describe('роуты с чужими id: B получает 404/пусто, да
     // ни одна мутация чужой игры не должна пройти (2xx)
     expect(codes.filter((c) => c < 400), `коды: ${codes.join(',')}`).toEqual([]);
 
-    const { gameStatus, games, gameMonthExclusions, roadmapExcluded, recommendDislikes, roadmapOrder } = schema;
+    const { gameStatus, games, gameMonthExclusions, roadmapExcluded, recommendDislikes, roadmapOrder, gameReviews } = schema;
     const st = await t.db.select().from(gameStatus);
     expect(st).toHaveLength(1);
     expect(st[0].status).toBe('backlog');
     expect((await t.db.select().from(games))[0].durationOverrideHours ?? null).toBeNull();
-    for (const tbl of [gameMonthExclusions, roadmapExcluded, recommendDislikes, roadmapOrder]) expect(await t.db.select().from(tbl)).toHaveLength(0);
+    for (const tbl of [gameMonthExclusions, roadmapExcluded, recommendDislikes, roadmapOrder, gameReviews]) expect(await t.db.select().from(tbl)).toHaveLength(0);
   });
 
   it('GET-роуты B не показывают игру A', async () => {

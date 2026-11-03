@@ -1,5 +1,7 @@
 // QA 20.3, п. 4: код 20.3 на схеме РОВНО после 0014 (старые PK/unique на месте, psn_profile.id и roadmap_settings.id default 1, owner id = 1).
 // Это состояние прода между выкладкой кода и миграцией 0015. Ничего из схемы не отбрасывается (в отличие от user-isolation.test.ts).
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
@@ -30,6 +32,10 @@ describe('20.3 на схеме после 0014 (до 0015), один польз�
     t = await createTestDb({ migrations: 15 }); // схема ровно после 0014 (журнал: 15 записей)
     // Код Фазы 32 читает/пишет goal_* в roadmap_settings (миграция 0022); сам тест про ключи 0014, колонки добавляем как в expand-миграции.
     await t.pg.execute(sql`ALTER TABLE roadmap_settings ADD COLUMN IF NOT EXISTS goal_mode text, ADD COLUMN IF NOT EXISTS goal_count smallint`);
+    // F1 (0029): коллекция и копия читают game_reviews; таблицу создаём той же expand-миграцией (ключи 0014 она не трогает).
+    for (const stmt of readFileSync(join(process.cwd(), 'src/db/migrations/0029_game_reviews.sql'), 'utf8').split('--> statement-breakpoint')) {
+      if (stmt.trim()) await t.pg.execute(sql.raw(stmt));
+    }
   });
   afterAll(() => t.close());
 

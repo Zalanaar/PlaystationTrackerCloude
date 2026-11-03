@@ -4,7 +4,7 @@ export type { GameHistory, HistoryWeek } from './history';
 export type GameStatusValue = 'playing' | 'completed' | 'dropped' | 'backlog' | 'shelved' | 'service';
 export type StatusFilterValue = GameStatusValue | 'none';
 export type Platform = 'PS4' | 'PS5' | 'PC';
-export type GameSort = 'last_played' | 'hours' | 'title' | 'trophies_progress' | 'completed_at';
+export type GameSort = 'last_played' | 'hours' | 'title' | 'trophies_progress' | 'completed_at' | 'rating';
 export type SortOrder = 'asc' | 'desc';
 /** Сортировки GET /api/games: GameSort + длительность (16.4). Отдельный тип, чтобы не ломать Record<GameSort, ...> в src/ui. */
 export type ListSort = GameSort | 'duration';
@@ -85,7 +85,12 @@ export type GameItem = {
   linkedVersions?: LinkedVersion[];
   /** 25.4: id главной, если эта игра дубль (только в ответах по id дубля), иначе null. */
   duplicateOfGameId?: number | null;
+  /** F1 (9.9): личная оценка 0–10; null = не оценена (0 — настоящая оценка). Сервер присылает всегда; необязательное из-за фикстур src/ui. */
+  rating?: number | null;
 };
+
+/** F1 (9.9): личная оценка и заметка. */
+export type GameReview = { rating: number | null; note: string | null; updatedAt: string };
 
 export type StatusCounts = { all: number; playing: number; completed: number; dropped: number; backlog: number; shelved: number; service: number; none: number };
 
@@ -212,6 +217,8 @@ export type GameDetailsResponse = {
   platinumForecast: PlatinumForecast | null;
   /** 26.1: история по неделям МСК. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
   history?: GameHistory | null;
+  /** F1 (9.9): оценка и заметка; null = нет. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
+  review?: GameReview | null;
 };
 
 /**
@@ -229,4 +236,6 @@ export type CollectionInitial = {
   inbox: import('@/server/inbox/query').InboxResponse | null;
   /** true: игры облегчены (slim.ts) — тела не равны ответам API, в кэш GET их класть нельзя; окно игры берёт полные данные из деталей */
   slim?: true;
+  /** P1-2: игра прямой ссылки `/?game=<id>` целиком (не облегчена): шапка окна с баннером уже в HTML. Нет ссылки или игры = нет поля */
+  linkGame?: GameItem | null;
 };

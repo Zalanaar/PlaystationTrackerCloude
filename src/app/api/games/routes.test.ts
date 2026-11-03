@@ -4,6 +4,7 @@ import { POST as bulkPost } from './status-bulk/route';
 import { PUT as statusPut } from './[id]/status/route';
 import { PATCH as datePatch } from './[id]/status-date/route';
 import { PUT as hiddenPut } from './[id]/hidden/route';
+import { PUT as reviewPut } from './[id]/review/route';
 import { POST as resetAllPost } from './status-reset-all/route';
 import { POST as restorePost } from './status-restore/route';
 
@@ -32,6 +33,16 @@ describe('валидация API коллекции (без БД)', () => {
     expect((await statusPut(req('PUT', '{bad'), params('1'))).status).toBe(400);
     expect((await statusPut(req('PUT', { status: 'wat' }), params('1'))).status).toBe(400);
     expect((await statusPut(req('PUT', {}), params('1'))).status).toBe(400);
+  });
+
+  it('PUT review: id, Origin, тело', async () => {
+    expect((await reviewPut(req('PUT', { rating: 5 }), params('abc'))).status).toBe(400);
+    expect((await reviewPut(req('PUT', { rating: 5 }, { ...json, origin: 'http://evil.example', host: 'x' }), params('1'))).status).toBe(400);
+    for (const b of [{}, { rating: 11 }, { rating: -1 }, { rating: 2.5 }, { note: 'x'.repeat(501) }, { rating: 1, x: 1 }]) {
+      const r = await reviewPut(req('PUT', b), params('1'));
+      expect(r.status, JSON.stringify(b).slice(0, 40)).toBe(400);
+      expect(await code(r)).toBe('invalid_request');
+    }
   });
 
   it('PATCH status-date: тело', async () => {
