@@ -10,7 +10,7 @@ import { AddCart } from './AddCart';
 import { BuySegment } from './BuySegment';
 import { Cover } from './Cover';
 import {
-  MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, platformsText, searchReleaseText,
+  MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, searchErrorText, platformsText, searchReleaseText,
   type SearchCandidate, type SearchFailure,
 } from './manual';
 import {
@@ -245,7 +245,7 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
           {(failure?.kind === 'error' || failure?.kind === 'offline') && (
             <div className="ps-rec-banner ps-add__banner" role="alert" data-testid="add-error">
               <Icon name="circle-alert" size={16} />
-              <span>{failure.kind === 'offline' ? 'Нет соединения. Поиск недоступен офлайн.' : 'Не удалось выполнить поиск.'}</span>
+              <span>{searchErrorText(failure, true)}</span>
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" data-testid="add-retry" onClick={() => void search(asked || q)}>
                 <Icon name="refresh" size={14} />Повторить
               </button>

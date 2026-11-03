@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addedToastText, canSearch, classifySearchError, countNotPurchased, isGoneOrDone, manualAria, manualErrorText, manualMeta, manualPassesFilters, mergeBacklog,
+  addedToastText, canSearch, classifySearchError, searchErrorText, countNotPurchased, isGoneOrDone, manualAria, manualErrorText, manualMeta, manualPassesFilters, mergeBacklog,
   parseDuplicate, platformsText, rawgUrl, releaseMeta, searchReleaseText, setNotPurchased, truncate, visibleManual, type ManualGame,
 } from './manual';
 import { MATCH_PAGE, matchGameMeta, matchToast, visibleMatches } from '../inbox/match';
@@ -52,7 +52,12 @@ describe('поиск', () => {
     expect(classifySearchError(e('rate_limited', { resetAt: '2026-12-01T21:00:00.000Z' }), true)).toEqual({ kind: 'quota', resetAt: '2026-12-01T21:00:00.000Z' });
     expect(classifySearchError(e('rate_limited'), true)).toEqual({ kind: 'quota', resetAt: null });
     expect(classifySearchError(e('no_key'), true)).toEqual({ kind: 'unavailable' });
-    expect(classifySearchError(e('timeout'), true)).toEqual({ kind: 'error' });
+    expect(classifySearchError(e('timeout'), true)).toEqual({ kind: 'error', down: true });
+    // регрессия 03.11: RAWG лежал (522), пользователь видел «ничего не находит» — теперь причина в тексте
+    for (const r of ['network', 'http_error', 'bad_response']) expect(classifySearchError(e(r), true)).toEqual({ kind: 'error', down: true });
+    expect(searchErrorText({ kind: 'error', down: true }, true)).toContain('RAWG сейчас не отвечает');
+    expect(searchErrorText({ kind: 'error' }, true)).toBe('Не удалось выполнить поиск.');
+    expect(searchErrorText({ kind: 'error', down: true }, false)).toBe('Нет соединения. Поиск недоступен офлайн.');
     expect(classifySearchError(new Error('x'), true)).toEqual({ kind: 'error' });
     expect(classifySearchError(e('no_key'), false)).toEqual({ kind: 'offline' });
   });

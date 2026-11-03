@@ -309,6 +309,11 @@ test.describe('Панель поиска', () => {
     m.searchReply = { status: 500, error: { code: 'internal', message: 'x' } };
     await search(page, 'halo');
     await expect(page.getByTestId('op-search-error')).toContainText('Не удалось выполнить поиск.');
+    await expect(page.getByTestId('op-search-error')).not.toContainText('RAWG');
+    // регрессия 03.11: RAWG не отвечает (timeout) — причина видна, а не «ничего не находит»
+    m.searchReply = { status: 503, error: { code: 'catalog_unavailable', message: 'x', details: { reason: 'timeout' } } };
+    await page.getByTestId('op-search-error').getByRole('button', { name: 'Повторить' }).click();
+    await expect(page.getByTestId('op-search-error')).toContainText('Каталог игр RAWG сейчас не отвечает: сбой на их стороне.');
     m.searchReply = { status: 503, error: { code: 'catalog_unavailable', message: 'x', details: { reason: 'no_key' } } };
     await page.getByTestId('op-search-error').getByRole('button', { name: 'Повторить' }).click();
     await expect(page.getByText('Поиск временно не работает. Список игр доступен.')).toBeVisible();

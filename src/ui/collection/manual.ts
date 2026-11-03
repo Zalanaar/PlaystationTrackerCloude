@@ -141,7 +141,7 @@ export type SearchFailure =
   | { kind: 'quota'; resetAt: string | null }
   | { kind: 'unavailable' }
   | { kind: 'offline' }
-  | { kind: 'error' };
+  | { kind: 'error'; down?: true };
 
 /** Классификация сбоя поиска по ответу сервера (43.3): no_key = каталог не настроен, rate_limited = лимит. */
 export function classifySearchError(e: unknown, online: boolean): SearchFailure {
@@ -150,8 +150,18 @@ export function classifySearchError(e: unknown, online: boolean): SearchFailure 
     const d = (e.details ?? {}) as { reason?: unknown; resetAt?: unknown };
     if (d.reason === 'no_key') return { kind: 'unavailable' };
     if (d.reason === 'rate_limited') return { kind: 'quota', resetAt: typeof d.resetAt === 'string' ? d.resetAt : null };
+    // RAWG не ответил или ответил ошибкой (сбой на их стороне): говорим это прямо, а не «ничего не находит»
+    if (d.reason === 'timeout' || d.reason === 'network' || d.reason === 'http_error' || d.reason === 'bad_response') return { kind: 'error', down: true };
   }
   return { kind: 'error' };
+}
+
+export const SEARCH_DOWN_TEXT = 'Каталог игр RAWG сейчас не отвечает: сбой на их стороне. Попробуй позже.';
+
+/** Текст баннера ошибки поиска (error/offline). */
+export function searchErrorText(f: SearchFailure, online: boolean): string {
+  if (f.kind === 'offline' || !online) return 'Нет соединения. Поиск недоступен офлайн.';
+  return f.kind === 'error' && f.down ? `Не удалось выполнить поиск. ${SEARCH_DOWN_TEXT}` : 'Не удалось выполнить поиск.';
 }
 
 /** Данные блока дубля (409 duplicate_game): разбор details, null = не дубль. */

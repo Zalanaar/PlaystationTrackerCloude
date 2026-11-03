@@ -7,7 +7,7 @@ import { Icon } from '../icons';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
 import { Cover } from '../collection/Cover';
-import { MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, parseDuplicate, searchReleaseText, type DuplicateInfo, type SearchFailure } from '../collection/manual';
+import { MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, searchErrorText, parseDuplicate, searchReleaseText, type DuplicateInfo, type SearchFailure } from '../collection/manual';
 import { catalogGuard, useOnline } from '../collection/useSuggest';
 import { PLATFORM_NONE } from '@/shared/platforms';
 import { addOtherPlatform, searchAllPlatforms, type OtherCandidate, type OtherPlatformGame } from './api';
@@ -150,7 +150,7 @@ export function AddOtherPlatformSheet({ onClose }: { onClose: (added: OtherPlatf
           {(failure?.kind === 'error' || failure?.kind === 'offline') && (
             <div className="ps-rec-banner ps-add__banner" role="alert" data-testid="op-search-error">
               <Icon name="circle-alert" size={16} />
-              <span>{failure.kind === 'offline' || !online ? 'Нет соединения. Поиск недоступен офлайн.' : 'Не удалось выполнить поиск.'}</span>
+              <span>{searchErrorText(failure, online)}</span>
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void search(asked || q)}><Icon name="refresh" size={14} />Повторить</button>
             </div>
           )}
