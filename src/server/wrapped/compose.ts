@@ -7,7 +7,7 @@ import { resolvePeriod } from '@/server/stats/period';
 import { buildPlayPattern, type PatternCell } from '@/server/stats/play-pattern';
 import { aggregateTrophies, type EarnedTrophy } from '@/server/stats/trophies';
 import type { RareTrophy } from '@/server/stats/types';
-import { peakMonth, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
+import { peakMonth, pickBestGame, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
 import type { WrappedPlatinum, WrappedResponse, WrappedSlideId } from './types';
 
 export const WRAPPED_GENRES_TOP = 3;
@@ -33,6 +33,8 @@ export type WrappedInput = {
   rareTrophies?: RareTrophy[];
   /** 26.3: ячейки (час, день недели МСК) трофеев года. */
   patternCells?: readonly PatternCell[];
+  /** Пакет 3: мои оценки (id карточки → 0..10), только оценённые; нет = слайда «Лучшая игра года» нет. */
+  ratings?: ReadonlyMap<number, number>;
 };
 
 export function composeWrapped(i: WrappedInput): WrappedResponse {
@@ -61,6 +63,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
   const leader = top[0] ?? null;
   const trophiesHas = counts.total > 0;
   const empty = !hoursHas && !trophiesHas && !finHas;
+  const best = pickBestGame(i.ratings ?? new Map(), seconds, i.finishedEvents.filter((e) => e.kind === 'completed').map((e) => e.gameId), i.gameById, h.estimatedSeconds);
 
   const slides: WrappedSlideId[] = empty
     ? ['empty']
@@ -73,6 +76,7 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
         ...(pattern.hasData ? (['playPattern'] as const) : []),
         ...(genres.hasData ? (['genres'] as const) : []),
         ...(leader ? (['longestGame'] as const) : []),
+        ...(best.hasData ? (['bestGame'] as const) : []),
         'final',
       ];
 
@@ -107,5 +111,6 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
       ? { hasData: true, seconds: leader.seconds, hours: leader.hours, estimated: leader.estimated, playCount: leader.game.playCount, game: leader.game }
       : { hasData: false, seconds: 0, hours: 0, estimated: false, playCount: 0, game: null },
     emptyState: empty ? { syncStartedOn: i.firstSnapshotDate } : null,
+    bestGame: empty ? { hasData: false, rating: null, hours: 0, estimated: false, game: null } : best,
   };
 }

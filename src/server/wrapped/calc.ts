@@ -3,7 +3,7 @@ import { compareTitleId } from '@/server/common/compare';
 import type { GameItem } from '@/server/collection/types';
 import type { FinishedEvent } from '@/server/stats/finished';
 import { mskDate } from '@/server/stats/period';
-import type { WrappedFinishedItem, WrappedPlatinum, WrappedTopGame } from './types';
+import type { WrappedBestGame, WrappedFinishedItem, WrappedPlatinum, WrappedTopGame } from './types';
 
 export const TOP_GAMES = 5;
 
@@ -65,4 +65,29 @@ export function pickPlatinums(list: readonly WrappedPlatinum[]): { first: Wrappe
   let rarest: WrappedPlatinum | null = null;
   for (const p of sorted) if (p.earnedRate !== null && (rarest === null || p.earnedRate < (rarest.earnedRate as number))) rarest = p;
   return { first: sorted[0], last: sorted[sorted.length - 1], rarest };
+}
+
+/**
+ * Пакет 3: «Лучшая игра года» — наивысшая моя оценка (0–10) среди игр года: часы в году > 0 или пройдена в году.
+ * Ничья: больше часов в году, затем lower(title), id. Без оценённых игр года — hasData: false (слайда нет).
+ */
+export function pickBestGame(
+  ratings: ReadonlyMap<number, number>,
+  seconds: ReadonlyMap<number, number>,
+  completedIds: Iterable<number>,
+  gameById: ReadonlyMap<number, GameItem>,
+  estimatedSeconds: ReadonlyMap<number, number> = new Map(),
+): WrappedBestGame {
+  const ids = new Set<number>(completedIds);
+  for (const [id, s] of seconds) if (s > 0) ids.add(id);
+  let best: { r: number; s: number; game: GameItem } | null = null;
+  for (const id of ids) {
+    const r = ratings.get(id);
+    const game = gameById.get(id);
+    if (r === undefined || !game) continue;
+    const s = seconds.get(id) ?? 0;
+    if (!best || r > best.r || (r === best.r && (s > best.s || (s === best.s && byTitle(game, best.game) < 0)))) best = { r, s, game };
+  }
+  if (!best) return { hasData: false, rating: null, hours: 0, estimated: false, game: null };
+  return { hasData: true, rating: best.r, hours: Math.round(best.s / 360) / 10, estimated: (estimatedSeconds.get(best.game.id) ?? 0) > 0, game: best.game };
 }

@@ -24,7 +24,7 @@ import { getWrappedYears } from './years-query';
 export { getWrappedYears };
 import type { WrappedPlatinum, WrappedResponse } from './types';
 
-const { games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies, trophySets } = schema;
+const { gameReviews, games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies, trophySets } = schema;
 
 export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 'all', onlineId: string | null, now: Date = new Date(), opts: { withService?: boolean } = {}): Promise<WrappedResponse> {
   if (yearOrAll === 'all') return getWrappedAll(db, userId, onlineId, now, opts.withService === true);
@@ -38,7 +38,7 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
   const earnedInYear = and(eq(trophies.userId, userId), eq(trophies.earned, true), gte(trophies.earnedAt, fromUtc), lt(trophies.earnedAt, toUtc), trophySetCounted(trophies.trophySetId, userId));
 
   const estimates = await getEstimateInputs(db, userId);
-  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows, psnProf, rare, patternCells] = await Promise.all([
+  const [years, inYear, bases, first, trophyRows, platRows, completedRows, droppedRows, genreRows, psnProf, rare, patternCells, reviewRows] = await Promise.all([
     getWrappedYears(db, userId, currentYear, estimates),
     db
       .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
@@ -75,6 +75,8 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
     getPsnProfile(db, userId),
     getRareTrophies(db, userId, { fromUtc, toUtc }, undefined, opts.withService === true),
     getPlayPatternCells(db, userId, { fromUtc, toUtc }),
+    // пакет 3: мои оценки (отзыв пишется на главную карточку дубля, как и часы после слияния)
+    db.select({ gameId: gameReviews.gameId, rating: gameReviews.rating }).from(gameReviews).where(and(eq(gameReviews.userId, userId), sql`${gameReviews.rating} is not null`, gameVisible(gameReviews.gameId, userId))),
   ]);
 
   // Игра сета платины: минимальный id видимой игры из game_trophy_sets (сет может быть у нескольких версий).
@@ -102,6 +104,10 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
   const needed = new Set<number>(finishedEvents.map((e) => e.gameId));
   for (const [id, s] of ranked) if (s >= cutoff) needed.add(id);
   for (const id of gameBySet.values()) if (id !== null) needed.add(id);
+  // «Лучшая игра года»: карточки оценённых игр года (часы в году или пройдена в году)
+  const ratings = new Map<number, number>(reviewRows.flatMap((r) => (r.rating === null ? [] : [[r.gameId, r.rating] as [number, number]])));
+  const completedIds = new Set(completedRows.map((r) => r.gameId));
+  for (const id of ratings.keys()) if ((yearSeconds.get(id) ?? 0) > 0 || completedIds.has(id)) needed.add(id);
   const items = await getGamesByIds(db, userId, [...needed]);
   const gameById = new Map(items.map((g) => [g.id, g]));
 
@@ -138,5 +144,6 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
     genreGames: new Map<number, GenreGame>(genreRows.map((g) => [g.id, g])),
     rareTrophies: rare,
     patternCells,
+    ratings,
   });
 }

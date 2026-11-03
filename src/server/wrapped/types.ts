@@ -16,7 +16,9 @@ export type WrappedSlideId =
   | 'playPattern'
   | 'firstGame'
   | 'platinumYears'
-  | 'busiestYear';
+  | 'busiestYear'
+  // Пакет 3: «Лучшая игра года» по моей оценке (F1)
+  | 'bestGame';
 
 /** Набор «за всё время» (26.2), только при scope = 'all'. */
 export type WrappedAllTime = {
@@ -84,4 +86,8 @@ export type WrappedResponse = {
   genres: { hasData: boolean; items: StatsGenreItem[] };
   longestGame: { hasData: boolean; seconds: number; hours: number; estimated: boolean; playCount: number; game: GameItem | null };
   emptyState: { syncStartedOn: string | null } | null;
+  /** Пакет 3: игра года с наивысшей моей оценкой (среди игранных в году или пройденных в году). Нет в старых ответах и при scope = 'all'. */
+  bestGame?: WrappedBestGame;
 };
+
+export type WrappedBestGame = { hasData: boolean; rating: number | null; hours: number; estimated: boolean; game: GameItem | null };
