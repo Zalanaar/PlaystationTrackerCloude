@@ -11,6 +11,7 @@ import { TourProvider } from '@/ui/tour/TourProvider';
 import { WhatsNew, WhatsNewProvider } from '@/ui/whatsnew/WhatsNew';
 import { PsnProfileProvider } from '@/ui/profiles/PsnProfileProvider';
 import { SyncProvider } from '@/ui/sync/SyncProvider';
+import { BackToTop } from '@/ui/shell/BackToTop';
 
 // Каркас закрытой части: шапка, баннеры синка, нижний tab bar на мобильном.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <main id="main" tabIndex={-1} className="ps-main ps-container">{children}</main>
                   <WhatsNew />
                   <TabBar />
+                  <BackToTop />
                 </InstallProvider>
               </WhatsNewProvider>
             </TourProvider>

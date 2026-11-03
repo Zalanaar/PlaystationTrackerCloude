@@ -260,7 +260,7 @@ a.ps-btn { text-decoration: none; }
 .ps-btn.ps-btn--fsheet { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--tap-min); height: 40px; padding: 0; }
 .ps-btn--fsheet .ps-notify-dot { position: absolute; top: 6px; right: 8px; }
 @media (max-width: 767px) {
-  /* D-P2: название раздела уже в шапке; «Добавить» на Бэклоге — кнопка «+» шапки */
+  /* D-P2: название раздела уже в шапке (Бэклог, План, Подскажи — в подвкладках); h1 остаётся для скринридеров. «Добавить» на Бэклоге — кнопка «+» шапки */
   .ps-bl-add-page { display: none !important; }
   .ps-h1--coll, .ps-h1--hdr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
@@ -308,3 +308,19 @@ body::before {
 }
 /* PS1: шапка светлая, а часы белые -> тёмная полоса должна лежать поверх padding шапки (иначе её закрывает header-bg) */
 [data-theme="ps1"] body::before { z-index: calc(var(--z-header) + 1); }
+/* ---------- «Наверх» (пакет 4): только мобильный и PWA, fixed — без сдвига вёрстки ---------- */
+.ps-totop { display: none; }
+@media (max-width: 767px) {
+  .ps-totop {
+    position: fixed; z-index: var(--z-popup); display: inline-grid; place-items: center;
+    right: max(var(--gutter), env(safe-area-inset-right)); bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-3));
+    width: var(--tap-min); height: var(--tap-min); padding: 0; border-radius: 50%;
+    background: var(--surface-2); color: var(--text); border: var(--border-w) solid var(--border-strong); box-shadow: var(--shadow-pop); cursor: pointer;
+  }
+  .ps-totop:focus-visible { box-shadow: var(--shadow-focus); }
+  /* в окне игры таббара нет: кнопка над нижним safe-area, выше слоя окна */
+  .ps-totop[data-in-dialog] { z-index: calc(var(--z-modal) + 1); bottom: calc(env(safe-area-inset-bottom) + var(--sp-4)); }
+  /* не перекрывает sheet, тур, тосты, панель выбора, «Что нового», подсказку установки и сторис Итогов */
+  :root:has(.ps-gd) .ps-totop:not([data-in-dialog]),
+  :root:has(.ps-sheet-wrap, .ps-tour, .ps-toast, .ps-selbar, .ps-wn, .ps-install, .ps-update, .ps-story) .ps-totop { display: none; }
+}
