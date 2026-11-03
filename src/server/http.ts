@@ -87,7 +87,11 @@ export function originAllowed(req: Request): boolean {
   }
 }
 
+/**
+ * IP клиента для лимитов. На Vercel `x-vercel-forwarded-for` и `x-real-ip` ставит сама платформа (клиент их не подделает);
+ * `x-forwarded-for` — запасной вариант (локально и в тестах), берётся первый адрес (повторный аудит P2-10).
+ */
 export function clientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for');
-  return (xff?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown').slice(0, 64);
+  const first = (v: string | null) => v?.split(',')[0]?.trim() || '';
+  return (first(req.headers.get('x-vercel-forwarded-for')) || first(req.headers.get('x-real-ip')) || first(req.headers.get('x-forwarded-for')) || 'unknown').slice(0, 64);
 }
