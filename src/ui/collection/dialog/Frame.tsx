@@ -3,12 +3,14 @@
 import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { tintStyle } from '../tint';
 import { holdScroll } from '../../shell/holdScroll';
+import { BackToTop } from '../../shell/BackToTop';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Оболочка: role=dialog, блокировка прокрутки, focus trap, Esc, возврат фокуса. */
 export function Frame({ onClose, tint, children }: { onClose: () => void; tint?: string | null; children: (titleId: string) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
   // Layout-эффекты: окно открывается в переходе роутера, и обычный эффект мог выполниться уже после отрисовки.
@@ -42,6 +44,8 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
       if (!inside) return;
       if (e.key === 'Escape') {
         if ((t as HTMLElement).tagName === 'SELECT') return;
+        // фокус на body, а поверх окна открыт sheet (статус и др.): Esc закрывает его (Sheet слушает документ), а не окно
+        if (!root.contains(t)) { const m = document.querySelectorAll('[aria-modal="true"]'); if (m[m.length - 1] !== root) return; }
         e.stopPropagation();
         closeRef.current();
         return;
@@ -67,7 +71,8 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
 
   return (
     <div ref={ref} className="ps-gd" style={tintStyle(tint)} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-      <div className="ps-gd__scroll">{children(titleId)}</div>
+      <div ref={scrollRef} className="ps-gd__scroll">{children(titleId)}</div>
+      <BackToTop scroller={scrollRef} inDialog />
     </div>
   );
 }

@@ -46,6 +46,7 @@ export function Sheet({
       if (a && a !== document.body) return;
       const modals = document.querySelectorAll('[aria-modal="true"]');
       if (modals[modals.length - 1] !== ref.current) return;
+      e.preventDefault();
       if (!closeRef.current.busy) closeRef.current.onClose();
     };
     document.addEventListener('keydown', onDocKey);
