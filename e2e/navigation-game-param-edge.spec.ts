@@ -66,8 +66,12 @@ async function scenario(page: Page, start: string, id: number, click: () => Prom
   // «вперёд» открывает снова, ✕ возвращает на исходную страницу
   await page.goForward();
   await expect(dlg(page)).toBeVisible();
-  await dlg(page).getByRole('button', { name: 'Закрыть' }).click();
-  await expect(dlg(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/[?&]game=/);
+  // под нагрузкой CI клик по ✕ мог прийти до того, как окно после popstate дорисовалось (флейк в mobile): повтор клика, пока окно не закроется
+  await expect(async () => {
+    if (await dlg(page).count()) await dlg(page).getByRole('button', { name: 'Закрыть' }).click({ timeout: 2000 });
+    await expect(dlg(page)).toHaveCount(0, { timeout: 2000 });
+  }).toPass({ timeout: 10_000 });
   await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
   expect(path(page)).toBe(start.split('?')[0]);
   expect(errs).toEqual([]);
