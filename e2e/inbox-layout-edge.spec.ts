@@ -83,11 +83,14 @@ test('QA-28-2: ошибка и «недоступно» после скелет�
   expect((await card.boundingBox())!.y).toBe(before);
 });
 
+const navLink = (page: Page, name: string) => page.getByRole('navigation', { name: 'Разделы' }).getByRole('link', { name, exact: true }).locator('visible=true').first();
+
 test('QA-28-3: возврат на Коллекцию из другой вкладки — полоса из памяти, без скелета', async ({ page, context, baseURL }, info) => {
   test.skip(info.project.name === 'mobile', 'вкладки в шапке только на десктопе');
   const mock = await open(page, context, baseURL!, FULL);
   await page.getByTestId('inbox-strip').waitFor();
-  await page.getByRole('link', { name: 'Бэклог', exact: true }).first().click();
+  // P2-15: ссылка через навигацию «Разделы» (а не первая «Бэклог» на странице: на узком экране это «Перейти: Бэклог» в полосе)
+  await navLink(page, 'Бэклог').press('Enter');
   await page.waitForURL(/\/backlog/);
   mock.inboxDelay = 1500;
   const callsBefore = mock.inboxCalls;
@@ -96,7 +99,7 @@ test('QA-28-3: возврат на Коллекцию из другой вкла
     w.__sk = false;
     new MutationObserver(() => { if (document.querySelector('[data-testid="inbox-skeleton"]')) w.__sk = true; }).observe(document.body, { childList: true, subtree: true });
   });
-  await page.getByRole('link', { name: 'Коллекция', exact: true }).first().click();
+  await navLink(page, 'Коллекция').press('Enter');
   await page.waitForURL((u) => u.pathname === '/');
   await expect(page.getByTestId('inbox-strip')).toBeVisible();
   // фоновое обновление дошло (задержка 1,5 с), скелета не было ни разу
