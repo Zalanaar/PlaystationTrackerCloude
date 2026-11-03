@@ -3,6 +3,7 @@ import { httpsUrl } from './mapping';
 
 export const IMAGE_TIMEOUT_MS = 8000;
 export const IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+export const IMAGE_MAX_REDIRECTS = 3;
 
 /** Публичный https-хост: не localhost и не IP-литерал (защита от SSRF по значению из БД). */
 export function isPublicHttpsImageUrl(v: unknown): v is string {
@@ -16,7 +17,19 @@ export function isPublicHttpsImageUrl(v: unknown): v is string {
 
 export async function fetchImageBytes(url: string, fetchImpl: typeof fetch = fetch): Promise<Uint8Array> {
   if (!isPublicHttpsImageUrl(url)) throw new Error('image: недопустимый URL');
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS), redirect: 'follow', cache: 'no-store' });
+  // Редиректы вручную: каждый Location проходит ту же проверку, что и исходный URL (SSRF через redirect, повторный аудит P2-8).
+  const signal = AbortSignal.timeout(IMAGE_TIMEOUT_MS);
+  let current = url;
+  let res = await fetchImpl(current, { signal, redirect: 'manual', cache: 'no-store' });
+  for (let hop = 0; res.status >= 300 && res.status < 400; hop++) {
+    const location = res.headers.get('location');
+    await res.body?.cancel();
+    if (!location || hop >= IMAGE_MAX_REDIRECTS) throw new Error('image: слишком много редиректов');
+    const next = new URL(location, current).toString();
+    if (!isPublicHttpsImageUrl(next)) throw new Error('image: недопустимый редирект');
+    current = next;
+    res = await fetchImpl(current, { signal, redirect: 'manual', cache: 'no-store' });
+  }
   if (!res.ok) {
     await res.body?.cancel();
     throw new Error(`image: HTTP ${res.status}`);
