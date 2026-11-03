@@ -74,7 +74,7 @@ export function PsnProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reload = useCallback(async () => {
-    const s = await fetchAuthSnapshot();
+    const s = await fetchAuthSnapshot(undefined, { fresh: true }); // после смены/привязки профиля: мимо короткого кэша authMe
     if (s) apply(s);
     return s;
   }, [apply]);

@@ -73,13 +73,13 @@ export const unlinkProfile = (id: number, confirmOnlineId: string, purge: boolea
   });
 
 /** Лёгкие данные для шапки: активный профиль и список (GET /api/auth/me, 41.3). null = не удалось (сбой не показываем). */
-export async function fetchAuthSnapshot(signal?: AbortSignal): Promise<AuthSnapshot | null> {
+export async function fetchAuthSnapshot(signal?: AbortSignal, opts: { fresh?: boolean } = {}): Promise<AuthSnapshot | null> {
   try {
     let d: { activeProfileId?: unknown; loginId?: unknown; profiles?: unknown };
     if (signal) d = await req<typeof d>('/api/auth/me', { signal });
     else {
       // общий запрос с useMe/useIsOwner (src/ui/access/authMe.ts); 401 ведёт на вход, как и в req()
-      const r = await fetchAuthMe();
+      const r = await fetchAuthMe(opts);
       if (r?.status === 401 && typeof window !== 'undefined') {
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`);
