@@ -56,6 +56,7 @@ test.describe('F4: фильтр платформы', () => {
     expect(mock.listCalls.some((u) => u.searchParams.get('platform') === 'ps4')).toBe(true);
     expect((await context.cookies()).find((c) => c.name === 'ps-platform')?.value).toBe('ps4');
     if (isMobile(page)) await expect(page.getByTestId('platform-chip')).toHaveText(/PS4/);
+    if (isMobile(page)) await expect(page.getByTestId('platform-chip').getByText('PS4', { exact: true })).toBeVisible(); // подпись видна, не только ×
 
     // запомнено: без параметра в URL первый запрос сразу с платформой
     await page.goto('/backlog');
@@ -75,6 +76,7 @@ test.describe('F4: фильтр платформы', () => {
     await expect.poll(() => mock.listCalls.length).toBeGreaterThan(0);
     expect(mock.listCalls.every((u) => u.searchParams.get('platform') === 'ps5')).toBe(true);
     if (isMobile(page)) await expect(page.getByTestId('platform-chip')).toHaveText(/PS5/);
+    if (isMobile(page)) await expect(page.getByTestId('platform-chip').getByText('PS5', { exact: true })).toBeVisible();
     else await expect(page.getByTestId('platform-select')).toHaveValue('ps5');
     const blk = page.getByRole('region', { name: 'Бэклог' });
     await expect(blk.locator('.ps-block__cnt').first()).toHaveText('2');

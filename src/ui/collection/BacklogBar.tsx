@@ -90,7 +90,7 @@ export function BacklogMobileBar({
       )}
       {filters.platform && (
         <button
-          type="button" className="ps-filterchip ps-chip ps-filterchip--platx" aria-pressed="true" data-testid="platform-chip"
+          type="button" className="ps-filterchip ps-chip ps-filterchip--platx" data-wide="" aria-pressed="true" data-testid="platform-chip"
           aria-label={`Платформа ${PLATFORM_KEY_LABEL[filters.platform]}: показать все`} onClick={() => onChange({ platform: null })}
         >
           <span className="ps-filterchip__t">{PLATFORM_KEY_LABEL[filters.platform]}</span><Icon name="x" size={14} />
