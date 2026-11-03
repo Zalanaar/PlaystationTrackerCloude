@@ -99,7 +99,7 @@ export function AppHeader() {
               </button>
             )}
             {hdr.add && (
-              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid="hdr-add" aria-label="Добавить из магазина PS" aria-haspopup="dialog" onClick={() => emitHeaderAction('add')}>
+              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid={hdr.add.action === 'add' ? 'hdr-add' : 'hdr-add-other'} aria-label={hdr.add.label} aria-haspopup="dialog" onClick={() => emitHeaderAction(hdr.add!.action)}>
                 <Icon name="plus" size={22} />
               </button>
             )}

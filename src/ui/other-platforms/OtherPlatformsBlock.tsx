@@ -10,20 +10,19 @@ import { BlockHead } from '../collection/Chronicle';
 import { parseDuplicate } from '../collection/manual';
 import { addOtherPlatform, fetchOtherPlatforms, removeOtherPlatform, restoreBody, restoreMetaBody, updateOtherPlatform, type OtherPlatformGame } from './api';
 import { gamesText, OTHER_STATUS_ORDER, otherGroups, otherStats } from './block';
-import { addedToastText, mergeOther, removedToastText, sortOther } from './model';
+import { mergeOther, removedToastText, sortOther } from './model';
+import { onOtherAdded } from './events';
 
-const AddOtherPlatformSheet = dynamic(() => import('./AddOtherPlatformSheet').then((m) => m.AddOtherPlatformSheet), { ssr: false });
 const OtherPlatformDialog = dynamic(() => import('./OtherPlatformDialog').then((m) => m.OtherPlatformDialog), { ssr: false });
 
 /**
  * Пакет 5 (спека 5.1, 5.5, 5.7, 5.9): блок «Игры с других платформ» в самом низу хроники Коллекции.
  * Сводка только по этим записям; группы по году смены статуса ○/✕, остальное — «Не распределено». Строка открывает окно записи.
  */
-export function OtherPlatformsBlock() {
+export function OtherPlatformsBlock({ onAdd }: { onAdd: () => void }) {
   const toast = useToast();
   const [items, setItems] = useState<OtherPlatformGame[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const addRef = useRef<HTMLButtonElement>(null);
   const alive = useRef(true);
@@ -93,14 +92,9 @@ export function OtherPlatformsBlock() {
     toast({ text: removedToastText(g.title), kind: 'info', ttl: 8000, action: { label: 'Вернуть', run: () => void restore(g) } });
   }
 
-  function closeAdd(added: OtherPlatformGame[]) {
-    setAdding(false);
-    if (added.length > 0) {
-      setItems((l) => mergeOther(l ?? [], added));
-      toast({ text: addedToastText(added.map((a) => a.title)), kind: 'info', ttl: 6000 });
-    }
-    requestAnimationFrame(() => { if (!document.activeElement || document.activeElement === document.body) addRef.current?.focus(); });
-  }
+  // t160u: панель добавления открывает CollectionView (кнопка блока, «+» шапки, меню «…»); новые записи приходят событием.
+  // Пока список не загружен, событие не применяем: первая загрузка и так вернёт их с сервера.
+  useEffect(() => onOtherAdded((added) => setItems((l) => (l === null ? l : mergeOther(l, added)))), []);
 
   const list = items ?? [];
   const open = openId === null ? null : list.find((x) => x.id === openId) ?? null;
@@ -110,7 +104,7 @@ export function OtherPlatformsBlock() {
   return (
     <section className="ps-block ps-opb" id="other-platforms" aria-labelledby="opb-title" data-testid="op-block">
       <BlockHead id="opb-title" title="Игры с других платформ" count={items ? list.length : undefined}>
-        <button ref={addRef} type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-opb__add" data-testid="op-add" aria-haspopup="dialog" onClick={() => setAdding(true)}>
+        <button ref={addRef} type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-opb__add" data-testid="op-add" aria-haspopup="dialog" onClick={onAdd}>
           <Icon name="plus" size={14} />Другая платформа
         </button>
       </BlockHead>
@@ -167,7 +161,6 @@ export function OtherPlatformsBlock() {
         </>
       )}
 
-      {adding && <AddOtherPlatformSheet onClose={closeAdd} />}
       <OtherPlatformDialog game={open} onClose={closeDialog} onChanged={replace} onRemove={(g) => void remove(g)} />
     </section>
   );

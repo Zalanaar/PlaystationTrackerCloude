@@ -95,8 +95,18 @@ function ViewSeg({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => vo
 export type BackupInfo = { id: number; createdAt: string; count: number };
 
 /** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). Сброс и откат статусов: меню профиля (Фаза 48). */
-function CollectionMenuItems({ hidden, onHidden, close }: { hidden: boolean; onHidden: (v: boolean) => void; close: () => void }) {
+function CollectionMenuItems({ hidden, onHidden, onAddOther, close }: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; close: () => void }) {
   return (
+    <>
+    {onAddOther && (
+      <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="menu-add-other" aria-haspopup="dialog" onClick={() => { close(); onAddOther(); }}>
+        <Icon name="plus" size={16} />
+        <span className="ps-menu-item__label">
+          Добавить игру с другой платформы
+          <small className="ps-menu-item__hint">Switch, Xbox или ПК: в статистику не входит</small>
+        </span>
+      </button>
+    )}
     <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onHidden(!hidden); }}>
       <Icon name={hidden ? 'library' : 'eye-off'} size={16} />
       <span className="ps-menu-item__label">
@@ -104,10 +114,11 @@ function CollectionMenuItems({ hidden, onHidden, close }: { hidden: boolean; onH
         {!hidden && <small className="ps-menu-item__hint">Убранные из коллекции, можно вернуть</small>}
       </span>
     </button>
+    </>
   );
 }
 
-function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void }) {
+function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void }) {
   return (
     <Popover
       align="end" className="ps-collmenu"
@@ -132,6 +143,8 @@ type BarProps = {
   selectMode: boolean; onSelect: () => void; canSelect: boolean;
   /** Раздел «Скрытые»: войти (true) / выйти (false) */
   onHidden: (v: boolean) => void;
+  /** t160u: «Добавить игру с другой платформы» в меню «…» / разделе «Коллекция» sheet «Фильтры» */
+  onAddOther?: () => void;
   /** Ничего не найдено: сброс уже есть в пустом состоянии, второй ссылки в панели не нужно (Фаза 48, п. 15) */
   empty?: boolean;
 };
@@ -193,7 +206,7 @@ export function FilterBar(p: BarProps) {
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
         {active && !p.empty && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} />
+        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} />
       </div>
     </div>
   );
@@ -282,7 +295,7 @@ export function MobileChips(p: BarProps) {
             <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={!canSelect && !selectMode} onClick={() => { setSheet(false); onSelect(); }}>
               <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">{selectMode ? 'Готово' : 'Выбрать игры'}</span>
             </button>
-            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} close={() => setSheet(false)} />
+            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} close={() => setSheet(false)} />
           </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>

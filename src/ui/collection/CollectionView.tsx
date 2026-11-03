@@ -17,7 +17,7 @@ import type { ViewMode } from '../tokens';
 import { BlockHead } from './Chronicle';
 import { FilterBar, MobileChips, MobileSearch } from './FilterBar';
 import { platinumChipCount } from './platinumCount';
-import { effectiveView, filtersToUrl, parseFilters, resetFilters, type Filters } from './filters';
+import { effectiveView, filtersToUrl, otherBlockFilters, parseFilters, resetFilters, type Filters } from './filters';
 import type { GameActions } from './GameCard';
 import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
 import type { RenderCtx } from './list/renderCtx';
@@ -46,11 +46,17 @@ import { formatLayoutHint, layoutHintCookie, type LayoutHint } from '@/shared/la
 import { useNearOpen } from './nearOpen';
 import { useHeaderAction } from '../shell/headerActions';
 import { platformCookie, type PlatformKey } from '@/shared/platform-filter';
+import { useToast } from '../primitives/Toast';
+import type { OtherPlatformGame } from '../other-platforms/api';
+import { emitOtherAdded } from '../other-platforms/events';
+import { addedToastText } from '../other-platforms/model';
 
 // Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
 const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
 // Пакет 5: блок «Игры с других платформ» в самом низу хроники, своим чанком
 const OtherPlatformsBlock = dynamic(() => import('../other-platforms/OtherPlatformsBlock').then((m) => m.OtherPlatformsBlock), { ssr: false });
+// t160u: панель добавления открывается и без блока (шапка «+», меню «…»), поэтому живёт здесь; грузится по первому открытию
+const AddOtherPlatformSheet = dynamic(() => import('../other-platforms/AddOtherPlatformSheet').then((m) => m.AddOtherPlatformSheet), { ssr: false });
 
 /**
  * heroHint: подсказка из cookie, есть ли игры «Играю» (иначе скелет hero не рисуется, CLS).
@@ -69,6 +75,10 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   // D-P1: на телефоне поле поиска открывает кнопка шапки, строка видна, пока открыта или есть запрос
   const [searchOpen, setSearchOpen] = useState(false);
   useHeaderAction('search', () => setSearchOpen(true));
+  const [addOther, setAddOther] = useState(false);
+  const openAddOther = useCallback(() => setAddOther(true), []);
+  useHeaderAction('add-other', openAddOther);
+  const toast = useToast();
   const stored = useStoredView(layout?.view ?? null);
   const view: ViewMode = effectiveView(filters, stored);
   const filtersKey = filtersToUrl({ ...filters, view: null }).toString();
@@ -171,6 +181,28 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   }, [mobileMq, stored, nearOpen, width, inboxHidden]);
   // Пакет 5: только чистая хроника (без поиска, статуса, платины, платформы и «Скрытых»)
   const otherShown = chronicleMode && !!pool && filters.status === 'all' && !filters.q.trim() && !filters.platinum && !filters.platform && !hiddenView;
+  const loadingRef = useRef(loading);
+  useEffect(() => { loadingRef.current = loading; });
+
+  function closeAddOther(added: OtherPlatformGame[]) {
+    setAddOther(false);
+    // окно «Фильтры» или меню, откуда открыли, уже закрыто: фокус не теряем
+    requestAnimationFrame(() => {
+      if (!document.activeElement || document.activeElement === document.body) document.getElementById('coll-title')?.focus({ preventScroll: true });
+    });
+    if (added.length === 0) return;
+    emitOtherAdded(added);
+    const text = addedToastText(added.map((a) => a.title));
+    if (otherShown) {
+      toast({ text, kind: 'info', ttl: 6000 });
+      return;
+    }
+    // блок скрыт фильтрами: «Показать» возвращает чистую хронику и прокручивает к нему, когда он отрисуется
+    toast({
+      text: `${text}. Блок «Игры с других платформ» скрыт фильтрами.`, kind: 'info', ttl: 8000,
+      action: { label: 'Показать', run: () => { setFilters(otherBlockFilters(filtersRef.current)); scrollWhenShown('other-platforms', () => loadingRef.current); } },
+    });
+  }
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
@@ -199,6 +231,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
 
   const barProps = {
     filters, view, counts: pool ? counts : null, platformCounts: summary?.platformCounts ?? null, platinumCount: platinumChipCount(summary ? summary.totals.platinumEarned : null, filters, pool), empty, onChange: setFilters, onView: setView,
+    onAddOther: openAddOther,
     onReset: () => setFilters(resetFilters(filters)), selectMode, onSelect: () => (selectMode ? exitSelect() : setSelectMode(true)),
     canSelect: shownGames.length > 0, onHidden: (v: boolean) => { exitSelect(); setFilters({ hidden: v, status: 'all' }); },
   };
@@ -299,7 +332,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
                   : !summaryFailed && <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinumSkeleton collapsible /></span>)}
               </Fragment>
             ))}
-            {otherShown && <OtherPlatformsBlock />}
+            {otherShown && <OtherPlatformsBlock onAdd={openAddOther} />}
           </div>
         ) : (
           <div className="ps-block">
@@ -341,7 +374,27 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         onNotDuplicate={(g) => { replaceGames([g]); refresh(); }}
       />
 
+      {addOther && <AddOtherPlatformSheet onClose={closeAddOther} />}
     </div>
     </>
   );
+}
+
+/**
+ * Ждёт, пока хроника догрузится под новые фильтры и узел (блок своим чанком) встанет на место, затем прокручивает к нему.
+ * «На месте» = список не грузится и top узла не меняется 6 кадров подряд; сдаётся через 8 с.
+ */
+function scrollWhenShown(id: string, busy: () => boolean) {
+  const until = Date.now() + 8000;
+  let last = NaN;
+  let still = 0;
+  const tick = () => {
+    const el = document.getElementById(id);
+    const top = el ? el.getBoundingClientRect().top + window.scrollY : NaN;
+    still = el && !busy() && top === last ? still + 1 : 0;
+    last = top;
+    if (still >= 6) { scrollToId(id); return; }
+    if (Date.now() < until) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }

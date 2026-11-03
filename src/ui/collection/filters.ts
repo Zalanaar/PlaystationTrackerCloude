@@ -160,6 +160,11 @@ export function resetFilters(f: Filters): Filters {
   return { ...f, status: 'all', q: '', platinum: false, platform: null };
 }
 
+/** t160u, «Показать» после добавления игры с другой платформы: чистая хроника, где виден блок #other-platforms. */
+export function otherBlockFilters(f: Filters): Filters {
+  return { ...resetFilters(f), hidden: false, sort: 'completed_at', order: null };
+}
+
 /** Платина получена (12.6): единственный признак для чипа «Платина». */
 export function hasPlatinum(g: Pick<GameItem, 'trophies'>): boolean {
   return g.trophies?.platinumEarned === true;

@@ -389,3 +389,66 @@ test.describe('Вёрстка: темы и ширины', () => {
     });
   }
 });
+
+// t160u: добавить игру с другой платформы можно без блока внизу — «+» в шапке (телефон) и пункт меню «…» / «Фильтры»
+test.describe('Добавление из шапки и меню', () => {
+  const cands = () => [ocand('1', 'Halo Infinite', { platforms: ['Xbox One'] })];
+  async function openFromMenu(page: Page) {
+    if (isMobile(page)) {
+      await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
+      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('menuitem', { name: /Добавить игру с другой платформы/ }).click();
+    } else {
+      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+      await page.getByRole('menuitem', { name: /Добавить игру с другой платформы/ }).click();
+    }
+    await expect(page.getByTestId('op-sheet')).toBeVisible();
+  }
+  async function addHalo(page: Page) {
+    await search(page, 'halo');
+    await page.getByTestId('op-add-row').first().getByTestId('op-add-btn').click();
+    await expect(page.getByTestId('op-add-row').first().getByTestId('op-add-done')).toContainText('Добавлено');
+    await page.getByTestId('op-close').click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+
+  test('«+» шапки на Коллекции открывает панель; на Бэклоге «+» прежний (магазин PS); на десктопе кнопки нет', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [op(1, 'Forza')], candidates: cands() });
+    const plus = page.getByRole('button', { name: 'Добавить игру с другой платформы', exact: true });
+    if (!isMobile(page)) {
+      await expect(plus).toBeHidden();
+      return;
+    }
+    await expect(plus).toBeVisible();
+    const box = (await plus.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+    await expect(page.getByTestId('hdr-add')).toHaveCount(0);
+    await plus.click();
+    await expect(page.getByTestId('op-sheet')).toBeVisible();
+    await expect(page.getByTestId('op-input')).toBeFocused();
+    await addHalo(page);
+    // блок на экране: запись появляется в нём без перезагрузки, тост без действия
+    await expect(rows(page)).toHaveCount(2);
+    const toast = page.locator('.ps-toast').filter({ hasText: 'Добавлено в список: «Halo Infinite»' });
+    await expect(toast).toBeVisible();
+    await expect(toast.getByRole('button', { name: 'Показать' })).toHaveCount(0);
+    await expect(plus).toBeFocused();
+    await page.goto('/backlog');
+    await expect(page.getByTestId('hdr-add')).toHaveAttribute('aria-label', 'Добавить из магазина PS');
+    await expect(page.getByTestId('hdr-add-other')).toHaveCount(0);
+  });
+
+  test('меню: панель работает и при скрытом блоке; «Показать» сбрасывает фильтры и прокручивает к блоку', async ({ page, context, baseURL }) => {
+    const m = await open(page, context, baseURL!, { items: [op(1, 'Forza')], candidates: cands() }, '/?status=backlog&platinum=1');
+    await expect(page.getByTestId('op-block')).toHaveCount(0);
+    await openFromMenu(page);
+    await addHalo(page);
+    expect(m.addBodies[0]).toMatchObject({ kind: 'other_platform', externalId: '1', platformLabel: 'Xbox' });
+    const toast = page.locator('.ps-toast').filter({ hasText: 'скрыт фильтрами' });
+    await expect(toast).toContainText('Добавлено в список: «Halo Infinite»');
+    await toast.getByRole('button', { name: 'Показать' }).click();
+    await expect(page).toHaveURL((u) => !u.search.includes('status=') && !u.search.includes('platinum'));
+    const block = page.getByTestId('op-block');
+    await expect(rows(page).filter({ hasText: 'Halo Infinite' })).toBeVisible();
+    await expect(block).toBeInViewport();
+  });
+});

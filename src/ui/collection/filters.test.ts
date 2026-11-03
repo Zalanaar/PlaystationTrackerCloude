@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
   DEFAULT_FILTERS, filtersDot, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
-  filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, parseFilters, removeFromCounts, resetFilters,
+  filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, otherBlockFilters, parseFilters, removeFromCounts, resetFilters,
 } from './filters';
 
 const p = (s: string) => new URLSearchParams(s);
@@ -62,6 +62,12 @@ describe('фильтры <-> URL', () => {
     expect(hasActiveFilters({ ...DEFAULT_FILTERS, platinum: true })).toBe(true);
     expect(resetFilters(f)).toEqual({ ...f, status: 'all', platinum: false });
     expect(resetFilters({ ...DEFAULT_FILTERS, hidden: true, platinum: true })).toEqual({ ...DEFAULT_FILTERS, hidden: true });
+  });
+  it('t160u otherBlockFilters: чистая хроника (блок «Игры с других платформ» виден), вид сохраняется', () => {
+    const f = { ...DEFAULT_FILTERS, status: 'backlog' as const, q: 'halo', platinum: true, platform: 'ps5' as const, hidden: true, sort: 'title' as const, order: 'desc' as const, view: 'list' as const };
+    const r = otherBlockFilters(f);
+    expect(r).toEqual({ ...DEFAULT_FILTERS, view: 'list' });
+    expect(isChronicleMode(r)).toBe(true);
   });
   it('платформа (F4): URL главнее запомненной, all = все, уходит в API и в блоки, сброс снимает', () => {
     expect(parseFilters(p('')).platform).toBeNull();
