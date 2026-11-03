@@ -371,7 +371,7 @@ test.describe('коллекция (desktop)', () => {
     await coll(page).getByRole('button', { name: 'Открыть: Bloodborne' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg).toBeVisible();
-    await dlg.getByRole('button', { name: 'Изменить', exact: true }).click();
+    await dlg.getByRole('button', { name: /изменить дату$/ }).click();
     await dlg.getByLabel('Дата завершения').fill('2024-01-15');
     await dlg.getByRole('button', { name: 'Сохранить дату завершения' }).click();
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'PATCH', body: { droppedAt: '2024-01-15T09:00:00.000Z' } });

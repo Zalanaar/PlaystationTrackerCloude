@@ -24,6 +24,9 @@ export type G = {
   /** Фаза 32 (17.4): отдавать duration.remainingHours/progress (иначе поля нет, как у старой схемы) */
   withRemaining?: boolean;
   linked?: { gameId: number; title: string; platform: 'PS4' | 'PS5'; hours: number }[];
+  /** F1: личная оценка 0–10 и заметка */
+  rating?: number | null;
+  note?: string | null;
 };
 
 /** Трофей в ответе GET /api/games/{id} (12.5) */
@@ -130,6 +133,7 @@ function item(g: G) {
     tint: g.tint ?? null,
     hiddenAt: g.hiddenAt ?? null,
     linkedVersions: g.linked ?? [],
+    rating: g.rating ?? null,
   };
 }
 
@@ -362,6 +366,13 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
           if (y === null) return -1;
           return u.searchParams.get('order') === 'desc' ? y - x : x - y;
         })()
+        : sort === 'rating' ? (() => {
+          const x = a.rating ?? null; const y = b.rating ?? null;
+          if (x === y) return 0;
+          if (x === null) return 1;
+          if (y === null) return -1;
+          return u.searchParams.get('order') === 'asc' ? x - y : y - x;
+        })()
         : sort === 'trophies_progress' ? (b.trophies ? b.trophies.earned / b.trophies.defined : -1) - (a.trophies ? a.trophies.earned / a.trophies.defined : -1)
         : nl(a.lastPlayedAt, b.lastPlayedAt, u.searchParams.get('order') === 'asc' ? 1 : -1)) || a.id - b.id);
     const years = [...new Set(scope.filter((g) => g.status && done(g)).map((g) => mskYear(done(g) as string)))].sort((a, b) => b - a);
@@ -438,6 +449,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       trophyList: g.trophies ? (m.trophies[id] ?? trophyList()) : [],
       platinumForecast: m.forecasts[id] ?? null,
       history: m.histories[id] ?? null,
+      review: g.rating != null || g.note ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: '2026-10-30T10:00:00.000Z' } : null,
     });
   });
 
@@ -487,6 +499,16 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     if (!g) return NOT_FOUND;
     g.override = b.hours === null ? null : Math.round((b.hours as number) * 10) / 10;
     return { game: item(g) };
+  }));
+  // F1.1: PUT отзыва; ключа нет = поле без изменений, оба null = отзыв удалён
+  await page.route(/\/api\/games\/\d+\/review$/, (route) => mutate(route, (b) => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/review/)?.[1]);
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return NOT_FOUND;
+    if ('rating' in b) g.rating = b.rating as number | null;
+    if ('note' in b) g.note = typeof b.note === 'string' && b.note.trim() ? b.note.trim() : null;
+    const has = g.rating != null || !!g.note;
+    return { game: item(g), review: has ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: new Date().toISOString() } : null };
   }));
   await page.route(/\/api\/games\/\d+\/hidden$/, (route) => mutate(route, (b) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/hidden/)?.[1]);

@@ -235,18 +235,17 @@ test.describe('Фаза 9: окно игры', () => {
     await expect(dlg).toBeVisible();
     await expect(dlg).toHaveAttribute('aria-modal', 'true');
     const tiles = dlg.locator('.ps-gd__tile');
-    await expect(tiles).toHaveCount(4);
+    await expect(tiles).toHaveCount(3); // D-P4: часы · запуски · трофеи, платина строкой в «Трофеях»
     await expect(tiles.nth(0)).toContainText('28 ч 17 м');
     await expect(tiles.nth(1)).toContainText('посл.');
     await expect(tiles.nth(2)).toContainText('54/78');
     await expect(tiles.nth(2)).toContainText('69%');
-    await expect(tiles.nth(3)).toContainText('Нет');
-    await expect(tiles.nth(3)).toContainText('в игре нет платины'); // в моках у Horizon платины нет
+    await expect(tiles.nth(2)).toContainText('без платины'); // в моках у Horizon платины нет
     await expect(dlg.getByRole('tab', { name: /Обзор/ })).toHaveAttribute('aria-selected', 'true');
     await expect(dlg.getByRole('tab', { name: /Трофеи/ })).toContainText('54/78');
     expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     const cols = await dlg.locator('.ps-gd__tiles').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-    expect(cols).toBe(isMobile(info.project.name) ? 2 : 4);
+    expect(cols).toBe(3);
     const art = await dlg.locator('.ps-gd__art').boundingBox();
     expect(Math.round(art!.height)).toBe(isMobile(info.project.name) ? 120 : 144) // нет баннера и обложки: компактная шапка;
     expect(await overflow(page)).toBeLessThanOrEqual(0);
@@ -284,7 +283,9 @@ test.describe('Фаза 9: окно игры', () => {
     await page.keyboard.press('Home');
     await expect(overview).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('End');
-    await expect(troph).toHaveAttribute('aria-selected', 'true');
+    await expect(dlg.getByRole('tab', { name: 'Гайды' })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowRight');
+    await expect(overview).toHaveAttribute('aria-selected', 'true');
   });
 
   test('«Обзор»: даты из деталей; «Трофеи»: список, редкость, скрытые, платина первой', async ({ page, context, baseURL }) => {
@@ -404,15 +405,14 @@ test.describe('Фаза 9: окно игры', () => {
     await expect(dlg.locator('li.ps-trophy')).toHaveCount(250);
   });
 
-  test('платина получена: иконка у названия и плитка «Да» с датой', async ({ page, context, baseURL }) => {
+  test('платина получена: иконка у названия и строка с датой в «Трофеях»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await card(page, 'The Witcher 3: Wild Hunt').locator('.ps-card__hit').click();
     const dlg = dlgOf(page, 'The Witcher 3: Wild Hunt');
     await expect(dlg.locator('.ps-gd__plat')).toBeVisible();
-    const tile = dlg.locator('.ps-gd__tile[data-tile="platinum"]');
-    await expect(tile).toHaveAttribute('data-state', 'earned');
-    await expect(tile).toContainText('Да');
-    await expect(tile).toContainText('5 окт. 2026');
+    const line = dlg.locator('.ps-gd__tile[data-tile="trophies"]').getByTestId('platinum-line');
+    await expect(line).toHaveAttribute('data-state', 'earned');
+    await expect(line).toHaveText('платина 5 окт. 2026');
   });
 
   test('смена статуса в окне и сброс; ссылка «Изменить статус» одна', async ({ page, context, baseURL }) => {
@@ -434,7 +434,8 @@ test.describe('Фаза 9: окно игры', () => {
     await card(page, 'Gran Turismo 7').locator('.ps-card__hit').click();
     const dlg = dlgOf(page, 'Gran Turismo 7');
     const tiles = dlg.locator('.ps-gd__tile');
-    for (let i = 0; i < 4; i++) await expect(tiles.nth(i)).toContainText('нет данных');
+    await expect(tiles).toHaveCount(3);
+    for (let i = 0; i < 3; i++) await expect(tiles.nth(i)).toContainText('нет данных');
   });
 
   test('три темы: окно без переполнения, закрытие кнопкой', async ({ page, context, baseURL }) => {

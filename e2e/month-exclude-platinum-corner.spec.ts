@@ -277,15 +277,16 @@ test.describe('Фаза 9.1: окно игры', () => {
     await expect(dlg.locator('.ps-gd__hero')).toHaveAttribute('data-art', 'blur');
   });
 
-  test('плитки: значения не переносятся, «Да/Нет» у платины, запуски числом', async ({ page, context, baseURL }) => {
+  test('плитки (D-P4: три): значения не переносятся, платина строкой в «Трофеях», запуски числом', async ({ page, context, baseURL }) => {
     await openGame(page, context, baseURL!, base());
     let dlg = await open(page, 'Horizon Forbidden West');
     const tiles = dlg.locator('.ps-gd__tile');
     await expect(tiles.nth(1)).toContainText('19');
     await expect(tiles.nth(1)).toContainText('посл. ');
     await expect(tiles.nth(1)).not.toContainText('запусков');
-    await expect(tiles.nth(3).locator('.ps-gd__tv')).toHaveText('Нет');
-    for (const i of [0, 1, 2, 3]) {
+    await expect(tiles).toHaveCount(3);
+    await expect(tiles.nth(2).getByTestId('platinum-line')).toHaveText('без платины');
+    for (const i of [0, 1, 2]) {
       const v = tiles.nth(i).locator('.ps-gd__tv');
       expect(await v.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       expect(await v.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(29);
@@ -294,15 +295,17 @@ test.describe('Фаза 9.1: окно игры', () => {
     expect(new Set(hs).size).toBe(1);
     await page.keyboard.press('Escape');
     dlg = await open(page, 'The Witcher 3: Wild Hunt');
-    await expect(dlg.locator('.ps-gd__tile[data-tile="platinum"]')).toHaveAttribute('aria-label', 'Платина: получена 5 окт. 2026');
-    await expect(dlg.locator('.ps-gd__tile[data-tile="platinum"] .ps-gd__tv')).toHaveText('Да');
+    await expect(dlg.locator('.ps-gd__tile[data-tile="trophies"]')).toHaveAttribute('aria-label', 'Трофеи: 78/78, 100%, платина 5 окт. 2026');
+    await expect(dlg.locator('.ps-gd__tile[data-tile="trophies"]').getByTestId('platinum-line')).toHaveText('платина 5 окт. 2026');
   });
 
   test('«Обзор»: секции-карточки, лист по содержимому на десктопе', async ({ page, context, baseURL }, info) => {
     await openGame(page, context, baseURL!, base());
     const dlg = await open(page, 'Horizon Forbidden West');
-    await expect(dlg.getByRole('heading', { name: 'Статус и даты' })).toBeVisible();
-    await expect(dlg.getByRole('heading', { name: 'Запуски' })).toBeVisible();
+    // D-P4: статус только в чипе шапки, даты в «Датах»
+    await expect(dlg.getByRole('heading', { name: 'Статус и даты' })).toHaveCount(0);
+    await expect(dlg.getByRole('heading', { name: 'Даты' })).toBeVisible();
+    await expect(dlg.getByRole('heading', { name: 'Моя оценка' })).toBeVisible();
     await expect(dlg.getByText('Игра не будет показываться нигде, синк её не вернёт.')).toBeVisible();
     await expect(dlg.getByText(/25 окт\. 2026 · /).or(dlg.getByText(/20 окт\. 2026 · /))).toBeVisible();
     const col = dlg.locator('.ps-gd__col');
@@ -365,14 +368,14 @@ test.describe('Фаза 9.1: окно игры', () => {
   test('нет прогноза: секции нет; ошибка деталей не роняет окно', async ({ page, context, baseURL }) => {
     await openGame(page, context, baseURL!, base());
     let dlg = await open(page, 'Horizon Forbidden West');
-    await expect(dlg.getByRole('heading', { name: 'Запуски' })).toBeVisible();
+    await expect(dlg.getByRole('heading', { name: 'Даты' })).toBeVisible();
     await expect(dlg.getByRole('region', { name: 'Путь к платине' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.route(/\/api\/games\/\d+(\?|$)/, (r) => (r.request().method() === 'GET'
       ? r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) })
       : r.fallback()));
     dlg = await open(page, 'Horizon Forbidden West');
-    await expect(dlg.locator('.ps-gd__tile')).toHaveCount(4);
+    await expect(dlg.locator('.ps-gd__tile')).toHaveCount(3);
     await expect(dlg.getByRole('region', { name: 'Путь к платине' })).toHaveCount(0);
   });
 });
