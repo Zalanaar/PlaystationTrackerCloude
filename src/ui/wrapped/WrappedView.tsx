@@ -10,6 +10,7 @@ import { EmptyState } from '../EmptyState';
 import { Icon } from '../icons';
 import { allRangeText, parseScopeParam } from './model';
 import { hideSeason, seasonYear } from './season';
+import { WrappedPreview } from './WrappedPreview';
 import { WrappedStory } from './WrappedStory';
 
 type Loaded = { key: string; data: WrappedResponse } | { key: string; error: unknown };
@@ -103,6 +104,7 @@ export function WrappedView() {
               </div>
             )}
           </section>
+          {!isAll && <WrappedPreview data={data} year={typeof selected === 'number' ? selected : null} />}
           <div>
             <button
               type="button" className="ps-btn ps-btn--primary ps-wrapped-go" disabled={!data} aria-busy={!data || undefined}

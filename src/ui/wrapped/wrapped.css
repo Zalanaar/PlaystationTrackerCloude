@@ -215,3 +215,22 @@
   .ps-pps__bars { height: 72px; }
   .ps-pps__peak { font-size: 56px; line-height: 56px; }
 }
+
+/* D-P6: превью года на хабе. Высота постоянная (скелет = карточка), название игры в одну строку — кнопка «Смотреть итоги» не прыгает */
+.ps-wpreview {
+  --wp-h: 280px;
+  box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-2); height: var(--wp-h); max-width: 560px; margin: 0;
+  padding: var(--sp-4) var(--sp-5); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; min-width: 0;
+}
+.ps-wpreview--sk { border: 0; }
+.ps-wpreview__cap, .ps-wpreview__gcap { margin: 0; color: var(--text-3); font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-micro); }
+.ps-wpreview__y { margin: 0; font: var(--fw-year) 32px/36px var(--font-display); color: var(--text); }
+.ps-wpreview__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2) var(--sp-4); margin: 0; }
+.ps-wpreview__grid > div { display: flex; flex-direction: column-reverse; min-width: 0; }
+.ps-wpreview__grid dt { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-wpreview__grid dd { margin: 0; color: var(--text); font: 600 22px/28px var(--font-display); white-space: nowrap; }
+.ps-wpreview__game { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-3); align-items: baseline; margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--border); }
+.ps-wpreview__game > .ps-wpreview__gcap { grid-column: 1 / -1; }
+.ps-wpreview__gt { margin: 0; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ps-wpreview__gs { color: var(--text-2); font-size: var(--fs-small); white-space: nowrap; }
+.ps-wpreview__empty { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
