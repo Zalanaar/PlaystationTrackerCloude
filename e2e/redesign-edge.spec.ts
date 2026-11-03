@@ -78,11 +78,13 @@ test.describe('граничные случаи редизайна', () => {
     const games = Array.from({ length: 12 }, (_, i) => g(i + 1, { lastPlayedAt: new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString() }));
     const mock = await open(page, context, baseURL!, '/triage', games);
     await expect(page.locator('.ps-tri__pos')).toBeVisible();
+    // ждём карточку головы очереди: до загрузки очереди клавиша ничего не делает (флейк CI: 0 PUT вместо 1)
+    await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
     await page.keyboard.down('2');
     for (let i = 0; i < 5; i++) await page.keyboard.down('2'); // повторные keydown = e.repeat
     await page.keyboard.up('2');
+    await expect.poll(() => mock.mutations.length).toBeGreaterThan(0);
     await page.waitForTimeout(500);
-    console.log('KEY REPEAT PUTs:', mock.mutations.length);
     expect(mock.mutations.length, 'BUG-R3: автоповтор клавиши ставит статус нескольким играм подряд').toBe(1);
   });
 

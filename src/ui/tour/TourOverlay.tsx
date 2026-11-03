@@ -181,7 +181,14 @@ export function TourOverlay(props: TourOverlayProps) {
     vv?.addEventListener('scroll', schedule);
     const ro = new ResizeObserver(schedule);
     ro.observe(el);
+    // первые ~1.5 с шага перемеряем каждый кадр: элемент и лист могут сдвинуться без resize/scroll
+    // (закрытие меню, появление листа, переходы) — иначе кольцо застывает на старой геометрии (флейк tour на mobile в CI)
+    let follow = 0;
+    const until = performance.now() + 1500;
+    const tick = () => { measure(); follow = performance.now() < until ? requestAnimationFrame(tick) : 0; };
+    follow = requestAnimationFrame(tick);
     return () => {
+      cancelAnimationFrame(follow);
       cancelAnimationFrame(ensure);
       if (raf) cancelAnimationFrame(raf);
       clearTimeout(tScroll);
