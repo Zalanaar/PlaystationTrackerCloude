@@ -16,7 +16,7 @@ async function open(
 ): Promise<{ mock: Mock; manual: ManualMock }> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
-  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '12'));
+  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
   const mock = await mockApi(page, games());
   mock.inbox = inbox;
   const manual = await mockManual(page, o);

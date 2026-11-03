@@ -11,7 +11,7 @@ const ok = (r: Route, data: unknown) => r.fulfill({ status: 200, contentType: 'a
 async function open(page: Page, context: BrowserContext, baseURL: string) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
-  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '12'));
+  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
   await mockApi(page, seed());
   const calls: string[] = [];
   for (const path of ['logout', 'logout-all']) {

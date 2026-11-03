@@ -18,7 +18,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, inbox:
   mock.inbox = inbox;
   mock.inboxDelay = delay;
   mock.inboxFails = fails;
-  await page.addInitScript(() => { if (!localStorage.getItem('ps-wn-seen:1')) localStorage.setItem('ps-wn-seen:1', '12'); });
+  await page.addInitScript(() => { if (!localStorage.getItem('ps-wn-seen:1')) localStorage.setItem('ps-wn-seen:1', '14'); });
   await page.route('**/api/auth/me', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }) }));
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await page.goto('/');
@@ -224,6 +224,8 @@ test('QA-28: «Что нового» не перекрывает tab bar и то
   console.log(`WN ${info.project.name}: ${JSON.stringify(b)} tabbar=${JSON.stringify(tab)} vp=${JSON.stringify(page.viewportSize())}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   if (tab && tab.height > 0) expect(b.y + b.height).toBeLessThanOrEqual(tab.y + 1);
+  // P2-16: на телефоне компактная карточка, не больше четверти экрана (было ~40 %)
+  if (info.project.name === 'mobile') expect(b.height).toBeLessThanOrEqual(page.viewportSize()!.height * 0.25);
   await page.screenshot({ path: `${SHOTS}/${info.project.name}-wn.png` });
 });
 

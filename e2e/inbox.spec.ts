@@ -26,7 +26,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, o: Opt
     body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: o.shouldAutoStart ? 0 : 1, shouldAutoStart: o.shouldAutoStart ?? false } }),
   }));
   // по умолчанию «Что нового» уже прочитано, чтобы карточка не мешала проверкам полосы
-  const seen = o.seen === undefined ? '12' : o.seen;
+  const seen = o.seen === undefined ? '14' : o.seen;
   if (seen !== null) await page.addInitScript(([k, v]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, ['ps-wn-seen:1', seen]);
   await page.goto(o.url ?? '/');
   if (!(o.url ?? '/').startsWith('/triage')) await page.locator('.ps-card').first().waitFor();
@@ -50,7 +50,7 @@ test.describe('Полоса «С прошлого визита»', () => {
     const mock = await mockApi(page, seed());
     mock.inbox = FULL;
     mock.inboxDelay = 1500;
-    await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '12'));
+    await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
     await page.goto('/');
     const sk = page.getByTestId('inbox-skeleton');
     await expect(sk).toHaveAttribute('aria-busy', 'true');
@@ -181,18 +181,18 @@ test.describe('Что нового', () => {
     await open(page, context, baseURL!, { seen: null });
     await expect(card(page)).toBeVisible();
     await expect(card(page)).toHaveAttribute('role', 'region');
+    // P2-16: только записи Коллекции («У тебя нет» относится к /recommend)
     await expect(page.getByTestId('whats-new-count')).toHaveText('1 из 3');
+    await expect(page.getByTestId('whats-new-title')).toHaveText('Фильтр платформы');
+    await page.getByTestId('whats-new-next').click();
     await expect(page.getByTestId('whats-new-title')).toHaveText('С прошлого визита');
     await page.getByTestId('whats-new-next').click();
-    await expect(page.getByTestId('whats-new-title')).toHaveText('История игры');
-    await page.getByTestId('whats-new-next').click();
     await expect(page.getByTestId('whats-new-count')).toHaveText('3 из 3');
-    await expect(page.getByTestId('whats-new-title')).toHaveText('«У тебя нет»');
-    await expect(page.getByTestId('whats-new-go')).toHaveAttribute('href', '/recommend?tab=discover');
+    await expect(page.getByTestId('whats-new-title')).toHaveText('История игры');
     await expect(page.getByTestId('whats-new-next')).toHaveText('Понятно');
     await page.getByTestId('whats-new-next').click();
     await expect(card(page)).toHaveCount(0);
-    expect(await seenNow(page)).toBe('12');
+    expect(await seenNow(page)).toBe('14');
     await page.reload();
     await page.locator('.ps-card').first().waitFor();
     await page.waitForTimeout(2500);
@@ -212,13 +212,41 @@ test.describe('Что нового', () => {
     await page.getByTestId('whats-new-next').focus();
     await page.keyboard.press('Escape');
     await expect(card(page)).toHaveCount(0);
-    expect(await seenNow(page)).toBe('12');
+    expect(await seenNow(page)).toBe('14');
   });
 
   test('новая запись по ключу: старые прочитаны, показываются только новые', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, { seen: '10' });
+    await open(page, context, baseURL!, { seen: '12' });
     await expect(page.getByTestId('whats-new-count')).toHaveText('1 из 2');
-    await expect(page.getByTestId('whats-new-title')).toHaveText('С прошлого визита');
+    await expect(page.getByTestId('whats-new-title')).toHaveText('Шапка на телефоне');
+  });
+
+  test('P2-16: запись Коллекции не показывается на Статистике и остаётся непрочитанной', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { seen: '12', url: '/triage' });
+    await page.goto('/stats');
+    await page.waitForTimeout(3500);
+    await expect(card(page)).toHaveCount(0);
+    expect(await seenNow(page)).toBe('12');
+  });
+
+  test('P2-16: отметка с сервера (Safari ↔ PWA): локальной нет, сервер 14 — карточки нет; закрытие пишет на сервер', async ({ page, context, baseURL }) => {
+    const puts: unknown[] = [];
+    let server: number | null = 14;
+    await page.route('**/api/me/whats-new', async (r) => {
+      if (r.request().method() === 'PUT') { const b = r.request().postDataJSON() as { seen: number }; puts.push(b); server = Math.max(server ?? -1, b.seen); }
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { seen: server } }) });
+    });
+    await open(page, context, baseURL!, { seen: null });
+    await page.waitForTimeout(3500);
+    await expect(card(page)).toHaveCount(0);
+    // другой браузер (сервер 12): показ новых и запись закрытия на сервер
+    server = 12;
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await expect(card(page)).toBeVisible();
+    await expect(page.getByTestId('whats-new-count')).toHaveText('1 из 2');
+    await page.getByTestId('whats-new-close').click();
+    await expect.poll(() => puts).toContainEqual({ seen: 14 });
   });
 
   test('меню открывает последние 6 и не меняет отметку', async ({ page, context, baseURL }) => {
@@ -230,7 +258,7 @@ test.describe('Что нового', () => {
     await expect(page.getByTestId('whats-new-count')).toHaveText('1 из 6');
     await page.getByTestId('whats-new-close').click();
     await expect(card(page)).toHaveCount(0);
-    expect(await seenNow(page)).toBe('12');
+    expect(await seenNow(page)).toBe('14');
   });
 
   test('member не видит запись owner в первом запуске/меню', async ({ page, context, baseURL }) => {
@@ -252,7 +280,7 @@ test.describe('Что нового', () => {
     await expect(page.getByTestId('tour-count')).toHaveCount(0);
     await page.waitForTimeout(2200);
     await expect(card(page)).toHaveCount(0);
-    expect(await seenNow(page)).toBe('12');
+    expect(await seenNow(page)).toBe('14');
   });
 
   test('тур стартует при видимой карточке: скрыта без отметки', async ({ page, context, baseURL }) => {

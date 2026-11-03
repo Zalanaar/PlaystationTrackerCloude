@@ -14,7 +14,7 @@ const tourStub = JSON.stringify({ ok: true, data: { version: 1, completedVersion
 async function open(page: Page, context: BrowserContext, baseURL: string, o: Partial<ManualMock> = {}, url = '/backlog'): Promise<ManualMock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
-  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '12'));
+  await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
   await mockApi(page, games());
   const manual = await mockManual(page, o);
   await page.goto(url);

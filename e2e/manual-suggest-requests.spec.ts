@@ -12,7 +12,7 @@ const tour = JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1,
 
 async function boot(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, theme = 'night') {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
-  await page.addInitScript((t) => { localStorage.setItem('ps-theme', t); localStorage.setItem('ps-bl-view', 'list'); localStorage.setItem('ps-wn-seen:1', '12'); }, theme);
+  await page.addInitScript((t) => { localStorage.setItem('ps-theme', t); localStorage.setItem('ps-bl-view', 'list'); localStorage.setItem('ps-wn-seen:1', '14'); }, theme);
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tour }));
   await mockApi(page, [bl(1, 'Альфа Экшен'), bl(2, 'Браво Гонки')]);
 }
