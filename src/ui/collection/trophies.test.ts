@@ -1,3 +1,4 @@
+import { isMaskable, isMasked, trophyAria as trophyAria5 } from './trophies';
 import { describe, expect, it } from 'vitest';
 import type { GameTrophyItem } from '@/server/collection/types';
 import {
@@ -124,5 +125,21 @@ describe('trophySections (пакет 5)', () => {
   });
   it('aria-label скрытого: «скрытый»', () => {
     expect(trophyAria(t(1, { hidden: true }))).toBe('Бронза: T1, скрытый, не получено');
+  });
+});
+
+describe('пакет 5 (t158u): маска скрытых трофеев', () => {
+  const base = { setId: 1, trophyId: 7, type: 'bronze' as const, name: 'Тайна', detail: 'Секрет', iconUrl: null, earnedAt: null, rarity: 1, earnedRate: 4 };
+  it('скрытый не полученный замаскирован, касание раскрывает; полученный и обычный — нет; без имени раскрывать нечего', () => {
+    const h = { ...base, hidden: true, earned: false };
+    expect([isMaskable(h), isMasked(h, false), isMasked(h, true)]).toEqual([true, true, false]);
+    const e = { ...base, hidden: true, earned: true };
+    expect([isMaskable(e), isMasked(e, false)]).toEqual([false, false]);
+    const n = { ...base, hidden: false, earned: false };
+    expect([isMaskable(n), isMasked(n, false)]).toEqual([false, false]);
+    const noName = { ...h, name: null };
+    expect([isMaskable(noName), isMasked(noName, true)]).toEqual([false, true]);
+    expect(trophyAria5(h as never, true)).toBe('Бронза: Скрытый трофей, скрытый, не получено');
+    expect(trophyAria5(h as never, false)).toBe('Бронза: Тайна, скрытый, не получено');
   });
 });

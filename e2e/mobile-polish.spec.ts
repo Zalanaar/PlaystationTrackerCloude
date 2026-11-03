@@ -307,3 +307,34 @@ test.describe('CLS на мобильном (P2-6)', () => {
     expect(v, `CLS ${v}`).toBeLessThan(0.02);
   });
 });
+
+test.describe('окно игры: скрытые трофеи (t158u)', () => {
+  test('не полученный скрытый замаскирован; касание показывает, повторное прячет; полученный виден; высота строки та же', async ({ page, context, baseURL, isMobile }) => {
+    await login(page, context, baseURL!);
+    await page.goto('/?game=3');
+    const d = page.getByRole('dialog', { name: 'Horizon Forbidden West' });
+    await d.getByRole('tab', { name: /Трофеи/ }).click();
+    const row = d.locator('li.ps-trophy[data-masked]');
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('Скрытый трофей');
+    await expect(row).not.toContainText('Тайный путь');
+    await expect(row.locator('img')).toHaveCount(0);   // иконка не подсказывает: заглушка-замок того же размера
+    const btn = row.getByRole('button', { name: 'Показать скрытый трофей' });
+    await expect(btn).toHaveAttribute('aria-expanded', 'false');
+    const b0 = (await btn.boundingBox())!;
+    expect(b0.height).toBeGreaterThanOrEqual(43.5);
+    const h0 = (await d.locator('li.ps-trophy').nth(3).boundingBox())!.height;
+    if (isMobile) await btn.tap(); else await btn.click();
+    const open = d.locator('li.ps-trophy', { hasText: 'Тайный путь' });
+    await expect(open).toContainText('Найдите комнату за водопадом');
+    await expect(open).not.toHaveAttribute('data-masked');
+    const hide = open.getByRole('button', { name: 'Спрятать скрытый трофей' });
+    await expect(hide).toHaveAttribute('aria-expanded', 'true');
+    expect(Math.abs((await open.boundingBox())!.height - h0)).toBeLessThanOrEqual(1);
+    if (isMobile) await hide.tap(); else await hide.click();
+    await expect(d.locator('li.ps-trophy[data-masked]')).toContainText('Скрытый трофей');
+    await expect(d.locator('li.ps-trophy', { hasText: 'Тайный путь' })).toHaveCount(0);
+    // полученный скрытый (Трофей 4) — обычная строка
+    await expect(d.locator('li.ps-trophy', { hasText: 'Трофей 4' }).getByRole('button')).toHaveCount(0);
+  });
+});

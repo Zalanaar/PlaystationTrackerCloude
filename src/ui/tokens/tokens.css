@@ -173,6 +173,8 @@
   --tour-kb: 0px;                           /* высота экранной клавиатуры, выставляет скрипт тура из visualViewport */
 
   /* z-index */
+  /* низ шапки (с вырезом PWA standalone): сюда прилипают ряды под шапкой — чипы Статистики, месяцев, сегменты Бэклога */
+  --sticky-top: calc(var(--header-h) + 1px + env(safe-area-inset-top, 0px));
   --z-loader: 40; --z-header: 50; --z-popup: 60; --z-toast: 70; --z-modal: 80; --z-tour: 85; --z-story: 90; --z-sticky: 5; --z-whatsnew: 65; --z-install: 62;
 
   /* Лоадер загрузки (Фаза 42, docs/design-system.md §18). Цвета знаков берутся из токенов статусов, значений по темам нет */

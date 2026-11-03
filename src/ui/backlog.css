@@ -81,18 +81,17 @@
 .ps-bl-service__n { font-size: var(--fs-small); font-weight: 500; color: var(--text-3); margin-left: var(--sp-1); }
 .ps-bl-service__sub { margin: 0 0 var(--sp-3); font-size: var(--fs-small); color: var(--text-3); }
 
-.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--header-h) + 80px); }
+.ps-bl-h { margin: var(--sp-4) 0 var(--sp-2); scroll-margin-top: calc(var(--sticky-top) + 80px); }
 .ps-bl-h:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
 .ps-bl-service .ps-bl-h { margin-top: 0; }
 .ps-bl-jump__sentinel { height: 1px; margin-bottom: -1px; pointer-events: none; }
 .ps-bl-jump {
-  position: sticky; top: calc(var(--header-h) - 1px); z-index: var(--z-sticky);
+  position: sticky; top: calc(var(--sticky-top) - 2px); z-index: var(--z-sticky);   /* t159u: с вырезом PWA */
   display: flex; align-items: center;
   padding: calc(var(--sp-2) + 1px) var(--sp-2) var(--sp-2);
   border-radius: var(--r-lg);                          /* скруглённая «таблетка», не полоса на всю ширину */
   width: fit-content; max-width: 100%;
-  background: color-mix(in srgb, var(--bg) 62%, transparent);   /* матовое стекло: контент под плашкой размыт, не читается */
-  -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
+  background: var(--bg);   /* t159u: сплошной фон темы вместо стекла */
   box-shadow: 0 0 0 transparent;
   transition: box-shadow var(--dur-base) var(--ease-ui);
 }
@@ -113,6 +112,8 @@
 .ps-bl-jump__tab[aria-current="location"] b { color: var(--text); }
 .ps-bl-jump__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }   /* внутрь: лоток не обрезает кольцо */
 @media (max-width: 767px) {
+  .ps-bl-jump { width: auto; border-radius: 0; clip-path: inset(0 -100vmax); }
+  .ps-bl-jump, .ps-bl-jump[data-stuck="true"] { box-shadow: 0 0 0 100vmax var(--bg); }   /* на всю ширину, как .ps-st-secs */
   .ps-bl-jump__tabs { display: flex; width: 100%; }
   .ps-bl-jump__tab { flex: 1 1 0; height: var(--tap-min); padding: 0 var(--sp-2); }
 }

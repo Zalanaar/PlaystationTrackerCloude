@@ -41,11 +41,14 @@
 .ps-mchips { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-2); height: var(--mchips-h); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
 .ps-mchips::-webkit-scrollbar { display: none; }
 .ps-chron > .ps-mchips {
-  position: sticky; top: var(--header-h); z-index: 5; margin-top: var(--sp-2); margin-bottom: var(--sp-3);
+  position: sticky; top: var(--sticky-top); z-index: var(--z-sticky); margin-top: var(--sp-2); margin-bottom: var(--sp-3);
   padding-inline: var(--sp-2); border-radius: var(--r-lg);
   width: fit-content; max-width: 100%;   /* полоса кончается по последнему чипу; если месяцев много — скролл внутри */
-  background: color-mix(in srgb, var(--bg) 62%, transparent);   /* матовое стекло, как плашка Бэклога */
-  -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2);
+  background: var(--bg);   /* t159u: сплошной фон темы, карточки под полосой не просвечивают */
+}
+@media (max-width: 767px) {
+  /* мобильный/PWA: полоса на всю ширину под шапкой, как чипы разделов Статистики (.ps-st-secs) */
+  .ps-chron > .ps-mchips { width: auto; border-radius: 0; box-shadow: 0 0 0 100vmax var(--bg); clip-path: inset(0 -100vmax); }
 }
 .ps-mchips--static { position: static; margin-bottom: var(--sp-3); }
 .ps-mchips button.ps-mchip {

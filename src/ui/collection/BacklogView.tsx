@@ -536,7 +536,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
     if (!showJump) return;
     const el = sentinelRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 56;
+    // низ шапки меряем: в PWA standalone к --header-h добавляется вырез сверху
+    const h = Math.round(document.querySelector('.ps-header')?.getBoundingClientRect().bottom ?? 56);
     const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting), { rootMargin: `-${h}px 0px 0px 0px` });
     io.observe(el);
     return () => io.disconnect();

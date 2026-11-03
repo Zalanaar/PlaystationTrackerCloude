@@ -489,7 +489,7 @@
   display: inline-flex; align-items: center; gap: 6px; height: 24px; margin-bottom: var(--sp-2); padding: 0 10px; border-radius: var(--r-pill);
   background: var(--accent-soft); color: var(--text); font: 600 var(--fs-small)/var(--lh-small) var(--font-body);
 }
-.ps-card[id^="m"], .ps-row[id^="m"] { scroll-margin-top: calc(var(--header-h) + var(--mchips-h) + var(--sp-3)); }
+.ps-card[id^="m"], .ps-row[id^="m"] { scroll-margin-top: calc(var(--sticky-top) + var(--mchips-h) + var(--sp-3)); }
 .ps-card[id^="m"]:focus-visible, .ps-row[id^="m"]:focus-visible { box-shadow: none; outline: 2px solid var(--focus); outline-offset: 2px; }
 .ps-statline { line-height: 20px; }
 .ps-statline__sk { height: 20px; }

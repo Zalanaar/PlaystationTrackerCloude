@@ -309,7 +309,9 @@ test.describe('Фаза 9: окно игры', () => {
     // скрытый не полученный: заглушки, редкость показывается
     const hidden = rows.filter({ hasText: 'Скрытый трофей' });
     await expect(hidden).toHaveCount(1);
-    await expect(hidden).toContainText('Описание откроется после получения');
+    await expect(hidden).toContainText('Нажми, чтобы показать');
+    await expect(hidden).not.toContainText('Тайный путь');
+    await expect(hidden).not.toContainText('за водопадом');
     await expect(hidden).toContainText('Очень редкий');
     await expect(hidden).toContainText('4,1%');
     await expect(hidden).toContainText('Не получено');
@@ -321,6 +323,22 @@ test.describe('Фаза 9: окно игры', () => {
     // скрытые (пакет 5): метка «Скрытый» у полученного и не полученного
     await expect(rows.filter({ hasText: 'Трофей 4' }).locator('.ps-trophy__hidtag')).toHaveText('Скрытый');
     await expect(hidden.locator('.ps-trophy__hidtag')).toHaveText('Скрытый');
+    // t158u: касание раскрывает и прячет; высота строки не меняется
+    const rev = hidden.getByTestId('trophy-reveal');
+    await expect(rev).toHaveAttribute('aria-expanded', 'false');
+    const h0 = (await hidden.boundingBox())!.height;
+    expect((await rev.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    await rev.click();
+    const shown = rows.filter({ hasText: 'Тайный путь' });
+    await expect(shown.getByTestId('trophy-reveal')).toHaveAttribute('aria-expanded', 'true');
+    await expect(shown).toContainText('Найдите комнату за водопадом');
+    await expect(shown).toHaveAttribute('aria-label', 'Бронза: Тайный путь, скрытый, не получено');
+    expect(Math.abs((await shown.boundingBox())!.height - h0)).toBeLessThanOrEqual(1);
+    await shown.getByTestId('trophy-reveal').click();
+    await expect(rows.filter({ hasText: 'Тайный путь' })).toHaveCount(0);
+    await expect(rows.filter({ hasText: 'Скрытый трофей' })).toHaveCount(1);
+    // полученный скрытый показан обычно, без кнопки
+    await expect(rows.filter({ hasText: 'Трофей 4' }).getByTestId('trophy-reveal')).toHaveCount(0);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 

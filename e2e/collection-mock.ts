@@ -52,7 +52,7 @@ export function trophyList(): MockTrophy[] {
     t(0, { type: 'platinum', name: 'Легенда', detail: 'Получите все трофеи', earned: true, earnedAt: '2026-10-05T18:42:11.000Z', rarity: 0, earnedRate: 2.4 }),
     t(1, { type: 'gold', earned: true, earnedAt: '2026-09-01T10:00:00.000Z', rarity: 2, earnedRate: 12.5 }),
     t(2, { type: 'silver', earned: true, earnedAt: null, rarity: 1, earnedRate: 0.05 }),
-    t(3, { type: 'bronze', hidden: true, name: null, detail: null, rarity: 1, earnedRate: 4.1 }),
+    t(3, { type: 'bronze', hidden: true, name: 'Тайный путь', detail: 'Найдите комнату за водопадом', rarity: 1, earnedRate: 4.1 }),
     t(4, { type: 'bronze', hidden: true, earned: true, earnedAt: '2026-08-01T10:00:00.000Z', rarity: null, earnedRate: null }),
     t(5, { type: 'bronze' }),
   ];

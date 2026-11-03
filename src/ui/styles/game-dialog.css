@@ -305,3 +305,11 @@ svg.ps-trophy__type { color: var(--plat-text); }
 .ps-gd__glabel { font-size: var(--fs-small); color: var(--text-2); }
 .ps-gd__gerr { margin: var(--sp-2) 0 0; color: var(--danger); font-size: var(--fs-small); }
 .ps-gd__guides > .ps-gd__note { margin-top: var(--sp-4); }
+/* Пакет 5 (t158u): скрытый не полученный трофей раскрывается касанием */
+.ps-trophy__reveal {
+  display: block; width: 100%; min-height: var(--tap-min, 44px); margin: 0; padding: 0; text-align: left; background: none; border: 0; color: inherit; font: inherit;
+  cursor: pointer; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent;
+}
+.ps-trophy__reveal .ps-trophy__det { display: -webkit-box; }
+.ps-trophy__reveal:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ps-trophy[data-masked] .ps-trophy__ic--empty { color: var(--text-3); }

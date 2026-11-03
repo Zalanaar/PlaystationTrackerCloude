@@ -5,7 +5,7 @@ import type { GameTrophyItem } from '@/server/collection/types';
 import { formatDayMonth } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
 import {
-  filterTrophies, formatRate, HIDDEN_DETAIL, isDlcTrophy, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
+  filterTrophies, formatRate, HIDDEN_DETAIL, HIDDEN_TITLE, isDlcTrophy, isMaskable, isMasked, REVEAL_HINT, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
   TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophySections, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from '../trophies';
 import type { DetailsState } from '../useGameDetails';
@@ -133,13 +133,13 @@ function RarityMeter({ rarity, rate }: { rarity: number | null; rate: number | n
   );
 }
 
-function TrophyIcon({ t }: { t: GameTrophyItem }) {
+function TrophyIcon({ t, masked }: { t: GameTrophyItem; masked: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
-  const secret = t.name === null;
-  if (secret || !t.iconUrl || failed === t.iconUrl) {
+  // замаскированный: заглушка того же размера (48/44), без картинки: иконка не подсказывает трофей, сдвига нет
+  if (masked || !t.iconUrl || failed === t.iconUrl) {
     return (
-      <span className="ps-trophy__ic ps-trophy__ic--empty" data-locked={!t.earned || undefined} aria-hidden="true">
-        {secret ? <Icon name="eye-off" size={20} /> : <Icon name="trophy" size={20} />}
+      <span className="ps-trophy__ic ps-trophy__ic--empty" data-locked={!t.earned || undefined} data-masked={masked || undefined} aria-hidden="true">
+        {masked ? <Icon name="lock" size={20} /> : <Icon name="trophy" size={20} />}
       </span>
     );
   }
@@ -153,19 +153,40 @@ function TrophyIcon({ t }: { t: GameTrophyItem }) {
 }
 
 function TrophyRow({ t }: { t: GameTrophyItem }) {
-  const secret = t.name === null;
+  const [revealed, setRevealed] = useState(false);
+  const detId = useId();
+  const maskable = isMaskable(t);
+  const masked = isMasked(t, revealed);
+  const name = (
+    <>
+      <TypeIcon type={t.type} />
+      <span>{masked ? HIDDEN_TITLE : trophyTitle(t)}</span>
+      {isDlcTrophy(t) && <span className="ps-trophy__dlc" title="Трофей дополнения: платине не мешает">DLC</span>}
+      {t.hidden && <span className="ps-trophy__hidtag" title="Скрытый трофей: PSN не показывает его до получения">Скрытый</span>}
+    </>
+  );
+  const detText = masked ? (maskable ? REVEAL_HINT : HIDDEN_DETAIL) : (t.detail ?? '');
   return (
-    <li className="ps-trophy" data-type={t.type} data-dlc={isDlcTrophy(t) || undefined} data-earned={t.earned || undefined} aria-label={trophyAria(t)}>
-      <TrophyIcon t={t} />
-      <div className="ps-trophy__tx">
-        <p className="ps-trophy__name">
-          <TypeIcon type={t.type} />
-          <span>{trophyTitle(t)}</span>
-          {isDlcTrophy(t) && <span className="ps-trophy__dlc" title="Трофей дополнения: платине не мешает">DLC</span>}
-          {t.hidden && <span className="ps-trophy__hidtag" title="Скрытый трофей: PSN не показывает его до получения">Скрытый</span>}
-        </p>
-        <p className="ps-trophy__det" title={t.detail ?? undefined} data-muted={secret || undefined}>{secret ? HIDDEN_DETAIL : (t.detail ?? '')}</p>
-      </div>
+    <li
+      className="ps-trophy" data-type={t.type} data-dlc={isDlcTrophy(t) || undefined} data-earned={t.earned || undefined} data-masked={masked || undefined}
+      aria-label={trophyAria(t, masked)}
+    >
+      <TrophyIcon t={t} masked={masked} />
+      {maskable ? (
+        // касание показывает/прячет текст; кнопка — вся текстовая колонка (тап-зона >= 44), высота строки не меняется (кламп 2/3 строки)
+        <button
+          type="button" className="ps-trophy__tx ps-trophy__reveal" aria-expanded={!masked} aria-controls={detId} data-testid="trophy-reveal"
+          aria-label={masked ? 'Показать скрытый трофей' : 'Спрятать скрытый трофей'} onClick={() => setRevealed((v) => !v)}
+        >
+          <span className="ps-trophy__name">{name}</span>
+          <span id={detId} className="ps-trophy__det" data-muted={masked || undefined}>{detText}</span>
+        </button>
+      ) : (
+        <div className="ps-trophy__tx">
+          <p className="ps-trophy__name">{name}</p>
+          <p className="ps-trophy__det" title={t.detail ?? undefined} data-muted={masked || undefined}>{detText}</p>
+        </div>
+      )}
       <div className="ps-trophy__meta">
         <RarityMeter rarity={t.rarity} rate={t.earnedRate} />
         <span className="ps-trophy__date" data-earned={t.earned || undefined}>

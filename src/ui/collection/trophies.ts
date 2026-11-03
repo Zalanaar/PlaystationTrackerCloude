@@ -96,8 +96,16 @@ export function platinumEarnedAt(list: readonly GameTrophyItem[]): string | null
 }
 
 /** aria-label строки: тип, название, состояние. */
-export function trophyAria(t: GameTrophyItem): string {
-  return `${TROPHY_TYPE_LABELS[t.type]}: ${trophyTitle(t)}${isDlcTrophy(t) ? ', DLC' : ''}${t.hidden ? ', скрытый' : ''}${t.earned ? '' : ', не получено'}`;
+/**
+ * Пакет 5 (t158u): скрытый не полученный трофей по умолчанию замаскирован («Скрытый трофей», замок, без описания);
+ * касание показывает текст, повторное прячет. Полученный скрытый показывается обычно. Без имени (PSN не отдал) раскрывать нечего.
+ */
+export const isMaskable = (t: GameTrophyItem): boolean => t.hidden && !t.earned && t.name !== null;
+export const isMasked = (t: GameTrophyItem, revealed: boolean): boolean => t.hidden && !t.earned && (t.name === null || !revealed);
+export const REVEAL_HINT = 'Нажми, чтобы показать';
+
+export function trophyAria(t: GameTrophyItem, masked = false): string {
+  return `${TROPHY_TYPE_LABELS[t.type]}: ${masked ? HIDDEN_TITLE : trophyTitle(t)}${isDlcTrophy(t) ? ', DLC' : ''}${t.hidden ? ', скрытый' : ''}${t.earned ? '' : ', не получено'}`;
 }
 
 /** Пакет 5: раздел списка трофеев — основная игра или одно дополнение (сет + группа). */

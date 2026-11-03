@@ -105,7 +105,8 @@ test.describe('Бэклог: липкая плашка', () => {
       const c = getComputedStyle(n);
       return { bg: c.backgroundColor, shadow: c.boxShadow, border: getComputedStyle(t).borderTopWidth, trayBorder: getComputedStyle(document.querySelector('.ps-bl-jump__tabs') as HTMLElement).borderTopWidth };
     });
-    expect(st.bg).toMatch(/^(rgba|color)\(/); // полупрозрачный фон + blur (матовое стекло, решение Артёма 2026-10-31)
+    expect(st.bg).toMatch(/^rgb\(/); // t159u (2026-11-03): сплошной фон темы, без стекла
+    expect(await jump(page).evaluate((e) => getComputedStyle(e).backdropFilter || 'none')).toBe('none');
     expect(st.border).toBe('0px');
     expect(st.trayBorder).toBe('0px');
     expect(st.shadow === 'none' || /0px 0px 0px/.test(st.shadow)).toBe(true);
