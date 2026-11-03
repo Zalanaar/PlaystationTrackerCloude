@@ -4,6 +4,7 @@ import { forgottenCountOf } from '../../triage/forgotten';
 import { gamesBatchUrl, settleBatch } from '../api';
 import { buildPlan, inBlock, type PlanItem } from '../blocks';
 import { isChronicleMode, type Filters } from '../filters';
+import { markSlim } from '../slim';
 import { union, type Pool } from './pool';
 
 /** Пул хроники из ответов блоков. null: не пришёл ни один блок. prev: ранее загруженные игры (остаются у упавших блоков). */
@@ -28,5 +29,11 @@ export function seedFromInitial(initial: CollectionInitial | null | undefined, f
   if (gamesBatchUrl(plan.map((p) => p.query)) !== initial.batchUrl) return null;
   if (!Array.isArray(initial.batch?.results) || initial.batch.results.length !== plan.length) return null;
   const pool = chroniclePool(plan, settleBatch(initial.batch), [], f);
-  return pool ? { summary: initial.summary, pool, initial } : null;
+  if (!pool) return null;
+  if (initial.slim) {
+    markSlim(pool.items);
+    markSlim(initial.summary.playing);
+    markSlim(initial.summary.nearPlatinum.map((n) => n.game));
+  }
+  return { summary: initial.summary, pool, initial };
 }

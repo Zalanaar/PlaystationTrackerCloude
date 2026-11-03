@@ -19,7 +19,8 @@ vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/t
 import { GET as summaryGet } from '@/app/api/collection/summary/route';
 import { GET as batchGet } from '@/app/api/games/batch/route';
 import { GET as inboxGet } from '@/app/api/inbox/route';
-import { loadCollectionInitial, SUMMARY_URL } from './initial';
+import { loadCollectionInitial, loadCollectionInitialSlim, SUMMARY_URL } from './initial';
+import { slimInitial } from './slim';
 import { buildPlan } from '@/ui/collection/blocks';
 import { gamesBatchUrl } from '@/ui/collection/api';
 
@@ -75,6 +76,17 @@ describe('loadCollectionInitial', () => {
     expect({ ...init!.inbox, now: null }).toEqual({ ...inbox, now: null });
     expect(JSON.stringify(init)).toContain('MARK_A');
     expect(JSON.stringify(init)).not.toContain('MARK_B');
+  });
+
+  it('для HTML: облегчённые тела = slimInitial полных', async () => {
+    const full = await loadCollectionInitial('ps_session=x', URL_);
+    const sl = await loadCollectionInitialSlim('ps_session=x', URL_);
+    // время и полоса считаются заново на каждый вызов: сравниваем игры
+    const want = slimInitial(full!);
+    expect(sl!.summary).toEqual(want.summary);
+    expect(sl!.batch).toEqual(want.batch);
+    expect(sl!.slim).toBe(true);
+    expect(await loadCollectionInitialSlim(null, URL_)).toBeNull();
   });
 
   it('данные активного пользователя (изоляция)', async () => {

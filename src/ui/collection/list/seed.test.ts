@@ -5,6 +5,7 @@ import { gamesBatchUrl } from '../batchUrl';
 import { buildPlan } from '../blocks';
 import { DEFAULT_FILTERS } from '../filters';
 import { chroniclePool, seedFromInitial } from './seed';
+import { isSlimGame } from '../slim';
 
 const counts = { all: 3, playing: 1, completed: 1, backlog: 1, dropped: 0, shelved: 0, none: 0 } as unknown as GamesListResponse['counts'];
 const g = (id: number, status: GameItem['status']) => ({ id, status, title: `G${id}` }) as unknown as GameItem;
@@ -44,5 +45,15 @@ describe('seedFromInitial', () => {
     const s = seedFromInitial(initial(rs), DEFAULT_FILTERS);
     expect(s!.pool.failed).toEqual([plan[1].block]);
     expect(seedFromInitial(initial(plan.map(() => ({ ok: false as const, code: 'db_unavailable' as const }))), DEFAULT_FILTERS)).toBeNull();
+  });
+  it('облегчённые данные (slim): игры пула помечены, обычные нет', () => {
+    const plain = seedFromInitial(initial(okAll()), DEFAULT_FILTERS)!;
+    expect(plain.pool.items.some(isSlimGame)).toBe(false);
+    const sl = { ...initial(okAll()), slim: true as const };
+    sl.summary = { ...sl.summary, playing: [], nearPlatinum: [] };
+    const s = seedFromInitial(sl, DEFAULT_FILTERS)!;
+    expect(s.pool.items.length).toBeGreaterThan(0);
+    expect(s.pool.items.every(isSlimGame)).toBe(true);
+    expect(isSlimGame({ ...s.pool.items[0] })).toBe(false); // копия (ответ мутации, перезагрузка) — полный объект
   });
 });

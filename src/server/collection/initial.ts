@@ -5,6 +5,7 @@ import { requireUser } from '@/server/auth/require-user';
 import { parseBatch, runGamesBatch } from './batch';
 import { allPartsFailed, getInbox } from '@/server/inbox/query';
 import { getCollectionSummary } from './query';
+import { slimInitial } from './slim';
 import type { CollectionInitial } from './types';
 
 export const SUMMARY_URL = '/api/collection/summary';
@@ -12,6 +13,7 @@ export const SUMMARY_URL = '/api/collection/summary';
 /** Как JSON.stringify в ответе API: Date → строка, undefined пропадает. Клиент получает ровно тело ответа. */
 const asJson = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+/** Полные тела (как у API). Для HTML страница берёт `loadCollectionInitialSlim`. */
 export async function loadCollectionInitial(cookieHeader: string | null, batchUrl: string): Promise<CollectionInitial | null> {
   if (!cookieHeader) return null;
   try {
@@ -32,4 +34,10 @@ export async function loadCollectionInitial(cookieHeader: string | null, batchUr
   } catch {
     return null;
   }
+}
+
+/** То же, облегчённое для HTML (item 4: HTML 49 KB gz → меньше, FCP раньше). */
+export async function loadCollectionInitialSlim(cookieHeader: string | null, batchUrl: string): Promise<CollectionInitial | null> {
+  const full = await loadCollectionInitial(cookieHeader, batchUrl);
+  return full ? slimInitial(full) : null;
 }

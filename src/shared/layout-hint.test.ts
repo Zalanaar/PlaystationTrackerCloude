@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLayoutHint, layoutHintCookie, parseLayoutHint } from './layout-hint';
+import { formatLayoutHint, isMobileDevice, layoutHintCookie, MOBILE_HINT_WIDTH, parseLayoutHint, withDeviceWidth } from './layout-hint';
 
 describe('layout hint (item 4)', () => {
   it('туда и обратно', () => {
@@ -16,5 +16,18 @@ describe('layout hint (item 4)', () => {
     expect(parseLayoutHint('.0.')).toEqual({ near: false });
     expect(parseLayoutHint('<x>.2.99999.zz')).toEqual({});
     expect(formatLayoutHint({ view: 'a;b', near: false, width: 1440, day: 'x;y' })).toBe('.0.1440.');
+  });
+  it('первый визит без ширины: телефон по Client Hint или UA', () => {
+    const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+    const ipad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+    expect(isMobileDevice(null, iphone)).toBe(true);
+    expect(isMobileDevice('?1', ipad)).toBe(true);
+    expect(isMobileDevice('?0', iphone)).toBe(false);
+    expect(isMobileDevice(null, ipad)).toBe(false);
+    expect(isMobileDevice(null, null)).toBe(false);
+    expect(withDeviceWidth({}, '?1', null)).toEqual({ width: MOBILE_HINT_WIDTH });
+    expect(withDeviceWidth({ view: 'list' }, null, ipad)).toEqual({ view: 'list' });
+    // фактическая ширина из cookie важнее устройства
+    expect(withDeviceWidth({ width: 1024 }, '?1', iphone)).toEqual({ width: 1024 });
   });
 });

@@ -33,3 +33,19 @@ export function formatLayoutHint(h: { view: string; near: boolean; width: number
 export function layoutHintCookie(value: string): string {
   return `${LAYOUT_HINT_COOKIE}=${value}; path=/; max-age=31536000; samesite=lax`;
 }
+
+/** Ширина телефона по умолчанию (как у мобильного макета: меньше 768 px → 2 колонки). */
+export const MOBILE_HINT_WIDTH = 390;
+
+/** Телефон по Client Hint `Sec-CH-UA-Mobile` (Chromium) или User-Agent (Safari iPhone, Android). iPad с «настольным» UA — нет. */
+export function isMobileDevice(chMobile: string | null, ua: string | null): boolean {
+  if (chMobile === '?1') return true;
+  if (chMobile === '?0') return false;
+  return !!ua && /iPhone|iPod|Mobile/.test(ua);
+}
+
+/** Подсказка без ширины (первый визит): ширина телефона для мобильного устройства, иначе как было (сервер берёт 1440). */
+export function withDeviceWidth(h: LayoutHint, chMobile: string | null, ua: string | null): LayoutHint {
+  if (h.width !== undefined || !isMobileDevice(chMobile, ua)) return h;
+  return { ...h, width: MOBILE_HINT_WIDTH };
+}

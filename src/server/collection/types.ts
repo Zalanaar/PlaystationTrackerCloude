@@ -227,4 +227,6 @@ export type CollectionInitial = {
   now: number;
   /** полоса «С прошлого визита» (GET /api/inbox): без неё скелет полосы над «Играю» менялся бы на чипы после гидрации (сдвиг). null = клиент грузит сам */
   inbox: import('@/server/inbox/query').InboxResponse | null;
+  /** true: игры облегчены (slim.ts) — тела не равны ответам API, в кэш GET их класть нельзя; окно игры берёт полные данные из деталей */
+  slim?: true;
 };

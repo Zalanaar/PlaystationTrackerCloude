@@ -9,6 +9,7 @@ import { Cover, THUMB_W } from '../Cover';
 import { artMode, DETAIL_TABS, detailSubtitle, detailTiles, nextTab, type DetailTab } from '../details';
 import { platinumEarnedAt } from '../trophies';
 import { linkedVersionsOf } from '../linked';
+import { isSlimGame } from '../slim';
 import { useGameDetails } from '../useGameDetails';
 import { Art } from './Art';
 import { Overview } from './Overview';
@@ -28,7 +29,8 @@ export function Body({
   const refreshKey = `${gameProp?.status ?? ''}|${gameProp?.completedAt ?? ''}|${gameProp?.droppedAt ?? ''}|${linkedVersionsOf(gameProp).map((v) => v.gameId).join(',')}`;
   const { state, retry } = useGameDetails(id, refreshKey);
   const details = state.kind === 'ok' ? state.data : null;
-  const game = gameProp ?? details?.game ?? null;
+  // игра из облегчённого HTML (item 4) без длительности и баннера: как только пришли детали, шапка и плитки берут полный объект
+  const game = (details && isSlimGame(gameProp) ? details.game : gameProp) ?? details?.game ?? null;
   const [tab, setTab] = useState<DetailTab>(initialTab ?? 'overview');
   const [bannerFailed, setBannerFailed] = useState<string | null>(null);
   const tabId = useId();

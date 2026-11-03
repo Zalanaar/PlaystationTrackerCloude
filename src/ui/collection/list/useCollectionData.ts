@@ -26,7 +26,8 @@ export function useCollectionData(filters: Filters, filtersKey: string, onFilter
   // только первый рендер: новые initial при клиентской навигации не перетирают живое состояние
   const [seed] = useState<Seed | null>(() => {
     const s = seedFromInitial(initial, filters);
-    if (s) {
+    // облегчённые тела (slim) не равны ответам API: в кэш GET не кладём, следующий заход за ними пойдёт в сеть
+    if (s && !s.initial.slim) {
       primeApiCache(s.initial.summaryUrl, s.initial.summary);
       primeApiCache(s.initial.batchUrl, s.initial.batch);
     }
