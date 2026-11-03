@@ -5,12 +5,12 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { BACKUP_APP, BACKUP_SCHEMA_VERSION, type BackupFile, type BackupGame } from './format';
 
-const { games, gameStatus, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings } = schema;
+const { games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings } = schema;
 
 const lt = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<BackupFile> {
-  const [gameRows, statuses, orders, excluded, months, planned, settings] = await Promise.all([
+  const [gameRows, statuses, orders, excluded, months, planned, settings, reviews] = await Promise.all([
     db
       .select({ id: games.id, titleId: games.titleId, name: games.name, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt })
       .from(games)
@@ -21,7 +21,9 @@ export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Dat
     db.select().from(gameMonthExclusions).where(eq(gameMonthExclusions.userId, userId)),
     db.select().from(plannedGames).where(eq(plannedGames.userId, userId)),
     db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId)),
+    db.select({ gameId: gameReviews.gameId, rating: gameReviews.rating, note: gameReviews.note }).from(gameReviews).where(eq(gameReviews.userId, userId)),
   ]);
+  const reviewBy = new Map(reviews.map((r) => [r.gameId, r]));
   const statusBy = new Map(statuses.map((s) => [s.gameId, s]));
   const orderBy = new Map(orders.map((o) => [o.gameId, o.position]));
   const excludedSet = new Set(excluded.map((e) => e.gameId));
@@ -33,7 +35,8 @@ export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Dat
     const st = statusBy.get(g.id);
     const ms = monthsBy.get(g.id) ?? [];
     const pos = orderBy.get(g.id) ?? null;
-    const has = !!st || g.duration !== null || (g.genres !== null && g.genres.length > 0) || g.hiddenAt !== null || pos !== null || excludedSet.has(g.id) || ms.length > 0;
+    const rv = reviewBy.get(g.id);
+    const has = !!rv || !!st || g.duration !== null || (g.genres !== null && g.genres.length > 0) || g.hiddenAt !== null || pos !== null || excludedSet.has(g.id) || ms.length > 0;
     if (!has) continue;
     out.push({
       titleId: g.titleId,
@@ -52,6 +55,7 @@ export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Dat
       roadmapPosition: pos,
       roadmapExcluded: excludedSet.has(g.id),
       monthExclusions: [...ms].sort(lt),
+      review: rv ? { rating: rv.rating, note: rv.note } : null,
     });
   }
   out.sort((a, b) => lt(a.titleId, b.titleId));

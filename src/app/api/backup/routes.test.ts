@@ -45,7 +45,7 @@ describe('API копии разметки', () => {
     expect(r.headers.get('cache-control')).toBe('no-store');
     expect(r.headers.get('content-disposition')).toMatch(/^attachment; filename="ps-tracker-backup-\d{4}-\d{2}-\d{2}\.json"$/);
     const body = await r.json();
-    expect(body).toMatchObject({ app: 'ps-tracker-backup', schemaVersion: 1 });
+    expect(body).toMatchObject({ app: 'ps-tracker-backup', schemaVersion: 2 });
     expect(body.ok).toBeUndefined();
     expect(body.games).toHaveLength(1);
   });
@@ -91,7 +91,7 @@ describe('API копии разметки', () => {
     const pre = await restorePost(post({ mode: 'preview', backup: file }));
     expect(pre.status).toBe(200);
     const preData = (await pre.json()).data;
-    expect(preData).toMatchObject({ mode: 'preview', applied: false, schemaVersion: 1, fileCreatedAt: file.createdAt, backupId: null });
+    expect(preData).toMatchObject({ mode: 'preview', applied: false, schemaVersion: 2, fileCreatedAt: file.createdAt, backupId: null });
     expect(preData.sections.status).toEqual({ add: 0, change: 1, unchanged: 0, skipped: 0 });
     expect(preData.changes[0]).toEqual({ section: 'status', kind: 'change', titleId: 'A', name: 'Hades', from: 'dropped', to: 'completed' });
     expect((await t.db.select().from(gameStatus))[0].status).toBe('dropped');

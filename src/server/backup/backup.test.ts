@@ -10,7 +10,7 @@ import { isDataError } from './errors';
 import { applyRestore, previewRestore } from './restore';
 import { BACKUP_KIND, isBackupDue, isSundayMsk, runWeeklyBackup } from './weekly';
 
-const { games, gameStatus, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
+const { games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z'); // четверг
 const SUNDAY = new Date('2026-11-01T06:00:00Z');
 const ENV = { token: '123:SECRET-TOKEN', chatId: '42' };
@@ -55,7 +55,7 @@ describe('backup', () => {
     expect(a).toEqual({
       titleId: 'A', name: 'Hades',
       status: { value: 'completed', completedAt: '2026-03-02T19:10:00.000Z', droppedAt: null, statusChangedAt: '2026-03-02T19:11:00.000Z' },
-      durationOverrideHours: 22.5, genresOverride: ['ACTION'], hiddenAt: null, roadmapPosition: null, roadmapExcluded: false, monthExclusions: ['2026-02', '2026-03'],
+      durationOverrideHours: 22.5, genresOverride: ['ACTION'], hiddenAt: null, roadmapPosition: null, roadmapExcluded: false, monthExclusions: ['2026-02', '2026-03'], review: null,
     });
     expect(f.games[1]).toMatchObject({ titleId: 'B', roadmapExcluded: true, status: { value: 'dropped', droppedAt: '2026-04-01T10:00:00.000Z' } });
     expect(f.games[2]).toMatchObject({ titleId: 'C', status: null, hiddenAt: '2026-05-01T00:00:00.000Z' });
@@ -73,6 +73,64 @@ describe('backup', () => {
     expect(p.ok).toBe(true);
   });
 
+  // --- F1: оценки и заметки (v2)
+  it('v2: оценка и заметка выгружаются, восстанавливаются, v1 без review читается; пустое поле файла не стирает', async () => {
+    const id = await seed();
+    await t.db.insert(gameReviews).values([
+      { userId: 1, gameId: id('D'), rating: 0 },
+      { userId: 1, gameId: id('A'), rating: 9, note: 'Лучший рогалик' },
+    ]);
+    const f = await buildBackup(t.db, TEST_USER, NOW);
+    expect(f.schemaVersion).toBe(2);
+    expect(f.games.map((g) => g.titleId)).toEqual(['A', 'B', 'C', 'D', 'E']); // D попадает только из-за оценки 0
+    expect(f.games[0].review).toEqual({ rating: 9, note: 'Лучший рогалик' });
+    expect(f.games[3].review).toEqual({ rating: 0, note: null });
+    expect(parseBackup(JSON.parse(JSON.stringify(f))).ok).toBe(true);
+
+    // v1-файл (без review) по-прежнему читается и оценки не трогает
+    const v1 = JSON.parse(JSON.stringify(f));
+    v1.schemaVersion = 1;
+    for (const g of v1.games) delete g.review;
+    const p1 = parseBackup(v1);
+    expect(p1.ok).toBe(true);
+    if (!p1.ok) return;
+    const r1 = await applyRestore(t.db, TEST_USER, p1.value, NOW);
+    expect(r1.sections.review).toEqual({ add: 0, change: 0, unchanged: 0, skipped: 0 });
+
+    // стёрли оценки -> файл v2 возвращает их; заметка null в файле не стирает текущую
+    await t.db.delete(gameReviews);
+    await t.db.insert(gameReviews).values({ userId: 1, gameId: id('A'), rating: 3, note: 'старая' });
+    const f2 = JSON.parse(JSON.stringify(f));
+    f2.games[0].review = { rating: 9, note: null };
+    const p2 = parseBackup(f2);
+    if (!p2.ok) throw new Error('parse');
+    const pre = await previewRestore(t.db, TEST_USER, p2.value);
+    expect(pre.sections.review).toEqual({ add: 1, change: 1, unchanged: 0, skipped: 0 });
+    await applyRestore(t.db, TEST_USER, p2.value, NOW);
+    const rows = await t.db.select().from(gameReviews);
+    const by = new Map(rows.map((r) => [r.gameId, r]));
+    expect(by.get(id('A'))).toMatchObject({ rating: 9, note: 'старая' });
+    expect(by.get(id('D'))).toMatchObject({ rating: 0, note: null });
+    // повторное применение ничего не меняет
+    expect((await previewRestore(t.db, TEST_USER, p2.value)).sections.review).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
+  });
+
+  it('v2: битый review = invalid_format', async () => {
+    await seed();
+    const good = JSON.parse(JSON.stringify(await buildBackup(t.db, TEST_USER, NOW))) as BackupFile;
+    const bad = (review: unknown) => {
+      const f = JSON.parse(JSON.stringify(good));
+      f.games[0].review = review;
+      return parseBackup(f).ok;
+    };
+    expect(bad({ rating: 11, note: null })).toBe(false);
+    expect(bad({ rating: 2.5, note: null })).toBe(false);
+    expect(bad({ rating: null, note: null })).toBe(false);
+    expect(bad({ rating: null, note: '   ' })).toBe(false);
+    expect(bad({ rating: null, note: 'x'.repeat(501) })).toBe(false);
+    expect(bad({ rating: 5, note: 'ok' })).toBe(true);
+  });
+
   it('пустая БД: пустой, но валидный файл', async () => {
     const f = await buildBackup(t.db, TEST_USER, NOW);
     expect(f.games).toEqual([]);
@@ -88,7 +146,7 @@ describe('backup', () => {
     expect(parseBackup(null)).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup([])).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup({ ...clone(), app: 'other' })).toEqual({ ok: false, failure: { reason: 'invalid_format', path: 'app' } });
-    expect(parseBackup({ ...clone(), schemaVersion: 2 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 2 } });
+    expect(parseBackup({ ...clone(), schemaVersion: 3 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 3 } });
     expect(parseBackup({ ...clone(), schemaVersion: '1' })).toMatchObject({ ok: false, failure: { reason: 'invalid_format', path: 'schemaVersion' } });
     const bad = (mutate: (f: BackupFile) => void) => { const f = clone(); mutate(f); return parseBackup(f); };
     expect(bad((f) => { f.games[0].status!.value = 'wat' as never; }).ok).toBe(false);

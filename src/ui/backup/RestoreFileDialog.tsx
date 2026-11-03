@@ -92,7 +92,7 @@ function Body({ onClose }: { onClose: () => void }) {
   const { data } = step;
   const total = totalChanges(data);
   const created = formatDate(data.fileCreatedAt);
-  const rows = SECTION_ORDER.map((k) => ({ k, c: data.sections[k] })).filter(({ c }) => c.add + c.change + c.unchanged + c.skipped > 0);
+  const rows = SECTION_ORDER.map((k) => ({ k, c: data.sections[k] })).filter(({ c }) => !!c && c.add + c.change + c.unchanged + c.skipped > 0);
 
   if (step.kind === 'done') {
     return (

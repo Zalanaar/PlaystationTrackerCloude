@@ -5,8 +5,9 @@ import { isDateString } from '@/server/roadmap/dates';
 import { GENRE_LABELS_RU } from '@/shared/genres';
 
 export const BACKUP_APP = 'ps-tracker-backup';
-export const BACKUP_SCHEMA_VERSION = 1;
-export const SUPPORTED_VERSIONS: readonly number[] = [1];
+/** v2 (F1): у игры есть необязательное поле `review`. Файлы v1 читаются как раньше (без оценок). */
+export const BACKUP_SCHEMA_VERSION = 2;
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2];
 export const MAX_GAMES = 5000;
 export const MAX_PLANNED = 2000;
 /** Предел тела запроса восстановления в символах (≈5 МБ). */
@@ -35,6 +36,18 @@ const gameSchema = z.object({
   roadmapPosition: z.number().int().min(0).max(1_000_000).nullable(),
   roadmapExcluded: z.boolean(),
   monthExclusions: z.array(z.string().regex(/^[0-9]{4}-(0[1-9]|1[0-2])$/)).max(240),
+  /** v2 (F1): личная оценка 0–10 и заметка ≤500 (кодовые точки, как char_length). */
+  review: z
+    .object({
+      rating: z.number().int().min(0).max(10).nullable(),
+      note: z
+        .string()
+        .refine((n) => n.trim().length > 0 && [...n].length <= 500, 'note')
+        .nullable(),
+    })
+    .refine((r) => r.rating !== null || r.note !== null, { message: 'review_empty' })
+    .nullable()
+    .optional(),
 });
 
 const plannedSchema = z

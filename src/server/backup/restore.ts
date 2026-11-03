@@ -7,9 +7,9 @@ import type { UserId } from '@/server/auth/user-id';
 import { snapshotAllStatuses } from '@/server/collection/mutations';
 import type { BackupFile, BackupPlanned } from './format';
 
-const { games, gameStatus, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings } = schema;
+const { games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings } = schema;
 
-export const SECTIONS = ['status', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings'] as const;
+export const SECTIONS = ['status', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings', 'review'] as const;
 export type Section = (typeof SECTIONS)[number];
 export type SectionCounts = { add: number; change: number; unchanged: number; skipped: number };
 export const CHANGES_LIMIT = 100;
@@ -32,7 +32,8 @@ type Op =
   | { t: 'excluded'; gameId: number }
   | { t: 'month'; gameId: number; month: string }
   | { t: 'planned'; id: number | null; values: PlannedValues }
-  | { t: 'settings'; year: number; hoursPerWeek: number };
+  | { t: 'settings'; year: number; hoursPerWeek: number }
+  | { t: 'review'; gameId: number; rating: number | null; note: string | null };
 
 type PlannedValues = Omit<typeof plannedGames.$inferInsert, 'userId'>;
 
@@ -58,15 +59,17 @@ function plannedValues(fp: BackupPlanned, cur: typeof plannedGames.$inferSelect 
 
 /** Строит план по текущему состоянию БД и файлу. Только чтение. */
 export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): Promise<RestorePlan> {
-  const [gameRows, statuses, orders, excluded, months, planned, settings] = await Promise.all([
-    db.select({ id: games.id, titleId: games.titleId, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt }).from(games).where(eq(games.userId, userId)),
+  const [gameRows, statuses, orders, excluded, months, planned, settings, reviews] = await Promise.all([
+    db.select({ id: games.id, titleId: games.titleId, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt, dup: games.duplicateOfGameId }).from(games).where(eq(games.userId, userId)),
     db.select().from(gameStatus).where(eq(gameStatus.userId, userId)),
     db.select().from(roadmapOrder).where(eq(roadmapOrder.userId, userId)),
     db.select().from(roadmapExcluded).where(eq(roadmapExcluded.userId, userId)),
     db.select().from(gameMonthExclusions).where(eq(gameMonthExclusions.userId, userId)),
     db.select().from(plannedGames).where(eq(plannedGames.userId, userId)),
     db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId)),
+    db.select({ gameId: gameReviews.gameId, rating: gameReviews.rating, note: gameReviews.note }).from(gameReviews).where(eq(gameReviews.userId, userId)),
   ]);
+  const reviewBy = new Map(reviews.map((r) => [r.gameId, r]));
   const byTitle = new Map(gameRows.map((g) => [g.titleId, g]));
   const statusBy = new Map(statuses.map((s) => [s.gameId, s]));
   const orderBy = new Map(orders.map((o) => [o.gameId, o.position]));
@@ -163,6 +166,24 @@ export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): 
         ops.push({ t: 'excluded', gameId: g.id });
         note('roadmapExcluded', 'add', fg.titleId, name, null, 'excluded');
       } else sections.roadmapExcluded.unchanged++;
+    }
+    // F1: оценка и заметка (v2). Пустое поле файла текущее значение не стирает.
+    if (fg.review) {
+      if (!g) skip('review');
+      else {
+        const target = g.dup ?? g.id; // отзыв живёт на главной карточке (как PUT review)
+        const cur = reviewBy.get(target);
+        const rating = fg.review.rating ?? cur?.rating ?? null;
+        const noteText = fg.review.note !== null ? fg.review.note.replace(/\r\n?/g, '\n').trim() : (cur?.note ?? null);
+        const fmt = (r: number | null, n: string | null) => [r === null ? null : `${r}/10`, n === null ? null : 'заметка'].filter(Boolean).join(', ');
+        if (!cur) {
+          ops.push({ t: 'review', gameId: target, rating, note: noteText });
+          note('review', 'add', fg.titleId, name, null, fmt(rating, noteText));
+        } else if (cur.rating !== rating || cur.note !== noteText) {
+          ops.push({ t: 'review', gameId: target, rating, note: noteText });
+          note('review', 'change', fg.titleId, name, fmt(cur.rating, cur.note), fmt(rating, noteText));
+        } else sections.review.unchanged++;
+      }
     }
     // исключения месяцев
     for (const month of fg.monthExclusions) {
@@ -323,6 +344,12 @@ export async function applyRestore(db: AnyDb, userId: UserId, file: BackupFile, 
         case 'planned':
           if (op.id === null) await tx.insert(plannedGames).values({ ...op.values, userId });
           else await tx.update(plannedGames).set({ ...op.values, updatedAt: now }).where(and(eq(plannedGames.id, op.id), eq(plannedGames.userId, userId)));
+          break;
+        case 'review':
+          await tx
+            .insert(gameReviews)
+            .values({ userId, gameId: op.gameId, rating: op.rating, note: op.note, createdAt: now, updatedAt: now })
+            .onConflictDoUpdate({ target: gameReviews.gameId, set: { rating: op.rating, note: op.note, updatedAt: now } });
           break;
         case 'settings':
           await tx

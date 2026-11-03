@@ -18,10 +18,11 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
   monthExclusions: 'Исключённые месяцы',
   plannedGames: 'Планируемые игры',
   roadmapSettings: 'Настройки плана',
+  review: 'Оценки и заметки',
 };
 
 export const SECTION_ORDER: readonly SectionKey[] = [
-  'status', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings',
+  'status', 'review', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings',
 ];
 
 const STATUS_RU: Record<string, string> = {
