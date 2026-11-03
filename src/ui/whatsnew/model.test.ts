@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { WHATS_NEW_ENTRIES } from './entries';
-import { autoPathAllowed, autoVisible, forRole, latestId, parseSeen, planAuto, planMenu, seenKey } from './model';
+import { autoPathAllowed, autoVisible, forRole, hasUnread, latestId, mergeSeen, parseSeen, planAuto, planMenu, relevantTo, seenKey } from './model';
 
 describe('записи', () => {
   it('id строго убывают сверху вниз, уникальны, длины в пределах', () => {
     const ids = WHATS_NEW_ENTRIES.map((e) => e.id);
     expect(ids).toEqual([...ids].sort((a, b) => b - a));
     expect(new Set(ids).size).toBe(ids.length);
-    expect(WHATS_NEW_ENTRIES).toHaveLength(12);
+    expect(WHATS_NEW_ENTRIES).toHaveLength(14);
     for (const e of WHATS_NEW_ENTRIES) {
       expect(e.title.length).toBeLessThanOrEqual(32);
       expect(e.text.length).toBeLessThanOrEqual(120);
@@ -17,7 +17,10 @@ describe('записи', () => {
   it('без «вот это» и «здесь», только русский', () => {
     for (const e of WHATS_NEW_ENTRIES) expect(`${e.title} ${e.text}`.toLowerCase()).not.toMatch(/вот это|здесь/);
   });
-  it('максимальный id = 12', () => expect(latestId()).toBe(12));
+  it('максимальный id = 14', () => expect(latestId()).toBe(14));
+  it('paths: только страницы автопоказа', () => {
+    for (const e of WHATS_NEW_ENTRIES) for (const p of e.paths ?? []) expect(autoPathAllowed(p)).toBe(true);
+  });
 });
 
 describe('роль', () => {
@@ -31,30 +34,52 @@ describe('planAuto', () => {
   it('первый запуск: до 3 highlight с наибольшим id, ключ ставится на максимум', () => {
     const p = planAuto(null, 'owner');
     expect(p.firstRun).toBe(true);
-    expect(p.entries.map((e) => e.id)).toEqual([12, 11, 9]);
-    expect(p.markTo).toBe(12);
+    expect(p.entries.map((e) => e.id)).toEqual([13, 12, 11]);
+    expect(p.markTo).toBe(14);
   });
   it('новая запись (id 13) показывается один раз', () => {
-    const extra = [{ id: 13, title: 'Новое', text: 'Текст.', audience: 'all', highlight: false } as const, ...WHATS_NEW_ENTRIES];
-    const p = planAuto(12, 'member', extra);
-    expect(p.entries.map((e) => e.id)).toEqual([13]);
-    expect(p.markTo).toBe(13);
-    expect(planAuto(13, 'member', extra).entries).toEqual([]);
+    const extra = [{ id: 15, title: 'Новое', text: 'Текст.', audience: 'all', highlight: false } as const, ...WHATS_NEW_ENTRIES];
+    const p = planAuto(14, 'member', extra);
+    expect(p.entries.map((e) => e.id)).toEqual([15]);
+    expect(p.markTo).toBe(15);
+    expect(planAuto(15, 'member', extra).entries).toEqual([]);
   });
   it('больше 3 непрочитанных: 3 самые новые, закрытие отмечает все', () => {
     const p = planAuto(5, 'owner');
-    expect(p.entries.map((e) => e.id)).toEqual([12, 11, 10]);
-    expect(p.markTo).toBe(12);
+    expect(p.entries.map((e) => e.id)).toEqual([14, 13, 12]);
+    expect(p.markTo).toBe(14);
   });
-  it('всё прочитано: пусто', () => expect(planAuto(12, 'owner').entries).toEqual([]));
+  it('всё прочитано: пусто', () => expect(planAuto(14, 'owner').entries).toEqual([]));
+  it('P2-16: только записи страницы; «Над «Играю»» не на /stats и /backlog', () => {
+    expect(planAuto(11, 'owner', WHATS_NEW_ENTRIES, '/stats').entries).toEqual([]);
+    expect(planAuto(11, 'owner', WHATS_NEW_ENTRIES, '/backlog').entries.map((e) => e.id)).toEqual([14, 13]);
+    expect(planAuto(11, 'owner', WHATS_NEW_ENTRIES, '/').entries.map((e) => e.id)).toEqual([14, 13, 12]);
+    expect(planAuto(4, 'owner', WHATS_NEW_ENTRIES, '/stats').entries.map((e) => e.id)).toEqual([7, 6, 5]);
+    expect(planAuto(null, 'owner', WHATS_NEW_ENTRIES, '/roadmap').entries.map((e) => e.id)).toEqual([7]);
+    expect(relevantTo({ paths: ['/'] }, '/stats')).toBe(false);
+    expect(relevantTo({}, '/stats')).toBe(true);
+    expect(relevantTo({ paths: ['/'] }, null)).toBe(true);
+  });
+  it('P2-16: hasUnread и сводная отметка (Safari + PWA)', () => {
+    expect(hasUnread(14, 'owner')).toBe(false);
+    expect(hasUnread(12, 'owner')).toBe(true);
+    expect(hasUnread(null, 'owner')).toBe(true);
+    expect(mergeSeen(undefined, undefined)).toBeUndefined();
+    expect(mergeSeen(null, null)).toBeNull();
+    expect(mergeSeen(undefined, null)).toBeNull();
+    expect(mergeSeen(12, null)).toBe(12);
+    expect(mergeSeen(null, 14)).toBe(14);
+    expect(mergeSeen(9, 14)).toBe(14);
+    expect(mergeSeen(undefined, 3)).toBe(3);
+  });
   it('member на id 4: запись owner пропущена', () => expect(planAuto(3, 'member').entries.map((e) => e.id)).not.toContain(4));
 });
 
 describe('planMenu и seen', () => {
   it('последние 6 с фильтром роли', () => {
-    expect(planMenu('owner').map((e) => e.id)).toEqual([12, 11, 10, 9, 8, 7]);
+    expect(planMenu('owner').map((e) => e.id)).toEqual([14, 13, 12, 11, 10, 9]);
     expect(planMenu('member')).toHaveLength(6);
-    expect(planMenu('member').map((e) => e.id)).toEqual([12, 11, 10, 9, 8, 7]);
+    expect(planMenu('member').map((e) => e.id)).toEqual([14, 13, 12, 11, 10, 9]);
   });
   it('parseSeen', () => {
     expect(parseSeen('12')).toBe(12);

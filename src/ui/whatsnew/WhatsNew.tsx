@@ -7,9 +7,10 @@ import { useMe } from '../access/useMe';
 import { Icon } from '../icons';
 import { fetchTourState } from '../tour/api';
 import { useTour } from '../tour/TourProvider';
+import { fetchWhatsNewSeen, saveWhatsNewSeen } from './api';
 import type { WhatsNewEntry } from './entries';
 import {
-  announceText, autoVisible, counterText, latestId, parseSeen, planAuto, planMenu, READY_WAIT_MS, seenKey, SHOW_DELAY_MS,
+  announceText, autoVisible, counterText, hasUnread, latestId, mergeSeen, parseSeen, planAuto, planMenu, READY_WAIT_MS, relevantTo, seenKey, SHOW_DELAY_MS,
 } from './model';
 
 type Shown = { entries: WhatsNewEntry[]; mode: 'auto' | 'manual'; markTo: number | null; seenAtOpen: number };
@@ -25,11 +26,13 @@ export function useWhatsNew(): { open: () => void } {
 function readSeen(userId: number): number | null | undefined {
   try { return parseSeen(localStorage.getItem(seenKey(userId))); } catch { return undefined; } // undefined = хранилища нет
 }
+/** Локально и на сервере (P2-16: Safari и PWA на iPhone не делят localStorage). */
 function writeSeen(userId: number, id: number): void {
   try {
     const cur = parseSeen(localStorage.getItem(seenKey(userId))) ?? 0;
     localStorage.setItem(seenKey(userId), String(Math.max(cur, id)));
-  } catch { /* приватный режим: карточка может показаться снова */ }
+  } catch { /* приватный режим: остаётся серверная отметка */ }
+  saveWhatsNewSeen(userId, id);
 }
 
 const blocked = () => !!document.querySelector('[role="dialog"], [role="menu"]');
@@ -47,6 +50,8 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   const [index, setIndex] = useState(0);
   const [toast, setToast] = useState(false);
   const [tourNew, setTourNew] = useState<boolean | null>(null); // true: у пользователя ещё не пройден тур (автозапуск)
+  // P2-16: серверная отметка; до ответа автопоказа нет (undefined в seen = сервер недоступен, тогда только локальная)
+  const [server, setServer] = useState<{ userId: number; seen: number | null | undefined } | null>(null);
   const suppressed = useRef(false);
   const wasActive = useRef(false);
   const shownRef = useRef<Shown | null>(null);
@@ -60,6 +65,18 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
     const ac = new AbortController();
     void fetchTourState(ac.signal).then((s) => { if (!ac.signal.aborted) setTourNew(s ? s.shouldAutoStart : null); }); // ошибка: состояние неизвестно, карточку не показываем
     return () => ac.abort();
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId === null) return;
+    let live = true;
+    void fetchWhatsNewSeen(userId).then((seen) => {
+      if (!live) return;
+      setServer({ userId, seen });
+      const local = readSeen(userId);
+      if (typeof local === 'number' && seen !== undefined && local > (seen ?? -1)) saveWhatsNewSeen(userId, local); // перенос старой локальной отметки
+    });
+    return () => { live = false; };
   }, [userId]);
 
   useEffect(() => {
@@ -87,11 +104,13 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   // автопоказ
   useEffect(() => {
     if (userId === null || tourNew === null || tourNew || tour || suppressed.current || shown) return;
-    const seen = readSeen(userId);
+    if (server?.userId !== userId) return;
+    const seen = mergeSeen(readSeen(userId), server.seen);
     if (seen === undefined) return;
-    const plan = planAuto(seen, role);
+    const plan = planAuto(seen, role, undefined, pathname);
     if (plan.entries.length === 0) {
-      if (plan.firstRun || (seen ?? 0) < plan.markTo) writeSeen(userId, plan.markTo); // нечего показывать: тихо отмечаем
+      // нечего показывать вообще: тихо отмечаем; есть непрочитанное для других страниц — ждём их
+      if (!hasUnread(seen, role) && (plan.firstRun || (seen ?? 0) < plan.markTo)) writeSeen(userId, plan.markTo);
       return;
     }
     if (!autoVisible({ pathname, hasGameParam: hasGame, tourActive: false, toast: false })) return;
@@ -111,7 +130,7 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
     };
     waitReady(0);
     return () => { cancelled = true; timers.forEach(clearTimeout); };
-  }, [userId, role, tourNew, tour, pathname, hasGame, shown]);
+  }, [userId, role, tourNew, tour, pathname, hasGame, shown, server]);
 
   const close = useCallback(() => {
     const s = shownRef.current;
@@ -124,13 +143,15 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback(() => {
     if (userId === null || tour) return;
-    const seen = readSeen(userId) ?? 0;
+    const seen = mergeSeen(readSeen(userId), server?.userId === userId ? server.seen : undefined) ?? 0;
     setIndex(0);
     setShown({ entries: planMenu(role), mode: 'manual', markTo: null, seenAtOpen: seen });
-  }, [userId, role, tour]);
+  }, [userId, role, tour, server]);
 
   const auto = shown?.mode === 'auto';
-  const hidden = tour || toast || (auto && !autoVisible({ pathname, hasGameParam: hasGame, tourActive: false, toast: false }));
+  // P2-16: автокарточка не переезжает на страницу, к которой её записи не относятся
+  const offPage = auto && !shown.entries.some((e) => relevantTo(e, pathname));
+  const hidden = tour || toast || offPage || (auto && !autoVisible({ pathname, hasGameParam: hasGame, tourActive: false, toast: false }));
   const value = useMemo(() => ({ open, shown, index, setIndex, close, hidden }), [open, shown, index, close, hidden]);
   return (
     <C.Provider value={value}>
