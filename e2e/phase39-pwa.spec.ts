@@ -213,6 +213,8 @@ test.describe('service worker', () => {
       await page.waitForLoadState('load');
       await expect.poll(async () => Object.keys(await cacheDump(page)).sort(), { timeout: 15_000 }).toEqual(['ps-static-v2']);
     } finally {
+      // keep-alive соединения браузера держали close() до таймаута теста (флак в CI): закрываем их явно
+      proxy.closeAllConnections();
       await new Promise((r) => proxy.close(r));
     }
   });

@@ -1,5 +1,6 @@
 // Фаза 46: раннер миграций для CI на PGlite. Журнал совместим с ручными release-neon-*.sql (0000–0027), сверка журнала, по транзакции на миграцию, DATA LOSS.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -35,7 +36,7 @@ function folder(count: number, extra: { sql: string; when?: number }[] = []): st
 
 /** Как прод сейчас: 0000–0026 мигратором drizzle, 0027 — ручной release-neon-0027.sql из SQL Editor. */
 async function prodLike(): Promise<PGlite> {
-  const db = new PGlite();
+  const db = await freshPglite();
   await migrate(drizzle(db), { migrationsFolder: folder(LEGACY_LAST_IDX) });
   await db.exec(readFileSync(join(process.cwd(), 'docs/release-neon-0027.sql'), 'utf8'));
   return db;
@@ -64,7 +65,7 @@ describe('раннер на базе как у прода', () => {
     expect(ins.pending).toEqual([]);
     expect(await applyPending(client(db), loadMigrations(root))).toEqual([]);
 
-    const ref = new PGlite();
+    const ref = await freshPglite();
     await applyPending(client(ref), loadMigrations(root), { allowDataLoss: true });
     expect(diffFingerprints(await schemaFingerprint(client(ref)), await schemaFingerprint(client(db)))).toEqual({ missing: [], extra: [] });
   });
@@ -146,9 +147,9 @@ describe('раннер на базе как у прода', () => {
   });
 
   it('чистая база: все миграции применяются с нуля, схема как у стандартного мигратора', async () => {
-    const a = new PGlite();
+    const a = await freshPglite();
     await applyPending(client(a), loadMigrations(root), { allowDataLoss: true });
-    const b = new PGlite();
+    const b = await freshPglite();
     await migrate(drizzle(b), { migrationsFolder: root });
     expect(diffFingerprints(await schemaFingerprint(client(b)), await schemaFingerprint(client(a)))).toEqual({ missing: [], extra: [] });
   });

@@ -1,10 +1,11 @@
 // QA: docs/release-neon-0013.sql поверх 0000–0012 на PGlite: идемпотентность, схема = drizzle-миграция 0013, журнал, данные целы; owner-SQL.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -15,14 +16,6 @@ const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'ut
 const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0013.sql'), 'utf8');
 const ownerSql = readFileSync(join(process.cwd(), 'docs/release-neon-0013-owner.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig13-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -37,9 +30,9 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 
 describe('docs/release-neon-0013.sql', () => {
   it('поверх 0000–0012 дважды: схема как у drizzle, журнал верный, данные целы', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(14) });
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(13) });
     await c.exec(`insert into login_attempts (ip_hash, success) values ('h', false)`);
     await c.exec(releaseSql);
@@ -58,7 +51,7 @@ describe('docs/release-neon-0013.sql', () => {
   });
 
   it('после релизного SQL drizzle migrate ничего не применяет повторно; owner-SQL идемпотентен, id = 1', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(13) });
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });

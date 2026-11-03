@@ -1,11 +1,12 @@
 // docs/release-neon-0027.sql (Фаза 45: allowed_users.session_epoch и revoked_sessions) поверх 0000–0026 на PGlite: идемпотентность, схема = drizzle-миграция 0027,
 // журнал, данные целы, check-запрос, ограничения (PK sid, каскад), повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -17,14 +18,6 @@ const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0027.sql'
 const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0027-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0027_session_revocation');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig27-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -36,7 +29,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 }
 
 async function after0026(): Promise<PGlite> {
-  const c = new PGlite();
+  const c = await freshPglite();
   await migrate(drizzle(c), { migrationsFolder: folderUpTo(E) });
   await c.exec(`
     insert into allowed_users (email, role, status) values ('o@example.com', 'owner', 'active');
@@ -58,7 +51,7 @@ describe('docs/release-neon-0027.sql', () => {
   });
 
   it('поверх 0000–0026 дважды: схема как у drizzle, журнал верный, данные целы, check «до/после»', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(E + 1) });
     const c = await after0026();
     const before = (await c.query<{ t: string; n: number }>(checkSql)).rows;
@@ -110,6 +103,6 @@ describe('docs/release-neon-0027.sql', () => {
   });
 
   it('без 0026 скрипт останавливается с понятной ошибкой', async () => {
-    await expect(new PGlite().exec(releaseSql)).rejects.toThrow(/0027/);
+    await expect((await freshPglite()).exec(releaseSql)).rejects.toThrow(/0027/);
   });
 });

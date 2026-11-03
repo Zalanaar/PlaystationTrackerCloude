@@ -1,10 +1,10 @@
 // QA: docs/release-neon-0007.sql поверх 0000–0005 на PGlite: идемпотентность, схема = drizzle-миграция 0006, журнал, данные целы.
-import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -14,18 +14,10 @@ const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'ut
 };
 const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0007.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig7-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 describe('docs/release-neon-0007.sql', () => {
   it('дважды подряд, значение hltb есть, drizzle migrate потом ничего не применяет', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(7) });
     await c.exec(releaseSql);
     await c.exec(releaseSql);

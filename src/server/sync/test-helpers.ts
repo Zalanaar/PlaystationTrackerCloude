@@ -1,5 +1,5 @@
 // Хелперы тестов: PGlite в памяти (вне репозитория, без файлов) и фейковый psn-api на JSON-образцах.
-import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from '@/db/test-utils/pglite';
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -36,7 +36,7 @@ function migrationsFolder(count?: number): string {
 
 /** opts.migrations: сколько миграций применить (по умолчанию все); 15 = схема ровно после 0014. */
 export async function createTestDb(opts: { migrations?: number } = {}): Promise<TestDb> {
-  const client = new PGlite();
+  const client = await freshPglite();
   const pg = drizzle(client, { schema });
   await migrate(pg, { migrationsFolder: migrationsFolder(opts.migrations) });
   // срезы журнала (до 0016) всё равно получают колонки тура: схема drizzle в коде их уже выбирает, а 0016 к срезу 0015 ортогональна

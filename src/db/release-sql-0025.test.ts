@@ -1,11 +1,12 @@
 // docs/release-neon-0025.sql (профили PSN, Фаза 41) поверх 0000–0024 на PGlite: идемпотентность, схема = drizzle-миграция 0025,
 // журнал, данные целы, check-запрос, ограничения (роль, google_sub, вложенность, PSN-уникальность, архив, каскады), rollback.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -19,14 +20,6 @@ const checkSql = doc('release-neon-0025-check.sql');
 const rollbackSql = doc('release-neon-0025-rollback.sql');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0025_psn_profiles');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig25-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -39,7 +32,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 
 /** Прод-подобное состояние: 3 пользователя (owner id 1), игры у каждого. */
 async function after0024(): Promise<PGlite> {
-  const c = new PGlite();
+  const c = await freshPglite();
   await migrate(drizzle(c), { migrationsFolder: folderUpTo(E) });
   await c.exec(`
     insert into allowed_users (email, role, status, psn_online_id, psn_account_id) values ('o@example.com', 'owner', 'active', 'Owner', 'a1');
@@ -63,7 +56,7 @@ describe('docs/release-neon-0025.sql', () => {
   });
 
   it('поверх 0000–0024 дважды: схема как у drizzle, журнал верный, данные целы, check «до/после»', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(E + 1) });
     const c = await after0024();
     const checkData = async () => (await c.query<{ t: string; n: number }>(checkSql)).rows;
@@ -129,14 +122,14 @@ describe('docs/release-neon-0025.sql', () => {
     const nested = await n(c, 'allowed_users p join allowed_users cc on cc.id = p.primary_user_id where cc.primary_user_id is not null');
     expect(nested).toBe(1); // его видно по запросу из check.sql
 
-    const d = new PGlite();
+    const d = await freshPglite();
     await migrate(drizzle(d), { migrationsFolder: folderUpTo(E) });
     await d.exec(`
       insert into allowed_users (email, role, status, psn_online_id) values ('o@example.com', 'owner', 'active', 'Same');
       insert into allowed_users (email, role, status, psn_online_id) values ('m@example.com', 'member', 'active', 'same');`);
     await expect(d.exec(releaseSql)).rejects.toThrow(/0025/);
     expect(await n(d, `information_schema.columns where table_name = 'allowed_users' and column_name = 'primary_user_id'`)).toBe(0);
-    const dd = new PGlite();
+    const dd = await freshPglite();
     await migrate(drizzle(dd), { migrationsFolder: folderUpTo(E) });
     await dd.exec(`
       insert into allowed_users (email, role, status, psn_account_id) values ('o@example.com', 'owner', 'active', 'dup');
@@ -184,6 +177,6 @@ describe('docs/release-neon-0025.sql', () => {
   });
 
   it('без 0024 скрипт останавливается с понятной ошибкой', async () => {
-    await expect(new PGlite().exec(releaseSql)).rejects.toThrow(/0025/);
+    await expect((await freshPglite()).exec(releaseSql)).rejects.toThrow(/0025/);
   });
 });

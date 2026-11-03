@@ -1,11 +1,12 @@
 // QA: docs/release-neon-0014.sql поверх 0000–0013 с данными на PGlite: идемпотентность, схема = drizzle-миграция 0014,
 // журнал, данные целы (user_id = 1), составные ключи работают, проверка owner останавливает миграцию, check-запрос.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -16,14 +17,6 @@ const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'ut
 const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0014.sql'), 'utf8');
 const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0014-check.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig14-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -63,9 +56,9 @@ const TABLES = ['games', 'game_status', 'trophy_sets', 'game_trophy_sets', 'trop
 
 describe('docs/release-neon-0014.sql', () => {
   it('поверх 0000–0013 с данными дважды: схема как у drizzle, журнал верный, user_id = 1, check-запрос «до» = «после»', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(15) });
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(14) });
     await seed(c);
     const before = (await c.query(checkSql)).rows;
@@ -90,7 +83,7 @@ describe('docs/release-neon-0014.sql', () => {
   });
 
   it('после релизного SQL drizzle migrate ничего не применяет повторно; составные ключи изолируют пользователей', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(14) });
     await seed(c);
     await c.exec(releaseSql);
@@ -114,14 +107,14 @@ describe('docs/release-neon-0014.sql', () => {
   });
 
   it('данные есть, owner нет: скрипт останавливается до изменений; пустая БД без owner проходит', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(14) });
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','A','ps4_game', now())`);
     await expect(c.exec(releaseSql)).rejects.toThrow(/owner/);
     const cols = await c.query(`select 1 from information_schema.columns where table_name='games' and column_name='user_id'`);
     expect(cols.rows).toHaveLength(0);
 
-    const empty = new PGlite();
+    const empty = await freshPglite();
     await migrate(drizzle(empty), { migrationsFolder: folderUpTo(14) });
     await empty.exec(releaseSql);
   });

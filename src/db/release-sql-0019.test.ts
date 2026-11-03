@@ -1,11 +1,12 @@
 // docs/release-neon-0019.sql (журнал токена PSN) поверх 0000–0018 на PGlite: идемпотентность, схема = drizzle-миграция 0019,
 // журнал, данные целы, check-запрос, повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -17,14 +18,6 @@ const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0019.sql'
 const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0019-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0019_psn_token_events');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig19-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -36,7 +29,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 }
 
 async function after0018(): Promise<PGlite> {
-  const c = new PGlite();
+  const c = await freshPglite();
   await migrate(drizzle(c), { migrationsFolder: folderUpTo(E) });
   await c.exec(`
     insert into allowed_users (email, role, status) values ('o@example.com', 'owner', 'active');
@@ -54,7 +47,7 @@ describe('docs/release-neon-0019.sql', () => {
   });
 
   it('поверх 0000–0018 дважды: схема как у drizzle, журнал верный, данные целы, check «до/после»', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(E + 1) });
     const c = await after0018();
     const before = (await c.query<{ t: string; n: number }>(checkSql)).rows;
@@ -102,6 +95,6 @@ describe('docs/release-neon-0019.sql', () => {
   });
 
   it('без login_attempts.kind скрипт останавливается с понятной ошибкой', async () => {
-    await expect(new PGlite().exec(releaseSql)).rejects.toThrow(/0019/);
+    await expect((await freshPglite()).exec(releaseSql)).rejects.toThrow(/0019/);
   });
 });

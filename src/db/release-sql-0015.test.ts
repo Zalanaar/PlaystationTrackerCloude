@@ -2,11 +2,12 @@
 // журнал, данные owner целы, второй пользователь с теми же title_id/np_id/snapshots и своими psn_profile/roadmap_settings вставляется,
 // B-1 (recommend_reasons), откат docs/release-neon-0015-rollback.sql возвращает схему 0014 без потери данных.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -18,14 +19,6 @@ const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015.sql'
 const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015-check.sql'), 'utf8');
 const rollbackSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015-rollback.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig15-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -39,7 +32,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 }
 
 async function after0014(): Promise<PGlite> {
-  const c = new PGlite();
+  const c = await freshPglite();
   await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
   return c;
 }
@@ -91,7 +84,7 @@ async function ownerData(c: PGlite): Promise<unknown[]> {
 
 describe('docs/release-neon-0015.sql', () => {
   it('поверх 0000–0014 с данными дважды: схема как у drizzle, журнал верный, данные owner целы, check «до/после»', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(16) });
     const c = await after0014();
     await seed(c);
@@ -201,7 +194,7 @@ describe('docs/release-neon-0015.sql', () => {
   it('пустая БД с owner проходит; без 0014 скрипт останавливается до изменений', async () => {
     const empty = await after0014();
     await empty.exec(releaseSql);
-    const old = new PGlite();
+    const old = await freshPglite();
     await migrate(drizzle(old), { migrationsFolder: folderUpTo(14) });
     await expect(old.exec(releaseSql)).rejects.toThrow(/0014/);
   });

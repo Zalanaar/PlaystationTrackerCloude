@@ -2,29 +2,20 @@
 // Проверяет то, чего не видят одиночные тесты: порядок применения подряд, повторный прогон всей цепочки, равенство схемы drizzle-миграциям,
 // сохранность данных владельца, отказ при нарушенном порядке и работу второго пользователя после цепочки.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const root = join(process.cwd(), 'src/db/migrations');
-const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as { entries: { idx: number; when: number; tag: string }[] };
 const rd = (f: string) => readFileSync(join(process.cwd(), 'docs', f), 'utf8');
 const s13 = rd('release-neon-0013.sql');
 const owner = rd('release-neon-0013-owner.sql').replaceAll('ВАШ_EMAIL@gmail.com', 'owner@example.com').replaceAll('ВАШ_ONLINE_ID', 'Target');
 const s14 = rd('release-neon-0014.sql');
 const s15 = rd('release-neon-0015.sql');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'chain-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -59,9 +50,9 @@ const counts = async (c: PGlite) =>
 
 describe('цепочка release-neon 0013 -> owner -> 0014 -> 0015', () => {
   it('на прод-подобных данных: порядок, повторный прогон, схема = drizzle, данные целы, drizzle migrate no-op', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(16) });
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(13) });
     await seedProd(c);
     const before = await counts(c);
@@ -93,7 +84,7 @@ describe('цепочка release-neon 0013 -> owner -> 0014 -> 0015', () => {
   });
 
   it('нарушенный порядок: 0015 без 0014 и 0014 без owner останавливаются до изменений', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(13) });
     await seedProd(c);
     await c.exec(s13);

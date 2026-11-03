@@ -1,10 +1,11 @@
 // QA: docs/release-neon-0004-0005.sql поверх 0000–0003 на PGlite: идемпотентность, схема = drizzle-миграции, хеши и created_at журнала.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -14,14 +15,6 @@ const journal = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8'
 };
 const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0004-0005.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journal.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')), entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -35,10 +28,10 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 
 describe('docs/release-neon-0004-0005.sql', () => {
   it('поверх 0000–0003 дважды: схема как у drizzle 0000–0005, журнал верный, данные целы', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(6) });
 
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(4) });
     await c.exec(`insert into games (np_communication_id, title) values ('x','Игра')`).catch(() => undefined);
     const before = await c.query('select count(*)::int as n from games');
@@ -66,7 +59,7 @@ describe('docs/release-neon-0004-0005.sql', () => {
   });
 
   it('после релизного SQL drizzle migrate не пытается применить 0004–0005 повторно', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(4) });
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(6) });
@@ -75,7 +68,7 @@ describe('docs/release-neon-0004-0005.sql', () => {
   });
 
   it('CHECK-ограничения: tint только #rrggbb, month только YYYY-MM', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(4) });
     await c.exec(releaseSql);
     await expect(c.exec(`update games set tint='red'`).then(async () => {

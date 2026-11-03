@@ -1,10 +1,11 @@
 // QA: docs/release-neon-0006.sql поверх 0000–0005 на PGlite: идемпотентность, схема = drizzle-миграция 0006, журнал, данные целы.
 import { PGlite } from '@electric-sql/pglite';
+import { freshPglite } from './test-utils/pglite';
+import { folderUpTo } from './test-utils/release';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -14,14 +15,6 @@ const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'ut
 };
 const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0006.sql'), 'utf8');
 
-function folderUpTo(count: number): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mig6-'));
-  mkdirSync(join(dir, 'meta'));
-  const entries = journalRaw.entries.slice(0, count);
-  for (const e of entries) cpSync(join(root, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
-  writeFileSync(join(dir, 'meta/_journal.json'), JSON.stringify({ ...journalRaw, entries }));
-  return dir;
-}
 
 async function schemaDump(c: PGlite): Promise<string[]> {
   const cols = await c.query<{ s: string }>(
@@ -35,10 +28,10 @@ async function schemaDump(c: PGlite): Promise<string[]> {
 
 describe('docs/release-neon-0006.sql', () => {
   it('поверх 0000–0005 дважды: схема как у drizzle, журнал верный, данные целы', async () => {
-    const full = new PGlite();
+    const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(8) }); // 0000–0007: позднейшие миграции в сравнение не входят
 
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(6) });
     await c.exec(`insert into games (title_id, name, category, last_seen_at) values ('CUSA1','Игра','ps4_game', now())`);
     await c.exec(releaseSql);
@@ -56,7 +49,7 @@ describe('docs/release-neon-0006.sql', () => {
   });
 
   it('после релизного SQL drizzle migrate ничего не применяет повторно; CHECK > 0', async () => {
-    const c = new PGlite();
+    const c = await freshPglite();
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(6) });
     await c.exec(releaseSql);
     await migrate(drizzle(c), { migrationsFolder: folderUpTo(15) });
