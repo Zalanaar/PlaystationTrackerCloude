@@ -308,6 +308,14 @@
 .ps-st-pagehead { display: flex; align-items: center; gap: var(--sp-3); }
 .ps-st-pagehead .ps-st-wrapped-btn { margin-left: auto; }
 .ps-st-wrapped-btn { display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--control-h); text-decoration: none; }
+.ps-st-wrapped-btn { flex: none; white-space: nowrap; }
+.ps-st-wrapped-btn--switch { display: none; }
+@media (max-width: 767px) {
+  /* h1 «Статистика» скрыт (название в шапке): ряд шапки без коробки, кнопка «Итоги» — в ряду года/месяца справа */
+  .ps-st-pagehead { display: contents; }
+  .ps-st-wrapped-btn--head { display: none; }
+  .ps-st-wrapped-btn--switch { display: inline-flex; }
+}
 .ps-wbanner {
   position: relative; display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5);
   background: var(--accent-soft); border: var(--border-w) solid var(--border); border-radius: var(--r-lg);
@@ -428,7 +436,10 @@
 .ps-pp__stubmsg span { color: var(--text-2); }
 
 @media (max-width: 767px) {
-  .ps-st-switch { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .ps-st-switch { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); }
+  .ps-st-switch > .ps-seg { grid-column: 1 / -1; }
+  .ps-st-switch > .ps-st-nav, .ps-st-switch > .ps-st-range { grid-column: 1; min-width: 0; }
+  .ps-st-switch > .ps-st-wrapped-btn--switch { grid-column: 2; }
   .ps-st-switch[data-period="all"] .ps-seg, .ps-st-switch .ps-seg { display: flex; }
   .ps-st-switch > .ps-seg button { flex: 1 1 0; height: var(--tap-min); }
   .ps-st-range { text-align: center; }

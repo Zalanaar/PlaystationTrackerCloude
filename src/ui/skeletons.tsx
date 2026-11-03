@@ -124,7 +124,7 @@ export function BacklogPageSkeleton({ subnav = true }: { /** false, когда �
     <>
       {subnav && <BacklogSubnav />}
       <SkRoot className="ps-collection">
-        <div className="ps-pagehead ps-bl-pagehead"><h1 className="ps-h1 ps-h1--hdr">Бэклог</h1><span className="ps-skeleton ps-sk-stat120" /><div className="ps-bl-pagehead__tools"><span className="ps-skeleton ps-sk-bltool" /></div></div>
+        <div className="ps-pagehead ps-bl-pagehead"><h1 className="ps-h1 ps-h1--hdr">Бэклог</h1><span className="ps-skeleton ps-sk-stat120 ps-bl-total-sk" /><div className="ps-bl-pagehead__tools"><span className="ps-skeleton ps-sk-bltool" /></div></div>
         <div className="ps-skeleton ps-sk-blfilters" />
         {/* место заголовка блока: BacklogView рисует его сразу, без него список прыгает при смене скелета */}
         <div className="ps-h2 ps-h2--icon ps-bl-h" aria-hidden="true">&nbsp;</div>

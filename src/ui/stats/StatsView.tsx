@@ -135,9 +135,7 @@ export function StatsView() {
     <div ref={rootRef} className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
         <h1 className="ps-h1 ps-h1--hdr">Статистика</h1>
-        <Link href={sel.period === 'all' ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
-          <Icon name="sparkles" size={16} />{sel.period === 'all' ? 'Итоги: всё время' : `Итоги ${sel.year}`}
-        </Link>
+        <WrappedLink sel={sel} where="head" />
       </div>
       <WrappedBanner years={years} />
       <PeriodSwitch
@@ -185,8 +183,22 @@ function PeriodSwitch({
           <button type="button" className="ps-iconbtn" aria-label={`Следующий ${unit}`} disabled={!onNext} onClick={() => onNext?.()}><span aria-hidden="true">›</span></button>
         </div>
       )}
+      <WrappedLink sel={sel} where="switch" />
       <span className="ps-sr" aria-live="polite">{`Период: ${word}`}</span>
     </div>
+  );
+}
+
+/**
+ * Кнопка «Итоги». Две копии, CSS показывает одну (display: none убирает и из дерева доступности):
+ * на десктопе — в шапке рядом с h1, на < 768 h1 скрыт и пустой ряд шапки не нужен, кнопка в ряду выбора года/месяца.
+ */
+function WrappedLink({ sel, where }: { sel: Selection; where: 'head' | 'switch' }) {
+  const all = sel.period === 'all';
+  return (
+    <Link href={all ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className={`ps-btn ps-st-wrapped-btn ps-st-wrapped-btn--${where}`} data-tour="stats-wrapped">
+      <Icon name="sparkles" size={16} />{all ? 'Итоги: всё время' : <>Итоги<span className="ps-st-wrapped-btn__y">{` ${sel.year}`}</span></>}
+    </Link>
   );
 }
 

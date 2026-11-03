@@ -172,11 +172,11 @@
   .ps-bl-pagehead { gap: 6px var(--sp-3); }
   .ps-bl-pagehead .ps-btn--icon { width: 40px; height: 40px; }
   .ps-bl-pagehead__tools { margin-left: auto; }
-  /* число бэклога отдельной строкой под h1 и кнопками, одной линией; скелет держит ту же строку (CLS).
+  /* h1 скрыт (название в шапке), «Добавить» — кнопка «+» шапки: число бэклога и «⋯» в одном ряду, одной линией; скелет держит тот же ряд (CLS).
      Сетка, а не перенос flex: до гидратации кнопки шире (десктопная подпись) и не должны уезжать на вторую строку */
-  .ps-bl-pagehead { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .ps-bl-pagehead { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .ps-bl-pagehead__tools { grid-column: 2; grid-row: 1; justify-self: end; }
-  .ps-bl-total, .ps-bl-total-sk { grid-column: 1 / -1; grid-row: 2; }
+  .ps-bl-total, .ps-bl-total-sk { grid-column: 1; grid-row: 1; }
   .ps-bl-total { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ps-bl-total-sk { justify-self: start; }
   .ps-bl-total__np { display: none; }

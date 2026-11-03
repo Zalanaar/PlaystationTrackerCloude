@@ -154,6 +154,51 @@ test.describe('заголовок раздела не повторяется н�
     if (isMobile) expect(h).toBeLessThanOrEqual(1); else expect(h).toBeGreaterThan(10);
   });
 
+  test('Статистика: без пустого ряда шапки, «Итоги» в ряду года справа', async ({ page, context, baseURL, isMobile }) => {
+    test.skip(!isMobile, 'мобильная раскладка');
+    await openStats(page, context, baseURL!);
+    const link = page.getByRole('link', { name: /^Итоги/ });
+    await expect(link).toHaveCount(1);
+    await expect(link).toBeVisible();
+    const m = await page.evaluate(() => {
+      const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const btn = [...document.querySelectorAll('.ps-st-wrapped-btn')].find((e) => e.getBoundingClientRect().height > 0)!.getBoundingClientRect();
+      return { nav: r('.ps-st-nav'), seg: r('.ps-st-switch > .ps-seg'), btn, vw: document.documentElement.clientWidth };
+    });
+    // кнопка в одном ряду с ‹ год ›, под переключателем, не вылезает за экран
+    expect(Math.abs(m.btn.top + m.btn.height / 2 - (m.nav.top + m.nav.height / 2))).toBeLessThanOrEqual(2);
+    expect(m.btn.top).toBeGreaterThanOrEqual(m.seg.bottom);
+    expect(m.btn.left).toBeGreaterThanOrEqual(m.nav.right);
+    expect(m.btn.right).toBeLessThanOrEqual(m.vw);
+    // над переключателем нет пустого ряда: он сразу под подвкладками/шапкой страницы
+    const above = await page.locator('.ps-st-switch').evaluate((el) => el.getBoundingClientRect().top - (document.querySelector('.ps-stats-page')!.getBoundingClientRect().top));
+    expect(above).toBeLessThanOrEqual(1);
+    // «Всё время»: та же раскладка
+    await page.getByRole('button', { name: 'Всё время' }).click();
+    const all = page.getByRole('link', { name: 'Итоги: всё время' });
+    await expect(all).toBeVisible();
+    const a = await page.evaluate(() => ({
+      r: document.querySelector('.ps-st-range')!.getBoundingClientRect(),
+      b: [...document.querySelectorAll('.ps-st-wrapped-btn')].find((e) => e.getBoundingClientRect().height > 0)!.getBoundingClientRect(), vw: document.documentElement.clientWidth,
+    }));
+    expect(a.b.left).toBeGreaterThanOrEqual(a.r.right);
+    expect(a.b.right).toBeLessThanOrEqual(a.vw);
+  });
+
+  test('Бэклог: «⋯» в одном ряду с числом бэклога, пустого ряда нет', async ({ page, context, baseURL, isMobile }) => {
+    test.skip(!isMobile, 'мобильная раскладка');
+    await login(page, context, baseURL!, many());
+    await page.goto('/backlog');
+    await expect(page.getByTestId('bl-total')).toBeVisible();
+    const m = await page.evaluate(() => {
+      const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      return { head: r('.ps-bl-pagehead'), total: r('[data-testid="bl-total"]'), tools: r('.ps-bl-pagehead__tools') };
+    });
+    expect(Math.abs(m.total.top + m.total.height / 2 - (m.tools.top + m.tools.height / 2))).toBeLessThanOrEqual(2);
+    expect(m.total.right).toBeLessThanOrEqual(m.tools.left);
+    expect(m.head.height).toBeLessThanOrEqual(m.tools.height + 8);
+  });
+
   test('План: подпись «Неделя с понедельника» остаётся', async ({ page, context, baseURL, isMobile }) => {
     await login(page, context, baseURL!);
     await mockRoadmap(page, baseState());
