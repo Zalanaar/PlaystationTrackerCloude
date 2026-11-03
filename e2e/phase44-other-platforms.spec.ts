@@ -316,6 +316,8 @@ test.describe('Панель поиска', () => {
     await page.getByTestId('op-add').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('op-sheet')).toBeVisible();
+    // под нагрузкой фокус переходит в панель после кадра появления: Tab раньше уходит со страницы
+    await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(true);
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press('Tab');
       expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(true);
