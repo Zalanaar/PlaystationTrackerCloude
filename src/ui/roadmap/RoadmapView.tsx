@@ -309,7 +309,7 @@ export function RoadmapView() {
   if (error && !data) {
     return (
       <div className="ps-rm-page">
-        <div className="ps-pagehead"><h1 className="ps-h1">План</h1></div>
+        <div className="ps-pagehead"><h1 className="ps-h1 ps-h1--hdr">План</h1></div>
         <div className="ps-empty" role="alert">
           <span className="ps-empty__icon"><Icon name="circle-alert" size={40} /></span>
           <h2 className="ps-h2">Что-то пошло не так</h2>
@@ -323,7 +323,7 @@ export function RoadmapView() {
   if (data && !data.settings.configured) {
     return (
       <div className="ps-rm-page">
-        <div className="ps-pagehead"><h1 className="ps-h1">План</h1></div>
+        <div className="ps-pagehead"><h1 className="ps-h1 ps-h1--hdr">План</h1></div>
         <section className="ps-rm-panel ps-rm-welcome" aria-labelledby="rm-welcome-h">
           <Icon name="roadmap" size={40} />
           <h2 className="ps-h2" id="rm-welcome-h">План на год</h2>
@@ -338,7 +338,7 @@ export function RoadmapView() {
   return (
     <div className="ps-rm-page">
       <div className="ps-pagehead">
-        <h1 className="ps-h1">План</h1>
+        <h1 className="ps-h1 ps-h1--hdr">План</h1>
         <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника, время МСК</p>
       </div>
       <div className="ps-rm" aria-busy={!data || undefined}>

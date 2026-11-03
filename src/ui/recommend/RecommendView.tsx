@@ -63,7 +63,7 @@ export function RecommendView() {
   return (
     <div className="ps-rec-page">
       <div className="ps-pagehead ps-rec-head">
-        <h1 className="ps-h1">Подскажи</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Подскажи</h1>
         {sub && <p className="ps-rec-sub">{sub}</p>}
       </div>
       <div className="ps-seg ps-rec-modes" role="tablist" aria-label="Режим подсказок">

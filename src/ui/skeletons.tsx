@@ -140,7 +140,7 @@ export function RoadmapPageSkeleton({ subnav = true }: { /** false, когда �
     <>
       {subnav && <BacklogSubnav />}
       <SkRoot className="ps-rm-page">
-        <div className="ps-pagehead"><h1 className="ps-h1">План</h1></div>
+        <div className="ps-pagehead"><h1 className="ps-h1 ps-h1--hdr">План</h1></div>
         <div className="ps-rm">
           <div className="ps-rm-panel" data-area="set"><div className="ps-skeleton ps-rm-sk-set" /></div>
           <div className="ps-rm-panel" data-area="tl"><div className="ps-skeleton ps-rm-sk-tl" /></div>
@@ -160,7 +160,7 @@ export function RecommendPageSkeleton({ subnav = true }: { /** false, когда
     <>
       {subnav && <BacklogSubnav />}
       <SkRoot className="ps-rec-page">
-        <div className="ps-pagehead ps-rec-head"><h1 className="ps-h1">Подскажи</h1></div>
+        <div className="ps-pagehead ps-rec-head"><h1 className="ps-h1 ps-h1--hdr">Подскажи</h1></div>
         <span className="ps-skeleton ps-sk-seg220" />
         <span className="ps-skeleton ps-sk-seg280" />
         <div className="ps-sk-reccards">{Array.from({ length: 6 }, (_, i) => <div key={i} className="ps-skeleton ps-sk-reccard" />)}</div>
@@ -200,7 +200,7 @@ export function PlayedSkeleton() {
 export function StatsPageSkeleton() {
   return (
     <SkRoot className="ps-stats-page">
-      <div className="ps-pagehead ps-st-pagehead"><h1 className="ps-h1">Статистика</h1></div>
+      <div className="ps-pagehead ps-st-pagehead"><h1 className="ps-h1 ps-h1--hdr">Статистика</h1></div>
       <span className="ps-skeleton ps-sk-switch" />
       <span className="ps-sk-secs" />
       <StatsDataSkeleton />

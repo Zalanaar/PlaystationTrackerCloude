@@ -230,7 +230,7 @@ test.describe('/stats', () => {
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await bar.click();
     await expect(page.getByRole('tooltip')).toContainText('Апр');
-    await page.getByRole('heading', { name: 'Статистика' }).click(); // тап вне закрывает
+    await page.getByRole('heading', { level: 2 }).first().click(); // тап вне закрывает (h1 на мобильном только для скринридеров)
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 });

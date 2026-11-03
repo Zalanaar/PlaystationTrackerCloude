@@ -134,7 +134,7 @@ export function StatsView() {
     <LoaderOverlay loading={loading && !failed} blocking={!data} contentRef={rootRef} />
     <div ref={rootRef} className="ps-stats-page" data-tour-page="stats" data-tour-ready={String(!!data || !!failed)}>
       <div className="ps-pagehead ps-st-pagehead">
-        <h1 className="ps-h1">Статистика</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Статистика</h1>
         <Link href={sel.period === 'all' ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className="ps-btn ps-st-wrapped-btn" data-tour="stats-wrapped">
           <Icon name="sparkles" size={16} />{sel.period === 'all' ? 'Итоги: всё время' : `Итоги ${sel.year}`}
         </Link>
