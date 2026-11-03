@@ -22,6 +22,12 @@ export function GameRow({
   return (
     <div id={anchorId} tabIndex={anchorId ? -1 : undefined} className="ps-row" role="row" data-selected={selected || undefined} data-status={key} data-platinum={plat || undefined}>
       <div className="ps-row__game" role="cell">
+        {/* Фаза 48 (п. 14): кнопка-оверлей внутри ячейки: у role=row детьми могут быть только ячейки (axe aria-required-children) */}
+        <button
+          type="button" className="ps-row__hit" aria-pressed={selectMode ? selected : undefined}
+          aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}`}
+          onClick={() => (selectMode ? actions.toggle(game) : actions.open(game))}
+        />
         <span className="ps-row__check" aria-hidden="true" data-on={selectMode || undefined}>
           {selectMode && <span className="ps-check" data-checked={selected || undefined}>{selected && <Icon name="check" size={12} />}</span>}
         </span>
@@ -53,11 +59,6 @@ export function GameRow({
         ) : <span className="ps-row__pct">нет данных</span>}
       </div>
       <div className="ps-row__last ps-num" role="cell">{formatDayMonth(game.lastPlayedAt, true) ?? '—'}</div>
-      <button
-        type="button" className="ps-row__hit" aria-pressed={selectMode ? selected : undefined}
-        aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}`}
-        onClick={() => (selectMode ? actions.toggle(game) : actions.open(game))}
-      />
     </div>
   );
 }

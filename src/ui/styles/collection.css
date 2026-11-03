@@ -127,7 +127,7 @@
 .ps-row__sub { font-size: var(--fs-small); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ps-row__mobile-meta { display: none; }
 .ps-row__status { position: relative; z-index: 2; min-width: 0; }
-.ps-row__status .ps-trigger { gap: var(--sp-2); }
+.ps-row__status .ps-trigger { gap: var(--sp-2); min-height: 24px; }   /* axe target-size >= 24 (Фаза 48, п. 14) */
 .ps-row__status-t { color: var(--text-2); font-size: 13px; white-space: nowrap; }
 .ps-row__trophies { display: flex; align-items: center; gap: var(--sp-2); }
 .ps-meter { width: 64px; height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; flex: none; }

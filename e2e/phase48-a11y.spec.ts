@@ -54,3 +54,22 @@ test.describe('Фаза 48 (п. 13): контраст вторичного те�
     });
   }
 });
+
+test.describe('Фаза 48 (п. 14): разметка вида «Список»', () => {
+  const RULES = ['aria-required-children', 'aria-required-parent', 'target-size', 'aria-allowed-role', 'aria-prohibited-attr', 'nested-interactive', 'list', 'listitem', 'definition-list', 'dlitem', 'button-name', 'duplicate-id'];
+  for (const url of ['/?view=list', '/?view=list&status=completed']) {
+    test(`${url}: структура таблицы и размер целей без нарушений axe`, async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!, url);
+      await expect(page.locator('.ps-row:not(.ps-row--head)').first()).toBeVisible();
+      const v = await axe(page, RULES, COVERS);
+      expect(Object.fromEntries(Object.entries(v).map(([k, n]) => [k, n.map((x) => x.target.join(' '))]))).toEqual({});
+    });
+  }
+  test('строка: кнопка-оверлей внутри ячейки, клик по строке открывает игру', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?view=list');
+    const row = page.locator('.ps-row:not(.ps-row--head)').first();
+    expect(await row.evaluate((r) => [...r.children].every((c) => c.getAttribute('role') === 'cell'))).toBe(true);
+    await row.locator('.ps-row__hit').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+  });
+});
