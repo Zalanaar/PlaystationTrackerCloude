@@ -68,8 +68,9 @@
 .ps-card[data-status="dropped"] .ps-card__cover .ps-cover { filter: var(--dropped-filter); }
 .ps-card .ps-card__status { position: absolute; top: 8px; right: 8px; z-index: 2; display: block; }
 .ps-card__status .ps-trigger { display: block; border-radius: 50%; }
-.ps-card__sbtn { border-radius: 50%; }
-.ps-card__sbtn::after { content: ""; position: absolute; inset: calc((var(--glyph-badge) - var(--tap-min)) / 2); }   /* тап-зона 44 при значке 22 */
+/* Сама кнопка не меньше 24×24 (WCAG 2.5.8, повторный аудит P2-4), значок 20–22 по центру; отрицательный отступ держит центр значка на месте. */
+.ps-card .ps-card__sbtn { --sbtn: max(24px, var(--glyph-badge)); min-width: var(--sbtn); min-height: var(--sbtn); display: grid; place-items: center; margin: calc(min(0px, (var(--glyph-badge) - 24px) / 2)) calc(min(0px, (var(--glyph-badge) - 24px) / 2)) 0 0; border-radius: 50%; }
+.ps-card__sbtn::after { content: ""; position: absolute; inset: calc((var(--sbtn) - var(--tap-min)) / 2); }   /* тап-зона 44 */
 .ps-card__glyph { display: grid; place-items: center; width: var(--glyph-badge); height: var(--glyph-badge); border-radius: 50%; background: var(--on-cover-bg); border: var(--border-w) solid var(--on-cover-border); }
 /* Без backdrop-filter: фон бейджа и так почти непрозрачный (0.78–0.92), а blur на каждой карточке давал десятки слоёв фонового размытия.
    В WebKit (WPE) это уводило поток композитора в 100% CPU с ростом памяти ~150 МБ/с до OOM; на iPhone такие слои тоже дороги. */

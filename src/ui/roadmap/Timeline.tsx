@@ -61,7 +61,7 @@ function Gantt({ data, onJump }: { data: RoadmapResponse; onJump: (key: string) 
             <button
               key={`${b.key}-${b.segIndex}`} type="button" className="ps-rm-bar" data-kind={b.lane} data-alt={b.lane === 'queue' ? b.alt : undefined}
               data-conflict={cn.length ? 'true' : undefined} data-testid="rm-bar" data-key={b.key}
-              style={{ left: `${g.left}%`, width: `${g.width}%`, top: `calc(${b.row} * (var(--rm-bar-h) + 6px))` }}
+              style={{ left: `min(${g.left}%, calc(100% - 24px))`, width: `${g.width}%`, /* min-width 24 (P2-4): короткий отрезок у конца года не выходит за дорожку */ top: `calc(${b.row} * (var(--rm-bar-h) + 6px))` }}
               aria-label={barLabel(b, cn)}
               onClick={() => onJump(b.key)}
               onMouseEnter={(e) => show(b, e.currentTarget, true)} onMouseLeave={hide}

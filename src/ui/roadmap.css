@@ -140,7 +140,7 @@ button.ps-rm-state { cursor: pointer; }
 .ps-rm-g__confin { position: absolute; top: 0; bottom: 0; background: var(--rm-conflict-hatch); border-block: 2px dashed var(--danger); }
 .ps-rm-g__clabel { position: absolute; left: 0; top: -2px; transform: translateY(-100%); display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--sp-2); background: var(--rm-conflict-bg); border-radius: var(--r-sm); color: var(--text); font: 600 var(--fs-small)/1 var(--font-body); white-space: nowrap; text-decoration: none; pointer-events: auto; z-index: 2; }
 .ps-rm-g__clabel svg { color: var(--danger); }
-.ps-rm-bar { position: absolute; z-index: 1; container-type: inline-size; min-width: 0; height: var(--rm-bar-h); box-sizing: border-box; padding: 0; border-radius: var(--r-sm); border: var(--border-w) solid var(--border-strong); background: var(--surface-3); color: var(--text); font: 600 13px/16px var(--font-body); cursor: pointer; text-align: left; overflow: hidden; }
+.ps-rm-bar { position: absolute; z-index: 1; container-type: inline-size; min-width: 24px; /* короткий отрезок всё равно цель 24 px (WCAG 2.5.8, P2-4) */ height: var(--rm-bar-h); box-sizing: border-box; padding: 0; border-radius: var(--r-sm); border: var(--border-w) solid var(--border-strong); background: var(--surface-3); color: var(--text); font: 600 13px/16px var(--font-body); cursor: pointer; text-align: left; overflow: hidden; }
 .ps-rm-bar[data-alt="1"] { background: var(--rm-bar-alt); }
 .ps-rm-bar[data-kind="release"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); border-left: 3px solid var(--accent-ink); }
 .ps-rm-bar[data-conflict="true"] { outline: 2px dashed var(--danger); outline-offset: 2px; overflow: visible; }
