@@ -213,3 +213,18 @@ export type GameDetailsResponse = {
   /** 26.1: история по неделям МСК. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
   history?: GameHistory | null;
 };
+
+/**
+ * Первый экран `/` с сервера (item 4): те же тела, что отдали бы GET summaryUrl и GET batchUrl.
+ * Клиент кладёт их в кэш GET под этими URL (без повторного запроса) и рисует коллекцию сразу из HTML.
+ */
+export type CollectionInitial = {
+  summaryUrl: string;
+  summary: CollectionSummaryResponse;
+  batchUrl: string;
+  batch: GamesBatchResponse;
+  /** время сервера (мс, до минуты): «N ч назад» в HTML и при гидрации совпадают */
+  now: number;
+  /** полоса «С прошлого визита» (GET /api/inbox): без неё скелет полосы над «Играю» менялся бы на чипы после гидрации (сдвиг). null = клиент грузит сам */
+  inbox: import('@/server/inbox/query').InboxResponse | null;
+};
