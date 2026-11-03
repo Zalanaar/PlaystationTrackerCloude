@@ -2,6 +2,7 @@
 
 import { Fragment, useRef, useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
+import { Icon } from '../icons';
 import { useSync } from './SyncProvider';
 import {
   buttonLabel, formatMoscow, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
@@ -17,6 +18,8 @@ export function SyncPanel() {
   const [stopAskedFor, setStopAskedFor] = useState<number | null>(null); // id запуска, для которого открыто подтверждение
   const isOwner = useIsOwner();
   const [howTo, setHowTo] = useState(true);
+  // P1-4: поле NPSSO под раскрытием «Обновить токен вручную»; когда токен устарел, раскрыто само
+  const [manualOpen, setManualOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [npssoMsg, setNpssoMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -30,6 +33,7 @@ export function SyncPanel() {
       setNpssoMsg({ ok: false, text: npssoErrorText(400, 'invalid_request') });
       return;
     }
+    setManualOpen(true); // после «Сохранить» поле и результат остаются на месте, даже когда баннер уходит
     const body = JSON.stringify({ npsso: raw });
     if (el) el.value = '';
     setSending(true);
@@ -64,9 +68,11 @@ export function SyncPanel() {
   const confirmStop = running && run !== null && stopAskedFor === run.id;
   const setConfirmStop = (v: boolean) => setStopAskedFor(v && run ? run.id : null);
   const stopBusy = stopping || restarting;
+  const showForm = isOwner && (npsso || manualOpen);
 
   return (
-    <section aria-labelledby="sync-title" aria-busy={loading || running} className="flex flex-col gap-4">
+    // P1-4: заголовок один — у sheet («Синхронизация с PSN»), здесь своего нет
+    <section aria-busy={loading || running} className="flex flex-col gap-4" data-testid="sync-panel">
       {npsso && (
         <div
           role="alert"
@@ -97,9 +103,11 @@ export function SyncPanel() {
       )}
 
       <div className="ps-card flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
-        <h2 id="sync-title" className="font-display text-xl font-bold text-text">
-          Синхронизация с PSN
-        </h2>
+        <div>
+          <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => void start()} disabled={starting || running || loading} data-testid="sync-now">
+            {label}
+          </button>
+        </div>
 
         {loading ? (
           <div className="ps-skeleton h-12 rounded-md" aria-hidden="true" />
@@ -189,8 +197,19 @@ export function SyncPanel() {
         )}
         <div role="status" aria-live="polite">{notice && <p className="text-text">{notice}</p>}</div>
 
-        {isOwner && (
-          <form onSubmit={(e) => void submitNpsso(e)} className="flex flex-col gap-2" data-testid="npsso-form" noValidate>
+        {isOwner && !npsso && (
+          <div>
+            <button
+              type="button" className={`${btnGhost} inline-flex items-center gap-2`} aria-expanded={manualOpen} aria-controls="npsso-form"
+              onClick={() => setManualOpen((v) => !v)} data-testid="npsso-toggle"
+            >
+              Обновить токен вручную
+              <span aria-hidden="true" className={manualOpen ? 'inline-flex rotate-180' : 'inline-flex'}><Icon name="chevron-down" size={14} /></span>
+            </button>
+          </div>
+        )}
+        {showForm && (
+          <form id="npsso-form" onSubmit={(e) => void submitNpsso(e)} className="flex flex-col gap-2" data-testid="npsso-form" noValidate>
             <label htmlFor="npsso-input" className="font-semibold text-text">Вставить NPSSO</label>
             <div className="flex flex-wrap gap-2">
               <input
@@ -210,12 +229,6 @@ export function SyncPanel() {
               <button type="button" className={btnGhost} onClick={() => void start()} disabled={starting || running}>Синк сейчас</button>
             </div>
           )}
-        </div>
-
-        <div>
-          <button type="button" className={btnPrimary} onClick={() => void start()} disabled={starting || running || loading}>
-            {label}
-          </button>
         </div>
       </div>
     </section>

@@ -85,6 +85,21 @@ test.describe('Фаза 24: NPSSO с сайта', () => {
     });
   }
 
+  test('P1-4: токен в порядке — один заголовок, «Синк сейчас» первым, NPSSO под раскрытием', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, { expired: false });
+    const dlg = page.getByRole('dialog', { name: 'Синхронизация с PSN' });
+    await expect(dlg.getByRole('heading')).toHaveCount(1);
+    await expect(dlg.getByTestId('sync-panel').getByRole('button').first()).toHaveText('Синк сейчас');
+    await expect(page.getByLabel('Вставить NPSSO')).toHaveCount(0);
+    const tg = page.getByTestId('npsso-toggle');
+    await expect(tg).toHaveAttribute('aria-expanded', 'false');
+    await tg.click();
+    await expect(tg).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByLabel('Вставить NPSSO')).toBeVisible();
+    await tg.click();
+    await expect(page.getByLabel('Вставить NPSSO')).toHaveCount(0);
+  });
+
   test('member: баннер есть, поля нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, { role: 'member' });
     await expect(page.getByText('Нужен новый NPSSO')).toBeVisible();

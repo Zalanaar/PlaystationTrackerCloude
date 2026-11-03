@@ -129,7 +129,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <Sheet open={panelOpen} onClose={() => setPanelOpen(false)} title="Синк" wide>
+      <Sheet open={panelOpen} onClose={() => setPanelOpen(false)} title="Синхронизация с PSN" wide>
         <div className="flex flex-col gap-4">
           <SyncPanel />
           <TelegramDigestPanel />
