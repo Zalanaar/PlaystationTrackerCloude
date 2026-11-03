@@ -95,9 +95,9 @@ test.describe('QA 18: ?game= граничные случаи', () => {
       page.on('pageerror', (e) => errs.push(e.message));
       await page.goto(`/?game=${bad}`);
       await expect(page.getByRole('heading', { name: '2026', level: 2 })).toBeVisible();
-      await page.waitForTimeout(400);
+      // адрес чистится router.replace асинхронно: ждём его веб-первым ассертом, а не фиксированной паузой (под нагрузкой 400 мс мало)
+      await expect(page).not.toHaveURL(/game=/);
       await expect(page.getByRole('dialog')).toHaveCount(0);
-      expect(page.url()).not.toMatch(/game=/);
       expect(errs).toEqual([]);
     });
   }
