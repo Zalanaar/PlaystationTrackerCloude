@@ -22,9 +22,11 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], launchOptions } },
     { name: 'mobile', use: { ...devices['Pixel 7'], launchOptions } },
-    // WebKit как Safari на iPhone: только регресс прокрутки окна игры (в CI не запускается, там только desktop).
-    // Повторы: headless WPE иногда зависает на page.evaluate, это не ошибка приложения
-    { name: 'webkit-iphone', testMatch: /dialog-scroll\.spec\.ts/, retries: 2, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
+    // WebKit как Safari на iPhone: только регресс прокрутки окна игры (в CI — отдельная job).
+    // workers: 1 — при >1 одновременных WPE WebProcess главный поток одного из них уходит в 100% CPU
+    // и page.evaluate виснет до таймаута (воспроизводится и на prod-сборке; с 1 воркером под нагрузкой CPU — 30/30).
+    // Это проблема движка в параллели, а не гонка в приложении, поэтому без retries.
+    { name: 'webkit-iphone', testMatch: /dialog-scroll\.spec\.ts/, workers: 1, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,

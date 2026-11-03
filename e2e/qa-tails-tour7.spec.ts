@@ -28,7 +28,9 @@ for (const s of SIZES) {
     await expect(count(page)).toHaveText('1 из 14');
     for (let i = 1; i < 7; i++) await dialog(page).getByRole('button', { name: 'Далее' }).click();
     await expect(count(page)).toHaveText('7 из 14');
-    for (const wait of [1500, 1500]) {
+    // «loading» = якорь шага ещё ищется (под нагрузкой дольше 1.5 с): меряем только устоявшийся режим, а не фиксированную паузу
+    await expect(page.locator('.ps-tour')).not.toHaveAttribute('data-mode', 'loading', { timeout: 10_000 });
+    for (const wait of [300, 1500]) {
       await page.waitForTimeout(wait);
       const mode = await page.locator('.ps-tour').getAttribute('data-mode');
       const g = await page.evaluate(() => {

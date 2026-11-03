@@ -42,18 +42,23 @@ test.describe('R-1: Бэклог', () => {
     const opener = card.locator('.ps-card__hit');
     await opener.focus();
     await page.keyboard.press('Enter');
-    await expect(gameDialog(page)).toBeVisible();
-    // меняем игру на сервере-моке: она больше не бэклог
-    const g = mock.games?.find?.((x: G) => x.id === 2);
-    if (g) g.status = 'playing';
+    const dlg = gameDialog(page);
+    await expect(dlg).toBeVisible();
+    // статус меняем в самом окне, как пользователь: запись через общий HTTP-слой сбрасывает кэш GET (Фаза 47).
+    // Правка мока в обход приложения кэш не сбрасывала, и Бэклог законно показывал прежний список 30 с.
+    await dlg.getByRole('button', { name: 'Изменить статус' }).click();
+    await page.getByRole('menuitemradio', { name: 'Играю' }).click();
+    await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'playing' } });
+    await expect(dlg.locator('.ps-chip')).toContainText('Играю');
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/\/backlog/);
-    await page.waitForTimeout(1500);
+    await expect(page.locator('.ps-card', { hasText: 'Браво' })).toHaveCount(0);
+    await expect(page.locator('.ps-card', { hasText: 'Чарли' })).toBeVisible();
+    await page.waitForTimeout(800); // возврат фокуса отрабатывает после перерисовки списка
     const act = await activeText(page);
-    console.log('после закрытия, список изменён: активный элемент =', act, '| mock.games доступен:', !!g);
+    console.log('после закрытия, список изменён: активный элемент =', act);
     expect(act).not.toContain('Чарли');
     expect(act).not.toContain('Дельта');
-    await expect(page.locator('.ps-card', { hasText: 'Браво' })).toHaveCount(g ? 0 : 1);
   });
 
   test('Esc вернул фокус; последующая клавиша Tab идёт от источника, а не с начала страницы', async ({ page, context, baseURL }) => {
