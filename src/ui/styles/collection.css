@@ -70,7 +70,9 @@
 .ps-card__status .ps-trigger { display: block; border-radius: 50%; }
 .ps-card__sbtn { border-radius: 50%; }
 .ps-card__sbtn::after { content: ""; position: absolute; inset: calc((var(--glyph-badge) - var(--tap-min)) / 2); }   /* тап-зона 44 при значке 22 */
-.ps-card__glyph { display: grid; place-items: center; width: var(--glyph-badge); height: var(--glyph-badge); border-radius: 50%; background: var(--on-cover-bg); border: var(--border-w) solid var(--on-cover-border); backdrop-filter: blur(4px); }
+.ps-card__glyph { display: grid; place-items: center; width: var(--glyph-badge); height: var(--glyph-badge); border-radius: 50%; background: var(--on-cover-bg); border: var(--border-w) solid var(--on-cover-border); }
+/* Без backdrop-filter: фон бейджа и так почти непрозрачный (0.78–0.92), а blur на каждой карточке давал десятки слоёв фонового размытия.
+   В WebKit (WPE) это уводило поток композитора в 100% CPU с ростом памяти ~150 МБ/с до OOM; на iPhone такие слои тоже дороги. */
 .ps-card__glyph[data-status="none"] { border-style: dashed; border-color: color-mix(in srgb, var(--on-cover-text) 40%, transparent); }
 .ps-card__date { position: absolute; left: 8px; bottom: 8px; z-index: 1; display: block; max-width: calc(100% - 16px); height: 24px; padding: 0 8px; background: var(--on-cover-bg); border-radius: calc(var(--r-cover) - 4px); color: var(--on-cover-text); font-size: var(--fs-micro); line-height: 24px; font-weight: 600; text-shadow: var(--cover-shadow-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity var(--dur-base); }
 .ps-card__hov { position: absolute; inset: auto 0 0 0; z-index: 1; padding: 36px 10px 10px; background: var(--cover-scrim); color: var(--scrim-text); font-size: var(--fs-small); line-height: var(--lh-small); text-shadow: var(--cover-shadow-text); opacity: 0; pointer-events: none; transition: opacity var(--dur-base); display: none; }
