@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { preload } from 'react-dom';
 import { cookies, headers } from 'next/headers';
 import { CollectionView } from '@/ui/collection/CollectionView';
 import { HERO_HINT_COOKIE, parseHeroHint } from '@/shared/hero-hint';
@@ -8,6 +9,17 @@ import { loadCollectionInitialSlim } from '@/server/collection/initial';
 import { gamesBatchUrl } from '@/ui/collection/batchUrl';
 import { buildPlan } from '@/ui/collection/blocks';
 import { DEFAULT_FILTERS } from '@/ui/collection/filters';
+import { parseGameParam } from '@/ui/collection/gameLink';
+import { PSN_W, psnImageUrl } from '@/ui/format';
+
+/** P1-2: адрес только с окном игры (`?game=<id>`, можно `&tab=trophies`) — первый экран тот же, что у `/`, плюс сама игра. */
+function linkOnly(sp: Record<string, string | string[] | undefined>): { ok: boolean; id: number | null } {
+  const keys = Object.keys(sp);
+  if (keys.length === 0) return { ok: true, id: null };
+  if (keys.some((k) => k !== 'game' && k !== 'tab') || typeof sp.game !== 'string' || (sp.tab !== undefined && typeof sp.tab !== 'string')) return { ok: false, id: null };
+  const g = parseGameParam(sp.game);
+  return g.kind === 'ok' ? { ok: true, id: g.id } : { ok: false, id: null };
+}
 
 /** URL пакета блоков для `/` без параметров: ровно тот, что посчитает клиент (useCollectionData → buildPlan). */
 const DEFAULT_BATCH_URL = gamesBatchUrl(buildPlan(DEFAULT_FILTERS.status, DEFAULT_FILTERS.q, DEFAULT_FILTERS.platinum).map((p) => p.query));
@@ -26,17 +38,23 @@ export default async function CollectionPage({ searchParams }: Props) {
   // без ожидания БД на сервере. Браузер без Sec-Fetch-* (Safari < 16.4) получает данные всегда: только медленнее переход.
   const sp = await searchParams;
   const mode = h.get('sec-fetch-mode');
-  const ssr = Object.keys(sp).length === 0 && (mode === null || mode === 'navigate');
+  // P1-2: прямая ссылка на игру (Telegram, «поделиться», восстановленный PWA) тоже получает первый экран и игру в HTML
+  const link = linkOnly(sp);
+  const ssr = link.ok && (mode === null || mode === 'navigate');
   const cookieHeader = ssr ? h.get('cookie') : null;
   return (
     <Suspense fallback={<CollectionPageSkeleton hero={heroHint !== false} />}>
-      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} />
+      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} />
     </Suspense>
   );
 }
 
 /** Внутри Suspense: скелет страницы уходит в первом куске HTML, коллекция дописывается тем же ответом, как только готова БД. */
-async function CollectionWithData({ heroHint, layout, cookieHeader }: { heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null }) {
-  const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, DEFAULT_BATCH_URL) : null;
+async function CollectionWithData({ heroHint, layout, cookieHeader, linkId }: { heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null }) {
+  const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, DEFAULT_BATCH_URL, linkId) : null;
+  // P1-2 (LCP = арт шапки окна): браузер начинает качать его вместе с HTML, а не после запроса деталей с клиента
+  const lg = initial?.linkGame;
+  const art = lg ? (lg.bannerUrl ? psnImageUrl(lg.bannerUrl, PSN_W.banner) : lg.coverUrl ? psnImageUrl(lg.coverUrl, PSN_W.card) : null) : null;
+  if (art) preload(art, { as: 'image', fetchPriority: 'high', referrerPolicy: 'no-referrer' });
   return <CollectionView heroHint={heroHint} initial={initial} layout={layout} />;
 }

@@ -89,6 +89,19 @@ describe('loadCollectionInitial', () => {
     expect(await loadCollectionInitialSlim(null, URL_)).toBeNull();
   });
 
+  it('P1-2: игра прямой ссылки целиком (с баннером), чужая и несуществующая = нет поля', async () => {
+    const [mine] = await t.db.select({ id: games.id }).from(games).where(sql`${games.userId} = ${TEST_USER} and ${games.titleId} = 'C_MARK_A'`);
+    const [other] = await t.db.select({ id: games.id }).from(games).where(sql`${games.titleId} = 'C_MARK_B'`);
+    await t.db.update(games).set({ bannerUrl: 'https://image.api.playstation.com/banner.png' }).where(sql`${games.id} = ${mine.id}`);
+    const sl = await loadCollectionInitialSlim('ps_session=x', URL_, mine.id);
+    expect(sl!.linkGame).toMatchObject({ id: mine.id, title: 'Done MARK_A', bannerUrl: 'https://image.api.playstation.com/banner.png', status: 'completed' });
+    // облегчённая карточка той же игры баннер теряет (не «Играю»), игра ссылки — нет
+    expect(JSON.stringify(sl!.batch)).not.toContain('banner.png');
+    expect((await loadCollectionInitialSlim('ps_session=x', URL_, other.id))!.linkGame).toBeUndefined();
+    expect((await loadCollectionInitialSlim('ps_session=x', URL_, 2_000_000_000))!.linkGame).toBeUndefined();
+    expect((await loadCollectionInitial('ps_session=x', URL_))!.linkGame).toBeUndefined();
+  });
+
   it('данные активного пользователя (изоляция)', async () => {
     testSession.userId = 2;
     testSession.role = 'member';

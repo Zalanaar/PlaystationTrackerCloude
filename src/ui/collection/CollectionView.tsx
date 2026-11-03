@@ -79,7 +79,7 @@ export function CollectionView({ heroHint, initial, layout }: { heroHint?: boole
   // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
   const raw = useMemo(() => pool?.items ?? [], [pool]);
 
-  const game = useOpenGame(raw);
+  const game = useOpenGame(raw, initial?.linkGame ?? null);
   const { setOpen, setLinked, link, openId, ctx, openGame, openGameCard } = game;
   const m = useGameMutations({
     poolRef, setPool: data.setPool, setOpen, refresh, selected, setSelected, setSelectMode, linkIdRef: game.linkIdRef, closeLinkRef: game.closeLinkRef,

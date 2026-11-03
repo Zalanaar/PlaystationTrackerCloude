@@ -4,7 +4,7 @@ import { getDb } from '@/db';
 import { requireUser } from '@/server/auth/require-user';
 import { parseBatch, runGamesBatch } from './batch';
 import { allPartsFailed, getInbox } from '@/server/inbox/query';
-import { getCollectionSummary } from './query';
+import { getCollectionSummary, getGamesByIds } from './query';
 import { slimInitial } from './slim';
 import type { CollectionInitial } from './types';
 
@@ -14,7 +14,7 @@ export const SUMMARY_URL = '/api/collection/summary';
 const asJson = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 /** Полные тела (как у API). Для HTML страница берёт `loadCollectionInitialSlim`. */
-export async function loadCollectionInitial(cookieHeader: string | null, batchUrl: string): Promise<CollectionInitial | null> {
+export async function loadCollectionInitial(cookieHeader: string | null, batchUrl: string, linkId: number | null = null): Promise<CollectionInitial | null> {
   if (!cookieHeader) return null;
   try {
     const a = await requireUser(new Request('http://ssr.invalid/', { headers: { cookie: cookieHeader } }));
@@ -25,11 +25,14 @@ export async function loadCollectionInitial(cookieHeader: string | null, batchUr
     const now = new Date();
     // полоса необязательна: её сбой не мешает первому экрану (клиент догрузит сам, как раньше)
     const inboxP = getInbox(db, a.user.id, now).then((r) => (allPartsFailed(r) ? null : r), () => null);
-    const [summary, batch, inbox] = await Promise.all([getCollectionSummary(db, a.user.id), runGamesBatch(db, a.user.id, parsed.value, now), inboxP]);
+    // P1-2: игра прямой ссылки; её сбой не мешает первому экрану (окно догрузит детали само)
+    const linkP = linkId === null ? Promise.resolve(null) : getGamesByIds(db, a.user.id, [linkId]).then((r) => r[0] ?? null, () => null);
+    const [summary, batch, inbox, linkGame] = await Promise.all([getCollectionSummary(db, a.user.id), runGamesBatch(db, a.user.id, parsed.value, now), inboxP, linkP]);
     if (!batch) return null;
     return {
       summaryUrl: SUMMARY_URL, summary: asJson(summary), batchUrl, batch: asJson(batch), now: Math.floor(now.getTime() / 60_000) * 60_000,
       inbox: inbox ? asJson(inbox) : null,
+      ...(linkGame ? { linkGame: asJson(linkGame) } : {}),
     };
   } catch {
     return null;
@@ -37,7 +40,7 @@ export async function loadCollectionInitial(cookieHeader: string | null, batchUr
 }
 
 /** То же, облегчённое для HTML (item 4: HTML 49 KB gz → меньше, FCP раньше). */
-export async function loadCollectionInitialSlim(cookieHeader: string | null, batchUrl: string): Promise<CollectionInitial | null> {
-  const full = await loadCollectionInitial(cookieHeader, batchUrl);
+export async function loadCollectionInitialSlim(cookieHeader: string | null, batchUrl: string, linkId: number | null = null): Promise<CollectionInitial | null> {
+  const full = await loadCollectionInitial(cookieHeader, batchUrl, linkId);
   return full ? slimInitial(full) : null;
 }

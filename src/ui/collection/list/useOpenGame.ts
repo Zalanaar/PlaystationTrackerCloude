@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameItem } from '@/server/collection/types';
+import { isSlimGame } from '../slim';
 import { useGameLink } from '../useGameLink';
 import type { OpenCtx } from './pool';
 
@@ -9,9 +10,10 @@ import type { OpenCtx } from './pool';
  * Окно игры: факт «открыто» живёт в адресе ?game= (useGameLink), контекст из приложения (флаг «Изменить дату», снимок) в `open`.
  * Заголовок вкладки и возврат фокуса на h1 после закрытия.
  */
-export function useOpenGame(raw: GameItem[]) {
+export function useOpenGame(raw: GameItem[], seed: GameItem | null = null) {
   const [open, setOpen] = useState<OpenCtx | null>(null);
-  const [linked, setLinked] = useState<GameItem | null>(null);
+  // P1-2: игра прямой ссылки из серверного рендера — шапка окна (баннер, плитки) без ожидания деталей
+  const [linked, setLinked] = useState<GameItem | null>(seed);
   const link = useGameLink();
 
   const linkIdRef = useRef<number | null>(null);
@@ -23,7 +25,10 @@ export function useOpenGame(raw: GameItem[]) {
   // окно игры: из загруженного списка, из снимка (открыто из приложения) или из деталей (прямая ссылка), иначе скелет по id
   const openId = link.gameId;
   const ctx = open && open.id === openId ? open : null;
-  const openGame = openId !== null ? (raw.find((g) => g.id === openId) ?? ctx?.snapshot ?? (linked?.id === openId ? linked : null)) : null;
+  const fromList = openId !== null ? raw.find((g) => g.id === openId) : undefined;
+  const fromLink = openId !== null && linked?.id === openId ? linked : null;
+  // облегчённая карточка из HTML без баннера: полная игра прямой ссылки лучше (её заменят детали или правка в списке)
+  const openGame = openId !== null ? ((fromList && !(fromLink && isSlimGame(fromList)) ? fromList : null) ?? ctx?.snapshot ?? fromLink) : null;
   const openTitle = openGame?.title ?? null;
   useEffect(() => {
     if (!openTitle) return;
