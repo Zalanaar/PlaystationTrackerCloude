@@ -349,7 +349,8 @@ test.describe('Фаза 9: окно игры', () => {
 
   test('состояния вкладки «Трофеи»: загрузка (шапка и плитки сразу), ошибка с повтором, пусто, пусто по фильтру', async ({ page, context, baseURL }) => {
     const m = await open(page, context, baseURL!);
-    m.detailsDelay = 900;
+    // запас на нагрузку CI: детали грузятся с открытия окна, к клику по вкладке 900 мс уже истекали (флейк в shard 2)
+    m.detailsDelay = 2500;
     await card(page, 'Horizon Forbidden West').locator('.ps-card__hit').click();
     const dlg = dlgOf(page);
     await expect(dlg.locator('.ps-gd__tile').first()).toContainText('28 ч 17 м'); // из GameItem, без ожидания деталей

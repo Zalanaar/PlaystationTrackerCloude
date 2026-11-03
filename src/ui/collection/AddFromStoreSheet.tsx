@@ -69,6 +69,10 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
   // поле и «Найти» выключаются: фокус не должен упасть на body (Esc перестал бы работать), переносим на баннер
   useEffect(() => { if (quota) quotaRef.current?.focus(); }, [quota]);
   useEffect(() => { if (confirming) backRef.current?.focus(); }, [confirming]);
+  // фокус на баннер частичного успеха — после коммита, а не в rAF: обновление после await коммитится задачей планировщика,
+  // и под нагрузкой rAF успевал раньше, когда баннера ещё не было в DOM (флейк CI в manual-bought-search)
+  const [bannerFocus, setBannerFocus] = useState(0);
+  useEffect(() => { if (bannerFocus) bannerRef.current?.focus(); }, [bannerFocus]);
 
   const search = useCallback(async (query: string) => {
     const text = normalizeQuery(query);
@@ -179,7 +183,7 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
         // для одиночного «Всё равно добавить» прежний баннер остаётся, пока в корзине есть неудавшиеся
         if (only === undefined) setBanner(partialBannerText(ap.created, ap.counted));
         setOpenPref(true);
-        if (only === undefined) requestAnimationFrame(() => bannerRef.current?.focus());
+        if (only === undefined) setBannerFocus((n) => n + 1);
       }
     } catch {
       // сеть/5xx: ничего не менялось, повтор безопасен (сервер идемпотентен)
