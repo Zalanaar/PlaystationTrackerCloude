@@ -11,7 +11,8 @@ export default defineConfig({
   // Фаза 39: PWA-спеки требуют прод-сборки с Service Worker и идут только через e2e/pwa.config.ts (npm run e2e:pwa).
   testIgnore: /phase39-.*\.spec\.ts/,
   fullyParallel: true,
-  reporter: 'list',
+  // В CI ещё и github: ошибки тестов видны аннотациями в проверке, даже если лог job недоступен.
+  reporter: process.env.CI ? [['list'], ['github']] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',

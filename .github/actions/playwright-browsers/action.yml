@@ -1,4 +1,4 @@
-# Браузеры Playwright с кэшем: ключ = версия @playwright/test из package-lock.json и набор браузеров.
+# Браузеры Playwright с кэшем: ключ = образ раннера (ImageOS: ubuntu24/ubuntu26 — сборки WebKit разные), версия @playwright/test и набор браузеров.
 # При попадании в кэш ставятся только системные зависимости (apt), сами браузеры не скачиваются.
 name: Playwright browsers
 description: Установить браузеры Playwright с кэшем ~/.cache/ms-playwright
@@ -16,7 +16,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.version.outputs.pw }}-${{ inputs.browsers }}
+        key: playwright-${{ runner.os }}-${{ env.ImageOS }}-${{ steps.version.outputs.pw }}-${{ inputs.browsers }}
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: npx playwright install --with-deps ${{ inputs.browsers }}

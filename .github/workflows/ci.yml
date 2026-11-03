@@ -120,9 +120,11 @@ jobs:
           retention-days: 7
 
   # WebKit как Safari на iPhone (Артём пользуется Safari/PWA): регресс прокрутки окна игры. Проект сам ограничен одним воркером.
+  # ubuntu-24.04, а не latest: ubuntu-latest теперь 26.04, где WebKit 1.64.1 нестабилен (падения страницы, microsoft/playwright#43604);
+  # на 26.04 первый прогон job упал за 3 минуты и завис на завершении до таймаута. Вернуть latest после выхода исправленного WebKit.
   e2e-webkit:
     name: E2E webkit (iPhone)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -135,6 +137,7 @@ jobs:
         with:
           browsers: webkit
       - run: npx playwright test --project=webkit-iphone
+        timeout-minutes: 10
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
