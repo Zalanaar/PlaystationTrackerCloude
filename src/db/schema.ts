@@ -371,6 +371,8 @@ export const allowedUsers = pgTable(
     // Фаза 21 (контракт 23.2): версия тура, пройденная или пропущенная пользователем
     tourVersion: integer('tour_version'),
     tourCompletedAt: tz('tour_completed_at'),
+    // P2-16: наибольший прочитанный id «Что нового» (NULL = ещё не открывал); общий для Safari и PWA
+    whatsNewSeen: integer('whats_new_seen'),
     lastLoginAt: tz('last_login_at'),
     invitedBy: integer('invited_by').references((): AnyPgColumn => allowedUsers.id, { onDelete: 'set null' }),
     // Фаза 41 (контракт 41.1): NULL = основной профиль (вход), иначе id основного. Вход строки = coalesce(primary_user_id, id)

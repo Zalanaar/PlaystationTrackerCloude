@@ -1,0 +1,1 @@
+ALTER TABLE "allowed_users" ADD COLUMN "whats_new_seen" integer;

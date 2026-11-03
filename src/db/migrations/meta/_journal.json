@@ -211,6 +211,13 @@
       "when": 1793701396397,
       "tag": "0029_game_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793707404346,
+      "tag": "0030_whats_new_seen",
+      "breakpoints": true
     }
   ]
 }
