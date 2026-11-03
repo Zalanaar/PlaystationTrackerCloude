@@ -17,6 +17,11 @@ export type InboxCtl = {
   setMatchCount: (n: number) => void;
   /** Полоса сейчас показывает чип «Проверить статусы»: старый check-chip не рендерим */
   showsCheck: boolean;
+  /**
+   * Клиентский переход без памяти вкладки, а прошлый ответ был пустым: место под полосу не резервируем (ни скелета, ни
+   * коробки «ничего нового»). Пустой ответ — ничего не рисуем, сдвига нет; ошибка — молча (повтор при следующем визите).
+   */
+  quiet: boolean;
 };
 
 /**
@@ -24,10 +29,20 @@ export type InboxCtl = {
  * без скелета и без сдвига вёрстки, а свежий ответ подменяет его молча. Сбрасывается сменой профиля PSN; на сервере не используется.
  */
 let memory: InboxResponse | null = null;
-registerCacheReset(() => { memory = null; });
+/** Подсказка между загрузками страницы: прошлый ответ был без чипов (тогда на клиентском переходе место не резервируем). */
+export const INBOX_EMPTY_KEY = 'ps-inbox-empty';
+function writeEmptyHint(empty: boolean | null): void {
+  try { if (empty) localStorage.setItem(INBOX_EMPTY_KEY, '1'); else localStorage.removeItem(INBOX_EMPTY_KEY); } catch { /* приватный режим */ }
+}
+registerCacheReset(() => { memory = null; writeEmptyHint(null); });
 /** Только для тестов. */
 export function resetInboxMemory(): void { memory = null; }
-const remember = (d: InboxResponse | null) => { if (typeof window !== 'undefined' && d) memory = d; };
+const remember = (d: InboxResponse | null) => {
+  if (typeof window === 'undefined' || !d) return;
+  memory = d;
+  writeEmptyHint(buildChips(d).length === 0);
+};
+const noopSubscribe = () => () => {};
 
 const hideListeners = new Set<() => void>();
 function subscribeHide(cb: () => void): () => void {
@@ -51,6 +66,9 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
   const seeded = !!seed?.data;
   // память вкладки: только при монтировании на клиенте после прошлого показа (при гидрации она пуста, разметка совпадает с сервером)
   const [fromMemory] = useState(() => !seeded && typeof window !== 'undefined' && memory !== null);
+  // true только при монтировании на клиенте (переход), при гидрации — false: разметка совпадает с серверным скелетом
+  const clientMount = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const [quiet] = useState(() => clientMount && !seeded && !fromMemory && readStored(INBOX_EMPTY_KEY) === '1');
   const [phase, setPhase] = useState<InboxState>(seeded || fromMemory ? 'ready' : 'loading');
   const [data, setData] = useState<InboxResponse | null>(() => {
     if (seeded) { remember(seed!.data); return seed!.data; }
@@ -113,5 +131,5 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
   // скрыто на сегодня: остаётся только чип подтверждения совпадений
   const chips = useMemo(() => (hidden ? chipsWhenHidden(all) : all), [all, hidden]);
   const visible = enabled && phase === 'ready' && chips.length > 0;
-  return { enabled, phase, chips, hidden, hide, retry, setMatchCount, showsCheck: visible && chips.some((c) => c.id === 'check') };
+  return { enabled, phase, chips, hidden, hide, retry, setMatchCount, showsCheck: visible && chips.some((c) => c.id === 'check'), quiet };
 }

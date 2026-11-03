@@ -106,6 +106,54 @@ test('QA-28-3: возврат на Коллекцию из другой вкла
   await expect(page.getByTestId('inbox-strip')).toHaveAttribute('data-count', '5');
 });
 
+// Клиентский переход без памяти вкладки: прошлый ответ был пустым (подсказка в localStorage) — коробку «ничего нового» не рисуем
+// и места не занимаем; пустой ответ ничего не сдвигает. Если же пришли чипы — полоса появляется (сдвиг только в этом случае).
+const toCollection = (page: Page) => page.getByRole('navigation', { name: 'Разделы' }).getByRole('link', { name: 'Коллекция', exact: true }).locator('visible=true').first().press('Enter'); // клавиатурой: на мобильном индикатор dev-сервера Next лежит поверх левой вкладки
+
+test('QA-28-4: переход на Коллекцию без памяти вкладки после пустого визита — без «ничего нового» и без сдвига', async ({ page, context, baseURL }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await trackShifts(page);
+  const mock = await open(page, context, baseURL!, null);
+  await expect(page.getByTestId('inbox-empty')).toBeVisible(); // загрузка документа без seed: коробка, как в QA-28
+  expect(await page.evaluate(() => localStorage.getItem('ps-inbox-empty'))).toBe('1');
+  await page.goto('/backlog'); // новая загрузка документа: памяти вкладки нет
+  await page.getByRole('navigation', { name: 'Разделы' }).locator('visible=true').first().waitFor();
+  mock.inboxDelay = 1200;
+  const callsBefore = mock.inboxCalls;
+  await page.evaluate(() => {
+    const w = window as unknown as { __box: boolean };
+    w.__box = false;
+    new MutationObserver(() => { if (document.querySelector('[data-testid="inbox-skeleton"], [data-testid="inbox-reserved"]')) w.__box = true; }).observe(document.body, { childList: true, subtree: true });
+  });
+  await toCollection(page);
+  await page.waitForURL((u) => u.pathname === '/');
+  const card = page.locator('.ps-card').first();
+  await card.waitFor();
+  const before = (await card.boundingBox())!.y;
+  await frames(page);
+  await resetShifts(page);
+  await expect.poll(() => mock.inboxCalls, { timeout: 5000 }).toBeGreaterThan(callsBefore);
+  await page.waitForTimeout(1500); // ответ (1,2 с) дошёл
+  expect(await page.evaluate(() => (window as unknown as { __box: boolean }).__box)).toBe(false);
+  await expect(page.getByTestId('inbox-empty')).toHaveCount(0);
+  await expect(page.getByTestId('inbox-strip')).toHaveCount(0);
+  expect((await card.boundingBox())!.y).toBe(before);
+  expect(await shifts(page)).toBe(0);
+});
+
+test('QA-28-4b: после пустого визита пришли новые события — полоса появляется, подсказка снимается', async ({ page, context, baseURL }) => {
+  const mock = await open(page, context, baseURL!, null);
+  await expect(page.getByTestId('inbox-empty')).toBeVisible();
+  await page.goto('/backlog');
+  await page.getByRole('navigation', { name: 'Разделы' }).locator('visible=true').first().waitFor();
+  mock.inbox = FULL;
+  await toCollection(page);
+  await page.waitForURL((u) => u.pathname === '/');
+  await expect(page.getByTestId('inbox-strip')).toBeVisible();
+  await expect(page.getByTestId('inbox-skeleton')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('ps-inbox-empty'))).toBeNull();
+});
+
 test('QA-28-5: тост скрывает «Что нового» и карточка возвращается', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL!, null);
   await page.evaluate(() => localStorage.setItem('ps-wn-seen:1', '11'));

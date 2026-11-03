@@ -97,13 +97,15 @@ export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
   // ✕ нажат здесь: убрать полосу целиком (сдвиг по действию пользователя допустим). Скрытие, узнанное позже из localStorage, держит место.
   const [userHid, setUserHid] = useState(false);
   const hide = () => { setUserHid(true); ctl.hide(); };
-  const skeleton = ctl.enabled && ctl.phase === 'loading' && !ctl.hidden;
+  const skeleton = ctl.enabled && ctl.phase === 'loading' && !ctl.hidden && !ctl.quiet;
   if (skeleton && !reserved) setReserved(true);
   if (!ctl.enabled) return null;
   const hasChips = ctl.phase === 'ready' && ctl.chips.length > 0;
   // «Скрыть на сегодня»: полоса остаётся только ради чипа «Это та игра?» (Фаза 43); скрытие — действие пользователя, сдвиг допустим
   if (ctl.hidden && !hasChips) return reserved && !userHid ? <ReservedBox state="hidden" ctl={ctl} onHide={hide} /> : null;
 
+  // прошлый ответ был пустым (клиентский переход без памяти): место не занимаем, пока не придут чипы
+  if (ctl.quiet && !reserved && !hasChips) return null;
   if (ctl.phase === 'loading') return <ReservedBox state="loading" ctl={ctl} onHide={hide} />;
   if (!hasChips) {
     const state: BoxState = ctl.phase === 'error' ? 'error' : ctl.phase === 'gone' ? 'gone' : 'empty';
