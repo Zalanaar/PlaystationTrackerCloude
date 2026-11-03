@@ -72,12 +72,12 @@ test.describe('Бэклог: кнопки карточек на одной ли�
   }
 });
 
-test('мобильная шапка: статус синка текстом', async ({ page, context, baseURL }) => {
+test('мобильная шапка: статус синка коротким временем (D-P2)', async ({ page, context, baseURL }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, context, baseURL as string, [g(1, 'Игра')], '/backlog', 'Бэклог');
   const t = page.locator('.ps-btn--sync .ps-sync-text-m');
   await expect(t).toBeVisible();
-  await expect(t).toContainText(/Синк|Ошибка/);
+  await expect(t).toHaveText(/^(\d+ [а-я]+|сейчас|Ошибка|Идёт…|Нет)$/);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(t).toBeHidden();
   await expect(page.locator('.ps-btn--sync .ps-sync-text')).toBeVisible();

@@ -86,7 +86,7 @@ async function settled(page: Page, anchor: string | null) {
 }
 
 const ANCHORS_DESKTOP = ['nav', 'game-card', 'card-status', 'search', 'filters', null, 'triage-actions', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'sync', 'theme', null];
-const ANCHORS_MOBILE = ['nav', 'game-card', 'game-card', 'search', 'filters-btn', null, 'triage-buttons', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'menu-more', 'menu-more', null];
+const ANCHORS_MOBILE = ['nav', 'game-card', 'game-card', 'search-hdr', 'filters-btn', null, 'triage-buttons', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'menu-more', 'menu-more', null];
 const PATHS = ['/', '/', '/', '/', '/', '/', '/triage', '/backlog', '/backlog', '/stats', '/stats'];
 
 test.describe('тур: полный проход', () => {
@@ -196,7 +196,7 @@ test.describe('тур: состояния', () => {
     await expect(count(page)).toHaveText('2 из 14');
     // «/» не ставит курсор в поиск, пока тур открыт
     await page.keyboard.press('/');
-    await expect(page.getByRole('searchbox', { name: 'Поиск игры' })).not.toBeFocused();
+    await expect(page.locator('input[type=search]:focus')).toHaveCount(0);
     await page.keyboard.press('ArrowRight');
     await expect(count(page)).toHaveText('3 из 14');
     await page.keyboard.press('ArrowLeft');

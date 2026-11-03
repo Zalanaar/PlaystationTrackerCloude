@@ -4,6 +4,7 @@ import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual } from './manual-mock';
 import { signedSession } from './session';
 import { shotsDir } from './shots';
+import { addBtn } from './header-actions';
 
 const SHOTS = shotsDir('shots-43-1');
 
@@ -89,7 +90,7 @@ for (const theme of ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite']) {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'Поиск' }).waitFor({ state: 'hidden' });
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await page.getByTestId('add-input').fill('hades');
     await page.getByTestId('add-submit').click();
     await page.getByTestId('add-row').first().waitFor();

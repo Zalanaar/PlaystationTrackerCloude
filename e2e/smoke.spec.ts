@@ -5,7 +5,8 @@ test('с валидной сессией главная рендерит кар�
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-  await expect(page.getByRole('link', { name: 'PS TRACKER' })).toBeVisible();
+  // D-P2: на мобильном вместо логотипа название раздела
+  await expect(page.locator('.ps-header').getByText(/^(PS TRACKER|Коллекция)$/).filter({ visible: true }).first()).toBeVisible();
   // БД в e2e недоступна: коллекция показывает ошибку, страница не падает
   await expect(page.getByText('Что-то пошло не так')).toBeVisible();
   await page.getByRole('button', { name: /Открыть синк/ }).click();

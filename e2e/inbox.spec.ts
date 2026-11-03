@@ -81,7 +81,7 @@ test.describe('Полоса «С прошлого визита»', () => {
     await expect(strip.getByTestId('inbox-forgotten')).toHaveAttribute('href', '/triage?forgotten=1');
     // чип в одном ряду: порядок слева направо
     const order = await strip.locator('[data-testid^="inbox-"][href]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-    expect(order).toEqual(mobile ? ids.filter((i) => i !== 'inbox-hours') : ids);
+    expect(order).toEqual(ids); // D-P1: на мобильном тоже все, одной прокручиваемой строкой
     await expect(page.getByTestId('check-chip')).toHaveCount(0);
     expect(await noHScroll(page)).toBe(true);
     // полоса над hero
@@ -89,22 +89,18 @@ test.describe('Полоса «С прошлого визита»', () => {
     expect(await y('[data-testid="inbox-strip"]')).toBeLessThan(await y('.ps-hero'));
   });
 
-  test('моб.: «Ещё 1» раскрывает часы, чипы по 44', async ({ page, context, baseURL }) => {
+  test('моб.: все чипы одной прокручиваемой строкой (D-P1), чипы по 44, без «Ещё»', async ({ page, context, baseURL }) => {
     test.skip(!isMobile(page), 'только мобильный');
     await open(page, context, baseURL!, { inbox: FULL });
     const strip = page.getByTestId('inbox-strip');
-    await expect(strip.getByTestId('inbox-hours')).toHaveCount(0);
-    const more = strip.getByTestId('inbox-more');
-    await expect(more).toHaveText('Ещё 1');
-    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(strip.getByTestId('inbox-more')).toHaveCount(0);
+    await expect(strip.getByTestId('inbox-hours')).toContainText('12 ч 30 м · +3 ч');
+    const ys = await strip.locator('[data-testid^="inbox-"][href]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().y)));
+    expect(new Set(ys).size).toBe(1);
     const box = await strip.getByTestId('inbox-new').boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
-    await more.click();
-    await expect(strip.getByTestId('inbox-hours')).toBeVisible();
-    await expect(strip.getByTestId('inbox-hours')).toContainText('12 ч 30 м · +3 ч');
-    await expect(more).toHaveText('Свернуть');
-    await more.click();
-    await expect(strip.getByTestId('inbox-hours')).toHaveCount(0);
+    expect((await strip.boundingBox())!.height).toBeLessThanOrEqual(64);
+    expect(await strip.locator('.ps-inbox__list').evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     expect(await noHScroll(page)).toBe(true);
   });
 

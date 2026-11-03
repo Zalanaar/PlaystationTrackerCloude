@@ -290,10 +290,11 @@ test.describe('«Ближе всего к платине» (Коллекция)'
     await expect(items.nth(1)).toContainText('редкость неизвестна');
     await expect(items.nth(1)).not.toContainText('≈');
     await expect(items.nth(1).locator('.ps-near__g')).toHaveCount(2); // нулевые грейды не выводятся
-    // выше блока «Хроника»
+    // десктоп: выше блока «Хроника»; мобильный (D-P1, пакет 2): сразу после первого блока, чтобы обложки были в первом экране
     const nearY = (await block.boundingBox())!.y;
     const chronY = (await page.locator('.ps-chron').first().boundingBox())!.y;
-    expect(nearY).toBeLessThan(chronY);
+    if (page.viewportSize()!.width < 768) expect(nearY).toBeGreaterThan(chronY);
+    else expect(nearY).toBeLessThan(chronY);
     await items.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
   });

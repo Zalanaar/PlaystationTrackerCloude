@@ -408,7 +408,10 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   useHeaderAction('search', () => setSearchOpen(true));
   useHeaderAction('add', () => openAdd());
   function openAdd(query?: string) {
-    addBtnRef.current?.focus();
+    // фокус вернётся на то, что видно: на мобильном кнопка страницы скрыта, открывает «+» шапки
+    const btn = addBtnRef.current;
+    if (btn && btn.offsetParent !== null) btn.focus();
+    else document.querySelector<HTMLElement>('[data-testid="hdr-add"]')?.focus();
     setAddQuery(query);
     setAddOpen(true);
   }

@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, serviceGames, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { searchBox } from './header-actions';
 
 async function open(page: Page, context: BrowserContext, baseURL: string, url = '/', games: G[] = seed()): Promise<Mock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
@@ -70,7 +71,12 @@ test.describe('блок «Игры-сервисы»', () => {
 
   test('якорь «Сервисы» ведёт к блоку; на карточке ромб с подписью «Игра-сервис»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(3)]);
-    await page.getByRole('navigation', { name: 'Годы и блоки' }).getByRole('link', { name: 'Сервисы' }).click();
+    const nav = page.getByRole('navigation', { name: 'Годы и блоки' });
+    if (page.viewportSize()!.width < 768) {
+      // D-P1 (пакет 2): на телефоне якорей «Перейти» нет (место первого экрана), блок доступен прокруткой
+      await expect(nav).toBeHidden();
+      await block(page).scrollIntoViewIfNeeded();
+    } else await nav.getByRole('link', { name: 'Сервисы' }).click();
     await expect(block(page)).toBeInViewport();
     await expect(visibleCards(page).first().locator('.ps-card__glyph')).toHaveAttribute('title', 'Игра-сервис');
     await expect(visibleCards(page).first().locator('.ps-card__date')).toHaveCount(0);
@@ -83,7 +89,7 @@ test.describe('блок «Игры-сервисы»', () => {
     await expect(visibleCards(page)).toHaveCount(9);
     await expect(toggle(page)).toHaveCount(0);
     await expect(tab(page, /Сервис/)).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('searchbox', { name: 'Поиск игры' }).fill('witcher');
+    await (await searchBox(page)).fill('witcher');
     await expect(page.getByText('Ничего не найдено')).toBeVisible();
     await expect(block(page)).toHaveCount(0);
   });

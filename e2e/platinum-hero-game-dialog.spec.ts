@@ -511,10 +511,11 @@ test.describe('Фаза 9: профиль PSN', () => {
   });
 
   test('профиль null или без ника: блока нет; нет уровня и счётчиков: частичный блок', async ({ page, context, baseURL }) => {
+    // на мобильном без профиля может остаться строка итогов коллекции (D-P1, .ps-profile--totals), профиля в ней нет
     await open(page, context, baseURL!, { profile: null });
-    await expect(page.locator('.ps-profile')).toHaveCount(0);
+    await expect(page.locator('.ps-profile:not(.ps-profile--totals)')).toHaveCount(0);
     await open(page, context, baseURL!, { profile: { ...PROFILE, onlineId: '  ' } });
-    await expect(page.locator('.ps-profile')).toHaveCount(0);
+    await expect(page.locator('.ps-profile:not(.ps-profile--totals)')).toHaveCount(0);
     await open(page, context, baseURL!, { profile: { ...PROFILE, level: null, levelProgress: null, trophies: null } });
     await expect(page.locator('.ps-profile__nick')).toHaveText('Artem_PS');
     await expect(page.locator('.ps-profile__pill')).toHaveCount(0);

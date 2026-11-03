@@ -22,7 +22,8 @@ test('страницы грузятся без нарушений CSP', async ({
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'PS TRACKER' })).toBeVisible();
+  // D-P2: на мобильном вместо логотипа название раздела
+  await expect(page.locator('.ps-header').getByText(/^(PS TRACKER|Коллекция)$/).filter({ visible: true }).first()).toBeVisible();
   await page.waitForLoadState('load');
   await page.waitForTimeout(2000); // networkidle в dev не наступает (HMR, запросы к API без БД)
   expect(violations).toEqual([]);

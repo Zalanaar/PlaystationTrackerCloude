@@ -241,7 +241,10 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) {
     const tab = (await page.locator('nav.ps-tabbar').boundingBox())!;
     console.log(`VP ${vp.width}x${vp.height}: strip y=${Math.round(s.y)} h=${Math.round(s.height)}; first card y=${Math.round(h.y)}; tabbar y=${Math.round(tab.y)}`);
     await page.screenshot({ path: `${SHOTS}/vp-${vp.width}x${vp.height}.png` });
-    await page.getByTestId('inbox-more').click();
+    const hero = (await page.locator('.ps-hero').first().boundingBox())!;
+    expect(hero.y).toBeLessThan(tab.y); // блок «Играю» начинается в первом экране
+    // D-P1: чипы одной строкой, прокрутка внутри полосы не даёт h-скролла страницы
+    await page.locator('.ps-inbox__list').evaluate((el) => { el.scrollLeft = el.scrollWidth; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 }

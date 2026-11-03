@@ -260,7 +260,7 @@ test.describe('Длинные страницы (18.1)', () => {
 test.describe('Мобильный первый экран (18.2)', () => {
   test.use({ viewport: { width: 360, height: 640 } });
 
-  test('360x640: статистика, профиль 56, поиск целиком; hero выше 230; чипы под hero', async ({ page, context, baseURL }, info) => {
+  test('360x640: профиль 56, поиск в шапке; hero выше 230; чипы под hero', async ({ page, context, baseURL }, info) => {
     test.skip(info.project.name !== 'mobile', 'мобильная раскладка');
     const m = await setup(page, context, baseURL!);
     m.profile = { onlineId: 'ArtemPS', avatarUrl: null, level: 312, levelProgress: 47, tier: 5, trophies: { platinum: 38, gold: 100, silver: 200, bronze: 500, total: 838 } };
@@ -273,9 +273,9 @@ test.describe('Мобильный первый экран (18.2)', () => {
     expect(Math.round((await row.boundingBox())!.height)).toBe(56);
     await expect(row).toContainText('Ур. 312');
     await expect(row.getByLabel('Платина 38')).toBeVisible();
-    const search = page.getByRole('searchbox', { name: 'Поиск игры' });
-    const sb = (await search.boundingBox())!;
-    expect(sb.y + sb.height).toBeLessThanOrEqual(640 - 56);
+    // D-P2 (пакет 2): поиск на мобильном открывается из шапки, строки поиска в первом экране нет
+    await expect(page.getByRole('searchbox', { name: 'Поиск игры' })).toHaveCount(0);
+    await expect(page.getByTestId('hdr-search')).toBeVisible();
     const hero = page.getByRole('region', { name: 'Играю сейчас' });
     await expect(hero).toBeVisible();
     // «С прошлого визита» (Фаза 28): в e2e нет серверного seed, поэтому сначала скелет. С п. B он не схлопывается при пустом ответе

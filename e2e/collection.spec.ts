@@ -2,6 +2,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { searchBox } from './header-actions';
 
 async function open(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, url = '/', games = seed()): Promise<Mock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
@@ -639,7 +640,7 @@ for (const width of [390, 440]) {
 
     test('поиск на мобильном, список без переполнения', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!, '/?view=list');
-      await page.getByRole('searchbox', { name: 'Поиск игры' }).fill('ведьмак');
+      await (await searchBox(page)).fill('ведьмак');
       await expect(coll(page).locator('.ps-row__title', { hasText: 'Ведьмак 3' })).toBeVisible();
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
     });

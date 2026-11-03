@@ -94,7 +94,9 @@ for (const vp of VIEWPORTS) {
 
     test('метрики и скриншоты коллекции', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
-      await expect(page.locator('.ps-statline')).toBeVisible();
+      // D-P1 (пакет 2): на мобильном итоги в строке профиля, StatLine скрыта
+      if (vp.mobile) await expect(page.locator('.ps-statline')).toBeHidden();
+      else await expect(page.locator('.ps-statline')).toBeVisible();
       await expect(page.locator('article.ps-card').first()).toBeVisible();
       await page.waitForTimeout(500);
       const base = await page.evaluate(() => ({ nodes: document.getElementsByTagName('*').length, cards: document.querySelectorAll('article.ps-card').length }));

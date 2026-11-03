@@ -4,6 +4,7 @@ import { mockApi, type G, type Mock } from './collection-mock';
 import { cand, mgame, mockManual, type ManualMock, type MMatch } from './manual-mock';
 import { isMobile } from './backlog-ui';
 import { signedSession } from './session';
+import { addBtn } from './header-actions';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -47,7 +48,7 @@ async function search(page: Page, q: string) {
 test.describe('Поиск и добавление', () => {
   test('поиск уходит только по Enter/«Найти», не на символ; добавление, пометка, итоговый тост', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades(), cand('77', 'Hades Remix', { releaseDate: null, platforms: ['PlayStation 4'] })] });
-    const add = page.getByTestId('bl-add');
+    const add = addBtn(page);
     await expect(add).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(add).toHaveAttribute('aria-label', 'Добавить из магазина PS');
     await add.click();
@@ -94,7 +95,7 @@ test.describe('Поиск и добавление', () => {
 
   test('«Уже в бэклоге» приходит от сервера и не даёт добавить повторно', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: [cand('3328', 'Hades II', { inBacklog: true })] });
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await search(page, 'hades');
     const done = page.getByTestId('add-row-done');
     await expect(done).toHaveText('Уже в бэклоге');
@@ -103,7 +104,7 @@ test.describe('Поиск и добавление', () => {
 
   test('дубль: блок решения в корзине, «Всё равно добавить» шлёт confirmDuplicate, строка «Нужно решение»', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades()], batchDup: ['3328'] });
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await search(page, 'hades');
     await addFirst(page);
     const warn = page.getByTestId('add-warn');
@@ -130,7 +131,7 @@ test.describe('Поиск и добавление', () => {
     const { manual } = await open(page, context, baseURL!, {
       candidates: [hades()], batchFail: { '3328': 'manual_limit' }, batchReplies: [{ status: 500, error: { code: 'internal', message: 'x' } }],
     });
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await search(page, 'hades');
     await page.getByTestId('add-pick').click();
     // сбой запроса целиком: корзина цела, «Повторить 1», повтор безопасен
@@ -149,7 +150,7 @@ test.describe('Поиск и добавление', () => {
 
   test('состояния панели: нет результатов, лимит с датой, каталог недоступен, ошибка и повтор, офлайн', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades()] });
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await search(page, 'zzzz');
     await expect(page.getByTestId('add-noresults')).toContainText('По запросу «zzzz» нет игр для PS5 и PS4');
     await page.getByRole('button', { name: 'Очистить поиск' }).click();
@@ -179,7 +180,7 @@ test.describe('Поиск и добавление', () => {
 
   test('каталог не настроен и офлайн', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, {});
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await page.getByTestId('add-input').fill('hades');
     await context.setOffline(true);
     await page.getByTestId('add-submit').click();
@@ -199,7 +200,7 @@ test.describe('Поиск и добавление', () => {
     await page.getByTestId('bl-menu-add').click();
     await expect(page.getByRole('dialog', { name: 'Добавить из магазина PS' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('bl-add')).toBeFocused();
+    await expect(addBtn(page)).toBeFocused();
   });
 });
 
@@ -326,7 +327,7 @@ test.describe('Запись «не куплено» в списке', () => {
   test('на старой схеме (503) страница работает, записей нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { listReply: { status: 503, error: { code: 'db_unavailable', message: 'x' } } });
     await expect(page.getByText('Альфа Экшен').first()).toBeVisible();
-    await expect(page.getByTestId('bl-add')).toBeVisible();
+    await expect(addBtn(page)).toBeVisible();
     await expect(page.locator('[data-manual]')).toHaveCount(0);
   });
 
@@ -370,14 +371,14 @@ test.describe('Список и карточки', () => {
       await open(page, context, baseURL!, { items: [mgame(41, 'Очень длинное название игры для проверки переноса строк в карточке совпадения')], candidates: [hades()], matches });
       expect(await noHScroll(page)).toBe(true);
       const head = await page.getByRole('heading', { name: 'Бэклог', level: 1 }).boundingBox();
-      const addBtn = await page.getByTestId('bl-add').boundingBox();
+      const addBox = await addBtn(page).boundingBox();
       expect(head!.x + head!.width).toBeLessThanOrEqual(w);
-      expect(addBtn!.x + addBtn!.width).toBeLessThanOrEqual(w + 0.5);
+      expect(addBox!.x + addBox!.width).toBeLessThanOrEqual(w + 0.5);
       await page.getByRole('button', { name: 'Список', exact: true }).click();
       expect(await noHScroll(page)).toBe(true);
       const buy = await page.getByTestId('np-bought').first().boundingBox();
       expect(buy!.height).toBeGreaterThanOrEqual(43.5);
-      await page.getByTestId('bl-add').click();
+      await addBtn(page).click();
       await search(page, 'hades');
       await expect(page.getByTestId('add-row')).toHaveCount(1);
       const btn = await page.getByTestId('add-pick').boundingBox();

@@ -4,6 +4,7 @@ import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual, type MMatch } from './manual-mock';
 import { signedSession } from './session';
 import { shotsDir } from './shots';
+import { addBtn } from './header-actions';
 
 const SHOTS = shotsDir('shots-43');
 
@@ -33,7 +34,7 @@ for (const theme of THEMES) {
     await page.getByTestId('match-card').first().waitFor();
     await page.screenshot({ path: `${SHOTS}/${theme}-match.png` });
     await page.getByTestId('match-close').click();
-    await page.getByTestId('bl-add').click();
+    await addBtn(page).click();
     await page.getByTestId('add-input').fill('hades');
     await page.getByTestId('add-submit').click();
     await page.getByTestId('add-row').first().waitFor();

@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';
+import { searchBox } from './header-actions';
 
 const state = { delay: 0 };
 async function setup(page: Page, context: BrowserContext, baseURL: string, delay: number) {
@@ -29,7 +30,7 @@ test('поиск: медленная перезагрузка не отбира�
   await page.goto('/');
   await expect(page.locator('.ps-card').first()).toBeVisible();
   state.delay = 1500;
-  const input = page.getByRole('searchbox', { name: 'Поиск игры' });
+  const input = await searchBox(page);
   await input.click();
   await input.pressSequentially('Вед', { delay: 50 });
   await expect(overlay(page)).toBeVisible({ timeout: 3000 }); // запрос по «Вед» дольше 200 мс
@@ -53,7 +54,7 @@ test('смена статуса: refresh после мутации не дела
   expect(await page.locator('.ps-collection').getAttribute('aria-busy')).toBeNull();
   await page.keyboard.press('Escape'); // закрыть диалог игры
   await expect(page.getByRole('dialog', { name: 'Stray' })).toHaveCount(0);
-  const input = page.getByRole('searchbox', { name: 'Поиск игры' });
+  const input = await searchBox(page);
   await input.click();
   await page.keyboard.type('God', { delay: 30 });
   await expect(input).toHaveValue('God');
