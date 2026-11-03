@@ -235,6 +235,44 @@ export const trophies = pgTable(
   ],
 );
 
+/** Пакет 5: группы трофеев сета (PSN trophyGroups): 'default' = основная игра, '001'... = дополнения. Название на языке defs_locale сета. */
+export const trophyGroups = pgTable(
+  'trophy_groups',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    trophySetId: integer('trophy_set_id').notNull().references(() => trophySets.id, { onDelete: 'cascade' }),
+    userId: userIdCol(),
+    groupId: text('group_id').notNull(),
+    name: text(),
+    detail: text(),
+    iconUrl: text('icon_url'),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('trophy_groups_user_set_group_key').on(t.userId, t.trophySetId, t.groupId),
+    foreignKey({ name: 'trophy_groups_user_set_fk', columns: [t.userId, t.trophySetId], foreignColumns: [trophySets.userId, trophySets.id] }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Пакет 5: язык, на котором загружены названия и описания трофеев сета ('ru-RU'). Нет строки = загружены до пакета 5 (язык PSN по умолчанию), догружаются понемногу.
+ * Отдельная таблица, а не колонка trophy_sets: вставка сетов перечисляет все колонки, и код на схеме до миграции не должен ломаться.
+ */
+export const trophySetLocales = pgTable(
+  'trophy_set_locales',
+  {
+    trophySetId: integer('trophy_set_id').notNull().references(() => trophySets.id, { onDelete: 'cascade' }),
+    userId: userIdCol(),
+    locale: text().notNull(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.trophySetId] }),
+    foreignKey({ name: 'trophy_set_locales_user_set_fk', columns: [t.userId, t.trophySetId], foreignColumns: [trophySets.userId, trophySets.id] }).onDelete('cascade'),
+  ],
+);
+
 export const syncRuns = pgTable(
   'sync_runs',
   {

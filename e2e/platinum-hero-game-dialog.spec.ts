@@ -313,13 +313,14 @@ test.describe('Фаза 9: окно игры', () => {
     await expect(hidden).toContainText('Очень редкий');
     await expect(hidden).toContainText('4,1%');
     await expect(hidden).toContainText('Не получено');
-    await expect(hidden).toHaveAttribute('aria-label', 'Бронза: Скрытый трофей, не получено');
+    await expect(hidden).toHaveAttribute('aria-label', 'Бронза: Скрытый трофей, скрытый, не получено');
     // редкость: <0,1%, неизвестная, получен без даты
     await expect(rows.nth(2)).toContainText('<0,1%');
     await expect(rows.nth(2)).toContainText('получен');
     await expect(rows.filter({ hasText: 'Редкость неизвестна' })).toHaveCount(1);
-    // скрытый полученный: название видно, значок скрытого
-    await expect(rows.filter({ hasText: 'Трофей 4' }).locator('.ps-trophy__hid')).toHaveCount(1);
+    // скрытые (пакет 5): метка «Скрытый» у полученного и не полученного
+    await expect(rows.filter({ hasText: 'Трофей 4' }).locator('.ps-trophy__hidtag')).toHaveText('Скрытый');
+    await expect(hidden.locator('.ps-trophy__hidtag')).toHaveText('Скрытый');
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 

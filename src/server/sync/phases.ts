@@ -1,15 +1,16 @@
 // Фазы синка (контракт 8.1). Каждая единица работы = транзакция; курсор и счётчики пишутся в ней же.
 // Только апсерты и вставки ON CONFLICT: повторный прогон даёт те же данные. Удалений нет.
 import { toHttps } from '@/shared/https-url';
-import { type AnyColumn, and, asc, count, eq, gte, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { type AnyColumn, and, asc, count, eq, gte, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
-import type { PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet } from '@/server/psn/types';
+import { TROPHY_LOCALE, type PsnClient, type PsnGame, type PsnProfile, type PsnTrophyDef, type PsnTrophyEarned, type PsnTrophyGroup, type PsnTrophySet, type TrophySetRef } from '@/server/psn/types';
+import { PsnError } from '@/server/psn/errors';
 import type { PhaseFn, RunContext } from './context';
 import { matchOrphansByName } from './link';
 
-const { games, psnProfile, playtimeSnapshots, trophySets, gameTrophySets, trophies } = schema;
+const { games, psnProfile, playtimeSnapshots, trophySets, gameTrophySets, trophies, trophyGroups, trophySetLocales } = schema;
 
 const GAMES_CHUNK = 100;
 const LINK_BATCH = 5;
@@ -363,6 +364,8 @@ function staleSetsWhere(ctx: RunContext, skipIds: number[]) {
 
 export const trophiesPhase: PhaseFn = async (ctx, psn) => {
   const processed: number[] = [];
+  // Пакет 5: на схеме до 0032 нет trophy_groups и trophy_set_locales — синк работает как раньше
+  const locale = await hasLocaleSchema(ctx.db);
   const [{ n: pending }] = await ctx.db.select({ n: count() }).from(trophySets).where(staleSetsWhere(ctx, processed));
   const done0 = ctx.cursor.progress?.done ?? 0;
   const total = done0 + pending;
@@ -390,9 +393,10 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
     if (ctx.outOfTime()) return 'timeout';
     processed.push(set.id);
 
-    const ref = { npCommunicationId: set.np, npServiceName: set.service === 'trophy2' ? ('trophy2' as const) : ('trophy' as const) };
+    const ref = setRef(set);
     const earned = await psn.getEarnedTrophies(ref);
     const defs = set.have < set.defined || set.have === 0 || set.noGroup > 0 ? await psn.getTrophyDefinitions(ref) : [];
+    const groups = locale ? await groupsFor(psn, ref, defs) : [];
     const rows = mergeTrophies(ctx.userId, set.id, earned, defs, ctx.now());
 
     if (rows.length === 0 && set.defined > 0) {
@@ -401,30 +405,11 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
       continue;
     }
     await ctx.db.transaction(async (tx) => {
-      for (const part of chunks(rows, 200)) {
-        await tx
-          .insert(trophies)
-          .values(part)
-          .onConflictDoUpdate({
-            target: [trophies.userId, trophies.trophySetId, trophies.trophyId],
-            set: {
-              type: ex('type'),
-              groupId: sql`coalesce(${ex('group_id')}, ${trophies.groupId})`,
-              hidden: ex('hidden'),
-              name: sql`coalesce(${ex('name')}, ${trophies.name})`,
-              detail: sql`coalesce(${ex('detail')}, ${trophies.detail})`,
-              iconUrl: sql`coalesce(${ex('icon_url')}, ${trophies.iconUrl})`,
-              rarity: sql`coalesce(${ex('rarity')}, ${trophies.rarity})`,
-              earnedRate: sql`coalesce(${ex('earned_rate')}, ${trophies.earnedRate})`,
-              // полученный трофей не откатывается (контракт 1.5)
-              earned: sql`${trophies.earned} or ${ex('earned')}`,
-              earnedAt: sql`case when ${ex('earned')} then coalesce(${ex('earned_at')}, ${trophies.earnedAt}) else ${trophies.earnedAt} end`,
-              updatedAt: ex('updated_at'),
-            },
-          });
-      }
+      await upsertTrophies(tx, rows);
+      if (locale) await upsertGroups(tx, ctx.userId, set.id, groups, ctx.now());
       const now = ctx.now();
       await tx.update(trophySets).set({ trophiesSyncedAt: now, updatedAt: now }).where(and(eq(trophySets.id, set.id), eq(trophySets.userId, ctx.userId)));
+      if (locale && defs.length) await markLocale(tx, ctx.userId, set.id, now);
       ctx.counters.trophySetsSynced += 1;
       ctx.counters.trophiesUpserted += rows.length;
       done += 1;
@@ -433,8 +418,111 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
     });
     ctx.units++;
   }
+  if (locale) await localeBackfill(ctx, psn, processed);
   return 'done';
 };
+
+async function hasLocaleSchema(db: AnyDb): Promise<boolean> {
+  const r = await db.execute(sql`select 1 from information_schema.tables where table_schema = current_schema() and table_name = 'trophy_set_locales'`);
+  const rows = Array.isArray(r) ? r : (r as { rows?: unknown[] }).rows ?? [];
+  return rows.length > 0;
+}
+
+type Tx = Parameters<Parameters<AnyDb['transaction']>[0]>[0];
+const setRef = (set: { np: string; service: string }): TrophySetRef => ({ npCommunicationId: set.np, npServiceName: set.service === 'trophy2' ? 'trophy2' : 'trophy' });
+
+/** Пакет 5: названия групп нужны только сетам с дополнениями (группа кроме `default`). */
+async function groupsFor(psn: PsnClient, ref: TrophySetRef, defs: PsnTrophyDef[]): Promise<PsnTrophyGroup[]> {
+  return defs.some((d) => d.groupId !== null && d.groupId !== 'default') ? psn.getTrophyGroups(ref) : [];
+}
+
+async function upsertTrophies(db: Tx, rows: Array<typeof trophies.$inferInsert>): Promise<void> {
+  for (const part of chunks(rows, 200)) {
+    await db
+      .insert(trophies)
+      .values(part)
+      .onConflictDoUpdate({
+        target: [trophies.userId, trophies.trophySetId, trophies.trophyId],
+        set: {
+          type: ex('type'),
+          groupId: sql`coalesce(${ex('group_id')}, ${trophies.groupId})`,
+          hidden: ex('hidden'),
+          name: sql`coalesce(${ex('name')}, ${trophies.name})`,
+          detail: sql`coalesce(${ex('detail')}, ${trophies.detail})`,
+          iconUrl: sql`coalesce(${ex('icon_url')}, ${trophies.iconUrl})`,
+          rarity: sql`coalesce(${ex('rarity')}, ${trophies.rarity})`,
+          earnedRate: sql`coalesce(${ex('earned_rate')}, ${trophies.earnedRate})`,
+          // полученный трофей не откатывается (контракт 1.5)
+          earned: sql`${trophies.earned} or ${ex('earned')}`,
+          earnedAt: sql`case when ${ex('earned')} then coalesce(${ex('earned_at')}, ${trophies.earnedAt}) else ${trophies.earnedAt} end`,
+          updatedAt: ex('updated_at'),
+        },
+      });
+  }
+}
+
+async function markLocale(db: Tx, userId: UserId, setId: number, now: Date): Promise<void> {
+  await db.insert(trophySetLocales).values({ userId, trophySetId: setId, locale: TROPHY_LOCALE, updatedAt: now })
+    .onConflictDoUpdate({ target: [trophySetLocales.userId, trophySetLocales.trophySetId], set: { locale: TROPHY_LOCALE, updatedAt: now } });
+}
+
+async function upsertGroups(db: Tx, userId: UserId, setId: number, groups: PsnTrophyGroup[], now: Date): Promise<void> {
+  if (groups.length === 0) return;
+  await db
+    .insert(trophyGroups)
+    .values(groups.map((g) => ({ userId, trophySetId: setId, groupId: g.groupId, name: g.name, detail: g.detail, iconUrl: g.iconUrl, updatedAt: now })))
+    .onConflictDoUpdate({
+      target: [trophyGroups.userId, trophyGroups.trophySetId, trophyGroups.groupId],
+      set: {
+        name: sql`coalesce(excluded.name, ${trophyGroups.name})`,
+        detail: sql`coalesce(excluded.detail, ${trophyGroups.detail})`,
+        iconUrl: sql`coalesce(excluded.icon_url, ${trophyGroups.iconUrl})`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
+}
+
+/** Пакет 5: сколько уже загруженных сетов за звено перезагружают названия по-русски (нет строки в trophy_set_locales = загружены до пакета 5). Остальные — в следующих синках. */
+export const LOCALE_PER_CHUNK = 20;
+
+/**
+ * Пакет 5: догрузка русских названий трофеев и групп для сетов, загруженных раньше. Не больше LOCALE_PER_CHUNK сетов за звено, только пока есть время.
+ * Сбой PSN здесь не роняет синк: предупреждение, остальное — в следующий раз.
+ */
+async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): Promise<void> {
+  for (let n = 0; n < LOCALE_PER_CHUNK; n++) {
+    if (ctx.outOfTime()) return;
+    const [set] = await ctx.db
+      .select({ id: trophySets.id, np: trophySets.npCommunicationId, service: trophySets.npServiceName })
+      .from(trophySets)
+      .where(and(
+        eq(trophySets.userId, ctx.userId), isNotNull(trophySets.trophiesSyncedAt), skip.length ? notInArray(trophySets.id, skip) : undefined,
+        sql`not exists (select 1 from trophy_set_locales l where l.user_id = ${ctx.userId} and l.trophy_set_id = "trophy_sets"."id" and l.locale = ${TROPHY_LOCALE})`,
+      ))
+      .orderBy(asc(trophySets.id))
+      .limit(1);
+    if (!set) return;
+    skip.push(set.id);
+    const ref = setRef(set);
+    let defs: PsnTrophyDef[];
+    let groups: PsnTrophyGroup[];
+    try {
+      defs = await psn.getTrophyDefinitions(ref);
+      groups = await groupsFor(psn, ref, defs);
+    } catch (e) {
+      if (!(e instanceof PsnError)) throw e;
+      ctx.warn('trophy_locale_failed', `Сет ${set.np}: русские названия не загрузились (${e.reason}).`);
+      return;
+    }
+    const now = ctx.now();
+    const rows = mergeTrophies(ctx.userId, set.id, [], defs, now);
+    await ctx.db.transaction(async (tx) => {
+      await upsertTrophies(tx, rows);
+      await upsertGroups(tx, ctx.userId, set.id, groups, now);
+      await markLocale(tx, ctx.userId, set.id, now);
+    });
+  }
+}
 
 export function mergeTrophies(userId: UserId, setId: number, earned: PsnTrophyEarned[], defs: PsnTrophyDef[], now: Date): Array<typeof trophies.$inferInsert> {
   const defById = new Map(defs.map((d) => [d.trophyId, d] as const));

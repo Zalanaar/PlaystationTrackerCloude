@@ -47,6 +47,17 @@ export type PsnTrophyEarned = {
   earnedRate: string | null;
 };
 
+/** Пакет 5: язык названий трофеев и групп (заголовок Accept-Language). */
+export const TROPHY_LOCALE = 'ru-RU';
+
+/** Группа трофеев сета: `default` основная игра, `001`... дополнения. */
+export type PsnTrophyGroup = {
+  groupId: string;
+  name: string | null;
+  detail: string | null;
+  iconUrl: string | null;
+};
+
 export type PsnTrophyDef = {
   trophyId: number;
   /** trophyGroupId: `default` база, `001`... DLC (контракт 15.3); null, если PSN не отдал. */
@@ -88,4 +99,6 @@ export interface PsnClient {
   findTrophySets(titleIds: string[]): Promise<Map<string, PsnTrophySet[]>>;
   getEarnedTrophies(set: TrophySetRef): Promise<PsnTrophyEarned[]>;
   getTrophyDefinitions(set: TrophySetRef): Promise<PsnTrophyDef[]>;
+  /** Пакет 5: группы трофеев (названия дополнений). Вызывается только для сетов с группами, кроме `default`. */
+  getTrophyGroups(set: TrophySetRef): Promise<PsnTrophyGroup[]>;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameTrophyItem } from '@/server/collection/types';
 import {
-  filterTrophies, formatRate, isDlcTrophy, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount,
+  filterTrophies, formatRate, isDlcTrophy, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophySections, trophyTitle, visibleTrophyCount,
 } from './trophies';
 
 const t = (trophyId: number, o: Partial<GameTrophyItem> = {}): GameTrophyItem => ({
@@ -94,5 +94,35 @@ describe('isDlcTrophy (Фаза 36)', () => {
   });
   it('aria-label содержит «DLC»', () => {
     expect(trophyAria({ type: 'bronze', name: 'Х', earned: true, groupId: '001' } as GameTrophyItem)).toBe('Бронза: Х, DLC');
+  });
+});
+
+describe('trophySections (пакет 5)', () => {
+  const all = [
+    t(0, { type: 'platinum', groupId: 'default', earned: true }),
+    t(1, { groupId: 'default' }),
+    t(2, { groupId: '002', earned: true }),
+    t(3, { groupId: '001' }),
+    t(4, { setId: 2, groupId: '001' }),
+    t(5, { groupId: null }),
+  ];
+  it('база первой, дополнения по сету и группе; название из PSN или «Дополнение N»', () => {
+    const s = trophySections(all, all, [{ setId: 1, groupId: '001', name: 'Кровавые узы', iconUrl: null }, { setId: 1, groupId: '002', name: '  ', iconUrl: null }]);
+    expect(s.map((x) => [x.title, x.dlc, ids(x.items), x.earned, x.total])).toEqual([
+      ['Основная игра', false, [0, 1, 5], 1, 3],
+      ['Кровавые узы', true, [3], 0, 1],
+      ['Дополнение 2', true, [2], 1, 1],
+      ['Дополнение 3', true, [4], 0, 1],
+    ]);
+  });
+  it('фильтр прячет пустые разделы, счётчик по полному списку; без DLC один раздел', () => {
+    const s = trophySections(all.filter((x) => x.earned), all);
+    expect(s.map((x) => [x.title, ids(x.items), x.total])).toEqual([['Основная игра', [0], 3], ['Дополнение 2', [2], 1]]);
+    const base = [t(0), t(1)];
+    expect(trophySections(base, base)).toHaveLength(1);
+    expect(trophySections(base, base)[0].dlc).toBe(false);
+  });
+  it('aria-label скрытого: «скрытый»', () => {
+    expect(trophyAria(t(1, { hidden: true }))).toBe('Бронза: T1, скрытый, не получено');
   });
 });

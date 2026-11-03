@@ -181,6 +181,8 @@ export type Mock = {
   profile: MockProfile | null;
   /** Трофеи GET /api/games/{id} по id игры; нет записи = trophyList() */
   trophies: Record<number, MockTrophy[]>;
+  /** Пакет 5: `trophyGroups` GET /api/games/{id} по id игры; нет записи = [] */
+  trophyGroups?: Record<number, Array<{ setId: number; groupId: string; name: string | null; iconUrl: string | null }>>;
   /** GET /api/games/{id} отвечает этим статусом, пока не сброшен в null */
   failDetails: number | null;
   /** задержка ответа деталей, мс */
@@ -465,6 +467,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       statusChangedAt: g.status ? '2026-10-06T08:00:00.000Z' : null,
       trophyList: g.trophies ? (m.trophies[id] ?? trophyList()) : [],
       platinumForecast: m.forecasts[id] ?? null,
+      trophyGroups: m.trophyGroups?.[id] ?? [],
       history: m.histories[id] ?? null,
       review: g.rating != null || g.note ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: '2026-10-30T10:00:00.000Z' } : null,
       ...(m.guides[id] ? { guide: guideOut(id) } : {}),

@@ -49,6 +49,12 @@
 svg.ps-trophy__type { color: var(--plat-text); }
 .ps-trophy__name > .ps-trophy__dlc { display: inline-block; flex: none; margin-top: 2px; padding: 0 6px; border: var(--border-w) solid var(--border); border-radius: var(--r-sm); font: 600 11px/16px var(--font-body); letter-spacing: .04em; color: var(--text-2); overflow: visible; }
 .ps-trophy__hid { flex: none; margin-top: 4px; color: var(--text-3); }
+.ps-trophy__name > .ps-trophy__hidtag { display: inline-block; flex: none; margin-top: 2px; padding: 0 6px; border: var(--border-w) dashed var(--border); border-radius: var(--r-sm); font: 600 11px/16px var(--font-body); color: var(--text-2); overflow: visible; }
+/* Пакет 5: разделы «Основная игра» / дополнения */
+.ps-trophies-sec + .ps-trophies-sec { margin-top: var(--sp-5); }
+.ps-trophies-sec__h { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-2); font: 600 var(--fs-body)/var(--lh-body) var(--font-body); color: var(--text); }
+.ps-trophies-sec__t { min-width: 0; overflow-wrap: anywhere; }
+.ps-trophies-sec__n { flex: none; margin-left: auto; color: var(--text-2); font-weight: 400; font-size: var(--fs-small); }
 .ps-trophy__det { margin: 2px 0 0; font: 400 13px/18px var(--font-body); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ps-trophy__det[data-muted] { color: var(--text-3); }
 .ps-trophy__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

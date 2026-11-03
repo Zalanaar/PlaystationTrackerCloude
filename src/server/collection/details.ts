@@ -1,5 +1,5 @@
 // Детали игры для окна (контракт 12.5, 26): GameItem + даты + список трофеев всех сетов игры + история по неделям. Пять запросов, без N+1.
-import { and, asc, eq, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
@@ -8,10 +8,10 @@ import type { EstimateInput } from '@/server/stats/hours';
 import { buildGameHistory } from './history';
 import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
-import type { GameDetailsResponse, GameGuide, GameTrophyItem } from './types';
+import type { GameDetailsResponse, GameGuide, GameTrophyGroup, GameTrophyItem } from './types';
 import { getGameGuide } from '@/server/guides/game-guide';
 
-const { games, gameStatus, gameReviews, gameMonthExclusions, gameTrophySets, playtimeSnapshots, trophies } = schema;
+const { games, gameStatus, gameReviews, gameMonthExclusions, gameTrophySets, playtimeSnapshots, trophies, trophyGroups } = schema;
 
 export type TrophyRow = {
   setId: number;
@@ -29,18 +29,17 @@ export type TrophyRow = {
   earnedRate: string | null;
 };
 
-/** Строка БД -> трофей API. Скрытый и не полученный: name/detail/iconUrl = null (12.5). */
+/** Строка БД -> трофей API. Пакет 5: скрытые трофеи открыты (Artem), флаг hidden остаётся для пометки «Скрытый». */
 export function toTrophyItem(r: TrophyRow): GameTrophyItem {
-  const mask = r.hidden && !r.earned;
   const rate = r.earnedRate === null ? null : Number(r.earnedRate);
   return {
     setId: r.setId,
     trophyId: r.trophyId,
     groupId: r.groupId ?? null,
     type: r.type,
-    name: mask ? null : r.name,
-    detail: mask ? null : r.detail,
-    iconUrl: mask ? null : r.iconUrl,
+    name: r.name,
+    detail: r.detail,
+    iconUrl: r.iconUrl,
     hidden: r.hidden,
     earned: r.earned,
     earnedAt: r.earned && r.earnedAt ? r.earnedAt.toISOString() : null,
@@ -139,12 +138,21 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
   // F2-B: гайд не роняет окно игры (нет снимка индекса / сбой — только ссылки-поиск)
   const guide = await getGameGuide(db, userId, id).catch((): GameGuide => ({ match: null, override: null, dismissed: false }));
   const trophyList = rows.map(toTrophyItem);
+  // Пакет 5: названия групп только для сетов с дополнениями; на схеме до 0032 таблицы нет — окно игры работает без названий
+  const dlcSets = [...new Set(rows.filter((r) => r.groupId && r.groupId !== 'default').map((r) => r.setId))];
+  const groups: GameTrophyGroup[] = dlcSets.length === 0 ? [] : await db
+    .select({ setId: trophyGroups.trophySetId, groupId: trophyGroups.groupId, name: trophyGroups.name, iconUrl: trophyGroups.iconUrl })
+    .from(trophyGroups)
+    .where(and(eq(trophyGroups.userId, userId), inArray(trophyGroups.trophySetId, dlcSets)))
+    .orderBy(asc(trophyGroups.trophySetId), asc(trophyGroups.groupId))
+    .catch((): GameTrophyGroup[] => []);
   const history = buildGameHistory({ ...historyInput, trophies: trophyList });
   return {
     game,
     firstPlayedAt: meta.firstPlayedAt ? meta.firstPlayedAt.toISOString() : null,
     statusChangedAt: meta.statusChangedAt ? meta.statusChangedAt.toISOString() : null,
     trophyList,
+    trophyGroups: groups,
     // 14.2: из уже загруженного списка, без нового запроса
     platinumForecast: platinumForecast(setAggsFromTrophies(trophyList)),
     history,

@@ -1,7 +1,7 @@
 // Маппинг сырых ответов PSN в доменные типы. Читает защитно: библиотека неофициальная, поля могут
 // отсутствовать или менять тип. Ничего не бросает на плохих полях, плохие записи отбрасываются.
 import { GAME_CATEGORIES } from './types';
-import type { GameCategory, PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophyCounts, TrophyKind } from './types';
+import type { GameCategory, PsnGame, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophyGroup, PsnTrophySet, TrophyCounts, TrophyKind } from './types';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -284,4 +284,12 @@ export function mapTrophyDef(raw: unknown): PsnTrophyDef | null {
     detail: str(raw.trophyDetail),
     iconUrl: str(raw.trophyIconUrl),
   };
+}
+
+/** Пакет 5: группа трофеев из getTitleTrophyGroups. Без trophyGroupId — null. */
+export function mapTrophyGroup(raw: unknown): PsnTrophyGroup | null {
+  if (!isObj(raw)) return null;
+  const id = groupId(raw.trophyGroupId);
+  if (!id) return null;
+  return { groupId: id, name: str(raw.trophyGroupName), detail: str(raw.trophyGroupDetail), iconUrl: str(raw.trophyGroupIconUrl) };
 }

@@ -225,6 +225,13 @@
       "when": 1793715880962,
       "tag": "0031_guide_index",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793728456422,
+      "tag": "0032_trophy_groups_locale",
+      "breakpoints": true
     }
   ]
 }

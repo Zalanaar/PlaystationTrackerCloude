@@ -29,8 +29,10 @@ async function setup(page: Page, context: import('@playwright/test').BrowserCont
 }
 
 test.describe('Фаза 36: DLC', () => {
-  test('окно игры: строка DLC без «≈» при approximate=false; вкладка трофеев помечает DLC без смены порядка', async ({ page, context, baseURL }) => {
-    await setup(page, context, baseURL!, FORECAST);
+  test('окно игры: строка DLC без «≈» при approximate=false; трофеи разделены на основную игру и дополнения', async ({ page, context, baseURL }) => {
+    const m = await setup(page, context, baseURL!, FORECAST);
+    // пакет 5: название из PSN у 001, у 002 нет — «Дополнение 2»
+    m.trophyGroups = { 3: [{ setId: 1, groupId: '001', name: 'Кровавые узы', iconUrl: null }] };
     await page.goto('/?game=3');
     const dlg = page.getByRole('dialog');
     const sec = dlg.getByRole('region', { name: 'Путь к платине' });
@@ -38,15 +40,30 @@ test.describe('Фаза 36: DLC', () => {
     await expect(sec).not.toContainText('≈');
     await expect(sec).not.toContainText('Приблизительно');
     await dlg.getByRole('tab', { name: /Трофеи/ }).click();
+    const secs = dlg.getByTestId('trophy-section');
+    await expect(secs).toHaveCount(3);
+    await expect(secs.locator('h3')).toHaveText(['Основная игра 2/4', 'Кровавые узы 1/1', 'Дополнение 2 1/1']);
+    await expect(secs.nth(0)).not.toHaveAttribute('data-dlc');
+    await expect(secs.nth(1)).toHaveAttribute('data-dlc', 'true');
+    await expect(secs.nth(1).getByRole('heading', { name: /Кровавые узы/ })).toBeVisible();
     const rows = dlg.locator('li.ps-trophy');
     await expect(rows).toHaveCount(6);
+    // основная игра: 0, 1, 3, 5 (group null = база), внутри порядок «как в игре»
+    for (const [i, name] of ['Легенда', 'Трофей 1', 'Скрытый трофей', 'Трофей 5'].entries()) await expect(secs.nth(0).locator('li.ps-trophy').nth(i).locator('.ps-trophy__name')).toContainText(name);
+    await expect(secs.nth(0).locator('.ps-trophy__dlc')).toHaveCount(0);
+    await expect(secs.nth(1).locator('li.ps-trophy')).toContainText('Трофей 2');
+    await expect(secs.nth(2).locator('li.ps-trophy')).toContainText('Трофей 4');
     await expect(dlg.locator('.ps-trophy__dlc')).toHaveCount(2);
-    await expect(rows.nth(2)).toContainText('DLC');
-    await expect(rows.nth(4)).toContainText('DLC');
-    await expect(rows.nth(1).locator('.ps-trophy__dlc')).toHaveCount(0);
-    await expect(rows.nth(5).locator('.ps-trophy__dlc')).toHaveCount(0); // group null = база
-    await expect(rows.nth(2)).toHaveAttribute('aria-label', /, DLC/);
-    for (const [i, name] of ['Легенда', 'Трофей 1', 'Трофей 2'].entries()) await expect(rows.nth(i).locator('.ps-trophy__name')).toContainText(name);
+    await expect(secs.nth(1).locator('li.ps-trophy')).toHaveAttribute('aria-label', /, DLC/);
+    // скрытые помечены «Скрытый» (полученный и не полученный)
+    await expect(dlg.locator('.ps-trophy__hidtag')).toHaveCount(2);
+    await expect(secs.nth(2).locator('li.ps-trophy')).toHaveAttribute('aria-label', /, скрытый/);
+    // фильтр «Получены»: пустых разделов нет, счётчик раздела по полному списку
+    await dlg.getByRole('group', { name: 'Фильтр трофеев' }).getByRole('button', { name: /Получен/ }).click();
+    await expect(secs.locator('h3')).toHaveText(['Основная игра 2/4', 'Кровавые узы 1/1', 'Дополнение 2 1/1']);
+    await dlg.getByRole('group', { name: 'Фильтр трофеев' }).getByRole('button', { name: /Не получен/ }).click();
+    await expect(secs.locator('h3')).toHaveText(['Основная игра 2/4']);
+    await noOverflow(page);
   });
 
   test('approximate=true и dlc=null: «≈» есть, строки DLC нет, DLC-пометок нет', async ({ page, context, baseURL }) => {

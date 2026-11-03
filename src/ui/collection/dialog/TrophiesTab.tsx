@@ -6,7 +6,7 @@ import { formatDayMonth } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
 import {
   filterTrophies, formatRate, HIDDEN_DETAIL, isDlcTrophy, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
-  TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
+  TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophySections, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from '../trophies';
 import type { DetailsState } from '../useGameDetails';
 
@@ -17,7 +17,11 @@ export function TrophiesTab({ state, onRetry }: { state: DetailsState; onRetry: 
   const sortId = useId();
   const list = useMemo(() => (state.kind === 'ok' ? state.data.trophyList : []), [state]);
   const counts = useMemo(() => trophyCounts(list), [list]);
-  const rows = useMemo(() => sortTrophies(filterTrophies(list, filter), sort), [list, filter, sort]);
+  const groups = useMemo(() => (state.kind === 'ok' ? state.data.trophyGroups ?? [] : []), [state]);
+  // Пакет 5: основная игра, затем дополнения; сортировка — внутри раздела
+  const rows = useMemo(() => trophySections(sortTrophies(filterTrophies(list, filter), sort), list, groups).flatMap((x) => x.items), [list, filter, sort, groups]);
+  const secId = useId();
+  const hasDlc = useMemo(() => list.some(isDlcTrophy), [list]);
 
   if (state.kind === 'loading') {
     return (
@@ -85,9 +89,19 @@ export function TrophiesTab({ state, onRetry }: { state: DetailsState; onRetry: 
         </div>
       ) : (
         <>
-          <ul className="ps-trophies">
-            {view.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}
-          </ul>
+          {(() => {
+            const secs = trophySections(view, list, groups);
+            if (!hasDlc) return <ul className="ps-trophies">{view.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>;
+            return secs.map((sec, i) => (
+              <section key={sec.key} className="ps-trophies-sec" aria-labelledby={`${secId}-${i}`} data-dlc={sec.dlc || undefined} data-testid="trophy-section">
+                <h3 className="ps-trophies-sec__h" id={`${secId}-${i}`}>
+                  <span className="ps-trophies-sec__t">{sec.title}</span>{' '}
+                  <span className="ps-trophies-sec__n num" aria-label={`получено ${sec.earned} из ${sec.total}`}>{sec.earned}/{sec.total}</span>
+                </h3>
+                <ul className="ps-trophies">{sec.items.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>
+              </section>
+            ));
+          })()}
           {count < rows.length && (
             <div className="ps-more">
               <button type="button" className="ps-btn ps-btn--ghost" onClick={() => setShown(count + TROPHY_PAGE)}>Показать ещё {Math.min(TROPHY_PAGE, rows.length - count)}</button>
@@ -148,7 +162,7 @@ function TrophyRow({ t }: { t: GameTrophyItem }) {
           <TypeIcon type={t.type} />
           <span>{trophyTitle(t)}</span>
           {isDlcTrophy(t) && <span className="ps-trophy__dlc" title="Трофей дополнения: платине не мешает">DLC</span>}
-          {t.hidden && t.earned && <Icon name="eye-off" size={12} className="ps-trophy__hid" />}
+          {t.hidden && <span className="ps-trophy__hidtag" title="Скрытый трофей: PSN не показывает его до получения">Скрытый</span>}
         </p>
         <p className="ps-trophy__det" title={t.detail ?? undefined} data-muted={secret || undefined}>{secret ? HIDDEN_DETAIL : (t.detail ?? '')}</p>
       </div>

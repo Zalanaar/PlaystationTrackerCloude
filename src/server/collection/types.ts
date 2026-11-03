@@ -193,7 +193,7 @@ export type StatusBackupRow = {
   statusChangedAt: string;
 };
 
-/** Трофей в окне игры (12.5). Скрытый и не полученный: name/detail = null. */
+/** Трофей в окне игры (12.5). Пакет 5: скрытый трофей отдаётся с названием и описанием (UI помечает «Скрытый»); null = текст не загружен. */
 export type GameTrophyItem = {
   setId: number;
   trophyId: number;
@@ -226,7 +226,12 @@ export type GameDetailsResponse = {
   review?: GameReview | null;
   /** F2-B: гайд из индекса и ручная ссылка. Необязательное в типе (фикстуры UI, старый сервер); сервер присылает всегда. */
   guide?: GameGuide;
+  /** Пакет 5: названия групп трофеев (дополнения) по сетам игры; пусто — групп нет или не загружены. Необязательное в типе (фикстуры UI). */
+  trophyGroups?: GameTrophyGroup[];
 };
+
+/** Пакет 5: группа трофеев сета: `default` основная игра, `001`... дополнение. */
+export type GameTrophyGroup = { setId: number; groupId: string; name: string | null; iconUrl: string | null };
 
 /** F2-B (пакет 3): точный гайд PowerPyx из недельного индекса, ручная ссылка владельца, «Не тот гайд». */
 export type GameGuide = {

@@ -40,9 +40,9 @@ describe('toTrophyItem (чистая)', () => {
   it('обычный трофей', () => {
     expect(toTrophyItem(base)).toMatchObject({ name: 'Имя', detail: 'Описание', earnedAt: '2026-10-05T18:42:11.000Z', earnedRate: 2.4, rarity: 2 });
   });
-  it('скрытый не полученный: name/detail/iconUrl = null', () => {
+  it('пакет 5: скрытый не полученный открыт, флаг hidden сохранён', () => {
     const t = toTrophyItem({ ...base, hidden: true, earned: false, earnedAt: null });
-    expect(t).toMatchObject({ name: null, detail: null, hidden: true, earned: false, earnedAt: null, iconUrl: null });
+    expect(t).toMatchObject({ name: 'Имя', detail: 'Описание', hidden: true, earned: false, earnedAt: null, iconUrl: 'https://i' });
   });
   it('скрытый полученный: значения как есть', () => {
     expect(toTrophyItem({ ...base, hidden: true })).toMatchObject({ name: 'Имя', detail: 'Описание', iconUrl: 'https://i' });
@@ -116,15 +116,25 @@ describe('Фаза 9 на PGlite', () => {
     ]);
     await t.db.insert(trophies).values([
       { userId: 1, trophySetId: s2.id, trophyId: 0, type: 'bronze', name: 'B0' },
-      { userId: 1, trophySetId: s1.id, trophyId: 1, type: 'gold', name: 'secret', detail: 'd', hidden: true },
+      { userId: 1, trophySetId: s1.id, trophyId: 1, type: 'gold', name: 'secret', detail: 'd', hidden: true, groupId: '001' },
       { userId: 1, trophySetId: s1.id, trophyId: 0, type: 'platinum', name: 'Plat', earned: true, earnedAt: new Date('2026-10-05T18:42:11Z'), rarity: 0, earnedRate: '2.40' },
+    ]);
+    await t.db.insert(schema.trophyGroups).values([
+      { userId: 1, trophySetId: s1.id, groupId: 'default', name: 'База' },
+      { userId: 1, trophySetId: s1.id, groupId: '001', name: 'Кровавые узы', iconUrl: 'https://g' },
+      { userId: 1, trophySetId: s2.id, groupId: '001', name: 'Чужой сет без DLC-трофеев в окне' },
     ]);
     await setGameStatus(t.db, TEST_USER, a, 'backlog');
     await t.db.update(games).set({ hiddenAt: NOW }).where(eq(games.id, a));
 
     const d = await getGameDetails(t.db, TEST_USER, a);
     expect(d?.trophyList.map((x) => [x.setId, x.trophyId])).toEqual([[s1.id, 0], [s1.id, 1], [s2.id, 0]]);
-    expect(d?.trophyList[1]).toMatchObject({ name: null, detail: null, hidden: true });
+    expect(d?.trophyList[1]).toMatchObject({ name: 'secret', detail: 'd', hidden: true, groupId: '001' });
+    // пакет 5: группы только сетов с DLC-трофеями
+    expect(d?.trophyGroups).toEqual([
+      { setId: s1.id, groupId: '001', name: 'Кровавые узы', iconUrl: 'https://g' },
+      { setId: s1.id, groupId: 'default', name: 'База', iconUrl: null },
+    ]);
     expect(d?.trophyList[0]).toMatchObject({ type: 'platinum', earned: true, rarity: 0, earnedRate: 2.4 });
     expect(d?.statusChangedAt).not.toBeNull();
     expect(d?.game.hiddenAt).not.toBeNull();

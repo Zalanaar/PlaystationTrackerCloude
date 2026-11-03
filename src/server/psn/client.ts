@@ -2,8 +2,8 @@
 // Единственное место, откуда синк обращается к psn-api.
 import * as psnLib from 'psn-api';
 import { PsnError, classifyPsnError } from './errors';
-import { mapAccountAvatar, mapEarnedTrophy, mapPlayedTitles, mapProfile, mapTrophyDef, mapTrophyTitle } from './mapping';
-import type { PlayedGamesResult, PsnClient, PsnProfile, PsnTrophyDef, PsnTrophyEarned, PsnTrophySet, TrophySetRef } from './types';
+import { mapAccountAvatar, mapEarnedTrophy, mapPlayedTitles, mapProfile, mapTrophyDef, mapTrophyGroup, mapTrophyTitle } from './mapping';
+import { TROPHY_LOCALE, type PlayedGamesResult, type PsnClient, type PsnProfile, type PsnTrophyDef, type PsnTrophyEarned, type PsnTrophyGroup, type PsnTrophySet, type TrophySetRef } from './types';
 
 /** Подмножество psn-api, которое нам нужно (подменяется в тестах JSON-образцами). */
 export type PsnApi = Pick<
@@ -15,6 +15,7 @@ export type PsnApi = Pick<
   | 'getUserTrophiesForSpecificTitle'
   | 'getUserTrophiesEarnedForTitle'
   | 'getTitleTrophies'
+  | 'getTitleTrophyGroups'
 >;
 
 export type ClientDeps = {
@@ -30,6 +31,8 @@ export type ClientDeps = {
 
 const BACKOFF_MS = [1000, 2000, 4000];
 const PAGE = { played: 200, titles: 800, trophies: 800 };
+/** Пакет 5: названия и описания трофеев и групп по-русски, где PSN их отдаёт (иначе PSN возвращает язык по умолчанию сета). */
+const LOCALE_HEADERS = { 'Accept-Language': TROPHY_LOCALE } as const;
 const MAX_PAGES = 20;
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -162,12 +165,18 @@ export async function connectPsn(deps: ClientDeps): Promise<PsnClient> {
               npServiceName: set.npServiceName,
               limit: PAGE.trophies,
               offset,
+              headerOverrides: LOCALE_HEADERS,
             }),
           ),
         (r) => (Array.isArray(r?.trophies) ? r.trophies : []),
         (r) => r.totalItemCount,
       );
       return raw.map(mapTrophyDef).filter((t): t is PsnTrophyDef => t !== null);
+    },
+
+    async getTrophyGroups(set: TrophySetRef): Promise<PsnTrophyGroup[]> {
+      const r = await call((auth) => api.getTitleTrophyGroups(auth, set.npCommunicationId, { npServiceName: set.npServiceName, headerOverrides: LOCALE_HEADERS }));
+      return (Array.isArray(r?.trophyGroups) ? r.trophyGroups : []).map(mapTrophyGroup).filter((g): g is PsnTrophyGroup => g !== null);
     },
   };
 }

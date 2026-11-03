@@ -85,7 +85,7 @@ export type FakeState = {
   /** изменяемая копия списка игр */
   titles: Json[];
   trophyTitles: Json[];
-  trophies: Record<string, { defs: Json[]; earned: Json[] }>;
+  trophies: Record<string, { defs: Json[]; earned: Json[]; groups?: Json[] }>;
   /** сколько тайтлов отдавать за страницу (проверка пагинации) */
   pageSize: number;
   calls: Record<string, number>;
@@ -174,6 +174,10 @@ export function fakeApi(state: FakeState): PsnApi {
       const all = state.trophies[np]?.defs ?? [];
       const trophies = page(all, o.offset ?? 0, o.limit ?? 50);
       return { trophies, totalItemCount: all.length, trophySetVersion: '01.00', hasTrophyGroups: false };
+    },
+    getTitleTrophyGroups: async (_a: unknown, np: string) => {
+      hit('groups');
+      return { trophySetVersion: '01.00', trophyGroups: state.trophies[np]?.groups ?? [] };
     },
   };
   return api as unknown as PsnApi;

@@ -1,5 +1,5 @@
 // Чистая логика вкладки «Трофеи» окна игры (design-system §4.15): фильтр, сортировка, редкость, подписи.
-import type { GameTrophyItem } from '@/server/collection/types';
+import type { GameTrophyGroup, GameTrophyItem } from '@/server/collection/types';
 import { plural } from '../format';
 
 export type TrophyFilter = 'all' | 'earned' | 'locked';
@@ -97,7 +97,31 @@ export function platinumEarnedAt(list: readonly GameTrophyItem[]): string | null
 
 /** aria-label строки: тип, название, состояние. */
 export function trophyAria(t: GameTrophyItem): string {
-  return `${TROPHY_TYPE_LABELS[t.type]}: ${trophyTitle(t)}${isDlcTrophy(t) ? ', DLC' : ''}${t.earned ? '' : ', не получено'}`;
+  return `${TROPHY_TYPE_LABELS[t.type]}: ${trophyTitle(t)}${isDlcTrophy(t) ? ', DLC' : ''}${t.hidden ? ', скрытый' : ''}${t.earned ? '' : ', не получено'}`;
+}
+
+/** Пакет 5: раздел списка трофеев — основная игра или одно дополнение (сет + группа). */
+export type TrophySection = { key: string; title: string; dlc: boolean; items: GameTrophyItem[]; earned: number; total: number };
+
+const sectionKey = (t: GameTrophyItem): string => (isDlcTrophy(t) ? `${t.setId}:${t.groupId}` : 'base');
+
+/**
+ * Пакет 5: делит уже отфильтрованный и отсортированный список на «Основная игра» и дополнения (порядок внутри сохраняется).
+ * Название дополнения из групп PSN, без названия — «Дополнение N». earned/total считаются по полному списку `all`. Без дополнений — один раздел.
+ */
+export function trophySections(rows: readonly GameTrophyItem[], all: readonly GameTrophyItem[], groups: readonly GameTrophyGroup[] = []): TrophySection[] {
+  const name = new Map<string, string | null>(groups.map((g) => [`${g.setId}:${g.groupId}`, g.name]));
+  const keys = [...new Set(all.map(sectionKey))].sort((a, b) => (a === 'base' ? -1 : b === 'base' ? 1 : a.localeCompare(b, 'en', { numeric: true })));
+  const dlcNo = new Map(keys.filter((k) => k !== 'base').map((k, i) => [k, i + 1] as const));
+  const out: TrophySection[] = [];
+  for (const key of keys) {
+    const items = rows.filter((t) => sectionKey(t) === key);
+    if (items.length === 0) continue;
+    const full = all.filter((t) => sectionKey(t) === key);
+    const title = key === 'base' ? 'Основная игра' : (name.get(key)?.trim() || `Дополнение ${dlcNo.get(key)}`);
+    out.push({ key, title, dlc: key !== 'base', items, earned: full.filter((t) => t.earned).length, total: full.length });
+  }
+  return out;
 }
 
 export const launchWord = (n: number) => plural(n, ['запуск', 'запуска', 'запусков']);
