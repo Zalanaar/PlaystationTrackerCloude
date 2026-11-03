@@ -10,7 +10,7 @@ import { HLTB_STALE_RUN_MS, startRun, STALE_RUN_MS } from './runs';
 import { createTestDb, type TestDb } from './test-helpers';
 import { TEST_USER } from '@/server/sync/test-helpers';
 
-const { games, gameStatus, syncRuns } = schema;
+const { games, gameStatus, syncRuns, hltbRuns } = schema;
 const T0 = new Date('2026-10-28T10:00:00Z');
 const c = (id: number, name: string): HltbCandidate => ({ id, name, mainHours: 10, extraHours: null });
 
@@ -85,7 +85,7 @@ describe('QA массовый запуск', () => {
     expect(g).toMatchObject({ hltbId: 5, hltbMainHours: 22.5, hltbExtraHours: 30 });
     const r2 = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now: () => T0 });
     expect(r2.kind === 'done' && r2.result.processed).toBe(0);
-    expect(await t.db.select().from(syncRuns)).toHaveLength(2);
+    expect(await t.db.select().from(hltbRuns)).toHaveLength(2);
   });
 
   it('ручное значение не перетирается и игра не берётся', async () => {
@@ -97,13 +97,14 @@ describe('QA массовый запуск', () => {
     expect(g.durationOverrideHours).toBe(12);
   });
 
-  it('убитая функция: running от hltb блокирует синк до 15 минут, потом закрывается как timeout (не навсегда)', async () => {
-    await t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: T0.toISOString() } });
-    const early = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(T0.getTime() + 60_000) });
+  it('убитая функция (п. 3): running в hltb_runs синк не блокирует, следующий HLTB-запуск после 2 минут закрывает его как timeout', async () => {
+    await t.db.insert(hltbRuns).values({ userId: 1, status: 'running', startedAt: T0, heartbeatAt: T0 });
+    expect((await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(T0.getTime() + 60_000) })).kind).toBe('started');
+    const early = await runHltbMass({ userId: TEST_USER, db: t.db, deps: mkDeps(async () => []), now: () => new Date(T0.getTime() + 60_000) });
     expect(early.kind).toBe('already_running');
-    const late = await runHltbMass({ userId: TEST_USER, db: t.db, deps: mkDeps(async () => []), now: () => new Date(T0.getTime() + STALE_RUN_MS + 1000) });
+    const late = await runHltbMass({ userId: TEST_USER, db: t.db, deps: mkDeps(async () => []), now: () => new Date(T0.getTime() + HLTB_STALE_RUN_MS + 1000) });
     expect(late.kind).toBe('done');
-    const [dead] = await t.db.select().from(syncRuns).where(eq(syncRuns.id, 1));
+    const [dead] = await t.db.select().from(hltbRuns).where(eq(hltbRuns.id, 1));
     expect(dead).toMatchObject({ status: 'failed', errorReason: 'timeout' });
   });
 
@@ -123,6 +124,7 @@ describe('QA массовый запуск', () => {
   });
 
   // L-1: для kind='hltb' порог 2 минуты, heartbeat после каждой пачки.
+  // После п. 3 строки sync_runs kind='hltb' пишет только старый код (окно деплоя): синк их по-прежнему закрывает по 2-минутному порогу.
   const hltbRow = (heartbeat: Date) =>
     t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: heartbeat.toISOString() } });
   const at = (ms: number) => new Date(T0.getTime() + ms);
@@ -160,8 +162,8 @@ describe('QA массовый запуск', () => {
     const deps: HltbDeps = {
       client: {
         search: async () => {
-          const [row] = await t.db.select().from(syncRuns).where(eq(syncRuns.kind, 'hltb'));
-          seen.push((row.cursor as { heartbeat: string }).heartbeat);
+          const [row] = await t.db.select().from(hltbRuns);
+          seen.push(row.heartbeatAt.toISOString());
           clock += 1000;
           return [c(9, 'Totally Different')];
         },

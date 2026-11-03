@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   }
   try {
     const r = await runHltbMass({ db: getDb(), userId: a.user.id, deps: defaultHltbDeps(), recheckBefore });
-    if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Синк или подгрузка длительности уже идёт.', { runId: r.runId });
+    if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Подгрузка длительности уже идёт.', { runId: r.runId });
     return NextResponse.json({ ok: true, data: { ...r.result, warnings: r.warnings } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');

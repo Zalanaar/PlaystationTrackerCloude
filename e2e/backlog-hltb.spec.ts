@@ -181,7 +181,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push({ status: 409, code: 'sync_in_progress' });
     await startHltb(page);
-    await expect(page.getByTestId('hltb-result')).toHaveText('Синк уже идёт, повторите позже.');
+    await expect(page.getByTestId('hltb-result')).toHaveText('Подгрузка длительности уже идёт, повторите позже.');
     await expectHltbEnabled(page, true);
   });
 

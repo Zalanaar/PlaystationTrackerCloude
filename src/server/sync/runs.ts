@@ -6,12 +6,16 @@ import { asUserId, type UserId } from '@/server/auth/user-id';
 import { parseCursor, type PhaseName, type RunRow } from './context';
 import { MAX_HOPS } from './engine';
 import { mskDate } from './time';
+import { HLTB_STALE_RUN_MS } from './hltb-slot';
+
+export { HLTB_STALE_RUN_MS };
 
 const { syncRuns } = schema;
 
+// п. 3: слот массового прогона HLTB вынесен в hltb-slot.ts (без зависимости от engine)
+export { closeStaleHltbRuns, hltbRunActive, startHltbRun, type HltbRunRow } from './hltb-slot';
+
 export const STALE_RUN_MS = 15 * 60_000;
-/** Запуск kind='hltb' укладывается в ~60 с (maxDuration) и пишет heartbeat после каждой пачки: брошенный закрываем быстро. */
-export const HLTB_STALE_RUN_MS = 2 * 60_000;
 export const RESUME_WINDOW_MS = 6 * 3600_000;
 
 export type RunKind = (typeof schema.syncRunKind.enumValues)[number];
@@ -29,7 +33,10 @@ function isUniqueViolation(e: unknown): boolean {
   return false;
 }
 
-/** running без признаков жизни дольше 15 минут (hltb: 2 минуты) -> failed/timeout. Данные не трогаются. */
+/**
+ * running без признаков жизни дольше 15 минут -> failed/timeout. Данные не трогаются.
+ * Строки kind='hltb' в sync_runs пишет только старый код (до п. 3, на время выката и при откате): для них порог 2 минуты.
+ */
 export async function closeStaleRuns(db: AnyDb, now: Date): Promise<number> {
   const threshold = new Date(now.getTime() - STALE_RUN_MS).toISOString();
   const hltbThreshold = new Date(now.getTime() - HLTB_STALE_RUN_MS).toISOString();
@@ -119,22 +126,6 @@ export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; no
       })
       .returning();
     return { kind: 'started', run, resumed: o.carryPhase !== undefined && o.carryPhase !== 'games' };
-  } catch (e) {
-    if (!isUniqueViolation(e)) throw e;
-    const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);
-    return { kind: 'already_running', runId: running?.id ?? null };
-  }
-}
-
-/** Запуск массовой подгрузки HLTB (контракт 16.7). Занимает тот же единственный слот running, что и синк. Никогда не возобновляет partial. */
-export async function startHltbRun(db: AnyDb, userId: UserId, now: Date): Promise<{ kind: 'started'; run: RunRow } | { kind: 'already_running'; runId: number | null }> {
-  await closeStaleRuns(db, now);
-  try {
-    const [run] = await db
-      .insert(syncRuns)
-      .values({ userId, kind: 'hltb', status: 'running', snapshotDate: mskDate(now), startedAt: now, phase: 'hltb', cursor: { phase: 'games', hops: 0, heartbeat: now.toISOString() } })
-      .returning();
-    return { kind: 'started', run };
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
     const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);

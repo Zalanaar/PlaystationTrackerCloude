@@ -65,6 +65,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       // owned_marks есть только с 0024
       await client.exec(`DO $$ BEGIN IF to_regclass('public.owned_marks') IS NOT NULL THEN TRUNCATE owned_marks; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.provider_usage') IS NOT NULL THEN TRUNCATE provider_usage; END IF; END $$`);
+      // hltb_runs есть только с 0028
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.hltb_runs') IS NOT NULL THEN TRUNCATE hltb_runs RESTART IDENTITY; END IF; END $$`);
     },
     close: () => client.close(),
   };

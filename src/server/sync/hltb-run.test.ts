@@ -7,11 +7,12 @@ import type { HltbCandidate } from '@/server/hltb/normalize';
 import { getSyncStatus } from './status';
 import { runHltbMass } from './hltb-run';
 import type { HltbDeps } from './hltb-step';
-import { startRun } from './runs';
+import { closeStaleRuns, startRun } from './runs';
+import { HLTB_STALE_RUN_MS } from './hltb-slot';
 import { createTestDb, type TestDb } from './test-helpers';
 import { TEST_USER } from '@/server/sync/test-helpers';
 
-const { games, gameStatus, syncRuns } = schema;
+const { games, gameStatus, syncRuns, hltbRuns } = schema;
 const T0 = new Date('2026-10-28T10:00:00Z');
 const cand = (id: number, name: string): HltbCandidate => ({ id, name, mainHours: 10, extraHours: null });
 
@@ -50,7 +51,7 @@ describe('runHltbMass', () => {
   }
   const found: HltbClient['search'] = async (term) => [cand(Number(term.match(/\d+/)?.[0] ?? 1) + 1000, term)];
 
-  it('обрабатывает все пачками, remaining=0, done=true, пишет sync_runs kind=hltb', async () => {
+  it('обрабатывает все пачками, remaining=0, done=true, пишет hltb_runs (не sync_runs)', async () => {
     await add(25);
     await add(3, 'completed');
     await add(2, 'service');
@@ -60,9 +61,11 @@ describe('runHltbMass', () => {
     if (r.kind !== 'done') return;
     // 20.1: completed берём тоже, service никогда
     expect(r.result).toMatchObject({ processed: 28, remaining: 0, done: true, stopReason: 'complete', failed: 0 });
-    const runs = await t.db.select().from(syncRuns);
+    const runs = await t.db.select().from(hltbRuns);
     expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ kind: 'hltb', status: 'success' });
+    expect(runs[0]).toMatchObject({ status: 'success', gamesSeen: 28 });
+    expect(runs[0].finishedAt).not.toBeNull();
+    expect(await t.db.select().from(syncRuns)).toHaveLength(0);
   });
 
   it('бюджет времени: останавливается, remaining>0, done=false; следующий вызов дорабатывает', async () => {
@@ -91,18 +94,43 @@ describe('runHltbMass', () => {
     expect(calls).toBe(0);
   });
 
-  it('параллельный запуск отвергается (идёт синк или другой hltb)', async () => {
+  it('п. 3: синк и HLTB-запуск не блокируют друг друга', async () => {
     await add(2);
     const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: T0 });
     expect(s.kind).toBe('started');
     const { deps, now } = mk(found);
     const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
-    expect(r.kind).toBe('already_running');
-    expect((await t.db.select().from(syncRuns)).filter((x) => x.kind === 'hltb')).toHaveLength(0);
-    // и обратно: идущий hltb блокирует синк
+    expect(r.kind).toBe('done');
+    // и обратно: идущий HLTB-запуск не мешает синку (в т.ч. cron)
     await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.status, 'running'));
+    await t.db.insert(hltbRuns).values({ userId: 1, status: 'running', startedAt: T0, heartbeatAt: T0 });
+    expect((await startRun(t.db, TEST_USER, { kind: 'daily', now: T0 })).kind).toBe('started');
+  });
+
+  it('п. 3: второй HLTB-запуск при идущем отвергается (слот один на систему), id идущего в ответе', async () => {
+    await add(2);
+    const [live] = await t.db.insert(hltbRuns).values({ userId: 1, status: 'running', startedAt: T0, heartbeatAt: T0 }).returning();
+    const { deps, now } = mk(found);
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now });
+    expect(r).toMatchObject({ kind: 'already_running', runId: live.id });
+    expect(await t.db.select().from(hltbRuns)).toHaveLength(1);
+  });
+
+  it('п. 3: брошенный HLTB-запуск без heartbeat > 2 мин закрывается timeout, новый стартует', async () => {
+    await add(2);
+    await t.db.insert(hltbRuns).values({ userId: 1, status: 'running', startedAt: T0, heartbeatAt: T0 });
+    const later = new Date(T0.getTime() + HLTB_STALE_RUN_MS + 1000);
+    const { deps } = mk(found);
+    const r = await runHltbMass({ userId: TEST_USER, db: t.db, deps, now: () => later });
+    expect(r.kind).toBe('done');
+    const rows = await t.db.select().from(hltbRuns).orderBy(hltbRuns.id);
+    expect(rows.map((x) => [x.status, x.errorReason])).toEqual([['failed', 'timeout'], ['success', null]]);
+  });
+
+  it('совместимость: старая строка sync_runs kind=hltb (код до п. 3) закрывается синком по 2-минутному порогу', async () => {
     await t.db.insert(syncRuns).values({ userId: 1, kind: 'hltb', status: 'running', snapshotDate: '2026-10-28', startedAt: T0 });
-    expect((await startRun(t.db, TEST_USER, { kind: 'manual', now: T0 })).kind).toBe('already_running');
+    await closeStaleRuns(t.db, new Date(T0.getTime() + HLTB_STALE_RUN_MS + 1000));
+    expect((await t.db.select().from(syncRuns))[0]).toMatchObject({ status: 'failed', errorReason: 'timeout' });
   });
 
   it('ошибка HLTB не роняет: 200-итог, failed, предупреждение, done=true, игры не помечены', async () => {
@@ -114,7 +142,7 @@ describe('runHltbMass', () => {
     if (r.kind !== 'done') throw new Error('x');
     expect(r.result).toMatchObject({ processed: 0, failed: 3, remaining: 6, done: true, stopReason: 'errors' });
     expect(r.warnings.map((w) => w.code)).toContain('hltb_failed');
-    expect((await t.db.select().from(syncRuns))[0]).toMatchObject({ kind: 'hltb', status: 'success' });
+    expect((await t.db.select().from(hltbRuns))[0]).toMatchObject({ status: 'success' });
     expect((await t.db.select().from(games)).every((g) => g.hltbCheckedAt === null)).toBe(true);
   });
 

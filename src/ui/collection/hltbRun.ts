@@ -106,7 +106,7 @@ export function hltbEndMessage(r: HltbLoopResult): { tone: 'ok' | 'warn' | 'erro
     case 'halted':
       return { tone: 'warn', text: `${r.end.reason === 'limit' ? STOP_TEXT.limit : `Остановлено: ${STOP_TEXT[r.end.reason]}`}. ${sum} Осталось ${r.totals.remaining ?? 0}, повторите позже.` };
     case 'error':
-      if (r.end.status === 409) return { tone: 'warn', text: `Синк уже идёт, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
+      if (r.end.status === 409) return { tone: 'warn', text: `Подгрузка длительности уже идёт, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
       if (r.end.status === 503) return { tone: 'error', text: `База данных недоступна, повторите позже. ${r.totals.processed > 0 ? sum : ''}`.trim() };
       if (r.end.status === 400 && r.end.reason === 'since_in_future') return { tone: 'error', text: 'Часы устройства не совпадают с сервером, перепроверка не запущена.' };
       if (r.end.status === 400) return { tone: 'error', text: 'Сервер отклонил запрос.' };

@@ -9,6 +9,7 @@ import { PHASES, RunCancelledError, RunContext, type PhaseFn, type PhaseName, ty
 import { gamesPhase, trophyLinkPhase, trophiesPhase, trophySetsPhase } from './phases';
 import { applyDuplicates } from './duplicates';
 import { hltbStep, type HltbDeps } from './hltb-step';
+import { hltbRunActive } from './hltb-slot';
 import { discoverStep, type DiscoverStepDeps } from './discover-step';
 import { manualMatchStep, type ManualMatchDeps } from './manual-match-step';
 import { llmStep, type LlmStepDeps } from './llm-step';
@@ -122,7 +123,8 @@ export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult
     }
     if (deps.hltb) {
       try {
-        await hltbStep(ctx, deps.hltb);
+        // п. 3: идёт массовый прогон HLTB этого пользователя (свой слот) — он и так подгружает те же игры
+        if (!(await hltbRunActive(deps.db, ctx.userId, ctx.now()))) await hltbStep(ctx, deps.hltb);
       } catch (e) {
         if (e instanceof RunCancelledError) throw e;
         // длительность необязательна (есть ручной ввод): ошибка шага не влияет на итог синка

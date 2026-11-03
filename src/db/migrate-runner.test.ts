@@ -56,13 +56,17 @@ describe('журнал репозитория', () => {
 });
 
 describe('раннер на базе как у прода', () => {
-  it('ручной журнал 0000–0027 принимается: ничего не ждёт, ошибок и предупреждений нет, схема как у миграций', async () => {
+  it('ручной журнал 0000–0027 принимается: ждут только миграции после 0027, ошибок и предупреждений нет, схема как у миграций', async () => {
     const db = await prodLike();
+    const after = journal.entries.filter((e) => e.idx > LEGACY_LAST_IDX).map((e) => e.tag);
     const ins = await inspect(client(db), loadMigrations(root));
     expect(ins.errors).toEqual([]);
     expect(ins.warnings).toEqual([]);
-    expect(ins.applied).toHaveLength(journal.entries.length);
-    expect(ins.pending).toEqual([]);
+    expect(ins.applied).toHaveLength(LEGACY_LAST_IDX + 1);
+    expect(ins.pending.map((m) => m.tag)).toEqual(after);
+    // миграции репозитория после 0027 не удаляют данные без пометки (иначе CI ждёт approve)
+    expect(ins.destructive.filter((m) => !m.dataLoss)).toEqual([]);
+    expect((await applyPending(client(db), loadMigrations(root))).map((m) => m.tag)).toEqual(after);
     expect(await applyPending(client(db), loadMigrations(root))).toEqual([]);
 
     const ref = await freshPglite();
@@ -81,7 +85,7 @@ describe('раннер на базе как у прода', () => {
     expect((await applyPending(client(db), ms)).map((m) => m.tag)).toEqual(['0028_extra_0']);
     expect(await applyPending(client(db), ms)).toEqual([]);
     const j = await db.query<{ n: number }>('select count(*)::int as n from drizzle.__drizzle_migrations');
-    expect(j.rows[0].n).toBe(journal.entries.length + 1);
+    expect(j.rows[0].n).toBe(LEGACY_LAST_IDX + 2);
   });
 
   it('стандартный мигратор drizzle на том же журнале тоже видит только новую миграцию (совместимость)', async () => {

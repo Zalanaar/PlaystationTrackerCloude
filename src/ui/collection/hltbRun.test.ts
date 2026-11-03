@@ -72,7 +72,7 @@ describe('runHltbLoop', () => {
     const r = await runHltbLoop({ ...base, run: s.run });
     expect(r.end).toEqual({ kind: 'error', status: 409, code: 'sync_in_progress' });
     expect(r.totals.processed).toBe(4);
-    expect(hltbEndMessage(r).text).toContain('Синк уже идёт, повторите позже.');
+    expect(hltbEndMessage(r).text).toContain('Подгрузка длительности уже идёт, повторите позже.');
     const r2 = await runHltbLoop({ ...base, run: script(new HltbCallError(503, 'db_unavailable')).run });
     expect(hltbEndMessage(r2)).toEqual({ tone: 'error', text: 'База данных недоступна, повторите позже.' });
   });

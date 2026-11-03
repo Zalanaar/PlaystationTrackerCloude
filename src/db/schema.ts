@@ -237,6 +237,31 @@ export const syncRuns = pgTable(
   ],
 );
 
+// Массовая подгрузка длительности HLTB (контракт 16.7) отдельно от синка (п. 3): свой слот running, не мешает синку и обходу cron.
+// Раньше такие запуски шли в sync_runs (kind='hltb') и занимали единственный слот синка; старые строки там остаются историей.
+export const hltbRuns = pgTable(
+  'hltb_runs',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: userIdCol(),
+    status: syncRunStatus().notNull().default('running'),
+    errorReason: syncErrorReason('error_reason'),
+    errorMessage: text('error_message'),
+    startedAt: tz('started_at').notNull().defaultNow(),
+    finishedAt: tz('finished_at'),
+    /** heartbeat после каждой пачки: брошенный запуск закрывается через 2 минуты */
+    heartbeatAt: tz('heartbeat_at').notNull().defaultNow(),
+    gamesSeen: integer('games_seen').notNull().default(0),
+    gamesUpserted: integer('games_upserted').notNull().default(0),
+    warnings: jsonb(),
+  },
+  (t) => [
+    index('hltb_runs_user_started_at_idx').on(t.userId, t.startedAt.desc()),
+    // один массовый прогон HLTB на всю систему (нагрузка на HLTB как раньше), независимо от слота синка
+    uniqueIndex('hltb_runs_one_running_idx').on(sql`(true)`).where(sql`${t.status} = 'running'`),
+  ],
+);
+
 export const playtimeSnapshots = pgTable(
   'playtime_snapshots',
   {
