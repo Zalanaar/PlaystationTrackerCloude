@@ -158,7 +158,7 @@ export function Body({
         {tab === 'overview'
           ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} />
           : tab === 'guides'
-            ? game && <GuidesTab game={game} />
+            ? game && <GuidesTab key={`${game.id}|${details ? 1 : 0}`} game={game} guide={details?.guide ?? null} />
             : <TrophiesTab state={state} onRetry={retry} />}
       </div>
     </div>

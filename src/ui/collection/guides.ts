@@ -18,3 +18,8 @@ export function guideLinks(title: string): GuideLink[] {
     { id: 'psnprofiles', label: 'PSNProfiles', site: 'psnprofiles.com', href: `https://psnprofiles.com/search/guides?${new URLSearchParams({ q })}` },
   ];
 }
+
+/** Хост ссылки для подписи («psnprofiles.com»); не разобралась — сама строка. */
+export function guideSite(href: string): string {
+  try { return new URL(href).hostname.replace(/^www\./, ''); } catch { return href; }
+}

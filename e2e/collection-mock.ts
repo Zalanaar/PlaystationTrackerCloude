@@ -225,6 +225,8 @@ export type Mock = {
   /** задержка ответа /api/inbox, мс */
   inboxDelay: number;
   inboxCalls: number;
+  /** F2-B: гайд в деталях по id игры; нет записи = поля `guide` нет (старый сервер) */
+  guides: Record<number, { match: { title: string; url: string; wikiUrl: string | null } | null; override: string | null; dismissed: boolean }>;
 };
 
 /** Подсказка мока: `game` и `question` подставляются из игры и правила. */
@@ -271,6 +273,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
+    guides: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
@@ -464,6 +467,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       platinumForecast: m.forecasts[id] ?? null,
       history: m.histories[id] ?? null,
       review: g.rating != null || g.note ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: '2026-10-30T10:00:00.000Z' } : null,
+      ...(m.guides[id] ? { guide: guideOut(id) } : {}),
     });
   });
 
@@ -513,6 +517,16 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     if (!g) return NOT_FOUND;
     g.override = b.hours === null ? null : Math.round((b.hours as number) * 10) / 10;
     return { game: item(g) };
+  }));
+  // F2-B: PUT гайда; «Не тот гайд» прячет совпадение, своя ссылка приоритетнее
+  const guideOut = (id: number) => { const x = m.guides[id]; return { match: x.dismissed ? null : x.match, override: x.override, dismissed: x.dismissed }; };
+  await page.route(/\/api\/games\/\d+\/guide$/, (route) => mutate(route, (b) => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/guide/)?.[1]);
+    if (!m.games.some((x) => x.id === id)) return NOT_FOUND;
+    const x = (m.guides[id] ??= { match: null, override: null, dismissed: false });
+    if ('override' in b) x.override = typeof b.override === 'string' && b.override ? b.override : null;
+    if (typeof b.dismissed === 'boolean') x.dismissed = b.dismissed;
+    return { gameId: id, guide: guideOut(id) };
   }));
   // F1.1: PUT отзыва; ключа нет = поле без изменений, оба null = отзыв удалён
   await page.route(/\/api\/games\/\d+\/review$/, (route) => mutate(route, (b) => {

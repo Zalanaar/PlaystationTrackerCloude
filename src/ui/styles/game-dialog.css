@@ -288,3 +288,13 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-gd__tplatl { align-items: flex-start; }
   .ps-gd__tplatl > svg { flex: none; margin-top: 2px; }
 }
+/* F2-B: найденный/свой гайд, действия, форма ссылки */
+.ps-gd__gmain { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.ps-gd__gmain .ps-gd__glink[data-guide="match"], .ps-gd__gmain .ps-gd__glink[data-guide="own"] { border-color: var(--accent); }
+.ps-gd__gactions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 0; }
+.ps-gd__gactions .ps-btn { min-height: var(--tap-min); }
+.ps-gd__gform { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.ps-gd__gform .ps-input { font-size: 16px; } /* iOS Safari не зумит поле от 16 px */
+.ps-gd__glabel { font-size: var(--fs-small); color: var(--text-2); }
+.ps-gd__gerr { margin: var(--sp-2) 0 0; color: var(--danger); font-size: var(--fs-small); }
+.ps-gd__guides > .ps-gd__note { margin-top: var(--sp-4); }
