@@ -11,7 +11,7 @@
 | e2e triage.spec.ts | **3 красных** (см. B1) |
 | Снимки 7 тем x 1280/390/360/320 (липкая плашка в прилипшем состоянии, «Отложено», Хроника «Сейчас») | 84 файла в `docs/qa/screens/phase-22/` |
 
-Снимки сделаны спекой `e2e/qa-phase22-shots.spec.ts` (запуск: `SHOTS_DIR=... QA_PORT=3217 npx playwright test -c e2e/qa.config.ts qa-phase22-shots --project=desktop`). Обложки в моках белые, под плашкой лежат белые карточки.
+Снимки сделаны спекой `e2e/backlog-chronicle-shots.spec.ts` (запуск: `SHOTS_DIR=... QA_PORT=3217 npx playwright test -c e2e/qa.config.ts qa-phase22-shots --project=desktop`). Обложки в моках белые, под плашкой лежат белые карточки.
 
 ## Находки
 **B1. Блокер. Три теста triage.spec.ts красные после Фазы 22 (детерминированно, не флейк).**
@@ -52,7 +52,7 @@
 
 ## Артефакты
 - Снимки: `/home/user/PlaystationTrackerCloude/docs/qa/screens/phase-22/`
-- Спека QA: `/home/user/PlaystationTrackerCloude/e2e/qa-phase22-shots.spec.ts` (без `SHOTS_DIR` пропускается)
+- Спека QA: `/home/user/PlaystationTrackerCloude/e2e/backlog-chronicle-shots.spec.ts` (без `SHOTS_DIR` пропускается)
 
 ## Условие принятия
 Закрыть B1 (обновить triage.spec.ts) и B2 (шапка 320). B3 по возможности стабилизировать ожиданием в `open()`. После этого повторить triage.spec.ts и шапку 320 и принять.
@@ -69,7 +69,7 @@
 ## Финальная приёмка
 
 Вердикт: **принято с замечанием**.
-- tsc чисто; eslint 0 ошибок (1 warning: неиспользуемая `WHITE_OLD` в `e2e/qa-phase22-shots.spec.ts`); vitest 170 файлов, 2860 тестов passed.
+- tsc чисто; eslint 0 ошибок (1 warning: неиспользуемая `WHITE_OLD` в `e2e/backlog-chronicle-shots.spec.ts`); vitest 170 файлов, 2860 тестов passed.
 - e2e (tour, qa-tails-tour7, phase22-a/b, triage, collection, phase11-backlog, phase12-backlog-service, qa-phase21, qa-phase12c, qa-tails-focus, redesign-qa): 279 passed, 0 failed.
 - Шапка 320 px: «Меню» целиком (264-308 из 320), горизонтального скролла нет. Текст синка усечён до «Синк: 4 дн. …» (24vw), слово «назад» теряется. Читаемо, но неполно. Серьёзность: низкая (косметика).
 - Тур, шаг «Бэклог»: верхний ряд не под плашкой. 1280: плашка до 110, spot с 122; 360: плашка до 122, spot с 132. Скриншоты: scratchpad `shots/tour-backlog-{1280,360}.png`, `header-320.png`.

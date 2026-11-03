@@ -19,14 +19,14 @@ QA-41-1, QA-41-2, QA-41-3 закрыты и проверены. Открыты �
 
 ## Статус дефектов
 
-- QA-41-1 (High): ЗАКРЫТ. `profiles.ts` ставит `onboarded_at` при создании и восстановлении профиля с `accessStatus = ok`. `qa-onboarding.test.ts`: `it.fails` заменён на `it`; кейсы: owner-вход, member-вход, восстановление из архива, `friend_required` (onboarded_at остаётся NULL), основной профиль без ника/онбординга по-прежнему идёт на `/onboarding` (`needsOnboarding`). Guard `onboarding-guard.ts` не менялся: owner выходит сразу, member идёт по `onboardedAt` активного профиля, который теперь проставлен.
+- QA-41-1 (High): ЗАКРЫТ. `profiles.ts` ставит `onboarded_at` при создании и восстановлении профиля с `accessStatus = ok`. `onboarding-guard.test.ts`: `it.fails` заменён на `it`; кейсы: owner-вход, member-вход, восстановление из архива, `friend_required` (onboarded_at остаётся NULL), основной профиль без ника/онбординга по-прежнему идёт на `/onboarding` (`needsOnboarding`). Guard `onboarding-guard.ts` не менялся: owner выходит сразу, member идёт по `onboardedAt` активного профиля, который теперь проставлен.
 - QA-41-2 (Medium): ЗАКРЫТ, `test.fail` снят, фокус на h1 после смены на обоих проектах.
 - QA-41-3 (High): ЗАКРЫТ. На <= 480 px чип только с инициалом, блок синка сжимается; 320/360/412 во всех 7 темах в пределах экрана. Снимки обновлены в `docs/qa/shots-41/`.
 - QA-41-4 (Low): остаётся: `id` для «Что нового» теперь id активного профиля (зафиксировать в контракте); текст синка на 360 px усечён.
 
 ## Замечания (не блокируют)
 
-- `e2e/phase18.spec.ts:278` «360x640 ... hero выше 230»: hero на y=399. Падает стабильно, в том числе на коде до Фазы 41 (`d82ac3c~1`), поэтому не регрессия; вероятно, расхождение окружения/шрифтов песочницы или более старая правка. Нужен владелец Фазы 18.
+- `e2e/navigation-tabs.spec.ts:278` «360x640 ... hero выше 230»: hero на y=399. Падает стабильно, в том числе на коде до Фазы 41 (`d82ac3c~1`), поэтому не регрессия; вероятно, расхождение окружения/шрифтов песочницы или более старая правка. Нужен владелец Фазы 18.
 - Дополнительный профиль, у которого ник проверен, но синка ещё не было, открывается пустой Коллекцией (онбординг не нужен). Пустое состояние с «Синхронизировать» стоит проверить на проде.
 - Ночная цепочка синка держится на самовызовах (риск из первого отчёта сохраняется, `sync_missed` его видит).
 
@@ -57,6 +57,6 @@ QA-41-1, QA-41-2, QA-41-3 закрыты и проверены. Открыты �
 
 ## Файлы
 
-- `e2e/phase41-profiles.spec.ts`, `e2e/phase41-security.spec.ts`, `e2e/profiles-mock.ts`, `e2e/qa-phase41-shots.spec.ts`
-- `src/app/api/me/profiles/qa-onboarding.test.ts`, `src/app/api/cron/sync/qa-chain-41.test.ts`
+- `e2e/profiles.spec.ts`, `e2e/profiles-security.spec.ts`, `e2e/profiles-mock.ts`, `e2e/profiles-shots.spec.ts`
+- `src/app/api/me/profiles/onboarding-guard.test.ts`, `src/app/api/cron/sync/nightly-chain-profiles.test.ts`
 - `docs/qa/shots-41/`

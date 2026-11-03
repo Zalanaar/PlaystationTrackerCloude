@@ -1,5 +1,5 @@
 // QA хвостов 2026-10-31: CSP на nonce на ключевых экранах без networkidle (в прод-сборке next start и в dev). Нарушения ловятся по console и securitypolicyviolation.
-// Прод: QA_PORT=3218 npx playwright test -c e2e/qa-prod.config.ts qa-tails-csp
+// Прод: QA_PORT=3218 npx playwright test -c e2e/qa-prod.config.ts csp-nonce
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';

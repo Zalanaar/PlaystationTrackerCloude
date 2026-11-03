@@ -1,5 +1,5 @@
 // Снимки Фазы 34: «История игры» в 7 темах, десктоп и мобильный. Без SHOTS_DIR пропускается.
-// Запуск: SHOTS_DIR=... PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3341 npx playwright test -c e2e/qa.config.ts qa-phase34-shots.spec.ts
+// Запуск: SHOTS_DIR=... PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3341 npx playwright test -c e2e/qa.config.ts game-history-shots.spec.ts
 import { test, expect } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { signedSession } from './session';

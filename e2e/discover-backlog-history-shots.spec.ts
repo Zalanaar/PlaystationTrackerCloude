@@ -1,5 +1,5 @@
 // QA Фаз 30-34: снимки «У тебя нет», мобильного Бэклога («Список», sheet, меню «…»), окна игры с «Историей» в 7 темах. Без SHOTS_DIR пропускается.
-// Запуск: SHOTS_DIR=docs/qa/phase-30-34 PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3342 npx playwright test -c e2e/qa.config.ts e2e/qa-phase30-34-shots.spec.ts --project=desktop
+// Запуск: SHOTS_DIR=docs/qa/phase-30-34 PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3342 npx playwright test -c e2e/qa.config.ts e2e/discover-backlog-history-shots.spec.ts --project=desktop
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { signedSession } from './session';

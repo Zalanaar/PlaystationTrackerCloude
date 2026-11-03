@@ -7,7 +7,7 @@
 Контракт 13.1–13.2 и §4.17 выполнены, блокеров нет. Остались два замечания низкой серьёзности.
 
 ## Прогоны
-Общие с Фазой 9 (см. `docs/qa/phase-9.md`): lint, typecheck, vitest 615 + контраст, Playwright 362 passed, 0 failed. Серверная логика покрыта `src/server/stats/phase10.test.ts` и `top.test.ts` на PGlite.
+Общие с Фазой 9 (см. `docs/qa/phase-9.md`): lint, typecheck, vitest 615 + контраст, Playwright 362 passed, 0 failed. Серверная логика покрыта `src/server/stats/genres-top.test.ts` и `top.test.ts` на PGlite.
 
 ## Что проверено
 
@@ -29,4 +29,4 @@
 `byTitle` в `src/server/stats/top.ts` использует `toLowerCase().localeCompare()` (локаль среды), контракт 13.1/13.2 говорит `lower(title)`. На Vercel и в тестах порядок кириллицы и латиницы при равных очках или секундах может не совпасть с ожидаемым. Серьёзность низкая: влияет только на порядок ничьих. Предложение: сравнивать кодовыми точками (`<`/`>`) либо зафиксировать `localeCompare('ru')`.
 
 ## Изменённые файлы QA
-- `src/ui/tokens/contrast.test.ts`, `e2e/phase9-10-qa.spec.ts` (общие с Фазой 9)
+- `src/ui/tokens/contrast.test.ts`, `e2e/platinum-chip-large-library.spec.ts` (общие с Фазой 9)

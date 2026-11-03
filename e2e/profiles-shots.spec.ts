@@ -1,5 +1,5 @@
 // QA Фазы 41: снимки /profiles и переключателя в 7 темах, 1280 и 360 px. Без SHOTS_DIR пропускается.
-// Запуск: SHOTS_DIR=docs/qa/shots-41 npx playwright test e2e/qa-phase41-shots.spec.ts --project=desktop
+// Запуск: SHOTS_DIR=docs/qa/shots-41 npx playwright test e2e/profiles-shots.spec.ts --project=desktop
 import { test, expect, type Page } from '@playwright/test';
 import { setup, THREE } from './profiles-mock';
 

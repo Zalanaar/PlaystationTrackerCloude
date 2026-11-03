@@ -1,5 +1,5 @@
 // QA Фаз 25-26: снимки all-статистики, «Когда ты играешь», слайдов all-Итогов в 7 темах (десктоп, мобильный). Без SHOTS_DIR пропускается.
-// Моки скопированы из phase25-26.spec.ts (контракт §26). Запуск: SHOTS_DIR=docs/qa/phase-25-26 PW_CHROMIUM_PATH=/usr/bin/google-chrome npx playwright test -c e2e/qa.config.ts e2e/qa-phase25-26-shots.spec.ts
+// Моки скопированы из stats-all-time.spec.ts (контракт §26). Запуск: SHOTS_DIR=docs/qa/phase-25-26 PW_CHROMIUM_PATH=/usr/bin/google-chrome npx playwright test -c e2e/qa.config.ts e2e/stats-all-time-shots.spec.ts
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';

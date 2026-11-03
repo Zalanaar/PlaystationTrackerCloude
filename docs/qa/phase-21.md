@@ -37,7 +37,7 @@ a11y
 - [~] PS5 «Далее» pill: нет, см. N-3
 
 ## Скриншоты (Night, PS1, PS5 x 360, 768, 1440; шаги 1, 2, 3, 5, 7, 8, 9, 10, 12, 14)
-Файлы вне репозитория: `/tmp/claude-0/-home-user-PlaystationTrackerCloude/57a66dda-3940-5baf-9d6e-63d7e57f2885/scratchpad/shots/`. Воспроизведение: `SHOTS_DIR=<dir> QA_PORT=3217 PW_CHROMIUM_PATH=... npx playwright test -c e2e/qa.config.ts qa-phase21-shots.spec.ts --project=desktop`. Спека автоматически проверяет: поповер в экране, текст не обрезан, нет горизонтальной прокрутки, поповер не накрывает кольцо.
+Файлы вне репозитория: `/tmp/claude-0/-home-user-PlaystationTrackerCloude/57a66dda-3940-5baf-9d6e-63d7e57f2885/scratchpad/shots/`. Воспроизведение: `SHOTS_DIR=<dir> QA_PORT=3217 PW_CHROMIUM_PATH=... npx playwright test -c e2e/qa.config.ts tour-shots.spec.ts --project=desktop`. Спека автоматически проверяет: поповер в экране, текст не обрезан, нет горизонтальной прокрутки, поповер не накрывает кольцо.
 - Кольцо читается на белой/красной обложке во всех трёх темах, PS1 мягче, но различимо.
 - 360: лист над меню, меню видно и затемнено, шаг 1 кольцо на tabbar, шаги 12–13 кольцо на «⋯», обрезания текста нет.
 - 1440: поповер не перекрывает кольцо на всех шагах (шаг 8: поповер над списком, у большого списка зазор есть).
@@ -80,4 +80,4 @@ a11y
 ## Добавленные тесты и файлы
 - `src/ui/tokens/contrast.test.ts`: блок «тур: токены --tour-*»
 - `src/app/api/me/tour/route.failopen.test.ts`
-- `e2e/qa-phase21.spec.ts`, `e2e/qa-phase21-shots.spec.ts` (нужен SHOTS_DIR), `e2e/qa.config.ts` (запуск на своём порту: `QA_PORT=3217 npx playwright test -c e2e/qa.config.ts <файл>`)
+- `e2e/tour-edge.spec.ts`, `e2e/tour-shots.spec.ts` (нужен SHOTS_DIR), `e2e/qa.config.ts` (запуск на своём порту: `QA_PORT=3217 npx playwright test -c e2e/qa.config.ts <файл>`)

@@ -1,5 +1,5 @@
 // QA Фазы 41: профили PSN. API профилей эмулируется по контракту 41.3 (профили-мок в e2e/profiles-mock.ts, БД в e2e нет);
-// серверную часть доказывают src/app/api/me/profiles/routes.test.ts, src/server/profile-isolation.test.ts и qa-onboarding.test.ts на PGlite.
+// серверную часть доказывают src/app/api/me/profiles/routes.test.ts, src/server/profile-isolation.test.ts и onboarding-guard.test.ts на PGlite.
 // Мобильный проект гоняется на 360 px.
 import { test, expect, type Page } from '@playwright/test';
 import { setup, ONE, TWO, THREE } from './profiles-mock';

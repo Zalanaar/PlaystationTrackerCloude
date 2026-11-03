@@ -4,7 +4,7 @@
 
 ## Что прогнано
 - `npm run lint`: без ошибок. `tsc --noEmit`: без ошибок. Vitest: 129 файлов, 2425 тестов, все зелёные.
-- Playwright `e2e/phase16-17.spec.ts` (Chromium из /opt/pw-browsers, desktop и mobile Pixel 7): 18 из 18. API в этих тестах замоканы.
+- Playwright `e2e/stale-sync-banner-profile-menu.spec.ts` (Chromium из /opt/pw-browsers, desktop и mobile Pixel 7): 18 из 18. API в этих тестах замоканы.
 - Живой dev-сервер (без БД, e2e-секреты), curl:
   - `/api/backup` и `/api/backup/restore` без сессии дают 401.
   - `/api/cron/watchdog` без Bearer или с неверным Bearer дает 401, с верным дает 200. Недоступная БД даёт `alert:"error"`, `backup.result:"error"`, а не 5xx.

@@ -3157,7 +3157,7 @@ Profile = { id: number; isPrimary: boolean; onlineId: string | null; accessStatu
 | Эскалация роли (дополнительный профиль с `owner`, `google_sub` у дополнительного) | CHECK 41.1 и один owner | `release-sql-0025.test.ts` |
 | Один аккаунт PSN в двух профилях/входах | unique-индексы 41.1 + `psn_id_taken` | гонка двух `POST /api/me/profiles` с одним ником: один успех |
 | Обход лимитов профилей параллельными запросами | advisory lock 7204002 | тест параллельных `POST` |
-| Удалённый/архивный профиль продолжает синкаться | `status = 'active'` во всех выборках cron, digest, backup | `qa-phase-41.test.ts`: архивный не в обходе, не в digest, не в копиях |
+| Удалённый/архивный профиль продолжает синкаться | `status = 'active'` во всех выборках cron, digest, backup | `profiles-cron-digest-archive.test.ts`: архивный не в обходе, не в digest, не в копиях |
 | Telegram-привязка к дополнительному профилю, сводка по чужому профилю | `/api/me/telegram*` и digest только по основному | тест: при активном дополнительном привязка пишется на основной; digest не содержит дополнительных |
 | Старые данные в клиентском кэше после переключения | полная перезагрузка (41.3), `no-store` | e2e: переключить профиль, коллекция/трофеи другие, чужих игр нет |
 | Продление сессии переключением | тот же `iat`/`exp` | `session-profiles.test.ts` |
@@ -3441,7 +3441,7 @@ OtherPlatformGame = {
 - UI: пункт «Выйти на всех устройствах» в меню профиля (десктоп) и в листе «Меню» (мобильный), с подтверждением.
 
 ### 45.5 Тесты
-`src/server/auth/session-revocation.test.ts` (PGlite, настоящие cookie: sid/se, переключение профиля, старые токены, выход, выход везде, Origin, очистка), `src/db/release-sql-0027.test.ts`, `e2e/phase45-logout.spec.ts`.
+`src/server/auth/session-revocation.test.ts` (PGlite, настоящие cookie: sid/se, переключение профиля, старые токены, выход, выход везде, Origin, очистка), `src/db/release-sql-0027.test.ts`, `e2e/logout.spec.ts`.
 
 ## Фаза 48. Главная: блоки хроники одним запросом и подсказка hero при входе (без миграции)
 

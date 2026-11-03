@@ -9,7 +9,7 @@ const launchOptions = executablePath ? { executablePath } : {};
 export default defineConfig({
   testDir: './e2e',
   // Фаза 39: PWA-спеки требуют прод-сборки с Service Worker и идут только через e2e/pwa.config.ts (npm run e2e:pwa).
-  testIgnore: /phase39-.*\.spec\.ts/,
+  testIgnore: /pwa-build.*\.spec\.ts/,
   fullyParallel: true,
   // В CI ещё и github: ошибки тестов видны аннотациями в проверке, даже если лог job недоступен.
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
@@ -17,7 +17,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
     // Фаза 33: Бэклог на мобильном по умолчанию «Список», а старые тесты рассчитаны на сетку карточек.
-    // Новые тесты вида (phase33-*.spec.ts) сбрасывают это через test.use({ storageState: { cookies: [], origins: [] } }).
+    // Новые тесты вида (backlog-view.spec.ts и др.) сбрасывают это через test.use({ storageState: { cookies: [], origins: [] } }).
     storageState: { cookies: [], origins: [{ origin: `http://localhost:${PORT}`, localStorage: [{ name: 'ps-bl-view', value: 'cards' }] }] },
   },
   projects: [

@@ -1,5 +1,5 @@
 // QA Фазы 22: снимки 7 тем (Бэклог липкая плашка, Отложено, Хроника «Сейчас», Разбор «Дальше») + метрики и граничные случаи.
-// Без SHOTS_DIR пропускается. Запуск: SHOTS_DIR=... QA_PORT=3217 npx playwright test -c e2e/qa.config.ts qa-phase22-shots --project=desktop
+// Без SHOTS_DIR пропускается. Запуск: SHOTS_DIR=... QA_PORT=3217 npx playwright test -c e2e/qa.config.ts backlog-chronicle-shots --project=desktop
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, type G } from './collection-mock';
 import { signedSession } from './session';

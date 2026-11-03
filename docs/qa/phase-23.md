@@ -4,8 +4,8 @@
 
 ## Проверено
 - typecheck чисто; lint 0 ошибок (1 старое предупреждение в qa-phase22-shots); vitest 173 файла / 2889 тестов зелёные.
-- e2e `phase23-linked.spec.ts`: 6/6 (desktop + mobile), через `PW_CHROMIUM_PATH=/usr/bin/google-chrome` (скачанных браузеров Playwright нет).
-- Скриншоты 7 тем x desktop/mobile окна игры (`e2e/qa-phase23-shots.spec.ts`, нужен SHOTS_DIR): горизонтального скролла нет, длинное название переносится, подтверждение читается. Скриншоты смотрела по night (desktop) и ps3 (mobile), остальные темы только автопроверка на отсутствие hscroll.
+- e2e `game-linked-versions.spec.ts`: 6/6 (desktop + mobile), через `PW_CHROMIUM_PATH=/usr/bin/google-chrome` (скачанных браузеров Playwright нет).
+- Скриншоты 7 тем x desktop/mobile окна игры (`e2e/game-linked-versions-shots.spec.ts`, нужен SHOTS_DIR): горизонтального скролла нет, длинное название переносится, подтверждение читается. Скриншоты смотрела по night (desktop) и ps3 (mobile), остальные темы только автопроверка на отсутствие hscroll.
 - Контракт и фронт: `linkedVersions` и `duplicateOfGameId` в GameItem совпадают; фронт шлёт `POST /api/games/:id/not-duplicate` с `{}`, сервер отвязывает все дубли, ответ `{game}`; 404 даёт общую ошибку, 409 в контракте нет (ветка фронта мёртвая, безвредная).
 - release-neon-0018.sql: по тексту идемпотентен (ADD COLUMN IF NOT EXISTS, проверки pg_constraint, CREATE INDEX IF NOT EXISTS, журнал по created_at), хеш 3086acbd... совпадает с sha256 файла миграции, `when` совпадает с _journal.json. PGlite-тест `release-sql-0018.test.ts` зелёный (двойной прогон, ограничения, повторный drizzle migrate).
 - Видимость: Коллекция, Бэклог, План, Подскажи, Статистика, Итоги, «Ближе к платине», HLTB-шаг идут через `visibleGameRow`/`gameVisible`/`snapshotGameVisible`/`trophySetCounted`. Чтения games в обход (sync/tint, sync/phases, status-rules, backup, auth/users, роутовые проверки владения) служебные, дубли им нужны. Утечек не найдено.
@@ -24,4 +24,4 @@
 
 ## Файлы
 - `/home/user/PlaystationTrackerCloude/docs/qa/phase-23.md`
-- `/home/user/PlaystationTrackerCloude/e2e/qa-phase23-shots.spec.ts`
+- `/home/user/PlaystationTrackerCloude/e2e/game-linked-versions-shots.spec.ts`

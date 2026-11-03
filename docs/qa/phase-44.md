@@ -12,7 +12,7 @@
 |---|---|
 | `tsc --noEmit` | чисто |
 | `eslint .` | 0 ошибок, те же 4 старых warning |
-| `vitest run` (полный) | 266 файлов зелёные; `roadmap/qa-insert.test.ts` упал по таймауту под нагрузкой (шёл вместе с e2e), отдельно зелёный (флейк) |
+| `vitest run` (полный) | 266 файлов зелёные; `roadmap/insert-at-property.test.ts` упал по таймауту под нагрузкой (шёл вместе с e2e), отдельно зелёный (флейк) |
 | `phase44-other-platforms` e2e desktop+mobile | 46 прошли, 4 пропущены (desktop-only/mobile-only), 0 падений |
 | `phase43-1-manual`, `phase43-manual`, `qa-phase33-menu` | 109 прошли, 11 пропущены, 0 падений |
 

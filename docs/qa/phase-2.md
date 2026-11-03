@@ -54,7 +54,7 @@
 ## Баги
 
 **BUG-1 (средняя). 429/сбой PSN при обмене токенов маскируется под auth_expired.**
-Шаги: в `psn_auth` есть refresh, PSN при обмене отвечает 429 или 5xx с JSON (psn-api не бросает, а возвращает объект без токенов, `src/server/psn/auth.ts` `toPair` -> null). `getAccessToken` трактует null как «refresh отвергнут», идёт на NPSSO; `/authorize` без `location` -> бросает «Is your NPSSO code valid?» -> null -> `auth_expired`. Итог: запуск `failed/auth_expired` без повторов, на сайте баннер «нужен новый NPSSO», хотя NPSSO в порядке; следующий синк через сутки. Тест: `src/server/sync/qa-phase2.test.ts` (it.fails «БАГ: 429 при обмене токенов...»). Решение: в `defaultAuthApi` смотреть HTTP-статус/поле `error` ответа (вызывать токен-эндпоинт самим или проверять `error`/`error_description`): `invalid_grant`/`invalid_request` = отказ, 429/5xx/иное = транзиент PsnError с повторами; а на `/authorize` различать 302 без code (NPSSO плох) и 429/5xx. После исправления снять `it.fails`.
+Шаги: в `psn_auth` есть refresh, PSN при обмене отвечает 429 или 5xx с JSON (psn-api не бросает, а возвращает объект без токенов, `src/server/psn/auth.ts` `toPair` -> null). `getAccessToken` трактует null как «refresh отвергнут», идёт на NPSSO; `/authorize` без `location` -> бросает «Is your NPSSO code valid?» -> null -> `auth_expired`. Итог: запуск `failed/auth_expired` без повторов, на сайте баннер «нужен новый NPSSO», хотя NPSSO в порядке; следующий синк через сутки. Тест: `src/server/sync/psn-sync-edge.test.ts` (it.fails «БАГ: 429 при обмене токенов...»). Решение: в `defaultAuthApi` смотреть HTTP-статус/поле `error` ответа (вызывать токен-эндпоинт самим или проверять `error`/`error_description`): `invalid_grant`/`invalid_request` = отказ, 429/5xx/иное = транзиент PsnError с повторами; а на `/authorize` различать 302 без code (NPSSO плох) и 429/5xx. После исправления снять `it.fails`.
 
 **BUG-2 (низкая). Самовызов берёт origin из `req.url`** (`src/server/sync/service.ts` `continueChain`). Для `POST /api/sync` (Origin не обязателен) подмена Host/X-Forwarded-Host направила бы `Authorization: Bearer CRON_SECRET` на чужой хост. Эксплуатируется только владельцем сессии, на Vercel Host маршрутизируется платформой. Решение: брать origin из доверенной переменной (`VERCEL_URL`/`APP_URL`) или не слать секрет, если host не совпадает с ожидаемым.
 
@@ -66,7 +66,7 @@
 
 ## Добавлено QA
 
-- `src/server/sync/qa-phase2.test.ts`: идемпотентность на цепочке мелких звеньев, неприкосновенность game_status, сбой после успешного синка, пустой список игр, утечки секретов, гонка стартов, снимок на границе суток МСК, обмен токенов на реальном psn-api с подменой fetch (it.fails для BUG-1).
+- `src/server/sync/psn-sync-edge.test.ts`: идемпотентность на цепочке мелких звеньев, неприкосновенность game_status, сбой после успешного синка, пустой список игр, утечки секретов, гонка стартов, снимок на границе суток МСК, обмен токенов на реальном psn-api с подменой fetch (it.fails для BUG-1).
 - `e2e/sync.spec.ts`: доступ к /api/sync, /api/sync/status, /api/cron/sync (сессия vs Bearer), Origin, content-type, отсутствие утечки строки подключения.
 
 ## Только реальный синк (не проверено)

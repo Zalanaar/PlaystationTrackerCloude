@@ -38,7 +38,7 @@ UI (`e2e/service-qa.spec.ts`, снимки 320/360/390 x Night/Graphite/Activity
 
 ## Нестабильный npm test: причина
 
-Тест не один: PGlite (WASM) стартует 1-8 с на файл при ~35 параллельных воркерах (4 ядра). На холодном кэше или при нагрузке `beforeAll` с `createTestDb()` превышает дефолтный `hookTimeout` 10 с (и `testTimeout` 5 с у тяжёлых случайных тестов). Падают разные файлы (`collection/query.test.ts`, `sync/qa-phase2.test.ts`, `stats/query-sql.test.ts`), логика не виновата. Воспроизведено 3 из 3 при трёх параллельных `vitest run`. Исправлено в `vitest.config.ts`: `testTimeout 30000`, `hookTimeout 60000`; после правки 3 из 3 параллельных прогонов зелёные.
+Тест не один: PGlite (WASM) стартует 1-8 с на файл при ~35 параллельных воркерах (4 ядра). На холодном кэше или при нагрузке `beforeAll` с `createTestDb()` превышает дефолтный `hookTimeout` 10 с (и `testTimeout` 5 с у тяжёлых случайных тестов). Падают разные файлы (`collection/query.test.ts`, `sync/psn-sync-edge.test.ts`, `stats/query-sql.test.ts`), логика не виновата. Воспроизведено 3 из 3 при трёх параллельных `vitest run`. Исправлено в `vitest.config.ts`: `testTimeout 30000`, `hookTimeout 60000`; после правки 3 из 3 параллельных прогонов зелёные.
 
 ## Баги
 

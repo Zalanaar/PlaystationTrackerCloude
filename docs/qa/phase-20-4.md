@@ -34,7 +34,7 @@
 | `psn_account_locked`: `count(games)` без `user_id` | **выжила** -> тест добавлен, теперь падает |
 | `markOnboarded` без `id` (все пользователи онбордятся) | **выжила** -> тест добавлен, теперь падает |
 
-Новые тесты: `src/server/qa-phase-20-4.test.ts`, `src/app/(app)/onboarding-guard.test.ts`.
+Новые тесты: `src/server/user-isolation-edge.test.ts`, `src/app/(app)/onboarding-guard.test.ts`.
 
 ## Замечания
 

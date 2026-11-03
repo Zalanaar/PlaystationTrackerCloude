@@ -1,5 +1,5 @@
 // QA Фазы 24: снимки панели синка с полем NPSSO в 7 темах (owner/member, ошибка, 360 и 320) и меню «…» Бэклога внизу (QA-33-1). Без SHOTS_DIR пропускается.
-// Запуск: SHOTS_DIR=docs/qa/phase-24 PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3352 npx playwright test -c e2e/qa.config.ts e2e/qa-phase24-shots.spec.ts --project=desktop
+// Запуск: SHOTS_DIR=docs/qa/phase-24 PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3352 npx playwright test -c e2e/qa.config.ts e2e/sync-npsso-shots.spec.ts --project=desktop
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { emptyGamesBody, mockApi, type G } from './collection-mock';
 import { signedSession } from './session';

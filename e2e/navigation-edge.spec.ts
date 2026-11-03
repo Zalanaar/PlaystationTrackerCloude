@@ -64,7 +64,7 @@ test.describe('QA 18: баннер Итогов на границах сезон
       await setup(page, context, baseURL!);
       const year = d.startsWith('01') ? THIS_YEAR + 1 : THIS_YEAR;
       await page.route(/\/api\/stats(\?|$)/, async (r) => {
-        const mod = await import('./phase18.spec').catch(() => null);
+        const mod = await import('./navigation-tabs.spec').catch(() => null);
         void mod;
         await r.fallback();
       });
@@ -245,7 +245,7 @@ test.describe('QA 18: План, Статистика, ширины', () => {
   });
 });
 
-// CLS (§8.4): скелеты Плана и Подскажи заменяются данными без скачков > 0.05. Копия приёма из phase18.spec.ts.
+// CLS (§8.4): скелеты Плана и Подскажи заменяются данными без скачков > 0.05. Копия приёма из navigation-tabs.spec.ts.
 async function trackCls(page: Page) {
   await page.addInitScript(() => {
     type LS = PerformanceEntry & { value: number; hadRecentInput: boolean };

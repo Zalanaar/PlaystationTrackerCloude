@@ -1,5 +1,5 @@
 // QA Фазы 23: окно игры со «Связанные версии» в 7 темах, десктоп и мобильный. Без SHOTS_DIR пропускается.
-// Запуск: SHOTS_DIR=... PW_CHROMIUM_PATH=/usr/bin/google-chrome npx playwright test e2e/qa-phase23-shots.spec.ts
+// Запуск: SHOTS_DIR=... PW_CHROMIUM_PATH=/usr/bin/google-chrome npx playwright test e2e/game-linked-versions-shots.spec.ts
 import { test, expect } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { signedSession } from './session';

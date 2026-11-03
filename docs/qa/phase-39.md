@@ -6,7 +6,7 @@
 Блокирующих багов нет. Кэш не отдаёт чужие данные, CSP на nonce цел, офлайн-заглушка работает. Есть 1 средний баг (QA-39-2) и 3 низких.
 
 ## Тесты
-- `e2e/phase39-pwa.spec.ts`, `e2e/phase39-shots.spec.ts`, конфиг `e2e/pwa.config.ts`. Запуск: `npx playwright test -c e2e/pwa.config.ts` (сборка внутри; `PWA_SKIP_BUILD=1` если `.next` уже есть; `PWA_PORT`).
+- `e2e/pwa-build.spec.ts`, `e2e/pwa-build-shots.spec.ts`, конфиг `e2e/pwa.config.ts`. Запуск: `npx playwright test -c e2e/pwa.config.ts` (сборка внутри; `PWA_SKIP_BUILD=1` если `.next` уже есть; `PWA_PORT`).
 - Итог: 44 из 50 в двух проектах; 6 красных = ожидаемые падения на QA-39-2 и QA-39-4 (тесты оставлены красными, пока баги не исправлены) и один тест Android, исправленный позже (после правки зелёный на mobile). Юнит `src/ui/pwa`: 36/36.
 
 ## Чек-лист

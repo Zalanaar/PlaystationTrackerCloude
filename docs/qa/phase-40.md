@@ -13,12 +13,12 @@
 | (1) «Отменить» / «Вернуть в подборку» возвращают игру в следующую выдачу без пересчёта: фильтр на чтении (`ex.marked` в `getDiscover`), отметки в кэш попадают | ок (юнит + e2e: карточка возвращается, DELETE, повторный GET discover) |
 | (2) чужой/несуществующий `coveredByGameId` = один `GameNotFoundError` -> 404; DELETE чужой отметки `removed:false` | ок (тесты backend) |
 | (3) PUT: `strictObject` + discriminated union: лишние и взаимоисключающие поля = 400, Origin и Content-Type проверяются | ок |
-| (4) отметка не создаёт строк в games, game_status, status_backups (мой тест `qa-phase-40.test.ts`); Статистика и Итоги модуль owned не импортируют (grep) | ок |
+| (4) отметка не создаёт строк в games, game_status, status_backups (мой тест `owned-edge.test.ts`); Статистика и Итоги модуль owned не импортируют (grep) | ок |
 | (5) поиск Плана и upcoming фильтруют через `filterOwned`; сбой БД не ломает поиск | ок |
-| (6) UI: лист выбора, «Недавно выбранные», 1 -> много (один сборник у двух игр, одним тапом, без дубля в списке), тост «Отменить», фокус на соседнюю карточку и обратно, «Отмеченные · N», фильтры (только при >5), радиогруппа со стрелками, Esc с возвратом фокуса, `aria-live` «Найдено 1 игра», ошибка сохранения (баннер, лист остаётся), ошибка отмены (тост) | ок, e2e `e2e/phase40-owned.spec.ts`, 2 проекта (desktop, mobile Pixel 7) |
+| (6) UI: лист выбора, «Недавно выбранные», 1 -> много (один сборник у двух игр, одним тапом, без дубля в списке), тост «Отменить», фокус на соседнюю карточку и обратно, «Отмеченные · N», фильтры (только при >5), радиогруппа со стрелками, Esc с возвратом фокуса, `aria-live` «Найдено 1 игра», ошибка сохранения (баннер, лист остаётся), ошибка отмены (тост) | ок, e2e `e2e/owned.spec.ts`, 2 проекта (desktop, mobile Pixel 7) |
 | 360 px: нет горизонтального скролла, лист и кнопки в экране | ок |
 | 7 тем: снимки `docs/qa/shots-40/own-{pick,none,toast,marks}-360-<тема>.png`, `own-pick-desktop-<тема>.png` (35 шт.); просмотрены night, ps2, ps4, ps5: контраст и выбранная строка читаются | ок |
-| (8) порядок выкатки: на схеме до 0024 `getDiscover` работает (`.catch` в `loadExclusions`), `GET /api/owned-marks` даёт 503, поиск Плана и upcoming отдают результат без фильтра (тест `qa-phase-40.test.ts`) | ок |
+| (8) порядок выкатки: на схеме до 0024 `getDiscover` работает (`.catch` в `loadExclusions`), `GET /api/owned-marks` даёт 503, поиск Плана и upcoming отдают результат без фильтра (тест `owned-edge.test.ts`) | ок |
 
 ## Баги
 | № | Серьёзность | Описание | Шаги |
@@ -42,4 +42,4 @@
 - Экран «Итоги»/Wrapped и бэкап проверены кодом и тестом на отсутствие побочных строк, не через UI.
 
 ## Артефакты
-`e2e/phase40-owned.spec.ts` (запуск: `PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3340 npx playwright test -c e2e/qa.config.ts e2e/phase40-owned.spec.ts`, снимки с `SHOTS_DIR=docs/qa/shots-40`), `src/server/owned/qa-phase-40.test.ts`, `docs/qa/shots-40/`. Под нагрузкой (3 воркера) снимки иногда падают по таймауту dev-сервера; повтор с `--workers=1` зелёный.
+`e2e/owned.spec.ts` (запуск: `PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3340 npx playwright test -c e2e/qa.config.ts e2e/owned.spec.ts`, снимки с `SHOTS_DIR=docs/qa/shots-40`), `src/server/owned/owned-edge.test.ts`, `docs/qa/shots-40/`. Под нагрузкой (3 воркера) снимки иногда падают по таймауту dev-сервера; повтор с `--workers=1` зелёный.

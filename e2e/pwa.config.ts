@@ -1,5 +1,5 @@
 // Фаза 39 (QA): SW работает только в production, поэтому сборка и `next start`.
-// PWA_PORT=3231 npx playwright test -c e2e/pwa.config.ts [phase39-pwa.spec.ts]
+// PWA_PORT=3231 npx playwright test -c e2e/pwa.config.ts [pwa-build.spec.ts]
 // Если сборка уже есть (.next), PWA_SKIP_BUILD=1 пропускает `next build`.
 import { defineConfig, devices } from '@playwright/test';
 import { E2E_ENV } from './env';
@@ -10,7 +10,7 @@ const start = `npx next start -p ${PORT}`;
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /phase39-.*\.spec\.ts/,
+  testMatch: /pwa-build.*\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   reporter: 'list',

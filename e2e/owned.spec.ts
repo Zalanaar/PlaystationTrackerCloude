@@ -1,5 +1,5 @@
 // Фаза 40 (QA): «Уже есть / проходил» в «У тебя нет». API эмулируется по контракту «Фаза 40» (фильтр отметок на чтении, как на сервере).
-// Запуск: PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3340 npx playwright test -c e2e/qa.config.ts e2e/phase40-owned.spec.ts
+// Запуск: PW_CHROMIUM_PATH=/usr/bin/google-chrome QA_PORT=3340 npx playwright test -c e2e/qa.config.ts e2e/owned.spec.ts
 // Снимки (7 тем, 360 px): SHOTS_DIR=docs/qa/shots-40 ... --project=desktop
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockApi, seed, type G, type Mock } from './collection-mock';

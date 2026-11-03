@@ -23,7 +23,7 @@
 
 ## Тесты
 
-- Новые и расширенные QA-файлы: `e2e/phase32-1-sync-stop.spec.ts` (теперь 16 сценариев x 2 проекта: 409, 503, `cancelled:false`, двойной клик, Отмена/Esc, 360 px, 7 тем; 32 зелёных), `src/server/sync/qa-cancel-races.test.ts` (2, зелёные), `src/server/sync/qa-old-schema-0023.test.ts` (4, **2 красных намеренно, QA-32.1-1**).
+- Новые и расширенные QA-файлы: `e2e/sync-stop.spec.ts` (теперь 16 сценариев x 2 проекта: 409, 503, `cancelled:false`, двойной клик, Отмена/Esc, 360 px, 7 тем; 32 зелёных), `src/server/sync/cancel-races.test.ts` (2, зелёные), `src/server/sync/old-schema-0023.test.ts` (4, **2 красных намеренно, QA-32.1-1**).
 - Полный vitest до моих правок: 3529 passed, 1 failed (QA-32-4). После: см. блок «Регрессия» ниже.
 - `tsc --noEmit` чисто.
 
@@ -35,7 +35,7 @@
 
 **QA-32.1-1 (средняя). Новый код на схеме без 0023 ломает `GET /api/sync/status` и `GET /api/health` (503), а контракт и шапка `release-neon-0023.sql` обещают «остальной синк работает».**
 Причина: `status.ts` и `health/route.ts` сравнивают `error_reason <> 'cancelled'` с параметром; Postgres приводит параметр к enum и бросает `invalid input value for enum sync_error_reason: "cancelled"` (22P02). Статус синка не грузится, SyncProvider/баннер/индикатор остаются без данных.
-Шаги: тест `src/server/sync/qa-old-schema-0023.test.ts` (схема `migrations: 23`): `getSyncStatus` и `GET /api/health` падают; `startRun`/`runChunk` при этом работают, `cancelRun`/`restartRun` бросают (маршрут отвечает 503, как в контракте).
+Шаги: тест `src/server/sync/old-schema-0023.test.ts` (схема `migrations: 23`): `getSyncStatus` и `GET /api/health` падают; `startRun`/`runChunk` при этом работают, `cancelRun`/`restartRun` бросают (маршрут отвечает 503, как в контракте).
 Смягчение: порядок «SQL, потом деплой» (записан в шапке release-файла). Если деплой раньше SQL, интерфейс синка отвалится целиком.
 Предложение backend: сравнивать как текст (`error_reason::text <> 'cancelled'`) или отфильтровать в JS; либо убрать из контракта фразу «остальной синк работает» и усилить предупреждение о порядке.
 
@@ -52,10 +52,10 @@
 
 ## Регрессия
 
-- vitest полный: 3534 passed, 2 failed. Оба красных намеренные: `qa-old-schema-0023.test.ts` (QA-32.1-1, ждут исправления backend). Остальное зелёное, включая починенный watchdog (QA-32-4).
-- Playwright полный (desktop + mobile, 2254 теста): 1654 passed, 593 skipped, 7 failed. Синк-сюита (`sync.spec.ts`) и `phase32-1-sync-stop.spec.ts` зелёные. Красные не связаны с 32.1:
-  - `phase13-recommend.spec.ts:141` (mobile) и `phase18.spec.ts:259` (mobile, hero y = 254.9 при пороге 232): **красные и на a68d55a** (до Фазы 32.1, проверено checkout), это дрейф после Фазы 33 (мобильная раскладка), не 32.1. Нужен отдельный тикет frontend/QA (QA-32.1-5, низкая).
-  - `qa-phase19-csp.spec.ts` x4 (night и ps5, desktop и mobile): таймаут `waitForLoadState('networkidle')` на 180 с (внешний http:// аватар в песочнице без сети); вероятно окружение.
+- vitest полный: 3534 passed, 2 failed. Оба красных намеренные: `old-schema-0023.test.ts` (QA-32.1-1, ждут исправления backend). Остальное зелёное, включая починенный watchdog (QA-32-4).
+- Playwright полный (desktop + mobile, 2254 теста): 1654 passed, 593 skipped, 7 failed. Синк-сюита (`sync.spec.ts`) и `sync-stop.spec.ts` зелёные. Красные не связаны с 32.1:
+  - `recommend.spec.ts:141` (mobile) и `navigation-tabs.spec.ts:259` (mobile, hero y = 254.9 при пороге 232): **красные и на a68d55a** (до Фазы 32.1, проверено checkout), это дрейф после Фазы 33 (мобильная раскладка), не 32.1. Нужен отдельный тикет frontend/QA (QA-32.1-5, низкая).
+  - `csp-screens.spec.ts` x4 (night и ps5, desktop и mobile): таймаут `waitForLoadState('networkidle')` на 180 с (внешний http:// аватар в песочнице без сети); вероятно окружение.
   - `tour.spec.ts:262` (mobile): флак под нагрузкой, в одиночном прогоне зелёный.
 
 **QA-32.1-5 (низкая, вне 32.1).** `phase13-recommend` «название открывает окно игры» (mobile) и `phase18` «360x640: hero выше 230» красные на a68d55a, т.е. до 32.1.

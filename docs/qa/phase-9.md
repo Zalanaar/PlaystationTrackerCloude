@@ -13,7 +13,7 @@
 | `npm run lint`, `npm run typecheck` | ок |
 | vitest | 52 файла, 615 тестов passed (до моих правок). После: `contrast.test.ts` +21 тест (127 в файле), passed |
 | Playwright, всё (desktop + mobile) | 362 passed, 108 skipped (по проекту), 0 failed. Устаревших тестов нет |
-| Новый `e2e/phase9-10-qa.spec.ts` | 1 тест с `test.fail` (BUG-P9-1), считается passed |
+| Новый `e2e/platinum-chip-large-library.spec.ts` | 1 тест с `test.fail` (BUG-P9-1), считается passed |
 
 Запуск: `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome npx playwright test`.
 
@@ -34,7 +34,7 @@
 Факт: чип «Платина: 35», на экране 6 карточек, кнопка «Показать ещё (290)» считает игры сервера, а не платины. Чтобы увидеть все 35, надо вручную дожать несколько страниц. План 9.1 и спека §4.5: чип показывает игры с платиной.
 Причина: фильтр клиентский (контракт 12.6, `applyPlatinum` в `CollectionView.tsx:427`), страница сервера `PAGE = 60`. В хронике это решено (`buildPlan(... all=true)` грузит блоки до `FULL_LIMIT = 300`), в плоском виде нет. При хронике и более 300 завершённых/брошенных игр платина за пределами 300 тоже не попадёт (текущие 214 игр в пределах).
 Предложение: при `platinum` в плоском виде подгружать пул целиком (`limit=300`, постранично до `total`), либо серверный параметр `platinum=1` (потребует изменения контракта 12.6, backend).
-Тест: `e2e/phase9-10-qa.spec.ts` (`test.fail`, снять после исправления).
+Тест: `e2e/platinum-chip-large-library.spec.ts` (`test.fail`, снять после исправления).
 
 ### BUG-P9-2. `bannerUrl` и `avatarUrl` сохраняются без проверки схемы (низкая, backend) [ИСПРАВЛЕНО: httpsUrl в mapping.ts, тест в psn.test.ts]
 `pickBanner` и `mapProfile` берут `url` как строку; `cssUrl` проверяет `https?` только для обложки в hero. `<img src>` не исполняет `javascript:`, но `http://` даёт mixed content, а чужая схема тихо ломает картинку. Источник доверенный (PSN CDN), поэтому низкая. Предложение: принимать только `https://`.
@@ -44,4 +44,4 @@
 
 ## Изменённые файлы QA
 - `src/ui/tokens/contrast.test.ts`
-- `e2e/phase9-10-qa.spec.ts` (новый)
+- `e2e/platinum-chip-large-library.spec.ts` (новый)

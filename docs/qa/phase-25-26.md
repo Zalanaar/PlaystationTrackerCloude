@@ -9,11 +9,11 @@
 | Проверка | Результат |
 |---|---|
 | typecheck | чисто |
-| lint | 0 ошибок, 1 warning (WHITE_OLD в e2e/qa-phase22-shots.spec.ts, не из Фаз 25-26) |
+| lint | 0 ошибок, 1 warning (WHITE_OLD в e2e/backlog-chronicle-shots.spec.ts, не из Фаз 25-26) |
 | vitest | 178 файлов, 2955 тестов зелёные (до моих добавок); мои новые тесты зелёные |
 | build | успешно |
 | e2e полный (1852, 3 воркера) | 1386 passed, 443 skipped, 23 failed; перезапуск по падениям: 14 прошли (флаки под нагрузкой, в т.ч. wrapped-qa «мусорные ?year=» mobile), 9 остались (ниже) |
-| e2e phase25-26.spec.ts (desktop+mobile) | зелёный |
+| e2e stats-all-time.spec.ts (desktop+mobile) | зелёный |
 
 Оставшиеся падения не относятся к Фазам 25-26:
 - phase8-qa «скрыть игру со статусом Играю» и service.spec «порядок блоков»: падают и на коммите до Фазы 25 (8cf1126), 4 из 4. Причина: блок «Сейчас» на Коллекции (две кнопки «Открыть: Horizon…», лишний h2 «Сейчас»); тесты устарели. Серьёзность: низкая (тесты), не блокер Фаз 25-26.
@@ -22,16 +22,16 @@
 ## Критерии «Готово»
 - Сумма по годам = итог: да. calcHoursByYear: инвариант `sum(byYear)+unattributed == header.hours` в десятых, рандомный тест на 50 прогонов; trophies/finished byYear суммируются в итог (all-time.test.ts); UI показывает «Не отнесено» при |x|>=0.1.
 - perf-тест period=all: есть (perf.test.ts, 214 игр x 365 снимков, число запросов не зависит от объёма), зелёный.
-- e2e переключения: есть (phase25-26.spec.ts: URL, скелет без старой шапки, возврат на последний год, клик по году).
+- e2e переключения: есть (stats-all-time.spec.ts: URL, скелет без старой шапки, возврат на последний год, клик по году).
 - Слайды в 7 темах: снимки ниже; цвета слайдов от темы не зависят, переполнения нет. Тач/клавиатура: тесты тапа 30/70, свайпа, стрелок, roving tabindex в графике, aria-live.
 - Тесты расчётов: backend (all-time, play-pattern, границы МСК 20:59:59Z/21:00:00Z) и frontend (allTime.test.ts, playPattern.test.ts, model.test.ts).
 
 ## Риск backend: effectiveSecondsSql в одно-табличных SELECT
-Баг НЕ подтверждён. Выражение собрано через `sql` шаблон, и drizzle печатает столбцы внутри него с префиксом `"games"."…"` (проверено печатью SQL: `... where d."user_id" = "games"."user_id" and d."duplicate_of_game_id" = "games"."id"`). Безпрефиксно печатаются только прямые поля select. Использования: collection/query.ts (карточки, сортировка hours, getCollectionSummary одно-табличный SELECT, line 392) и stats/all-query.ts (effectiveSecondsQualified, явный префикс). Тест на PGlite с дублем PS5 10 ч + PS4 1 ч: карточка 39600 с, totals.playSeconds коллекции 46800 (= 11 + 2 ч), stats all header.hours = 13, инвариант byYear, wrapped all total = 13, year/month не задваивают. Тест оставлен как регрессионный: src/server/collection/qa-phase25-26-dup-sql.test.ts.
+Баг НЕ подтверждён. Выражение собрано через `sql` шаблон, и drizzle печатает столбцы внутри него с префиксом `"games"."…"` (проверено печатью SQL: `... where d."user_id" = "games"."user_id" and d."duplicate_of_game_id" = "games"."id"`). Безпрефиксно печатаются только прямые поля select. Использования: collection/query.ts (карточки, сортировка hours, getCollectionSummary одно-табличный SELECT, line 392) и stats/all-query.ts (effectiveSecondsQualified, явный префикс). Тест на PGlite с дублем PS5 10 ч + PS4 1 ч: карточка 39600 с, totals.playSeconds коллекции 46800 (= 11 + 2 ч), stats all header.hours = 13, инвариант byYear, wrapped all total = 13, year/month не задваивают. Тест оставлен как регрессионный: src/server/collection/hours-ps4-ps5-dup.test.ts.
 Наблюдение (не баг Фаз 25-26): roadmap/db.ts:257 и recommend/db.ts:73 берут `games.playDurationSeconds` без часов дублей. Для главной с дублем часы в Плане/Подскажи занижены. Серьёзность: низкая, вынести в Фазу 23-тейлы.
 
 ## Изоляция, совместимость, пусто
-- Изоляция по user_id: тесты backend + мой src/server/stats/qa-phase25-26-empty.test.ts (у A данные, B пуст: ни следа A, nothing NaN).
+- Изоляция по user_id: тесты backend + мой src/server/stats/all-time-empty.test.ts (у A данные, B пуст: ни следа A, nothing NaN).
 - year/month: новых полей кроме playPattern нет (тест в all-time.test.ts).
 - Пустая БД и пользователь без данных для period=all / year=all: 200-форма, null-границы, mode empty, slides ["empty"], allTimeAvailable false, playPattern.hasData false. Зелёный.
 
@@ -58,10 +58,10 @@
 
 ## Визуальный просмотр (docs/qa/phase-25-26/)
 Просмотрены глазами: desktop и mobile all-статистика (night), блок «Когда ты играешь», слайды платин, самого игрового года, паттерна (mobile night, ps3). Дефектов нет: график часов по годам со штриховкой «оценка», подписи «≈», плашка охвата, пик с пилюлей и шапкой, график суток 24 столбца с подписями каждые 6 ч на мобильном, слайды без обрезки. Ширина 375 (night, ps3): статистика all и все 9 слайдов без горизонтального переполнения (w375-*.png). Остальные темы: переполнения нет (проверка в тесте), снимки лежат в папке. Мобильный проект Playwright = Pixel 7 (412), 375 снят отдельным тестом. В кадрах виден значок N Next dev overlay, это не продукт.
-Спека: e2e/qa-phase25-26-shots.spec.ts (нужен SHOTS_DIR).
+Спека: e2e/stats-all-time-shots.spec.ts (нужен SHOTS_DIR).
 
 ## Файлы QA
-- src/server/collection/qa-phase25-26-dup-sql.test.ts
-- src/server/stats/qa-phase25-26-empty.test.ts
+- src/server/collection/hours-ps4-ps5-dup.test.ts
+- src/server/stats/all-time-empty.test.ts
 - src/ui/tokens/contrast.test.ts (блок «Фазы 25-26 (§12.9)»)
-- e2e/qa-phase25-26-shots.spec.ts
+- e2e/stats-all-time-shots.spec.ts

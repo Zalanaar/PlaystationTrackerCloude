@@ -3,9 +3,9 @@
 Вердикт: **принято с замечаниями**.
 
 ## Проверено
-- typecheck: ок. lint: 0 ошибок, 1 старое предупреждение (e2e/qa-phase22-shots.spec.ts). Vitest: 206 файлов, 3321 тест, зелёные.
+- typecheck: ок. lint: 0 ошибок, 1 старое предупреждение (e2e/backlog-chronicle-shots.spec.ts). Vitest: 206 файлов, 3321 тест, зелёные.
 - e2e (PW_CHROMIUM_PATH=/usr/bin/google-chrome): phase28-inbox, tour, qa-phase21, phase27-check: 114 passed (desktop + mobile). Весь e2e целиком НЕ прогонял (около 60 файлов, не уложился по времени).
-- Новые тесты QA: `e2e/qa-phase28.spec.ts` (раскладка, CLS, контраст в 7 темах, 360x640, 390x844, «Что нового»; скриншоты в `docs/qa/shots-28/`), `src/server/inbox/inbox-qa28.test.ts` (`it.fails` на QA-28-1).
+- Новые тесты QA: `e2e/inbox-layout-edge.spec.ts` (раскладка, CLS, контраст в 7 темах, 360x640, 390x844, «Что нового»; скриншоты в `docs/qa/shots-28/`), `src/server/inbox/inbox-qa28.test.ts` (`it.fails` на QA-28-1).
 - Нет горизонтального скролла: 1280, 412, 360x640, 390x844 (в т.ч. после «Ещё 1»). Чипы 32 (десктоп) / 44 (моб.).
 - Контраст чипов и метки (computed, фон сплошной): минимум 6.12 (ps1), остальные 7.3–10.6. Метка 8.0–10.6. Критерий 6.1 выполнен.
 - Изоляция user_id: все запросы inbox несут user_id (код + тест изоляции в inbox-db.test.ts). Границы окон: -24 ч не входит, +1 мс входит (есть тест). Часы без снимков: hoursNoHistory, чип скрыт. Неполная прошлая неделя: prev = null.

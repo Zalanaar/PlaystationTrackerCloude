@@ -11,9 +11,9 @@
 | Проверка | Результат |
 |---|---|
 | `tsc --noEmit` | чисто |
-| `eslint .` | 0 ошибок, 1 старое предупреждение (`WHITE_OLD`, e2e/qa-phase22-shots.spec.ts) |
+| `eslint .` | 0 ошибок, 1 старое предупреждение (`WHITE_OLD`, e2e/backlog-chronicle-shots.spec.ts) |
 | полный `vitest run` | 200 файлов, 3247 тестов, все зелёные (с моим новым файлом) |
-| e2e `phase27-check.spec.ts` | 15 passed (desktop 11 + mobile 360x640 4) |
+| e2e `check-screen.spec.ts` | 15 passed (desktop 11 + mobile 360x640 4) |
 | e2e регрессия: onboarding, qa-phase21 (тур), phase22-a, phase8 (разбор), collection | 160 passed, тур не сломан |
 
 ## Чек-лист

@@ -1,6 +1,6 @@
 // QA 20.5: два пользователя. API эмулируется по uid из cookie (БД в e2e нет), поэтому тест проверяет, что UI
 // (а) не смешивает данные двух сессий в одном браузере, (б) ведёт member по онбордингу с нуля, (в) не показывает owner-only.
-// Серверную изоляцию доказывают src/server/user-isolation*.test.ts и src/server/qa-phase-20-5.test.ts на PGlite.
+// Серверную изоляцию доказывают src/server/user-isolation*.test.ts и src/server/api-auth-roles.test.ts на PGlite.
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';

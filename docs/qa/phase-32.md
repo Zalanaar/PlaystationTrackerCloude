@@ -27,9 +27,9 @@
 ## Баги и замечания
 
 **QA-32-1 (средняя). Шапка `docs/release-neon-0022.sql` неверна, выкат кода до миграции ломает весь План.**
-Шапка: «новый код на старой схеме: цель отвечает 503, остальной план работает». Факт: Drizzle `select()` из `roadmap_settings` включает `goal_mode`/`goal_count`, поэтому на схеме без 0022 падают `getSettings` и `getGoal`, то есть `GET /api/roadmap` целиком (`getGoal` в общем `Promise.all`), настройки плана, экспорт резервной копии (watchdog отдаёт `backup: error`). Воспроизведение: `src/server/roadmap/qa-old-schema.test.ts` (схема после 0021). Порядок «сначала SQL, потом деплой» обязателен; шапку исправить (backend), в релизных заметках Артёму сказать прямо.
+Шапка: «новый код на старой схеме: цель отвечает 503, остальной план работает». Факт: Drizzle `select()` из `roadmap_settings` включает `goal_mode`/`goal_count`, поэтому на схеме без 0022 падают `getSettings` и `getGoal`, то есть `GET /api/roadmap` целиком (`getGoal` в общем `Promise.all`), настройки плана, экспорт резервной копии (watchdog отдаёт `backup: error`). Воспроизведение: `src/server/roadmap/old-schema-0022.test.ts` (схема после 0021). Порядок «сначала SQL, потом деплой» обязателен; шапку исправить (backend), в релизных заметках Артёму сказать прямо.
 
-**QA-32-2 (низкая, исправлено QA). `e2e/phase11-backlog.spec.ts` ждал «—» у игры без часов с проверенным HLTB.** По спеке состояние C теперь «нет на HLTB» без прочерка. Ожидание заменено на `нет на HLTB`. Frontend тест не обновил.
+**QA-32-2 (низкая, исправлено QA). `e2e/backlog-duration.spec.ts` ждал «—» у игры без часов с проверенным HLTB.** По спеке состояние C теперь «нет на HLTB» без прочерка. Ожидание заменено на `нет на HLTB`. Frontend тест не обновил.
 
 **QA-32-3 (низкая). Минимум 15% определяется по `progress >= 0.85`, это даёт ложные срабатывания.** `progress` округляется до 0.01, поэтому наиграно 84.6% базы (реальный остаток 15.4%) даёт progress 0.85 и пометку «мин. 15%» с подсказкой «Игра идёт дольше оценки HLTB». Тест-фиксация в `goal-qa.test.ts`. Рекомендация: backend отдаёт флаг `remainingIsMinimum` (в спеке он был), либо UI сравнивает `remainingHours` с `0.15 * hours`.
 
@@ -48,13 +48,13 @@
 
 ## Добавленные тесты и правки (зона QA)
 
-- `e2e/phase32-goal-remaining.spec.ts` (новый): 34 теста, desktop + mobile.
+- `e2e/backlog-remaining-year-goal.spec.ts` (новый): 34 теста, desktop + mobile.
 - `e2e/roadmap-mock.ts`: опциональные `goal`, `goalPutFail`, `goalCalls`, маршрут `/api/roadmap/goal`, `goalView()`; без `goal` ответ плана как раньше.
 - `e2e/collection-mock.ts`: опциональное `withRemaining` (`duration.remainingHours/progress`).
-- `e2e/phase11-backlog.spec.ts`: ожидание «нет на HLTB» (QA-32-2).
-- `src/app/api/roadmap/goal/qa-route.test.ts`: 401, 409, границы, изоляция (PGlite).
+- `e2e/backlog-duration.spec.ts`: ожидание «нет на HLTB» (QA-32-2).
+- `src/app/api/roadmap/goal/route-db.test.ts`: 401, 409, границы, изоляция (PGlite).
 - `src/server/roadmap/goal-qa.test.ts`: допуск ±1, високосный год, 31 декабря, границы года по МСК, смена года, пороги остатка.
-- `src/server/roadmap/qa-old-schema.test.ts`: новый код на схеме без 0022 (QA-32-1).
+- `src/server/roadmap/old-schema-0022.test.ts`: новый код на схеме без 0022 (QA-32-1).
 
 ## Не проверено
 

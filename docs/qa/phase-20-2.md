@@ -27,7 +27,7 @@
 
 ## Исправлено мной в тестах
 
-- `e2e/phase20-access.spec.ts`: `getByRole('alert')` попадал на 2 элемента (Next route announcer), strict mode давал 3 падения; заменено на `[role=alert]:not(#__next-route-announcer__)`.
+- `e2e/auth-access.spec.ts`: `getByRole('alert')` попадал на 2 элемента (Next route announcer), strict mode давал 3 падения; заменено на `[role=alert]:not(#__next-route-announcer__)`.
 - Те же файл: тесты меню профиля падали на mobile, где аватар скрыт и открывается «Меню» (Sheet, пункты без `role=menuitem`). Добавлены `openProfileMenu` / `accessItem` с учётом `isMobile`. Это ошибка теста, не кода: на мобильном пункт «Доступ» в Sheet есть (виден на скриншоте-ветке кода AppShell и проверен тестом).
 
 ## Ревью безопасности по §22: результат
