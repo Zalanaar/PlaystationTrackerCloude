@@ -4,7 +4,7 @@ import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
-  BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameMutationResponse, GamesBatchResponse, GamesListResponse, GameStatusValue,
+  BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameItem, GameReview, GameMutationResponse, GamesBatchResponse, GamesListResponse, GameStatusValue,
   StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
 } from '@/server/collection/types';
 
@@ -99,6 +99,11 @@ export type MonthExclusionResponse = {
 /** «Убрать из этого месяца» / «Вернуть в месяц». 409 `month_exclusion_conflict`: нельзя убрать последний месяц оценки. */
 export const putMonthExclusion = (id: number, month: string, excluded: boolean) =>
   call<MonthExclusionResponse>(`/api/games/${id}/month-exclusions`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ month, excluded }) });
+
+/** F1 (9.9): оценка 0–10 / null и заметка; ответ — игра (с rating) и итоговый отзыв (null = стёрт). */
+export type ReviewResponse = { game: GameItem; review: GameReview | null };
+export const putReview = (id: number, body: { rating?: number | null; note?: string | null }, init?: Pick<RequestInit, 'keepalive'>) =>
+  call<ReviewResponse>(`/api/games/${id}/review`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body), ...init });
 
 /** «Это не дубль» (Фаза 23): версия перестаёт склеиваться с главной. Ответ: обновлённая игра. */
 export const postNotDuplicate = (id: number) =>

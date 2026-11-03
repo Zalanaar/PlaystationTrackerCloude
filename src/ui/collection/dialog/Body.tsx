@@ -6,12 +6,16 @@ import { cssUrl } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
 import { StatusChip, StatusMenu } from '../../status';
 import { Cover, THUMB_W } from '../Cover';
-import { artMode, DETAIL_TABS, detailSubtitle, detailTiles, nextTab, type DetailTab } from '../details';
+import { artMode, detailSubtitle, detailTabs, detailTiles, nextTab, type DetailTab } from '../details';
 import { platinumEarnedAt } from '../trophies';
 import { linkedVersionsOf } from '../linked';
 import { isSlimGame } from '../slim';
 import { useGameDetails } from '../useGameDetails';
+import { STATUS_META } from '../../tokens';
+import { toKey } from '../../status';
 import { Art } from './Art';
+import { DoneDate } from './DoneDate';
+import { GuidesTab } from './GuidesTab';
 import { Overview } from './Overview';
 import { TileGrid } from './TileGrid';
 import { TrophiesTab } from './TrophiesTab';
@@ -31,7 +35,7 @@ export function Body({
   const details = state.kind === 'ok' ? state.data : null;
   // игра из облегчённого HTML (item 4) без длительности и баннера: как только пришли детали, шапка и плитки берут полный объект
   const game = (details && isSlimGame(gameProp) ? details.game : gameProp) ?? details?.game ?? null;
-  const [tab, setTab] = useState<DetailTab>(initialTab ?? 'overview');
+  const [tabState, setTab] = useState<DetailTab>(initialTab ?? 'overview');
   const [bannerFailed, setBannerFailed] = useState<string | null>(null);
   const tabId = useId();
   const loadedCb = useRef(onLoaded);
@@ -82,9 +86,12 @@ export function Body({
   const hasCover = !!cssUrl(coverUrl);
   const bannerOk = !!game?.bannerUrl && !!cssUrl(game.bannerUrl) && bannerFailed !== game.bannerUrl;
   const mode = artMode(bannerOk, hasCover);
+  const tabs = detailTabs(game);
+  // F2-A: у игры-сервиса вкладки «Гайды» нет; выбранная ранее вкладка откатывается к «Обзору»
+  const tab: DetailTab = tabs.some((x) => x.id === tabState) ? tabState : 'overview';
 
   function onTabKey(e: KeyboardEvent) {
-    const n = nextTab(tab, e.key);
+    const n = nextTab(tab, e.key, tabs);
     if (!n) return;
     e.preventDefault();
     setTab(n);
@@ -122,19 +129,21 @@ export function Body({
         <div className="ps-gd__chips">
           {game && (
             <>
-              <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label="Изменить статус" triggerClassName="ps-gd__status">
+              {/* P2-3: имя кнопки начинается с видимого текста чипа */}
+              <StatusMenu value={game.status} onPick={(s) => onStatus(game, s)} label={`${STATUS_META[toKey(game.status)].label}, изменить статус`} triggerClassName="ps-gd__status">
                 <StatusChip status={game.status} /><Icon name="chevron-down" size={14} />
               </StatusMenu>
+              <DoneDate key={`${game.id}|${game.completedAt ?? ''}|${game.droppedAt ?? ''}`} game={game} now={now} startEditing={startEditing} onDate={onDate} />
               {game.hiddenAt && <span className="ps-gd__hiddenmark"><Icon name="eye-off" size={14} />Убрана из коллекции</span>}
             </>
           )}
         </div>
       </div>
 
-      {tiles ? <TileGrid tiles={tiles} /> : <div className="ps-gd__tiles" aria-hidden="true">{[0, 1, 2, 3].map((i) => <div key={i} className="ps-skeleton ps-gd__sk-tile" />)}</div>}
+      {tiles ? <TileGrid tiles={tiles} /> : <div className="ps-gd__tiles" aria-hidden="true">{[0, 1, 2].map((i) => <div key={i} className="ps-skeleton ps-gd__sk-tile" />)}</div>}
 
       <div className="ps-tabs2" role="tablist" aria-label="Разделы игры" onKeyDown={onTabKey}>
-        {DETAIL_TABS.map((x) => (
+        {tabs.map((x) => (
           <button
             key={x.id} id={`${tabId}-${x.id}`} type="button" role="tab" className="ps-tab2" aria-selected={tab === x.id} aria-controls={`${tabId}-p-${x.id}`}
             tabIndex={tab === x.id ? 0 : -1} onClick={() => setTab(x.id)}
@@ -147,8 +156,10 @@ export function Body({
 
       <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" data-tab={tab} tabIndex={0}>
         {tab === 'overview'
-          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} startEditing={startEditing} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} />
-          : <TrophiesTab state={state} onRetry={retry} />}
+          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} />
+          : tab === 'guides'
+            ? game && <GuidesTab game={game} />
+            : <TrophiesTab state={state} onRetry={retry} />}
       </div>
     </div>
   );

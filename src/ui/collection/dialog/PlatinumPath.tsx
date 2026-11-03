@@ -44,7 +44,7 @@ export function PlatinumPath({ f }: { f: PlatinumForecast }) {
                 <span className="ps-rar__seg" aria-hidden="true">{[0, 1, 2, 3].map((i) => <i key={i} data-on={i < (m.segments ?? 0) || undefined} />)}</span>
               )}
             </dd>
-            <small>{m.sub || '\u00a0'}</small>
+            <dd className="ps-gd__msub">{m.sub || '\u00a0'}</dd>
           </div>
         ))}
       </dl>

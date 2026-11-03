@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { ratingAria } from '@/shared/review';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
@@ -21,7 +22,7 @@ export type GameActions = {
 export function dateMenuItem(g: GameItem, actions: GameActions) {
   if (!completionInfo(g)) return undefined;
   return function DateMenuItem(close: () => void) {
-    return (
+  return (
       <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall ps-menu-item--sep" onClick={() => { close(); actions.open(g, true); }}>
         <Icon name="calendar" size={16} />
         <span className="ps-menu-item__label">Изменить дату…</span>
@@ -77,6 +78,7 @@ export function GameCard({
   const t = game.trophies;
   const key = toKey(game.status);
   const plat = t?.platinumEarned === true;
+  const rated = game.rating !== null && game.rating !== undefined;
   return (
     <article
       id={anchorId} tabIndex={anchorId ? -1 : undefined}
@@ -110,7 +112,13 @@ export function GameCard({
       </div>
       <div className="ps-card__body">
         <p className="ps-card__title" title={game.title}>{game.title}</p>
-        {meta && <p className="ps-card__meta num" aria-label={month?.hoursLabel ?? undefined}>{meta}</p>}
+        {(meta || rated) && (
+          <p className="ps-card__meta num" aria-label={month?.hoursLabel ?? undefined}>
+            {/* F1: ★ оценка; для чтения она в имени кнопки карточки */}
+            {rated && <span className="ps-card__rate" aria-hidden="true" data-testid="card-rating">★ {game.rating}</span>}
+            {rated && meta ? ' · ' : ''}{meta}
+          </p>
+        )}
       </div>
       {/* слой точно над обложкой: кнопка «⋯» выше невидимой кнопки открытия, как фигура статуса */}
       {monthMenu && <div className="ps-card__over">{monthMenu}</div>}
@@ -141,7 +149,7 @@ export function GameCard({
       )}
       <button
         type="button" className="ps-card__hit" aria-pressed={selectMode ? selected : undefined}
-        aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}`}
+        aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}${ratingAria(game.rating)}`}
         onClick={() => { if (wasLong()) return; if (selectMode) actions.toggle(game); else actions.open(game); }}
         {...handlers}
       />

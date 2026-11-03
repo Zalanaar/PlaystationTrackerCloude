@@ -139,9 +139,9 @@ svg.ps-trophy__type { color: var(--plat-text); }
   min-height: calc(var(--gd-cover-over) + var(--sp-3));
 }
 .ps-gd__hiddenmark { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
-.ps-gd__tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); margin: var(--sp-3) 0 0; padding: 0 var(--sp-6); align-items: stretch; grid-auto-rows: 1fr; }
+.ps-gd__tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin: var(--sp-3) 0 0; padding: 0 var(--sp-6); list-style: none; align-items: stretch; grid-auto-rows: 1fr; }
 .ps-gd__tile { container-type: inline-size; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 88px; padding: 14px var(--sp-4); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
-.ps-gd__tile dt { font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
+.ps-gd__tl { font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
 .ps-gd__tv {
   display: flex; align-items: center; gap: var(--sp-2); margin: 0; min-width: 0; font: var(--fw-display) 22px/28px var(--font-display); color: var(--text);
   white-space: nowrap; word-break: keep-all; overflow-wrap: normal; overflow: hidden; text-overflow: clip;
@@ -151,7 +151,11 @@ svg.ps-trophy__type { color: var(--plat-text); }
 @container (max-width: 110px) { .ps-gd__tv { font-size: 16px; }
 }
 .ps-gd__ts { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ps-gd__tile[data-state="earned"] { border-color: var(--plat-2); background: color-mix(in srgb, var(--plat-2) 10%, var(--surface-2)); }
+/* D-P4: платина — строкой в ячейке «Трофеи» */
+.ps-gd__tplatl { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-gd__tplatl[data-state="earned"] { color: var(--plat-1); font-weight: 600; }
+.ps-gd__tplatl[data-state="earned"] .ps-gd__tplat { color: var(--plat-1); }
+.ps-gd__tile[data-muted] .ps-gd__tv { white-space: normal; font-size: 16px; line-height: 22px; }
 .ps-gd__panel { min-height: 320px; padding: 20px var(--sp-6) calc(var(--sp-8) + env(safe-area-inset-bottom)); }
 .ps-gd__panel[data-tab="overview"] { display: grid; gap: var(--sp-3); align-content: start; }
 .ps-gd__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); align-items: stretch; }
@@ -202,7 +206,7 @@ svg.ps-trophy__type { color: var(--plat-text); }
 .ps-gd__metrics dt { font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
 .ps-gd__metrics dd { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font: var(--fw-display) 16px/24px var(--font-display); color: var(--text); white-space: nowrap; }
 .ps-gd__metrics dd[data-empty] { color: var(--text-3); }
-.ps-gd__metrics small { display: block; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-gd__metrics dd.ps-gd__msub { display: block; font-family: var(--font-body); font-weight: 400; white-space: normal; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
 .ps-gd__metrics .ps-rar__seg i[data-on] { background: var(--text-2); }
 .ps-gd__note { display: flex; align-items: flex-start; gap: 6px; margin: var(--sp-2) 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-gd__note svg { flex: none; margin-top: 2px; }
@@ -216,8 +220,9 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-gd__plat { width: 20px; height: 20px; margin-top: 2px; }
   .ps-gd__chips { padding: 10px var(--sp-4) 0 calc(var(--sp-4) + var(--gd-cover-w) + var(--sp-3)); }
   .ps-gd__status { min-height: var(--tap-min); }   /* «Изменить статус»: тап-зона 44, было 24 */
-  .ps-gd__tiles { gap: var(--sp-2); padding: 0 var(--sp-4); grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ps-gd__tile { min-height: 80px; padding: 12px 14px; }
+  .ps-gd__tiles { gap: var(--sp-2); padding: 0 var(--sp-4); }
+  .ps-gd__tile { min-height: 80px; padding: 10px; }
+  .ps-gd__tile[data-muted] .ps-gd__tv { font-size: 14px; line-height: 20px; }
   .ps-gd__panel { flex: 1; padding: var(--sp-4) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom)); background: var(--surface); min-height: 0; }
   .ps-gd__panel[data-tab="overview"] { display: flex; flex-direction: column; }
   .ps-gd__cols { grid-template-columns: minmax(0, 1fr); }
@@ -235,3 +240,46 @@ svg.ps-trophy__type { color: var(--plat-text); }
 /* ---------- Окно игры по ссылке ---------- */
 .ps-gd__sk-title { display: block; width: 200px; max-width: 100%; height: 24px; }
 .ps-gd__missing-act { display: flex; gap: var(--sp-3); }
+
+/* ---------- D-P4: дата завершения рядом с чипом статуса ---------- */
+.ps-gd__done { display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-gd__done[data-kind="completed"] .ps-gd__donet { color: var(--text); }
+.ps-gd__doneedit { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--r-pill); background: none; color: var(--text-2); cursor: pointer; }
+.ps-gd__doneedit:hover { background: var(--surface-2); color: var(--text); }
+.ps-gd__doneedit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ps-gd__doneform { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ps-gd__donelbl { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-small); color: var(--text-2); }
+/* ---------- F1: «Моя оценка» ---------- */
+.ps-gd__rvh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin: 0 0 var(--sp-2); }
+.ps-gd__rvh h3 { margin: 0; font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
+.ps-gd__rvv { font: var(--fw-display) 16px/24px var(--font-display); color: var(--text-2); }
+.ps-gd__rvv b { font-size: 22px; color: var(--text); }
+.ps-gd__rvv[data-empty] { color: var(--text-3); font: inherit; font-size: var(--fs-small); }
+.ps-rate { display: grid; grid-template-columns: repeat(11, minmax(28px, 1fr)); gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ps-rate__opt { position: relative; display: grid; place-items: center; height: 36px; border-radius: var(--r-sm); background: var(--surface-3); color: var(--text-2); font: 600 14px/1 var(--font-display); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.ps-rate__opt[data-on] { background: color-mix(in srgb, var(--accent) 35%, var(--surface-3)); color: var(--text); }
+.ps-rate__opt[data-picked] { background: var(--accent); color: var(--accent-ink); }
+.ps-rate__in { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.ps-rate__opt:has(.ps-rate__in:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ps-gd__rvfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 28px; margin-top: var(--sp-1); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); }
+.ps-gd__rvlbl { display: block; margin: var(--sp-2) 0 var(--sp-1); font-size: var(--fs-small); color: var(--text-2); }
+.ps-gd__rvnote { display: block; width: 100%; height: auto; min-height: 72px; padding: var(--sp-2) var(--sp-3); resize: vertical; line-height: 1.4; font-size: 16px; }
+.ps-gd__rvnote[aria-invalid] { border-color: var(--danger); }
+.ps-gd__rvstate[data-kind="error"] { color: var(--danger); }
+.ps-gd__rvcnt[data-over] { color: var(--danger); font-weight: 600; }
+.ps-gd__sk-review { height: 196px; border-radius: var(--r-md); }
+/* ---------- F2-A: вкладка «Гайды» ---------- */
+.ps-gd__glist { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0 0; padding: 0; list-style: none; }
+.ps-gd__glink { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "n i" "s i"; align-items: center; column-gap: var(--sp-3); min-height: var(--tap-min); padding: var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface-3); color: var(--text); text-decoration: none; }
+.ps-gd__glink:hover { border-color: var(--accent); }
+.ps-gd__glink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ps-gd__gname { grid-area: n; font-weight: 600; }
+.ps-gd__gsite { grid-area: s; font-size: var(--fs-small); color: var(--text-3); }
+.ps-gd__glink svg { grid-area: i; color: var(--text-3); }
+
+/* Тап-зоны 44 на телефоне — после базовых правил блоков даты и оценки, иначе их перебивает каскад */
+@media (max-width: 767px) {
+  .ps-gd__doneedit { width: var(--tap-min); height: var(--tap-min); }
+  .ps-rate__opt { height: var(--tap-min); }
+  .ps-gd__rvreset { min-height: var(--tap-min); }
+}

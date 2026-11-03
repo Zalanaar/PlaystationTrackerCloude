@@ -59,8 +59,8 @@ export function DurationEditor({ game, onChanged }: { game: GameItem; onChanged:
     <section className="ps-gd__sec ps-gd__duration" aria-labelledby="gd-dur">
       <h3 id="gd-dur">
         <button
-          type="button" className="ps-gd__durbar" aria-expanded={open} aria-controls={bodyId}
-          aria-label={`Длительность прохождения: ${open ? 'скрыть' : 'показать'} детали`} onClick={() => setOpen((v) => !v)}
+          // P2-3: имя = видимый текст («Длительность прохождения 24 ч HLTB»), состояние — aria-expanded
+          type="button" className="ps-gd__durbar" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((v) => !v)}
         >
           <span className="ps-gd__durt">Длительность прохождения</span>
           <span className="ps-gd__durval num" data-testid="duration-summary" data-empty={d.hours === null ? true : undefined}>

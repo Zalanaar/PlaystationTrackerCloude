@@ -1,6 +1,7 @@
 'use client';
 
 import type { GameItem, GameSort, SortOrder } from '@/server/collection/types';
+import { ratingAria } from '@/shared/review';
 import { formatDayMonth, formatHoursShort } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { StatusMenu, toKey } from '../status';
@@ -25,7 +26,7 @@ export function GameRow({
         {/* Фаза 48 (п. 14): кнопка-оверлей внутри ячейки: у role=row детьми могут быть только ячейки (axe aria-required-children) */}
         <button
           type="button" className="ps-row__hit" aria-pressed={selectMode ? selected : undefined}
-          aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}`}
+          aria-label={`${selectMode ? 'Выбрать' : 'Открыть'}: ${game.title}${plat ? ', платина получена' : ''}${ratingAria(game.rating)}`}
           onClick={() => (selectMode ? actions.toggle(game) : actions.open(game))}
         />
         <span className="ps-row__check" aria-hidden="true" data-on={selectMode || undefined}>
@@ -36,6 +37,7 @@ export function GameRow({
           <span className="ps-row__title" title={game.title}>
             <span className="ps-row__name">{game.title}</span>
             {plat && <PlatinumIcon size={14} className="ps-row__plat" title="Платина получена" />}
+            {game.rating !== null && game.rating !== undefined && <span className="ps-row__rate num" aria-hidden="true" data-testid="row-rating">★ {game.rating}</span>}
           </span>
           {genres && <span className="ps-row__sub">{genres}</span>}
           <span className="ps-row__mobile-meta num" aria-hidden="true">

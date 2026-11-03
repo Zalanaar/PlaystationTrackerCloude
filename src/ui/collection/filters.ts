@@ -40,10 +40,11 @@ export const SORT_OPTIONS: readonly { id: GameSort; label: string }[] = [
   { id: 'title', label: 'По названию' },
   { id: 'hours', label: 'По часам' },
   { id: 'trophies_progress', label: 'По трофеям' },
+  { id: 'rating', label: 'По оценке' },
 ];
 
 export const DEFAULT_ORDER: Record<GameSort, SortOrder> = {
-  last_played: 'desc', hours: 'desc', title: 'asc', trophies_progress: 'desc', completed_at: 'desc',
+  last_played: 'desc', hours: 'desc', title: 'asc', trophies_progress: 'desc', completed_at: 'desc', rating: 'desc',
 };
 
 const SORT_IDS = SORT_OPTIONS.map((s) => s.id);

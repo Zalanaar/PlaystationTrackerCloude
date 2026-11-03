@@ -1,17 +1,15 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { GameDetailsResponse, GameItem } from '@/server/collection/types';
-import { formatDate, formatDayMonth } from '../../format';
-import { Icon, StatusGlyph } from '../../icons';
-import { toKey } from '../../status';
-import { STATUS_META } from '../../tokens';
+import { formatDayMonth } from '../../format';
+import { Icon } from '../../icons';
 import { DurationEditor } from '../DurationEditor';
-import { doneLabel, lastPlayedText } from '../details';
-import { completionInfo, dateInputToIso, isoToDateInput } from '../filters';
+import { lastPlayedText } from '../details';
 import { History } from './History';
 import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
+import { ReviewEditor } from './ReviewEditor';
 import type { DialogHandlers } from './types';
 
 function Kv({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -24,28 +22,12 @@ function Kv({ label, children, className }: { label: string; children: React.Rea
 }
 
 export function Overview({
-  game, details, loading, startEditing, now, onStatus, onDate, onHidden, onGameChanged, onNotDuplicate,
+  game, details, loading, now, onStatus, onHidden, onGameChanged, onNotDuplicate,
 }: {
-  game: GameItem; details: GameDetailsResponse | null; loading: boolean; startEditing: boolean; now: number;
+  game: GameItem; details: GameDetailsResponse | null; loading: boolean; now: number;
 } & DialogHandlers) {
   const hintId = useId();
   const hidden = !!game.hiddenAt;
-  const done = completionInfo(game);
-  const [editing, setEditing] = useState(startEditing && !!done);
-  const [value, setValue] = useState(isoToDateInput(done?.iso));
-  const [err, setErr] = useState<string | null>(null);
-  const today = isoToDateInput(new Date(now).toISOString());
-
-  function save() {
-    if (!done) return;
-    const iso = dateInputToIso(value, now);
-    if (!iso) {
-      setErr('Укажи дату целиком.');
-      return;
-    }
-    onDate(game, done.kind, iso);
-    setEditing(false);
-  }
 
   const skeleton = <span className="ps-skeleton ps-gd__sk-val" aria-hidden="true" />;
   const forecast = details?.platinumForecast ?? null;
@@ -54,47 +36,31 @@ export function Overview({
   const dateOr = (iso: string | null | undefined) => (details ? (formatDayMonth(iso ?? null, true) ?? 'нет данных') : loading ? skeleton : 'нет данных');
   return (
     <>
-      <div className="ps-gd__cols">
-        <section className="ps-gd__sec" aria-labelledby="gd-s1">
-          <h3 id="gd-s1">Статус и даты</h3>
-          <dl>
-            <Kv label="Статус"><span className="ps-gd__st"><StatusGlyph status={toKey(game.status)} size={16} />{STATUS_META[toKey(game.status)].label}</span></Kv>
-            {done && (
-              <Kv label={doneLabel(done.kind)} className={editing ? 'ps-gd__kv--edit' : undefined}>
-                {editing ? (
-                  <form className="ps-inline-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
-                    <input type="date" className="ps-input" value={value} max={today} aria-label="Дата завершения" onChange={(e) => { setValue(e.target.value); setErr(null); }} />
-                    <button type="submit" aria-label="Сохранить дату завершения" className="ps-btn ps-btn--primary">Сохранить</button>
-                    <button type="button" className="ps-btn" onClick={() => setEditing(false)}>Отмена</button>
-                    {err && <span role="alert" className="ps-field-error">{err}</span>}
-                  </form>
-                ) : (
-                  <>
-                    {formatDate(done.iso)}{' '}
-                    <button type="button" className="ps-link" onClick={() => setEditing(true)}>Изменить</button>
-                  </>
-                )}
-              </Kv>
-            )}
-            <Kv label="Статус изменён">{dateOr(details?.statusChangedAt)}</Kv>
-          </dl>
-        </section>
-        <section className="ps-gd__sec" aria-labelledby="gd-s2">
-          <h3 id="gd-s2">Запуски</h3>
-          <dl>
-            <Kv label="Первый запуск">{dateOr(details?.firstPlayedAt)}</Kv>
-            <Kv label="Последний запуск">{lastPlayedText(game.lastPlayedAt, now)}</Kv>
-            <Kv label="Платформа">PlayStation · {game.platform}</Kv>
-            {game.genres.length > 0 && <Kv label="Жанры" className="ps-gd__kv--long">{game.genres.map((g) => g.label).join(', ')}</Kv>}
-          </dl>
-        </section>
-      </div>
-
-      {details ? <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} /> : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
-
+      {/* D-P4: «Путь к платине» — первым блоком «Обзора» */}
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
       )}
+
+      {/* F1: оценка и заметка (детали загружены: заметки в GameItem нет) */}
+      {details ? (
+        <ReviewEditor key={`review-${game.id}`} game={game} review={details.review ?? null} onChanged={onGameChanged} />
+      ) : loading && <div className="ps-skeleton ps-gd__sk-review" aria-hidden="true" />}
+
+      {details ? (
+        <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} />
+      ) : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
+
+      <section className="ps-gd__sec" aria-labelledby="gd-s2">
+        <h3 id="gd-s2">Даты</h3>
+        <dl>
+          <Kv label="Первый запуск">{dateOr(details?.firstPlayedAt)}</Kv>
+          <Kv label="Последний запуск">{lastPlayedText(game.lastPlayedAt, now)}</Kv>
+          {/* D-P4: блока «Статус и даты» нет — статус в чипе шапки, дата завершения рядом с ним */}
+          {game.status !== null && <Kv label="Статус изменён">{dateOr(details?.statusChangedAt)}</Kv>}
+          <Kv label="Платформа">PlayStation · {game.platform}</Kv>
+          {game.genres.length > 0 && <Kv label="Жанры" className="ps-gd__kv--long">{game.genres.map((g) => g.label).join(', ')}</Kv>}
+        </dl>
+      </section>
 
       {onNotDuplicate && <LinkedVersions game={game} onSplit={onNotDuplicate} />}
 

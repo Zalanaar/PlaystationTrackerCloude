@@ -5,28 +5,28 @@ import { formatDate, formatDayMonth, formatPlayTime, relativeAgo } from '../form
 export type Tile =
   | { id: 'hours'; label: string; value: string; sub: string; muted: boolean }
   | { id: 'launches'; label: string; value: string; sub: string; muted: boolean }
-  | { id: 'trophies'; label: string; value: string; sub: string; muted: boolean; progress: number | null }
-  | { id: 'platinum'; label: string; value: string; sub: string; muted: boolean; state: 'earned' | 'locked' | 'unknown'; aria: string };
+  | {
+    id: 'trophies'; label: string; value: string; sub: string; muted: boolean; progress: number | null;
+    /** D-P4: платина живёт в ячейке трофеев (отдельной плитки нет). */
+    plat: { state: 'earned' | 'locked' | 'none' | 'unknown'; text: string };
+  };
 
 /**
- * Четыре плитки окна (спека 9.1 п.3). `platinumAt` = дата платины из списка трофеев (ещё не загружен или нет даты = null).
- * Нулевые часы и запуски: «нет данных». Значения короткие и не переносятся: «Да/Нет», число запусков без слова.
+ * Три ячейки окна (D-P4, design-system §4.15): часы · запуски · трофеи с полосой; платина — строкой в ячейке трофеев.
+ * `platinumAt` = дата платины из списка трофеев (ещё не загружен или нет даты = null).
+ * Нулевые часы и запуски: «нет данных». Значения короткие и не переносятся.
  */
 export function detailTiles(g: GameItem, now: number, platinumAt: string | null): Tile[] {
   const time = formatPlayTime(g.playSeconds);
   const t = g.trophies;
   const platDate = formatDayMonth(platinumAt, true);
-  const plat: Tile = !t
-    ? { id: 'platinum', label: 'Платина', value: 'нет данных', sub: 'нет данных о трофеях', muted: true, state: 'unknown', aria: 'Платина: нет данных о трофеях' }
+  const plat: Extract<Tile, { id: 'trophies' }>['plat'] = !t
+    ? { state: 'unknown', text: '' }
     : t.platinumEarned
-      ? {
-        id: 'platinum', label: 'Платина', value: 'Да', sub: platDate ?? '', muted: false, state: 'earned',
-        aria: platDate ? `Платина: получена ${platDate}` : 'Платина: получена',
-      }
-      : {
-        id: 'platinum', label: 'Платина', value: 'Нет', sub: t.platinumDefined ? 'не получена' : 'в игре нет платины', muted: true, state: 'locked',
-        aria: t.platinumDefined ? 'Платина: не получена' : 'Платина: в игре нет платины',
-      };
+      ? { state: 'earned', text: platDate ? `платина ${platDate}` : 'платина получена' }
+      : t.platinumDefined
+        ? { state: 'locked', text: 'платина не получена' }
+        : { state: 'none', text: 'без платины' };
   return [
     { id: 'hours', label: 'Часы', value: time ?? 'нет данных', sub: time ? 'наиграно' : '', muted: !time },
     {
@@ -34,9 +34,8 @@ export function detailTiles(g: GameItem, now: number, platinumAt: string | null)
       sub: g.playCount <= 0 ? '' : g.lastPlayedAt ? `посл. ${relativeAgo(g.lastPlayedAt, now)}` : 'посл. запуск неизвестен', muted: g.playCount <= 0,
     },
     t && t.defined > 0
-      ? { id: 'trophies', label: 'Трофеи', value: `${t.earned}/${t.defined}`, sub: `${t.progress}%`, muted: false, progress: Math.min(100, Math.max(0, t.progress)) }
-      : { id: 'trophies', label: 'Трофеи', value: 'нет данных', sub: '', muted: true, progress: null },
-    plat,
+      ? { id: 'trophies', label: 'Трофеи', value: `${t.earned}/${t.defined}`, sub: `${t.progress}%`, muted: false, progress: Math.min(100, Math.max(0, t.progress)), plat }
+      : { id: 'trophies', label: 'Трофеи', value: 'нет данных', sub: '', muted: true, progress: null, plat },
   ];
 }
 
@@ -67,16 +66,22 @@ export function doneLabel(kind: 'completed' | 'dropped'): string {
   return kind === 'completed' ? 'Дата прохождения' : 'Дата броска';
 }
 
-/** Вкладки: `?tab=trophies` не используется, состояние вкладки локальное; порядок и id фиксированы. */
-export const DETAIL_TABS = [{ id: 'overview', label: 'Обзор' }, { id: 'trophies', label: 'Трофеи' }] as const;
+/** Вкладки: `?tab=trophies` не используется, состояние вкладки локальное; порядок и id фиксированы. «Гайды» (F2-A) — не у игр-сервисов. */
+export const DETAIL_TABS = [{ id: 'overview', label: 'Обзор' }, { id: 'trophies', label: 'Трофеи' }, { id: 'guides', label: 'Гайды' }] as const;
 export type DetailTab = (typeof DETAIL_TABS)[number]['id'];
+type TabDef = (typeof DETAIL_TABS)[number];
 
-/** Следующая вкладка по стрелкам, Home и End (замкнуто по кругу для стрелок). */
-export function nextTab(current: DetailTab, key: string): DetailTab | null {
-  const i = DETAIL_TABS.findIndex((t) => t.id === current);
-  if (key === 'ArrowRight') return DETAIL_TABS[(i + 1) % DETAIL_TABS.length].id;
-  if (key === 'ArrowLeft') return DETAIL_TABS[(i - 1 + DETAIL_TABS.length) % DETAIL_TABS.length].id;
-  if (key === 'Home') return DETAIL_TABS[0].id;
-  if (key === 'End') return DETAIL_TABS[DETAIL_TABS.length - 1].id;
+/** Видимые вкладки игры: у live-service (`service`) гайдов нет. */
+export function detailTabs(g: Pick<GameItem, 'status'> | null): readonly TabDef[] {
+  return g?.status === 'service' ? DETAIL_TABS.filter((t) => t.id !== 'guides') : DETAIL_TABS;
+}
+
+/** Следующая вкладка по стрелкам, Home и End (замкнуто по кругу для стрелок) среди `tabs`. */
+export function nextTab(current: DetailTab, key: string, tabs: readonly TabDef[] = DETAIL_TABS): DetailTab | null {
+  const i = Math.max(0, tabs.findIndex((t) => t.id === current));
+  if (key === 'ArrowRight') return tabs[(i + 1) % tabs.length].id;
+  if (key === 'ArrowLeft') return tabs[(i - 1 + tabs.length) % tabs.length].id;
+  if (key === 'Home') return tabs[0].id;
+  if (key === 'End') return tabs[tabs.length - 1].id;
   return null;
 }
