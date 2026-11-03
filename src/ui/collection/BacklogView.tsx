@@ -32,6 +32,10 @@ import { useHeaderAction } from '../shell/headerActions';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
 import { BacklogRow, type RowMenuItem } from './BacklogRow';
+import { NextUpCard } from './NextUpCard';
+import { pickNextUp } from './nextUp';
+import { fetchRoadmap } from '../roadmap/api';
+import type { RoadmapResponse } from '@/server/roadmap/types';
 import {
   BACKLOG_PAGE, backlogToApi, backlogToUrl, hasBacklogFilters, needsHours, moveBetweenLists, parseBacklogFilters, resetBacklogFilters, serviceToApi, shelvedToApi,
   type BacklogFilters as Filters,
@@ -97,6 +101,14 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   useEffect(() => {
     const t = setTimeout(() => setGiveUp(true), SKELETON_MAX_MS);
     return () => clearTimeout(t);
+  }, []);
+  // D-P3: план (/api/roadmap) для карточки «Следующая по плану»; сбой = без карточки. Ждём его вместе со списком, чтобы карточка не сдвигала страницу
+  const [roadmap, setRoadmap] = useState<RoadmapResponse | null>(null);
+  const [roadmapReady, setRoadmapReady] = useState(false);
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchRoadmap(ac.signal).then(setRoadmap, () => {}).finally(() => { if (!ac.signal.aborted) setRoadmapReady(true); });
+    return () => ac.abort();
   }, []);
   // чип «Это та игра?» и записи «не куплено» приходят позже списка: до их прихода держим скелетон, чтобы список не сдвигался (QA-43-3)
   const [matchReady, setMatchReady] = useState(false);
@@ -506,8 +518,10 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
 
   // список готов: секции «Не куплено» и остальные блоки показываем только вместе со списком (скелет не даёт им прыгать, QA-43-3)
   // QA-43.1-7: зависший второстепенный запрос не держит скелет дольше SKELETON_MAX_MS, показываем то, что уже пришло
-  const auxDone = giveUp || (manualReady && matchReady && auxReady.shelved && auxReady.service);
+  const auxDone = giveUp || (manualReady && matchReady && roadmapReady && auxReady.shelved && auxReady.service);
   const ready = !!items && !(error && !items) && auxDone;
+  const nextUp = ready && items && !hasBacklogFilters(filters) ? pickNextUp(roadmap, (id) => items.some((g) => g.id === id)) : null;
+  const nextGame = nextUp ? items!.find((g) => g.id === nextUp.gameId) ?? null : null;
   const tabs = [
     { id: 'h-bl-main', label: 'Бэклог', n: mainTotal, on: !filters.nb },
     { id: 'h-bl-nb', label: 'Не куплено', n: nbShown.length, on: showNbSection },
@@ -622,6 +636,9 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       )}
       {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
       <MatchChip className="ps-bl-match" hold={!items || !auxDone} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
+      {nextUp && nextGame && (
+        <NextUpCard next={nextUp} game={nextGame} onPlay={() => void change(nextGame, 'playing')} onOpen={() => actions.open(nextGame)} />
+      )}
       {error && !items ? (
         <EmptyState icon="circle-alert" role="alert" title="Что-то пошло не так" text="Не удалось загрузить бэклог. Попробуй обновить страницу.">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Обновить</button>

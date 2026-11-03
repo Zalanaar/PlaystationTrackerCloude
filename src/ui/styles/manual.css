@@ -38,7 +38,7 @@
 
 .ps-blrow--manual { cursor: default; }
 .ps-blrow--manual:hover { background: none; }
-.ps-blrow--manual:not([data-not-purchased]) { grid-template-columns: 48px minmax(0, 1fr) 40px; }
+.ps-blrow--manual:not([data-not-purchased]) { grid-template-columns: 48px minmax(0, 1fr) var(--tap-min); }
 .ps-blrow--manual .ps-blrow__menu { position: relative; z-index: 2; }
 
 @media (max-width: 767px) {

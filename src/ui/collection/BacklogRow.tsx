@@ -23,8 +23,9 @@ export function BacklogRow({
         </span>
         <RemainingMeter duration={game.duration} playedSeconds={game.playSeconds} variant="row" hideBar={hideBar} />
       </div>
-      <button type="button" className="ps-btn ps-btn--primary ps-blrow__play" aria-label={`Начать играть: ${game.title}`} onClick={onPlay}>
-        Играть
+      {/* D-P3: главная кнопка страницы одна (карточка «Следующая по плану»), в строках тихая ▶ 44×44 */}
+      <button type="button" className="ps-btn ps-btn--icon ps-blrow__play" aria-label={`Начать играть: ${game.title}`} title="Начать играть" onClick={onPlay}>
+        <Icon name="play" size={16} />
       </button>
       <Popover
         align="end" className="ps-blrow__menu"

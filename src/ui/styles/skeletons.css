@@ -79,7 +79,7 @@
   .ps-sk-d { display: none; }
   .ps-sk-chip { height: var(--control-h); }
   .ps-sk-bltool { width: 40px; height: 40px; }
-  .ps-sk-blfilters { height: 40px; margin: var(--sp-2) 0 var(--sp-3); }
+  .ps-sk-blfilters { height: var(--tap-min); margin: var(--sp-2) 0 var(--sp-3); }
   .ps-sk-reccards { grid-template-columns: minmax(0, 1fr); }
   .ps-sk-toprow { height: 64px; }
   .ps-sk-back { height: var(--tap-min); }
