@@ -209,7 +209,7 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
         return { top: p.top, bottom: p.bottom, btns, vh: innerHeight };
       });
       expect(b.top, `шаг ${step}`).toBeGreaterThanOrEqual(0);
-      for (const x of b.btns) { expect(x.b).toBeLessThanOrEqual(b.vh); expect(x.h).toBeGreaterThanOrEqual(44); }
+      for (const x of b.btns) { expect(x.b).toBeLessThanOrEqual(b.vh); expect(x.h).toBeGreaterThanOrEqual(44 - 0.01); } // 44 с допуском на субпиксель (43.99998 в CI)
     }
   });
 
