@@ -76,8 +76,9 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-gd { animation-name: ps-gd-up; }
   .ps-gd__closewrap { top: env(safe-area-inset-top); }
   .ps-gd__close { top: var(--sp-2); right: var(--sp-2); width: var(--tap-min); height: var(--tap-min); }
-  .ps-tabs2 { padding: 0 60px 0 0; margin-top: var(--sp-4); top: env(safe-area-inset-top); }
-  .ps-tab2 { flex: 1; height: 48px; }
+  /* вкладки по центру равными колонками; поля симметричны под липкий ✕ (44 px), чтобы ряд не съезжал влево и «Трофеи N/M» влезали на 375 */
+  .ps-tabs2 { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 var(--tap-min); margin-top: var(--sp-4); top: env(safe-area-inset-top); }
+  .ps-tab2 { height: 48px; padding: 0; gap: var(--sp-1); white-space: nowrap; }
   .ps-tab2[aria-selected="true"]::after { left: 0; right: 0; }
   .ps-gd__ctl { top: calc(48px + env(safe-area-inset-top)); flex-wrap: wrap; }
   .ps-gd__ctl .ps-seg { flex: 1 1 100%; }
