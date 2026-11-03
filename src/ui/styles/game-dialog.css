@@ -255,7 +255,7 @@ svg.ps-trophy__type { color: var(--plat-text); }
 .ps-gd__rvv { font: var(--fw-display) 16px/24px var(--font-display); color: var(--text-2); }
 .ps-gd__rvv b { font-size: 22px; color: var(--text); }
 .ps-gd__rvv[data-empty] { color: var(--text-3); font: inherit; font-size: var(--fs-small); }
-.ps-rate { display: grid; grid-template-columns: repeat(11, minmax(28px, 1fr)); gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ps-rate { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .ps-rate__opt { position: relative; display: grid; place-items: center; height: 36px; border-radius: var(--r-sm); background: var(--surface-3); color: var(--text-2); font: 600 14px/1 var(--font-display); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .ps-rate__opt[data-on] { background: color-mix(in srgb, var(--accent) 35%, var(--surface-3)); color: var(--text); }
 .ps-rate__opt[data-picked] { background: var(--accent); color: var(--accent-ink); }
@@ -282,4 +282,9 @@ svg.ps-trophy__type { color: var(--plat-text); }
   .ps-gd__doneedit { width: var(--tap-min); height: var(--tap-min); }
   .ps-rate__opt { height: var(--tap-min); }
   .ps-gd__rvreset { min-height: var(--tap-min); }
+  .ps-rate { gap: 3px; }
+  /* три плитки в 390: подписи переносятся на 2 строки вместо обрезки («посл. 2 нед. назад», «платина 5 окт. 2026») */
+  .ps-gd__ts, .ps-gd__tplatl { white-space: normal; overflow-wrap: anywhere; }
+  .ps-gd__tplatl { align-items: flex-start; }
+  .ps-gd__tplatl > svg { flex: none; margin-top: 2px; }
 }

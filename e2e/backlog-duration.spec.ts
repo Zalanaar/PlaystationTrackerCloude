@@ -170,7 +170,7 @@ test.describe('Ручной ввод длительности', () => {
     await dlg.getByRole('button', { name: 'Сохранить длительность' }).click();
     await expect(dlg.getByTestId('duration-now')).toContainText('≈ 41 ч');
     await expect(dlg.getByTestId('duration-now')).toContainText('вручную');
-    await expect(dlg.getByRole('status')).toHaveText('Сохранено');
+    await expect(dlg.locator('.ps-gd__duration').getByRole('status')).toHaveText('Сохранено');
     const call = mock.mutations.find((x) => x.url.includes('/duration'));
     expect(call?.method).toBe('PATCH');
     expect(call?.body).toEqual({ hours: 40.5 });

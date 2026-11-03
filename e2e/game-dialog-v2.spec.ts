@@ -91,6 +91,7 @@ test.describe('Batch 1: окно игры v2', () => {
     await expect(d.getByTestId('review-value')).toHaveText('7/10');
     await expect(d.getByLabel('Заметка')).toHaveValue('Красиво');
     await d.getByRole('button', { name: 'Закрыть' }).click();
+    await expect(page).not.toHaveURL(/game=/); // закрытие меняет адрес; иначе goto ниже перебивается этим переходом (WebKit)
     if (info.project.name !== 'mobile') {
       await page.goto('/?view=list&sort=rating');
       await expect(page.getByTestId('row-rating')).toHaveText(['★ 10', '★ 7', '★ 0']);
