@@ -39,6 +39,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ru" suppressHydrationWarning data-theme={attrForTheme(theme) ?? undefined} data-xmb-month={xmbMonth()} className={`${inter.variable} ${unbounded.variable}`}>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* CDN обложек PSN: DNS+TLS, пока сервер ждёт БД, — первая обложка (LCP `/`) не ждёт соединения. Картинки без CORS: без crossorigin */}
+        <link rel="preconnect" href="https://image.api.playstation.com" />
       </head>
       <body>
         <div className="ps-app min-h-screen">{children}</div>
