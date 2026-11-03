@@ -181,6 +181,7 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const dur = await import('@/app/api/games/[id]/duration/route');
     const sd = await import('@/app/api/games/[id]/status-date/route');
     const rv = await import('@/app/api/games/[id]/review/route');
+    const gd = await import('@/app/api/games/[id]/guide/route');
     const me = await import('@/app/api/games/[id]/month-exclusions/route');
     const bulk = await import('@/app/api/games/status-bulk/route');
     const restore = await import('@/app/api/games/status-restore/route');
@@ -195,6 +196,7 @@ describe('роуты с чужими id: B получает 404/пусто, да
       await sd.PATCH(await asB('/x', 'PATCH', { completedAt: '2026-01-01T00:00:00Z' }), pid(aGame)),
       await me.PUT(await asB('/x', 'PUT', { month: '2026-02', excluded: true }), pid(aGame)),
       await rv.PUT(await asB('/x', 'PUT', { rating: 7, note: 'чужая' }), pid(aGame)),
+      await gd.PUT(await asB('/x', 'PUT', { override: 'https://example.com/g', dismissed: true }), pid(aGame)),
       await bulk.POST(await asB('/x', 'POST', { ids: [aGame], status: 'dropped' })),
       await restore.POST(await asB('/x', 'POST', { backupId: aBackup })),
       await ex.POST(await asB('/x', 'POST', { gameId: aGame })),
@@ -212,6 +214,7 @@ describe('роуты с чужими id: B получает 404/пусто, да
     expect(st).toHaveLength(1);
     expect(st[0].status).toBe('backlog');
     expect((await t.db.select().from(games))[0].durationOverrideHours ?? null).toBeNull();
+    expect((await t.db.select().from(games))[0]).toMatchObject({ guideUrlOverride: null, guideMatchDismissed: false });
     for (const tbl of [gameMonthExclusions, roadmapExcluded, recommendDislikes, roadmapOrder, gameReviews]) expect(await t.db.select().from(tbl)).toHaveLength(0);
   });
 

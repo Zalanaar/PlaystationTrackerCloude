@@ -224,6 +224,18 @@ export type GameDetailsResponse = {
   history?: GameHistory | null;
   /** F1 (9.9): оценка и заметка; null = нет. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
   review?: GameReview | null;
+  /** F2-B: гайд из индекса и ручная ссылка. Необязательное в типе (фикстуры UI, старый сервер); сервер присылает всегда. */
+  guide?: GameGuide;
+};
+
+/** F2-B (пакет 3): точный гайд PowerPyx из недельного индекса, ручная ссылка владельца, «Не тот гайд». */
+export type GameGuide = {
+  /** Совпадение по названию (точное или алиас); null — нет или отклонено («Не тот гайд»). */
+  match: { title: string; url: string; wikiUrl: string | null } | null;
+  /** Своя ссылка (https), приоритетнее совпадения. */
+  override: string | null;
+  /** «Не тот гайд»: автоподбор для этой игры скрыт. */
+  dismissed: boolean;
 };
 
 /**

@@ -3537,3 +3537,11 @@ OtherPlatformGame = {
 - `FeedItem`: `id, setId, trophyId, type, name, detail, iconUrl, earnedAt, day, earnedRate, rarity, setName, game: { id, title } | null`.
 - Ошибки: 400 `bad_request` (параметры, курсор), 401, 503 `db_unavailable`. ETag, `private, no-cache`.
 - Страница `/trophies` (SSR первой страницы, выбор в URL `?period=&rare=1`), вход: чип «+N трофеев» (`/trophies?period=7d`), меню «Лента трофеев», ссылка «Вся лента трофеев» в Статистике.
+
+## F2-B. Гайды: недельный индекс PowerPyx, своя ссылка, «Не тот гайд» (миграция 0031)
+- Таблицы (аддитивно): `guide_index` (`source` = `powerpyx`, `title`, `title_key`, `url`, `kind` `trophy|wiki`, `fetched_at`; глобальный каталог, сид — снимок 03.11.2026, 596 гайдов) и `guide_index_runs` (попытки: `ok|challenge|too_few|http_error|network_error`). В `games`: `guide_url_override` (https, ≤500) и `guide_match_dismissed` (bool, default false).
+- Обновление: шаг ночного `/api/cron/sync` (старт обхода, после ответа, только `VERCEL_ENV=production`). Снимку 7+ дней и последней попытке 20+ ч → один GET `https://www.powerpyx.com/guides/` (браузерный UA, 10 с). Челлендж (`<title>One moment…`, `cf-mitigated`), < 500 гайдов, не-200, сеть — снимок не трогаем, попытку пишем. Успех — замена снимка в транзакции.
+- Сопоставление: только равенство `guideKey(название)` (без ™®©, римские → арабские, без платформы/издания/«Remake»/скобок) или алиаса (`src/server/guides/aliases.ts`: RE 8/9, AC 4 Resynced, MGS Δ). Префиксы и «похожие» — никогда. DLC индекса не сопоставляются.
+- `GET /api/games/{id}` → `guide: { match: { title, url, wikiUrl } | null, override: string | null, dismissed: boolean }` (главная карточка дубля; сбой индекса — `match: null`). `match` = null при `dismissed`.
+- `PUT /api/games/{id}/guide` `{ override?: "https://…" | null | "", dismissed?: boolean }` → `{ gameId, guide }`. 400 `invalid_request` (не https, пробелы, > 500, лишние поля), 404 чужая/нет игры, 503.
+- UI: своя ссылка → найденный гайд (видно название гайда: ремейк/оригинал) → ссылки-поиск PowerPyx и PSNProfiles (всегда).

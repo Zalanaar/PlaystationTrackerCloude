@@ -1,0 +1,589 @@
+{
+"_note": "F2-B: 208 названий библиотеки (03.11.2026) и итог сопоставления с индексом PowerPyx /guides/ (guides-match.py). exact — [название PSN, название PowerPyx]; prefix/none — автоматически не сопоставляются.",
+"exact": [
+[
+"Little Nightmares III",
+"Little Nightmares 3"
+],
+[
+"Call of Duty®: Modern Warfare® II",
+"Call of Duty: Modern Warfare 2 (2022)"
+],
+[
+"SILENT HILL: Townfall",
+"Silent Hill Townfall"
+],
+[
+"Marvel’s Wolverine",
+"Marvel's Wolverine"
+],
+[
+"Onimusha: Way of the Sword",
+"Onimusha Way of the Sword"
+],
+[
+"Mafia: The Old Country",
+"Mafia The Old Country"
+],
+[
+"Halo: Campaign Evolved",
+"Halo Campaign Evolved"
+],
+[
+"Call of Duty®: Black Ops",
+"Call of Duty: Black Ops"
+],
+[
+"Grand Theft Auto V (PlayStation®5)",
+"Grand Theft Auto V (GTA V)"
+],
+[
+"Marathon",
+"Marathon"
+],
+[
+"Bramble: The Mountain King",
+"Bramble: The Mountain King"
+],
+[
+"LEGO® Batman™: Legacy of the Dark Knight",
+"LEGO Batman: Legacy of the Dark Knight"
+],
+[
+"007 First Light",
+"007 First Light"
+],
+[
+"Forza Horizon 5",
+"Forza Horizon 5"
+],
+[
+"Diablo® IV",
+"Diablo IV"
+],
+[
+"Mixtape",
+"Mixtape"
+],
+[
+"MOUSE: P.I. For Hire",
+"Mouse P.I. For Hire"
+],
+[
+"PRAGMATA",
+"Pragmata"
+],
+[
+"Starfield",
+"Starfield (PS5)"
+],
+[
+"Battlefield™ 6",
+"Battlefield 6"
+],
+[
+"Assassin's Creed® IV Black Flag",
+"Assassin's Creed 4 Black Flag"
+],
+[
+"Assassin's Creed® III Remastered",
+"Assassin's Creed 3"
+],
+[
+"Crimson Desert Enhanced",
+"Crimson Desert"
+],
+[
+"Yakuza Kiwami 3 & Dark Ties PS4 & PS5",
+"Yakuza Kiwami 3 & Dark Ties"
+],
+[
+"God of War Sons of Sparta",
+"God of War Sons of Sparta"
+],
+[
+"REANIMAL",
+"Reanimal"
+],
+[
+"Uncharted™: The Nathan Drake Collection",
+"Uncharted: The Nathan Drake Collection"
+],
+[
+"SILENT HILL 2",
+"Silent Hill 2 Remake"
+],
+[
+"Dead Rising Deluxe Remaster",
+"Dead Rising Deluxe Remaster"
+],
+[
+"Borderlands 4",
+"Borderlands 4"
+],
+[
+"NINJA GAIDEN 4",
+"Ninja Gaiden 4"
+],
+[
+"Until Dawn™",
+"Until Dawn"
+],
+[
+"ARC Raiders",
+"Arc Raiders"
+],
+[
+"Vampire: The Masquerade® - Bloodlines™ 2",
+"Vampire: The Masquerade - Bloodlines 2"
+],
+[
+"Metal Eden",
+"Metal Eden"
+],
+[
+"Ghost of Yōtei",
+"Ghost of Yotei"
+],
+[
+"SILENT HILL f",
+"Silent Hill f"
+],
+[
+"Indiana Jones and the Great Circle",
+"Indiana Jones and the Great Circle"
+],
+[
+"Call of Duty®: Black Ops III",
+"Call of Duty: Black Ops 3"
+],
+[
+"Hell is Us",
+"Hell is Us"
+],
+[
+"Lost Soul Aside™",
+"Lost Soul Aside"
+],
+[
+"Gears of War: Reloaded",
+"Gears of War Reloaded"
+],
+[
+"The Elder Scrolls IV: Oblivion Remastered",
+"The Elder Scrolls IV: Oblivion Remastered"
+],
+[
+"Wo Long: Fallen Dynasty",
+"Wo Long: Fallen Dynasty"
+],
+[
+"Cyberpunk 2077",
+"Cyberpunk 2077"
+],
+[
+"Blades of Fire",
+"Blades of Fire"
+],
+[
+"Concrete Genie",
+"Concrete Genie"
+],
+[
+"DEATH STRANDING 2: ON THE BEACH",
+"Death Stranding 2: On the Beach"
+],
+[
+"Dead Island 2",
+"Dead Island 2"
+],
+[
+"DAYS GONE",
+"Days Gone"
+],
+[
+"ELDEN RING NIGHTREIGN",
+"Elden Ring Nightreign"
+],
+[
+"Stellar Blade™",
+"Stellar Blade"
+],
+[
+"Persona 3 Reload",
+"Persona 3 Reload"
+],
+[
+"DOOM: The Dark Ages",
+"Doom: The Dark Ages"
+],
+[
+"Shin Megami Tensei V: Vengeance",
+"Shin Megami Tensei V: Vengeance"
+],
+[
+"ELDEN RING",
+"Elden Ring"
+],
+[
+"RoboCop: Rogue City",
+"Robocop Rogue City"
+],
+[
+"Clair Obscur: Expedition 33",
+"Clair Obscur: Expedition 33"
+],
+[
+"Metaphor: ReFantazio",
+"Metaphor: ReFantazio"
+],
+[
+"Split Fiction",
+"Split Fiction"
+],
+[
+"Demon's Souls",
+"Demon's Souls PS5 Remake"
+],
+[
+"DARK SOULS™ III",
+"Dark Souls 3"
+],
+[
+"Assassin’s Creed Shadows",
+"Assassin's Creed Shadows"
+],
+[
+"KILLZONE™ SHADOW FALL",
+"Killzone Shadow Fall"
+],
+[
+"Remnant II®",
+"Remnant 2"
+],
+[
+"Monster Hunter Rise",
+"Monster Hunter Rise"
+],
+[
+"SHADOW OF THE COLOSSUS™",
+"Shadow of the Colossus (PS4 Remake)"
+],
+[
+"Monster Hunter Wilds",
+"Monster Hunter Wilds"
+],
+[
+"Monster Hunter: World",
+"Monster Hunter World"
+],
+[
+"Red Dead Redemption",
+"Red Dead Redemption Remaster (PS4/PS5)"
+],
+[
+"FINAL FANTASY VII REBIRTH",
+"Final Fantasy VII Rebirth"
+],
+[
+"Black Myth: Wukong",
+"Black Myth: Wukong"
+],
+[
+"Star Wars Outlaws",
+"Star Wars Outlaws"
+],
+[
+"LEGO® Horizon Adventures™",
+"LEGO Horizon Adventures"
+],
+[
+"Hades",
+"Hades"
+],
+[
+"The Evil Within",
+"The Evil Within"
+],
+[
+"Prince of Persia The Lost Crown",
+"Prince of Persia: The Lost Crown"
+],
+[
+"God of War Ragnarök",
+"God of War Ragnarok"
+],
+[
+"Horizon Forbidden West",
+"Horizon Forbidden West"
+],
+[
+"RESIDENT EVIL 2",
+"Resident Evil 2 Remake"
+],
+[
+"Nioh",
+"Nioh"
+],
+[
+"Terminator: Resistance Enhanced",
+"Terminator: Resistance"
+],
+[
+"Ghostwire: Tokyo",
+"Ghostwire Tokyo"
+],
+[
+"Detroit: Become Human™",
+"Detroit: Become Human"
+],
+[
+"Assassin's Creed® Mirage",
+"Assassin's Creed Mirage"
+],
+[
+"BATMAN™: ARKHAM KNIGHT",
+"Batman: Arkham Knight"
+],
+[
+"It Takes Two  PS4™ & PS5™",
+"It Takes Two"
+],
+[
+"Thief",
+"Thief"
+],
+[
+"Alan Wake 2",
+"Alan Wake 2"
+],
+[
+"Marvel’s Spider-Man 2",
+"Marvel's Spider-Man 2"
+],
+[
+"Marvel's Spider-Man: Miles Morales",
+"Marvel's Spider-Man Miles Morales"
+],
+[
+"Alone in the Dark",
+"Alone in the Dark (2024)"
+],
+[
+"Lies of P",
+"Lies of P"
+],
+[
+"Assassin's Creed Valhalla",
+"Assassin's Creed Valhalla"
+],
+[
+"STAR WARS™ Battlefront™ II",
+"Star Wars Battlefront 2"
+],
+[
+"The Dark Pictures Anthology: Man of Medan PS4 & PS5",
+"The Dark Pictures Anthology: Man of Medan"
+],
+[
+"Sackboy: A Big Adventure",
+"Sackboy: A Big Adventure"
+],
+[
+"Resident Evil 4",
+"Resident Evil 4 Remake"
+],
+[
+"Sonic Frontiers PS4 & PS5",
+"Sonic Frontiers"
+],
+[
+"Call of Duty®: Black Ops Cold War",
+"Call of Duty: Black Ops Cold War"
+],
+[
+"Kena: Bridge of Spirits",
+"Kena Bridge of Spirits"
+],
+[
+"FINAL FANTASY XVI",
+"Final Fantasy XVI"
+],
+[
+"Need for Speed™ Unbound",
+"Need for Speed Unbound"
+],
+[
+"ASTRO's PLAYROOM",
+"Astro's Playroom"
+],
+[
+"God of War® III Remastered",
+"God of War III"
+],
+[
+"Hogwarts Legacy",
+"Hogwarts Legacy"
+],
+[
+"Biomutant",
+"Biomutant"
+],
+[
+"STAR WARS Jedi: Fallen Order™",
+"Star Wars Jedi: Fallen Order"
+],
+[
+"DEATHLOOP",
+"Deathloop"
+],
+[
+"Control",
+"Control"
+],
+[
+"Horizon Zero Dawn™",
+"Horizon Zero Dawn"
+],
+[
+"Bloodborne™",
+"Bloodborne"
+],
+[
+"Mortal Kombat 11",
+"Mortal Kombat 11"
+],
+[
+"The Order: 1886",
+"The Order: 1886"
+],
+[
+"The Witcher 3: Wild Hunt — Remastered",
+"The Witcher 3: Wild Hunt"
+],
+[
+"The Callisto Protocol",
+"The Callisto Protocol"
+],
+[
+"DEATH STRANDING™",
+"Death Stranding"
+],
+[
+"Ghost of Tsushima",
+"Ghost of Tsushima"
+],
+[
+"Stray",
+"Stray"
+],
+[
+"MediEvil",
+"MediEvil"
+],
+[
+"Red Dead Redemption 2",
+"Red Dead Redemption 2"
+],
+[
+"Ratchet & Clank: Rift Apart",
+"Ratchet & Clank Rift Apart"
+],
+[
+"Marvel's Spider-Man",
+"Marvel's Spider-Man (2018)"
+],
+[
+"God of War",
+"God of War (2018)"
+]
+],
+"prefix": [
+"Call of Duty®",
+"Marathon Server Slam",
+"Minecraft",
+"Minecraft Dungeons",
+"The Outer Worlds: Spacer's Choice Edition",
+"Borderlands®: Game of the Year Edition",
+"Mafia: Definitive Edition",
+"The Last of Us™ Part II",
+"Shadows of the Damned: Hella Remastered",
+"FINAL FANTASY",
+"Call of Duty®: Modern Warfare® Remastered",
+"Dead Space",
+"ARMORED CORE™ VI FIRES OF RUBICON™",
+"Batman",
+"Ghostrunner",
+"The Last of Us™ Part I",
+"Ratchet & Clank™"
+],
+"none": [
+"Trails in the Sky 2nd Chapter",
+"Gran Turismo™ 7",
+"METAL GEAR SOLID: MASTER COLLECTION Vol.2",
+"ACE COMBAT™ 7: SKIES UNKNOWN",
+"Assassin's Creed Black Flag Resynced",
+"Gothic 1 Remake",
+"BLEACH Rebirth of Souls",
+"Sea of Thieves",
+"Directive 8020",
+"Bus Bound",
+"Gothic Classic",
+"The Lord of the Rings: Return to Moria™",
+"Assassin's Creed The Ezio Collection",
+"Resident Evil Requiem",
+"Overwatch®",
+"Diablo® II: Resurrected™",
+"Terraria – PlayStation®4 Edition",
+"Highguard",
+"Horizon Call of the Mountain™",
+"Drums Rock",
+"Core Keeper",
+"Resident Evil Village",
+"Trails in the Sky 1st Chapter",
+"Yakuza 0 Director's Cut",
+"Marvel Rivals",
+"Dispatch",
+"RoadCraft",
+"Painkiller",
+"Killing Floor 2",
+"Borderlands: The Handsome Collection",
+"HELLDIVERS™ 2",
+"METAL GEAR SOLID Δ: SNAKE EATER",
+"Atomfall",
+"STRANGER OF PARADISE FINAL FANTASY ORIGIN PS4 & PS5",
+"NINJA GAIDEN 2 Black",
+"FINAL FANTASY II",
+"Warhammer 40,000: Darktide",
+"DARK SOULS™ II: Scholar of the First Sin",
+"METAL GEAR SOLID: MASTER COLLECTION Vol. 1",
+"Dino Crisis",
+"Suicide Squad: Kill the Justice League",
+"PowerWash Simulator",
+"Last Time I Saw You",
+"Fortnite",
+"THE FINALS",
+"Batman: Return to Arkham",
+"Mass Effect™ Legendary Edition",
+"Baldur's Gate 3",
+"Neon White",
+"Cities: Skylines",
+"Sea of Stars: Sunset Edition",
+"FORECLOSED",
+"Trine 4: The Nightmare Prince",
+"Tricky Towers",
+"Serious Sam Collection",
+"Batman: The Enemy Within",
+"Devil May Cry HD Collection",
+"The Dark Pictures Anthology: House of Ashes",
+"Marvel Ultimate Alliance",
+"NARUTO SHIPPUDEN: Ultimate Ninja STORM 4",
+"Rogue Legacy 2",
+"The Medium",
+"South Park™: The Stick of Truth™",
+"Erica",
+"Bloodstained: Ritual of the Night",
+"Cult of the Lamb",
+"Knowledge is Power™: Decades"
+]
+}

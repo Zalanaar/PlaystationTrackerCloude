@@ -48,6 +48,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
     await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS session_epoch integer NOT NULL DEFAULT 0');
     // то же для отметки «Что нового» (0030, пакет 2)
     await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS whats_new_seen integer');
+    // то же для гайда игры (0031, пакет 3)
+    await client.exec('ALTER TABLE games ADD COLUMN IF NOT EXISTS guide_url_override text, ADD COLUMN IF NOT EXISTS guide_match_dismissed boolean NOT NULL DEFAULT false');
     // то же для колонок дублей (0018): схема drizzle в коде их уже выбирает
     await client.exec('ALTER TABLE games ADD COLUMN IF NOT EXISTS duplicate_of_game_id integer, ADD COLUMN IF NOT EXISTS not_duplicate boolean NOT NULL DEFAULT false');
   }
@@ -69,6 +71,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       await client.exec(`DO $$ BEGIN IF to_regclass('public.provider_usage') IS NOT NULL THEN TRUNCATE provider_usage; END IF; END $$`);
       // hltb_runs есть только с 0028
       await client.exec(`DO $$ BEGIN IF to_regclass('public.hltb_runs') IS NOT NULL THEN TRUNCATE hltb_runs RESTART IDENTITY; END IF; END $$`);
+      // попытки обновления индекса гайдов (0031); сам снимок guide_index — сид миграции, общий каталог, не трогаем
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.guide_index_runs') IS NOT NULL THEN TRUNCATE guide_index_runs RESTART IDENTITY; END IF; END $$`);
     },
     close: () => client.close(),
   };

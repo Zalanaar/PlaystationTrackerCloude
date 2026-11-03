@@ -80,6 +80,9 @@ export const games = pgTable(
     // Фаза 23 (контракт 25.1): дубль главной игры (та же игра на другой платформе). Пишет синк и POST .../not-duplicate. not_duplicate синк не трогает.
     duplicateOfGameId: integer('duplicate_of_game_id'),
     notDuplicate: boolean('not_duplicate').notNull().default(false),
+    // F2-B (пакет 3): своя ссылка на гайд (приоритетнее индекса) и «Не тот гайд» (автоподбор по индексу не показывать)
+    guideUrlOverride: text('guide_url_override'),
+    guideMatchDismissed: boolean('guide_match_dismissed').notNull().default(false),
     createdAt: tz('created_at').notNull().defaultNow(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
   },
@@ -97,6 +100,7 @@ export const games = pgTable(
     check('games_hltb_main_check', sql`${t.hltbMainHours} is null or ${t.hltbMainHours} > 0`),
     check('games_hltb_extra_check', sql`${t.hltbExtraHours} is null or ${t.hltbExtraHours} > 0`),
     check('games_duration_override_check', sql`${t.durationOverrideHours} is null or ${t.durationOverrideHours} > 0`),
+    check('games_guide_url_override_check', sql`${t.guideUrlOverride} is null or (${t.guideUrlOverride} ~ '^https://' and length(${t.guideUrlOverride}) <= 500)`),
   ],
 );
 
@@ -801,5 +805,44 @@ export const manualGames = pgTable(
     check('manual_games_not_purchased_check', sql`${t.kind} = 'ps_backlog' or ${t.notPurchased} = false`),
     check('manual_games_linked_check', sql`${t.linkedGameId} is null or (${t.notPurchased} = false and ${t.suggestedGameId} is null)`),
     check('manual_games_platform_label_check', sql`${t.platformLabel} is null or char_length(${t.platformLabel}) between 1 and 60`),
+  ],
+);
+
+/**
+ * F2-B (пакет 3): недельный снимок индекса гайдов (PowerPyx /guides/). Глобальный каталог, не пользовательский.
+ * Снимок заменяется целиком только при успешной загрузке (челлендж / мало строк — старый остаётся).
+ */
+export const guideIndex = pgTable(
+  'guide_index',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    source: text().notNull(),
+    title: text().notNull(),
+    titleKey: text('title_key').notNull(),
+    url: text().notNull(),
+    kind: text().notNull(),
+    fetchedAt: tz('fetched_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('guide_index_source_url_key').on(t.source, t.url),
+    index('guide_index_source_title_key_idx').on(t.source, t.titleKey),
+    check('guide_index_source_check', sql`${t.source} in ('powerpyx')`),
+    check('guide_index_kind_check', sql`${t.kind} in ('trophy','wiki')`),
+  ],
+);
+
+/** F2-B: попытки обновления индекса гайдов (не чаще раза в сутки, снимок — раз в 7 дней). */
+export const guideIndexRuns = pgTable(
+  'guide_index_runs',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    source: text().notNull(),
+    startedAt: tz('started_at').notNull().defaultNow(),
+    outcome: text().notNull(),
+    rows: integer().notNull().default(0),
+  },
+  (t) => [
+    index('guide_index_runs_source_started_idx').on(t.source, t.startedAt.desc()),
+    check('guide_index_runs_outcome_check', sql`${t.outcome} in ('ok','challenge','too_few','http_error','network_error')`),
   ],
 );

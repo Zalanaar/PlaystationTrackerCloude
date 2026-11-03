@@ -8,7 +8,8 @@ import type { EstimateInput } from '@/server/stats/hours';
 import { buildGameHistory } from './history';
 import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
-import type { GameDetailsResponse, GameTrophyItem } from './types';
+import type { GameDetailsResponse, GameGuide, GameTrophyItem } from './types';
+import { getGameGuide } from '@/server/guides/game-guide';
 
 const { games, gameStatus, gameReviews, gameMonthExclusions, gameTrophySets, playtimeSnapshots, trophies } = schema;
 
@@ -135,6 +136,8 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
     loadHistoryInput(db, userId, id),
   ]);
   if (!game || !meta) return null;
+  // F2-B: гайд не роняет окно игры (нет снимка индекса / сбой — только ссылки-поиск)
+  const guide = await getGameGuide(db, userId, id).catch((): GameGuide => ({ match: null, override: null, dismissed: false }));
   const trophyList = rows.map(toTrophyItem);
   const history = buildGameHistory({ ...historyInput, trophies: trophyList });
   return {
@@ -146,5 +149,6 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
     platinumForecast: platinumForecast(setAggsFromTrophies(trophyList)),
     history,
     review: meta.reviewUpdatedAt ? { rating: meta.reviewRating, note: meta.reviewNote, updatedAt: meta.reviewUpdatedAt.toISOString() } : null,
+    guide,
   };
 }

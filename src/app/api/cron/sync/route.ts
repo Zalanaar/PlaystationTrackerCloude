@@ -8,6 +8,7 @@ import { buildCheck, recheckPending } from '@/server/auth/psn-access';
 import { getOwnerUserId } from '@/server/auth/users';
 import { launchSync, queueChain, type LaunchResult } from '@/server/sync/service';
 import { listSyncUsers } from '@/server/sync/users';
+import { refreshGuideIndex } from '@/server/guides/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,9 @@ export async function GET(req: Request) {
 
     // старт обхода: сначала повторная проверка unavailable/friend_required (не больше 5, не чаще раза в 6 ч на пользователя)
     if (queueAfter === undefined) await recheckPending(db, buildCheck(db, env)).catch(() => 0);
+    // F2-B: индекс гайдов PowerPyx — раз в 7 дней, одна попытка в сутки, после ответа (не задерживает обход).
+    // Только прод Vercel: превью, тесты и локальный запуск на внешний сайт не ходят.
+    if (queueAfter === undefined && process.env.VERCEL_ENV === 'production') after(() => refreshGuideIndex(db).then((o) => { if (o !== 'skipped_fresh' && o !== 'skipped_recent_attempt') console.info(`cron: guide index ${o}`); }).catch(() => undefined));
 
     const users = await listSyncUsers(db, env.targetOnlineId, { afterId: queueAfter });
     if (queueAfter === undefined) {
