@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OtherPlatformGame } from './api';
-import { gamesText, otherGroups, otherStats, otherYear, platformChip } from './block';
+import { defaultChip, gamesText, otherGroups, otherStats, otherYear, platformChip } from './block';
 
 const g = (id: number, o: Partial<OtherPlatformGame> = {}): OtherPlatformGame => ({
   id, source: 'manual', kind: 'other_platform', externalSource: 'rawg', externalId: String(id), title: `G${id}`, coverUrl: null, releaseDate: null,
@@ -44,5 +44,15 @@ describe('блок «Игры с других платформ»', () => {
     });
     expect(otherStats([]).avgRating).toBeNull();
     expect([gamesText(1), gamesText(3), gamesText(5)]).toEqual(['1 игра', '3 игры', '5 игр']);
+  });
+});
+
+describe('defaultChip', () => {
+  it('первая узнанная платформа RAWG; PlayStation и неизвестные пропускаются; пусто → null', () => {
+    expect(defaultChip(['PlayStation 5', 'Xbox One', 'PC'])).toBe('Xbox');
+    expect(defaultChip(['Nintendo Switch'])).toBe('Switch');
+    expect(defaultChip(['macOS'])).toBe('PC');
+    expect(defaultChip(['PlayStation 4', 'Wii U'])).toBeNull();
+    expect(defaultChip([])).toBeNull();
   });
 });

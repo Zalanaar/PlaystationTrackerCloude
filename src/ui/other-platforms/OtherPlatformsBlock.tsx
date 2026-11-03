@@ -8,7 +8,7 @@ import { STATUS_META } from '../tokens';
 import { Cover } from '../collection/Cover';
 import { BlockHead } from '../collection/Chronicle';
 import { parseDuplicate } from '../collection/manual';
-import { addOtherPlatform, fetchOtherPlatforms, removeOtherPlatform, restoreBody, type OtherPlatformGame } from './api';
+import { addOtherPlatform, fetchOtherPlatforms, removeOtherPlatform, restoreBody, restoreMetaBody, updateOtherPlatform, type OtherPlatformGame } from './api';
 import { gamesText, OTHER_STATUS_ORDER, otherGroups, otherStats } from './block';
 import { addedToastText, mergeOther, removedToastText, sortOther } from './model';
 
@@ -65,8 +65,15 @@ export function OtherPlatformsBlock() {
         if (!parseDuplicate(e)) throw e;
         r = await addOtherPlatform(restoreBody(g, true));
       }
-      // статус, оценка и заметка не возвращаются: meta удалена вместе с записью
-      if (alive.current) setItems((l) => mergeOther(l ?? [], [r.item]));
+      // meta удалена каскадом вместе с записью: возвращаем статус (с прежней датой), оценку и заметку отдельным PATCH
+      let item = r.item;
+      const metaBody = restoreMetaBody(g);
+      if (metaBody) {
+        try { item = (await updateOtherPlatform(item.id, metaBody)).item; } catch {
+          toast({ text: 'Игра возвращена, но статус, оценку и заметку восстановить не удалось.', kind: 'error', alert: true });
+        }
+      }
+      if (alive.current) setItems((l) => mergeOther(l ?? [], [item]));
     } catch {
       toast({ text: 'Не удалось вернуть. Добавь игру заново через «+ Другая платформа».', kind: 'error', alert: true });
     }

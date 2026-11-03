@@ -543,3 +543,6 @@
   .ps-opb__stats, .ps-opd__chip { border-width: 2px; }
   .ps-opb__st, .ps-op__rate, .ps-opd__hint, .ps-opd__note { color: var(--text); }
 }
+/* пакет 5: чипы платформы в панели добавления — отдельной строкой под игрой, как в окне записи */
+.ps-add-row--op .ps-op-plats { grid-column: 2 / -1; padding-right: var(--sp-2); }
+@media (max-width: 400px) { .ps-add-row--op .ps-op-plats { grid-column: 1 / -1; } }

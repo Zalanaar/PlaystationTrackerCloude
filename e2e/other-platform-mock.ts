@@ -102,7 +102,7 @@ export async function mockOtherPlatforms(page: Page, init: Partial<OPMock> = {})
       const cur = m.items.find((x) => x.id === id);
       if (!cur) return send(route, { status: 404, error: { code: 'not_found', message: 'x' } });
       const changed = body.status !== undefined && body.status !== cur.status;
-      Object.assign(cur, body, changed ? { statusChangedAt: body.status === null ? null : '2026-11-03T12:00:00.000Z' } : {});
+      Object.assign(cur, body, body.statusChangedAt ? {} : changed ? { statusChangedAt: body.status === null ? null : '2026-11-03T12:00:00.000Z' } : {});
       return ok(route, { item: cur });
     }
     m.removeCalls.push(id);

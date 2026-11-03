@@ -9,9 +9,10 @@ import { Sheet } from '../primitives/Sheet';
 import { Cover } from '../collection/Cover';
 import { MAX_QUERY, MAX_RESULTS, canSearch, classifySearchError, normalizeQuery, parseDuplicate, searchReleaseText, type DuplicateInfo, type SearchFailure } from '../collection/manual';
 import { catalogGuard, useOnline } from '../collection/useSuggest';
-import { PLATFORM_NONE, clampPlatformLabel, platformOptions } from '@/shared/platforms';
+import { PLATFORM_NONE } from '@/shared/platforms';
 import { addOtherPlatform, searchAllPlatforms, type OtherCandidate, type OtherPlatformGame } from './api';
 import { addErrorText, foundGamesText } from './model';
+import { PLATFORM_CHIPS, defaultChip } from './block';
 
 type Phase = 'initial' | 'loading' | 'results' | 'noresults' | 'unavailable';
 type Row =
@@ -90,8 +91,8 @@ export function AddOtherPlatformSheet({ onClose }: { onClose: (added: OtherPlatf
   }, []);
 
   async function add(c: OtherCandidate, confirmDuplicate = false) {
-    const value = plat[c.externalId] ?? platformOptions(c.platforms).defaultValue;
-    const label = value === PLATFORM_NONE ? null : clampPlatformLabel(value) || null;
+    const value = plat[c.externalId] ?? defaultChip(c.platforms) ?? PLATFORM_NONE;
+    const label = value === PLATFORM_NONE ? null : value;
     setRows((r) => ({ ...r, [c.externalId]: { kind: 'adding' } }));
     try {
       const r = await addOtherPlatform({
@@ -220,9 +221,10 @@ function OpAddRow({
 }: {
   c: OtherCandidate; row: Row | undefined; value: string | undefined; onPlat: (v: string) => void; onAdd: (confirm: boolean) => void; onCancel: () => void; onOpenGame: () => void;
 }) {
-  const choice = useMemo(() => platformOptions(c.platforms), [c.platforms]);
-  const cur = value ?? choice.defaultValue;
-  const curLabel = choice.options.find((o) => o.value === cur)?.label;
+  // пакет 5: те же чипы Switch / Xbox / PC / «нет», что в окне записи; по умолчанию — узнанная платформа RAWG
+  const def = useMemo(() => defaultChip(c.platforms), [c.platforms]);
+  const cur = value ?? def ?? PLATFORM_NONE;
+  const curLabel = cur === PLATFORM_NONE ? undefined : cur;
   const adding = row?.kind === 'adding';
   const doneRef = useRef<HTMLSpanElement>(null);
   const warnRef = useRef<HTMLDivElement>(null);
@@ -249,12 +251,6 @@ function OpAddRow({
           <span className="ps-add-row__done" role="status"><Icon name="loader" size={14} className="ps-nb-spin" />Добавляю…</span>
         ) : (
           <>
-            <select
-              className="ps-input ps-plat" data-testid="op-platform" aria-label={`Платформа: ${c.title}`} value={cur}
-              disabled={dup} onChange={(e) => onPlat(e.target.value)}
-            >
-              {choice.options.map((o) => <option key={o.value || 'none'} value={o.value}>{o.label}</option>)}
-            </select>
             <button
               type="button" className="ps-btn ps-btn--ghost ps-op-addbtn" data-testid="op-add-btn" disabled={dup}
               aria-label={hasPlat ? `Добавить в список: ${c.title}, платформа ${curLabel}` : `Добавить в список: ${c.title}`} onClick={() => onAdd(false)}
@@ -264,6 +260,16 @@ function OpAddRow({
           </>
         )}
       </div>
+      {!(row?.kind === 'added' || row?.kind === 'already' || adding) && (
+        <div className="ps-opd__chips ps-op-plats" role="group" aria-label={`Платформа: ${c.title}`} data-testid="op-platform">
+          {[...PLATFORM_CHIPS, PLATFORM_NONE].map((p) => (
+            <button
+              key={p || 'none'} type="button" className="ps-filterchip ps-chip ps-opd__chip" aria-pressed={cur === p} data-platform={p || 'none'} disabled={dup}
+              onClick={() => onPlat(p)}
+            >{p || 'нет'}</button>
+          ))}
+        </div>
+      )}
       {row?.kind === 'error' && <p className="ps-add-row__err" role="alert"><Icon name="circle-alert" size={14} />{row.text}</p>}
       {row?.kind === 'duplicate' && (
         <div ref={warnRef} tabIndex={-1} className="ps-add-warn" role="group" aria-label={`Такая игра уже есть: ${c.title}`} data-testid="op-warn">

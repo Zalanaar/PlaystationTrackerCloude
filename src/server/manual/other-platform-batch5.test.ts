@@ -27,7 +27,8 @@ describe('PATCH-валидация пакета 5', () => {
     expect(parseOtherPlatformPatch({ platformLabel: null })).toEqual({ ok: true, value: { platformLabel: null } });
     expect(parseOtherPlatformPatch({ note: '  ' })).toEqual({ ok: true, value: { note: null } });
     expect(parseOtherPlatformPatch({ rating: 10, note: ' ок ' })).toEqual({ ok: true, value: { rating: 10, note: 'ок' } });
-    for (const bad of [{}, { status: 'shelved' }, { rating: 11 }, { rating: 2.5 }, { note: 'x'.repeat(501) }, { hours: 3 }, { platformLabel: '' }, null]) {
+    expect(parseOtherPlatformPatch({ status: 'completed', statusChangedAt: '2025-05-01T10:00:00.000Z' })).toEqual({ ok: true, value: { status: 'completed', statusChangedAt: new Date('2025-05-01T10:00:00.000Z') } });
+    for (const bad of [{ statusChangedAt: '2025-05-01T10:00:00.000Z' }, { status: null, statusChangedAt: '2025-05-01T10:00:00.000Z' }, { status: 'completed', statusChangedAt: 'вчера' }, {}, { status: 'shelved' }, { rating: 11 }, { rating: 2.5 }, { note: 'x'.repeat(501) }, { hours: 3 }, { platformLabel: '' }, null]) {
       expect(parseOtherPlatformPatch(bad).ok).toBe(false);
     }
   });
@@ -54,6 +55,14 @@ describe('other_platform пакета 5 на БД', () => {
     if (s.kind !== 'started') throw new Error(s.kind);
     return new RunContext(t.db, s.run, () => NOW, 1_000_000);
   }
+
+  it('«Вернуть»: статус с прежней датой (не позже «сейчас»), оценка и заметка после повторного добавления', async () => {
+    const { item } = await addOtherPlatform(t.db, U1, op('9'), NOW);
+    const back = await updateOtherPlatform(t.db, U1, item.id, { status: 'completed', statusChangedAt: new Date('2025-05-01T10:00:00Z'), rating: 8, note: 'ок' }, NOW);
+    expect(back).toMatchObject({ status: 'completed', statusChangedAt: '2025-05-01T10:00:00.000Z', rating: 8, note: 'ок' });
+    const future = await updateOtherPlatform(t.db, U1, item.id, { status: 'dropped', statusChangedAt: new Date('2030-01-01T00:00:00Z') }, NOW);
+    expect(future.statusChangedAt).toBe(NOW.toISOString());
+  });
 
   it('статус, оценка, заметка, платформа; дата статуса только при смене; чужая запись = 404', async () => {
     const { item } = await addOtherPlatform(t.db, U1, op('1'), NOW);

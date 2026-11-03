@@ -9,6 +9,12 @@ export const OTHER_STATUS_ORDER: readonly OtherStatus[] = ['playing', 'completed
 export type PlatformChip = 'Switch' | 'Xbox' | 'PC';
 export const PLATFORM_CHIPS: readonly PlatformChip[] = ['Switch', 'Xbox', 'PC'];
 
+/** Пакет 5: чип по умолчанию в панели добавления — первая узнанная платформа RAWG игры (PlayStation не считаем); не узнали → null («нет»). */
+export function defaultChip(platforms: readonly string[]): PlatformChip | null {
+  for (const p of platforms) { const c = platformChip(p); if (c) return c; }
+  return null;
+}
+
 /** Подпись RAWG («Nintendo Switch», «Xbox Series S/X», «PC», «macOS»…) → чип; не узнали → null. */
 export function platformChip(label: string | null): PlatformChip | null {
   if (!label) return null;

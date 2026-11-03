@@ -37,6 +37,15 @@ export function restoreBody(g: OtherPlatformGame, confirmDuplicate = false): Oth
 export type { DuplicateInfo };
 
 /** Пакет 5: PATCH платформы, статуса △ ○ □ ✕, оценки 0..10 и заметки. null = очистить. */
-export type OtherPatchBody = { platformLabel?: string | null; status?: OtherPlatformGame['status']; rating?: number | null; note?: string | null };
+export type OtherPatchBody = { platformLabel?: string | null; status?: OtherPlatformGame['status']; rating?: number | null; note?: string | null; statusChangedAt?: string };
+
+/** «Вернуть»: статус с прежней датой, оценка и заметка удалённой записи; null — нечего возвращать. */
+export function restoreMetaBody(g: OtherPlatformGame): OtherPatchBody | null {
+  const b: OtherPatchBody = {};
+  if (g.status) { b.status = g.status; if (g.statusChangedAt) b.statusChangedAt = g.statusChangedAt; }
+  if (g.rating !== null && g.rating !== undefined) b.rating = g.rating;
+  if (g.note) b.note = g.note;
+  return Object.keys(b).length > 0 ? b : null;
+}
 export const updateOtherPlatform = (id: number, body: OtherPatchBody, init?: Pick<RequestInit, 'keepalive'>) =>
   call<{ item: OtherPlatformGame }>(`/api/manual-games/${id}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body), ...init });

@@ -91,9 +91,11 @@ export async function updateOtherPlatform(db: AnyDb, userId: UserId, id: number,
     }
     if (p.status === undefined && p.rating === undefined && p.note === undefined) return;
     const changed = p.status !== undefined && p.status !== cur.status;
+    // явная дата (возврат удалённой записи) не позже «сейчас»; иначе время запроса при смене статуса
+    const at = p.statusChangedAt && p.status ? (p.statusChangedAt.getTime() > now.getTime() ? now : p.statusChangedAt) : null;
     const row = {
       status: p.status !== undefined ? p.status : cur.status,
-      statusChangedAt: changed ? (p.status === null ? null : now) : cur.statusChangedAt ? new Date(cur.statusChangedAt) : null,
+      statusChangedAt: at ?? (changed ? (p.status === null ? null : now) : cur.statusChangedAt ? new Date(cur.statusChangedAt) : null),
       rating: p.rating !== undefined ? p.rating : cur.rating,
       note: p.note !== undefined ? p.note : cur.note,
       updatedAt: now,

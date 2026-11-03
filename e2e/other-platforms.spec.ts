@@ -165,8 +165,10 @@ test.describe('Окно записи', () => {
     await expect(rows(page).first().getByTestId('op-row-rating')).toHaveText('8/10');
   });
 
-  test('удаление из окна: строка уходит, тост «Вернуть» возвращает запись теми же данными', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, { items: [op(1, 'Первая', { platformLabel: 'PC' }), op(2, 'Вторая')] });
+  test('удаление из окна: строка уходит, тост «Вернуть» возвращает запись теми же данными, со статусом, оценкой и заметкой', async ({ page, context, baseURL }) => {
+    const m = await open(page, context, baseURL!, {
+      items: [op(1, 'Первая', { platformLabel: 'PC' }), op(2, 'Вторая', { status: 'completed', statusChangedAt: '2025-05-01T10:00:00.000Z', rating: 7, note: 'Хорошая' })],
+    });
     await openRow(page, 'Вторая');
     await dialog(page).getByTestId('op-dialog-remove').click();
     await expect(dialog(page)).toHaveCount(0);
@@ -176,6 +178,12 @@ test.describe('Окно записи', () => {
     await toast.getByRole('button', { name: 'Вернуть' }).click();
     await expect(rows(page)).toHaveCount(2);
     expect(m.addBodies[0]).toMatchObject({ kind: 'other_platform', externalId: '7002', title: 'Вторая', platformLabel: 'Xbox One' });
+    await expect.poll(() => m.patchBodies.length).toBe(1);
+    expect(m.patchBodies[0]).toEqual({ status: 'completed', statusChangedAt: '2025-05-01T10:00:00.000Z', rating: 7, note: 'Хорошая' });
+    const back = rows(page).filter({ hasText: 'Вторая' });
+    await expect(back.getByTestId('op-row-rating')).toHaveText('7/10');
+    // вернулась в свой год (2025), а не в «Не распределено»
+    await expect(page.getByTestId('op-block').locator('[data-year="2025"]').filter({ hasText: 'Вторая' })).toHaveCount(1);
   });
 
   test('ошибка удаления: окно остаётся, тост об ошибке', async ({ page, context, baseURL }) => {
@@ -194,7 +202,7 @@ test.describe('Панель поиска', () => {
     ocand('3', 'Halo Wars', { platforms: [] }),
   ];
 
-  test('поиск по Enter/«Найти» scope=all, платформы: не PS первыми, «Не указывать» в конце', async ({ page, context, baseURL }) => {
+  test('поиск по Enter/«Найти» scope=all, платформа — чипы Switch / Xbox / PC / «нет», по умолчанию узнанная из RAWG', async ({ page, context, baseURL }) => {
     const m = await open(page, context, baseURL!, { candidates: cands() });
     await page.getByTestId('op-add').click();
     const dlg = page.getByTestId('op-sheet');
@@ -208,13 +216,14 @@ test.describe('Панель поиска', () => {
     await page.getByTestId('op-input').press('Enter');
     await expect(page.getByTestId('op-add-row')).toHaveCount(3);
     expect(m.searchUrls[0]).toContain('scope=all');
-    const sel = page.getByTestId('op-platform').first();
-    await expect(sel).toHaveAttribute('aria-label', 'Платформа: Halo Infinite');
-    expect(await sel.locator('option').allTextContents()).toEqual(['Xbox One', 'PC', 'PlayStation 5', 'Не указывать']);
-    await expect(sel).toHaveValue('Xbox One');
-    await expect(page.getByTestId('op-platform').nth(1)).toHaveValue('Xbox 360');
-    expect(await page.getByTestId('op-platform').nth(2).locator('option').allTextContents()).toEqual(['Не указана']);
-    await expect(page.getByTestId('op-add-btn').first()).toHaveAttribute('aria-label', 'Добавить в список: Halo Infinite, платформа Xbox One');
+    const chips = page.getByTestId('op-platform').first();
+    await expect(chips).toHaveAttribute('aria-label', 'Платформа: Halo Infinite');
+    await expect(chips.getByRole('button')).toHaveText(['Switch', 'Xbox', 'PC', 'нет']);
+    const pressed = (i: number) => page.getByTestId('op-platform').nth(i).locator('[aria-pressed="true"]');
+    await expect(pressed(0)).toHaveText('Xbox');   // Xbox One, PC, PlayStation 5 → первая узнанная
+    await expect(pressed(1)).toHaveText('Xbox');   // Xbox 360
+    await expect(pressed(2)).toHaveText('нет');    // RAWG без платформ
+    await expect(page.getByTestId('op-add-btn').first()).toHaveAttribute('aria-label', 'Добавить в список: Halo Infinite, платформа Xbox');
   });
 
   test('добавление нескольких подряд, панель открыта, фокус на «Добавлено», при закрытии список и тост', async ({ page, context, baseURL }) => {
@@ -222,7 +231,8 @@ test.describe('Панель поиска', () => {
     await page.getByTestId('op-add').click();
     await search(page, 'halo');
     const r0 = page.getByTestId('op-add-row').nth(0);
-    await r0.getByTestId('op-platform').selectOption('PC');
+    await r0.getByTestId('op-platform').getByRole('button', { name: 'PC' }).click();
+    await expect(r0.getByTestId('op-platform').getByRole('button', { name: 'PC' })).toHaveAttribute('aria-pressed', 'true');
     await r0.getByTestId('op-add-btn').click();
     await expect(r0.getByTestId('op-add-done')).toHaveText('Добавлено · PC');
     await expect(r0.getByTestId('op-add-done')).toBeFocused();

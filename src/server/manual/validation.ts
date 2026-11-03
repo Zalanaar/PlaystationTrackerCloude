@@ -61,9 +61,12 @@ const otherPatchSchema = z
     status: z.enum(OTHER_STATUSES).nullable().optional(),
     rating: z.number().int().min(0).max(10).nullable().optional(),
     note: z.string().max(500).nullable().optional().transform((x) => (x === undefined ? undefined : x === null || x.trim() === '' ? null : x.trim())),
+    /** «Вернуть» после удаления: прежняя дата статуса (только вместе с непустым status), чтобы запись вернулась в свой год */
+    statusChangedAt: z.iso.datetime({ offset: true }).optional(),
   })
-  .refine((v) => Object.keys(v).length > 0);
-export type OtherPlatformPatch = { platformLabel?: string | null; status?: OtherStatus | null; rating?: number | null; note?: string | null };
+  .refine((v) => Object.keys(v).length > 0)
+  .refine((v) => v.statusChangedAt === undefined || (v.status !== undefined && v.status !== null));
+export type OtherPlatformPatch = { platformLabel?: string | null; status?: OtherStatus | null; rating?: number | null; note?: string | null; statusChangedAt?: Date };
 
 export function parseOtherPlatformPatch(body: unknown): Parsed<OtherPlatformPatch> {
   const r = otherPatchSchema.safeParse(body);
@@ -73,6 +76,7 @@ export function parseOtherPlatformPatch(body: unknown): Parsed<OtherPlatformPatc
   if (r.data.status !== undefined) v.status = r.data.status;
   if (r.data.rating !== undefined) v.rating = r.data.rating;
   if (r.data.note !== undefined) v.note = r.data.note;
+  if (r.data.statusChangedAt !== undefined) v.statusChangedAt = new Date(r.data.statusChangedAt);
   return { ok: true, value: v };
 }
 
