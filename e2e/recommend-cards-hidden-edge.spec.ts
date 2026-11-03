@@ -151,7 +151,9 @@ test.describe('QA 13b: гонки', () => {
     await open(page, context, baseURL as string, s);
     await expect(cards(page)).toHaveCount(9);
     for (const n of [2, 3, 4, 5, 6]) {
-      await page.getByRole('button', { name: `Не интересно: Игра ${n}` }).click({ noWaitAfter: true });
+      // без noWaitAfter: с ним Playwright не проверяет hit target, и клик, попавший на сдвиг карточек после перезапроса,
+      // молча блокируется (Игра 3 оставалась видимой, CI 18ce18d). Обычный click перепроверяет цель и кликает заново.
+      await page.getByRole('button', { name: `Не интересно: Игра ${n}` }).click();
     }
     await expect(page.getByRole('button', { name: /Скрытые на сейчас · 5/ })).toBeVisible({ timeout: 8000 });
     await expect(cards(page)).toHaveCount(4);

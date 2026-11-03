@@ -323,7 +323,9 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => { setRefreshErr(false); reload(); }}>Повторить</button>
             </div>
           )}
-          <ol key={initial ? 'sk' : rev} className="ps-rec-list" aria-busy={loading || undefined} data-fade={!initial || undefined}>
+          {/* Ключ не зависит от rev: пересоздание списка на каждом перезапросе съедало нажатия в процессе
+              (mousedown на старой кнопке, mouseup на новой → click не срабатывал, CI 18ce18d). Карточки сверяются по key=id. */}
+          <ol key={initial ? 'sk' : 'list'} className="ps-rec-list" aria-busy={loading || undefined} data-fade={!initial || undefined}>
             {initial
               ? Array.from({ length: wide ? REC_COUNT : 3 }, (_, i) => i).map((i) => <RecSkeleton key={i} wide={wide} />)
               : items.map((it, i) => (
