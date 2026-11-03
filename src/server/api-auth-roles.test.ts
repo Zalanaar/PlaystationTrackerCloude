@@ -221,11 +221,13 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const rec = await import('@/app/api/recommend/route');
     const dl = await import('@/app/api/recommend/dislikes/route');
     const bk = await import('@/app/api/games/status-backups/route');
+    const feed = await import('@/app/api/trophies/feed/route');
     const calls: [string, Promise<Response>][] = [
       ['activity', act.GET(await asB('/api/stats/activity?year=2026', 'GET'))],
       ['recommend', rec.GET(await asB('/api/recommend', 'GET'))],
       ['dislikes', dl.GET(await asB('/api/recommend/dislikes', 'GET'))],
       ['backups', bk.GET(await asB('/api/games/status-backups', 'GET'))],
+      ['trophy-feed', feed.GET(await asB('/api/trophies/feed?period=all', 'GET'))],
     ];
     for (const [name, pr] of calls) {
       const res = await pr;
