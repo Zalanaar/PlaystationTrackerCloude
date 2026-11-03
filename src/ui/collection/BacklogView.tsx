@@ -528,7 +528,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
     { id: 'h-bl-shelved', label: 'Отложено', n: shelvedTotal, on: showShelved },
     { id: 'h-bl-service', label: 'Сервис', n: serviceTotal, on: showService },
   ].filter((t) => t.on);
-  const showJump = tabs.length >= 2;
+  // P2-6: ряд блоков и заголовок списка появляются вместе со списком (ready), иначе поздние «Сервис»/«Не куплено» сдвигали заголовок на ~90 px (CLS 0,06)
+  const showJump = ready && tabs.length >= 2;
   const tabIds = tabs.map((t) => t.id).join(',');
 
   useEffect(() => {
@@ -629,7 +630,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           </nav>
         </>
       )}
-      {(items || !error) && !filters.nb && (
+      {ready && !filters.nb && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
           <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(mainTotal)}</small>}
         </h2>
