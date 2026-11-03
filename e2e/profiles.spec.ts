@@ -78,7 +78,8 @@ test.describe('переключатель в шапке', () => {
     await expect(page.locator('.ps-pswitch-veil')).toHaveCount(0);
     await expect(page.locator('main')).toContainText('Horizon Forbidden West');
     s.switchFail = null;
-    await page.getByRole('button', { name: 'Повторить' }).click();
+    // «Повторить» именно в тосте смены профиля (у блока «Игры с других платформ» своя кнопка повтора загрузки)
+    await page.locator('.ps-toast').getByRole('button', { name: 'Повторить' }).click();
     await expect(page.locator('main')).toContainText('Только у второго');
   });
 

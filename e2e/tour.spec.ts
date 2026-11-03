@@ -354,7 +354,8 @@ test.describe('тур: автозапуск и ошибки API', () => {
     await expect(page.locator('.ps-tour')).toHaveCount(0);
     await expect.poll(() => t.puts.length).toBe(1);
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('ps-tour-seen'))).toBe('1');
+    // флаг пишется после ответа 500 на PUT, а t.puts растёт уже при перехвате запроса: ждём, а не читаем сразу
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('ps-tour-seen'))).toBe('1');
     // новая сессия (sessionStorage очищен), сервер всё ещё просит автозапуск: локальный флаг останавливает
     await page.evaluate(() => sessionStorage.clear());
     await page.reload();
