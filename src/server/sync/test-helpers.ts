@@ -46,6 +46,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
     await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS primary_user_id integer, ADD COLUMN IF NOT EXISTS archived_at timestamp with time zone');
     // то же для эпохи сессий (0027, Фаза 45)
     await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS session_epoch integer NOT NULL DEFAULT 0');
+    // то же для отметки «Что нового» (0030, пакет 2)
+    await client.exec('ALTER TABLE allowed_users ADD COLUMN IF NOT EXISTS whats_new_seen integer');
     // то же для колонок дублей (0018): схема drizzle в коде их уже выбирает
     await client.exec('ALTER TABLE games ADD COLUMN IF NOT EXISTS duplicate_of_game_id integer, ADD COLUMN IF NOT EXISTS not_duplicate boolean NOT NULL DEFAULT false');
   }
