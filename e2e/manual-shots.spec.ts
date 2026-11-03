@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual, type MMatch } from './manual-mock';
 import { signedSession } from './session';
+import { shotsDir } from './shots';
+
+const SHOTS = shotsDir('shots-43');
 
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'];
 const bl = (id: number, title: string): G => ({ id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null });
@@ -25,10 +28,10 @@ for (const theme of THEMES) {
     await page.goto('/backlog');
     await page.locator('[data-manual]').first().waitFor();
     const t = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
-    await page.screenshot({ path: `docs/qa/shots-43/${theme}-list.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-list.png` });
     await page.getByTestId('inbox-match').click();
     await page.getByTestId('match-card').first().waitFor();
-    await page.screenshot({ path: `docs/qa/shots-43/${theme}-match.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-match.png` });
     await page.getByTestId('match-close').click();
     await page.getByTestId('bl-add').click();
     await page.getByTestId('add-input').fill('hades');
@@ -37,7 +40,7 @@ for (const theme of THEMES) {
     await page.getByTestId('add-pick').first().click();
     await page.getByTestId('add-cart-submit').click();
     await page.getByTestId('add-warn').waitFor();
-    await page.screenshot({ path: `docs/qa/shots-43/${theme}-add.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-add.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), t).toBe(true);
   });
 }

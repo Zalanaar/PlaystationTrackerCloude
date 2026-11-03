@@ -1,11 +1,12 @@
-// Фаза 39 (QA): 7 тем на 360 px: карточка iOS «Установить», /offline, шапка. Скриншоты в docs/qa/shots-39/.
+// Фаза 39 (QA): 7 тем на 360 px: карточка iOS «Установить», /offline, шапка. Скриншоты в test-results/shots/shots-39 (или SHOTS_DIR).
 import { expect, test } from '@playwright/test';
 import { signedSession } from './session';
+import { shotsDir } from './shots';
 
 const THEMES = ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5'] as const;
 const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const ORIGIN = `http://localhost:${process.env.PWA_PORT ?? 3231}`;
-const SHOTS = 'docs/qa/shots-39';
+const SHOTS = shotsDir('shots-39');
 
 function lum(rgb: string) {
   const [r, g, b] = (rgb.match(/[\d.]+/g) ?? ['0', '0', '0']).slice(0, 3).map((v) => { const c = Number(v) / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });

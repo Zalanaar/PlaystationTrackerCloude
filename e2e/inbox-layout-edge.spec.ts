@@ -2,6 +2,9 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
+import { shotsDir } from './shots';
+
+const SHOTS = shotsDir('shots-28');
 
 const FULL = {
   newGames: 3, newGamesWindow: '24h', newUnsorted: 2, trophies: 14, platinums: 1, trophiesWindow: '24h',
@@ -72,7 +75,7 @@ test('QA-28: нет горизонтального скролла, размер�
   const chips = await page.locator('.ps-inbox__chip').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
   const hero = await page.locator('.ps-hero, [data-testid="playing-hero"]').first().boundingBox().catch(() => null);
   console.log(`LAYOUT ${info.project.name} w=${w}: strip h=${Math.round(r!.height)} chips=${JSON.stringify(chips)} hero=${JSON.stringify(hero)}`);
-  await page.screenshot({ path: `docs/qa/shots-28/${info.project.name}-night.png` });
+  await page.screenshot({ path: `${SHOTS}/${info.project.name}-night.png` });
 });
 
 for (const theme of THEMES) {
@@ -99,7 +102,7 @@ for (const theme of THEMES) {
       return out;
     });
     console.log(`CONTRAST ${theme} ${info.project.name}: ${JSON.stringify(res)}`);
-    await page.screenshot({ path: `docs/qa/shots-28/${info.project.name}-${theme}.png` });
+    await page.screenshot({ path: `${SHOTS}/${info.project.name}-${theme}.png` });
     expect(res.chipText).toBeGreaterThan(4.5);
     expect(res.label).toBeGreaterThan(4.5);
   });
@@ -116,7 +119,7 @@ test('QA-28: «Что нового» не перекрывает tab bar и то
   console.log(`WN ${info.project.name}: ${JSON.stringify(b)} tabbar=${JSON.stringify(tab)} vp=${JSON.stringify(page.viewportSize())}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   if (tab && tab.height > 0) expect(b.y + b.height).toBeLessThanOrEqual(tab.y + 1);
-  await page.screenshot({ path: `docs/qa/shots-28/${info.project.name}-wn.png` });
+  await page.screenshot({ path: `${SHOTS}/${info.project.name}-wn.png` });
 });
 
 for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) {
@@ -130,7 +133,7 @@ for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) {
     const h = (await page.locator('.ps-card').first().boundingBox())!;
     const tab = (await page.locator('nav.ps-tabbar').boundingBox())!;
     console.log(`VP ${vp.width}x${vp.height}: strip y=${Math.round(s.y)} h=${Math.round(s.height)}; first card y=${Math.round(h.y)}; tabbar y=${Math.round(tab.y)}`);
-    await page.screenshot({ path: `docs/qa/shots-28/vp-${vp.width}x${vp.height}.png` });
+    await page.screenshot({ path: `${SHOTS}/vp-${vp.width}x${vp.height}.png` });
     await page.getByTestId('inbox-more').click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });

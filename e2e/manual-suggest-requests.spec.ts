@@ -3,6 +3,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual } from './manual-mock';
 import { signedSession } from './session';
+import { shotsDir } from './shots';
+
+const SHOTS = shotsDir('shots-43-1');
 
 const bl = (id: number, title: string): G => ({ id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null });
 const tour = JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } });
@@ -76,13 +79,13 @@ for (const theme of ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite']) {
     await page.setViewportSize({ width: 360, height: 740 });
     await page.goto('/backlog');
     await page.locator('[data-manual]').first().waitFor();
-    await page.screenshot({ path: `docs/qa/shots-43-1/${theme}-list.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-list.png` });
     await page.getByTestId('bl-nb').scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `docs/qa/shots-43-1/${theme}-nb.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-nb.png` });
     await page.getByTestId('bs-open').click();
     await page.getByTestId('bs-input').fill('hades');
     await page.locator('[data-testid="bs-opt"][data-kind="store"]').first().waitFor();
-    await page.screenshot({ path: `docs/qa/shots-43-1/${theme}-suggest.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-suggest.png` });
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'Поиск' }).waitFor({ state: 'hidden' });
@@ -92,7 +95,7 @@ for (const theme of ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite']) {
     await page.getByTestId('add-row').first().waitFor();
     await page.getByTestId('add-pick').nth(0).click();
     await page.getByTestId('add-pick').nth(1).click();
-    await page.screenshot({ path: `docs/qa/shots-43-1/${theme}-cart.png` });
+    await page.screenshot({ path: `${SHOTS}/${theme}-cart.png` });
     // тап-зоны
     const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.ps-add-row__pick, .ps-add-seg button, [role="radio"], .ps-cart button')].filter((e) => e.offsetParent).map((e) => { const r = e.getBoundingClientRect(); return { c: `${e.className.toString().slice(0, 24)}|${(e.textContent ?? '').trim().slice(0, 12)}|${e.parentElement?.className.toString().slice(0, 24)}`, w: Math.round(r.width), h: Math.round(r.height) }; }).filter((x) => x.w < 44 || x.h < 44));
     console.log(`QA-TAP ${theme}: ${JSON.stringify(small)}`);

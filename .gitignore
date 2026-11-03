@@ -9,3 +9,9 @@ test-results
 *.tsbuildinfo
 next-env.d.ts
 .claude/worktrees/
+
+# Скриншоты QA не храним в git (п. 10, 2026-11-03): снимки пишутся в test-results/shots или в SHOTS_DIR. См. docs/qa/README.md.
+docs/qa/**/*.png
+docs/qa/**/*.jpg
+docs/qa/**/*.jpeg
+docs/qa/**/*.webp
