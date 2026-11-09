@@ -528,3 +528,14 @@
 }
 /* Фаза 27: вход в «Проверить» одной строкой под StatLine, когда блока «Не разобрано» нет */
 .ps-pagehead__check { margin: var(--sp-2) 0 0; }
+
+/* Пакет 6, п. 6: одна шапка страниц на мобильном. Ряд шапки без нижнего отступа (пустой ряд 4 px на «Подскажи» убран),
+   от шапки до первого блока везде 12 px (раньше 12/16/16/16/12/20 на Коллекции, Бэклоге, Подскажи, Плане, Ленте, Итогах).
+   Шапка, где кроме скрытого h1 ничего нет, не занимает места (как на Статистике). Проверка: e2e/page-head.spec.ts. */
+@media (max-width: 767px) {
+  .ps-pagehead.ps-pagehead { padding-bottom: 0; }
+  .ps-rec-page > .ps-rec-head.ps-rec-head { display: contents; }
+  .ps-collection > .ps-bl-pagehead.ps-bl-pagehead { margin-bottom: calc(-1 * var(--sp-1)); }
+  .ps-rm-page > .ps-pagehead.ps-pagehead { margin-bottom: var(--sp-3); }
+  .ps-wrapped-page > .ps-pagehead.ps-pagehead { margin-bottom: calc(var(--sp-3) - var(--sp-5)); }
+}
