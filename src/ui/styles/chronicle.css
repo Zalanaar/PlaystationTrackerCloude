@@ -66,3 +66,11 @@
 .ps-mchip-sk { flex: none; width: 56px; height: var(--mchip-h); border-radius: var(--r-chip); }
 .ps-chron__body { padding-top: var(--sp-4); }
 .ps-mchips + .ps-chron__body { padding-top: 0; }
+
+/* Пакет 6, п. 2: зоны нажатия >= 44 без изменения вида. ::after добирает высоту до --tap-min
+   (проценты inset считаются от padding-box: рамка 1 px уже вычтена). */
+.ps-mchips button.ps-mchip::after { inset: min(-4px, calc((100% - var(--tap-min)) / 2 - 1px)) -2px; }
+button.ps-year__btn, .ps-block-error .ps-link, .ps-blocks .ps-link--plain { position: relative; }
+button.ps-year__btn::after, .ps-block-error .ps-link::after, .ps-blocks .ps-link--plain::after {
+  content: ""; position: absolute; inset: min(0px, calc((100% - var(--tap-min)) / 2 - 1px)) min(0px, calc((100% - var(--tap-min)) / 2 - 1px));
+}

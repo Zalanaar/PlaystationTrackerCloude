@@ -478,3 +478,15 @@
 .ps-st-feedlink { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-1); color: var(--accent); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); text-decoration: none; }
 .ps-st-feedlink:hover { text-decoration: underline; }
 .ps-sk-secs { display: block; height: 52px; margin: calc(-1 * var(--sp-2)) 0; }
+
+/* Пакет 6, п. 2: зоны нажатия >= 44 без изменения вида (::after, проценты inset — от padding-box). */
+.ps-st-secs__chip, .ps-st-panel .ps-seg button, .ps-st-feedlink { position: relative; }
+.ps-st-secs__chip::after, .ps-st-panel .ps-seg button::after, .ps-st-feedlink::after {
+  content: ""; position: absolute; inset: min(0px, calc((100% - var(--tap-min)) / 2 - 1px)) min(0px, calc((100% - var(--tap-min)) / 2 - 1px));
+}
+/* соседние строки жанров стоят плотнее 44: зона тянется до середины зазора, мёртвых зон нет.
+   Столбцы графика (.ps-st-bar, 26 px через 6 px) не трогаем: ::after поверх перехватывал подсказку столбца; исключение по отступу (WCAG 2.5.8) */
+.ps-st-genres__row--btn { position: relative; }
+.ps-st-genres__row--btn::after { content: ""; position: absolute; inset: calc(var(--sp-3) / -2) 0; }
+.ps-st-genres > li:first-child .ps-st-genres__row--btn::after { top: min(calc(var(--sp-3) / -2), calc((100% - var(--tap-min)) / 2 - 1px)); }
+.ps-st-genres > li:last-child .ps-st-genres__row--btn::after { bottom: min(calc(var(--sp-3) / -2), calc((100% - var(--tap-min)) / 2 - 1px)); }

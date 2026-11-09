@@ -389,12 +389,14 @@
   backdrop-filter: blur(4px); cursor: pointer; pointer-events: auto; opacity: 0; transition: opacity var(--dur-fast);
 }
 [data-density="dense"] .ps-mm { right: 4px; bottom: 4px; width: 24px; height: 24px; }
-.ps-mm::after { content: ""; position: absolute; inset: -8px; }
+/* пакет 6, п. 2: в плотной сетке до края карточки 4 px (overflow карточки режет зону) — зона 44 растёт внутрь */
+[data-density="dense"] .ps-mm::after { inset: -19px -3px -3px -19px; }
+.ps-mm::after { content: ""; position: absolute; inset: -10px; }   /* пакет 6, п. 2: 24 + 2*10 = 44 */
 .ps-card:hover .ps-mm, .ps-card:focus-within .ps-mm, .ps-mm[aria-expanded="true"], .ps-mm:focus-visible { opacity: 1; }
 .ps-mm:disabled { cursor: default; opacity: .6; }
 @media (hover: none), (max-width: 767px) {
   .ps-mm { opacity: 1; width: 28px; height: 28px; }
-  .ps-mm::after { inset: -8px; }
+  .ps-mm::after { inset: -10px; }   /* пакет 6, п. 2: и плотная сетка 24 px даёт 44 */
 }
 .ps-card[data-busy="true"] { opacity: .7; }
 .ps-card__tag {
