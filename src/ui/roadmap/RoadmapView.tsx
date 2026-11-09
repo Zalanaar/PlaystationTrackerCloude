@@ -339,7 +339,7 @@ export function RoadmapView() {
     <div className="ps-rm-page">
       <div className="ps-pagehead">
         <h1 className="ps-h1 ps-h1--hdr">План</h1>
-        <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника, время МСК</p>
+        <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника</p>
       </div>
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">

@@ -16,6 +16,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
+    // Пакет 6, п. 3: время суток показывается по поясу устройства; фиксируем пояс, чтобы тесты не зависели от машины (CI = UTC).
+    timezoneId: 'Europe/Moscow',
     // Фаза 33: Бэклог на мобильном по умолчанию «Список», а старые тесты рассчитаны на сетку карточек.
     // Новые тесты вида (backlog-view.spec.ts и др.) сбрасывают это через test.use({ storageState: { cookies: [], origins: [] } }).
     storageState: { cookies: [], origins: [{ origin: `http://localhost:${PORT}`, localStorage: [{ name: 'ps-bl-view', value: 'cards' }] }] },

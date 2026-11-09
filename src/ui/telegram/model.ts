@@ -43,14 +43,14 @@ export function countdownText(ms: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** «26 окт, 19:00 МСК». */
-export function formatLastSent(iso: string | null): string | null {
+/** «26 окт, 18:00» по часам устройства, без подписи пояса (Пакет 6, п. 3). timeZone — для тестов. */
+export function formatLastSent(iso: string | null, timeZone?: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const parts = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+  const parts = new Intl.DateTimeFormat('ru-RU', { ...(timeZone ? { timeZone } : {}), day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-  return `${get('day')} ${get('month').replace('.', '')}, ${get('hour')}:${get('minute')} МСК`;
+  return `${get('day')} ${get('month').replace('.', '')}, ${get('hour')}:${get('minute')}`;
 }
 
 export const STATUS_TEXT: Record<Exclude<DigestView, 'loading'>, string> = {
@@ -77,7 +77,7 @@ export const STATUS_TONE: Record<Exclude<DigestView, 'loading'>, 'success' | 'wa
   unavailable: 'muted', not_linked: 'muted', pending: 'muted', expired: 'warning', linked: 'success', linked_owner: 'success', create_error: 'danger',
 };
 
-export const INTRO = 'Раз в неделю, в воскресенье вечером (МСК): часы, трофеи, План и один совет. Присылает бот в Telegram.';
+export const INTRO = 'Раз в неделю, в воскресенье вечером: часы, трофеи, План и один совет. Присылает бот в Telegram.';
 
 export function captionFor(view: DigestView, lastSentAt: string | null): string {
   switch (view) {

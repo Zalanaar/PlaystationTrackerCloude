@@ -67,7 +67,7 @@ function ReservedBox({ state, ctl, onHide }: { state: BoxState; ctl: InboxCtl; o
       {state === 'hidden' && (
         <div className="ps-inbox__note" role="status" data-testid="inbox-hidden-note">
           <span className="ps-micro ps-inbox__label">С прошлого визита</span>
-          <span className="ps-inbox__note-txt">скрыто до 00:00 МСК</span>
+          <span className="ps-inbox__note-txt">скрыто до конца дня</span>
         </div>
       )}
       {state === 'error' && (

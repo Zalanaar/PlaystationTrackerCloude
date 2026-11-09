@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatMoscow, isSyncOverdue, needsNewNpsso, overdueAgeText } from '../sync/status';
+import { formatLocalDateTime, isSyncOverdue, needsNewNpsso, overdueAgeText } from '../sync/status';
 import { Icon } from '../icons';
 import { useSync } from '../sync/SyncProvider';
 import { isCancelledRun, reasonText } from '../sync/status';
@@ -12,7 +12,7 @@ export function SyncBanner() {
   const [hidden, setHidden] = useState(false);
   const [overdueHidden, setOverdueHidden] = useState(false);
   if (!status || status.running) return null;
-  const last = formatMoscow(status.lastSuccessAt);
+  const last = formatLocalDateTime(status.lastSuccessAt);
   const npsso = needsNewNpsso(status);
   const overdue = isSyncOverdue(status) && status.overdue && !overdueHidden;
   const overdueBanner = overdue && status.overdue ? (

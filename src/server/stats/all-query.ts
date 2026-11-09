@@ -41,7 +41,7 @@ export type AllTimeData = {
 };
 
 /** Всё, что нужно и Статистике, и Итогам «за всё время». gameById: карточки игр из топов. */
-export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false): Promise<AllTimeData & { gameById: Map<number, GameItem> }> {
+export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false, tz?: string): Promise<AllTimeData & { gameById: Map<number, GameItem> }> {
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const [exclusions, rawEstimates, dup] = await Promise.all([getMonthExclusions(db, userId), getEstimateInputs(db, userId, new Map()), getDuplicateMap(db, userId)]);
@@ -107,7 +107,7 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
       .where(and(eq(trophies.userId, userId), eq(trophies.earned, true)))
       .groupBy(owner.gameId, trophies.type),
     getRareTrophies(db, userId, null, undefined, withService),
-    getPlayPatternCells(db, userId, null),
+    getPlayPatternCells(db, userId, null, tz),
     // границы данных (первая и последняя даты)
     db.select({ lo: min(ps.snapshotDate), hi: max(ps.snapshotDate) }).from(ps).where(snapVisible),
     db
@@ -174,6 +174,6 @@ export async function loadAllTime(db: AnyDb, userId: UserId, now: Date = new Dat
   return { response, hours, games: gameList, patternCells: cells, first, last, gameById };
 }
 
-export async function getStatsAll(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false): Promise<StatsResponse> {
-  return (await loadAllTime(db, userId, now, withService)).response;
+export async function getStatsAll(db: AnyDb, userId: UserId, now: Date = new Date(), withService = false, tz?: string): Promise<StatsResponse> {
+  return (await loadAllTime(db, userId, now, withService, tz)).response;
 }

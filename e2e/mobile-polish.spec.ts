@@ -205,7 +205,7 @@ test.describe('заголовок раздела не повторяется н�
     await login(page, context, baseURL!);
     await mockRoadmap(page, baseState());
     await page.goto('/roadmap');
-    await expect(page.getByText('Неделя с понедельника, время МСК')).toBeVisible();
+    await expect(page.getByText('Неделя с понедельника', { exact: true })).toBeVisible();
     const h = await hidden(page, 'План');
     if (isMobile) expect(h).toBeLessThanOrEqual(1); else expect(h).toBeGreaterThan(10);
   });

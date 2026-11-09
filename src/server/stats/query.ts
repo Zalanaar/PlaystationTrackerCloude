@@ -32,7 +32,7 @@ export type BoundedStatsResponse = Omit<StatsResponse, 'period'> & { period: Bou
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery & { type: 'year' | 'month' }, now?: Date): Promise<BoundedStatsResponse>;
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now?: Date): Promise<StatsResponse>;
 export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Date = new Date()): Promise<StatsResponse> {
-  if (q.type === 'all') return getStatsAll(db, userId, now, q.withService === true);
+  if (q.type === 'all') return getStatsAll(db, userId, now, q.withService === true, q.tz);
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
   const period = resolvePeriod(q.type, q.year, q.month);
@@ -92,7 +92,7 @@ export async function getStats(db: AnyDb, userId: UserId, q: StatsQuery, now: Da
     getRareTrophies(db, userId, { fromUtc, toUtc }, undefined, q.withService === true),
     getRareTrophies(db, userId, null, undefined, q.withService === true),
     // 26.3: трофеи периода по часам и дням недели МСК, группировка в SQL
-    getPlayPatternCells(db, userId, { fromUtc, toUtc }),
+    getPlayPatternCells(db, userId, { fromUtc, toUtc }, q.tz),
   ]);
 
   const finishedEvents: FinishedEvent[] = [

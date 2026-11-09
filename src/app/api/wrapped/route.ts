@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   try {
     // Ник пользователя из его профиля (allowed_users.psn_online_id); иначе getWrapped возьмёт его из сохранённого профиля PSN. Env с ником владельца чужим не отдаётся.
     const onlineId = a.user.row.psnOnlineId?.trim() || null;
-    return okRevalidated(req, await getWrapped(getDb(), a.user.id, p.value.year, onlineId, new Date(), { withService: p.value.withService }));
+    return okRevalidated(req, await getWrapped(getDb(), a.user.id, p.value.year, onlineId, new Date(), { withService: p.value.withService, tz: p.value.tz }));
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

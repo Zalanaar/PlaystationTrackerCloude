@@ -1,12 +1,14 @@
 // Разбор query GET /api/wrapped (контракт 11.1). Чистая функция.
 import { parseWithService } from '@/server/stats/validation';
+import { MSK_TZ, parseTzParam } from '@/shared/tz';
 
-export type WrappedParsed = { ok: true; value: { year: number | 'all'; withService?: boolean } } | { ok: false; message: string };
+export type WrappedParsed = { ok: true; value: { year: number | 'all'; withService?: boolean; tz?: string } } | { ok: false; message: string };
 
 export function parseWrappedQuery(sp: URLSearchParams, currentYear: number): WrappedParsed {
   const ws = parseWithService(sp.get('withService'));
   if (ws === null) return { ok: false, message: 'Некорректный параметр withService.' };
-  const extra = ws ? { withService: true } : {};
+  const tz = parseTzParam(sp.get('tz'));
+  const extra = { ...(ws ? { withService: true } : {}), ...(tz !== MSK_TZ ? { tz } : {}) };
   const raw = sp.get('year');
   if (raw === null || raw === '') return { ok: true, value: { year: currentYear, ...extra } };
   // 26.2: год или строка all (регистр важен)

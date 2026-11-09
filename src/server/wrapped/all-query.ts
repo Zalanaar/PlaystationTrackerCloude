@@ -17,9 +17,9 @@ import { getEstimateInputs } from '@/server/stats/estimate-query';
 
 const { games, gameTrophySets, trophies, trophySets } = schema;
 
-export async function getWrappedAll(db: AnyDb, userId: UserId, onlineId: string | null, now: Date = new Date(), withService = false): Promise<WrappedResponse> {
+export async function getWrappedAll(db: AnyDb, userId: UserId, onlineId: string | null, now: Date = new Date(), withService = false, tz?: string): Promise<WrappedResponse> {
   const currentYear = Number(mskDateString(now).slice(0, 4));
-  const data = await loadAllTime(db, userId, now, withService);
+  const data = await loadAllTime(db, userId, now, withService, tz);
   const firstPlayed = sql<Date | null>`least("games"."first_played_at", (select min(d."first_played_at") from "games" d where d."user_id" = "games"."user_id" and d."duplicate_of_game_id" = "games"."id"))`;
   const counted = and(eq(trophies.userId, userId), eq(trophies.earned, true), isNotNull(trophies.earnedAt), trophySetCounted(trophies.trophySetId, userId));
   const [estimates, psnProf, platRows, firstPlayedRows, firstTrophyRows] = await Promise.all([

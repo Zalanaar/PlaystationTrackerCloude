@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buttonLabel, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText, startErrorText, totalsRows, type SyncRun } from './status';
+import { buttonLabel, formatLocalDateTime, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText, startErrorText, totalsRows, type SyncRun } from './status';
 
 const run = (o: Partial<SyncRun> = {}): SyncRun => ({
   id: 1, kind: 'manual', status: 'running', phase: 'trophies', errorReason: null, errorMessage: null,
@@ -38,6 +38,9 @@ describe('sync status mapping', () => {
     expect(formatMoscow('2026-10-26T20:01:10.000Z')).toContain('23:01');
     expect(formatMoscow(null)).toBeNull();
     expect(formatMoscow('мусор')).toBeNull();
+    expect(formatLocalDateTime('2026-10-26T20:01:10.000Z', 'Europe/Vilnius')).toContain('22:01');
+    expect(formatLocalDateTime('2026-10-26T20:01:10.000Z', 'Europe/Vilnius')).not.toContain('МСК');
+    expect(formatLocalDateTime(null)).toBeNull();
   });
   it('итоги из totals; без totals строк нет', () => {
     const rows = totalsRows({ games: 214, trophySets: 200, trophies: 9000, trophiesEarned: 4321, platinumEarned: 12 });

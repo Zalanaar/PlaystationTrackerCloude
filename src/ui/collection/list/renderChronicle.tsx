@@ -18,7 +18,7 @@ export function renderChronicle(c: RenderCtx): ReactNode {
           <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
             <YearHeader
               id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
-              expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения, МСК" sectionId={`y${y.year}-body`}
+              expanded={open} onToggle={() => toggle(y.year)} hint="дата завершения" sectionId={`y${y.year}-body`}
             />
             {open && yearMonthChips(y).length > 0 && <MonthChips key={y.year} year={y.year} chips={yearMonthChips(y)} />}
             <div id={`y${y.year}-body`} className="ps-chron__body" hidden={!open}>
@@ -53,7 +53,7 @@ export function renderPlayed(c: RenderCtx): ReactNode {
       <section key={key} className="ps-chron" id={sid} aria-labelledby={`h-${sid}`}>
         <YearHeader
           id={`h-${sid}`} label={label} facts={<GamesFact n={games.length} />} hours={hours}
-          expanded={open} onToggle={() => togglePlayed(key)} hint={key === 'never' ? undefined : 'последний запуск, МСК'} sectionId={`${sid}-body`}
+          expanded={open} onToggle={() => togglePlayed(key)} hint={key === 'never' ? undefined : 'последний запуск'} sectionId={`${sid}-body`}
         />
         <div id={`${sid}-body`} className="ps-chron__flat" hidden={!open}>
           {open && renderGames(c, games, { dateYear: true, withHeader: true })}

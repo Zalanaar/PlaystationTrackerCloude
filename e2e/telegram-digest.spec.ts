@@ -44,13 +44,15 @@ async function open(page: Page, context: BrowserContext, baseURL: string, cfg: C
 const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
 test.describe('Фаза 29: Сводка в Telegram', () => {
+  // Пакет 6, п. 3: время по часам устройства; пояс контекста фиксирован, чтобы не зависеть от машины CI
+  test.use({ timezoneId: 'Europe/Vilnius' });
   test('загрузка: скелетон, затем «Не подключено»', async ({ page, context, baseURL }) => {
     const { panel } = await open(page, context, baseURL as string, { getDelay: 600 });
     await expect(panel.locator('.ps-skeleton').first()).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Привязать Telegram' })).toBeDisabled();
     await expect(panel.getByTestId('tg-status')).toContainText('Не подключено');
     await expect(panel.getByRole('button', { name: 'Привязать Telegram' })).toBeEnabled();
-    await expect(panel).toContainText('в воскресенье вечером (МСК)');
+    await expect(panel).toContainText('в воскресенье вечером:');
     await noOverflow(page);
   });
 
@@ -95,7 +97,8 @@ test.describe('Фаза 29: Сводка в Telegram', () => {
   test('подключено: дата последней сводки, отключение с подтверждением', async ({ page, context, baseURL }) => {
     const { panel, calls } = await open(page, context, baseURL as string, { state: { linked: true, deliversTo: 'own_chat', lastSentAt: '2026-10-25T16:00:12.000Z' } });
     await expect(panel.getByTestId('tg-status')).toContainText('Подключено');
-    await expect(panel).toContainText('Последняя: 25 окт, 19:00 МСК');
+    await expect(panel).toContainText('Последняя: 25 окт, 18:00'); // Пакет 6, п. 3: по часам устройства (контекст в Europe/Vilnius), без «МСК»
+    await expect(panel).not.toContainText('МСК');
     await panel.getByRole('button', { name: 'Отключить' }).click();
     await expect(panel).toContainText('Отключить сводку? Привязку чата можно создать заново.');
     await panel.getByRole('button', { name: 'Отмена' }).click();

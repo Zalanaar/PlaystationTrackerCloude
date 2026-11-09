@@ -175,6 +175,22 @@ export function buttonLabel(s: Pick<SyncStatus, 'run' | 'running'>, busy: boolea
   return 'Синк сейчас';
 }
 
+/** «09.11.2026, 21:55» по часам устройства, без подписи пояса (Пакет 6, п. 3). */
+export function formatLocalDateTime(iso: string | null, timeZone?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('ru-RU', {
+    ...(timeZone ? { timeZone } : {}),
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
+
+/** По Москве: остаётся только в блоке «Токен PSN» (его не трогаем). */
 export function formatMoscow(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);

@@ -5,7 +5,7 @@ import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { useSync } from './SyncProvider';
 import {
-  buttonLabel, formatMoscow, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
+  buttonLabel, formatLocalDateTime, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
   CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows,
 } from './status';
 
@@ -59,7 +59,7 @@ export function SyncPanel() {
   const running = status?.running ?? false;
 
   const run = status?.run ?? null;
-  const last = formatMoscow(status?.lastSuccessAt ?? null);
+  const last = formatLocalDateTime(status?.lastSuccessAt ?? null);
   const npsso = status ? needsNewNpsso(status) : false;
   const fraction = run && running ? progressFraction(run) : null;
   const label = status ? buttonLabel(status, starting) : starting ? 'Синк идёт…' : 'Синк сейчас';

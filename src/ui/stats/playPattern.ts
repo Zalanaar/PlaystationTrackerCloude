@@ -2,7 +2,7 @@
 import type { PlayPattern } from '@/server/stats/types';
 import { plural } from '../format';
 
-export const PATTERN_CAPTION = 'по времени трофеев · МСК';
+export const PATTERN_CAPTION = 'по времени трофеев';
 export const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
 export const WEEKDAY_NOM = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'] as const;
 export const MAX_TIED_PEAKS = 3;

@@ -105,6 +105,15 @@ test.describe('Статистика: «Всё время» (Фаза 25)', () =>
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 
+  test.describe('пояс устройства (Пакет 6, п. 3)', () => {
+    test.use({ timezoneId: 'Europe/Vilnius' });
+    test('не московский пояс уходит в запрос как tz', async ({ page, context, baseURL }) => {
+      const ctl = await open(page, context, baseURL!, '/stats?period=all');
+      await expect(page.getByRole('heading', { name: 'Часы по годам' })).toBeVisible();
+      for (const c of ctl.calls) expect(c.searchParams.toString()).toBe('period=all&tz=Europe%2FVilnius');
+    });
+  });
+
   test('прямой заход ?period=all&year=abc не ломается и не уходит в API мусором', async ({ page, context, baseURL }) => {
     const ctl = await open(page, context, baseURL!, '/stats?period=all&year=abc&month=99');
     await expect(page.getByRole('heading', { name: 'Часы по годам' })).toBeVisible();
@@ -199,9 +208,9 @@ test.describe('Статистика: «Когда ты играешь» (Фаз�
     test(`блок в периоде ${url}: подпись, итог словами, 24 часа и 7 дней`, async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!, url);
       const panel = page.locator('section', { has: page.getByRole('heading', { name: 'Когда ты играешь' }) });
-      await expect(panel).toContainText('по времени трофеев · МСК');
+      await expect(panel).toContainText('по времени трофеев');
       await expect(page.getByTestId('pp-summary')).toHaveText('Чаще всего: 21:00-22:00, суббота');
-      const hours = page.getByRole('group', { name: 'Трофеи по часам суток, МСК' });
+      const hours = page.getByRole('group', { name: 'Трофеи по часам суток' });
       await expect(hours.getByRole('img')).toHaveCount(24);
       await expect(hours.getByRole('img').nth(21)).toHaveAttribute('aria-label', '21:00-22:00: 48 трофеев, 27%, пик');
       const days = page.getByRole('group', { name: 'Трофеи по дням недели' });
@@ -213,7 +222,7 @@ test.describe('Статистика: «Когда ты играешь» (Фаз�
 
   test('roving tabindex: один Tab-стоп, стрелки, Home/End, подсказка', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/stats?period=all');
-    const hours = page.getByRole('group', { name: 'Трофеи по часам суток, МСК' });
+    const hours = page.getByRole('group', { name: 'Трофеи по часам суток' });
     const bars = hours.getByRole('img');
     await expect(bars.locator('xpath=self::*[@tabindex="0"]')).toHaveCount(1);
     await bars.first().focus();
@@ -235,8 +244,8 @@ test.describe('Статистика: «Когда ты играешь» (Фаз�
     await open(page, context, baseURL!, '/stats', { pattern: false });
     await expect(page.getByTestId('pp-stub')).toContainText('Пока мало данных');
     await expect(page.getByTestId('pp-summary')).toHaveCount(0);
-    await expect(page.getByText('по времени трофеев · МСК')).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Трофеи по часам суток, МСК' })).toHaveCount(0);
+    await expect(page.getByText('по времени трофеев')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Трофеи по часам суток' })).toHaveCount(0);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
   });
 
@@ -370,7 +379,7 @@ test.describe('Итоги: «Всё время» (Фаза 26)', () => {
         await expect(page.getByRole('heading', { name: 'Ты играешь вечерами' })).toBeVisible();
         await expect(page.locator('.ps-pps__peak')).toHaveText('21:00');
         await expect(page.getByText('Любимый день: суббота')).toBeVisible();
-        await expect(page.locator('.ps-pps__cap')).toHaveText('по времени трофеев · МСК');
+        await expect(page.locator('.ps-pps__cap')).toHaveText('по времени трофеев');
         await expect(page.getByRole('group', { name: 'Чаще всего ты получаешь трофеи в 21:00-22:00, любимый день суббота' })).toBeVisible();
         await expect(page.locator('.ps-pps__chart')).toHaveCount(2);
       }

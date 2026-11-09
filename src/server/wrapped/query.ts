@@ -26,8 +26,8 @@ import type { WrappedPlatinum, WrappedResponse } from './types';
 
 const { gameReviews, games, gameStatus, gameTrophySets, playtimeSnapshots: ps, trophies, trophySets } = schema;
 
-export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 'all', onlineId: string | null, now: Date = new Date(), opts: { withService?: boolean } = {}): Promise<WrappedResponse> {
-  if (yearOrAll === 'all') return getWrappedAll(db, userId, onlineId, now, opts.withService === true);
+export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 'all', onlineId: string | null, now: Date = new Date(), opts: { withService?: boolean; tz?: string } = {}): Promise<WrappedResponse> {
+  if (yearOrAll === 'all') return getWrappedAll(db, userId, onlineId, now, opts.withService === true, opts.tz);
   const year = yearOrAll;
   const today = mskDateString(now);
   const currentYear = Number(today.slice(0, 4));
@@ -74,7 +74,7 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
     db.select({ id: games.id, psnGenres: games.psnGenres, genresOverride: games.genresOverride }).from(games).where(and(eq(games.userId, userId), visibleGameRow())),
     getPsnProfile(db, userId),
     getRareTrophies(db, userId, { fromUtc, toUtc }, undefined, opts.withService === true),
-    getPlayPatternCells(db, userId, { fromUtc, toUtc }),
+    getPlayPatternCells(db, userId, { fromUtc, toUtc }, opts.tz),
     // пакет 3: мои оценки (отзыв пишется на главную карточку дубля, как и часы после слияния)
     db.select({ gameId: gameReviews.gameId, rating: gameReviews.rating }).from(gameReviews).where(and(eq(gameReviews.userId, userId), sql`${gameReviews.rating} is not null`, gameVisible(gameReviews.gameId, userId))),
   ]);

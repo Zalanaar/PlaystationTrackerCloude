@@ -17,4 +17,9 @@ describe('parseStatsQuery', () => {
   it('мусор', () => {
     for (const b of ['period=week', 'year=abc', 'year=1999', 'year=2101', 'year=-1']) expect(q(b).ok, b).toBe(false);
   });
+  it('tz (Пакет 6, п. 3): пояс устройства; Москва и мусор = без поля', () => {
+    expect(q('tz=Europe/Vilnius')).toEqual({ ok: true, value: { type: 'year', year: 2026, month: null, tz: 'Europe/Vilnius' } });
+    expect(q('tz=Europe/Moscow')).toEqual({ ok: true, value: { type: 'year', year: 2026, month: null } });
+    expect(q("tz=x'%3Bdrop")).toEqual({ ok: true, value: { type: 'year', year: 2026, month: null } });
+  });
 });

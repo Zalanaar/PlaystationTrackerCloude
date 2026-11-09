@@ -70,7 +70,7 @@ function BarGroup({
   );
 }
 
-/** «Когда ты играешь» (§12.6): трофеи по часам суток и дням недели, МСК. Во всех периодах. */
+/** «Когда ты играешь» (§12.6): трофеи по часам суток и дням недели по часам устройства (Пакет 6, п. 3). Во всех периодах. */
 export function PlayPatternPanel({ pattern, periodKey }: { pattern: PlayPattern | undefined; periodKey: string }) {
   const id = useId();
   const [panel, setPanel] = useState<HTMLElement | null>(null);
@@ -89,7 +89,7 @@ export function PlayPatternPanel({ pattern, periodKey }: { pattern: PlayPattern 
           <div className="ps-pp__grid">
             <div className="ps-pp__hours">
               <BarGroup
-                key={`h-${periodKey}`} bars={hours} ariaLabel="Трофеи по часам суток, МСК" kind="hours" labelEvery={mobile ? 6 : 3} tipTitle={(b) => hourRange(b.index)}
+                key={`h-${periodKey}`} bars={hours} ariaLabel="Трофеи по часам суток" kind="hours" labelEvery={mobile ? 6 : 3} tipTitle={(b) => hourRange(b.index)}
                 panel={panel} animId={`pp-hours-${periodKey}`} stepMs={20}
               />
             </div>

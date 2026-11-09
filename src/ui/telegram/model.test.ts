@@ -31,13 +31,20 @@ describe('время', () => {
     expect(remainingMs(past, NOW)).toBe(0);
     expect(remainingMs(null, NOW)).toBe(0);
   });
-  it('последняя отправка по МСК', () => expect(formatLastSent('2026-10-25T16:00:12.000Z')).toBe('25 окт, 19:00 МСК'));
+  it('последняя отправка по часам устройства, без «МСК»', () => {
+    expect(formatLastSent('2026-10-25T16:00:12.000Z', 'Europe/Moscow')).toBe('25 окт, 19:00');
+    expect(formatLastSent('2026-10-25T16:00:12.000Z', 'Europe/Vilnius')).toBe('25 окт, 18:00');
+  });
   it('нет даты', () => expect(formatLastSent(null)).toBeNull());
 });
 
 describe('тексты', () => {
   it('подключено: ещё не отправлялась', () => expect(captionFor('linked', null)).toContain('Ещё не отправлялась'));
-  it('подключено: дата', () => expect(captionFor('linked', '2026-10-25T16:00:12.000Z')).toContain('Последняя: 25 окт, 19:00 МСК'));
+  it('подключено: дата (по часам устройства, без «МСК»)', () => {
+    const c = captionFor('linked', '2026-10-25T16:00:12.000Z');
+    expect(c).toMatch(/Последняя: 2[56] окт, \d\d:00/);
+    expect(c).not.toContain('МСК');
+  });
   it('владелец', () => expect(captionFor('linked_owner', null)).toBe('Чат задан на сервере вместе с алертами.'));
   it('ошибки POST', () => {
     expect(createErrorText(429)).toContain('Слишком много');

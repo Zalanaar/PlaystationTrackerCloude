@@ -1,4 +1,5 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
+import { deviceTimeZone, MSK_TZ } from '@/shared/tz';
 import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
 import type { StatsResponse } from '@/server/stats/types';
@@ -59,15 +60,24 @@ export function settleBatch(r: GamesBatchResponse): PromiseSettledResult<GamesLi
 /** Детали игры и список трофеев для окна (12.5). 404 = игра не найдена. */
 export const fetchGameDetails = (id: number, signal?: AbortSignal) => call<GameDetailsResponse>(`/api/games/${id}`, { signal });
 
+/** Пакет 6, п. 3: «Когда ты играешь» — по часам устройства. Параметр tz только если пояс не московский (старые адреса кэша те же). */
+function withTz(q: URLSearchParams): URLSearchParams {
+  const tz = deviceTimeZone();
+  if (tz !== MSK_TZ && !q.has('tz')) q.set('tz', tz);
+  return q;
+}
+
 export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
-  cachedGet<StatsResponse>(`/api/stats?${query.toString()}`, signal);
+  cachedGet<StatsResponse>(`/api/stats?${withTz(new URLSearchParams(query)).toString()}`, signal);
 
 /** Стрик и карта активности года (14.3). Грузится лениво, отдельно от /api/stats. */
 export const fetchActivity = (year: number, signal?: AbortSignal) =>
   cachedGet<ActivityResponse>(`/api/stats/activity?year=${year}`, signal);
 
-export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) =>
-  cachedGet<WrappedResponse>(year === null ? '/api/wrapped' : `/api/wrapped?year=${year}`, signal);
+export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) => {
+  const q = withTz(new URLSearchParams(year === null ? '' : `year=${year}`)).toString();
+  return cachedGet<WrappedResponse>(q ? `/api/wrapped?${q}` : '/api/wrapped', signal);
+};
 
 /** PUT status. `expectedStatus` (ключ есть, даже null) = оптимистичная проверка, 409 `status_conflict`; `restore` = откат строки статуса (контракт 28.9). */
 export const putStatus = (

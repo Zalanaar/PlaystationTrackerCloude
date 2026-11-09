@@ -1,7 +1,8 @@
 // Разбор query GET /api/stats (контракт 10.1). Чистая функция.
 import type { StatsPeriodType } from './types';
+import { MSK_TZ, parseTzParam } from '@/shared/tz';
 
-export type StatsQuery = { type: StatsPeriodType; year: number; month: number | null; /** 17.2: вернуть в «Редкие трофеи» игры-сервисы (по умолчанию нет) */ withService?: boolean };
+export type StatsQuery = { type: StatsPeriodType; year: number; month: number | null; /** 17.2: вернуть в «Редкие трофеи» игры-сервисы (по умолчанию нет) */ withService?: boolean; /** Пакет 6, п. 3: пояс устройства для «Когда ты играешь» (часы и дни недели); нет = МСК */ tz?: string };
 export type StatsParsed = { ok: true; value: StatsQuery } | { ok: false; message: string };
 
 const bad = (message: string): { ok: false; message: string } => ({ ok: false, message });
@@ -40,7 +41,8 @@ export function parseStatsQuery(sp: URLSearchParams, currentYear: number): Stats
   }
   const ws = parseWithService(sp.get('withService'));
   if (ws === null) return bad('Некорректный параметр withService.');
-  return { ok: true, value: { type: pRaw, year, month, ...(ws ? { withService: true } : {}) } };
+  const tz = parseTzParam(sp.get('tz'));
+  return { ok: true, value: { type: pRaw, year, month, ...(ws ? { withService: true } : {}), ...(tz !== MSK_TZ ? { tz } : {}) } };
 }
 
 /** GET /api/stats/activity (14.3): только year, по умолчанию текущий год МСК; пустая строка = нет параметра. */

@@ -224,6 +224,23 @@ describe('getStats(period=all) на PGlite', () => {
     expect(r.played).toEqual({ games: {}, groups: [] });
   });
 
+  it('паттерн по поясу устройства (Пакет 6, п. 3): часы сдвигаются, годы остаются по МСК', async () => {
+    await seed(TEST_USER, 'A');
+    const msk = await all();
+    const vil = await getStats(t.db, TEST_USER, { type: 'all', year: 2026, month: null, tz: 'Europe/Vilnius' }, NOW);
+    // золото 2025-12-31T20:59:59Z: 23 ч МСК, 22 ч в Вильнюсе (зима, UTC+2); бронза 21:00Z: 0 ч МСК, 23 ч в Вильнюсе (среда 31.12)
+    expect(msk.playPattern?.byHour[23]).toBe(1);
+    expect(msk.playPattern?.byHour[0]).toBe(1);
+    expect(vil.playPattern?.byHour[22]).toBe(1);
+    expect(vil.playPattern?.byHour[23]).toBe(1);
+    expect(vil.playPattern?.byHour[0]).toBe(0);
+    // платина 2025-06-01T10:00Z: лето, в Вильнюсе тоже UTC+3 -> 13 ч в обоих
+    expect(msk.playPattern?.byHour[13]).toBe(1);
+    expect(vil.playPattern?.byHour[13]).toBe(1);
+    expect(vil.trophies.byYear).toEqual(msk.trophies.byYear);
+    expect(vil.playPattern?.total).toBe(3);
+  });
+
   it('жанры: игра без часов, но пройденная когда-либо, входит; без часов и статуса нет', async () => {
     const base = { userId: TEST_USER, lastSeenAt: NOW, category: 'ps5_native_game' as const };
     const [a] = await t.db.insert(games).values({ ...base, titleId: 'X1', name: 'X1', psnGenres: ['ACTION'], playDurationSeconds: 0 }).returning({ id: games.id });
