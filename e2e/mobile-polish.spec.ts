@@ -256,6 +256,19 @@ test.describe('Бэклог: одна главная кнопка (D-P3, P2-13)'
     await expect(card).toHaveCount(0); // дальше по плану только релиз: карточки нет
   });
 
+  test('пакет 6, п. 1: фильтр платформы из cookie не прячет карточку, игра плана вне выборки берётся отдельно', async ({ page, context, baseURL }) => {
+    const m = await login(page, context, baseURL!, many());
+    await context.addCookies([{ name: 'ps-platform', value: 'ps4', url: baseURL! }]); // все игры мока — PS5: выборка пустая
+    await mockPlan(page);
+    await page.goto('/backlog');
+    const card = page.getByTestId('bl-nextup');
+    await expect(card).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Игра 6', exact: true })).toBeVisible();
+    expect(m.detailCalls).toContain(205);
+    await card.getByRole('button', { name: 'Начать играть по плану: Игра 6' }).click();
+    await expect(card).toHaveCount(0); // ушла из бэклога; дальше по плану только релиз
+  });
+
   test('без плана (сбой /api/roadmap) карточки нет, список работает', async ({ page, context, baseURL }) => {
     await login(page, context, baseURL!, many());
     await page.route(/\/api\/roadmap(\?|$)/, (r) => r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) }));

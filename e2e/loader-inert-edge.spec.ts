@@ -46,8 +46,14 @@ test('смена статуса: refresh после мутации не дела
   await expect(page.locator('.ps-card').first()).toBeVisible();
   state.delay = 1500;
   await page.getByRole('button', { name: 'Открыть: Stray' }).first().click(); // диалог: работает и на mobile
-  await page.getByRole('dialog', { name: 'Stray' }).getByRole('button', { name: 'Изменить статус' }).click();
-  await page.locator('[role=menuitemradio][aria-checked=false]').first().click(); // любой статус, отличный от текущего
+  // Флак CI (mobile, шард 3): тап по «Изменить статус» во время выезда окна и подмены slim-карточки деталями терялся,
+  // лист статусов не открывался, и клик по пункту ждал 30 с. Повторяем открытие листа, пока пункт не виден.
+  const item = page.locator('[role=menuitemradio][aria-checked=false]').first();
+  await expect(async () => {
+    if (!(await item.isVisible())) await page.getByRole('dialog', { name: 'Stray' }).getByRole('button', { name: 'Изменить статус' }).click({ timeout: 2000 });
+    await expect(item).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 12_000 });
+  await item.click(); // любой статус, отличный от текущего
   await expect(overlay(page)).toBeVisible({ timeout: 3000 }); // refresh дольше 200 мс
   expect(await overlay(page).getAttribute('data-blocking')).toBe('false');
   expect(await page.locator('.ps-collection').getAttribute('inert')).toBeNull();

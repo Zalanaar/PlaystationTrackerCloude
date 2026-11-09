@@ -11,7 +11,7 @@ import { formatNumber } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
-import { ApiError, errorText, fetchGames, putStatus } from './api';
+import { ApiError, errorText, fetchGameDetails, fetchGames, putStatus } from './api';
 import { mskDay } from '../inbox/model';
 import { MatchChip } from '../inbox/MatchChip';
 import { ManualCard, ManualRow } from './ManualItems';
@@ -33,7 +33,7 @@ import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar'
 import { RemainingMeter } from './RemainingMeter';
 import { BacklogRow, type RowMenuItem } from './BacklogRow';
 import { NextUpCard } from './NextUpCard';
-import { pickNextUp } from './nextUp';
+import { mayBeInBacklog, pickNextUp } from './nextUp';
 import { fetchRoadmap } from '../roadmap/api';
 import type { RoadmapResponse } from '@/server/roadmap/types';
 import {
@@ -105,6 +105,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   // D-P3: план (/api/roadmap) для карточки «Следующая по плану»; сбой = без карточки. Ждём его вместе со списком, чтобы карточка не сдвигала страницу
   const [roadmap, setRoadmap] = useState<RoadmapResponse | null>(null);
   const [roadmapReady, setRoadmapReady] = useState(false);
+  const [nextExtra, setNextExtra] = useState<{ id: number; game: GameItem | null } | null>(null);
+  const [nextGone, setNextGone] = useState<ReadonlySet<number>>(() => new Set());
   useEffect(() => {
     const ac = new AbortController();
     fetchRoadmap(ac.signal).then(setRoadmap, () => {}).finally(() => { if (!ac.signal.aborted) setRoadmapReady(true); });
@@ -319,8 +321,11 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       setShelvedTotal((n) => Math.max(0, n + r.shelvedDelta));
       setTotal((n) => Math.max(0, n + r.backlogDelta));
       setServiceTotal((n) => Math.max(0, n + r.serviceDelta));
+      // п. 1 пакета 6: ушедшая из бэклога игра не может быть «следующей», даже пока план не перечитан
+      setNextGone((s) => { const n = new Set(s); if (to === 'backlog') n.delete(g.id); else n.add(g.id); return n; });
     };
-    const sync = () => { void load(); void loadService(); void loadShelved(); };
+    // п. 1 пакета 6: план перечитываем после смены статуса, иначе карточка показывала устаревшую «следующую» или пропадала
+    const sync = () => { void load(); void loadService(); void loadShelved(); fetchRoadmap().then(setRoadmap, () => {}); };
     apply(game, status);
     try {
       await putStatus(game.id, status);
@@ -336,6 +341,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       setItems(beforeB);
       setService(beforeS);
       setShelved(beforeH);
+      if (game.status === 'backlog') setNextGone((s) => { const n = new Set(s); n.delete(game.id); return n; });
       void load();
       void loadService();
       void loadShelved();
@@ -518,10 +524,33 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
 
   // список готов: секции «Не куплено» и остальные блоки показываем только вместе со списком (скелет не даёт им прыгать, QA-43-3)
   // QA-43.1-7: зависший второстепенный запрос не держит скелет дольше SKELETON_MAX_MS, показываем то, что уже пришло
-  const auxDone = giveUp || (manualReady && matchReady && roadmapReady && auxReady.shelved && auxReady.service);
+  // Пакет 6, п. 1: игра плана может быть за пределами загруженной страницы (список сортируется по длительности) —
+  // тогда берём её отдельным запросом, а не прячем карточку. Пока запрос идёт, держим скелет (карточка не сдвигает список).
+  // Фильтр платформы живёт в cookie и переносится между страницами: раньше он молча прятал карточку («иногда пропадает»).
+  // Карточка — про план, а не про выборку: при фильтре платформы она остаётся, игру сверяем без отфильтрованного списка.
+  const platformOnly = filters.platform !== null && !hasBacklogFilters({ ...filters, platform: null });
+  const nextCand = items && roadmapReady && (platformOnly || !hasBacklogFilters(filters))
+    ? pickNextUp(roadmap, mayBeInBacklog(platformOnly ? [] : items, platformOnly ? Infinity : total, nextGone))
+    : null;
+  const nextInItems = nextCand && items ? items.find((g) => g.id === nextCand.gameId) ?? null : null;
+  const needExtra = nextCand && !nextInItems ? nextCand.gameId : null;
+  const nextPending = needExtra !== null && nextExtra?.id !== needExtra;
+  useEffect(() => {
+    if (needExtra === null || nextExtra?.id === needExtra) return;
+    const ac = new AbortController();
+    fetchGameDetails(needExtra, ac.signal).then(
+      (r) => {
+        if (r.game.status === 'backlog') setNextExtra({ id: needExtra, game: r.game });
+        else setNextGone((s) => new Set(s).add(needExtra)); // план устарел: игра уже не в бэклоге, берём следующую
+      },
+      () => { if (!ac.signal.aborted) setNextExtra({ id: needExtra, game: null }); }, // сбой: без карточки, страница работает
+    );
+    return () => ac.abort();
+  }, [needExtra, nextExtra]);
+  const auxDone = giveUp || (manualReady && matchReady && roadmapReady && !nextPending && auxReady.shelved && auxReady.service);
   const ready = !!items && !(error && !items) && auxDone;
-  const nextUp = ready && items && !hasBacklogFilters(filters) ? pickNextUp(roadmap, (id) => items.some((g) => g.id === id)) : null;
-  const nextGame = nextUp ? items!.find((g) => g.id === nextUp.gameId) ?? null : null;
+  const nextUp = ready ? nextCand : null;
+  const nextGame = nextUp ? nextInItems ?? (nextExtra?.id === nextUp.gameId ? nextExtra.game : null) : null;
   const tabs = [
     { id: 'h-bl-main', label: 'Бэклог', n: mainTotal, on: !filters.nb },
     { id: 'h-bl-nb', label: 'Не куплено', n: nbShown.length, on: showNbSection },

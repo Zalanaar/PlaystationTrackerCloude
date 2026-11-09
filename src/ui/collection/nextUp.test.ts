@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanItem } from '@/server/roadmap/types';
-import { pickNextUp } from './nextUp';
+import { mayBeInBacklog, pickNextUp } from './nextUp';
 
 const it_ = (key: string, start: string, end: string, o: Partial<PlanItem> = {}): PlanItem => ({
   key, kind: 'backlog', gameId: Number(key.slice(2)), plannedId: null, title: `T${key}`, coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false,
@@ -30,5 +30,29 @@ describe('pickNextUp', () => {
     expect(pickNextUp(plan([it_('g:1', '2026-11-01', '2026-11-07')], 'no_budget'), all)).toBeNull();
     expect(pickNextUp(plan([]), all)).toBeNull();
     expect(pickNextUp(plan([it_('g:1', '2026-10-01', '2026-11-02')]), all)).toBeNull();
+  });
+});
+
+describe('mayBeInBacklog (пакет 6, п. 1: карточка не пропадает)', () => {
+  const gs = (...ids: number[]) => ids.map((id) => ({ id }));
+  it('игра за пределами загруженной страницы: может быть в бэклоге, карточка остаётся с ней, а не со следующей', () => {
+    const inList = mayBeInBacklog(gs(2, 3), 500, new Set());
+    expect(inList(1)).toBe(true);
+    const r = pickNextUp(plan([it_('g:1', '2026-11-01', '2026-11-07'), it_('g:2', '2026-11-08', '2026-11-12')]), inList);
+    expect(r?.gameId).toBe(1);
+  });
+  it('список загружен целиком и игры в нём нет: её нет в бэклоге', () => {
+    expect(mayBeInBacklog(gs(2, 3), 2, new Set())(1)).toBe(false);
+    expect(mayBeInBacklog(gs(2, 3), 2, new Set())(2)).toBe(true);
+  });
+  it('игра ушла из бэклога (смена статуса до перечитывания плана): берётся следующая', () => {
+    const inList = mayBeInBacklog(gs(1, 2), 2, new Set([1]));
+    const r = pickNextUp(plan([it_('g:1', '2026-11-01', '2026-11-07'), it_('g:2', '2026-11-08', '2026-11-12')]), inList);
+    expect(r?.gameId).toBe(2);
+  });
+  it('фильтр платформы (пустой список, total = ∞): решает только gone', () => {
+    const inList = mayBeInBacklog([], Infinity, new Set([5]));
+    expect(inList(1)).toBe(true);
+    expect(inList(5)).toBe(false);
   });
 });
