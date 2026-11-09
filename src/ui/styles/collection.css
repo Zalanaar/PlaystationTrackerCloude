@@ -241,6 +241,9 @@
 .ps-filterchip--plat .ps-filterchip__plat { color: var(--plat-text); flex: none; }
 .ps-filterchip--plat[aria-pressed="true"] { border-color: var(--plat-2); background: color-mix(in srgb, var(--plat-2) 14%, var(--surface-2)); color: var(--text); }
 .ps-filterchip:disabled { opacity: .5; cursor: default; }
+/* Пакет 6, п. 5: «Что начать?» на месте пустого «Играю» — ссылка в виде чипа, пунктирная рамка = подсказка, а не фильтр */
+.ps-filterchip--hint { border: var(--border-w) dashed var(--border-strong); color: var(--text-2); text-decoration: none; }
+.ps-filterchip--hint:hover { color: var(--text); }
 .ps-filterchip:disabled:hover { background: none; color: var(--text-2); }
 /* ---------- Арт (hero и окно игры) ---------- */
 .ps-artbg { position: absolute; inset: 0; overflow: hidden; background: var(--surface-3); }

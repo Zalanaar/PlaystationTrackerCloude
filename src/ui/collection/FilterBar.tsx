@@ -6,7 +6,8 @@ import { formatNumber } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { Sheet } from '../primitives/Sheet';
-import { filtersDot, hasActiveFilters, SORT_OPTIONS, STATUS_TABS, type Filters, type StatusTab } from './filters';
+import { chipVisible, filtersDot, hasActiveFilters, SORT_OPTIONS, STATUS_TABS, type Filters, type StatusTab } from './filters';
+import Link from '@/ui/IntentLink';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
 
@@ -157,6 +158,15 @@ function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps
         {STATUS_TABS.map((t) => {
           const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;
           const wide = t.id === 'all' || t.id === 'none';
+          // Пакет 6, п. 5 (D8): пустые статусы не показываем (кроме «Все» и выбранного); вместо пустого «Играю» — «Что начать?» → Подскажи
+          if (!chipVisible(t.id, n, filters.status)) {
+            return t.id === 'playing' ? (
+              <Link key="start" href="/recommend" className="ps-filterchip ps-chip ps-filterchip--hint" data-wide="" data-testid="chip-what-to-start">
+                <Icon name="lightbulb" size={16} />
+                <span className="ps-filterchip__t">Что начать?</span>
+              </Link>
+            ) : null;
+          }
           return (
             <button
               key={t.id} type="button" className="ps-filterchip ps-chip" data-wide={wide || undefined} aria-label={n !== null ? `${t.label}: ${formatNumber(n)}` : t.label}

@@ -37,6 +37,14 @@ export const STATUS_TABS: readonly { id: StatusTab; label: string }[] = [
   { id: 'none', label: UNSORTED_LABEL },
 ];
 
+/**
+ * Пакет 6, п. 5 (D8): чип статуса виден, если в нём есть игры, это «Все» или он сейчас выбран (иначе выбор пропал бы).
+ * Пока счётчики грузятся (n = null), видны все: так нет скачка при первой отрисовке без данных.
+ */
+export function chipVisible(id: StatusTab, n: number | null, selected: StatusTab): boolean {
+  return id === 'all' || id === selected || n === null || n > 0;
+}
+
 export const SORT_OPTIONS: readonly { id: GameSort; label: string }[] = [
   { id: 'completed_at', label: 'По дате завершения' },
   { id: 'last_played', label: 'По последней игре' },

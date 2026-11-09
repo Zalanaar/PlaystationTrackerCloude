@@ -318,7 +318,7 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'playing' } });
     await expect(tab(page, /Играю/)).toContainText('2');
-    await expect(tab(page, /Бэклог/)).toContainText('0');
+    await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
     // игра переехала в ленту «Играю»
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Stray');
     await page.reload();

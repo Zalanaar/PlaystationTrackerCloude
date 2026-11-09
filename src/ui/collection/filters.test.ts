@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameItem } from '@/server/collection/types';
 import {
-  DEFAULT_FILTERS, filtersDot, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
+  chipVisible, DEFAULT_FILTERS, filtersDot, adjustCounts, applyPlatinum, hasPlatinum, applyStatusLocally, completionInfo, blockQuery, dateInputToIso, effectiveView, filtersToApi,
   filtersToUrl, hasActiveFilters, isChronicleMode, isoToDateInput, isResetWord, matchesStatusTab, otherBlockFilters, parseFilters, removeFromCounts, resetFilters,
 } from './filters';
 
@@ -167,5 +167,15 @@ describe('точка на кнопке «Фильтры» (моб.)', () => {
     expect(filtersDot({ ...base, platinum: true }, 'comfort')).toBe(true);
     expect(filtersDot(base, 'dense')).toBe(true);
     expect(filtersDot(base, 'list')).toBe(true);
+  });
+});
+
+describe('chipVisible (Пакет 6, п. 5)', () => {
+  it('пустой статус скрыт, «Все» и выбранный видны всегда, без счётчиков видны все', () => {
+    expect(chipVisible('playing', 0, 'all')).toBe(false);
+    expect(chipVisible('playing', 2, 'all')).toBe(true);
+    expect(chipVisible('all', 0, 'all')).toBe(true);
+    expect(chipVisible('dropped', 0, 'dropped')).toBe(true);
+    expect(chipVisible('shelved', null, 'all')).toBe(true);
   });
 });

@@ -24,12 +24,12 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 const gridCols = (page: Page) => block(page).locator('.ps-grid').first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
 
 test.describe('блок «Игры-сервисы»', () => {
-  test('нет игр-сервисов: блок, якорь и счётчик-ссылка скрыты; чип «Сервис» есть с нулём', async ({ page, context, baseURL }) => {
+  test('нет игр-сервисов: блок, якорь и счётчик-ссылка скрыты; пустой чип «Сервис» тоже скрыт (Пакет 6, п. 5)', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(block(page)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Игры-сервисы' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Сервисы' })).toHaveCount(0);
-    await expect(tab(page, /Сервис/)).toContainText('0');
+    await expect(tab(page, /Сервис/)).toHaveCount(0);
   });
 
   test('порядок блоков, счётчик, один ряд и «Показать ещё N» / «Свернуть»', async ({ page, context, baseURL }) => {
@@ -130,7 +130,7 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     await expect(page.getByText('Статус изменён: Сервис')).toBeVisible();
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'service' } });
     await expect(tab(page, /Сервис/)).toContainText('1');
-    await expect(tab(page, /Бэклог/)).toContainText('0');
+    await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
     await expect(block(page)).toBeVisible();
     await expect(visibleCards(page)).toHaveCount(1);
     await expect(visibleCards(page).first()).toContainText('Stray');
