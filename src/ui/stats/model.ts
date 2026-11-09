@@ -89,6 +89,15 @@ export function formatHours(n: number): string {
   return frac === '0' ? grouped : `${grouped},${frac}`;
 }
 
+/**
+ * Пакет 6, п. 7: один формат времени на всей Статистике — как на карточках игр: «45 м», «2 ч 30 м», «40 ч», от 100 ч без минут «128 ч».
+ * Оценка помечается снаружи знаком «≈» (и «примерно» для скринридера). 0 = «0 ч», меньше минуты = «меньше минуты».
+ */
+export function hoursText(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0 ч';
+  return formatPlayTime(Math.round(hours * 3600)) ?? 'меньше минуты';
+}
+
 /** «2026-03-04» -> «04.03.2026». Невалидное -> null. */
 export function formatIsoDay(day: string | null): string | null {
   const m = day ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(day) : null;
@@ -146,7 +155,7 @@ export function hoursBars(byMonth: readonly (number | null)[], estimatedByMonth:
     const est = round1(estimated);
     const heightPct = max > 0 && v > 0 ? Math.max(3, (v / max) * 100) : 0;
     const realShare = v > 0 ? (real / v) * 100 : 0;
-    const text = est > 0 ? `${title}: ${formatHours(v)} ч, из них ${formatHours(est)} ч оценка` : `${title}: ${formatHours(v)} ч`;
+    const text = est > 0 ? `${title}: ${hoursText(v)}, из них ${hoursText(est)} оценка` : `${title}: ${hoursText(v)}`;
     return { month: i + 1, label, value: v, real, estimated: est, heightPct, realShare, title, text };
   });
 }
@@ -169,7 +178,7 @@ export function genreBars(items: readonly (StatsGenreItem & { gameIds?: readonly
     key: i.key,
     label: i.label,
     widthPct: max > 0 ? Math.max(2, (i.value / max) * 100) : 0,
-    text: formatHours(i.value),
+    text: hoursText(i.value),
     value: i.value,
     gameIds: [...(i.gameIds ?? [])],
   }));
@@ -188,10 +197,10 @@ export function genreGames(gameIds: readonly number[], games: Readonly<Record<st
   return { shown: known.slice(0, limit), rest: Math.max(0, known.length - limit), total: known.length };
 }
 
-/** «12,4 ч · 8 игр»; нет часов за период (value = 0) = только «8 игр». */
+/** «12 ч 24 м · 8 игр»; нет часов за период (value = 0) = только «8 игр». */
 export function genreSubtitle(value: number, gamesCount: number): string {
   const g = `${gamesCount} ${plural(gamesCount, ['игра', 'игры', 'игр'])}`;
-  return value > 0 ? `${formatHours(value)} ч · ${g}` : g;
+  return value > 0 ? `${hoursText(value)} · ${g}` : g;
 }
 
 export type TopMode = 'hours' | 'trophies';
@@ -225,7 +234,7 @@ const KIND_WORD: Record<(typeof KINDS)[number], string> = { platinum: 'плат�
 export function topHoursRows(items: readonly TopHoursItem[]): TopRow[] {
   const max = Math.max(0, ...items.map((i) => i.hours));
   return items.map((i, n) => {
-    const t = formatPlayTime(Math.round(i.hours * 3600)) ?? 'меньше минуты';
+    const t = hoursText(i.hours);
     return {
       id: i.game.id, game: i.game, rank: n + 1, widthPct: max > 0 ? Math.max(2, (i.hours / max) * 100) : 0,
       valueText: t, approx: i.estimated, valueLabel: i.estimated ? `Примерно ${t}. Часть часов оценена` : t, counts: [],

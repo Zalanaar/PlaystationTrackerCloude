@@ -28,7 +28,7 @@ import { TopGames } from './TopGames';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { StatsDataSkeleton } from '../skeletons';
 import {
-  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, formatHours, parseSelection, periodLabel,
+  type HoursBar, barsHaveEstimate, estimateNote, genreBars, highlightedMonth, hoursBars, isEmptyPeriod, linePath, linePoints, MONTH_LABELS, hoursText, parseSelection, periodLabel,
   selectionKey, selectionToParams, setPeriodType, shiftSelection, todayMsk, type PeriodType, type Selection,
 } from './model';
 
@@ -273,11 +273,11 @@ function PeriodHeader({ data, sel }: { data: StatsResponse; sel: Selection }) {
             ? <span title="Нет данных о часах за этот период"><b className="num">— ч</b><span className="ps-year__more"> {scope}</span></span>
             : data.hours.estimatedHours > 0
               ? (
-                <span title="Часть часов оценена" aria-label={`Примерно ${formatHours(h.hours)} ч ${scope}. Часть часов оценена`}>
-                  <b className="num"><span className="ps-approx" aria-hidden="true">≈</span> {formatHours(h.hours)} ч</b><span className="ps-year__more"> {scope}</span>
+                <span title="Часть часов оценена" aria-label={`Примерно ${hoursText(h.hours)} ${scope}. Часть часов оценена`}>
+                  <b className="num"><span className="ps-approx" aria-hidden="true">≈</span> {hoursText(h.hours)}</b><span className="ps-year__more"> {scope}</span>
                 </span>
               )
-              : <><b className="num">{formatHours(h.hours)} ч</b><span className="ps-year__more"> {scope}</span></>}
+              : <><b className="num">{hoursText(h.hours)}</b><span className="ps-year__more"> {scope}</span></>}
         </span>
         <span className="ps-year__k"><Icon name="trophy" size={16} /><b className="num">{formatNumber(h.platinum)}</b> {plural(h.platinum, ['платина', 'платины', 'платин'])}</span>
       </div>
@@ -364,9 +364,9 @@ function BarTip({ bar }: { bar: HoursBar }) {
   return (
     <span ref={ref} className="ps-st-tip ps-num" role="tooltip">
       <b>{bar.title}</b>
-      <span><b>{formatHours(bar.value)} ч</b> всего</span>
-      {bar.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {formatHours(bar.real)} ч</span>}
-      {bar.estimated > 0 && <span><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка: {formatHours(bar.estimated)} ч</span>}
+      <span><b>{hoursText(bar.value)}</b> всего</span>
+      {bar.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {hoursText(bar.real)}</span>}
+      {bar.estimated > 0 && <span><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка: {hoursText(bar.estimated)}</span>}
     </span>
   );
 }

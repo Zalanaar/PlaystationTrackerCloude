@@ -18,7 +18,7 @@ test.describe('/stats', () => {
     await expect(page.locator('.ps-st-bar[data-nodata]').first()).toBeVisible(); // null-месяцы: кнопка есть, столбца нет
     await expect(page.locator('.ps-st-bar[data-nodata] .ps-st-bar__stack')).toHaveCount(0);
     await expect(page.locator('.ps-st-bar__hatch')).toHaveCount(0); // штриховка «нет данных» убрана
-    await expect(page.locator('.ps-st-head')).toContainText('123,4 ч');
+    await expect(page.locator('.ps-st-head')).toContainText('123 ч');
     await expect(page.locator('.ps-st-head')).not.toContainText('≈');
     await expect(page.getByRole('note')).toHaveCount(0);
     await expect(page.getByRole('list', { name: 'Обозначения' })).toHaveCount(0);
@@ -62,7 +62,7 @@ test.describe('/stats', () => {
     await expect(legend).toContainText('Оценка');
     await expect(page.getByRole('note')).toHaveText(`До 15.01.${TODAY.year} часы оценены: распределены равномерно между первым и последним запуском игры. С этой даты часы измеряются по ежедневным снимкам.`);
     // KPI с «≈»
-    await expect(page.locator('.ps-st-head')).toContainText('≈ 123,4 ч');
+    await expect(page.locator('.ps-st-head')).toContainText('≈ 123 ч');
     await expect(page.locator('.ps-st-head [title="Часть часов оценена"]')).toBeVisible();
     // aria-label с обеими частями
     await expect(feb).toHaveAttribute('aria-label', `Фев — Февраль ${TODAY.year}: 11 ч, из них 4 ч оценка`);

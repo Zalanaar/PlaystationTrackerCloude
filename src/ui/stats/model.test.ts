@@ -110,9 +110,9 @@ describe('графики', () => {
     expect(highlightedMonth({ period: 'year', year: 2025, month: null }, today)).toBeNull();
     expect(highlightedMonth({ period: 'month', year: 2025, month: 3 }, today)).toBe(3);
   });
-  it('жанры: ширина от максимума, значение с одним знаком', () => {
+  it('жанры: ширина от максимума, значение в общем формате часов (Пакет 6, п. 7)', () => {
     const g = genreBars([{ key: 'A', label: 'Экшен', value: 14.5 }, { key: 'B', label: 'Гонки', value: 7.25 }]);
-    expect(g[0]).toMatchObject({ widthPct: 100, text: '14,5' });
+    expect(g[0]).toMatchObject({ widthPct: 100, text: '14 ч 30 м' });
     expect(g[1].widthPct).toBeCloseTo(50);
     expect(genreBars([])).toEqual([]);
   });
@@ -165,7 +165,7 @@ describe('жанры: поповер', () => {
     expect(genreGames([], games, 12)).toEqual({ shown: [], rest: 0, total: 0 });
   });
   it('подзаголовок: часы и игры, без часов только игры', () => {
-    expect(genreSubtitle(12.4, 8)).toBe('12,4 ч · 8 игр');
+    expect(genreSubtitle(12.4, 8)).toBe('12 ч 24 м · 8 игр');
     expect(genreSubtitle(3, 1)).toBe('3 ч · 1 игра');
     expect(genreSubtitle(0, 2)).toBe('2 игры');
   });
@@ -203,5 +203,17 @@ describe('топ игр', () => {
     expect(pointsText(30)).toBe('30 очков');
     expect(pointsLabel(0, { platinum: 0, gold: 0, silver: 0, bronze: 0, total: 0 })).toBe('0 очков');
     expect(TOP_SUBTITLE.trophies).toBe('Очки за трофеи периода: платина 300, золото 90, серебро 30, бронза 15');
+  });
+});
+
+describe('hoursText (Пакет 6, п. 7)', () => {
+  it('один формат: минуты, часы с минутами, от 100 ч без минут, ноль', async () => {
+    const { hoursText } = await import('./model');
+    expect(hoursText(0.75)).toBe('45 м');
+    expect(hoursText(2.5)).toBe('2 ч 30 м');
+    expect(hoursText(40)).toBe('40 ч');
+    expect(hoursText(128.4)).toBe('128 ч');
+    expect(hoursText(0)).toBe('0 ч');
+    expect(hoursText(0.001)).toBe('меньше минуты');
   });
 });

@@ -9,7 +9,7 @@ import {
   coverageNote, finishedYearRows, hasYearHours, TROPHY_STACK, trophiesWord, unattributedText, yearHoursBars, yearRange, yearTrophyBars, type TrophyKind,
 } from './allTime';
 import { ChartTip, useChartTip, useInViewOnce } from './chartTip';
-import { formatHours } from './model';
+import { hoursText } from './model';
 import { Panel } from './Panel';
 
 const SLOT_ROOMY = 44;
@@ -28,11 +28,11 @@ export function AllHeader({ data, years, currentYear }: { data: StatsResponse; y
             ? <span title="Нет данных о часах"><b className="num">— ч</b></span>
             : approx
               ? (
-                <span title="Часть часов оценена" aria-label={`Примерно ${formatHours(h.hours)} ч. Часть часов оценена`}>
-                  <b className="num"><span className="ps-approx" aria-hidden="true">≈</span> {formatHours(h.hours)} ч</b>
+                <span title="Часть часов оценена" aria-label={`Примерно ${hoursText(h.hours)}. Часть часов оценена`}>
+                  <b className="num"><span className="ps-approx" aria-hidden="true">≈</span> {hoursText(h.hours)}</b>
                 </span>
               )
-              : <b className="num">{formatHours(h.hours)} ч</b>}
+              : <b className="num">{hoursText(h.hours)}</b>}
         </span>
         <span className="ps-year__k"><StatusGlyph status="completed" size={16} /><b className="num">{formatNumber(h.completed)}</b> пройдено</span>
         <span className="ps-year__k"><StatusGlyph status="dropped" size={16} /><b className="num">{formatNumber(h.dropped)}</b> брошено</span>
@@ -136,9 +136,9 @@ export function HoursByYearPanel({ data, currentYear, wide }: { data: StatsRespo
     tip: (
       <>
         <b>{b.label}</b>
-        <span><b>{formatHours(b.value)} ч</b> всего</span>
-        {b.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {formatHours(b.real)} ч</span>}
-        {b.estimated > 0 && <span><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка: {formatHours(b.estimated)} ч</span>}
+        <span><b>{hoursText(b.value)}</b> всего</span>
+        {b.real > 0 && <span><i className="ps-st-sw ps-st-sw--real" aria-hidden="true" />Измерено: {hoursText(b.real)}</span>}
+        {b.estimated > 0 && <span><i className="ps-st-sw ps-st-sw--est" aria-hidden="true" />Оценка: {hoursText(b.estimated)}</span>}
       </>
     ),
   }));

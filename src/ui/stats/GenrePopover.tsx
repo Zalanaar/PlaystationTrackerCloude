@@ -29,7 +29,7 @@ export function GenreRow({
       <HoverCard
         label={`Игры жанра ${bar.label}`} sheetTitle={`${bar.label}`} className="ps-st-genres__hc"
         trigger={(p) => (
-          <button type="button" className="ps-st-genres__row ps-st-genres__row--btn" aria-label={`${bar.label}: ${bar.text} ч. Игры жанра: ${total}`} {...p}>{row}</button>
+          <button type="button" className="ps-st-genres__row ps-st-genres__row--btn" aria-label={`${bar.label}: ${bar.text}. Игры жанра: ${total}`} {...p}>{row}</button>
         )}
       >
         {({ closeToTrigger, sheet }) => {

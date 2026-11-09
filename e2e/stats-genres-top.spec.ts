@@ -74,7 +74,7 @@ test.describe('Фаза 10: поповер жанров', () => {
     await expect(pop).toBeVisible();
     await expect(row).toHaveAttribute('aria-expanded', 'true');
     await expect(pop.locator('.ps-gp__head')).toContainText('Экшен');
-    await expect(pop.locator('.ps-gp__head')).toContainText('14,5 ч · 14 игр');
+    await expect(pop.locator('.ps-gp__head')).toContainText('14 ч 30 м · 14 игр');
     await expect(pop.locator('.ps-gp__thumb')).toHaveCount(12);
     await expect(pop.locator('.ps-gp__more')).toHaveText('+2');
     // ширину меряем после анимации ps-pop-in (scale): под нагрузкой кадр анимации давал 306 px (BUG-Q1)
@@ -196,7 +196,7 @@ test.describe('Фаза 10: поповер жанров на мобильном'
     await genreRow(page, 'Экшен').click();
     const sheet = page.getByRole('dialog', { name: 'Экшен' });
     await expect(sheet).toBeVisible();
-    await expect(sheet.locator('.ps-gp__head')).toContainText('14,5 ч · 14 игр');
+    await expect(sheet.locator('.ps-gp__head')).toContainText('14 ч 30 м · 14 игр');
     const cols = await sheet.locator('.ps-gp__grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
     expect(cols).toBe(4);
     await expect(sheet.locator('.ps-gp__thumb')).toHaveCount(14);

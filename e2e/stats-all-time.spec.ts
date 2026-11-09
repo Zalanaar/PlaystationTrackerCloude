@@ -151,7 +151,7 @@ test.describe('Статистика: «Всё время» (Фаза 25)', () =>
     await expect(page.locator('.ps-st-note--cover')).not.toContainText('равен сумме');
     ctl.opts = { unattributed: -12.5 };
     await page.goto('/stats?period=all');
-    await expect(page.getByTestId('unattributed')).toHaveText('Не отнесено к годам: −12,5 ч');
+    await expect(page.getByTestId('unattributed')).toHaveText('Не отнесено к годам: −12 ч 30 м');
     ctl.opts = { unattributed: 0.04 };
     await page.goto('/stats?period=all');
     await expect(page.getByRole('heading', { name: 'Часы по годам' })).toBeVisible();

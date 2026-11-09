@@ -31,8 +31,8 @@ describe('период «Всё время» в URL', () => {
 describe('«Не отнесено к годам»', () => {
   it('показывается от 0,1 ч по модулю, иначе скрыта', () => {
     expect(unattributedText(40)).toBe('Не отнесено к годам: 40 ч');
-    expect(unattributedText(-12.5)).toBe('Не отнесено к годам: −12,5 ч');
-    expect(unattributedText(0.1)).toBe('Не отнесено к годам: 0,1 ч');
+    expect(unattributedText(-12.5)).toBe('Не отнесено к годам: −12 ч 30 м');
+    expect(unattributedText(0.1)).toBe('Не отнесено к годам: 6 м');
     expect(unattributedText(0.04)).toBeNull();
     expect(unattributedText(-0.09)).toBeNull();
     expect(unattributedText(0)).toBeNull();
@@ -77,7 +77,7 @@ describe('график часов по годам', () => {
     expect(bars[1].realShare).toBe(75);
   });
   it('aria-label', () => {
-    expect(bars[1].text).toBe('2025: 1 200 ч, из них 300 ч оценка');
+    expect(bars[1].text).toBe('2025: 1\u00a0200 ч, из них 300 ч оценка');
     expect(bars[2].text).toBe('2026: часов нет');
   });
 });

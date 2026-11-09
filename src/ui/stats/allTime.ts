@@ -1,7 +1,7 @@
 // Чистая логика режима «Всё время» (Фаза 25, design-system §12.2-12.5): годы, столбцы, плашка охвата.
 import type { HoursYear, StatsResponse, TrophyCountsByType } from '@/server/stats/types';
 import { formatNumber, plural } from '../format';
-import { formatHours, formatIsoDay } from './model';
+import { formatIsoDay, hoursText } from './model';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -13,7 +13,7 @@ export const showUnattributed = (u: number | null | undefined): u is number => t
 /** «Не отнесено к годам: 40 ч» (минус как есть: «−12 ч»). null, если |значение| < 0,1. */
 export function unattributedText(u: number | null | undefined): string | null {
   if (!showUnattributed(u)) return null;
-  return `Не отнесено к годам: ${u < 0 ? '−' : ''}${formatHours(Math.abs(u))} ч`;
+  return `Не отнесено к годам: ${u < 0 ? '−' : ''}${hoursText(Math.abs(u))}`;
 }
 
 /** «2014 – 2026»; один год = «2026». */
@@ -57,7 +57,7 @@ export function yearHoursBars(byYear: readonly HoursYear[]): YearHoursBar[] {
     const real = round1(Math.max(0, value - estimated));
     const est = round1(estimated);
     const empty = value <= 0;
-    const text = empty ? `${y.year}: часов нет` : est > 0 ? `${y.year}: ${formatHours(value)} ч, из них ${formatHours(est)} ч оценка` : `${y.year}: ${formatHours(value)} ч`;
+    const text = empty ? `${y.year}: часов нет` : est > 0 ? `${y.year}: ${hoursText(value)}, из них ${hoursText(est)} оценка` : `${y.year}: ${hoursText(value)}`;
     return {
       year: y.year, label: String(y.year), value, real, estimated: est,
       heightPct: empty || max <= 0 ? 0 : Math.max(3, (value / max) * 100),
