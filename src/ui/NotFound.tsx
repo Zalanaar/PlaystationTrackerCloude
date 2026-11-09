@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 
 /** Содержимое 404 (docs/design-system.md §8.4). `root` = вне шелла: колонка по центру на весь экран и логотип-ссылка сверху. */
 export function NotFound({ root = false }: { root?: boolean }) {

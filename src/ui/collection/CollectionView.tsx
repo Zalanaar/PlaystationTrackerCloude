@@ -1,5 +1,6 @@
 'use client';
 
+import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,8 +52,16 @@ import type { OtherPlatformGame } from '../other-platforms/api';
 import { emitOtherAdded } from '../other-platforms/events';
 import { addedToastText } from '../other-platforms/model';
 
-// Диалоги — отдельными чанками (Фаза 47): не входят в стартовый JS коллекции, грузятся сразу после гидрации
-const GameDialog = dynamic(() => import('./GameDialog').then((m) => m.GameDialog), { ssr: false });
+// Диалоги — отдельными чанками (Фаза 47). Пакет 6: окно игры монтируется только после первого открытия, а чанк качается
+// по намерению (первое касание/наведение/фокус внутри коллекции), а не сразу после гидрации: -~70 КБ JS на старте `/`.
+const loadGameDialog = () => import('./GameDialog');
+const GameDialog = dynamic(() => loadGameDialog().then((m) => m.GameDialog), { ssr: false });
+let gameDialogWarm = false;
+const warmGameDialog = () => {
+  if (gameDialogWarm) return;
+  gameDialogWarm = true;
+  void loadGameDialog().catch(() => { gameDialogWarm = false; });
+};
 // Пакет 5: блок «Игры с других платформ» в самом низу хроники, своим чанком
 const OtherPlatformsBlock = dynamic(() => import('../other-platforms/OtherPlatformsBlock').then((m) => m.OtherPlatformsBlock), { ssr: false });
 // t160u: панель добавления открывается и без блока (шапка «+», меню «…»), поэтому живёт здесь; грузится по первому открытию
@@ -103,6 +112,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
 
   const game = useOpenGame(raw, initial?.linkGame ?? null);
   const { setOpen, setLinked, link, openId, ctx, openGame, openGameCard } = game;
+  const dialogEver = useEverTrue(openId !== null || openGame !== null);
   const m = useGameMutations({
     poolRef, setPool: data.setPool, setOpen, refresh, selected, setSelected, setSelectMode, linkIdRef: game.linkIdRef, closeLinkRef: game.closeLinkRef,
   });
@@ -239,7 +249,10 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   return (
     <>
     <LoaderOverlay loading={loading && !error} blocking={!pool} contentRef={rootRef} />
-    <div ref={rootRef} className="ps-collection" data-tour-page="collection" data-tour-ready={String(!!pool || !!error || !loading)}>
+    <div
+      ref={rootRef} className="ps-collection" data-tour-page="collection" data-tour-ready={String(!!pool || !!error || !loading)}
+      onPointerDownCapture={warmGameDialog} onPointerOverCapture={warmGameDialog} onFocusCapture={warmGameDialog} onTouchStartCapture={warmGameDialog}
+    >
       <div className="ps-pagehead ps-pagehead--coll">
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
@@ -365,14 +378,14 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         />
       )}
 
-      <GameDialog
+      {dialogEver && <GameDialog
         game={openGame} stub={openId !== null && !openGame ? { id: openId, title: '', coverUrl: null } : null}
         initialTab={link.tab === 'trophies' ? 'trophies' : undefined} onNotFound={link.notFound} onLoaded={setLinked}
         startEditing={ctx?.edit ?? false} now={now} onClose={() => { setOpen(null); link.close(); }}
         onStatus={(g, s) => void setStatus(g, s)} onDate={(g, k, iso) => void setDate(g, k, iso)}
         onHidden={(g, h) => void setHidden(g, h)} onGameChanged={(g) => replaceGames([g])}
         onNotDuplicate={(g) => { replaceGames([g]); refresh(); }}
-      />
+      />}
 
       {addOther && <AddOtherPlatformSheet onClose={closeAddOther} />}
     </div>

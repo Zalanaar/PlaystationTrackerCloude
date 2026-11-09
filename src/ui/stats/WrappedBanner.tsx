@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { Icon } from '../icons';
 import { hideSeason } from '../wrapped/season';
 import { useSeasonOffer } from '../wrapped/useSeason';

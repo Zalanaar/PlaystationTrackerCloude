@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../icons';
 import { initialOf } from '../profiles/model';

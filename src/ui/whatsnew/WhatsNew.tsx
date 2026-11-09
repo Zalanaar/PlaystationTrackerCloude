@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useSearchParams } from 'next/navigation';
 import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMe } from '../access/useMe';

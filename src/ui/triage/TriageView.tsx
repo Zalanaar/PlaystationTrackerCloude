@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';

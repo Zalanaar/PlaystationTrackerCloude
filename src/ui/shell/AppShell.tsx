@@ -1,7 +1,8 @@
 'use client';
 
+import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
@@ -58,6 +59,7 @@ export function AppHeader() {
   const { busy, logout, logoutAll } = useLogout();
   const [more, setMore] = useState(false);
   const [restore, setRestore] = useState(false);
+  const restoreEver = useEverTrue(restore);
   const statusMenu = useStatusMenu();
   const { profile } = useProfile();
   const { profiles, activeProfileId } = usePsnProfiles();
@@ -250,7 +252,7 @@ export function AppHeader() {
           </button>
         </div>
       </Sheet>
-      <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />
+      {restoreEver && <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />}
       <StatusDialogs m={statusMenu} />
     </>
   );

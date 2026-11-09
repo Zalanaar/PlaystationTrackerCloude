@@ -2,6 +2,7 @@
 
 // Фаза 48 (п. 12): «Вернуть статусы из копии» и «Сбросить все статусы» в меню профиля (раньше в «…» и «Фильтрах» коллекции).
 // Действия касаются всей коллекции, а не текущих фильтров, поэтому стоят рядом с «Скачать копию» и «Восстановить из файла».
+import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../icons';
@@ -62,10 +63,13 @@ function RestoreItem({ backup, role, onClick }: { backup: BackupInfo; role: 'men
 
 /** Окна подтверждения: рендерятся один раз в шапке. */
 export function StatusDialogs({ m }: { m: Menu }) {
+  // Пакет 6: чанки окон качаются при первом открытии, не при загрузке каждой страницы
+  const restoreEver = useEverTrue(m.restoreOpen);
+  const resetEver = useEverTrue(m.resetOpen);
   return (
     <>
-      <RestoreBackupDialog open={m.restoreOpen} backup={m.backup} onClose={() => m.setRestoreOpen(false)} onConfirm={m.restoreFromMenu} />
-      <ResetAllDialog open={m.resetOpen} count={m.count} onClose={() => m.setResetOpen(false)} onConfirm={m.resetAll} />
+      {restoreEver && <RestoreBackupDialog open={m.restoreOpen} backup={m.backup} onClose={() => m.setRestoreOpen(false)} onConfirm={m.restoreFromMenu} />}
+      {resetEver && <ResetAllDialog open={m.resetOpen} count={m.count} onClose={() => m.setResetOpen(false)} onConfirm={m.resetAll} />}
     </>
   );
 }

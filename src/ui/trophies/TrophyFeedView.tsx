@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FeedPeriod, FeedResponse } from '@/server/trophies/types';
 import { cachedGet } from '../data/http';

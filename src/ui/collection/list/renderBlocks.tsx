@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import type { ReactNode } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import { formatNumber } from '../../format';
