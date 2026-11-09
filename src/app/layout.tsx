@@ -10,6 +10,7 @@ import { cookies, headers } from 'next/headers';
 import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';
 import { ThemeColorSync } from '@/ui/pwa/ThemeColorSync';
 import { APPLE_STATUS_BAR_STYLE } from '@/ui/theme-meta';
+import { appleStartupImages } from '@/shared/splash';
 import { themeInitScript } from '@/ui/theme-script';
 import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
 import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
@@ -21,7 +22,8 @@ export const metadata: Metadata = {
   title: 'PS Tracker',
   description: 'Личный трекер игр PlayStation',
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: APPLE_STATUS_BAR_STYLE },
+  // Пакет 6, п. 8: заставки запуска PWA на iPhone (без белой вспышки), картинки public/splash (scripts/gen-splash.mjs)
+  appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: APPLE_STATUS_BAR_STYLE, startupImage: appleStartupImages() },
 };
 
 /** viewport-fit=cover (иначе env(safe-area-inset-*) на iPhone равен 0) и theme-color = --bg темы из cookie (§8.5). */

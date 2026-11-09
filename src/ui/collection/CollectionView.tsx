@@ -87,6 +87,21 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   const [addOther, setAddOther] = useState(false);
   const openAddOther = useCallback(() => setAddOther(true), []);
   useHeaderAction('add-other', openAddOther);
+  // Пакет 6, п. 8: ярлык PWA «Добавить игру» открывает `/?add=other` — панель добавления сразу, параметр убираем из адреса
+  // Открытие — правкой состояния при рендере (как советует React), эффект только чистит адрес
+  const addParam = params.get('add');
+  const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
+  if (addParam !== seenAddParam) {
+    setSeenAddParam(addParam);
+    if (addParam === 'other') setAddOther(true);
+  }
+  useEffect(() => {
+    if (addParam !== 'other') return;
+    const q = new URLSearchParams(params.toString());
+    q.delete('add');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [addParam, params, pathname, router]);
   const toast = useToast();
   const stored = useStoredView(layout?.view ?? null);
   const view: ViewMode = effectiveView(filters, stored);

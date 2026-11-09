@@ -160,7 +160,7 @@ test.describe('QA 18: прямые заходы и системные файлы
   });
 
   test('manifest и иконки доступны без сессии, страницы закрыты', async ({ request, baseURL }) => {
-    for (const p of ['/manifest.webmanifest', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png']) {
+    for (const p of ['/manifest.webmanifest', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/splash/iphone-1170x2532.png']) {
       const r = await request.get(`${baseURL}${p}`, { maxRedirects: 0 });
       expect(r.status(), p).toBe(200);
     }
