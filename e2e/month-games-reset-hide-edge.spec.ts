@@ -35,7 +35,9 @@ test.describe('QA Фаза 8: edge', () => {
     await expect(card(coll(page), page, 'Horizon Forbidden West')).toHaveCount(0);
     await expect(banner).toHaveCount(0);
     await expect(now).toHaveCount(0);
-    await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /Играю/ })).not.toContainText('1');
+    // Пакет 6, п. 5: «Играю» опустел — чип скрыт, на его месте «Что начать?»
+    await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /Играю/ })).toHaveCount(0);
+    await expect(page.getByTestId('chip-what-to-start')).toBeVisible();
     expect(mock.games.find((g) => g.id === 3)?.status).toBe('playing');
     await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
     await expect(banner).toHaveCount(2);
