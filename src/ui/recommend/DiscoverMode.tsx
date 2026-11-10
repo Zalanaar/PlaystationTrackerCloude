@@ -282,7 +282,12 @@ export function DiscoverMode({ active, onBacklog }: { active: boolean; onBacklog
               ))}
           </ol>
           {view === 'cards' && (
-            <p className="ps-rec-note">Данные об играх: <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer">RAWG</a></p>
+            <p className="ps-rec-note">
+              Данные об играх: <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer">RAWG</a>
+              {items.some((x) => x.catalog === 'wikidata') && (
+                <>{' '}и <a className="ps-rec-note__link" href="https://www.wikidata.org" target="_blank" rel="noopener noreferrer">Wikidata</a> (запасной каталог, пока RAWG недоступен)</>
+              )}
+            </p>
           )}
         </>
       )}

@@ -8,6 +8,8 @@ import { createTestDb, TEST_USER, type TestDb } from '@/server/sync/test-helpers
 import { getFailStreak } from './budget';
 import { dislikeExternal } from './discover-dislikes';
 import { getDiscover, MAX_REQUESTS, parseReasons, refreshDiscover, type DiscoverDeps } from './discover';
+import { Breaker } from '@/server/catalog/fallback';
+import type { WdNotable } from '@/server/catalog/wikidata';
 import { LlmError, type PhraseProvider } from './phrase';
 
 const { games, gameStatus, plannedGames, recommendDiscoverCache, recommendLlmUsage, providerUsage, allowedUsers } = schema;
@@ -92,6 +94,56 @@ describe('discover: пересчёт и выдача', () => {
     expect(r.status).toBe('done');
     const out = (await titles()).sort();
     expect(out).toEqual(['Bloodborne', 'Ghost of Tsushima', 'Nioh 2']);
+  });
+
+  it('Пакет 7: RAWG лежит — подборка из Wikidata (Metacritic или заметность), обложки из PS Store, ссылка на Wikidata', async () => {
+    await addGame(1, 'Alpha', 'completed', { playDurationSeconds: 100 * 3600 });
+    await addGame(1, 'Bloodborne', 'completed');
+    const rawg = fakeRawg({}, { fail: () => 'http' });
+    const wd = (id: string, title: string, o: Partial<WdNotable> = {}): WdNotable => ({
+      externalId: `wd-${id}`, title, releaseDate: '2018-01-01', psPlatforms: ['PS4'], genreSlugs: ['action'], tagSlugs: [], metacritic: 88, notability: 40, ...o,
+    });
+    const notable = [
+      wd('Q1', 'Bloodborne'), // в библиотеке
+      wd('Q2', 'Nioh 2'),
+      wd('Q3', 'Obscure Game', { metacritic: null, notability: 16 }), // малоизвестна и без оценки
+      wd('Q4', 'Famous Game', { metacritic: null, notability: 60 }),
+      wd('Q5', 'Low Score', { metacritic: 60 }),
+      wd('Q6', 'Future', { releaseDate: '2027-05-01' }),
+    ];
+    const covers: string[] = [];
+    const breaker = new Breaker();
+    const r = await run({
+      fetch: rawg.fetch,
+      fallback: { breaker, notable: async () => notable, cover: async (t) => (covers.push(t), t === 'Nioh 2' ? 'https://image.api.playstation.com/n.png' : null) },
+    });
+    expect(r).toMatchObject({ status: 'done', fallback: 'wikidata' });
+    expect(rawg.urls).toHaveLength(1); // после первого сбоя RAWG больше не спрашивали
+    expect(breaker.isDown(Date.now())).toBe(true);
+    const d = await get();
+    expect(d.items.map((i) => i.title).sort()).toEqual(['Famous Game', 'Nioh 2']);
+    const by = (t: string) => d.items.find((i) => i.title === t)!;
+    expect(by('Nioh 2')).toMatchObject({
+      externalSource: 'rawg', externalId: 'wd-Q2', catalog: 'wikidata', catalogUrl: 'https://www.wikidata.org/wiki/Q2', rawgUrl: null,
+      coverUrl: 'https://image.api.playstation.com/n.png', metacritic: 88, platforms: ['PS4'], genres: ['ACTION'],
+    });
+    expect(by('Famous Game')).toMatchObject({ metacritic: null, coverUrl: null, catalog: 'wikidata' });
+    expect(covers.sort()).toEqual(['Famous Game', 'Nioh 2']);
+
+    // RAWG всё ещё «лежит» по памяти: следующий пересчёт сразу из Wikidata, без запроса к RAWG
+    await t.db.delete(recommendDiscoverCache);
+    const r2 = await run({ fetch: rawg.fetch, fallback: { breaker, notable: async () => notable } });
+    expect(r2.fallback).toBe('wikidata');
+    expect(rawg.urls).toHaveLength(1);
+  });
+
+  it('Пакет 7: Wikidata тоже не ответил — как раньше (failed, прежняя подборка цела)', async () => {
+    await addGame(1, 'Alpha', 'completed');
+    const rawg = fakeRawg({}, { fail: () => 'http' });
+    const r = await run({ fetch: rawg.fetch, fallback: { breaker: new Breaker(), notable: async () => { throw new Error('down'); } } });
+    expect(r.fallback).toBeUndefined();
+    expect(r.failures).toEqual(['http_error', 'network']);
+    expect(r.status).toBe('failed');
   });
 
   it('работает при выключенном LLM: причины шаблонные «Похожа на X и Y, жанр Z»', async () => {

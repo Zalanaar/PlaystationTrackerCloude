@@ -7,6 +7,11 @@ import { schema } from '@/db';
 import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { CatalogError, discoverCatalog, type CatalogFailReason, type DiscoverRaw } from '@/server/catalog/rawg';
+import { OUTAGE_REASONS, rawgBreaker, type Breaker } from '@/server/catalog/fallback';
+import { baseTitle, titleKey } from '@/server/catalog/http';
+import { catalogPage } from '@/server/catalog/links';
+import { searchPsStore } from '@/server/catalog/psstore';
+import { fetchNotablePs, type WdNotable } from '@/server/catalog/wikidata';
 import { getLlmEnv, getProviderLimits, getRawgKey, type LlmEnv } from '@/server/env';
 import { mskDateString } from '@/server/stats/period';
 import { reserveProviderCall, type ProviderLimits } from '@/server/usage/provider-usage';
@@ -14,7 +19,7 @@ import { GENRE_LABELS_RU, type GenreKey } from '@/shared/genres';
 import { DISLIKE_TTL_MS } from '@/shared/recommend';
 import { isPaused, recordFailure, releaseCall, reserveCall, resetStreak } from './budget';
 import {
-  buildLibraryIndex, DISCOVER_LIMIT, inLibrary, libraryKey, mapGenres, MAX_PAGES_PER_FACET, MIN_METACRITIC, MIN_PER_FACET, pickFacets,
+  buildLibraryIndex, DISCOVER_LIMIT, inLibrary, libraryKey, mapGenres, MAX_PAGES_PER_FACET, MIN_METACRITIC, MIN_PER_FACET, NOTABLE_MIN, pickFacets,
   POOL_LIMIT, rankPool, similarGames, tasteOf, templateReason, type Facet, type LibraryIndex, type NamedHistory, type PoolEntry,
   type StoredCandidate,
 } from './discover-rank';
@@ -47,6 +52,9 @@ export type DiscoverItem = {
   rating: number | null;
   metacritic: number | null;
   rawgUrl: string | null;
+  /** Пакет 7: игра из запасного каталога (RAWG был недоступен) и её страница там. У RAWG полей нет. */
+  catalog?: 'wikidata';
+  catalogUrl?: string;
   reason: DiscoverReason;
   planned: boolean;
   plannedId: number | null;
@@ -152,13 +160,43 @@ async function loadNamedHistory(db: AnyDb, userId: UserId): Promise<NamedHistory
 const today = (now: Date): string => mskDateString(now);
 
 /** Запись RAWG -> запись пула или null (не вышла, нет PS5/PS4, метакритик ниже порога). */
-export function toPoolEntry(r: DiscoverRaw, now: Date): PoolEntry | null {
+export function toPoolEntry(r: DiscoverRaw & { notability?: number }, now: Date): PoolEntry | null {
   if (r.psPlatforms.length === 0) return null;
-  if (r.metacritic === null || r.metacritic < MIN_METACRITIC) return null;
+  const notable = r.metacritic === null && typeof r.notability === 'number' && r.notability >= NOTABLE_MIN;
+  if (!notable && (r.metacritic === null || r.metacritic < MIN_METACRITIC)) return null;
   if (!r.releaseDate || r.releaseDate > today(now)) return null;
   return {
     externalId: r.externalId, title: r.title, slug: r.slug, releaseDate: r.releaseDate, coverUrl: r.coverUrl, platforms: r.psPlatforms,
     genres: mapGenres(r.genreSlugs, r.tagSlugs), rating: r.rating, metacritic: r.metacritic,
+    ...(typeof r.notability === 'number' ? { notability: r.notability } : {}),
+  };
+}
+
+/** Запись Wikidata в форме выдачи RAWG (жанры уже в слагах RAWG). */
+export const wdToRaw = (n: WdNotable): DiscoverRaw & { notability: number } => ({
+  externalSource: 'rawg', externalId: n.externalId, title: n.title, releaseDate: n.releaseDate, coverUrl: null, platforms: [], playstation: true,
+  slug: null, psPlatforms: n.psPlatforms, genreSlugs: n.genreSlugs, tagSlugs: n.tagSlugs, rating: null, metacritic: n.metacritic, notability: n.notability,
+});
+
+/** Запасной каталог подборки (Пакет 7): при сбое RAWG — заметные игры PS5/PS4 из Wikidata, обложки — из PlayStation Store. */
+export type DiscoverFallback = {
+  breaker?: Breaker;
+  notable: () => Promise<WdNotable[]>;
+  cover?: (title: string) => Promise<string | null>;
+};
+/** На запасной фасет — не больше стольких игр (иначе первый фасет займёт весь пул). */
+export const FALLBACK_PER_FACET = 40;
+export const COVER_LOOKUPS = 12;
+
+export function discoverFallback(fetchImpl?: typeof fetch): DiscoverFallback {
+  return {
+    breaker: rawgBreaker,
+    notable: () => fetchNotablePs({ fetch: fetchImpl }),
+    cover: async (title) => {
+      const key = titleKey(baseTitle(title));
+      const found = await searchPsStore(title, { fetch: fetchImpl, limit: 3, timeoutMs: 4000 });
+      return found.find((c) => titleKey(baseTitle(c.title)) === key)?.coverUrl ?? null;
+    },
   };
 }
 
@@ -176,6 +214,8 @@ export type DiscoverDeps = {
   /** Оставшееся время звена, мс (шаг синка). undefined = без ограничения. */
   timeLeft?: () => number;
   maxRequests?: number;
+  /** Пакет 7: запасной каталог при сбое RAWG. Нет поля = поведение до Пакета 7. */
+  fallback?: DiscoverFallback;
 };
 
 export type DiscoverRunResult = {
@@ -186,6 +226,8 @@ export type DiscoverRunResult = {
   failures: CatalogFailReason[];
   llm: 'none' | 'ok' | 'failed';
   llmReason: string | null;
+  /** Пакет 7: подборка добрана из запасного каталога (RAWG не ответил). */
+  fallback?: 'wikidata';
 };
 
 const hashOf = (facets: readonly Facet[]): string => createHash('sha256').update(JSON.stringify(facets.map((f) => f.id))).digest('hex').slice(0, 32);
@@ -225,7 +267,10 @@ export async function refreshDiscover(db: AnyDb, userId: UserId, now: Date, deps
   };
 
   let stopped: 'limit' | 'time' | null = null;
+  const fb = deps.fallback;
+  let rawgDown = fb?.breaker?.isDown(Date.now()) ?? false;
   outer: for (const facet of facets) {
+    if (rawgDown) break;
     if (fetched.has(facet.id)) continue;
     let survivors = 0;
     let facetFailed = false;
@@ -246,6 +291,12 @@ export async function refreshDiscover(db: AnyDb, userId: UserId, now: Date, deps
         res.requests++;
         res.failures.push(e instanceof CatalogError ? e.reason : 'network');
         facetFailed = true;
+        if (fb && e instanceof CatalogError && OUTAGE_REASONS.has(e.reason)) {
+          // RAWG лежит: остальные фасеты не мучаем, добираем из запасного каталога
+          fb.breaker?.down(Date.now());
+          rawgDown = true;
+          break outer;
+        }
         break;
       }
       for (const raw of got.results) {
@@ -262,6 +313,33 @@ export async function refreshDiscover(db: AnyDb, userId: UserId, now: Date, deps
     if (!facetFailed) fetched.add(facet.id);
   }
 
+  if (rawgDown && fb && stopped === null) {
+    try {
+      const notable = [...(await fb.notable())].sort(
+        (a, b) => (b.metacritic ?? 0) - (a.metacritic ?? 0) || b.notability - a.notability || (a.externalId < b.externalId ? -1 : 1),
+      );
+      for (const facet of facets) {
+        if (fetched.has(facet.id)) continue;
+        let taken = 0;
+        for (const n of notable) {
+          if (taken >= FALLBACK_PER_FACET || pool.size >= POOL_LIMIT) break;
+          if (facet.kind && !(facet.kind === 'genres' ? n.genreSlugs : n.tagSlugs).includes(facet.slug)) continue;
+          const entry = toPoolEntry(wdToRaw(n), now);
+          if (!entry || pool.has(entry.externalId)) continue;
+          if (ex.ids.has(entry.externalId) || inLibrary(entry.title, ex.lib)) continue;
+          const k = libraryKey(entry.title);
+          if (k && ex.keys.has(k)) continue;
+          pool.set(entry.externalId, entry);
+          taken++;
+        }
+        fetched.add(facet.id);
+      }
+      res.fallback = 'wikidata';
+    } catch (e) {
+      res.failures.push(e instanceof CatalogError ? e.reason : 'network');
+    }
+  }
+
   const complete = stopped === null && facets.every((f) => fetched.has(f.id));
   res.status = stopped === 'limit' ? 'limit' : complete ? 'done' : res.failures.length > 0 && res.requests > 0 && fetched.size === state.fetched.length ? 'failed' : 'partial';
   const ranked = rankPool({ pool: [...pool.values()], taste, lib: ex.lib, excludedIds: ex.ids, excludedKeys: ex.keys });
@@ -275,11 +353,22 @@ export async function refreshDiscover(db: AnyDb, userId: UserId, now: Date, deps
     ...c,
     reason: { text: templateReason(c, similarGames(c, history), taste), source: 'template' },
   }));
+  if (fb?.cover) await fillCovers(candidates, fb.cover, timeLeft);
   if (complete) await fillLlmReasons(db, userId, now, candidates, history, deps, res);
 
   await writeCache(db, userId, day, hashOf(facets), { version: 1, complete, fetched: [...fetched], pool: [...pool.values()], candidates }, now);
   res.candidates = candidates.length;
   return res;
+}
+
+/** Обложки для игр запасного каталога (у Wikidata их нет): поиск в PlayStation Store по названию, параллельно, сбой = без обложки. */
+async function fillCovers(candidates: StoredCandidate[], cover: (title: string) => Promise<string | null>, timeLeft: () => number): Promise<void> {
+  if (timeLeft() < RAWG_MIN_LEFT_MS) return;
+  const need = candidates.filter((c) => c.coverUrl === null && c.externalId.startsWith('wd-')).slice(0, COVER_LOOKUPS);
+  const got = await Promise.allSettled(need.map((c) => cover(c.title)));
+  got.forEach((r, i) => {
+    if (r.status === 'fulfilled' && r.value) need[i].coverUrl = r.value;
+  });
 }
 
 // --- причины LLM (30.4)
@@ -398,9 +487,12 @@ export async function getDiscover(db: AnyDb, userId: UserId, now: Date = new Dat
     if (ex.ids.has(c.externalId) || ex.marked.has(c.externalId) || (key && (ex.keys.has(key) || seenKeys.has(key))) || inLibrary(c.title, ex.lib)) continue;
     if (key) seenKeys.add(key);
     const plannedId = ex.plannedByExt.get(c.externalId) ?? null;
+    const wd = c.externalId.startsWith('wd-') ? catalogPage(c.externalId) : null;
     items.push({
       externalSource: 'rawg', externalId: c.externalId, title: c.title, releaseDate: c.releaseDate, coverUrl: c.coverUrl, platforms: c.platforms,
-      genres: c.genres, rating: c.rating, metacritic: c.metacritic, rawgUrl: rawgUrl(c.slug), reason: c.reason, planned: plannedId !== null, plannedId,
+      genres: c.genres, rating: c.rating, metacritic: c.metacritic, rawgUrl: rawgUrl(c.slug),
+      ...(wd ? { catalog: 'wikidata' as const, catalogUrl: wd.url } : {}),
+      reason: c.reason, planned: plannedId !== null, plannedId,
     });
     if (items.length >= DISCOVER_LIMIT) break;
   }

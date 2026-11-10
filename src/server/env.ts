@@ -86,6 +86,12 @@ export function getRawgKey(env: Record<string, string | undefined> = process.env
   return k ? k : null;
 }
 
+/** Необязательный ключ Giant Bomb (запасной каталог, Пакет 7). Нет = источник выключен. */
+export function getGiantBombKey(env: Record<string, string | undefined> = process.env): string | null {
+  const k = env.GIANTBOMB_API_KEY?.trim();
+  return k && /^[A-Za-z0-9]{10,80}$/.test(k) ? k : null;
+}
+
 /**
  * Публичный origin сайта для абсолютных ссылок в Telegram (контракт 15.4). Только APP_ORIGIN (http/https);
  * null = ссылки не добавляем. Намеренно не берёт VERCEL_URL: у preview-деплоев он не тот адрес, что открывает Артём.

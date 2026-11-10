@@ -6,6 +6,7 @@ import { signedSession } from './session';
 type Item = {
   externalSource: 'rawg'; externalId: string; title: string; releaseDate: string | null; coverUrl: string | null; platforms: string[]; genres: string[];
   rating: number | null; metacritic: number | null; rawgUrl: string | null; reason: { text: string; source: 'llm' | 'template' }; planned: boolean; plannedId: number | null;
+  catalog?: 'wikidata'; catalogUrl?: string;
 };
 const item = (id: number, title: string, o: Partial<Item> = {}): Item => ({
   externalSource: 'rawg', externalId: String(id), title, releaseDate: '2019-05-05', coverUrl: null, platforms: ['PS5', 'PS4'], genres: ['ACTION', 'ROLE_PLAYING_GAMES'],
@@ -86,6 +87,21 @@ test.describe('«У тебя нет»', () => {
     await expect(link).toHaveAttribute('rel', /noopener/);
     await expect(page.getByRole('link', { name: 'RAWG', exact: true })).toHaveAttribute('href', 'https://rawg.io');
     await expect(page.getByText('Подборка от 31 октября')).toBeVisible();
+    expect(await noHScroll(page)).toBe(true);
+  });
+
+  test('Пакет 7: RAWG недоступен — карточки из Wikidata, ссылка и подпись называют источник', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string, state({
+      all: [item(1, 'Нио 2'), item(2, 'Призрак Цусимы', { externalId: 'wd-Q42564798', rawgUrl: null, metacritic: null, rating: null, catalog: 'wikidata', catalogUrl: 'https://www.wikidata.org/wiki/Q42564798' })],
+    }));
+    await expect(cards(page)).toHaveCount(2);
+    const wd = cards(page).nth(1);
+    const link = wd.getByRole('link', { name: /на Wikidata/ });
+    await expect(link).toHaveAttribute('href', 'https://www.wikidata.org/wiki/Q42564798');
+    await expect(link).toHaveText(/Данные: Wikidata/);
+    await expect(cards(page).first().getByRole('link', { name: /на RAWG/ })).toHaveAttribute('href', 'https://rawg.io/games/g1');
+    await expect(page.getByRole('link', { name: 'Wikidata', exact: true })).toHaveAttribute('href', 'https://www.wikidata.org');
+    await expect(page.getByText(/запасной каталог, пока RAWG недоступен/)).toBeVisible();
     expect(await noHScroll(page)).toBe(true);
   });
 

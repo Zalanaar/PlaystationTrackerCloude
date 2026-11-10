@@ -28,7 +28,16 @@ export type PoolEntry = {
   genres: GenreKey[];
   rating: number | null;
   metacritic: number | null;
+  /**
+   * Пакет 7: заметность по Wikidata (число статей Википедии) — мера качества для запасного каталога, когда оценки Metacritic нет.
+   * У записей RAWG поля нет.
+   */
+  notability?: number;
 };
+
+/** Заметность, с которой игра без Metacritic годится в подборку, и «потолок» шкалы качества по ней. */
+export const NOTABLE_MIN = 25;
+export const NOTABLE_TOP = 80;
 
 export type StoredCandidate = PoolEntry & { score: number; reason: { text: string; source: 'llm' | 'template' } };
 
@@ -170,11 +179,14 @@ const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 
 /** null = кандидат отбрасывается (метакритик ниже порога, все известные жанры «наказаны»). */
 export function scoreEntry(e: PoolEntry, taste: TasteModel): number | null {
-  if (e.metacritic === null || e.metacritic < MIN_METACRITIC) return null;
+  const byNotability = e.metacritic === null && typeof e.notability === 'number' && e.notability >= NOTABLE_MIN;
+  if (!byNotability && (e.metacritic === null || e.metacritic < MIN_METACRITIC)) return null;
   const known = e.genres.filter((g) => taste.stats.has(g));
   if (known.length > 0 && known.every((g) => penalized(taste.stats.get(g)))) return null;
   const affinity = e.genres.length ? Math.max(...e.genres.map((g) => taste.affinity(g))) : 0;
-  const quality = clamp01((e.metacritic - MIN_METACRITIC) / (100 - MIN_METACRITIC));
+  const quality = e.metacritic !== null
+    ? clamp01((e.metacritic - MIN_METACRITIC) / (100 - MIN_METACRITIC))
+    : clamp01(((e.notability ?? 0) - NOTABLE_MIN) / (NOTABLE_TOP - NOTABLE_MIN));
   return r6(AFFINITY_WEIGHT * affinity + QUALITY_WEIGHT * quality);
 }
 

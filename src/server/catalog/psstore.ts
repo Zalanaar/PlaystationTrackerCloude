@@ -3,6 +3,7 @@
 // Форма ответа не документирована: разбор оборонительный, неожиданная форма = bad_response, кривая запись пропускается.
 import { z } from 'zod';
 import { CatalogError, type CatalogCandidate } from './rawg';
+import { baseTitle } from './http';
 
 export const PSSTORE_URL = 'https://web.np.playstation.com/api/graphql/v1/op';
 /** Хеш persisted query витрины; если Sony его сменит, ответ станет ошибкой и поиск честно скажет «каталог недоступен». */
@@ -72,7 +73,7 @@ export function parsePsStore(body: unknown, limit = 10): CatalogCandidate[] {
     if (NOT_GAME.has(cls)) continue;
     const title = g.name.replace(/\s+/g, ' ').trim().slice(0, 200);
     if (!title || !ID_RE.test(g.id)) continue;
-    const key = dedupeKey(title);
+    const key = dedupeKey(baseTitle(title));
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const plats = (g.platforms ?? []).map((p) => p.toUpperCase());

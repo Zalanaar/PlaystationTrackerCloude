@@ -60,12 +60,21 @@ export function DiscoverCard({
         </div>
       </div>
       <p className="ps-rec__source">
-        <a
-          href={item.rawgUrl ?? 'https://rawg.io'} target="_blank" rel="noopener noreferrer"
-          aria-label={`Открыть «${item.title}» на RAWG (новая вкладка)`}
-        >
-          Данные: RAWG<Icon name="external-link" size={12} />
-        </a>
+        {item.catalog === 'wikidata' ? (
+          <a
+            href={item.catalogUrl ?? 'https://www.wikidata.org'} target="_blank" rel="noopener noreferrer"
+            aria-label={`Открыть «${item.title}» на Wikidata (новая вкладка)`}
+          >
+            Данные: Wikidata<Icon name="external-link" size={12} />
+          </a>
+        ) : (
+          <a
+            href={item.rawgUrl ?? 'https://rawg.io'} target="_blank" rel="noopener noreferrer"
+            aria-label={`Открыть «${item.title}» на RAWG (новая вкладка)`}
+          >
+            Данные: RAWG<Icon name="external-link" size={12} />
+          </a>
+        )}
       </p>
       <div className="ps-rec__actions">
         {planned ? (
