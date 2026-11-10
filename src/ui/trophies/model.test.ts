@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FeedItem, FeedResponse } from '@/server/trophies/types';
-import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, pageUrl, parsePeriod, summaryParts } from './model';
+import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, nearSummary, pageUrl, parsePeriod, parseView, summaryParts, viewUrl } from './model';
 
 const item = (id: number, day: string | null, o: Partial<FeedItem> = {}): FeedItem => ({
   id, setId: 1, trophyId: id, type: 'bronze', name: `T${id}`, detail: null, iconUrl: null, earnedAt: day ? `${day}T10:00:00Z` : null, day,
@@ -40,5 +40,20 @@ describe('лента трофеев: модель', () => {
     const b: FeedResponse = { ...base, items: [item(2, '2026-11-03'), item(3, '2026-11-02')], nextCursor: null };
     expect(mergePages(a, b).items.map((i) => i.id)).toEqual([1, 2, 3]);
     expect(mergePages(a, b).nextCursor).toBeNull();
+  });
+});
+
+describe('Пакет 6, п. 9: «Почти платина»', () => {
+  it('parseView / viewUrl / nearSummary', () => {
+    const m = { parseView, viewUrl, nearSummary };
+    expect(m.parseView('near')).toBe('near');
+    expect(m.parseView(undefined)).toBe('feed');
+    expect(m.parseView(['near'])).toBe('feed');
+    expect(m.viewUrl('near', 'all', true)).toBe('/trophies?view=near');
+    expect(m.viewUrl('feed', 'all', true)).toBe('/trophies?period=all&rare=1');
+    expect(m.viewUrl('feed', '7d', false)).toBe('/trophies');
+    expect(m.nearSummary(1)).toBe('1 игра с прогрессом к платине');
+    expect(m.nearSummary(3)).toBe('3 игры с прогрессом к платине');
+    expect(m.nearSummary(12)).toBe('12 игр с прогрессом к платине');
   });
 });

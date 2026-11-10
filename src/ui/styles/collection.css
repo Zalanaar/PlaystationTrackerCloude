@@ -484,6 +484,10 @@
 .ps-near__sk { height: 112px; }
 .ps-nearblock__tgl { min-height: var(--tap-min); padding: 0 var(--sp-2); margin-right: calc(-1 * var(--sp-2)); }
 .ps-nearblock__hint + .ps-nearblock__tgl { margin-left: 0; }
+/* Пакет 6, п. 9: «Все» → /trophies?view=near; тап-зона 44 px */
+.ps-nearblock__all { min-height: var(--tap-min); padding: 0 var(--sp-2); }
+.ps-nearblock__hint + .ps-nearblock__all, .ps-nearblock__all + .ps-nearblock__tgl { margin-left: 0; }
+.ps-nearblock__all:last-child { margin-right: calc(-1 * var(--sp-2)); }
 .ps-nearblock:not(:has(.ps-near__list)) .ps-block__head { margin-bottom: 0; }
 @media (max-width: 767px) {
   .ps-near__list { display: flex; gap: var(--sp-2); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); scroll-padding-left: var(--gutter); }

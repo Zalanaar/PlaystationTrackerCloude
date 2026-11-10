@@ -1,6 +1,7 @@
 'use client';
 
 import type { NearPlatinumItem } from '@/server/collection/types';
+import Link from '@/ui/IntentLink';
 import { Icon, PlatinumIcon } from '../icons';
 import { Cover, THUMB_W } from './Cover';
 import { storeNearOpen, useNearOpen } from './nearOpen';
@@ -59,6 +60,8 @@ export function NearPlatinum({ items, onOpen, collapsible = false, serverOpen }:
         {open && anyApproximate(items) && (
           <span className="ps-block__act ps-nearblock__hint" title={APPROX_HINT}><Icon name="info" size={12} />Приблизительно</span>
         )}
+        {/* Пакет 6, п. 9: полный список — раздел «Почти платина» на /trophies */}
+        <Link href="/trophies?view=near" className="ps-link ps-block__act ps-nearblock__all" data-testid="near-all">Все</Link>
         {collapsible && <NearToggle open={open} />}
       </div>
       {open && <ul className="ps-near__list" id="near-list">{items.map((i) => <Item key={i.game.id} item={i} onOpen={onOpen} />)}</ul>}

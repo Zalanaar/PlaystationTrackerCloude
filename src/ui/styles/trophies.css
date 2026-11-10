@@ -44,3 +44,17 @@ a.ps-tf__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .ps-tf__empty { display: grid; place-items: center; min-height: 160px; margin: 0; color: var(--text-3); text-align: center; }
 .ps-tf__more { align-self: center; margin: var(--sp-3) 0; min-width: 200px; height: var(--tap-min, 44px); }
 .ps-tf__row-sk { display: block; height: 72px; margin-top: var(--sp-1); border-radius: var(--r-sm); }
+/* Пакет 6, п. 9: переключатель «Лента / Почти платина» и строки «Почти платина» (та же сетка строки, обложка вместо значка) */
+.ps-tf__view { align-self: flex-start; }
+.ps-tf__view button { height: 36px; padding: 0 var(--sp-4); font-size: var(--fs-body); }
+@media (max-width: 767px) {
+  .ps-tf__view { display: flex; align-self: stretch; }
+  .ps-tf__view button { flex: 1 1 0; height: var(--tap-min, 44px); }
+}
+.ps-tnear { transition: opacity var(--dur-fast) var(--ease-ui); }
+.ps-tnear[data-busy] { opacity: .55; }
+.ps-tnear__row { min-height: 84px; }
+.ps-tnear__c { width: 44px; height: 59px; border-radius: var(--r-cover); }
+.ps-tnear__p { display: flex; flex-direction: column; gap: 4px; }
+.ps-tnear__p .ps-near__bar { flex: none; width: 100%; max-width: 280px; }
+.ps-tnear-sk { display: block; height: 84px; margin-top: var(--sp-1); border-radius: var(--r-sm); }

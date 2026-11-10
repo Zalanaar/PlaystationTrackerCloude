@@ -96,3 +96,20 @@ export function mergePages(prev: FeedResponse, next: FeedResponse): FeedResponse
   const seen = new Set(prev.items.map((i) => i.id));
   return { ...prev, items: [...prev.items, ...next.items.filter((i) => !seen.has(i.id))], nextCursor: next.nextCursor };
 }
+
+// Пакет 6, п. 9: раздел «Почти платина» на /trophies (?view=near)
+export type TrophiesView = 'feed' | 'near';
+export const parseView = (v: string | string[] | undefined | null): TrophiesView => (v === 'near' ? 'near' : 'feed');
+export const NEAR_URL = '/api/trophies/near';
+export const NEAR_PAGE = '/trophies?view=near';
+
+/** Адрес страницы с учётом раздела: «Почти платина» без параметров ленты. */
+export function viewUrl(view: TrophiesView, period: FeedPeriod, rare: boolean): string {
+  return view === 'near' ? NEAR_PAGE : pageUrl(period, rare);
+}
+
+/** «12 игр с прогрессом к платине»; пусто — подсказка. */
+export function nearSummary(n: number): string {
+  return `${n} ${plural(n, ['игра', 'игры', 'игр'])} с прогрессом к платине`;
+}
+export const NEAR_EMPTY = 'Пока нет игр с прогрессом к платине: здесь появятся игры, где получен хотя бы один трофей, а платины ещё нет';

@@ -1,4 +1,5 @@
 // F3 «Лента трофеев» (контракт §24): типы ответа GET /api/trophies/feed. UI импортирует только `import type`.
+import type { PlatinumForecast } from '@/server/collection/types';
 export type FeedPeriod = '7d' | 'month' | 'all';
 export type TrophyType = 'platinum' | 'gold' | 'silver' | 'bronze';
 
@@ -35,3 +36,7 @@ export type FeedResponse = {
   /** курсор следующей страницы; null = конец */
   nextCursor: string | null;
 };
+
+/** Пакет 6, п. 9: строка «Почти платина» (GET /api/trophies/near). */
+export type NearListItem = { gameId: number; title: string; coverUrl: string | null; forecast: PlatinumForecast };
+export type NearListResponse = { items: NearListItem[] };

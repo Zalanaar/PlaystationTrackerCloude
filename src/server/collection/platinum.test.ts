@@ -1,11 +1,13 @@
 // Фаза 15.3 «Прогноз платины» (контракт 14.2): чистые функции + /api/games/{id} и сводка на PGlite.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
 import { setGameStatus } from '@/server/sync/status-rules';
 import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { getGameDetails } from './details';
 import { platinumForecast, rankNearPlatinum, setAggsFromTrophies, type NearPlatinumCandidate } from './platinum';
 import { getCollectionSummary } from './query';
+import { getNearPlatinumList } from '@/server/trophies/near';
 import type { GameTrophyItem } from './types';
 
 const { games, trophySets, gameTrophySets, trophies } = schema;
@@ -120,6 +122,25 @@ describe('прогноз платины на PGlite', () => {
     expect(s.nearPlatinum.map((x) => x.game.id)).toEqual([done, b, a]);
     const fromDetails = (await getGameDetails(t.db, TEST_USER, b))?.platinumForecast;
     expect(s.nearPlatinum[1].forecast).toEqual(fromDetails);
+  });
+
+  it('Пакет 6, п. 9: полный список «Почти платина» — все подходящие (больше 5), тот же порядок и прогноз, обложка', async () => {
+    const ids: number[] = [];
+    for (let i = 1; i <= 8; i++) ids.push(await gameWithSet(`G${i}`, i, 10));
+    await gameWithSet('Z', 0, 10);
+    await gameWithSet('P', 10, 10, { platinumEarned: true });
+    await t.db.update(games).set({ imageUrl: 'https://img.example/g8.png' }).where(eq(games.id, ids[7]));
+    const full = await getNearPlatinumList(t.db, TEST_USER);
+    expect(full.items.map((x) => x.gameId)).toEqual([...ids].reverse());
+    expect(full.items[0]).toMatchObject({ title: 'G8', coverUrl: 'https://img.example/g8.png', forecast: { progress: 80, earned: 8, required: 10 } });
+    expect(full.items[1].coverUrl).toBeNull();
+    const s = await getCollectionSummary(t.db, TEST_USER);
+    expect(s.nearPlatinum.map((x) => x.game.id)).toEqual(full.items.slice(0, 5).map((x) => x.gameId));
+    expect(s.nearPlatinum.map((x) => x.forecast)).toEqual(full.items.slice(0, 5).map((x) => x.forecast));
+  });
+
+  it('пустая БД: полный список пуст', async () => {
+    expect(await getNearPlatinumList(t.db, TEST_USER)).toEqual({ items: [] });
   });
 
   it('пустая БД: nearPlatinum = []', async () => {
