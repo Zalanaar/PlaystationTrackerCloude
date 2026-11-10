@@ -11,6 +11,7 @@ import { getCronSecret, getPsnEnv, getSyncOrigin, type PsnEnv } from '@/server/e
 import { notifyAfterSync } from '@/server/notify/telegram';
 import { asUserId, type UserId } from '@/server/auth/user-id';
 import { failRun, runChunk, type SyncDeps } from './engine';
+import { LOCALE_PAUSE_MS } from './phases';
 import type { RunRow } from './context';
 import { defaultDiscoverDeps } from './discover-step';
 import { defaultManualMatchDeps } from './manual-match-step';
@@ -33,6 +34,7 @@ export function buildDeps(db: AnyDb, env: PsnEnv, onlineId: string = env.targetO
     llm: defaultLlmDeps,
     discover: defaultDiscoverDeps,
     manualMatch: defaultManualMatchDeps,
+    localePace: { ms: LOCALE_PAUSE_MS, sleep: (ms) => new Promise<void>((r) => setTimeout(r, ms)) },
     connect: () =>
       connectPsn({
         getAccessToken: (force) => getAccessToken(db, cfg, { force }),

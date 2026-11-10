@@ -17,6 +17,8 @@ export type Cursor = {
   /** момент последней записи состояния; по нему определяется «брошенный» запуск */
   heartbeat?: string;
   progress?: { done: number; total: number };
+  /** Пакет 6, п. 10: сколько сетов этот запуск уже перечитал ради русских текстов (лимит LOCALE_PER_RUN на запуск, через все звенья). */
+  locale?: number;
 };
 
 export type Counters = {
@@ -39,6 +41,7 @@ export function parseCursor(raw: unknown): Cursor {
     hops: typeof o.hops === 'number' && o.hops >= 0 ? o.hops : 0,
     ...(typeof o.heartbeat === 'string' ? { heartbeat: o.heartbeat } : {}),
     ...(p && typeof p.done === 'number' && typeof p.total === 'number' ? { progress: { done: p.done, total: p.total } } : {}),
+    ...(typeof o.locale === 'number' && o.locale >= 0 ? { locale: o.locale } : {}),
   };
 }
 
@@ -78,6 +81,9 @@ export class RunContext {
     this.cursor = parseCursor(run.cursor);
     this.deadline = now().getTime() + budgetMs;
   }
+
+  /** Пакет 6, п. 10: пауза между сетами дозагрузки русских текстов (бережём лимит PSN). Нет = без паузы (тесты). */
+  pace?: { ms: number; sleep: (ms: number) => Promise<void> };
 
   /** Единиц работы (транзакций) сделано в этом звене. Гарантирует прогресс при крошечном бюджете. */
   units = 0;

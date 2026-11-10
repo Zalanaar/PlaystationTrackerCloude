@@ -7,7 +7,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { TROPHY_LOCALE, type PsnClient, type PsnGame, type PsnProfile, type PsnTrophyDef, type PsnTrophyEarned, type PsnTrophyGroup, type PsnTrophySet, type TrophySetRef } from '@/server/psn/types';
 import { PsnError } from '@/server/psn/errors';
-import type { PhaseFn, RunContext } from './context';
+import type { PhaseFn, PhaseResult, RunContext } from './context';
 import { matchOrphansByName } from './link';
 
 const { games, psnProfile, playtimeSnapshots, trophySets, gameTrophySets, trophies, trophyGroups, trophySetLocales } = schema;
@@ -418,8 +418,8 @@ export const trophiesPhase: PhaseFn = async (ctx, psn) => {
     });
     ctx.units++;
   }
-  if (locale) await localeBackfill(ctx, psn, processed);
-  return 'done';
+  // Пакет 6, п. 10: дозагрузка русских текстов продолжается в следующих звеньях того же запуска, пока есть сеты
+  return locale ? localeBackfill(ctx, psn, processed) : 'done';
 };
 
 async function hasLocaleSchema(db: AnyDb): Promise<boolean> {
@@ -482,16 +482,24 @@ async function upsertGroups(db: Tx, userId: UserId, setId: number, groups: PsnTr
     });
 }
 
-/** Пакет 5: сколько уже загруженных сетов за звено перезагружают названия по-русски (нет строки в trophy_set_locales = загружены до пакета 5). Остальные — в следующих синках. */
-export const LOCALE_PER_CHUNK = 20;
+/**
+ * Пакет 6, п. 10: сколько уже загруженных сетов один запуск синка перечитывает ради русских текстов (через все звенья).
+ * Сет = 1 запрос определений (+1 групп, если есть DLC). При 1000 сетах это до ~2000 запросов за запуск с паузами
+ * PSN_REQUEST_DELAY_MS (300 мс) между запросами и LOCALE_PAUSE_MS между сетами; остальное — в следующем синке.
+ */
+export const LOCALE_PER_RUN = 1000;
+/** Пауза между сетами дозагрузки (сверх паузы клиента между запросами): ~1 сет в секунду. */
+export const LOCALE_PAUSE_MS = 500;
 
 /**
- * Пакет 5: догрузка русских названий трофеев и групп для сетов, загруженных раньше. Не больше LOCALE_PER_CHUNK сетов за звено, только пока есть время.
- * Сбой PSN здесь не роняет синк: предупреждение, остальное — в следующий раз.
+ * Пакет 5 + Пакет 6, п. 10: догрузка русских названий трофеев и групп для сетов, загруженных раньше — все за один запуск:
+ * кончилось время звена — 'timeout', запуск продолжается следующим звеном (как долгий первый синк трофеев), до LOCALE_PER_RUN сетов.
+ * Бережём лимит PSN: пауза между сетами; клиент уже повторяет 429/5xx с паузами 1/2/4 с — если и после этого лимит или PSN недоступен,
+ * дозагрузка останавливается до следующего синка (синк не падает). Нет доступа к одному сету — предупреждение и следующий сет.
  */
-async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): Promise<void> {
-  for (let n = 0; n < LOCALE_PER_CHUNK; n++) {
-    if (ctx.outOfTime()) return;
+async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): Promise<PhaseResult> {
+  for (let n = 0; ; n++) {
+    if ((ctx.cursor.locale ?? 0) >= LOCALE_PER_RUN) return 'done';
     const [set] = await ctx.db
       .select({ id: trophySets.id, np: trophySets.npCommunicationId, service: trophySets.npServiceName })
       .from(trophySets)
@@ -501,7 +509,9 @@ async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): 
       ))
       .orderBy(asc(trophySets.id))
       .limit(1);
-    if (!set) return;
+    if (!set) return 'done';
+    if (ctx.outOfTime()) return 'timeout';
+    if (n > 0 && ctx.pace) await ctx.pace.sleep(ctx.pace.ms);
     skip.push(set.id);
     const ref = setRef(set);
     let defs: PsnTrophyDef[];
@@ -512,7 +522,9 @@ async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): 
     } catch (e) {
       if (!(e instanceof PsnError)) throw e;
       ctx.warn('trophy_locale_failed', `Сет ${set.np}: русские названия не загрузились (${e.reason}).`);
-      return;
+      // только «нет доступа к этому сету» — дело одного сета; лимит, недоступность и токен — стоп до следующего синка
+      if (e.reason !== 'access_denied') return 'done';
+      continue;
     }
     const now = ctx.now();
     const rows = mergeTrophies(ctx.userId, set.id, [], defs, now);
@@ -520,7 +532,10 @@ async function localeBackfill(ctx: RunContext, psn: PsnClient, skip: number[]): 
       await upsertTrophies(tx, rows);
       await upsertGroups(tx, ctx.userId, set.id, groups, now);
       await markLocale(tx, ctx.userId, set.id, now);
+      ctx.cursor = { ...ctx.cursor, locale: (ctx.cursor.locale ?? 0) + 1 };
+      await ctx.save(tx);
     });
+    ctx.units++;
   }
 }
 

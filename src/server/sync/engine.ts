@@ -37,6 +37,8 @@ export type SyncDeps = {
   discover?: DiscoverStepDeps;
   /** Шаг «не куплено» (Фаза 43, 43.5) после склейки дублей: сопоставление manual_games с библиотекой. Нет = шаг отключён (тесты). */
   manualMatch?: ManualMatchDeps;
+  /** Пакет 6, п. 10: пауза между сетами дозагрузки русских текстов трофеев. Нет = без паузы (тесты). */
+  localePace?: { ms: number; sleep: (ms: number) => Promise<void> };
 };
 
 export type ChunkResult = {
@@ -65,6 +67,7 @@ function internalMessage(e: unknown, secrets: SyncDeps['secrets']): string {
 
 export async function runChunk(deps: SyncDeps, run: RunRow): Promise<ChunkResult> {
   const ctx = new RunContext(deps.db, run, deps.now, deps.budgetMs);
+  if (deps.localePace) ctx.pace = deps.localePace;
   const secrets = deps.secrets ?? [];
 
   const close = async (r: ChunkResult, message: string | null, cursorNull = false): Promise<ChunkResult> => {
