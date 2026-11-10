@@ -80,6 +80,7 @@ export type Progress = {
 };
 
 import type { GoalView } from './goal';
+import type { BacklogPace } from './pace';
 
 export type SettingsView = { year: number; hoursPerWeek: number | null; configured: boolean };
 
@@ -97,6 +98,8 @@ export type RoadmapResponse = Plan & {
   serviceGames: ServiceGame[];
   /** Фаза 48: всего игр в бэклоге (countBacklog), включая убранные из плана и не влезшие в год. */
   backlogTotal: number;
+  /** Пакет 6, п. 11: прогноз бэклога по темпу последних 4 недель. Необязательное в типе (старые ответы и фикстуры src/ui). */
+  pace?: BacklogPace;
 };
 
 export type PlannedGameStatus = 'planned' | 'done' | 'cancelled';

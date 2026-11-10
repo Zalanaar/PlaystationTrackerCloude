@@ -619,3 +619,33 @@ export const placedToast = (pos: number, before: number, after: number): string 
 export function removedToast(before: number, after: number): string {
   return before === 0 && after === 0 ? 'Убрано из плана' : `Убрано из плана. Не успеваю: было ${before}, стало ${after}`;
 }
+
+// ---------- Пакет 6, п. 11: прогноз бэклога ----------
+const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
+
+export type PaceView = { kind: 'ok' | 'info'; title: string; note: string | null };
+
+/** «последних 4 недель» или «последних 15 дней» (история часов моложе 4 недель). */
+function windowWords(days: number): string {
+  return days >= 28 ? 'последних 4 недель' : `последних ${days} ${plural(days, ['дня', 'дней', 'дней'])}`;
+}
+
+/** Текст блока «Прогноз бэклога»; null — старый ответ без поля. */
+export function paceView(p: NonNullable<RoadmapResponse['pace']> | undefined): PaceView | null {
+  if (!p) return null;
+  const unknown = p.unknownGames > 0
+    ? ` ${p.unknownGames === p.games ? 'У игр' : `У ${p.unknownGames} ${plural(p.unknownGames, ['игры', 'игр', 'игр'])}`} нет длительности — ${p.unknownGames === 1 ? 'она не учтена' : 'они не учтены'}.`
+    : '';
+  if (p.status === 'empty') return { kind: 'info', title: 'Бэклог пуст', note: null };
+  if (p.status === 'no_hours') return { kind: 'info', title: 'Прогноза нет: у игр бэклога нет длительности', note: 'Укажите часы в бэклоге — и здесь появится дата.' };
+  if (p.status === 'no_data') return { kind: 'info', title: 'Прогноз появится через неделю истории часов', note: 'Темп считается по ежедневным снимкам синка.' };
+  if (p.status === 'no_pace') return { kind: 'info', title: `За ${p.days >= 28 ? 'последние 4 недели' : `последние ${p.days} ${plural(p.days, ['день', 'дня', 'дней'])}`} игр не было — темп не посчитать`, note: `В бэклоге ${hoursLabel(p.backlogHours)}.${unknown}` };
+  const d = p.closeDate ? parseYmd(p.closeDate) : null;
+  const years = p.weeks === null ? 0 : p.weeks / 52.18;
+  const when = !d ? '' : years > 100 ? 'больше чем через 100 лет' : `≈ в ${MONTHS_IN[d.m - 1]} ${d.y}`;
+  return {
+    kind: 'ok',
+    title: `Бэклог закончится ${when}`,
+    note: `В темпе ${windowWords(p.days)}: ${hoursLabel(p.hoursPerWeek)} в неделю, в бэклоге ${hoursLabel(p.backlogHours)}.${unknown}`,
+  };
+}

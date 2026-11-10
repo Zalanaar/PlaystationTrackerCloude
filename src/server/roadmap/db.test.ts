@@ -5,7 +5,7 @@ import { schema } from '@/db';
 import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { setGameStatus, setGamesStatusBulk } from '@/server/sync/status-rules';
 import {
-  createPlanned, deletePlanned, DuplicatePlannedError, excludeGame, getBacklogEntries, getRoadmap, getSettings, listPlanned, markPlanned, NotBacklogError, NotFoundError,
+  createPlanned, deletePlanned, DuplicatePlannedError, excludeGame, getBacklogEntries, getBacklogPace, getRoadmap, getSettings, listPlanned, markPlanned, NotBacklogError, NotFoundError,
   OrderRejectedError, putSettings, restoreGame, saveOrder, UnknownGamesError, updatePlanned, WantNeedsDateError,
 } from './db';
 import type { PlannedCreate } from './validation';
@@ -342,5 +342,27 @@ describe('roadmap на БД', () => {
       expect(after.items.map((i) => i.gameId)).toEqual([q]);
       expect(after.unallocated.map((u) => u.gameId).sort()).toEqual([p, r3].sort());
     });
+  });
+
+  it('Пакет 6, п. 11: прогноз бэклога — весь бэклог (и убранные из плана), темп 4 недель без сервисов и скрытых', async () => {
+    const id = await seed();
+    const [svc] = await t.db.insert(games).values({ userId: 1, titleId: 'S', name: 'Service', category: 'ps5_native_game', lastSeenAt: NOW }).returning({ id: games.id });
+    await t.db.insert(gameStatus).values({ userId: 1, gameId: svc.id, status: 'service' });
+    await excludeGame(t.db, TEST_USER, id('A'));
+    // E (играю): 14 ч за окно 2.10–29.10; сервис 100 ч и скрытая C 50 ч не считаются
+    await t.db.insert(playtimeSnapshots).values([
+      { userId: 1, gameId: id('E'), snapshotDate: '2026-09-01', playDurationSeconds: 0 },
+      { userId: 1, gameId: id('E'), snapshotDate: '2026-10-28', playDurationSeconds: 14 * 3600 },
+      { userId: 1, gameId: svc.id, snapshotDate: '2026-09-01', playDurationSeconds: 0 },
+      { userId: 1, gameId: svc.id, snapshotDate: '2026-10-28', playDurationSeconds: 100 * 3600 },
+      { userId: 1, gameId: id('C'), snapshotDate: '2026-09-01', playDurationSeconds: 0 },
+      { userId: 1, gameId: id('C'), snapshotDate: '2026-10-28', playDurationSeconds: 50 * 3600 },
+    ]);
+    const p = await getBacklogPace(t.db, TEST_USER, '2026-10-29');
+    // бэклог: A 10 (убрана из плана, но в бэклоге), B 5, D без длительности; C скрыта
+    expect(p).toMatchObject({ status: 'ok', from: '2026-10-02', to: '2026-10-29', days: 28, playedHours: 14, hoursPerWeek: 3.5, games: 3, unknownGames: 1, backlogHours: 15, weeks: 4.3 });
+    expect(p.closeDate).toBe('2026-11-28');
+    const r = await getRoadmap(t.db, TEST_USER, NOW);
+    expect(r.pace).toEqual(p);
   });
 });

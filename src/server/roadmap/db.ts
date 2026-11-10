@@ -11,10 +11,11 @@ import { snapshotGameVisible, visibleGameRow } from '@/server/collection/visibil
 import { backlogGameWhere, countBacklog } from '@/server/collection/backlog';
 import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
 import { mskDate, mskDateString, mskMidnightUtc } from '@/server/stats/period';
-import { yearBounds } from './dates';
+import { dayNum, dayStr, yearBounds } from './dates';
 import { computeGoal, type GoalMode, type GoalView } from './goal';
 import { buildPlan, isValidBudget, round1 } from './plan';
 import { computeProgress } from './progress';
+import { computeBacklogPace, PACE_DAYS, type BacklogPace } from './pace';
 import type { PlannedGameDto, PlannedGameStatus, RoadmapEntry, RoadmapResponse, ServiceGame, SettingsView } from './types';
 import type { PlannedCreate, PlannedPatch } from './validation';
 
@@ -349,12 +350,41 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
   return { snapshots: mergeDuplicateSnapshots([...bases, ...inYear], await getDuplicateMap(db, userId)), first: first[0]?.d ?? null };
 }
 
+/**
+ * Пакет 6, п. 11: прогноз бэклога. Остаток часов всех игр бэклога (и убранных из плана: бэклог закрывается целиком),
+ * темп — часы всех видимых игр, кроме сервисов, за последние 4 недели по снимкам (дубли склеены, как в статистике).
+ */
+export async function getBacklogPace(db: AnyDb, userId: UserId, today: string): Promise<BacklogPace> {
+  const from = dayStr(dayNum(today) - (PACE_DAYS - 1));
+  const notService = sql`not exists (select 1 from ${gameStatus} gs where gs.game_id = ${ps.gameId} and gs.user_id = ${userId} and gs.status = 'service')`;
+  const [backlogRows, inWindow, bases, first, dup] = await Promise.all([
+    db
+      .select({ override: games.durationOverrideHours, main: games.hltbMainHours, seconds: effectiveSecondsSql })
+      .from(games)
+      .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(eq(games.userId, userId), backlogGameWhere())),
+    db
+      .select({ gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
+      .from(ps)
+      .where(and(eq(ps.userId, userId), gte(ps.snapshotDate, from), sql`${ps.snapshotDate} <= ${today}`, snapshotGameVisible(ps.gameId, userId), notService)),
+    db
+      .selectDistinctOn([ps.gameId], { gameId: ps.gameId, date: ps.snapshotDate, seconds: ps.playDurationSeconds })
+      .from(ps)
+      .where(and(eq(ps.userId, userId), lt(ps.snapshotDate, from), snapshotGameVisible(ps.gameId, userId), notService))
+      .orderBy(ps.gameId, desc(ps.snapshotDate)),
+    db.select({ d: sql<string | null>`min(${ps.snapshotDate})` }).from(ps).where(eq(ps.userId, userId)),
+    getDuplicateMap(db, userId),
+  ]);
+  const backlog = backlogRows.map((r) => remainingHours(effectiveDuration({ override: r.override, main: r.main }).hours, r.seconds).remaining);
+  return computeBacklogPace({ today, firstSnapshotDate: first[0]?.d ?? null, by: groupSnapshots(mergeDuplicateSnapshots([...bases, ...inWindow], dup)), backlog });
+}
+
 /** GET /api/roadmap: план на лету (17.5). */
 export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<RoadmapResponse> {
   const today = mskDateString(now);
-  const [settings, backlog, planned, unallocated, serviceGames, goal, backlogTotal] = await Promise.all([
+  const [settings, backlog, planned, unallocated, serviceGames, goal, backlogTotal, pace] = await Promise.all([
     getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId), getGoal(db, userId, now),
-    countBacklog(db, userId),
+    countBacklog(db, userId), getBacklogPace(db, userId, today),
   ]);
   const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
   let progress = null;
@@ -366,7 +396,7 @@ export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
-  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal };
+  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal, pace };
 }
 
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };

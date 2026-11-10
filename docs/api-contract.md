@@ -3484,6 +3484,7 @@ OtherPlatformGame = {
 - Бэклог = видимые игры библиотеки со статусом `backlog` (скрытые, в том числе скрытые PS PC, и дубли не считаются). Одно условие на сервере: `backlogGameWhere()` / `countBacklog()` в `src/server/collection/backlog.ts`; им пользуются сводка коллекции (`counts.backlog`), `/backlog` (`status=backlog`), «Подскажи» и «План».
 - `GET /api/recommend`: в `meta` добавлено `backlog: number` (всё число бэклога); `candidates` = `backlog` минус «Не предлагать».
 - `GET /api/roadmap`: добавлено `backlogTotal: number` (включая убранные из плана и не влезшие в год).
+- Пакет 6, п. 11: `GET /api/roadmap` → `pace: { status: 'ok'|'empty'|'no_hours'|'no_data'|'no_pace', from, to, days, playedHours, hoursPerWeek, games, unknownGames, backlogHours, weeks: number|null, closeDate: 'YYYY-MM-DD'|null }` — прогноз бэклога. Окно: последние 28 дней МСК по сегодня (короче, если первый снимок позже; меньше 7 дней — `no_data`). Темп: часы всех видимых игр, кроме сервисов, по снимкам (дубли склеены). Бэклог: все видимые игры со статусом backlog, включая убранные из плана; часы = остаток (длительность минус сыграно), игры без длительности — в `unknownGames`. `closeDate` = сегодня + ⌈остаток / часов в день⌉. Необязательное для старых клиентов.
 - Записи «вручную» (Фаза 43) в число бэклога не входят; `/backlog` подписывает их отдельно («ещё N записей вручную, из них M не куплено»). Подписи: `src/shared/backlog.ts`.
 - Поля добавочные, миграций нет; клиент без поля работает как раньше.
 

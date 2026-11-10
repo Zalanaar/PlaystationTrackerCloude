@@ -2,7 +2,7 @@
 
 import type { RoadmapResponse } from '@/server/roadmap/types';
 import { Icon, type IconName } from '../icons';
-import { dayYearText, hoursLabel, hoursNum, pct, progressView } from './model';
+import { dayYearText, hoursLabel, hoursNum, paceView, pct, progressView } from './model';
 
 const STATUS: Record<'on_track' | 'behind' | 'ahead', { icon: IconName; tone: string }> = {
   on_track: { icon: 'check', tone: 'success' },
@@ -64,6 +64,23 @@ export function ProgressPanel({ data }: { data: RoadmapResponse }) {
     <>
       <h2 className="ps-h2">Прогресс</h2>
       {body}
+      <BacklogPace data={data} />
     </>
+  );
+}
+
+/** Пакет 6, п. 11: «В темпе последних 4 недель бэклог закончится ≈ в …» — по фактическим часам, не по плану. */
+function BacklogPace({ data }: { data: RoadmapResponse }) {
+  const v = paceView(data.pace);
+  if (!v) return null;
+  return (
+    <div className="ps-rm-pace" data-testid="rm-pace" data-kind={v.kind}>
+      <h3 className="ps-micro">Прогноз бэклога</h3>
+      <p className="ps-rm-status">
+        <span className="ps-rm-ico" data-tone={v.kind === 'ok' ? 'success' : 'muted'}><Icon name={v.kind === 'ok' ? 'calendar' : 'info'} size={20} /></span>
+        <span data-testid="rm-pace-title">{v.title}</span>
+      </p>
+      {v.note && <p className="ps-rm-note" data-testid="rm-pace-note">{v.note}</p>}
+    </div>
   );
 }

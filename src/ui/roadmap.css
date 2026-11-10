@@ -416,3 +416,8 @@ button.ps-rm-over__row { cursor: pointer; }
 
 .ps-rm-sm { display: none; }
 @media (max-width: 400px) { .ps-rm-lg { display: none; } .ps-rm-sm { display: inline; } .ps-rm-over__li { padding: var(--sp-2); } }
+/* Пакет 6, п. 11: прогноз бэклога под «Прогрессом» */
+.ps-rm-pace { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: var(--border-w) solid var(--border); }
+.ps-rm-pace .ps-micro { display: block; margin: 0 0 var(--sp-2); color: var(--text-3); }
+.ps-rm-pace .ps-rm-status { margin-bottom: 0; }
+.ps-rm-pace .ps-rm-note { margin-top: var(--sp-2); }

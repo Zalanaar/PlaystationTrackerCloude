@@ -24,6 +24,8 @@ export type RmState = {
   roadmapFail: number | null; plannedFail: number | null; orderFail: boolean;
   /** Фаза 32: цель года (GoalView 17.3a). undefined = поле goal в ответе плана нет (старые фикстуры) */
   goal?: Record<string, unknown> | null;
+  /** Пакет 6, п. 11: прогноз бэклога (BacklogPace). undefined = поля нет (старые фикстуры) */
+  pace?: Record<string, unknown>;
   /** принудительная ошибка PUT цели (status, code) */
   goalPutFail?: { status: number; code: string } | null;
   goalCalls?: { method: string; body: unknown }[];
@@ -184,6 +186,7 @@ export function buildRoadmap(s: RmState) {
   return {
     settings: { year: s.year, hoursPerWeek: s.hoursPerWeek, configured: s.configured },
     ...(s.goal !== undefined ? { goal: s.goal } : {}),
+    ...(s.pace !== undefined ? { pace: s.pace } : {}),
     status: b > 0 ? 'ok' : 'no_budget', today: s.today, range: { from: yearStart, to: yearEnd, days },
     totals: { capacityHours: Math.round(((b * days) / 7) * 10) / 10, plannedHours: Math.round(planned * 10) / 10 },
     weeks, months, items, queue, conflicts, notFit, needHours,
