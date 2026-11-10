@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import '../recommend.css';
 import { Icon } from '../icons';
+import { CatalogCredit } from '../catalog/CatalogCredit';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
 import { addManualBatch, markPurchased, searchManual } from './manualApi';
@@ -322,10 +323,7 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
         )}
 
         <div className="ps-add__foot">
-          <p className="ps-rec-note">
-            <span>Данные об играх:</span>
-            <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="RAWG (новая вкладка)">RAWG<Icon name="external-link" size={12} /></a>
-          </p>
+          <CatalogCredit list={phase === 'results' ? results : []} />
           <button type="button" className="ps-btn ps-btn--ghost" data-testid="add-close" disabled={busy} onClick={requestClose}>Закрыть</button>
         </div>
       </div>

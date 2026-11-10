@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { Icon } from '../icons';
 import { Popover } from '../primitives/Popover';
-import { rawgUrl, type ManualGame } from './manual';
+import { gamePage, type ManualGame } from './manual';
 
 export type ManualHandlers = {
   /** «Купил»: снять пометку (оптимистично, с тостом «Отменить») */
@@ -15,7 +15,8 @@ export type ManualHandlers = {
 /** Меню «…» записи «не куплено» (§19.5): Купил, Открыть на RAWG, Убрать из бэклога. Фокус после «Купил» остаётся на «…». */
 export function ManualMenu({ game, handlers, className }: { game: ManualGame; handlers: ManualHandlers; className?: string }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const url = rawgUrl(game);
+  const page = gamePage(game);
+  const url = page?.url ?? null;
   return (
     <Popover
       align="end" className={className}
@@ -39,10 +40,10 @@ export function ManualMenu({ game, handlers, className }: { game: ManualGame; ha
           {url && (
             <a
               role="menuitem" className="ps-menu-item ps-menu-item--tall" href={url} target="_blank" rel="noopener noreferrer"
-              aria-label={`Открыть ${game.title} на RAWG (новая вкладка)`} onClick={close}
+              aria-label={`Открыть ${game.title} на ${page?.site ?? 'RAWG'} (новая вкладка)`} onClick={close}
             >
               <Icon name="external-link" size={16} />
-              <span className="ps-menu-item__label">Открыть на RAWG</span>
+              <span className="ps-menu-item__label">Открыть на {page?.site ?? 'RAWG'}</span>
             </a>
           )}
           <button

@@ -4,6 +4,7 @@ import Link from '@/ui/IntentLink'; // Пакет 6: без предзагруз
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import '../recommend.css';
 import { Icon } from '../icons';
+import { CatalogCredit } from '../catalog/CatalogCredit';
 import { formatDayMonth } from '../format';
 import { Sheet } from '../primitives/Sheet';
 import { Cover } from '../collection/Cover';
@@ -205,10 +206,7 @@ export function AddOtherPlatformSheet({ onClose }: { onClose: (added: OtherPlatf
         </div>
 
         <div className="ps-add__foot">
-          <p className="ps-rec-note">
-            <span>Данные об играх:</span>
-            <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="RAWG (новая вкладка)">RAWG<Icon name="external-link" size={12} /></a>
-          </p>
+          <CatalogCredit list={results} />
           <button type="button" className="ps-btn ps-btn--ghost" data-testid="op-close" disabled={busy} onClick={finish}>Закрыть</button>
         </div>
       </div>

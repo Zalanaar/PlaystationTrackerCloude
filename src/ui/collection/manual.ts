@@ -1,5 +1,6 @@
 // Чистая логика Фазы 43: игры «не куплено» в Бэклоге (docs/design-system.md §19, docs/api-contract.md Фаза 43).
 import type { CatalogCandidate } from '@/server/catalog/rawg';
+import { catalogPage } from '@/server/catalog/links';
 import type { DuplicateInfo, ManualGame } from '@/server/manual/store';
 import type { DurationBucket, HltbStatus } from '@/server/collection/types';
 import { GENRE_NONE } from '@/shared/genres';
@@ -73,6 +74,9 @@ export function platformsText(platforms: readonly string[]): string {
 export function rawgUrl(g: Pick<ManualGame, 'externalId'>): string | null {
   return /^\d{1,12}$/.test(g.externalId) ? `https://rawg.io/games/${g.externalId}` : null;
 }
+
+/** Страница игры у её каталога: RAWG или запасной (PlayStation Store, Steam...). */
+export const gamePage = (g: Pick<ManualGame, 'externalId'>) => catalogPage(g.externalId);
 
 export const truncate = (s: string, n = 40): string => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 

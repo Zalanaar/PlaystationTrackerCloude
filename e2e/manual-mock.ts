@@ -8,7 +8,7 @@ export type MGame = {
 };
 export type Cand = {
   externalSource: 'rawg'; externalId: string; title: string; releaseDate: string | null; coverUrl: string | null; platforms: string[]; playstation: boolean;
-  duplicate: 'library' | 'planned' | null; inBacklog: boolean;
+  duplicate: 'library' | 'planned' | null; inBacklog: boolean; catalog?: string;
 };
 export type MMatch = { id: number; title: string; coverUrl: string | null; notPurchased: boolean; game: { gameId: number; name: string; imageUrl: string | null; lastPlayedAt: string | null; hours: number } };
 

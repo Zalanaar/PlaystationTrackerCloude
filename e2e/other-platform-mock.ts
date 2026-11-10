@@ -9,7 +9,7 @@ export type OP = {
 };
 export type OCand = {
   externalSource: 'rawg'; externalId: string; title: string; releaseDate: string | null; coverUrl: string | null; platforms: string[]; playstation: boolean;
-  duplicate: 'library' | 'planned' | null; inBacklog: boolean; inList: boolean;
+  duplicate: 'library' | 'planned' | null; inBacklog: boolean; inList: boolean; catalog?: string;
 };
 type Reply = { status: number; data?: unknown; error?: { code: string; message: string; details?: unknown } };
 

@@ -13,7 +13,15 @@ export type CatalogCandidate = {
   coverUrl: string | null;
   platforms: string[];
   playstation: boolean;
+  /**
+   * Каталог-источник: нет поля = RAWG. Запасные каталоги (когда RAWG не отвечает) дают id с префиксом (`ps-`, `igdb-`)
+   * в том же пространстве ключей `externalSource: 'rawg'` (колонки rawg_id/external_id — просто текстовый ключ каталога).
+   */
+  catalog?: FallbackCatalog;
 };
+
+/** Запасные каталоги (Пакет 7). */
+export type FallbackCatalog = 'psstore' | 'steam' | 'eshop' | 'msstore' | 'wikidata' | 'giantbomb';
 
 export type CatalogFailReason = 'no_key' | 'timeout' | 'network' | 'http_error' | 'rate_limited' | 'bad_response';
 

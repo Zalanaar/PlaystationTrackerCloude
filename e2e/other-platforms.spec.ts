@@ -226,6 +226,27 @@ test.describe('Панель поиска', () => {
     await expect(page.getByTestId('op-add-btn').first()).toHaveAttribute('aria-label', 'Добавить в список: Halo Infinite, платформа Xbox');
   });
 
+  test('RAWG недоступен: выдача запасных каталогов, подпись называет источники', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, {
+      candidates: [
+        ocand('steam-1', 'Halo: The Master Chief Collection', { platforms: ['PC'], playstation: false, catalog: 'steam' }),
+        ocand('ps-2', 'Halo Fan Game', { platforms: ['PlayStation 5'], catalog: 'psstore' }),
+      ],
+    });
+    await page.getByTestId('op-add').click();
+    await expect(page.getByTestId('catalog-credit')).not.toHaveAttribute('data-fallback', '1');
+    await expect(page.getByRole('link', { name: 'RAWG (новая вкладка)' })).toHaveAttribute('href', 'https://rawg.io');
+    await page.getByTestId('op-input').fill('halo');
+    await page.getByTestId('op-input').press('Enter');
+    await expect(page.getByTestId('op-add-row')).toHaveCount(2);
+    const credit = page.getByTestId('catalog-credit');
+    await expect(credit).toHaveAttribute('data-fallback', '1');
+    await expect(credit).toContainText('RAWG недоступен');
+    await expect(credit.getByRole('link', { name: 'Steam (новая вкладка)' })).toHaveAttribute('href', 'https://store.steampowered.com');
+    await expect(credit.getByRole('link', { name: 'PlayStation Store (новая вкладка)' })).toHaveAttribute('href', 'https://store.playstation.com');
+    await expect(page.getByTestId('op-platform').first().locator('[aria-pressed="true"]')).toHaveText('PC');
+  });
+
   test('добавление нескольких подряд, панель открыта, фокус на «Добавлено», при закрытии список и тост', async ({ page, context, baseURL }) => {
     const m = await open(page, context, baseURL!, { candidates: cands() });
     await page.getByTestId('op-add').click();

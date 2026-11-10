@@ -93,6 +93,27 @@ test.describe('Поиск и добавление', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
+  test('RAWG недоступен: игры из PlayStation Store добавляются, подпись и ссылка «…» ведут в PS Store', async ({ page, context, baseURL }) => {
+    const { manual } = await open(page, context, baseURL!, { candidates: [cand('ps-10002694', 'Elden Ring', { releaseDate: null, catalog: 'psstore' })] });
+    await addBtn(page).click();
+    await search(page, 'elden');
+    await expect(page.getByTestId('add-row')).toHaveCount(1);
+    const credit = page.getByTestId('catalog-credit');
+    await expect(credit).toHaveAttribute('data-fallback', '1');
+    await expect(credit.getByRole('link', { name: 'PlayStation Store (новая вкладка)' })).toHaveAttribute('href', 'https://store.playstation.com');
+    await addFirst(page);
+    await expect(page.getByTestId('add-row-done')).toHaveText('Добавлено · Не куплено');
+    expect(manual.batchBodies[0]).toEqual([{ externalSource: 'rawg', externalId: 'ps-10002694', title: 'Elden Ring', coverUrl: null, releaseDate: null, notPurchased: true }]);
+  });
+
+  test('«…» у игры из PlayStation Store: «Открыть на PlayStation Store»', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, { items: [mgame(13, 'Элден', { externalId: 'ps-10002694' })] });
+    await page.getByRole('button', { name: 'Действия: Элден' }).click();
+    const link = page.getByRole('menu').locator('a[role="menuitem"]');
+    await expect(link).toHaveText(/Открыть на PlayStation Store/);
+    await expect(link).toHaveAttribute('href', 'https://store.playstation.com/en-us/concept/10002694');
+  });
+
   test('«Уже в бэклоге» приходит от сервера и не даёт добавить повторно', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: [cand('3328', 'Hades II', { inBacklog: true })] });
     await addBtn(page).click();

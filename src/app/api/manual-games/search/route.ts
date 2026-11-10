@@ -1,6 +1,7 @@
 import { getDb } from '@/db';
 import { requireUser } from '@/server/auth/require-user';
 import { CatalogError } from '@/server/catalog/rawg';
+import { catalogFallback } from '@/server/catalog/sources';
 import { getRawgKey } from '@/server/env';
 import { fail, ok } from '@/server/http';
 import { rawgResetAt, searchAnyPlatform, searchPlayStation, suggestPlayStation } from '@/server/manual/search';
@@ -19,12 +20,14 @@ export async function GET(req: Request) {
   if (!q.ok) return fail(400, 'invalid_request', q.message);
   const state = { quota: false };
   let found;
+  // RAWG главный; если не ответил — запасной каталог (Пакет 7)
+  const fallback = catalogFallback();
   try {
     found = q.value.scopeAll
-      ? await searchAnyPlatform(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) })
+      ? await searchAnyPlatform(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id), fallback })
       : q.value.suggest
-      ? await suggestPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgSuggestReserve(a.user.id, state) })
-      : await searchPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) });
+      ? await suggestPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgSuggestReserve(a.user.id, state), fallback })
+      : await searchPlayStation(q.value.q, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id), fallback });
   } catch (e) {
     // мягкий предел подсказок (43.1.3): клиент откатывается на поиск по Enter
     if (state.quota) return fail(429, 'rate_limited', 'Лимит подсказок на сегодня исчерпан. Ищите по Enter.', { reason: 'suggest_limited', resetAt: rawgResetAt(new Date()) });
@@ -34,9 +37,9 @@ export async function GET(req: Request) {
     return fail(503, 'catalog_unavailable', 'Каталог игр недоступен.', { reason, ...(reason === 'rate_limited' ? { resetAt: rawgResetAt(new Date()) } : {}) });
   }
   try {
-    return ok({ candidates: await flagCandidates(getDb(), a.user.id, found.candidates), cached: found.cached });
+    return ok({ candidates: await flagCandidates(getDb(), a.user.id, found.candidates), cached: found.cached, catalog: found.catalog });
   } catch {
     // БД недоступна: поиск важнее пометок, но без них «В бэклог» не предупредит о дубле на этом шаге (POST проверит ещё раз)
-    return ok({ candidates: found.candidates.map((c) => ({ ...c, duplicate: null, inBacklog: false, inList: false })), cached: found.cached });
+    return ok({ candidates: found.candidates.map((c) => ({ ...c, duplicate: null, inBacklog: false, inList: false })), cached: found.cached, catalog: found.catalog });
   }
 }

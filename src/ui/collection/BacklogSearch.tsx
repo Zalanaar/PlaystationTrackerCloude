@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import { Icon, StatusGlyph } from '../icons';
+import { CatalogCredit, catalogsOf } from '../catalog/CatalogCredit';
 import { mskDay } from '../inbox/model';
 import { Cover } from './Cover';
 import { NotPurchasedBadge } from './NotPurchasedBadge';
@@ -233,11 +234,8 @@ export function BacklogSearch({
           )}
           {sk.kind === 'error' && <p className="ps-sr" role="alert" data-testid="bs-state" data-kind="error">Не удалось получить подсказки.</p>}
           {stateLines}
-          {!sheet && sk.kind !== 'hidden' && q.length >= SUGGEST_MIN && (
-            <p className="ps-bs__attr">
-              Данные об играх:{' '}
-              <a href="https://rawg.io" target="_blank" rel="noopener noreferrer" tabIndex={-1} aria-label="RAWG (новая вкладка)">RAWG</a>
-            </p>
+          {sk.kind !== 'hidden' && q.length >= SUGGEST_MIN && (!sheet || catalogsOf(storeItems).some((k) => k !== 'rawg')) && (
+            <CatalogCredit variant="inline" className="ps-bs__attr" list={storeItems} />
           )}
         </div>
       )}
