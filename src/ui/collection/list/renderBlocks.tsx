@@ -80,8 +80,8 @@ export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
   const { view, cols, filters, counts, byBlock, forgotten, checkCount, setFilters, shownCount, rawLoaded } = c;
   const list = byBlock[b] ?? [];
   if (b === 'playing') {
-    // hero «Играю» остаётся сверху; здесь те же игры обычными карточками, до годов (Фаза 22, 1.2). Пустой блок не показываем.
-    if (filters.status !== 'all' || list.length === 0) return null;
+    // hero «Играю» сверху; здесь те же игры обычными карточками, до годов (Фаза 22, 1.2) — только если hero показал не все (П9: без повтора).
+    if (filters.status !== 'all' || list.length === 0 || c.heroCovers) return null;
     return (
       <section key={b} className="ps-block" id="now" aria-labelledby="h-now" data-testid="now-block">
         <BlockHead id="h-now" title="Сейчас" count={shownCount(counts.playing, list)} icon={<StatusGlyph status="playing" size={16} />} />

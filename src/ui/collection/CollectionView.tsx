@@ -240,8 +240,10 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   const recent = chronicleMode && blocks.includes('playing') && pool && playing.length === 0 ? (L.chron.years[0]?.months[0]?.games[0] ?? null) : null;
   usePageArt(chronicleMode ? (playing[0]?.coverUrl ?? recent?.coverUrl) : null, isMobile);
 
+  // П9: hero «Играю» показывает все игры «Играю» — блок «Сейчас» под ним был бы тем же списком второй раз
+  const heroCovers = chronicleMode && blocks.includes('playing') && !!pool && playing.length > 0 && playing.length >= shownCount(counts.playing, playing);
   const renderCtx: RenderCtx = {
-    view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0, checkCount,
+    heroCovers, view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0, checkCount,
     more: data.more, loadMore, byBlock, chron: L.chron, played, isOpen: L.isOpen, toggle: L.toggle, isPlayedOpen: L.isPlayedOpen, togglePlayed: L.togglePlayed,
     rawLoaded: L.rawLoaded, shownCount, serviceFull: L.serviceFull, serviceOpen: L.serviceOpen, setServiceOpen: L.setServiceOpen,
     serviceRows: L.serviceRows, setServiceRows: L.setServiceRows,

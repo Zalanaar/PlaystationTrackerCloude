@@ -22,15 +22,18 @@ test.describe('Хроника: блок «Сейчас»', () => {
     g(3, 'Пройдена', { status: 'completed', completedAt: '2026-10-10T10:00:00.000Z', lastPlayedAt: '2026-10-10T10:00:00.000Z' }),
   ];
 
-  test('первым блоком, до годов; игра из hero видна и в блоке', async ({ page, context, baseURL }) => {
+  test('П9: hero показывает все игры «Играю» — блока «Сейчас» с тем же списком нет, годы сразу после', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, games(), '/', 'Коллекция');
-    const now = page.getByTestId('now-block');
-    await expect(now.getByRole('heading', { name: 'Сейчас' })).toBeVisible();
-    await expect(now.locator('.ps-card__title')).toHaveText(['Играю Раз', 'Играю Два']);
-    await expect(page.locator('.ps-hero')).toContainText('Играю Раз');
-    const nowY = (await now.boundingBox())?.y ?? 0;
-    const yearY = (await page.locator('.ps-chron').first().boundingBox())?.y ?? 0;
-    expect(nowY).toBeLessThan(yearY);
+    const hero = page.locator('.ps-hero');
+    await expect(hero).toContainText('Играю Раз');
+    await expect(hero).toContainText('Играю Два');
+    await expect(page.locator('.ps-chron').first()).toBeVisible();
+    await expect(page.getByTestId('now-block')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Сейчас' })).toHaveCount(0);
+    // одна игра «Играю» — тоже один раз
+    await open(page, context, baseURL as string, games().filter((x) => x.id !== 2), '/', 'Коллекция');
+    await expect(page.getByRole('button', { name: /^Открыть: Играю Раз/ })).toHaveCount(1);
+    await expect(page.getByTestId('now-block')).toHaveCount(0);
   });
 
   test('нет игр в статусе «Играю»: блока нет', async ({ page, context, baseURL }) => {

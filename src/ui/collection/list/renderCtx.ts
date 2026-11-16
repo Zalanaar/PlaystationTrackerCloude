@@ -8,6 +8,8 @@ import type { GameActions } from '../GameCard';
 
 /** Всё, что нужно функциям отрисовки списков коллекции: собирается в CollectionView и передаётся первым аргументом. */
 export type RenderCtx = {
+  /** П9: hero «Играю» сверху уже показывает все эти игры — блок «Сейчас» не дублируем */
+  heroCovers: boolean;
   view: ViewMode;
   density: Exclude<ViewMode, 'list'>;
   cols: number;

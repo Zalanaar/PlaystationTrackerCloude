@@ -74,7 +74,7 @@ for (const theme of THEMES) for (const vp of VPS) {
     await open(page, context, baseURL!, many(), '/', vp.w, vp.h);
     await setTheme(page, theme);
     await page.waitForTimeout(300);
-    await page.getByTestId('now-block').scrollIntoViewIfNeeded();
+    await page.locator('.ps-hero').scrollIntoViewIfNeeded(); // П9: блока «Сейчас» под hero больше нет
     await page.screenshot({ path: `${SHOTS}/chronicle-now-${theme}-${vp.w}.png` });
     out.push(`hscroll chronicle=${await hs(page)}`);
     console.log(`METRICS ${theme}/${vp.w}: ${out.join(' | ')}`);
