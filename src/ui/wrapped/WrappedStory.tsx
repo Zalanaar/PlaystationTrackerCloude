@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import type { GameItem } from '@/server/collection/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import { Cover, LARGE_W } from '../collection/Cover';
-import { cssUrl, plural } from '../format';
+import { plural } from '../format';
 import { Icon, PlatinumIcon, StatusGlyph } from '../icons';
 import { Avatar } from '../primitives/Avatar';
 import { useMediaQuery } from '../primitives/hooks';
@@ -14,10 +14,12 @@ import { RARE_SLIDE_TITLE, rareRows } from '../stats/rare';
 import { hourBars, hourLabel, patternHeadline, patternReady, patternSlideLabel, PATTERN_CAPTION, trophiesCount, weekdayBars, WEEKDAY_NOM, type PatternBar } from '../stats/playPattern';
 import {
   allEstimateBadge, allRangeText, busiestBars, dayMonthYear, firstGameCaption, platinumRows, slideTitle, yearsAgoText, yearsWord,
-  estimateBadge, approxHours, bestRatingText, cascadeDelay, classifyGesture, counterValue, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
-  keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, slideCover, stepIndex,
-  syncStartedText, tickTimer, trophiesText, COUNTER_MS, HOLD_MS, TIMER_START, type Dir, type StorySlideId, type TimerState,
+  estimateBadge, approxHours, bestRatingText, cascadeDelay, classifyGesture, daysText, gamesText, genreShare, hoursText, inMonth, isAutoAdvance,
+  keyAction, launchesLabel, parseDurationMs, partialBadge, resolveSlides, segmentFill, stepIndex,
+  syncStartedText, tickTimer, trophiesText, HOLD_MS, TIMER_START, type Dir, type StorySlideId, type TimerState,
 } from './model';
+import { slideColor, yearSummary } from './look';
+import { Backdrop, CountUp, hoursFormat, SummaryCard } from './StoryParts';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
@@ -132,6 +134,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
       <div
         ref={root} className="ps-story__stage" role="dialog" aria-modal="true" aria-label={isAll ? 'Итоги за всё время' : `Итоги ${data.year}`} tabIndex={-1}
         data-slide={slide} data-index={index} data-paused={held || undefined} data-auto={auto || undefined}
+        style={{ '--slide-base': slideColor(slide) } as CSSProperties}
         onContextMenu={(e) => e.preventDefault()} onPointerDown={onDown} onPointerUp={(e) => finish(e, false)} onPointerCancel={(e) => finish(e, true)}
       >
         <Backdrop data={data} id={slide} />
@@ -158,45 +161,13 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
   );
 }
 
-function Backdrop({ data, id }: { data: WrappedResponse; id: StorySlideId }) {
-  const c = slideCover(id, data);
-  const url = cssUrl(c?.url);
-  return (
-    <div className="ps-story__bg" aria-hidden="true">
-      {url && <div className="ps-story__art" style={{ backgroundImage: url }} />}
-      <div className="ps-story__shade" />
-      <div className="ps-story__scrim" />
-    </div>
-  );
-}
-
 /** Элемент каскада: fade + translateY, задержка n * 80 мс (при reduced-motion без задержки и анимации). */
 function Rise({ n, rm, className, children }: { n: number; rm: boolean; className?: string; children: ReactNode }) {
   return <div className={`ps-story__rise ${className ?? ''}`} style={{ animationDelay: `${cascadeDelay(n, rm)}ms` }}>{children}</div>;
 }
 
 function Counter({ target, rm, approx }: { target: number; rm: boolean; approx?: boolean }) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (rm) return;
-    const t0 = performance.now();
-    let raf = 0;
-    const frame = (now: number) => {
-      const e = now - t0;
-      setV(counterValue(e, target));
-      if (e < COUNTER_MS) raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [target, rm]);
-  const shown = rm ? target : v;
-  return (
-    <span className="ps-story__num ps-num">
-      <span className="ps-sr">{approx ? 'примерно ' : ''}{hoursText(target)}</span>
-      {approx && <span className="ps-story__approx" aria-hidden="true">≈</span>}
-      <span aria-hidden="true">{hoursText(shown)}</span>
-    </span>
-  );
+  return <CountUp target={target} rm={rm} approx={approx} format={hoursFormat} sr={`${approx ? 'примерно ' : ''}${hoursText(target)}`} />;
 }
 
 function Thumb({ g, w, dropped }: { g: GameItem; w: number; dropped?: boolean }) {
@@ -270,12 +241,12 @@ function SlideView({
           <Rise n={0} rm={rm}><h2 className="ps-story__title">Пройдено и брошено</h2></Rise>
           <Rise n={1} rm={rm} className="ps-story__frow">
             <StatusGlyph status="completed" size={40} />
-            <span className="ps-story__stat ps-num" aria-label={`Пройдено: ${f.completed.count}`}>{f.completed.count}</span>
+            <span className="ps-story__stat ps-num" aria-label={`Пройдено: ${f.completed.count}`}><CountUp target={f.completed.count} rm={rm} sr="" /></span>
             <span className="ps-story__covers">{f.completed.items.slice(0, 4).map((x) => <Thumb key={x.game.id} g={x.game} w={56} />)}</span>
           </Rise>
           <Rise n={2} rm={rm} className="ps-story__frow">
             <StatusGlyph status="dropped" size={40} />
-            <span className="ps-story__stat ps-num" aria-label={`Брошено: ${f.dropped.count}`}>{f.dropped.count}</span>
+            <span className="ps-story__stat ps-num" aria-label={`Брошено: ${f.dropped.count}`}><CountUp target={f.dropped.count} rm={rm} sr="" /></span>
             <span className="ps-story__covers">{f.dropped.items.slice(0, 3).map((x) => <Thumb key={x.game.id} g={x.game} w={56} dropped />)}</span>
           </Rise>
           {bm && (
@@ -293,10 +264,10 @@ function SlideView({
       return (
         <div className="ps-story__col">
           <Rise n={0} rm={rm}><p className="ps-story__label">Трофеев получено</p></Rise>
-          <Rise n={1} rm={rm}><div className="ps-story__big ps-num">{c.total}</div></Rise>
+          <Rise n={1} rm={rm}><div className="ps-story__big"><CountUp target={c.total} rm={rm} /></div></Rise>
           <Rise n={2} rm={rm} className="ps-story__frow">
             <span style={{ color: 'var(--platinum)', display: 'inline-flex' }}><PlatinumIcon size={40} /></span>
-            <span className="ps-story__stat ps-num">{c.platinum}</span>
+            <span className="ps-story__stat ps-num"><CountUp target={c.platinum} rm={rm} /></span>
             <span className="ps-story__sub">{plural(c.platinum, ['платина', 'платины', 'платин'])}</span>
           </Rise>
           <Rise n={3} rm={rm} className="ps-story__tri">
@@ -440,9 +411,10 @@ function SlideView({
     case 'playPattern': return <PlayPatternSlide data={data} rm={rm} />;
     case 'final':
       return (
-        <div className="ps-story__center">
-          <Rise n={0} rm={rm}><h2 className="ps-story__title">{all ? 'Спасибо, что играешь' : `До встречи в ${year + 1}`}</h2></Rise>
-          <Rise n={1} rm={rm} className="ps-story__actions">
+        <div className="ps-story__center ps-story__final">
+          <Rise n={0} rm={rm} className="ps-story__rise--card"><SummaryCard s={yearSummary(data)} /></Rise>
+          <Rise n={1} rm={rm}><h2 className="ps-story__title">{all ? 'Спасибо, что играешь' : `До встречи в ${year + 1}`}</h2></Rise>
+          <Rise n={2} rm={rm} className="ps-story__actions">
             <button type="button" className="ps-btn ps-story__btn" onClick={onRestart}><Icon name="refresh" size={16} />Пересмотреть</button>
             <button type="button" className="ps-btn ps-story__btn ps-story__btn--solid" onClick={onClose}>Закрыть</button>
           </Rise>

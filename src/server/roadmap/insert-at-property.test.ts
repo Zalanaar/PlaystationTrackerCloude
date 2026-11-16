@@ -48,7 +48,7 @@ describe('QA: insertAt против перебора', () => {
       }
     }
     expect(checked).toBeGreaterThan(100);
-  });
+  }, 30_000); // перебор: под полной параллельной нагрузкой vitest дольше 5 с по умолчанию
   it('лимит проб: хвост получает null, а не ложное значение', () => {
     const backlog = Array.from({ length: 150 }, (_, i) => bl(i + 1, 300));
     const p = buildPlan({ year: 2026, hoursPerWeek: 10, backlog, planned: [] });
