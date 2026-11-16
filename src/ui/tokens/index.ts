@@ -56,12 +56,16 @@ export const VIEW_LABELS: Record<ViewMode, string> = { comfort: 'Крупно', 
 export const COLLECTION_BLOCKS = ['playing', 'chronicle', 'backlog', 'service', 'shelved', 'unsorted'] as const;
 export type CollectionBlock = (typeof COLLECTION_BLOCKS)[number];
 
-/** Фаза 18 (docs/design-system.md §8): 4 вкладки. `match` = префиксы путей, на которых вкладка подсвечена; `href` ведёт на корень группы. */
+/**
+ * Фаза 18 (docs/design-system.md §8): 4 вкладки. `match` = префиксы путей, на которых вкладка подсвечена; `href` ведёт на корень группы.
+ * П9 (эксперимент, откатывается одним коммитом): четвёртая вкладка «Трофеи» вместо «Разбор». «Разбор» (/triage) — из чипов
+ * «С прошлого визита», блока «Не разобрано» и пункта меню с числом игр без статуса.
+ */
 export const NAV_TABS = [
   { id: 'collection', href: '/', label: 'Коллекция', icon: 'library', match: ['/'], exact: true },
   { id: 'backlog', href: '/backlog', label: 'Бэклог', icon: 'bookmark', match: ['/backlog', '/roadmap', '/recommend'] },
-  { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped', '/trophies'] },
-  { id: 'triage', href: '/triage', label: 'Разбор', icon: 'list-checks', match: ['/triage'] },
+  { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped'] },
+  { id: 'trophies', href: '/trophies', label: 'Трофеи', icon: 'trophy', match: ['/trophies'] },
 ] as const;
 /** Подвкладки группы «Бэклог» (ссылки, не кнопки). */
 export const BACKLOG_SUBNAV = [

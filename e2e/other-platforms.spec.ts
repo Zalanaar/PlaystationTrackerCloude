@@ -40,12 +40,12 @@ test.describe('Блок в Коллекции', () => {
     await open(page, context, baseURL!, { items: [op(1, 'Forza'), op(2, 'Halo')] });
     if (isMobile(page)) {
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      await expect(page.getByTestId('more-menu-trophies')).toBeVisible();
+      await expect(page.getByTestId('more-menu-triage')).toBeVisible();
       await expect(page.getByTestId('more-menu-other')).toHaveCount(0);
       await page.keyboard.press('Escape');
     } else {
       await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-      await expect(page.getByTestId('menu-trophies')).toBeVisible();
+      await expect(page.getByTestId('menu-triage')).toBeVisible();
       await expect(page.getByTestId('profile-menu-other')).toHaveCount(0);
       await page.keyboard.press('Escape');
     }

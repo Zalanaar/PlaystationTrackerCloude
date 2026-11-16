@@ -509,13 +509,12 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   });
 
-  test('«Разобрать игры» убрано из меню профиля, Разбор открывается вкладкой (Фаза 18)', async ({ page, context, baseURL }) => {
+  test('«Разобрать игры» убрано из меню профиля; П9: Разбор открывается пунктом меню с числом игр без статуса', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await page.getByRole('button', { name: 'Меню профиля' }).click();
     await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Разобрать игры' })).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await page.locator('header nav[aria-label="Разделы"]').getByRole('link', { name: 'Разбор' }).click();
+    await page.getByRole('menuitem', { name: /^Разбор, без статуса: \d+$/ }).click();
     await expect(page).toHaveURL(/\/triage$/);
   });
 });

@@ -30,6 +30,7 @@ import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
+import { pendingBadge, useTriagePending } from './triagePending';
 
 const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
@@ -75,6 +76,8 @@ export function AppHeader() {
   const { open: openWhatsNew } = useWhatsNew();
   // D-P2: на мобильном вместо логотипа название раздела, рядом «Поиск» и «+» той страницы, где они есть
   const section = NAV_TABS.find((n) => isTabActive(pathname, n)) ?? null;
+  // П9: у «Разбора» больше нет вкладки, но заголовок раздела в шапке телефона остаётся
+  const title = section?.label ?? (/^\/triage(\/|$)/.test(pathname) ? 'Разбор' : null);
   const hdr = headerActionsFor(pathname);
   useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
 
@@ -83,8 +86,8 @@ export function AppHeader() {
       <PullToRefresh />
       <header className="ps-header">
         <div className="ps-header__in ps-container">
-          <Link href="/" className="ps-logo" data-section={section ? '' : undefined}>PS TRACKER</Link>
-          {section && <span className="ps-header__title" aria-hidden="true">{section.label}</span>}
+          <Link href="/" className="ps-logo" data-section={title ? '' : undefined}>PS TRACKER</Link>
+          {title && <span className="ps-header__title" aria-hidden="true">{title}</span>}
           <nav className="ps-nav" aria-label="Разделы" data-tour="nav">
             {NAV_TABS.map((n) => {
               const dot = n.id === 'stats' && offer !== null;
@@ -138,10 +141,7 @@ export function AppHeader() {
                       <Icon name="info" size={16} />
                       <span className="ps-menu-item__label">Что нового</span>
                     </button>
-                    <Link href="/trophies" role="menuitem" className="ps-menu-item" data-testid="menu-trophies" onClick={close}>
-                      <Icon name="trophy" size={16} />
-                      <span className="ps-menu-item__label">Лента трофеев</span>
-                    </Link>
+                    <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
@@ -219,9 +219,7 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
-          <Link href="/trophies" className="ps-menu-item" data-testid="more-menu-trophies" onClick={() => setMore(false)}>
-            <Icon name="trophy" size={16} /><span className="ps-menu-item__label">Лента трофеев</span>
-          </Link>
+          <TriageMenuItem active={more} testid="more-menu-triage" onClick={() => setMore(false)} />
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
           </Link>
@@ -256,6 +254,18 @@ export function AppHeader() {
       {restoreEver && <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />}
       <StatusDialogs m={statusMenu} />
     </>
+  );
+}
+
+/** П9: «Разбор» в меню (вкладку занял «Трофеи»), справа число игр без статуса. */
+function TriageMenuItem({ active, role, testid, onClick }: { active: boolean; role?: 'menuitem'; testid: string; onClick: () => void }) {
+  const badge = pendingBadge(useTriagePending(active));
+  return (
+    <Link href="/triage" role={role} className="ps-menu-item" data-testid={testid} onClick={onClick} aria-label={badge ? `Разбор, без статуса: ${badge}` : undefined}>
+      <Icon name="list-checks" size={16} />
+      <span className="ps-menu-item__label">Разбор</span>
+      {badge && <span className="ps-menu-badge num" data-testid="triage-pending" aria-hidden="true">{badge}</span>}
+    </Link>
   );
 }
 

@@ -230,7 +230,8 @@ test.describe('QA 18: План, Статистика, ширины', () => {
         await page.waitForTimeout(600);
         expect(await overflow(page), `${p} ${w}`).toBeLessThanOrEqual(0);
         const nav = w < 768 ? 'nav.ps-tabbar a[aria-current="page"]' : 'header nav[aria-label="Разделы"] a[aria-current="page"]';
-        await expect(page.locator(nav)).toHaveCount(1);
+        // П9: у /triage вкладки нет (её место заняли «Трофеи»), остальные страницы подсвечивают свою
+        await expect(page.locator(nav)).toHaveCount(p === '/triage' ? 0 : 1);
       });
     }
   }

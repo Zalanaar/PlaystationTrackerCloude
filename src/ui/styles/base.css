@@ -387,3 +387,6 @@ body::before {
     .ps-bs__cap, .ps-bs-opt__cover, .ps-bs__attr, .ps-match__cap) { font-size: 12px; }
   html .ps-trophy__name > :is(.ps-trophy__dlc, .ps-trophy__hidtag), html .ps-gd .ps-gd__cover span, html .ps-bs-opt .ps-bs-opt__cover { font-size: 12px; }
 }
+
+/* П9: бейдж числа у пункта меню («Разбор»: игры без статуса) */
+.ps-menu-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--text); font: 600 12px/20px var(--font-body); text-align: center; }

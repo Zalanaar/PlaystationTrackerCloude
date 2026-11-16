@@ -24,7 +24,7 @@ const s = (x: TourStep): TourStep => x;
 export const TOUR_STEPS: readonly TourStep[] = [
   s({
     id: 'nav', route: '/', target: 'nav', targetMobile: 'nav', place: 'bottom', title: 'Добро пожаловать',
-    text: 'Покажем главное за минуту. Коллекция, Бэклог (с Планом и «Подскажи»), Статистика (с Итогами года) и Разбор.',
+    text: 'Покажем главное за минуту. Коллекция, Бэклог (с Планом и «Подскажи»), Статистика (с Итогами года) и Трофеи. Разбор игр без статуса — в меню.',
     textMobile: 'Те же разделы в нижнем меню.', note: null, noteMobile: null,
   }),
   s({

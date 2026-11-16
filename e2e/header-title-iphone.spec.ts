@@ -3,7 +3,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { setup, TWO, ONE } from './profiles-mock';
 
-const PAGES = [['/', 'Коллекция'], ['/backlog', 'Бэклог'], ['/stats', 'Статистика'], ['/triage', 'Разбор']] as const;
+const PAGES = [['/', 'Коллекция'], ['/backlog', 'Бэклог'], ['/stats', 'Статистика'], ['/trophies', 'Трофеи'], ['/triage', 'Разбор']] as const;
 
 async function titleFits(page: Page, label: string) {
   const t = page.locator('.ps-header__title');

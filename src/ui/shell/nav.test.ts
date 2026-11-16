@@ -15,9 +15,10 @@ describe('isTabActive', () => {
     expect(active('/recommend')).toEqual(['backlog']);
     expect(active('/recommend/x')).toEqual(['backlog']);
   });
-  it('Статистика держит /wrapped, Разбор отдельно', () => {
+  it('Статистика держит /wrapped; П9: «Трофеи» — своя вкладка, у «Разбора» вкладки нет', () => {
     expect(active('/wrapped')).toEqual(['stats']);
-    expect(active('/triage')).toEqual(['triage']);
+    expect(active('/trophies')).toEqual(['trophies']);
+    expect(active('/triage')).toEqual([]);
     expect(active('/backlogs')).toEqual([]);
   });
   it('завершающий слэш не мешает', () => {

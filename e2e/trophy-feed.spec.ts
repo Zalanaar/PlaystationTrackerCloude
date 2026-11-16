@@ -75,9 +75,9 @@ test('чип «+N трофеев» ведёт в ленту: сводка, гр�
   await expect(page.getByTestId('tfeed-row')).toHaveCount(n7);
   await expect(page.getByRole('heading', { level: 2, name: 'Сегодня' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Вчера' })).toBeVisible();
-  // вкладка «Статистика» подсвечена (лента — часть раздела)
-  if (!isMobile(page)) await expect(page.locator('.ps-nav-item[aria-current="page"]')).toHaveText('Статистика');
-  else await expect(page.locator('.ps-tab[aria-current="page"]')).toContainText('Статистика');
+  // П9: своя вкладка «Трофеи» подсвечена
+  if (!isMobile(page)) await expect(page.locator('.ps-nav-item[aria-current="page"]')).toHaveText('Трофеи');
+  else await expect(page.locator('.ps-tab[aria-current="page"]')).toContainText('Трофеи');
 });
 
 test('фильтры: Месяц, Все, «Только редкие» (<5 %); URL запоминает выбор; «Показать ещё» без дублей', async ({ page, context, baseURL }) => {
@@ -120,18 +120,15 @@ test('тап по строке открывает окно игры на вкл�
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 
-test('пункт меню «Лента трофеев» и ссылка из Статистики', async ({ page, context, baseURL }) => {
+test('П9: вкладка «Трофеи» (вместо «Разбор») ведёт в ленту и подсвечена на ней', async ({ page, context, baseURL }) => {
   await setup(page, context, baseURL!);
   await mockFeed(page);
   await page.goto('/');
-  if (isMobile(page)) {
-    await page.getByRole('button', { name: 'Меню' }).click();
-    await page.getByTestId('more-menu-trophies').click();
-  } else {
-    await page.locator('.ps-avatar').click();
-    await page.getByTestId('menu-trophies').click();
-  }
+  const nav = page.getByRole('navigation', { name: 'Разделы' }).locator('visible=true');
+  await nav.getByRole('link', { name: 'Трофеи' }).click();
   await expect(page).toHaveURL(/\/trophies$/);
+  await expect(nav.getByRole('link', { name: 'Трофеи' })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Разбор' })).toHaveCount(0);
   await expect(page.getByTestId('tfeed-row').first()).toBeVisible();
 });
 

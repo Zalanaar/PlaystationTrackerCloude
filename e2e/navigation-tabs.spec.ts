@@ -76,7 +76,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await setup(page, context, baseURL!);
     await page.goto('/');
     const tabs = page.locator('header nav[aria-label="Разделы"] a');
-    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Разбор']);
+    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
     await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'page');
     const cur = async (path: string, tab: string, sub?: string) => {
       await page.goto(path);
@@ -88,20 +88,39 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await cur('/recommend', 'Бэклог', 'Подскажи');
     await cur('/stats', 'Статистика');
     await cur('/wrapped', 'Статистика');
-    await cur('/triage', 'Разбор');
+    await cur('/trophies', 'Трофеи');
+    // П9: у «Разбора» вкладки нет, /triage работает, ни одна вкладка не подсвечена
+    await page.goto('/triage');
+    await expect(page.getByRole('heading', { level: 1, name: 'Разбор' })).toBeAttached();
+    await expect(page.locator('header nav[aria-label="Разделы"] a[aria-current="page"]')).toHaveCount(0);
     await expect(page.locator('nav[aria-label="Раздел бэклога"]')).toHaveCount(0);
   });
 
-  test('меню профиля без «Разобрать игры», вкладка «Разбор» открывает /triage', async ({ page, context, baseURL }, info) => {
+  test('меню профиля без «Разобрать игры»; П9: пункт «Разбор» с числом игр без статуса открывает /triage', async ({ page, context, baseURL }, info) => {
     test.skip(info.project.name === 'mobile', 'меню профиля на десктопе');
     await setup(page, context, baseURL!);
     await page.goto('/');
     await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
     await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toBeVisible();
     await expect(page.getByText('Разобрать игры')).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await page.locator('header nav[aria-label="Разделы"]').getByRole('link', { name: 'Разбор' }).click();
+    const item = page.getByTestId('menu-triage');
+    await expect(item.getByTestId('triage-pending')).toHaveText(/^\d+$/);
+    await expect(item).toHaveAccessibleName(/^Разбор, без статуса: \d+$/);
+    await item.click();
     await expect(page).toHaveURL(/\/triage/);
+  });
+
+  test('П9: телефон — «Разбор» в меню с числом игр без статуса, /triage открывается', async ({ page, context, baseURL }, info) => {
+    test.skip(info.project.name === 'desktop', 'меню телефона');
+    await setup(page, context, baseURL!);
+    await page.goto('/');
+    await expect(page.locator('nav.ps-tabbar a', { hasText: 'Разбор' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    const item = page.getByTestId('more-menu-triage');
+    await expect(item.getByTestId('triage-pending')).toHaveText(/^\d+$/);
+    await item.click();
+    await expect(page).toHaveURL(/\/triage$/);
+    await expect(page.locator('.ps-header__title')).toHaveText('Разбор');
   });
 
   test('768 px: шапка не переполняется', async ({ page, context, baseURL }, info) => {
@@ -125,7 +144,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto('/');
     const tabs = page.locator('nav.ps-tabbar a');
-    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Разбор']);
+    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
     const boxes = await tabs.evaluateAll((els) => els.map((e) => ({ w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height, over: (e.querySelector('span:last-child') as HTMLElement).scrollWidth > e.clientWidth })));
     for (const b of boxes) { expect(Math.abs(b.w - 90)).toBeLessThan(1); expect(b.h).toBeGreaterThanOrEqual(44); expect(b.over).toBe(false); }
     await page.goto('/roadmap');

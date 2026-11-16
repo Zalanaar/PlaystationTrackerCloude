@@ -342,7 +342,7 @@ test.describe('План: вёрстка', () => {
       await expect(page.getByTestId('rm-queue-row').first()).toBeVisible();
       expect(await noHScroll(page)).toBe(true);
       const labels = await page.locator('nav.ps-tabbar .ps-tab > span:last-child').evaluateAll((els) => els.filter((e) => getComputedStyle(e).display !== 'none').map((e) => ({ t: e.textContent, ok: e.scrollWidth <= e.clientWidth + 1 })));
-      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Бэклог', 'Статистика', 'Разбор']);
+      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
       expect(labels.every((l) => l.ok)).toBe(true);
       await page.getByRole('button', { name: 'Добавить игру' }).click();
       expect(await noHScroll(page)).toBe(true);
