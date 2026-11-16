@@ -466,9 +466,10 @@ test.describe('коллекция (desktop)', () => {
   test('тема: семь тем переключаются, выбор сохраняется после reload и переходов', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Graphite', 'PS1', 'PS2', 'PS3', 'PS4', 'PS5']);
+    await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']);
+    await expect(page.getByRole('menu')).not.toContainText(/PS[1-5]|Graphite/); // айдентика тем, шаг 1: поколения в UI не называем
     await page.keyboard.press('Escape');
-    const attrs: Record<string, string | null> = { PS1: 'ps1', PS2: 'ps2', PS3: 'ps3', PS4: 'ps4', PS5: 'ps5', Graphite: 'graphite', Night: null };
+    const attrs: Record<string, string | null> = { 'Memory Card': 'ps1', 'Crystal Towers': 'ps2', Wave: 'ps3', Tiles: 'ps4', Activity: 'ps5', Dark: 'graphite', Night: null };
     for (const [label, attr] of Object.entries(attrs)) {
       await page.getByRole('button', { name: /^Тема:/ }).click();
       await page.getByRole('menuitemradio', { name: label }).click();
@@ -477,7 +478,7 @@ test.describe('коллекция (desktop)', () => {
       await expect(page.getByRole('button', { name: `Тема: ${label}` })).toBeVisible();
     }
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await page.getByRole('menuitemradio', { name: 'Graphite' }).click();
+    await page.getByRole('menuitemradio', { name: 'Dark' }).click();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
     await page.getByRole('navigation', { name: 'Разделы' }).first().getByRole('link', { name: 'Бэклог' }).click();
@@ -491,7 +492,7 @@ test.describe('коллекция (desktop)', () => {
     expect(await page.evaluate(() => localStorage.getItem('ps-theme'))).toBe('ps5');
     expect(await page.evaluate(() => document.cookie)).toContain('ps-theme=ps5');
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await page.getByRole('menuitemradio', { name: 'PS3' }).click();
+    await page.getByRole('menuitemradio', { name: 'Wave' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-xmb-month', /^(1|2|3|4|5|6|7|8|9|10|11|12)$/);
   });
 
@@ -631,8 +632,8 @@ for (const width of [390, 440]) {
     test('тема меняется из меню и сохраняется', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Graphite', 'PS1', 'PS2', 'PS3', 'PS4', 'PS5']);
-      await page.getByRole('menuitemradio', { name: 'Graphite' }).click();
+      await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']);
+      await page.getByRole('menuitemradio', { name: 'Dark' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
       await page.reload();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');

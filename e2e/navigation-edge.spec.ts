@@ -321,7 +321,7 @@ test.describe('QA 18: theme-color по теме', () => {
     await page.evaluate(() => { document.cookie = 'ps-theme=ps1; path=/'; });
     const sel = page.locator('header').getByRole('button', { name: /Тема/ });
     await sel.click();
-    await page.getByRole('option', { name: /PS1/ }).or(page.getByRole('menuitemradio', { name: /PS1/ })).first().click();
+    await page.getByRole('option', { name: /Memory Card/ }).or(page.getByRole('menuitemradio', { name: /Memory Card/ })).first().click();
     await expect(page.locator('meta[name=theme-color]').first()).toHaveAttribute('content', '#1c1c22');
   });
 });

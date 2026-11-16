@@ -94,8 +94,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
   }),
   s({
     id: 'theme', route: '*', target: 'theme', targetMobile: 'menu-more', place: 'bottom', title: 'Темы',
-    text: 'Семь оформлений: Night, Graphite и PS1–PS5. Выбор запоминается.',
-    textMobile: 'Тема выбирается в меню «⋯»: Night, Graphite и PS1–PS5.', note: null, noteMobile: null,
+    text: 'Семь оформлений: Night, Dark, Memory Card, Crystal Towers, Wave, Tiles и Activity. Выбор запоминается.',
+    textMobile: 'Тема выбирается в меню «⋯»: Night, Dark, Memory Card, Crystal Towers, Wave, Tiles и Activity.', note: null, noteMobile: null,
   }),
   s({
     id: 'done', route: '*', target: null, targetMobile: null, place: 'center', title: 'Готово',

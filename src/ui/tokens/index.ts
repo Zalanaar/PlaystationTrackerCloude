@@ -1,11 +1,12 @@
+// Подписи в меню — нейтральные названия (айдентика тем, шаг 1): поколения консолей в UI не называем. id/attr прежние.
 export const THEMES = [
   { id: 'night', label: 'Night', attr: null },
-  { id: 'graphite', label: 'Graphite', attr: 'graphite' },
-  { id: 'ps1', label: 'PS1', attr: 'ps1' },
-  { id: 'ps2', label: 'PS2', attr: 'ps2' },
-  { id: 'ps3', label: 'PS3', attr: 'ps3' },
-  { id: 'ps4', label: 'PS4', attr: 'ps4' },
-  { id: 'ps5', label: 'PS5', attr: 'ps5' },
+  { id: 'graphite', label: 'Dark', attr: 'graphite' },
+  { id: 'ps1', label: 'Memory Card', attr: 'ps1' },
+  { id: 'ps2', label: 'Crystal Towers', attr: 'ps2' },
+  { id: 'ps3', label: 'Wave', attr: 'ps3' },
+  { id: 'ps4', label: 'Tiles', attr: 'ps4' },
+  { id: 'ps5', label: 'Activity', attr: 'ps5' },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]['id'];
