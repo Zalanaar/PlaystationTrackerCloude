@@ -36,3 +36,9 @@ export function parseDayDate(raw: string | null): string | null {
 }
 
 export const secondsToMinutes = (sec: number) => (sec > 0 ? Math.max(1, Math.round(sec / 60)) : 0);
+
+/** П11.2 «В этот день»: не больше лет и строк трофеев на год (счётчики — все). */
+export const ON_THIS_DAY_YEARS = 10;
+export const ON_THIS_DAY_TROPHIES = 5;
+/** Дни прошлых лет с тем же ММ-ДД, где что-то было; свежие сверху. prev/next не заполняются. */
+export type OnThisDayResponse = { today: string; items: DayResponse[] };

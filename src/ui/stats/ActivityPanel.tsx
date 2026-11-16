@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, errorText, fetchActivity } from '../collection/api';
+import type { OnThisDayResponse } from '@/server/stats/day';
+import { ApiError, errorText, fetchActivity, fetchOnThisDay } from '../collection/api';
 import { Icon } from '../icons';
 import { DayDiary } from './DayDiary';
+import { OnThisDay } from './OnThisDay';
 import {
   GAPS_HELP, GAPS_NOTE, HEAT_ROW_LABELS, LEGEND_TITLES, activityMode, buildHeat, initialHeatFocus, moveHeatFocus, noYearNote, streakTiles,
   totalsText, unknownNote, yearOf, yearRange, type ActivityData, type HeatCell, type HeatLayout, type StreakTile,
@@ -20,6 +22,8 @@ export function ActivityPanel({ defaultYear }: { defaultYear: number }) {
   const [near, setNear] = useState(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // П11.2 «В этот день»: грузится вместе с картой (тело показывается, когда пришли оба: без сдвига вёрстки); сбой = блока нет
+  const [otd, setOtd] = useState<OnThisDayResponse | 'failed' | null>(null);
   const root = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -42,6 +46,15 @@ export function ActivityPanel({ defaultYear }: { defaultYear: number }) {
       });
     return () => ac.abort();
   }, [near, year, attempt]);
+
+  useEffect(() => {
+    if (!near) return;
+    const ac = new AbortController();
+    fetchOnThisDay(ac.signal)
+      .then((d) => { if (!ac.signal.aborted) setOtd(d); })
+      .catch(() => { if (!ac.signal.aborted) setOtd('failed'); });
+    return () => ac.abort();
+  }, [near]);
 
   const fresh = loaded && loaded.year === year ? loaded : null;
   const data = fresh && 'data' in fresh ? fresh.data : null;
@@ -74,7 +87,7 @@ export function ActivityPanel({ defaultYear }: { defaultYear: number }) {
           <p>{errorText(failed)}</p>
           <button type="button" className="ps-btn" onClick={() => { setLoaded(null); setAttempt((a) => a + 1); }}>Повторить</button>
         </div>
-      ) : !data || !range ? (
+      ) : !data || !range || otd === null ? (
         <ActivitySkeleton />
       ) : mode === 'empty' ? (
         <div className="ps-act__state">
@@ -83,7 +96,7 @@ export function ActivityPanel({ defaultYear }: { defaultYear: number }) {
           <p>Карта заполняется ежедневными снимками. История по дням до первого синка недоступна.</p>
         </div>
       ) : (
-        <ActivityBody data={data} mode={mode ?? 'ok'} />
+        <ActivityBody data={data} mode={mode ?? 'ok'} otd={otd === 'failed' ? null : otd} />
       )}
     </section>
   );
@@ -98,7 +111,7 @@ function ActivitySkeleton() {
   );
 }
 
-function ActivityBody({ data, mode }: { data: ActivityData; mode: 'ok' | 'noYear' }) {
+function ActivityBody({ data, mode, otd }: { data: ActivityData; mode: 'ok' | 'noYear'; otd: OnThisDayResponse | null }) {
   const layout = useMemo(() => buildHeat(data.days, data.today, data.firstSnapshotDate), [data]);
   const tiles = streakTiles(data);
   const t = totalsText(data.totals);
@@ -117,7 +130,6 @@ function ActivityBody({ data, mode }: { data: ActivityData; mode: 'ok' | 'noYear
         <p className="ps-st-note ps-act__note" role="note"><Icon name="info" size={14} /><span>{noYearNote(data.year, data.firstSnapshotDate)}</span></p>
       )}
       <Heat layout={layout} year={data.year} current={yearOf(data.today) === data.year} selected={day} onPick={setDay} />
-      {day && <DayDiary date={day} onDate={setDay} onClose={() => setDay(null)} />}
       <div className="ps-act__legend">
         <p className="ps-act__unknown"><Icon name="info" size={12} /><span>{unknownNote(data.firstSnapshotDate)}</span></p>
         <div className="ps-act__keys" aria-label="Обозначения карты">
@@ -128,6 +140,8 @@ function ActivityBody({ data, mode }: { data: ActivityData; mode: 'ok' | 'noYear
           <i className="ps-act__sw" data-l="u" /><span>Нет данных</span>
         </div>
       </div>
+      {day && <DayDiary date={day} onDate={setDay} onClose={() => setDay(null)} />}
+      {otd && <OnThisDay data={otd} selected={day} onPick={setDay} />}
     </>
   );
 }

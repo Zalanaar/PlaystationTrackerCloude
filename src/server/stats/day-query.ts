@@ -5,7 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { effectiveGameIdSql, snapshotGameVisible, trophySetCounted } from '@/server/collection/visibility';
 import type { TrophyType } from '@/server/trophies/types';
-import { DAY_TROPHIES_MAX, secondsToMinutes, type DayFinished, type DayGame, type DayResponse, type DayTrophy } from './day';
+import { DAY_TROPHIES_MAX, ON_THIS_DAY_TROPHIES, ON_THIS_DAY_YEARS, parseDayDate, secondsToMinutes, type DayFinished, type DayGame, type DayResponse, type DayTrophy, type OnThisDayResponse } from './day';
 import { mskDateString, mskMidnightUtc } from './period';
 
 const { games, gameTrophySets, trophies, trophySets } = schema;
@@ -114,13 +114,46 @@ async function dayFinished(db: AnyDb, userId: UserId, date: string): Promise<Day
     .map((r) => ({ id: Number(r.id), title: r.title, coverUrl: r.cover, kind: r.kind }));
 }
 
-export async function getDay(db: AnyDb, userId: UserId, date: string, now: Date = new Date()): Promise<DayResponse> {
+export async function getDay(db: AnyDb, userId: UserId, date: string, now: Date = new Date(), opts: { neighbours?: boolean } = {}): Promise<DayResponse> {
   const today = mskDateString(now);
-  const [g, n, t, f] = await Promise.all([dayGames(db, userId, date), neighbours(db, userId, date, today), dayTrophies(db, userId, date), dayFinished(db, userId, date)]);
+  const noNeighbours = Promise.resolve({ prev: null, next: null });
+  const [g, n, t, f] = await Promise.all([
+    dayGames(db, userId, date), opts.neighbours === false ? noNeighbours : neighbours(db, userId, date, today), dayTrophies(db, userId, date), dayFinished(db, userId, date),
+  ]);
   const future = date > today;
   return {
     date, today, known: !future && g.known,
     minutes: future ? 0 : g.games.reduce((s, x) => s + x.minutes, 0),
     games: future ? [] : g.games, trophies: t, finished: f, prev: n.prev, next: n.next,
   };
+}
+
+/** П11.2: годы раньше текущего, в которых в этот же день (ММ-ДД, МСК) были снимки, трофеи или завершения. По убыванию. */
+async function onThisDayYears(db: AnyDb, userId: UserId, md: string, year: number): Promise<number[]> {
+  const res = await db.execute(sql`
+    select distinct y from (
+      select extract(year from p.snapshot_date)::int as y from playtime_snapshots p
+        where p.user_id = ${userId} and to_char(p.snapshot_date, 'MM-DD') = ${md}
+      union all
+      select extract(year from t.earned_at at time zone 'Europe/Moscow')::int from trophies t
+        where t.user_id = ${userId} and t.earned and t.earned_at is not null and to_char(t.earned_at at time zone 'Europe/Moscow', 'MM-DD') = ${md}
+      union all
+      select extract(year from coalesce(s.completed_at, s.dropped_at) at time zone 'Europe/Moscow')::int from game_status s
+        where s.user_id = ${userId} and coalesce(s.completed_at, s.dropped_at) is not null
+          and to_char(coalesce(s.completed_at, s.dropped_at) at time zone 'Europe/Moscow', 'MM-DD') = ${md}
+    ) x where y < ${year}
+    order by y desc
+    limit ${ON_THIS_DAY_YEARS}
+  `);
+  return rowsOf<{ y: number | string }>(res).map((r) => Number(r.y));
+}
+
+/** П11.2 «В этот день»: тот же день МСК в прошлые годы; дни без игр, трофеев и завершений не попадают. 29 февраля — только високосные годы. */
+export async function getOnThisDay(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<OnThisDayResponse> {
+  const today = mskDateString(now);
+  const year = Number(today.slice(0, 4));
+  const md = today.slice(5);
+  const years = await onThisDayYears(db, userId, md, year);
+  const days = await Promise.all(years.map((y) => `${y}-${md}`).filter((d) => parseDayDate(d) !== null).map((d) => getDay(db, userId, d, now, { neighbours: false })));
+  return { today, items: days.filter((d) => d.games.length > 0 || d.trophies.counts.total > 0 || d.finished.length > 0).map((d) => ({ ...d, trophies: { ...d.trophies, items: d.trophies.items.slice(0, ON_THIS_DAY_TROPHIES) } })) };
 }

@@ -2,7 +2,7 @@
 import { deviceTimeZone, MSK_TZ } from '@/shared/tz';
 import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
-import type { DayResponse } from '@/server/stats/day';
+import type { DayResponse, OnThisDayResponse } from '@/server/stats/day';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
@@ -77,6 +77,9 @@ export const fetchActivity = (year: number, signal?: AbortSignal) =>
 
 /** П11.1 «Дневник дня» (контракт П11). */
 export const fetchDay = (date: string, signal?: AbortSignal) => cachedGet<DayResponse>(`/api/stats/day?date=${date}`, signal);
+
+/** П11.2 «В этот день». */
+export const fetchOnThisDay = (signal?: AbortSignal) => cachedGet<OnThisDayResponse>('/api/stats/on-this-day', signal);
 
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) => {
   const q = withTz(new URLSearchParams(year === null ? '' : `year=${year}`)).toString();

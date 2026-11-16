@@ -202,6 +202,8 @@ export type Mock = {
   activityEmpty: boolean;
   /** дата первого снимка (YYYY-MM-DD) вместо 15 января текущего года */
   activityFirst: string | null;
+  /** П11.2: ответ GET /api/stats/on-this-day (items); по умолчанию пусто = блока нет */
+  onThisDay: unknown[];
   /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
@@ -276,7 +278,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -296,6 +298,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     });
   });
 
+  await page.route(/\/api\/stats\/on-this-day(\?|$)/, (r) => json(r, { today: isoDay(Date.now() + 3 * 3600_000), items: m.onThisDay }));
   await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
     const u = new URL(r.request().url());
     m.activityCalls.push(u);

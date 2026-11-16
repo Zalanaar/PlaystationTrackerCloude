@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { schema } from '@/db';
 import { createTestDb, type TestDb, TEST_USER, TEST_USER_2 } from '@/server/sync/test-helpers';
 import { parseDayDate, secondsToMinutes } from './day';
-import { getDay } from './day-query';
+import { getDay, getOnThisDay } from './day-query';
 
 const { games, gameStatus, playtimeSnapshots, trophySets, gameTrophySets, trophies } = schema;
 const NOW = new Date('2026-11-10T10:00:00Z'); // сегодня 10 ноября МСК
@@ -125,5 +125,27 @@ describe('getDay на PGlite', () => {
     ]);
     const d = await getDay(t.db, TEST_USER, '2026-11-03', NOW);
     expect(d.finished.map((f) => [f.title, f.kind])).toEqual([['Брошена', 'dropped'], ['Пройдена', 'completed']]);
+  });
+
+  it('П11.2 «В этот день»: прошлые годы с тем же днём МСК, пустые дни и текущий год не входят, свежие сверху', async () => {
+    const a = await game({ name: 'Старая' });
+    const h = await game({ hidden: true });
+    await snaps(a, { '2024-11-09': 0, '2024-11-10': 1800, '2025-11-10': 2400, '2026-11-09': 2400, '2026-11-10': 3600 });
+    await snaps(h, { '2023-11-09': 0, '2023-11-10': 9000 }); // скрытая игра: день пуст
+    const [s1] = await t.db.insert(trophySets).values({ userId: 1, npCommunicationId: 'NPWR9', npServiceName: 'trophy2', name: 'Сет' }).returning();
+    await t.db.insert(gameTrophySets).values({ userId: 1, gameId: a, trophySetId: s1.id, source: 'title_id' });
+    await t.db.insert(trophies).values([
+      { userId: 1, trophySetId: s1.id, trophyId: 1, type: 'platinum', name: 'Плат', earned: true, earnedAt: new Date('2019-11-09T22:30:00Z') }, // 10.11.2019 01:30 МСК
+      { userId: 1, trophySetId: s1.id, trophyId: 2, type: 'gold', name: 'Не тот день', earned: true, earnedAt: new Date('2018-11-10T21:30:00Z') }, // 11.11 МСК
+    ]);
+    const [other] = await t.db.insert(games).values({ userId: 2, titleId: 'X', name: 'Чужая', category: 'ps5_native_game', lastSeenAt: NOW }).returning();
+    await snaps(other.id, { '2022-11-09': 0, '2022-11-10': 600 }, 2);
+    const r = await getOnThisDay(t.db, TEST_USER, NOW);
+    expect(r.today).toBe('2026-11-10');
+    expect(r.items.map((d) => d.date)).toEqual(['2025-11-10', '2024-11-10', '2019-11-10']);
+    expect(r.items[1].games.map((g) => [g.title, g.minutes])).toEqual([['Старая', 30]]);
+    expect(r.items[2].trophies.counts.platinum).toBe(1);
+    expect(r.items[0].games[0].minutes).toBe(10); // дельта к снимку прошлого года
+    expect(r.items.every((d) => d.prev === null && d.next === null)).toBe(true);
   });
 });

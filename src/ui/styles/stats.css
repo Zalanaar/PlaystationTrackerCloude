@@ -267,6 +267,18 @@
   transform: translate(-50%, calc(-100% - 6px)); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text);
 }
 .ps-heat__tip b { font: 600 13px/16px var(--font-body); }
+/* П11.2 «В этот день» */
+.ps-otd { margin-top: var(--sp-3); }
+.ps-otd__t { display: flex; align-items: center; gap: 6px; margin: 0; font: var(--fw-h2) 14px/20px var(--font-display); color: var(--text); }
+.ps-otd__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.ps-otd__row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 44px; padding: 6px var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.ps-otd__row:hover, .ps-otd__row[aria-pressed="true"] { background: var(--surface-2); }
+.ps-otd__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ps-otd__row > svg { flex: none; color: var(--text-3); }
+.ps-otd__y { flex: none; min-width: 40px; font: 600 15px/20px var(--font-display); }
+.ps-otd__tx { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.ps-otd__ago { font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); }
+.ps-otd__line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 14px/20px var(--font-body); }
 /* П11.1 «Дневник дня» */
 .ps-day { margin-top: var(--sp-3); padding: var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
 .ps-day__head { display: flex; align-items: center; gap: var(--sp-1); }

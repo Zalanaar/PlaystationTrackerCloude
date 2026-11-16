@@ -1,5 +1,6 @@
 // П11.1 «Дневник дня»: тап по дню карты «Активность» открывает игры, трофеи и завершения дня; ‹ › — соседние игровые дни;
 // Enter с клавиатуры; закрытие; телефон 360/390 без горизонтального скролла; axe (контраст, имена) во всех темах.
+// П11.2 «В этот день»: прошлые годы под картой, тап по году открывает дневник этой даты; пусто — блока нет.
 import { createRequire } from 'node:module';
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
@@ -31,10 +32,11 @@ function dayFor(date: string) {
   };
 }
 
-async function open(page: Page, baseURL: string) {
+async function open(page: Page, baseURL: string, onThisDay: unknown[] = []) {
   await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await mockApi(page);
+  const m = await mockApi(page);
+  m.onThisDay = onThisDay;
   await page.route(/\/api\/stats\?/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(new URL(r.request().url())) }) }));
   const calls: string[] = [];
   await page.route(/\/api\/stats\/day(\?|$)/, (r) => {
@@ -116,3 +118,29 @@ for (const w of [360, 390]) {
     }
   });
 }
+
+test('«В этот день»: годы, тап открывает дневник даты; пусто — блока нет', async ({ page, baseURL }) => {
+  const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+  const y = Number(today.slice(0, 4));
+  const past = (n: number) => ({ ...dayFor(`${y - n}${today.slice(4)}`), prev: null, next: null });
+  const { panel, calls } = await open(page, baseURL!, [past(1), past(3)]);
+  const block = panel.getByTestId('on-this-day');
+  await expect(block.getByRole('heading', { name: 'В этот день' })).toBeVisible();
+  const rows = block.getByTestId('otd-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toContainText(String(y - 1));
+  await expect(rows.first()).toContainText('год назад · 1 ч 35 м · 2 игры');
+  await expect(rows.nth(1)).toContainText('3 года назад');
+  await expect(rows.first()).toContainText('платина «Игра»');
+  await rows.nth(1).click();
+  await expect(rows.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByTestId('day-diary')).toBeVisible();
+  await expect.poll(() => calls.at(-1)).toBe(`${y - 3}${today.slice(4)}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test('«В этот день»: нет прошлых лет — блока нет', async ({ page, baseURL }) => {
+  const { panel } = await open(page, baseURL!);
+  await expect(panel.locator('.ps-heat')).toBeVisible();
+  await expect(panel.getByTestId('on-this-day')).toHaveCount(0);
+});
