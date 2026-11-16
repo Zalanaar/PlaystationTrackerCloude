@@ -69,6 +69,16 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-header__right .ps-btn--sync { flex: 0 1 auto; min-width: 0; overflow: hidden; }
   .ps-header__right .ps-sync-text-m { max-width: none; }
 }
+/* П8.1: от 360 px название раздела не обрезается («Коллекц…» на iPhone 390): место отдаёт статус синка (выше сжимается первым,
+   полный текст в aria-label кнопки). Уже 360 — прежнее многоточие как крайний случай. */
+@media (min-width: 360px) and (max-width: 480px) {
+  .ps-header .ps-header__title { flex: none; overflow: visible; text-overflow: clip; font-size: min(var(--fs-h1), 4.9vw); }
+  .ps-header .ps-pswitch { flex: none; }
+  /* Короткий статус («20 дн») либо виден целиком, либо уходит на скрытую вторую строку — остаётся точка-тон, без «2…» */
+  .ps-header__right .ps-sync-text-m { display: flex; flex-wrap: wrap; align-content: flex-start; flex: 0 1 6.5ch; width: auto; min-width: 0; height: 1.5em; line-height: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .ps-header__right .ps-sync-text-m::before { content: ""; flex: none; width: 0; height: 100%; }
+  .ps-header__right .ps-sync-text-m > span { flex: none; }
+}
 
 /* ---------- Страница /profiles (§17.3) ---------- */
 .ps-pprof { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-4); }

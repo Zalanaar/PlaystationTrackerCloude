@@ -38,7 +38,7 @@ export function SyncIndicator() {
     <button type="button" className="ps-btn ps-btn--sync" data-tour="sync" onClick={openPanel} aria-label={`${text}. Открыть синк`} title={text} data-tone={tone}>
       <span className="ps-dot" data-tone={tone} aria-hidden="true" />
       <span className="ps-sync-text">{text}</span>
-      <span className="ps-sync-text-m num" aria-hidden="true">{mobileText}</span>
+      <span className="ps-sync-text-m num" aria-hidden="true"><span>{mobileText}</span></span>
     </button>
   );
 }
