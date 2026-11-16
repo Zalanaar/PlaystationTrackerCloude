@@ -124,3 +124,12 @@ describe('Фаза 32.1: остановка и перезапуск', () => {
     expect(stopErrorText(500, undefined, 'restart')).toBe('Не удалось перезапустить синк.');
   });
 });
+
+describe('П10: заголовок предупреждений', () => {
+  it('склонение', async () => {
+    const { warningsTitle } = await import('./status');
+    expect(warningsTitle(1)).toBe('Последний запуск: 1 предупреждение');
+    expect(warningsTitle(3)).toBe('Последний запуск: 3 предупреждения');
+    expect(warningsTitle(12)).toBe('Последний запуск: 12 предупреждений');
+  });
+});

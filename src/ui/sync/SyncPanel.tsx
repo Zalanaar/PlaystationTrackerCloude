@@ -6,7 +6,7 @@ import { Icon } from '../icons';
 import { useSync } from './SyncProvider';
 import {
   buttonLabel, formatLocalDateTime, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
-  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows,
+  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows, warningsTitle,
 } from './status';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -191,6 +191,15 @@ export function SyncPanel() {
 
         {!running && failedReason && !npsso && (
           <p role="status" className="text-text" data-testid={cancelled ? 'sync-cancelled' : undefined}>{reasonText(failedReason, run?.errorMessage)}</p>
+        )}
+        {!running && run && (run.warnings?.length ?? 0) > 0 && (
+          <div className="ps-sync-warn" data-testid="sync-warnings">
+            <p className="font-semibold text-text">{warningsTitle(run.warningsCount ?? run.warnings!.length)}</p>
+            <ul className="ps-sync-warn__list">
+              {run.warnings!.map((w, i) => <li key={`${w.code}-${i}`} title={w.code || undefined}>{w.message}</li>)}
+            </ul>
+            {(run.warningsCount ?? 0) > run.warnings!.length && <p className="text-text-3">Показаны последние {run.warnings!.length}.</p>}
+          </div>
         )}
         {loadError && status && (
           <p role="status" className="text-text-2">Не удалось обновить статус. Показаны последние данные.</p>

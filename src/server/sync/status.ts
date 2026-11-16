@@ -12,6 +12,23 @@ const { syncRuns, psnAuth } = schema;
 // Запуски kind='hltb' (контракт 16.7) в индикации синка не участвуют.
 const notHltbOf = (userId: UserId) => and(eq(syncRuns.userId, userId), ne(syncRuns.kind, 'hltb'));
 
+/** П10: сколько текстов предупреждений отдаём в панель синка. */
+export const STATUS_WARNINGS_MAX = 5;
+export type StatusWarning = { code: string; message: string };
+
+/**
+ * П10: последние тексты предупреждений запуска (в порядке появления, новые в конце). Мусор в jsonb отбрасывается,
+ * длина ограничена (тексты пишет сам синк, без секретов: коды сетов, числа, причины).
+ */
+export function recentWarnings(raw: unknown, max = STATUS_WARNINGS_MAX): StatusWarning[] {
+  if (!Array.isArray(raw)) return [];
+  const ok = raw
+    .filter((w): w is { code: unknown; message: unknown } => !!w && typeof w === 'object')
+    .map((w) => ({ code: typeof w.code === 'string' ? w.code.slice(0, 60) : '', message: typeof w.message === 'string' ? w.message.slice(0, 200) : '' }))
+    .filter((w) => w.message.trim() !== '');
+  return ok.slice(-max);
+}
+
 export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new Date()) {
   const notHltb = notHltbOf(userId);
   const [last] = await db.select().from(syncRuns).where(notHltb).orderBy(desc(syncRuns.startedAt), desc(syncRuns.id)).limit(1);
@@ -81,6 +98,7 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
         trophiesUpserted: last.trophiesUpserted,
       },
       warningsCount: Array.isArray(last.warnings) ? last.warnings.length : 0,
+      warnings: recentWarnings(last.warnings),
     };
   }
 

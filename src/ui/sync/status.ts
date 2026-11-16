@@ -30,6 +30,8 @@ export interface SyncRun {
     trophiesUpserted?: number;
   } | null;
   warningsCount?: number;
+  /** П10: последние тексты предупреждений (до 5, новые в конце) */
+  warnings?: { code: string; message: string }[];
 }
 
 /** Итоги из БД (не по запуску). */
@@ -275,4 +277,9 @@ export function npssoErrorText(status: number, code: string | undefined, retryAf
   if (status === 403 || code === 'forbidden') return 'Вставлять NPSSO может только владелец.';
   if (status === 503) return 'PSN или база сейчас недоступны. Попробуй позже.';
   return 'Не удалось сохранить NPSSO. Попробуй позже.';
+}
+
+/** П10: заголовок блока предупреждений в панели синка. */
+export function warningsTitle(n: number): string {
+  return `Последний запуск: ${n} ${plural(n, 'предупреждение', 'предупреждения', 'предупреждений')}`;
 }

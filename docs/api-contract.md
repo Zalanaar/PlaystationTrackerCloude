@@ -516,7 +516,8 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
       "startedAt": "2026-10-27T20:00:03.000Z", "finishedAt": null, "snapshotDate": "2026-10-27",
       "progress": { "phase": "trophies", "step": 4, "steps": 4, "done": 40, "total": 170 },
       "counters": { "gamesSeen": 214, "gamesUpserted": 214, "snapshotsWritten": 214, "trophySetsSynced": 40, "trophiesUpserted": 1830 },
-      "warningsCount": 0
+      "warningsCount": 0,
+      "warnings": []
     },
     "lastSuccessAt": "2026-10-26T20:01:10.000Z",
     "psnAuth": "ok",
@@ -525,6 +526,8 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
   }
 }
 ```
+
+П10: `run.warnings` — последние до 5 предупреждений запуска `{ code, message }` (новые в конце, `message` ≤ 200 символов, тексты пишет синк: коды сетов, числа, причины, без секретов). `warningsCount` — общее число. Старые клиенты поле игнорируют.
 - `totals` = итоги из БД (не счётчики последнего запуска), один агрегатный запрос: `games` = строки `games`, `trophySets` = строки `trophy_sets`, `trophies` = строки `trophies`, `trophiesEarned` = `trophies.earned = true`, `platinumEarned` = `earned` и `type = 'platinum'`. Целые числа, при пустой БД 0.
 - `run` = последняя запись `sync_runs` или `null`. `running` = есть запись со статусом `running`.
 - `progress.step`/`steps`: номер фазы среди `games, trophy_sets, trophy_link, trophies`; `done`/`total` заполнены только для `trophy_link` и `trophies`, иначе `null`.
