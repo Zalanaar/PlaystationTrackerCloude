@@ -78,7 +78,8 @@ test('переключатель «Лента / Почти платина»: URL
   await expect(page.getByRole('group', { name: 'Период и редкость' })).toBeVisible();
   await page.getByTestId('tf-view-near').click();
   await expect(page).toHaveURL(/\/trophies\?view=near$/);
-  await expect(page.getByTestId('tnear-row')).toHaveCount(9);
+  // первый показ «Почти платины» в dev-сервере CI под нагрузкой 4 воркеров компилируется дольше 5 с (флейк 1b386bb)
+  await expect(page.getByTestId('tnear-row')).toHaveCount(9, { timeout: 15_000 });
   expect(s.calls).toHaveLength(1);
   await page.reload();
   await expect(page.getByTestId('tf-view-near')).toHaveAttribute('aria-pressed', 'true');
