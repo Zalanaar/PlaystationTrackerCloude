@@ -5,6 +5,7 @@ import { requireUser } from '@/server/auth/require-user';
 import { FEED_LIMIT } from './feed';
 import { getTrophyFeed } from './feed-query';
 import { getNearPlatinumList } from './near';
+import { getLevel, type LevelResponse } from './level-query';
 import type { FeedPeriod, FeedResponse, NearListResponse } from './types';
 
 export async function loadTrophyFeedInitial(cookieHeader: string | null, period: FeedPeriod, rare: boolean): Promise<FeedResponse | null> {
@@ -26,6 +27,18 @@ export async function loadNearInitial(cookieHeader: string | null): Promise<Near
     const a = await requireUser(new Request('http://ssr.invalid/', { headers: { cookie: cookieHeader } }));
     if (!a.ok) return null;
     return JSON.parse(JSON.stringify(await getNearPlatinumList(getDb(), a.user.id))) as NearListResponse;
+  } catch {
+    return null;
+  }
+}
+
+/** П12.3: уровень PSN для SSR `/trophies` (блок без скелета в HTML). */
+export async function loadLevelInitial(cookieHeader: string | null): Promise<LevelResponse | null> {
+  if (!cookieHeader) return null;
+  try {
+    const a = await requireUser(new Request('http://ssr.invalid/', { headers: { cookie: cookieHeader } }));
+    if (!a.ok) return null;
+    return JSON.parse(JSON.stringify(await getLevel(getDb(), a.user.id, new Date()))) as LevelResponse;
   } catch {
     return null;
   }

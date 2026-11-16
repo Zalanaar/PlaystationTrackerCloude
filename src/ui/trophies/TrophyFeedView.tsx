@@ -10,6 +10,8 @@ import { RareIcon, TypeBadge } from '../stats/RareTrophies';
 import { Icon } from '../icons';
 import { collapseRuns, runLine, runRarest, type FeedEntry, emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, EASY_HINT, NEAR_SORTS, NEAR_URL, nearPageUrl, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type NearSort, type TrophiesView } from './model';
 import { NearList } from './NearList';
+import { LevelCard, LevelCardSkeleton } from './LevelCard';
+import type { LevelResponse } from '@/server/trophies/level-query';
 import { useChipRow } from '../primitives/useChipRow';
 
 type Load = 'idle' | 'loading' | 'error';
@@ -55,6 +57,7 @@ export function TrophyFeedSkeleton() {
   return (
     <SkRoot className="ps-tf">
       <div className="ps-pagehead ps-tf__head"><h1 className="ps-h1">Трофеи</h1></div>
+      <LevelCardSkeleton />
       <div className="ps-seg ps-tf__view"><button type="button" disabled>Лента</button><button type="button" disabled>Почти платина</button></div>
       <p className="ps-tf__sum"><span className="ps-tf__sum-sk">{'\u00a0'}</span></p>
       <div className="ps-tf__chips">{FEED_PERIODS.map((p) => <span key={p.id} className="ps-skeleton ps-tf__chip ps-tf__chip--sk" />)}</div>
@@ -103,8 +106,8 @@ function RunRow({ run, open, onToggle }: { run: Extract<FeedEntry, { kind: 'run'
 }
 
 /** F3 «Лента трофеев» (design-system §20): группы дней МСК, чипы периода и «Только редкие», «Показать ещё». */
-export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed', nearInitial = null, nearSort: s0 = 'close' }: {
-  initial: FeedResponse | null; period: FeedPeriod; rare: boolean; view?: TrophiesView; nearInitial?: NearListResponse | null; nearSort?: NearSort;
+export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed', nearInitial = null, nearSort: s0 = 'close', levelInitial = null }: {
+  initial: FeedResponse | null; period: FeedPeriod; rare: boolean; view?: TrophiesView; nearInitial?: NearListResponse | null; nearSort?: NearSort; levelInitial?: LevelResponse | null;
 }) {
   const [view, setView] = useState<TrophiesView>(v0);
   const [nearSort, setNearSort] = useState<NearSort>(s0);
@@ -223,6 +226,7 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
       <div className="ps-pagehead ps-tf__head">
         <h1 className="ps-h1">Трофеи</h1>
       </div>
+      <LevelCard initial={levelInitial} />
       <ViewSwitch view={view} onView={switchView} />
       {view === 'near' ? (
         <>
