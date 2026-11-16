@@ -208,6 +208,7 @@
     --fs-year: 24px; --lh-year: 28px;
     --fs-h1: 19px; --lh-h1: 26px;
     --fs-stat: 22px; --lh-stat: 26px;
+    --fs-micro: 12px; --lh-micro: 16px; /* П9: на телефоне текст не мельче 12 px */
     --gutter: 16px;
     --card-gap: 12px;
     --control-h: 44px;     /* тап-зона ≥ 44 px (WCAG 2.5.5), раньше 40 */
