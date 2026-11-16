@@ -208,7 +208,7 @@ UNIQUE `playtime_snapshots_game_date_key (game_id, snapshot_date)`. Индекс
 | `games_seen` / `games_upserted` / `snapshots_written` / `trophy_sets_synced` / `trophies_upserted` | integer | нет, default 0 | счётчики |
 | `warnings` | jsonb | да | массив коротких предупреждений (`{code,message}`), например уменьшение `playDuration` |
 
-Индексы: `sync_runs_started_at_idx (started_at desc)`; партиальный UNIQUE `sync_runs_one_running_idx ON sync_runs ((true)) WHERE status = 'running'` (не больше одного одновременного запуска; если запуск завис, считается «брошенным» через 15 минут и закрывается как `failed`/`timeout` при старте следующего).
+Индексы: `sync_runs_started_at_idx (started_at desc)`; партиальный UNIQUE `sync_runs_one_running_per_user_idx ON sync_runs (user_id) WHERE status = 'running'` (пакет 7, п. 3, миграции 0034–0035: не больше одного одновременного запуска **на профиль**, профили синкаются параллельно; до 0035 был общий `sync_runs_one_running_idx ON sync_runs ((true))` — один запуск на систему. Обмен токена PSN сериализован advisory-локом, поэтому параллельные запуски безопасны. `already_running.runId` = идущий запуск этого же профиля. Cron-обход пропускает профиль, у которого идёт ручной синк, и идёт дальше; если запуск завис, считается «брошенным» через 15 минут и закрывается как `failed`/`timeout` при старте следующего).
 
 Влияние `auth_expired` на систему:
 - Синк при `auth_expired` останавливается, пишет `failed` с `error_reason = 'auth_expired'`, **данные не трогает**.
@@ -562,7 +562,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 
 #### `POST /api/sync/cancel`
 Под сессией (proxy + `requireUser`), `Content-Type: application/json`, `Origin` проверяется (3.4). Тело `{}` или `{"userId": 5}`.
-- Без `userId`: отменяется идущий запуск (`status='running'`, `kind <> 'hltb'`) **текущего** пользователя. Запрос атомарный: `UPDATE sync_runs SET status='failed', error_reason='cancelled', ... WHERE user_id = :uid AND status = 'running' AND kind <> 'hltb' RETURNING id` (слот `running` один на систему, поэтому строка не больше одной).
+- Без `userId`: отменяется идущий запуск (`status='running'`, `kind <> 'hltb'`) **текущего** пользователя. Запрос атомарный: `UPDATE sync_runs SET status='failed', error_reason='cancelled', ... WHERE user_id = :uid AND status = 'running' AND kind <> 'hltb' RETURNING id` (слот `running` у каждого профиля свой, поэтому строка не больше одной).
 - С `userId`: только владелец (`role = owner` по БД) может отменить запуск другого пользователя. `member` с чужим `userId` = **403** `forbidden` (даже если у того нет запуска: наличие чужого запуска не раскрывается). `userId` равный своему id разрешён всем. Невалидный `userId` (не положительное целое) = 400 `invalid_request`.
 - **200** `{"ok":true,"data":{"cancelled":true,"runId":13}}`. Идемпотентно: если запуска нет (уже завершён, уже отменён, `partial` между звеньями, у `userId` нет запуска или такого пользователя нет) = **200** `{"ok":true,"data":{"cancelled":false,"runId":null}}`.
 - Запуски `kind='hltb'` (16.7) этим эндпоинтом не отменяются (они короткие и закрываются сами).

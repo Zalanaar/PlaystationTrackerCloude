@@ -132,7 +132,7 @@ describe('POST /api/sync/cancel', () => {
     testSession.userId = 2;
     testSession.role = 'member';
     const res = await syncPost(post('/api/sync', { restart: true }));
-    expect(res.status).toBe(409); // слот занят владельцем
+    expect(res.status).toBe(202); // пакет 7, п. 3: у профиля свой слот, запуск владельца его не держит
     expect((await get(ownerRun.id)).status).toBe('running');
   });
 });

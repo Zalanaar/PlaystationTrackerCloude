@@ -296,9 +296,7 @@ export const syncRuns = pgTable(
   },
   (t) => [
     index('sync_runs_user_started_at_idx').on(t.userId, t.startedAt.desc()),
-    // не больше одного одновременного запуска (старый общий слот; снимается отдельной миграцией после выката кода, пакет 7, п. 3)
-    uniqueIndex('sync_runs_one_running_idx').on(sql`(true)`).where(sql`${t.status} = 'running'`),
-    // Пакет 7, п. 3: свой слот у каждого профиля — ручной синк одного не держит остальных
+    // не больше одного одновременного запуска на профиль (пакет 7, п. 3: общий слот на систему снят миграцией 0035)
     uniqueIndex('sync_runs_one_running_per_user_idx').on(t.userId).where(sql`${t.status} = 'running'`),
   ],
 );

@@ -63,7 +63,7 @@ describe('остановка и перезапуск синка', () => {
     trophies: (await t.db.select().from(trophies)).length,
   });
   async function addUser2() {
-    await t.db.insert(allowedUsers).values({ email: 'm@example.com', role: 'member', status: 'active' });
+    await t.db.insert(allowedUsers).values({ email: 'm@example.com', role: 'member', status: 'active' }).onConflictDoNothing();
   }
 
   it('отмена посреди фазы трофеев: звено останавливается, запуск failed/cancelled, курсор цел, самовызова нет', async () => {
@@ -212,16 +212,33 @@ describe('остановка и перезапуск синка', () => {
 
   it('изоляция пользователей: отмена и restart одного не трогают запуск другого', async () => {
     await addUser2();
+    // пакет 7, п. 3: слот у каждого профиля свой — оба запуска идут одновременно
     const a = await start(TEST_USER);
-    // слот один на систему: запуск второго пользователя ставим вручную после закрытия первого
-    await t.db.update(syncRuns).set({ status: 'success' }).where(eq(syncRuns.id, a.id));
     const b = await start(TEST_USER_2);
-    expect(await cancelRun(t.db, TEST_USER, new Date(clock.t))).toBeNull();
+    expect((await row(a.id)).status).toBe('running');
+    expect(await cancelRun(t.db, TEST_USER, new Date(clock.t))).toMatchObject({ id: a.id });
     expect((await row(b.id)).status).toBe('running');
     const r = await restartRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
-    expect(r).toMatchObject({ kind: 'already_running' }); // слот занят чужим запуском
+    expect(r).toMatchObject({ kind: 'started' });
+    expect((await row(b.id)).status).toBe('running');
+    // restart первого отменяет только его собственный идущий запуск
+    const r2 = await restartRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
+    expect(r2).toMatchObject({ kind: 'started' });
     expect((await row(b.id)).status).toBe('running');
     expect(await cancelRun(t.db, TEST_USER_2, new Date(clock.t))).toMatchObject({ id: b.id });
+  });
+
+  it('пакет 7, п. 3: гонка стартов двух профилей — ровно один running у каждого, второй старт профиля получает id своего запуска', async () => {
+    await addUser2();
+    const now = new Date(clock.t);
+    const r = await Promise.all([TEST_USER, TEST_USER_2, TEST_USER, TEST_USER_2, TEST_USER, TEST_USER_2].map((u) => startRun(t.db, u, { kind: 'manual', now })));
+    const started = r.filter((x) => x.kind === 'started');
+    expect(started).toHaveLength(2);
+    const running = await t.db.select().from(syncRuns).where(eq(syncRuns.status, 'running'));
+    expect(running.map((x) => x.userId).sort()).toEqual([TEST_USER, TEST_USER_2].sort());
+    for (const x of r) if (x.kind === 'already_running') expect(running.map((y) => y.id)).toContain(x.runId);
+    const again = await startRun(t.db, TEST_USER_2, { kind: 'daily', now });
+    expect(again).toMatchObject({ kind: 'already_running', runId: running.find((y) => y.userId === TEST_USER_2)!.id });
   });
 
   it('статус: cancelled без красной ошибки, running=false, прежний auth_expired не скрывается', async () => {

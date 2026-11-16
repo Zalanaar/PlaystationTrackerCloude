@@ -1,6 +1,6 @@
 // Обход пользователей cron (контракт 22.13): у каждого свой sync_runs и свой ник, сбой одного не останавливает остальных,
 // blocked не продолжает звено, member без ника получает понятный 4xx. Движок синка подменён: проверяется оркестрация, а не PSN.
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '@/db';
 import { resetTestSession, testSession } from '@/server/auth/test-require-user';
@@ -166,6 +166,48 @@ describe('слот занят ручным синком или HLTB (обход 
 
   it('wait без queue или вне диапазона: 400', async () => {
     for (const q of ['?wait=1', '?queue=0&wait=0', '?queue=0&wait=999', '?queue=0&wait=x']) expect((await cronGet(req(q))).status, q).toBe(400);
+  });
+});
+
+describe('пакет 7, п. 3: свой слот у каждого профиля (общий индекс снят миграцией 0035)', () => {
+  // срез журнала 15 ещё держит общий индекс 0000 — снимаем его на время блока, как миграция 0035 на проде
+  beforeAll(async () => {
+    await t.db.execute(sql`drop index if exists sync_runs_one_running_idx`);
+    await t.db.execute(sql`create unique index if not exists sync_runs_one_running_per_user_idx on sync_runs (user_id) where status = 'running'`);
+  });
+  afterAll(async () => {
+    await t.db.delete(syncRuns);
+    await t.db.execute(sql`drop index if exists sync_runs_one_running_per_user_idx`);
+    await t.db.execute(sql`create unique index if not exists sync_runs_one_running_idx on sync_runs ((true)) where status = 'running'`);
+  });
+  const manual = async (userId: number) => {
+    const [row] = await t.db.insert(syncRuns).values({ userId, kind: 'manual', status: 'running', snapshotDate: '2026-11-02', startedAt: new Date(), phase: 'games', cursor: { phase: 'games', hops: 0, heartbeat: new Date().toISOString() } }).returning();
+    return row;
+  };
+
+  it('ручной синк одного профиля не держит обход: остальные синкаются сразу, профиль с ручным синком пропускается', async () => {
+    vi.stubEnv('SYNC_QUEUE_WAIT_MS', '0');
+    const run = await manual(ids.a);
+    const r = await cronGet(req());
+    expect(r.status).toBe(202);
+    expect((await r.json()).data).toMatchObject({ started: true });
+    await drain();
+    expect(connected).toEqual(['Owner_Fallback', 'User_B', 'User_Last']);
+    const runsA = await runsOf(ids.a);
+    expect(runsA).toHaveLength(1);
+    expect(runsA[0]).toMatchObject({ id: run.id, kind: 'manual', status: 'running' });
+    for (const k of ['owner', 'b', 'last']) expect((await runsOf(ids[k])).filter((x) => x.kind === 'daily' && x.status === 'success'), k).toHaveLength(1);
+  });
+
+  it('ручной синк другого профиля стартует, пока идёт обход', async () => {
+    await cronGet(req()); // daily владельца running (работа ещё в after())
+    testSession.userId = ids.b;
+    testSession.role = 'member';
+    const res = await syncPost(new Request('http://x/api/sync', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }));
+    expect(res.status).toBe(202);
+    const running = await t.db.select().from(syncRuns).where(eq(syncRuns.status, 'running'));
+    expect(running.map((x) => x.userId).sort()).toEqual([ids.owner, ids.b].sort());
+    afterCbs.length = 0;
   });
 });
 
