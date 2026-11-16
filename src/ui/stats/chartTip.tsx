@@ -37,7 +37,15 @@ export function useChartTip() {
   return { active, attachGroup, groupProps, itemProps, close };
 }
 
-/** Подсказка над столбцом в координатах панели (position: relative); прижимается к краям вьюпорта. */
+/** Подсказка над столбцом в координатах панели (position: relative); прижимается к краям карточки (и вьюпорта) с отступом 8 px. */
+/** Сдвиг по X, чтобы [left, right] поместился в [lo, hi]; если не помещается — прижать к левому краю. */
+export function clampShift(left: number, right: number, lo: number, hi: number): number {
+  if (right - left >= hi - lo) return lo - left;
+  if (right > hi) return hi - right;
+  if (left < lo) return lo - left;
+  return 0;
+}
+
 export function ChartTip({ target, panel, children }: { target: TipTarget | null; panel: HTMLElement | null; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -51,7 +59,10 @@ export function ChartTip({ target, panel, children }: { target: TipTarget | null
     const r = el.getBoundingClientRect();
     const vw = document.documentElement.clientWidth;
     const m = 8;
-    const dx = r.right > vw - m ? vw - m - r.right : r.left < m ? m - r.left : 0;
+    // П10 (баг с телефона): раньше границей был только вьюпорт, и у крайних часов («23:00») подсказка вылезала за карточку
+    const lo = Math.max(p.left, 0) + m;
+    const hi = Math.min(p.right, vw) - m;
+    const dx = clampShift(r.left, r.right, lo, hi);
     if (dx) el.style.translate = `calc(-50% + ${dx}px) -100%`;
   });
   if (!target) return null;

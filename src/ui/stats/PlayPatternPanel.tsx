@@ -12,6 +12,13 @@ import {
 
 const STUB_HEIGHTS = [28, 22, 20, 24, 30, 36, 44, 52, 58, 50, 46, 54, 60, 52, 48, 56, 60, 58, 52, 44, 36, 30, 26, 22];
 
+/** П10: метка пика у крайних столбцов выравнивается по своему краю, чтобы не вылезать за карточку («23:00» у последнего часа). */
+export function pillEdge(i: number, n: number): 'start' | 'end' | 'center' {
+  if (i < 3) return 'start';
+  if (i >= n - 3) return 'end';
+  return 'center';
+}
+
 /** Группа столбцов с roving tabindex: один Tab-стоп, стрелки, Home/End. */
 function BarGroup({
   bars, ariaLabel, kind, labelEvery, tipTitle, panel, animId, stepMs,
@@ -49,7 +56,7 @@ function BarGroup({
                 onKeyDown={(e) => { ip.onKeyDown(e); move(e, i); }}
               >
                 {b.value > 0 && <span className="ps-pp__fill" />}
-                {kind === 'hours' && peakFirst === i && <span className="ps-pp__pill" aria-hidden="true">{hourLabel(b.index)}</span>}
+                {kind === 'hours' && peakFirst === i && <span className="ps-pp__pill" data-edge={pillEdge(i, bars.length)} aria-hidden="true">{hourLabel(b.index)}</span>}
                 {kind === 'weekdays' && b.peak && <span className="ps-pp__val ps-num" aria-hidden="true">{b.value}</span>}
               </div>
               <span className="ps-pp__lbl" aria-hidden="true" data-peak={b.peak || undefined}>{b.label.length === 5 && kind === 'hours' ? b.label.slice(0, 2) : b.label}</span>

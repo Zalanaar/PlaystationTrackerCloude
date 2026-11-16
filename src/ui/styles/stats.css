@@ -439,6 +439,8 @@
 .ps-pp__col[data-active] .ps-pp__fill, .ps-pp__col:focus-visible .ps-pp__fill { opacity: 1; }
 .ps-pp__col[data-peak] .ps-pp__fill { opacity: 1; box-shadow: inset 0 3px 0 var(--text); }
 .ps-pp__pill { position: absolute; bottom: calc(var(--h) + 4px); left: 0; padding: 2px 8px; background: var(--accent-soft); border-radius: var(--r-pill); color: var(--text); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); white-space: nowrap; pointer-events: none; }
+.ps-pp__pill[data-edge="center"] { left: 50%; transform: translateX(-50%); }
+.ps-pp__pill[data-edge="end"] { left: auto; right: 0; }
 .ps-pp__val { position: absolute; bottom: calc(var(--h) + 2px); left: 0; right: 0; text-align: center; color: var(--text); font: 400 11px/14px var(--font-body); }
 .ps-pp__lbl { display: block; padding-top: var(--sp-1); font-size: 11px; line-height: 16px; color: var(--text-3); white-space: nowrap; }
 .ps-pp__chart[data-kind="hours"] .ps-pp__slot:not([data-every]) .ps-pp__lbl { visibility: hidden; }
