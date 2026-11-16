@@ -1,5 +1,6 @@
 'use client';
 
+import { useDataRefresh } from '../shell/refresh';
 import dynamic from 'next/dynamic';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invalidateApiCache } from '../data/http';
@@ -70,6 +71,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const t = setTimeout(() => void reload(), 0);
     return () => clearTimeout(t);
   }, [reload]);
+  useDataRefresh(() => void reload()); // П9: статус синка тоже свежий после возврата
 
   const running = status?.running ?? false;
   useEffect(() => {

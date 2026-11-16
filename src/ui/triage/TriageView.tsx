@@ -15,6 +15,7 @@ import { useToast } from '../primitives/Toast';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
 import { CheckBody } from './CheckView';
+import { useDataRefresh } from '../shell/refresh';
 import { checkSegmentText, hintProgress, primaryTarget } from './hints';
 import { useCheckCount } from './useCheckCount';
 import { useCheckQueue } from './useCheckQueue';
@@ -76,6 +77,7 @@ export function TriageView() {
 
   // смена «Все / Забытые» перезапускает очередь с начала
   const modeRef = useRef(forgotten);
+  useDataRefresh(() => void load(order, forgotten)); // П9: возврат в приложение, «потяни, чтобы обновить»
   useEffect(() => {
     const t = setTimeout(() => {
       if (modeRef.current !== forgotten) { modeRef.current = forgotten; setState(null); }

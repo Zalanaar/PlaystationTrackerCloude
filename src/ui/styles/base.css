@@ -335,3 +335,24 @@ body::before {
   .ps-pop.ps-addmenu { display: inline-block; flex: none; }
   .ps-addmenu > .ps-iconbtn { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
 }
+
+/* П9: «потяни, чтобы обновить» (PWA): круг под шапкой выезжает вместе с пальцем, после порога стрелка повёрнута и ярче */
+.ps-ptr {
+  --ptr: 0px; --ptr-p: 0;
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + var(--header-h) - 44px); z-index: calc(var(--z-header) - 1);
+  transform: translate(-50%, var(--ptr)); opacity: var(--ptr-p); pointer-events: none;
+}
+.ps-ptr[data-animate] { transition: transform var(--dur-base, .2s) var(--ease-out, ease-out), opacity var(--dur-base, .2s); }
+.ps-ptr__c {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface-2); border: var(--border-w) solid var(--border); color: var(--text-2); box-shadow: var(--shadow-1, 0 2px 8px rgb(0 0 0 / .3));
+}
+.ps-ptr__c svg { transform: rotate(calc(var(--ptr-p) * 270deg)); }
+.ps-ptr[data-ready] .ps-ptr__c, .ps-ptr[data-busy] .ps-ptr__c { color: var(--accent); }
+.ps-ptr[data-busy] .ps-ptr__c svg { animation: ps-ptr-spin .8s linear infinite; }
+@keyframes ps-ptr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ps-ptr[data-animate] { transition: none; }
+  .ps-ptr[data-busy] .ps-ptr__c svg { animation: none; }
+}
+@media (min-width: 768px) { .ps-ptr { display: none; } }

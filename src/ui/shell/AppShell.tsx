@@ -24,6 +24,8 @@ import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusM
 import { SyncIndicator } from './SyncIndicator';
 import { emitHeaderAction, headerActionsFor } from './headerActions';
 import { AddMenu } from './AddMenu';
+import { PullToRefresh } from './PullToRefresh';
+import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
@@ -74,9 +76,11 @@ export function AppHeader() {
   // D-P2: на мобильном вместо логотипа название раздела, рядом «Поиск» и «+» той страницы, где они есть
   const section = NAV_TABS.find((n) => isTabActive(pathname, n)) ?? null;
   const hdr = headerActionsFor(pathname);
+  useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
 
   return (
     <>
+      <PullToRefresh />
       <header className="ps-header">
         <div className="ps-header__in ps-container">
           <Link href="/" className="ps-logo" data-section={section ? '' : undefined}>PS TRACKER</Link>

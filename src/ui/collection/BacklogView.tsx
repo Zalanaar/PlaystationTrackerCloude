@@ -2,6 +2,7 @@
 
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useDataRefresh } from '../shell/refresh';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DurationCounts, GameItem, GenreCounts, GameStatusValue, HltbCounts } from '@/server/collection/types';
@@ -425,6 +426,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   // D-P2: «Поиск» и «+» мобильной шапки
   useHeaderAction('search', () => setSearchOpen(true));
   useHeaderAction('add', () => openAdd());
+  useDataRefresh(() => { void load(); void loadService(); }); // П9: возврат в приложение, «потяни, чтобы обновить»
   // П9: «Не куплено (PS)» из меню «+» на другой странице ведёт сюда с `?add=store` — окно сразу, параметр убираем
   const addParam = params.get('add');
   const [seenAddParam, setSeenAddParam] = useState<string | null>(null);

@@ -18,6 +18,7 @@ import { QueuePanel, type SaveState } from './QueuePanel';
 import { roadmapBacklogText } from '@/shared/backlog';
 import { ReleasesPanel } from './ReleasesPanel';
 import { useHeaderAction } from '../shell/headerActions';
+import { useDataRefresh } from '../shell/refresh';
 import { SettingsPanel } from './SettingsPanel';
 import { TimelinePanel } from './Timeline';
 
@@ -107,6 +108,7 @@ export function RoadmapView() {
     setRecalc((n) => n + 1);
     try { await Promise.all([load(), loadPlanned()]); } finally { setRecalc((n) => n - 1); }
   }, [load, loadPlanned]);
+  useDataRefresh(() => void refresh()); // П9: возврат в приложение, «потяни, чтобы обновить»
 
   useEffect(() => {
     const t = setTimeout(() => { void load(); void loadPlanned(); }, 0);

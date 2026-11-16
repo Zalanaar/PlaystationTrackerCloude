@@ -2,6 +2,7 @@
 
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDataRefresh } from '../shell/refresh';
 import type { FeedPeriod, FeedResponse, NearListResponse } from '@/server/trophies/types';
 import { cachedGet } from '../data/http';
 import { SkRoot } from '../skeletons';
@@ -105,6 +106,8 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
       setNearLoad('error');
     }
   }, []);
+  // П9: возврат в приложение, «потяни, чтобы обновить»: перечитать то, что на экране
+  useDataRefresh(() => { if (view === 'near') void fetchNear(); else void fetchFirst(period, rare); });
 
   useEffect(() => {
     if (v0 === 'near') {

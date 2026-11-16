@@ -34,6 +34,7 @@ import { useGameMutations } from './list/useGameMutations';
 import { useOpenGame } from './list/useOpenGame';
 import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
+import { useDataRefresh } from '../shell/refresh';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
@@ -143,6 +144,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     window.addEventListener(STATUSES_CHANGED_EVENT, on);
     return () => window.removeEventListener(STATUSES_CHANGED_EVENT, on);
   }, [refresh]);
+  useDataRefresh(() => refresh()); // П9: возврат в приложение, «потяни, чтобы обновить»
 
   // ---------- URL ----------
   const setFilters = useCallback((p: Partial<Filters>) => {

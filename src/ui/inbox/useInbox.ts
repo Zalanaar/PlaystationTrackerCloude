@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useMe } from '../access/useMe';
 import { registerCacheReset } from '../profiles/scope';
 import { fetchInbox } from './api';
+import { useDataRefresh } from '../shell/refresh';
 import { buildChips, chipsWhenHidden, hideKey, isHiddenToday, mskDay, SKELETON_MAX_MS, type Chip, type InboxResponse, type InboxState } from './model';
 
 export type InboxCtl = {
@@ -109,6 +110,8 @@ export function useInbox(enabled: boolean, seed?: { data: InboxResponse | null; 
     );
   }, []);
   const retry = useCallback(() => load(false), [load]);
+  // П9: возврат в приложение, «потяни, чтобы обновить» — полоса перечитывается тихо (без скелета)
+  useDataRefresh(() => { if (enabled && checked && started.current) load(true); });
 
   useEffect(() => {
     if (!enabled || !checked || started.current) return;

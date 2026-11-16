@@ -24,6 +24,7 @@ import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel }
 import { yearRange } from './allTime';
 import { PlayPatternPanel } from './PlayPatternPanel';
 import { WrappedBanner } from './WrappedBanner';
+import { useDataRefresh } from '../shell/refresh';
 import type { WrappedSeason } from '@/shared/wrapped-season';
 import { TopGames } from './TopGames';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
@@ -97,6 +98,7 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
 
   // ---------- действия над карточками игр периода ----------
   const reload = useCallback(() => void load(sel, key, withService), [load, sel, key, withService]);
+  useDataRefresh(reload); // П9: возврат в приложение, «потяни, чтобы обновить»
   /** Вернуть прошлый статус и его ручную дату (правило 1.3 иначе возьмёт дату последнего запуска). */
   const revert = useCallback(async (prev: GameItem) => {
     try {
