@@ -76,19 +76,23 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
   const [load, setLoad] = useState<Load>('idle');
   const [more, setMore] = useState<Load>('idle');
   const ac = useRef<AbortController | null>(null);
+  const feedArgs = useRef<[FeedPeriod, boolean]>([p0, r0]);
 
   const fetchFirst = useCallback(async (p: FeedPeriod, r: boolean) => {
     ac.current?.abort();
     const c = new AbortController();
     ac.current = c;
+    feedArgs.current = [p, r];
     setLoad('loading');
     try {
       const d = await cachedGet<FeedResponse>(feedUrl(p, r), c.signal);
       if (c.signal.aborted) return;
+      ac.current = null;
       setData(d);
       setLoad('idle');
     } catch (e) {
       if (c.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
+      ac.current = null;
       setLoad('error');
     }
   }, []);
@@ -101,10 +105,12 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
     try {
       const d = await cachedGet<NearListResponse>(NEAR_URL, c.signal);
       if (c.signal.aborted) return;
+      nearAc.current = null;
       setNear(d);
       setNearLoad('idle');
     } catch (e) {
       if (c.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
+      nearAc.current = null;
       setNearLoad('error');
     }
   }, []);
@@ -123,7 +129,20 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
     // только первый показ без SSR-данных
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => () => { ac.current?.abort(); nearAc.current?.abort(); }, []);
+  // Снятие компонента обрывает запросы. В dev React StrictMode снимает и монтирует заново, состояние сохраняется:
+  // если запрос (например, клик «Почти платина» до гидратации) оборвался так, его надо повторить, иначе вечный скелетон (флейк trophy-near).
+  const resume = useRef<{ near: boolean; feed: [FeedPeriod, boolean] | null }>({ near: false, feed: null });
+  useEffect(() => {
+    const { near: rn, feed: rf } = resume.current;
+    resume.current = { near: false, feed: null };
+    if (rn) void fetchNear();
+    if (rf) void fetchFirst(rf[0], rf[1]);
+    return () => {
+      resume.current = { near: nearAc.current !== null, feed: ac.current !== null ? feedArgs.current : null };
+      ac.current?.abort();
+      nearAc.current?.abort();
+    };
+  }, [fetchFirst, fetchNear]);
 
   const apply = (p: FeedPeriod, r: boolean) => {
     setPeriod(p);

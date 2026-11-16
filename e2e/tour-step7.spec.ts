@@ -25,7 +25,8 @@ for (const s of SIZES) {
     await expect(page.locator('.ps-card').first()).toBeVisible();
     if (s.w < 768) { await page.getByRole('button', { name: 'Меню', exact: true }).click(); await page.getByRole('button', { name: 'Как пользоваться' }).click(); }
     else { await page.locator('.ps-avatar').click(); await page.getByRole('menuitem', { name: 'Как пользоваться' }).click(); }
-    await expect(count(page)).toHaveText('1 из 14');
+    // TourOverlay грузится лениво (next/dynamic): первый показ в dev-сервере под нагрузкой компилируется дольше 5 с (флейк e2e-92)
+    await expect(count(page)).toHaveText('1 из 14', { timeout: 15_000 });
     for (let i = 1; i < 7; i++) await dialog(page).getByRole('button', { name: 'Далее' }).click();
     await expect(count(page)).toHaveText('7 из 14');
     // «loading» = якорь шага ещё ищется (под нагрузкой дольше 1.5 с): меряем только устоявшийся режим, а не фиксированную паузу

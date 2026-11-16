@@ -13,7 +13,9 @@ import { registerCacheReset } from '../profiles/scope';
  */
 export type AuthMeRaw = { status: number; json: { ok?: boolean; data?: Record<string, unknown>; error?: { code?: string } } | null } | null;
 
-export const ME_REUSE_MS = 5000;
+// 60 с: поздно смонтированные под Suspense хуки на медленной загрузке (dev-сервер CI) приходили позже 5 с и спрашивали заново
+// (флейк collection-requests). Смена профиля, привязка и выход сбрасывают кэш (fresh / resetClientCaches / перезагрузка).
+export const ME_REUSE_MS = 60_000;
 export const ME_FAIL_REUSE_MS = 1500;
 
 let inflight: Promise<AuthMeRaw> | null = null;

@@ -74,13 +74,17 @@ test('строки: прогресс, остаток, редкость, DLC, «�
 
 test('переключатель «Лента / Почти платина»: URL, перезагрузка, один запрос за вход', async ({ page, context, baseURL }) => {
   const s = await setup(page, context, baseURL!);
+  const aborted: string[] = [];
+  page.on('requestfailed', (r) => { if (/\/api\/trophies\/near(\?|$)/.test(r.url())) aborted.push(r.url()); });
   await page.goto('/trophies?period=all');
   await expect(page.getByRole('group', { name: 'Период и редкость' })).toBeVisible();
   await page.getByTestId('tf-view-near').click();
   await expect(page).toHaveURL(/\/trophies\?view=near$/);
   // первый показ «Почти платины» в dev-сервере CI под нагрузкой 4 воркеров компилируется дольше 5 с (флейк 1b386bb)
   await expect(page.getByTestId('tnear-row')).toHaveCount(9, { timeout: 15_000 });
-  expect(s.calls).toHaveLength(1);
+  // клик до гидратации: React StrictMode (dev) снимает компонент и обрывает запрос, TrophyFeedView повторяет его (флейк trophy-near).
+  // Считаем дошедшие запросы: оборванный не в счёт, в проде StrictMode нет и запрос один.
+  expect(s.calls.length - aborted.length, s.calls.join('\n')).toBe(1);
   await page.reload();
   await expect(page.getByTestId('tf-view-near')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('tnear-row')).toHaveCount(9);
