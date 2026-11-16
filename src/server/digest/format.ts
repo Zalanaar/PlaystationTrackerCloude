@@ -1,6 +1,8 @@
 // Сборка текста сводки (docs/design/spec-phase-29-digest.md, контракт F29.5). Чистые функции: без env, БД и сети.
 // Plain text без parse_mode. Ссылки строит вызывающий через gameLink; здесь только вставка.
 
+import type { WrappedSeason } from '@/shared/wrapped-season';
+
 export const DIGEST_HARD_LIMIT = 3500;
 export const ADVICE_REASON_MAX = 160;
 export const LINKED_GAMES_MAX = 3;
@@ -80,6 +82,8 @@ export type DigestData = {
   advice: DigestAdvice | null;
   /** checkCount + unsorted. */
   statuses: number | null;
+  /** П8.4: сезон Итогов года (декабрь и январь по МСК) или null/нет — строки нет. */
+  wrapped?: WrappedSeason | null;
 };
 
 export type FormatOpts = {
@@ -152,6 +156,13 @@ function adviceLines(a: DigestAdvice | null, link: NonNullable<FormatOpts['link'
   return lines;
 }
 
+/** П8.4: одна строка про Итоги года; в декабре «предварительно». */
+export function wrappedLine(w: WrappedSeason | null | undefined, origin: string | null): string | null {
+  if (!w || !Number.isSafeInteger(w.year)) return null;
+  const head = `Итоги ${w.year} готовы${w.preliminary ? ' (предварительно)' : ''}`;
+  return origin ? `${head}: ${origin}/wrapped?year=${w.year}` : `${head}: смотри в приложении.`;
+}
+
 /** Готовый текст сообщения (spec 1, 2, 6). Не бросает. */
 export function formatDigest(data: DigestData, opts: FormatOpts): string {
   const origin = opts.origin ? opts.origin.replace(/\/+$/, '') : null;
@@ -163,13 +174,15 @@ export function formatDigest(data: DigestData, opts: FormatOpts): string {
   const trophies = trophyLines(data.trophies, link);
   const plan = planLines(data.plan, link);
   const advice = adviceLines(data.advice, link);
+  const wrapped = wrappedLine(data.wrapped, origin);
   const statuses = data.statuses !== null && data.statuses > 0 ? [`Подсказок по статусам: ${data.statuses}.${origin ? ` Разобрать: ${origin}/triage?mode=check` : ''}`] : null;
 
   if (!hours && !trophies && !plan && !advice && !statuses) {
-    return [`PS Tracker: за неделю ${label} игр и трофеев не было. Хорошей недели.`, open].filter((x): x is string => x !== null).join('\n');
+    return [`PS Tracker: за неделю ${label} игр и трофеев не было. Хорошей недели.`, wrapped, open].filter((x): x is string => x !== null).join('\n');
   }
 
   const blocks: string[][] = [[`PS Tracker: итоги недели, ${label}`]];
+  if (wrapped) blocks[0].push(wrapped); // в первом блоке: обрезка по длине его не отбросит
   if (!hours && !trophies) blocks.push(['За неделю игр и трофеев не было.']);
   const titled: [string, string[] | null][] = [['Часы', hours], ['Трофеи', trophies], ['План', plan], ['Совет', advice], ['Статусы', statuses]];
   for (const [title, lines] of titled) if (lines) blocks.push([title, ...lines]);

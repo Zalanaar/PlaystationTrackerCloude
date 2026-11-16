@@ -13,6 +13,7 @@ import { groupSnapshots, secondsByGame, sumSeconds, type Snapshot } from '@/serv
 import type { DigestAdvice, DigestData, DigestHours, DigestPlan, DigestTrophies } from './format';
 import { dayRangeLabel } from './format';
 import type { DigestWeek } from './week';
+import { wrappedSeason } from '@/shared/wrapped-season';
 
 const { games, gameTrophySets, playtimeSnapshots: ps, trophies } = schema;
 
@@ -125,6 +126,7 @@ export async function collectDigest(db: AnyDb, userId: UserId, week: DigestWeek,
       plan: val<DigestPlan | null>(2),
       advice: val<DigestAdvice | null>(3),
       statuses: val<number | null>(4),
+      wrapped: wrappedSeason(o.now.getTime()), // П8.4: без БД, по дате отправки (МСК)
     },
   };
 }

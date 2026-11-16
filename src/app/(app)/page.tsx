@@ -12,6 +12,7 @@ import { DEFAULT_FILTERS } from '@/ui/collection/filters';
 import { parseGameParam } from '@/ui/collection/gameLink';
 import { PSN_W, psnImageUrl } from '@/ui/format';
 import { PLATFORM_COOKIE, parsePlatform, type PlatformKey } from '@/shared/platform-filter';
+import { WRAPPED_HIDDEN_COOKIE, ssrWrappedSeason, type WrappedSeason } from '@/shared/wrapped-season';
 
 /** P1-2: адрес только с окном игры (`?game=<id>`, можно `&tab=trophies`) — первый экран тот же, что у `/`, плюс сама игра. */
 function linkOnly(sp: Record<string, string | string[] | undefined>): { ok: boolean; id: number | null } {
@@ -34,6 +35,8 @@ export default async function CollectionPage({ searchParams }: Props) {
   const heroHint = parseHeroHint(jar.get(HERO_HINT_COOKIE)?.value);
   // F4: запомненная платформа; параметр URL всё равно главнее (CollectionView)
   const platform = parsePlatform(jar.get(PLATFORM_COOKIE)?.value);
+  // П8.4: баннер «Итоги года готовы» сразу в HTML (МСК, cookie «закрыт»), чтобы он не появлялся после гидрации
+  const wrappedSsr = ssrWrappedSeason(jar.get(WRAPPED_HIDDEN_COOKIE)?.value);
   const h = await headers();
   // без cookie-подсказки (первый визит) ширина по устройству: телефон рисуется в 2 колонки сразу, приоритет только у 2 обложек первого ряда
   const layout = withDeviceWidth(parseLayoutHint(jar.get(LAYOUT_HINT_COOKIE)?.value), h.get('sec-ch-ua-mobile'), h.get('user-agent'));
@@ -48,19 +51,20 @@ export default async function CollectionPage({ searchParams }: Props) {
   const cookieHeader = ssr ? h.get('cookie') : null;
   return (
     <Suspense fallback={<CollectionPageSkeleton hero={heroHint !== false} />}>
-      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} />
+      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} wrappedSsr={wrappedSsr} />
     </Suspense>
   );
 }
 
 /** Внутри Suspense: скелет страницы уходит в первом куске HTML, коллекция дописывается тем же ответом, как только готова БД. */
-async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform }: {
+async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform, wrappedSsr }: {
   heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null; platform: PlatformKey | null;
+  wrappedSsr: WrappedSeason | null;
 }) {
   const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, batchUrlFor(platform), linkId) : null;
   // P1-2 (LCP = арт шапки окна): браузер начинает качать его вместе с HTML, а не после запроса деталей с клиента
   const lg = initial?.linkGame;
   const art = lg ? (lg.bannerUrl ? psnImageUrl(lg.bannerUrl, PSN_W.banner) : lg.coverUrl ? psnImageUrl(lg.coverUrl, PSN_W.card) : null) : null;
   if (art) preload(art, { as: 'image', fetchPriority: 'high', referrerPolicy: 'no-referrer' });
-  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} />;
+  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} wrappedSsr={wrappedSsr} />;
 }

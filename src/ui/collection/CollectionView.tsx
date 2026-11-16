@@ -41,6 +41,8 @@ import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
 import { InboxStrip } from '../inbox/InboxStrip';
+import { WrappedBanner } from '../stats/WrappedBanner';
+import type { WrappedSeason } from '@/shared/wrapped-season';
 import { useInbox } from '../inbox/useInbox';
 import { mskDay } from '../inbox/model';
 import { expectHero, heroHintCookie } from '@/shared/hero-hint';
@@ -73,8 +75,10 @@ const AddOtherPlatformSheet = dynamic(() => import('../other-platforms/AddOtherP
  * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
  * platformDefault (F4): запомненная платформа из cookie; параметр URL главнее.
  */
-export function CollectionView({ heroHint, initial, layout, platformDefault = null }: {
+export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null }: {
   heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint; platformDefault?: PlatformKey | null;
+  /** П8.4: баннер «Итоги года готовы», который нарисовал сервер (сезон и не закрыт), иначе null */
+  wrappedSsr?: WrappedSeason | null;
 } = {}) {
   const router = useRouter();
   const pathname = usePathname();
@@ -290,6 +294,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         : isMobile && (searchOpen || filters.q !== '') && <MobileSearch {...barProps} autoFocus={searchOpen && filters.q === ''} onClose={() => setSearchOpen(false)} />}
 
       <InboxStrip ctl={inbox} />
+      <WrappedBanner ssr={wrappedSsr} compact />
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
       {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}

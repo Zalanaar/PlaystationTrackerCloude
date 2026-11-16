@@ -24,6 +24,7 @@ import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel }
 import { yearRange } from './allTime';
 import { PlayPatternPanel } from './PlayPatternPanel';
 import { WrappedBanner } from './WrappedBanner';
+import type { WrappedSeason } from '@/shared/wrapped-season';
 import { TopGames } from './TopGames';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { StatsDataSkeleton } from '../skeletons';
@@ -34,7 +35,8 @@ import {
 
 type Loaded = { key: string; data: StatsResponse } | { key: string; error: unknown };
 
-export function StatsView() {
+/** wrappedSsr (П8.4): баннер Итогов, который нарисовал сервер (сезон и не закрыт), чтобы он не появлялся после загрузки (CLS). */
+export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | null } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -137,7 +139,7 @@ export function StatsView() {
         <h1 className="ps-h1 ps-h1--hdr">Статистика</h1>
         <WrappedLink sel={sel} where="head" />
       </div>
-      <WrappedBanner years={years} />
+      <WrappedBanner years={years} ssr={wrappedSsr} />
       <PeriodSwitch
         sel={sel} today={today} years={years} onType={(p) => go(setPeriodType(sel, p, today, lastYear.current), true)}
         onPrev={prev ? () => go(prev) : null} onNext={next ? () => go(next) : null}

@@ -173,7 +173,12 @@ test.describe('заголовок раздела не повторяется н�
     expect(m.btn.left).toBeGreaterThanOrEqual(m.nav.right);
     expect(m.btn.right).toBeLessThanOrEqual(m.vw);
     // над переключателем нет пустого ряда: он сразу под подвкладками/шапкой страницы
-    const above = await page.locator('.ps-st-switch').evaluate((el) => el.getBoundingClientRect().top - (document.querySelector('.ps-stats-page')!.getBoundingClientRect().top));
+    // (в декабре и январе между ними баннер «Итоги года готовы», П8.4: меряем от его низа с обычным отступом)
+    const above = await page.locator('.ps-st-switch').evaluate((el) => {
+      const wb = document.querySelector('[data-testid="wrapped-banner"]');
+      const ref = wb ? wb.getBoundingClientRect().bottom + parseFloat(getComputedStyle(document.querySelector('.ps-stats-page')!).rowGap || '0') : document.querySelector('.ps-stats-page')!.getBoundingClientRect().top;
+      return el.getBoundingClientRect().top - ref;
+    });
     expect(above).toBeLessThanOrEqual(1);
     // «Всё время»: та же раскладка
     await page.getByRole('button', { name: 'Всё время' }).click();

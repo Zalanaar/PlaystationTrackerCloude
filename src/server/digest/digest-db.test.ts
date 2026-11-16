@@ -209,6 +209,12 @@ describe('сводка (БД)', () => {
       expect(r.failed).toBe(0);
       expect(r.data.advice).toBeNull();
       expect(r.data.statuses).toBe(0);
+      expect(r.data.wrapped).toBeNull(); // октябрь: не сезон Итогов
+    });
+
+    it('П8.4: в декабре (МСК) сводка знает про предварительные Итоги года', async () => {
+      const r = await collectDigest(t.db, A, WEEK, { now: new Date('2026-11-30T21:30:00Z'), lastAdviceGameId: null });
+      expect(r.data.wrapped).toEqual({ year: 2026, preliminary: true });
     });
   });
 });

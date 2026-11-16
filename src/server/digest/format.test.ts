@@ -1,6 +1,6 @@
 // Текст сводки на фикстурах спеки docs/design/spec-phase-29-digest.md (раздел 6) и граничных случаях.
 import { describe, expect, it } from 'vitest';
-import { ADVICE_REASON_MAX, clipReason, dayRangeLabel, DIGEST_HARD_LIMIT, formatDigest, formatDuration, gamesWord, hintsWord, platinumsWord, trophiesWord, weekLabel, type DigestData } from './format';
+import { ADVICE_REASON_MAX, clipReason, dayRangeLabel, DIGEST_HARD_LIMIT, formatDigest, formatDuration, gamesWord, hintsWord, platinumsWord, trophiesWord, weekLabel, wrappedLine, type DigestData } from './format';
 
 const O = 'https://ps.example.app';
 const H = 3600;
@@ -164,5 +164,34 @@ describe('вспомогательное', () => {
     const text = formatDigest(d, { origin: O });
     expect(text.length).toBeLessThanOrEqual(DIGEST_HARD_LIMIT);
     expect(text.startsWith('PS Tracker: итоги недели')).toBe(true);
+  });
+});
+
+describe('П8.4: строка про Итоги года', () => {
+  const O = 'https://ps.example.app';
+  it('декабрь: предварительно, со ссылкой на год', () => {
+    expect(wrappedLine({ year: 2026, preliminary: true }, O)).toBe('Итоги 2026 готовы (предварительно): https://ps.example.app/wrapped?year=2026');
+    expect(wrappedLine({ year: 2026, preliminary: false }, null)).toBe('Итоги 2026 готовы: смотри в приложении.');
+    expect(wrappedLine(null, O)).toBeNull();
+    expect(wrappedLine(undefined, O)).toBeNull();
+  });
+  it('ровно одна строка во втором ряду заголовка, и в пустой неделе тоже', () => {
+    const w = { year: 2026, preliminary: true };
+    const full = formatDigest({ ...empty, statuses: 3, wrapped: w }, { origin: O });
+    expect(full.split('\n')[1]).toBe('Итоги 2026 готовы (предварительно): https://ps.example.app/wrapped?year=2026');
+    expect(full.match(/Итоги 2026/g)).toHaveLength(1);
+    const quiet = formatDigest({ ...empty, wrapped: w }, { origin: O });
+    expect(quiet.split('\n')).toEqual([
+      'PS Tracker: за неделю 19–25 окт игр и трофеев не было. Хорошей недели.',
+      'Итоги 2026 готовы (предварительно): https://ps.example.app/wrapped?year=2026',
+      'Открыть: https://ps.example.app/',
+    ]);
+    expect(formatDigest(empty, { origin: O })).not.toContain('Итоги');
+  });
+  it('заголовок с Итогами переживает обрезку по длине', () => {
+    const long = { gameId: 1, title: 'x'.repeat(200), reason: 'y'.repeat(400) };
+    const t = formatDigest({ ...empty, advice: long, statuses: 1, plan: { state: 'onTrack', diffSeconds: 0, next: Array.from({ length: 3 }, (_, i) => ({ gameId: i + 1, title: 'z'.repeat(1200), days: 'пн' })) }, wrapped: { year: 2026, preliminary: false } }, { origin: O });
+    expect(t.length).toBeLessThanOrEqual(DIGEST_HARD_LIMIT);
+    expect(t).toContain('Итоги 2026 готовы: https://ps.example.app/wrapped?year=2026');
   });
 });

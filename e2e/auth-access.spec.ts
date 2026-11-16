@@ -83,7 +83,7 @@ async function openProfileMenu(page: Page, isMobile: boolean) {
   await page.getByRole('button', { name: isMobile ? 'Меню' : /Профиль|Меню профиля/, exact: isMobile }).click();
 }
 const accessItem = (page: Page, isMobile: boolean) =>
-  isMobile ? page.getByRole('link', { name: 'Доступ' }) : page.getByRole('menuitem', { name: 'Доступ' });
+  isMobile ? page.getByRole('link', { name: 'Доступ', exact: true }) : page.getByRole('menuitem', { name: 'Доступ', exact: true }); // exact: в декабре «Статистика, доступны Итоги года»
 
 test.describe('Доступ', () => {
   test('список: роли, статусы, PSN, число игр; owner без действий', async ({ page, context, baseURL }) => {

@@ -285,8 +285,13 @@ test.describe('Мобильный первый экран (18.2)', () => {
     const hb = (await hero.boundingBox())!;
     const reserved = page.getByTestId('inbox-reserved');
     const rb = (await reserved.count()) ? await reserved.boundingBox() : null;
-    const above = rb ? hb.y - rb.y : 0;
-    expect(above).toBeLessThanOrEqual(rb ? rb.height + 24 : 0);
+    // П8.4: в декабре и январе над hero ещё баннер «Итоги года готовы» в одну строку (до 64 px + отступ); hero всё равно в первом экране
+    const wb = page.getByTestId('wrapped-banner');
+    const wh = (await wb.count()) ? (await wb.boundingBox())!.height : 0;
+    expect(wh).toBeLessThanOrEqual(64);
+    const extra = wh ? wh + 16 : 0;
+    const above = rb ? hb.y - rb.y : extra;
+    expect(above).toBeLessThanOrEqual(rb ? rb.height + 24 + extra : extra);
     expect(hb.y - above).toBeLessThanOrEqual(232);
     expect(640 - 56 - hb.y).toBeGreaterThanOrEqual(100);
     const chips = page.getByRole('group', { name: 'Статус' });
