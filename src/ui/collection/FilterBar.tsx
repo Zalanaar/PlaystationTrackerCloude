@@ -10,6 +10,7 @@ import { chipVisible, filtersDot, hasActiveFilters, SORT_OPTIONS, STATUS_TABS, t
 import Link from '@/ui/IntentLink';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
+import { useChipRow } from '../primitives/useChipRow';
 
 const DEBOUNCE_MS = 250;
 
@@ -152,8 +153,9 @@ type BarProps = {
 
 /** Чипы статуса и чип «Платина»: общие для десктопа и мобильного слота под hero. */
 function StatusChips({ filters, counts, platinumCount, onChange }: Pick<BarProps, 'filters' | 'counts' | 'platinumCount' | 'onChange'>) {
+  const row = useChipRow<HTMLDivElement>(); // П9: тень у края и прокрутка к выбранному статусу (телефон)
   return (
-    <div className="ps-tabs" data-tour="filters">
+    <div className="ps-tabs ps-chiprow" data-tour="filters" ref={row}>
       <div className="ps-tabs__grp" role="group" aria-label="Статус">
         {STATUS_TABS.map((t) => {
           const n = counts ? counts[t.id === 'all' ? 'all' : (t.id as Exclude<StatusTab, 'all'>)] : null;

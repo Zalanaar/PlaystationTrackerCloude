@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { currentMonthIndex, type MonthChip } from './monthChips';
+import { useChipRow } from '../primitives/useChipRow';
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -25,6 +26,7 @@ export function jumpToAnchor(id: string): void {
  */
 export function MonthChips({ year, chips, onPick }: { year: number; chips: MonthChip[]; onPick?: (c: MonthChip) => void }) {
   const nav = useRef<HTMLElement>(null);
+  const fade = useChipRow<HTMLElement>(false); // П9: тень у края; к текущему месяцу докручивает своя логика
   const [cur, setCur] = useState<string>(chips[0]?.key ?? '');
   const idsKey = chips.map((c) => c.anchorId).join('|');
 
@@ -66,7 +68,7 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
   }, [cur]);
 
   return (
-    <nav ref={nav} className="ps-mchips" aria-label={`Месяцы ${year}`}>
+    <nav ref={(el) => { nav.current = el; fade(el); }} className="ps-mchips ps-chiprow" aria-label={`Месяцы ${year}`}>
       {chips.map((c) => (
         <button
           key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}

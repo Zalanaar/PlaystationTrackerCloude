@@ -356,3 +356,12 @@ body::before {
   .ps-ptr[data-busy] .ps-ptr__c svg { animation: none; }
 }
 @media (min-width: 768px) { .ps-ptr { display: none; } }
+
+/* П9: ряды чипов с прокруткой — мягкая тень у края, за которым есть ещё чипы (useChipRow ставит data-edge-l / data-edge-r) */
+.ps-chiprow {
+  --fl: 0px; --fr: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%);
+}
+.ps-chiprow[data-edge-l] { --fl: 28px; }
+.ps-chiprow[data-edge-r] { --fr: 28px; }

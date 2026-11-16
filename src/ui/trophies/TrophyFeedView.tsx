@@ -9,6 +9,7 @@ import { SkRoot } from '../skeletons';
 import { RareIcon, TypeBadge } from '../stats/RareTrophies';
 import { emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, NEAR_URL, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type TrophiesView } from './model';
 import { NearList } from './NearList';
+import { useChipRow } from '../primitives/useChipRow';
 
 type Load = 'idle' | 'loading' | 'error';
 
@@ -26,6 +27,7 @@ function Head({ period, rare, data, onPeriod, onRare, busy }: {
   period: FeedPeriod; rare: boolean; data: FeedResponse | null; busy: boolean; onPeriod: (p: FeedPeriod) => void; onRare: () => void;
 }) {
   const head = FEED_PERIODS.find((p) => p.id === period)?.head ?? '';
+  const row = useChipRow<HTMLDivElement>(); // П9: тень у края («Только редкие» за краем) и прокрутка к выбранному
   const parts = data ? summaryParts(data.summary) : null;
   return (
     <>
@@ -37,7 +39,7 @@ function Head({ period, rare, data, onPeriod, onRare, busy }: {
           </>
         ) : <span className="ps-tf__sum-sk">{'\u00a0'}</span>}
       </p>
-      <div className="ps-tf__chips" role="group" aria-label="Период и редкость" aria-busy={busy || undefined}>
+      <div className="ps-tf__chips ps-chiprow" role="group" aria-label="Период и редкость" aria-busy={busy || undefined} ref={row}>
         {FEED_PERIODS.map((p) => (
           <button key={p.id} type="button" className="ps-tf__chip" aria-pressed={period === p.id} onClick={() => onPeriod(p.id)}>{p.label}</button>
         ))}

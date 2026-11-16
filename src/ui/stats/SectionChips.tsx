@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { currentSection, STATS_SECTIONS } from './sections';
+import { useChipRow } from '../primitives/useChipRow';
 
 /** Время для блокировки подсветки (только в обработчиках, не в рендере). */
 const nowMs = () => Date.now();
@@ -16,6 +17,7 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
   const [present, setPresent] = useState<string[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const fade = useChipRow<HTMLDivElement>(false); // П9: тень у края; к выбранному докручивает своя логика ниже
   const lock = useRef(0);
 
   const find = useCallback((id: string): HTMLElement | null => {
@@ -78,7 +80,7 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
 
   return (
     <nav className="ps-st-secs" aria-label="Разделы статистики" data-testid="stats-sections">
-      <div className="ps-st-secs__in" ref={bar}>
+      <div className="ps-st-secs__in ps-chiprow" ref={(el) => { bar.current = el; fade(el); }}>
         {STATS_SECTIONS.filter((s) => present.includes(s.id)).map((s) => (
           <button key={s.id} type="button" className="ps-st-secs__chip" data-sec={s.id} aria-current={active === s.id ? 'true' : undefined} onClick={() => go(s.id)}>
             {s.label}
