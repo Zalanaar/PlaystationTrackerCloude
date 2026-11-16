@@ -20,6 +20,7 @@ import {
 } from './model';
 import { slideColor, yearSummary } from './look';
 import { Backdrop, CountUp, hoursFormat, SummaryCard } from './StoryParts';
+import { ShareButton } from './ShareButton';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
@@ -415,6 +416,7 @@ function SlideView({
           <Rise n={0} rm={rm} className="ps-story__rise--card"><SummaryCard s={yearSummary(data)} /></Rise>
           <Rise n={1} rm={rm}><h2 className="ps-story__title">{all ? 'Спасибо, что играешь' : `До встречи в ${year + 1}`}</h2></Rise>
           <Rise n={2} rm={rm} className="ps-story__actions">
+            {!all && <ShareButton year={year} />}
             <button type="button" className="ps-btn ps-story__btn" onClick={onRestart}><Icon name="refresh" size={16} />Пересмотреть</button>
             <button type="button" className="ps-btn ps-story__btn ps-story__btn--solid" onClick={onClose}>Закрыть</button>
           </Rise>
@@ -428,6 +430,7 @@ function SlideView({
           <Rise n={0} rm={rm}><h2 className="ps-story__title">{all ? 'Данных пока нет' : `В ${year} данных нет`}</h2></Rise>
           {since && <Rise n={1} rm={rm}><p className="ps-story__sub">{since}</p></Rise>}
           <Rise n={2} rm={rm} className="ps-story__actions">
+            {!all && <ShareButton year={year} />}
             <button type="button" className="ps-btn ps-story__btn ps-story__btn--solid" onClick={onClose}>Закрыть</button>
           </Rise>
         </div>

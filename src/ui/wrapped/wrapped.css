@@ -279,3 +279,8 @@
   .ps-sum__tiles b { font-size: 24px; line-height: 28px; }
   .ps-sum__top { height: 0; overflow: hidden; visibility: hidden; margin-top: calc(-1 * var(--sp-2)); }
 }
+
+/* «Поделиться» (П8.3): первая и заметная кнопка финала, подпись статуса под кнопками */
+.ps-story__btn--share { background: color-mix(in srgb, var(--slide-c) 70%, #000); border-color: transparent; color: #fff; font-weight: 600; }
+.ps-story__btn--share:disabled { opacity: .7; }
+.ps-story__share-note { flex-basis: 100%; min-height: var(--lh-small); text-align: center; }
