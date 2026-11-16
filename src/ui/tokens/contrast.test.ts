@@ -353,7 +353,16 @@ describe('контраст тем', () => {
           expect(ratio(get('ps3', fg), parseColor(months[m]['--xmb-a']).hex)).toBeGreaterThanOrEqual(4.5));
         it(`месяц ${m}: ${fg} на --xmb-b под волной >= 4.5`, () =>
           expect(ratio(get('ps3', fg), over('#ffffff', 0.11, parseColor(months[m]['--xmb-b']).hex))).toBeGreaterThanOrEqual(4.5));
+        // айдентика тем, шаг 6: волна поднята под шапку, где фон до --xmb-a; полоса .03 + линия .03 (наложение ~.06)
+        it(`месяц ${m}: ${fg} на --xmb-a под поднятой волной >= 4.5`, () =>
+          expect(ratio(get('ps3', fg), over('#ffffff', 0.06, parseColor(months[m]['--xmb-a']).hex))).toBeGreaterThanOrEqual(4.5));
       }
+  });
+  it('ps3: штрихи волны в decor.css не плотнее .03 (наложение полосы и линии укладывается в .06 из проверки выше)', () => {
+    const block = decorCss.match(/\[data-theme="ps3"\] \.ps-app::after \{([^}]*)\}/)![1];
+    const alphas = [...block.matchAll(/rgba\(255,255,255,([\d.]+)\)/g)].map((x) => Number(x[1]));
+    expect(alphas.length).toBe(3);
+    for (const a of alphas) expect(a).toBeLessThanOrEqual(0.03);
   });
   // Фазы 25-26 (design-system §12.9): графики «по годам» и «Когда ты играешь», плашка охвата
   describe('Фазы 25-26 (§12.9)', () => {

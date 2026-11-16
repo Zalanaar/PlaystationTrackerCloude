@@ -15,7 +15,7 @@
 
    ОГРАНИЧЕНИЯ КОНТРАСТА (при них верна таблица в docs/design-system.md; не усиливать без пересчёта)
    | PS2 | суммарная плотность тумана не больше .24 (пятна .17 и .07 разнесены), грань кристалла не больше .06 (слой до 82vh снизу, маска сверху), кубы за контентом |
-   | PS3 | волна не выше top 240px (ниже уже фон не светлее --xmb-b), полоса не больше .05, линии не больше .06; градиент --xmb-a не светлее яркости .0125 |
+   | PS3 | волна с top 70px (моб.) / 120px: фон там до --xmb-a, поэтому полоса .03 и линии .03 (наложение не больше .06); градиент --xmb-a не светлее яркости .0125 |
    | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются; на мобильном статичные, без подъёма |
    | PS5 | арт opacity не больше .28, затемнение сверху не меньше .45 |
    Производительность: PS5 самая дорогая (blur 64 на полноэкранном слое, backdrop-filter на карточках), PS4 держит слой 100vh+240px,
@@ -131,12 +131,17 @@
   background: linear-gradient(180deg, var(--xmb-a) 0, var(--xmb-b) 260px, var(--bg) 640px);
 }
 [data-theme="ps3"] .ps-app::after {
-  content: ""; position: absolute; top: 240px; left: 0; width: 200%; height: 300px; pointer-events: none; z-index: -1;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2880 300' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.05)' stroke-width='70'/%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.06)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 178C240 98 480 98 720 178S1200 258 1440 178S1920 98 2160 178S2640 258 2880 178' stroke='rgba(255,255,255,.06)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+  content: ""; position: absolute; top: 120px; left: 0; width: 200%; height: 300px; pointer-events: none; z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2880 300' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.03)' stroke-width='70'/%3E%3Cpath d='M0 150C240 60 480 60 720 150S1200 240 1440 150S1920 60 2160 150S2640 240 2880 150' stroke='rgba(255,255,255,.03)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 178C240 98 480 98 720 178S1200 258 1440 178S1920 98 2160 178S2640 258 2880 178' stroke='rgba(255,255,255,.03)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
   animation: ps3-wave 48s linear infinite; will-change: transform;
 }
 [data-theme="ps3"] :is(.ps-nav-item, .ps-subnav a)[aria-current="page"]::after { box-shadow: 0 0 12px rgba(255, 255, 255, .6); }
 [data-theme="ps3"] .ps-card[data-active="true"] .ps-card__cover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55), 0 0 24px rgba(255, 255, 255, .22); }
+/* Айдентика тем, шаг 6 (Wave): волна поднята в зону под шапкой (за профилем, фильтрами и годом), чтобы читалась на первом экране;
+   там фон ещё близок к --xmb-a, поэтому полоса и линии по .03 (вместе не больше .06: --text-3 >= 4.5 во всех 12 месяцах, contrast.test).
+   Свечение текущего чипа месяца (как выделенный пункт меню) и лёгкое — у года. Новой навигации нет. */
+[data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"]:not(:focus-visible) { box-shadow: 0 0 16px rgba(255, 255, 255, .35); color: var(--text); }
+[data-theme="ps3"] .ps-year__y { text-shadow: 0 0 18px rgba(255, 255, 255, .28); }
 @keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
 
 /* ---------- PS4: свет сверху, частицы (подъём 40 с), активная плитка в белой рамке ---------- */
@@ -218,7 +223,7 @@
 /* ---------- Мобильный (меньше 768px): декор упрощён ---------- */
 @media (max-width: 767px) {
   [data-theme="ps2"] .ps-app::before { animation: none; }                 /* туман статичный */
-  [data-theme="ps3"] .ps-app::after { animation: none; top: 260px; height: 200px; } /* волна статичная и короче */
+  [data-theme="ps3"] .ps-app::after { animation: none; top: 70px; height: 230px; } /* волна статичная, под шапкой (шаг 6) */
   /* частицы: редкие статичные точки на высоту экрана (шаг 2, Tiles); подъём только от 768px */
   [data-theme="ps4"] .ps-app::after { animation: none; will-change: auto; height: 100vh; background-size: 300px 300px; opacity: .7; }
   [data-theme="ps5"] .ps-app::before { filter: blur(32px) saturate(1.15); } /* дешевле; backdrop-filter выше 768 */

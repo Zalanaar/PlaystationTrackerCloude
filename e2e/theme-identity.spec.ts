@@ -209,3 +209,21 @@ test.describe('axe во всех темах с новыми мотивами', (
     expect(bad).toEqual({});
   });
 });
+
+test.describe('Wave (ps3)', () => {
+  test('волна поднята под шапку (моб. 70px статичная, десктоп 120px), свечение текущего чипа месяца и года', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps3');
+    const w = await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('.ps-app')!, '::after'); return { top: cs.top, anim: cs.animationName }; });
+    expect(w.top).toBe(isMobile(page) ? '70px' : '120px');
+    expect(w.anim).toBe(isMobile(page) ? 'none' : 'ps3-wave');
+    const chip = page.locator('.ps-mchips .ps-mchip[aria-current="true"]').first();
+    await expect(chip).toBeVisible();
+    expect(await chip.evaluate((el) => getComputedStyle(el).boxShadow)).toContain('rgba(255, 255, 255, 0.35)');
+    expect(await page.locator('.ps-year__y').first().evaluate((el) => getComputedStyle(el).textShadow)).toContain('rgba(255, 255, 255, 0.28)');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('.ps-app')!, '::after').animationName)).toBe('none');
+    // в других темах свечения чипа нет
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
+    expect(await chip.evaluate((el) => getComputedStyle(el).boxShadow)).not.toContain('0.35');
+  });
+});
