@@ -62,9 +62,9 @@ describe('GET /api/health/overview', () => {
     await pgc(t).exec(`
       insert into sync_runs (user_id, kind, status, error_reason, error_message, snapshot_date, started_at, finished_at) values
         (1, 'daily', 'success', null, null, '2026-11-01', '2026-11-01T03:00:00Z', '2026-11-01T03:05:00Z'),
-        (1, 'daily', 'failed', 'auth_expired', 'raw PSN error text', '2026-10-30', '2026-10-30T03:00:00Z', '2026-10-30T03:01:00Z'),
-        (1, 'manual', 'failed', 'cancelled', null, '2026-10-31', '2026-10-31T03:00:00Z', '2026-10-31T03:01:00Z'),
-        (1, 'hltb', 'failed', 'internal', null, '2026-10-31', '2026-10-31T04:00:00Z', '2026-10-31T04:01:00Z'),
+        (1, 'daily', 'failed', 'auth_expired', 'raw PSN error text', (now() - interval '3 days')::date, now() - interval '3 days', now() - interval '3 days' + interval '1 minute'),
+        (1, 'manual', 'failed', 'cancelled', null, (now() - interval '2 days')::date, now() - interval '2 days', now() - interval '2 days' + interval '1 minute'),
+        (1, 'hltb', 'failed', 'internal', null, (now() - interval '2 days')::date, now() - interval '2 days' + interval '1 hour', now() - interval '2 days' + interval '61 minutes'),
         (2, 'daily', 'failed', 'psn_unavailable', null, '2026-10-01', '2026-10-01T03:00:00Z', '2026-10-01T03:01:00Z');
       insert into psn_token_events (event, details, created_at) values ('pasted', '{"refreshTokenExpiresInSec":864000}', now() - interval '3 days');`);
     await pgc(t).exec(`

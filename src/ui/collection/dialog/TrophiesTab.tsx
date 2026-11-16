@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { GameTrophyItem } from '@/server/collection/types';
 import { formatDayMonth } from '../../format';
 import { Icon, PlatinumIcon } from '../../icons';
@@ -10,10 +10,12 @@ import {
 } from '../trophies';
 import type { DetailsState } from '../useGameDetails';
 
-export function TrophiesTab({ state, onRetry }: { state: DetailsState; onRetry: () => void }) {
+export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; onRetry: () => void; focus?: { key: string; n: number } | null }) {
   const [filter, setFilter] = useState<TrophyFilter>('all');
   const [sort, setSort] = useState<TrophySort>('game');
-  const [shown, setShown] = useState(TROPHY_PAGE);
+  // Пакет 7, п. 1: переход из «Прогресса по дополнениям» — показываем весь список, чтобы раздел был отрисован
+  const [shown, setShown] = useState(focus ? Number.MAX_SAFE_INTEGER : TROPHY_PAGE);
+  const focusedN = useRef(0);
   const sortId = useId();
   const list = useMemo(() => (state.kind === 'ok' ? state.data.trophyList : []), [state]);
   const counts = useMemo(() => trophyCounts(list), [list]);
@@ -22,6 +24,18 @@ export function TrophiesTab({ state, onRetry }: { state: DetailsState; onRetry: 
   const rows = useMemo(() => trophySections(sortTrophies(filterTrophies(list, filter), sort), list, groups).flatMap((x) => x.items), [list, filter, sort, groups]);
   const secId = useId();
   const hasDlc = useMemo(() => list.some(isDlcTrophy), [list]);
+  const ready = state.kind === 'ok';
+  useEffect(() => {
+    if (!focus || !ready || focusedN.current === focus.n) return;
+    const raf = requestAnimationFrame(() => {
+      focusedN.current = focus.n;
+      const h = document.querySelector<HTMLElement>(`[data-sec-key="${focus.key.replace(/"/g, '')}"] h3`);
+      if (!h) return;
+      h.scrollIntoView({ block: 'start' });
+      h.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focus, ready]);
 
   if (state.kind === 'loading') {
     return (
@@ -93,11 +107,14 @@ export function TrophiesTab({ state, onRetry }: { state: DetailsState; onRetry: 
             const secs = trophySections(view, list, groups);
             if (!hasDlc) return <ul className="ps-trophies">{view.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>;
             return secs.map((sec, i) => (
-              <section key={sec.key} className="ps-trophies-sec" aria-labelledby={`${secId}-${i}`} data-dlc={sec.dlc || undefined} data-testid="trophy-section">
-                <h3 className="ps-trophies-sec__h" id={`${secId}-${i}`}>
+              <section key={sec.key} className="ps-trophies-sec" aria-labelledby={`${secId}-${i}`} data-dlc={sec.dlc || undefined} data-testid="trophy-section"
+                data-sec-key={sec.key} data-state={sec.total > 0 && sec.earned >= sec.total ? 'done' : sec.earned > 0 ? 'open' : 'new'}
+              >
+                <h3 className="ps-trophies-sec__h" id={`${secId}-${i}`} tabIndex={-1}>
                   <span className="ps-trophies-sec__t">{sec.title}</span>{' '}
                   <span className="ps-trophies-sec__n num" aria-label={`получено ${sec.earned} из ${sec.total}`}>{sec.earned}/{sec.total}</span>
                 </h3>
+                <span className="ps-trophies-sec__bar" aria-hidden="true"><i style={{ width: `${sec.total > 0 ? Math.floor((sec.earned / sec.total) * 100) : 0}%` }} /></span>
                 <ul className="ps-trophies">{sec.items.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>
               </section>
             ));

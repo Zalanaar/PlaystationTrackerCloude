@@ -55,6 +55,34 @@ svg.ps-trophy__type { color: var(--plat-text); }
 .ps-trophies-sec__h { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-2); font: 600 var(--fs-body)/var(--lh-body) var(--font-body); color: var(--text); }
 .ps-trophies-sec__t { min-width: 0; overflow-wrap: anywhere; }
 .ps-trophies-sec__n { flex: none; margin-left: auto; color: var(--text-2); font-weight: 400; font-size: var(--fs-small); }
+/* Пакет 7, п. 1: полоса прогресса раздела, незакрытое DLC подсвечено */
+.ps-trophies-sec__h { scroll-margin-top: calc(120px + env(safe-area-inset-top)); }
+.ps-trophies-sec__h:focus { outline: none; }
+.ps-trophies-sec__h:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.ps-trophies-sec__bar { display: block; height: 4px; margin: -2px 0 var(--sp-2); border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-trophies-sec__bar i { display: block; height: 100%; background: var(--text-3); border-radius: inherit; }
+.ps-trophies-sec[data-state="done"] .ps-trophies-sec__bar i { background: var(--st-completed); }
+.ps-trophies-sec[data-dlc][data-state="open"] .ps-trophies-sec__bar i, .ps-trophies-sec[data-dlc][data-state="new"] .ps-trophies-sec__bar i { background: var(--st-backlog); }
+/* Пакет 7, п. 1: «Прогресс по дополнениям» в «Обзоре» */
+.ps-gd__dlcph { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--sp-3); margin-bottom: var(--sp-1); }
+.ps-gd__dlcph h3 { flex: 1 1 auto; margin: 0; font: 600 14px/20px var(--font-body); letter-spacing: 0; text-transform: none; color: var(--text); }
+.ps-gd__dlcps { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-gd__dlcp[data-open] .ps-gd__dlcps { color: var(--st-backlog); font-weight: 600; }
+.ps-gd__dlcpl { list-style: none; margin: 0; padding: 0; }
+.ps-gd__dlcpl li + li { border-top: var(--border-w) solid var(--border); }
+.ps-gd__dlcpr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px var(--sp-2); width: 100%; min-height: var(--tap-min, 44px); padding: 8px 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; }
+button.ps-gd__dlcpr { cursor: pointer; }
+.ps-gd__dlcpt { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; grid-column: 1; }
+.ps-gd__dlcpn { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+.ps-gd__dlcpl li[data-dlc] .ps-gd__dlcpn { font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-gd__dlcptag { flex: none; padding: 0 6px; border-radius: var(--r-pill); font-size: var(--fs-micro); line-height: 18px; font-weight: 600; color: var(--st-backlog); background: color-mix(in srgb, var(--st-backlog) 14%, transparent); }
+.ps-gd__dlcptag[data-state="new"] { color: var(--text-2); background: var(--surface-3); }
+.ps-gd__dlcpc { flex: none; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-gd__dlcpbar { grid-column: 1; display: block; height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-gd__dlcpbar i { display: block; height: 100%; background: var(--text-3); border-radius: inherit; }
+.ps-gd__dlcpl li[data-state="done"] .ps-gd__dlcpbar i { background: var(--st-completed); }
+.ps-gd__dlcpl li[data-dlc][data-state="open"] .ps-gd__dlcpbar i { background: var(--st-backlog); }
+.ps-gd__dlcpgo { grid-column: 2; grid-row: 1 / span 2; color: var(--text-3); }
 .ps-trophy__det { margin: 2px 0 0; font: 400 13px/18px var(--font-body); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .ps-trophy__det[data-muted] { color: var(--text-3); }
 .ps-trophy__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

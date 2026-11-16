@@ -2,7 +2,7 @@ import { isMaskable, isMasked, trophyAria as trophyAria5 } from './trophies';
 import { describe, expect, it } from 'vitest';
 import type { GameTrophyItem } from '@/server/collection/types';
 import {
-  filterTrophies, formatRate, isDlcTrophy, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophySections, trophyTitle, visibleTrophyCount,
+  filterTrophies, formatRate, isDlcTrophy, platinumEarnedAt, rarityLabel, raritySegments, sortTrophies, trophyAria, trophyCounts, trophySections, dlcProgress, trophyTitle, visibleTrophyCount,
 } from './trophies';
 
 const t = (trophyId: number, o: Partial<GameTrophyItem> = {}): GameTrophyItem => ({
@@ -141,5 +141,34 @@ describe('пакет 5 (t158u): маска скрытых трофеев', () =>
     expect([isMaskable(noName), isMasked(noName, true)]).toEqual([false, true]);
     expect(trophyAria5(h as never, true)).toBe('Бронза: Скрытый трофей, скрытый, не получено');
     expect(trophyAria5(h as never, false)).toBe('Бронза: Тайна, скрытый, не получено');
+  });
+});
+
+describe('dlcProgress (пакет 7, п. 1)', () => {
+  it('без DLC — null', () => {
+    expect(dlcProgress([t(0), t(1, { earned: true })])).toBeNull();
+  });
+  it('база и каждое DLC: проценты, состояние, сводка «мини-бэклога»', () => {
+    const all = [
+      t(0, { groupId: 'default', earned: true }), t(1, { groupId: 'default' }), t(2, { groupId: 'default', earned: true }),
+      t(3, { groupId: '001', earned: true }), t(4, { groupId: '001', earned: true }),
+      t(5, { groupId: '002', earned: true }), t(6, { groupId: '002' }), t(7, { groupId: '002' }),
+      t(8, { groupId: '003' }),
+    ];
+    const p = dlcProgress(all, [{ setId: 1, groupId: '001', name: 'Кровавые узы', iconUrl: null }])!;
+    expect(p.rows.map((r) => [r.title, r.dlc, r.earned, r.total, r.pct, r.state])).toEqual([
+      ['Основная игра', false, 2, 3, 66, 'open'],
+      ['Кровавые узы', true, 2, 2, 100, 'done'],
+      ['Дополнение 2', true, 1, 3, 33, 'open'],
+      ['Дополнение 3', true, 0, 1, 0, 'new'],
+    ]);
+    expect([p.dlcTotal, p.dlcOpen, p.summary]).toEqual([3, 2, 'Не закрыто 2 из 3 дополнений']);
+  });
+  it('все закрыты; одно дополнение', () => {
+    const one = [t(0), t(1, { groupId: '001', earned: true })];
+    expect(dlcProgress(one)!.summary).toBe('Дополнение закрыто');
+    const two = [...one, t(2, { groupId: '002', earned: true })];
+    expect(dlcProgress(two)!.summary).toBe('Все 2 дополнения закрыты');
+    expect(dlcProgress([t(0), t(1, { groupId: '001' })])!.summary).toBe('Не закрыто 1 из 1 дополнения');
   });
 });

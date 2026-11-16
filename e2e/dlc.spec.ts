@@ -99,4 +99,49 @@ test.describe('Фаза 36: DLC', () => {
       expect(c).not.toBe('rgba(0, 0, 0, 0)');
     }
   });
+
+  test('пакет 7, п. 1: «Прогресс по дополнениям» в «Обзоре» — база и каждое DLC, незакрытые подсвечены; строка ведёт к разделу трофеев', async ({ page, context, baseURL }) => {
+    const m = await setup(page, context, baseURL!, FORECAST);
+    m.trophies[3] = trophyList().map((t, i) => ({ ...t, groupId: i === 2 || i === 3 ? '001' : i === 5 ? '002' : 'default' })) as never;
+    m.trophyGroups = { 3: [{ setId: 1, groupId: '001', name: 'Кровавые узы', iconUrl: null }] };
+    await page.goto('/?game=3');
+    const dlg = page.getByRole('dialog');
+    const box = dlg.getByTestId('dlc-progress');
+    await expect(box).toBeVisible();
+    await expect(box.getByRole('heading', { name: 'Прогресс по дополнениям' })).toBeVisible();
+    await expect(box.getByTestId('dlc-progress-summary')).toHaveText('Не закрыто 2 из 2 дополнений');
+    const rows = box.getByTestId('dlc-progress-row');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toHaveAttribute('data-state', 'done');
+    await expect(rows.nth(0)).toContainText('Основная игра');
+    await expect(rows.nth(0)).toContainText('3/3');
+    await expect(rows.nth(0).locator('.ps-gd__dlcptag')).toHaveCount(0);
+    await expect(rows.nth(1)).toHaveAttribute('data-state', 'open');
+    await expect(rows.nth(1)).toContainText('Кровавые узы');
+    await expect(rows.nth(1)).toContainText('Не закрыто');
+    await expect(rows.nth(1)).toContainText('1/2');
+    await expect(rows.nth(2)).toHaveAttribute('data-state', 'new');
+    await expect(rows.nth(2)).toContainText('Дополнение 2');
+    await expect(rows.nth(2)).toContainText('Не начато');
+    // тап-зона строки ≥ 44
+    const rb = await rows.nth(2).getByRole('button').boundingBox();
+    expect(rb!.height).toBeGreaterThanOrEqual(44);
+    await noOverflow(page);
+    // строка открывает «Трофеи» на разделе этого DLC
+    await rows.nth(2).getByRole('button').click();
+    await expect(dlg.getByRole('tab', { name: /Трофеи/ })).toHaveAttribute('aria-selected', 'true');
+    const sec = dlg.locator('[data-testid="trophy-section"][data-sec-key="1:002"]');
+    await expect(sec).toBeVisible();
+    await expect(sec).toHaveAttribute('data-state', 'new');
+    await expect(sec.locator('h3')).toBeFocused();
+    await expect(sec.locator('h3')).toBeInViewport();
+  });
+
+  test('пакет 7, п. 1: без DLC блока нет', async ({ page, context, baseURL }) => {
+    const m = await setup(page, context, baseURL!, { ...FORECAST, dlc: null });
+    m.trophies[3] = trophyList() as never;
+    await page.goto('/?game=3');
+    await expect(page.getByRole('dialog').getByRole('region', { name: 'Путь к платине' })).toBeVisible();
+    await expect(page.getByTestId('dlc-progress')).toHaveCount(0);
+  });
 });

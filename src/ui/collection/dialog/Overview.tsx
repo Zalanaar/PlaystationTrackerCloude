@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import type { GameDetailsResponse, GameItem } from '@/server/collection/types';
 import { formatDayMonth } from '../../format';
 import { Icon } from '../../icons';
@@ -9,6 +9,8 @@ import { lastPlayedText } from '../details';
 import { History } from './History';
 import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
+import { DlcProgress } from './DlcProgress';
+import { dlcProgress } from '../trophies';
 import { ReviewEditor } from './ReviewEditor';
 import type { DialogHandlers } from './types';
 
@@ -22,15 +24,16 @@ function Kv({ label, children, className }: { label: string; children: React.Rea
 }
 
 export function Overview({
-  game, details, loading, now, onStatus, onHidden, onGameChanged, onNotDuplicate,
+  game, details, loading, now, onStatus, onHidden, onGameChanged, onNotDuplicate, onOpenTrophies,
 }: {
-  game: GameItem; details: GameDetailsResponse | null; loading: boolean; now: number;
+  game: GameItem; details: GameDetailsResponse | null; loading: boolean; now: number; onOpenTrophies?: (sectionKey: string) => void;
 } & DialogHandlers) {
   const hintId = useId();
   const hidden = !!game.hiddenAt;
 
   const skeleton = <span className="ps-skeleton ps-gd__sk-val" aria-hidden="true" />;
   const forecast = details?.platinumForecast ?? null;
+  const dlc = useMemo(() => (details ? dlcProgress(details.trophyList, details.trophyGroups ?? []) : null), [details]);
   // пока детали грузятся, место под прогноз резервируем, если платина в игре есть и не получена
   const forecastPending = loading && !details && game.trophies?.platinumDefined === true && !game.trophies.platinumEarned;
   const dateOr = (iso: string | null | undefined) => (details ? (formatDayMonth(iso ?? null, true) ?? 'нет данных') : loading ? skeleton : 'нет данных');
@@ -40,6 +43,9 @@ export function Overview({
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
       )}
+
+      {/* Пакет 7, п. 1: прогресс по основной игре и каждому DLC, незакрытые дополнения — мини-бэклог */}
+      {dlc && <DlcProgress data={dlc} onOpen={onOpenTrophies} />}
 
       {/* F1: оценка и заметка (детали загружены: заметки в GameItem нет) */}
       {details ? (

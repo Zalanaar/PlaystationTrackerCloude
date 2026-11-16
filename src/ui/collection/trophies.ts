@@ -132,4 +132,32 @@ export function trophySections(rows: readonly GameTrophyItem[], all: readonly Ga
   return out;
 }
 
+/** Пакет 7, п. 1: строка прогресса по разделу (основная игра или одно дополнение). */
+export type DlcProgressRow = { key: string; title: string; dlc: boolean; earned: number; total: number; pct: number; state: 'done' | 'open' | 'new' };
+export type DlcProgress = { rows: DlcProgressRow[]; dlcTotal: number; dlcOpen: number; summary: string };
+
+/**
+ * Пакет 7, п. 1: прогресс по основной игре и каждому дополнению (по полному списку трофеев и названиям групп PSN).
+ * state: done — всё получено, open — начато и не закрыто, new — ни одного трофея. Незакрытые дополнения — «мини-бэклог».
+ * null, если дополнений нет (блок не показываем).
+ */
+export function dlcProgress(all: readonly GameTrophyItem[], groups: readonly GameTrophyGroup[] = []): DlcProgress | null {
+  const secs = trophySections(all, all, groups);
+  if (!secs.some((x) => x.dlc)) return null;
+  const rows: DlcProgressRow[] = secs.map((x) => ({
+    key: x.key, title: x.title, dlc: x.dlc, earned: x.earned, total: x.total,
+    pct: x.total > 0 ? Math.floor((x.earned / x.total) * 100) : 0,
+    state: x.total > 0 && x.earned >= x.total ? 'done' : x.earned > 0 ? 'open' : 'new',
+  }));
+  const dlc = rows.filter((r) => r.dlc);
+  const open = dlc.filter((r) => r.state !== 'done').length;
+  const word = plural(dlc.length, ['дополнения', 'дополнений', 'дополнений']);
+  const summary = open === 0
+    ? (dlc.length === 1 ? 'Дополнение закрыто' : `Все ${dlc.length} ${plural(dlc.length, ['дополнение', 'дополнения', 'дополнений'])} закрыты`)
+    : `Не закрыто ${open} из ${dlc.length} ${word}`;
+  return { rows, dlcTotal: dlc.length, dlcOpen: open, summary };
+}
+
+export const DLC_STATE_LABEL: Record<DlcProgressRow['state'], string> = { done: 'Закрыто', open: 'Не закрыто', new: 'Не начато' };
+
 export const launchWord = (n: number) => plural(n, ['запуск', 'запуска', 'запусков']);

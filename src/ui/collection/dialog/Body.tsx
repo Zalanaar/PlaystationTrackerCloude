@@ -36,6 +36,7 @@ export function Body({
   // игра из облегчённого HTML (item 4) без длительности и баннера: как только пришли детали, шапка и плитки берут полный объект
   const game = (details && isSlimGame(gameProp) ? details.game : gameProp) ?? details?.game ?? null;
   const [tabState, setTab] = useState<DetailTab>(initialTab ?? 'overview');
+  const [focusSec, setFocusSec] = useState<{ key: string; n: number } | null>(null);
   const [bannerFailed, setBannerFailed] = useState<string | null>(null);
   const tabId = useId();
   const loadedCb = useRef(onLoaded);
@@ -156,10 +157,10 @@ export function Body({
 
       <div id={`${tabId}-p-${tab}`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} className="ps-gd__panel" data-tab={tab} tabIndex={0}>
         {tab === 'overview'
-          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} />
+          ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} onOpenTrophies={(key) => { setFocusSec((f) => ({ key, n: (f?.n ?? 0) + 1 })); setTab('trophies'); }} />
           : tab === 'guides'
             ? game && <GuidesTab key={`${game.id}|${details ? 1 : 0}`} game={game} guide={details?.guide ?? null} />
-            : <TrophiesTab state={state} onRetry={retry} />}
+            : <TrophiesTab state={state} onRetry={retry} focus={focusSec} />}
       </div>
     </div>
   );
