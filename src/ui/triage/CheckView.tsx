@@ -7,7 +7,7 @@ import { STATUS_HINT_RULES } from '@/shared/status-hints';
 import { EmptyState } from '../EmptyState';
 import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
 import { formatPlayTime, launchesText, formatDayMonth } from '../format';
-import { StatusGlyph } from '../icons';
+import { Icon, StatusGlyph } from '../icons';
 import { StatusMenu } from '../status';
 import { STATUS_META, TRIAGE_KEYS } from '../tokens';
 import {
@@ -18,7 +18,6 @@ import type { CheckQueue } from './useCheckQueue';
 
 const STATUS_KEYS = Object.entries(TRIAGE_KEYS) as [string, GameStatusValue][];
 const MOBILE_KEYS = STATUS_KEYS.filter(([, s]) => s !== 'service');
-const SHORT: Record<GameStatusValue, string> = { playing: 'Играю', completed: 'Пройд.', backlog: 'Бэклог', dropped: 'Бросил', shelved: 'Пауза', service: 'Сервис' };
 /** Известные правила: неизвестное из будущей версии API не рисуем (карточка всё равно доступна кнопками статусов). */
 const KNOWN_RULES: readonly string[] = STATUS_HINT_RULES;
 
@@ -253,14 +252,14 @@ function CheckMobile({ h, next, a, canUndo, exiting }: { h: HintItem; next?: Gam
           return (
             <button key={s} type="button" data-status={s} data-target={isHintTarget(h, s) || undefined} disabled={current} onClick={() => a.accept(s)} aria-label={STATUS_META[s].label}>
               <StatusGlyph status={s} size={20} />
-              <span>{SHORT[s]}</span>
+              <span>{STATUS_META[s].label}</span>
             </button>
           );
         })}
       </div>
       <div className="ps-tri__row2">
         <button type="button" className="ps-btn" onClick={a.undo} disabled={!canUndo}>Отменить</button>
-        <StatusMenu onPick={(s) => { if (s && !isCurrentStatus(h, s)) a.accept(s); }} label="Другой статус" hide={['none']} className="ps-tri__more" triggerClassName="ps-btn">Статус…</StatusMenu>
+        <StatusMenu onPick={(s) => { if (s && !isCurrentStatus(h, s)) a.accept(s); }} label="Другой статус" hide={['none']} className="ps-tri__more" triggerClassName="ps-btn">Статус<Icon name="chevron-down" size={16} /></StatusMenu>
       </div>
       <div className="ps-tri__row2">
         <button type="button" className="ps-btn ps-btn--ghost ps-sg__dismiss" onClick={a.dismiss} title="Это правило больше не будет предлагаться для этой игры">Не предлагать для этой игры</button>

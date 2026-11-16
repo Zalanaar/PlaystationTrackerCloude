@@ -452,7 +452,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
         {MOBILE_KEYS.map(([, s]) => (
           <button key={s} type="button" data-status={s} onClick={() => onAct(s)} aria-label={STATUS_META[s as StatusKey].label}>
             <StatusGlyph status={s} size={20} />
-            <span>{SHORT[s]}</span>
+            <span>{STATUS_META[s].label}</span>
           </button>
         ))}
       </div>
@@ -463,11 +463,10 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
           onPick={(s) => { if (s) onAct(s); }} label="Другой статус" hide={['none']} className="ps-tri__more"
           triggerClassName="ps-btn"
         >
-          Статус…
+          Статус<Icon name="chevron-down" size={16} />
         </StatusMenu>
       </div>
     </div>
   );
 }
 
-const SHORT: Record<GameStatusValue, string> = { playing: 'Играю', completed: 'Пройд.', backlog: 'Бэклог', dropped: 'Бросил', shelved: 'Пауза', service: 'Сервис' };

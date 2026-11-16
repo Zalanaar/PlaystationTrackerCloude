@@ -105,6 +105,26 @@ test.describe('Разбор (мобильный)', () => {
     await page.getByRole('group', { name: 'Статус игры' }).getByRole('button', { name: 'Бэклог' }).click();
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ body: { status: 'backlog' } });
   });
+
+  test('П9: подписи кнопок целиком при 390 px (без «Пройд.» и «Статус…» с обрезкой), шрифт не меньше 12 px', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/triage');
+    await expect(page.locator('.ps-stack3__top').first()).toBeVisible();
+    const acts = page.getByRole('group', { name: 'Статус игры' });
+    await expect(acts.getByRole('button', { name: 'Пройдено' })).toContainText('Пройдено');
+    // нет подписей, которые выглядят обрезанными («Пройд.», «Статус…»)
+    for (const txt of await page.locator('.ps-tri__actions button, .ps-tri__row2 .ps-btn').allTextContents()) expect(txt.trim()).not.toMatch(/[.…]$/);
+    // во всех 7 темах (у PS1–PS5 свои шрифты и отступы)
+    for (const t of ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5']) {
+      const cut = await page.evaluate((v) => {
+        if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v);
+        return [...document.querySelectorAll<HTMLElement>('.ps-tri__actions button span, .ps-tri__row2 .ps-btn')]
+          .filter((el) => el.scrollWidth > el.clientWidth + 1 || parseFloat(getComputedStyle(el).fontSize) < 12)
+          .map((el) => `${v}: ${el.textContent} ${el.scrollWidth}/${el.clientWidth} ${getComputedStyle(el).fontSize}`);
+      }, t);
+      expect(cut).toEqual([]);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  });
 });
 
 const list = (page: Page) => page.locator('.ps-bl-list');

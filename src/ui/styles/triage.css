@@ -68,7 +68,8 @@
 .ps-tri__edges { display: flex; justify-content: space-between; gap: var(--sp-2); margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-micro); }
 .ps-tri__edges span { display: inline-flex; align-items: center; gap: 4px; }
 .ps-tri__actions { display: flex; gap: 6px; margin-top: var(--sp-5); }
-.ps-tri__actions button { display: grid; place-items: center; align-content: center; gap: 2px; flex: 1; min-width: 0; height: 56px; padding: 0; background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text-2); font-size: 10px; cursor: pointer; }
+.ps-tri__actions button { display: grid; place-items: center; align-content: center; gap: 2px; flex: 1; min-width: 0; height: 56px; padding: 0; background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text-2); font-size: 12px; line-height: 16px; cursor: pointer; }
+.ps-tri__actions button span { max-width: 100%; white-space: nowrap; } /* П9: полные подписи под △○□✕, без «Пройд.» */
 .ps-tri__actions button:active { border-color: var(--st-x); }
 .ps-tri__row2 { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
 .ps-tri__row2 .ps-btn { flex: 1; height: var(--tap-min); }
