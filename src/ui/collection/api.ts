@@ -6,6 +6,7 @@ import type { DayResponse, OnThisDayResponse } from '@/server/stats/day';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type { BacklogAgeResponse } from '@/server/collection/backlog-age';
+import type { TimeFitResponse } from '@/server/collection/time-fit';
 import type {
   BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameGuide, GameItem, GameReview, GameMutationResponse, GamesBatchResponse, GamesListResponse, GameStatusValue,
   StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
@@ -82,6 +83,8 @@ export const fetchDay = (date: string, signal?: AbortSignal) => cachedGet<DayRes
 /** П11.2 «В этот день». */
 /** П12.4: возраст бэклога (без кэша: после смены статуса нужен свежий ответ). */
 export const fetchBacklogAge = (signal?: AbortSignal) => call<BacklogAgeResponse>('/api/collection/backlog-age', { signal });
+/** П12.5: «У меня 2 часа». */
+export const fetchTimeFit = (minutes: number, signal?: AbortSignal) => call<TimeFitResponse>(`/api/collection/time-fit?minutes=${minutes}`, { signal });
 export const fetchOnThisDay = (signal?: AbortSignal) => cachedGet<OnThisDayResponse>('/api/stats/on-this-day', signal);
 
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) => {

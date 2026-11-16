@@ -208,3 +208,24 @@
   .ps-nextup > :not(.ps-nextup__play) { grid-column: 1; }
   .ps-nextup__play { grid-column: 2; grid-row: 1 / span 3; width: auto; margin-top: 0; padding: 0 var(--sp-6); }
 }
+
+/* П12.5 «У меня 2 часа»: окно подбора по времени. Тело с минимальной высотой — смена времени не дёргает окно. */
+.ps-tfit__seg { display: flex; }
+.ps-tfit__seg button { flex: 1 1 0; height: var(--tap-min); font-size: var(--fs-small); }
+.ps-tfit__hint { margin: var(--sp-2) 0 0; font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
+.ps-tfit__body { min-height: 228px; margin-top: var(--sp-3); }
+.ps-tfit__h { margin: var(--sp-3) 0 var(--sp-1); font: 600 var(--fs-small)/20px var(--font-body); color: var(--text-2); }
+.ps-tfit__h:first-child { margin-top: 0; }
+.ps-tfit__list { list-style: none; margin: 0; padding: 0; }
+.ps-tfit__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 16px; align-items: center; gap: var(--sp-3); width: 100%; min-height: 60px; padding: var(--sp-2) 0; border: 0; border-top: var(--border-w) solid var(--border); background: none; color: var(--text-2); text-align: left; cursor: pointer; font: inherit; }
+.ps-tfit__list li:first-child .ps-tfit__row { border-top: 0; }
+.ps-tfit__row:hover { background: var(--surface-2); }
+.ps-tfit__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ps-tfit .ps-tfit__thumb { width: 36px; height: 48px; aspect-ratio: auto; border-radius: var(--r-sm); padding: 0; font-size: var(--fs-micro); }
+.ps-tfit .ps-tfit__thumb.ps-cover--empty span { display: none; }
+.ps-tfit__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-tfit__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/18px var(--font-body); color: var(--text); }
+.ps-tfit__meta { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); overflow-wrap: anywhere; }
+.ps-tfit__empty { margin: 0; font: 400 var(--fs-small)/20px var(--font-body); color: var(--text-2); }
+.ps-tfit__sk { display: grid; gap: var(--sp-3); }
+.ps-tfit__sk span { display: block; height: 52px; border-radius: var(--r-sm); }

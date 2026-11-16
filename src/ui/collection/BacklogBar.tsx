@@ -21,7 +21,7 @@ export function BacklogViewSeg({ view, onView }: { view: BacklogView; onView: (v
 }
 
 /** Меню страницы «…»: подгрузка длительности с HLTB и перепроверка не найденных. */
-export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; onHltb: (recheckNotFound: boolean) => void; onAdd?: () => void }) {
+export function BacklogPageMenu({ running, onHltb, onAdd, onTime }: { running: boolean; onHltb: (recheckNotFound: boolean) => void; onAdd?: () => void; /** П12.5 */ onTime?: () => void }) {
   return (
     <Popover
       align="end" className="ps-bl-pagemenu"
@@ -37,6 +37,15 @@ export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; 
             <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="bl-menu-add" onClick={() => { close(); onAdd(); }}>
               <Icon name="plus" size={16} />
               <span className="ps-menu-item__label">Добавить из магазина PS</span>
+            </button>
+          )}
+          {onTime && (
+            <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="bl-menu-time" onClick={() => { close(); onTime(); }}>
+              <Icon name="timer" size={16} />
+              <span className="ps-menu-item__label">
+                У меня 2 часа
+                <small className="ps-menu-item__hint">Что успеть пройти или продолжить</small>
+              </span>
             </button>
           )}
           <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={running} data-testid="hltb-start" onClick={() => { close(); onHltb(false); }}>

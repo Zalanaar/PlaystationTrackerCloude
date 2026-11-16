@@ -3632,3 +3632,10 @@ RAWG остаётся главным каталогом, пока отвечае
 Сессия обязательна (401). Ответ `{ ok: true, data: BacklogAgeResponse }`, ETag/304; 503 `db_unavailable` без деталей. Состав — как у основного списка «Бэклог» (`backlogGameWhere`: статус «Бэклог», без скрытых и дублей).
 - `items[]` — `{ gameId, since, source }`: `since` — первый запуск (`source: 'played'`), если он раньше перевода в «Бэклог», иначе дата смены статуса (`'status'`); будущие даты обрезаются до «сейчас».
 - `summary` — `count`, `medianDays` (медиана полных суток, `null` при пустом бэклоге), `overYear` (365+ суток), `oldest` `{ gameId, title, since }` или `null`.
+
+## П12. У меня 2 часа `GET /api/collection/time-fit?minutes=120`
+Сессия обязательна (401). `minutes` — целое 15–600, по умолчанию 120; иначе 400 `invalid_request`. Ответ `{ ok: true, data: TimeFitResponse }`, ETag/304; 503 `db_unavailable` без деталей. Игры — видимые «Играю» и «Бэклог» (без скрытых и дублей; наигранное с дублями).
+- `remainingMinutes` — длительность (ручная, иначе HLTB) минус наигранное; `null` — длительности нет или уже переиграна.
+- `finish[]` (до 5) — остаток ≤ `minutes` × 1.15: сначала «Играю», затем больший остаток (заполнить время).
+- `resume[]` (до 3) — остальные «Играю», свежие запуски первыми.
+- Элемент: `{ id, title, coverUrl, status, remainingMinutes, lastPlayedAt }`.
