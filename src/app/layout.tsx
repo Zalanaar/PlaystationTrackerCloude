@@ -11,6 +11,7 @@ import { ServiceWorkerRegister } from '@/ui/pwa/ServiceWorkerRegister';
 import { ThemeColorSync } from '@/ui/pwa/ThemeColorSync';
 import { APPLE_STATUS_BAR_STYLE } from '@/ui/theme-meta';
 import { appleStartupImages } from '@/shared/splash';
+import { manifestHref } from '@/shared/manifest';
 import { themeInitScript } from '@/ui/theme-script';
 import { attrForTheme, normalizeTheme, xmbMonth } from '@/ui/theme';
 import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
@@ -18,13 +19,18 @@ import { THEME_COLORS, THEME_STORAGE_KEY } from '@/ui/tokens';
 const inter = Inter({ subsets: ['latin', 'cyrillic'], display: 'swap', variable: '--f-inter' });
 const unbounded = Unbounded({ subsets: ['latin', 'cyrillic'], weight: ['500', '600', '700'], display: 'swap', variable: '--f-unbounded' });
 
-export const metadata: Metadata = {
-  title: 'PS Tracker',
-  description: 'Личный трекер игр PlayStation',
-  robots: { index: false, follow: false },
-  // Пакет 6, п. 8: заставки запуска PWA на iPhone (без белой вспышки), картинки public/splash (scripts/gen-splash.mjs)
-  appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: APPLE_STATUS_BAR_STYLE, startupImage: appleStartupImages() },
-};
+/** П11.5.2: заставки iOS и цвета манифеста — по теме из cookie (Night по умолчанию). */
+export async function generateMetadata(): Promise<Metadata> {
+  const theme = normalizeTheme((await cookies()).get(THEME_STORAGE_KEY)?.value);
+  return {
+    title: 'PS Tracker',
+    description: 'Личный трекер игр PlayStation',
+    robots: { index: false, follow: false },
+    manifest: manifestHref(theme),
+    // Пакет 6, п. 8: заставки запуска PWA на iPhone (без белой/чёрной вспышки), картинки public/splash (scripts/gen-splash.mjs)
+    appleWebApp: { capable: true, title: 'PS Tracker', statusBarStyle: APPLE_STATUS_BAR_STYLE, startupImage: appleStartupImages(theme) },
+  };
+}
 
 /** viewport-fit=cover (иначе env(safe-area-inset-*) на iPhone равен 0) и theme-color = --bg темы из cookie (§8.5). */
 export async function generateViewport(): Promise<Viewport> {
@@ -45,6 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://image.api.playstation.com" />
       </head>
       <body>
+        {/* П11.5.2: заставка запуска PWA (только display-mode: standalone) до гидратации, вместо пустого тёмного экрана; base.css */}
+        <div className="ps-boot" aria-hidden="true" />
         <div className="ps-app min-h-screen">{children}<div className="ps-decor" aria-hidden="true" /></div>
         <ServiceWorkerRegister />
         <ThemeColorSync />

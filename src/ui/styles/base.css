@@ -401,3 +401,19 @@ body::before {
   .ps-route[data-enter] { animation: ps-route-in 180ms var(--ease-ui) both; }
 }
 @keyframes ps-route-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* П11.5.2: заставка холодного старта PWA до гидратации — тот же кадр, что apple-touch-startup-image (фон темы, иконка 28% ширины),
+   поверх скелета, пока не ожил JS. Только PWA (класс ps-standalone ставит theme-script; запасной путь — media display-mode); data-hydrated ставит ThemeColorSync; через 8 с прячется сама (JS упал). */
+.ps-boot { display: none; }
+html.ps-standalone:not([data-hydrated]) .ps-boot {
+  position: fixed; inset: 0; z-index: 2147483000; display: block; background: var(--bg);
+  animation: ps-boot-hide 0s 8s forwards;
+}
+@media (display-mode: standalone) {
+  html:not([data-hydrated]) .ps-boot { position: fixed; inset: 0; z-index: 2147483000; display: block; background: var(--bg); animation: ps-boot-hide 0s 8s forwards; }
+}
+/* картинка — фоном только у видимой заставки: вне PWA не скачивается */
+html:not([data-hydrated]) .ps-boot::before { content: ''; position: absolute; inset: 0; background: url(/icons/icon-maskable-512.png) center / 28vmin no-repeat; animation: ps-boot-pulse 1.2s ease-in-out .6s infinite alternate both; }
+@keyframes ps-boot-hide { to { visibility: hidden; } }
+@keyframes ps-boot-pulse { from { opacity: 1; } to { opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .ps-boot::before { animation: none; } }

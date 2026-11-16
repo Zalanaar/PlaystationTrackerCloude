@@ -2928,3 +2928,9 @@ Contrast: `--text` на подложке 16% `--warning` над `--surface` не
 
 ### П11.5.1: плавная смена вкладок (телефон, PWA)
 `src/app/(app)/template.tsx` пересоздаётся при смене раздела (не при смене `?query`); обёртка `.ps-route[data-enter]` появляется с прозрачности за 180 мс. Только ширина ≤ 767 px, первая загрузка и `prefers-reduced-motion: reduce` — без анимации. Без `transform` (не ломает `position: fixed` внутри страниц) и без сдвига вёрстки.
+
+### П11.5.2: заставка холодного старта PWA в цвет темы
+- Манифест — `/manifest.webmanifest` (route handler, `src/shared/manifest.ts`): у не-night темы ссылка `?theme=<id>` (запрос манифеста идёт без cookie), `background_color`/`theme_color` = цвет темы. Night — прежний адрес без параметра.
+- Заставки iOS (`apple-touch-startup-image`): night в `public/splash/`, остальные темы в `public/splash/<theme>/` (`scripts/gen-splash.mjs`). Ссылки строит `generateMetadata` в `layout.tsx` по cookie темы. iOS запоминает заставку при «На экран Домой»: после смены темы нужна переустановка.
+- Встроенная заставка `.ps-boot` в начальном HTML: фон `var(--bg)` + маскируемая иконка (28vmin, лёгкая пульсация; при reduced motion — без неё). Видна только в PWA (класс `html.ps-standalone` ставит inline theme-script по `navigator.standalone` / `display-mode: standalone`; плюс media-запрос) и до `html[data-hydrated]` (ставит ThemeColorSync). Через 8 с прячется сама. Вне PWA скрыта, картинка не грузится.
+- Промежуток до первого байта HTML закрывает только системная заставка (iOS startup image / Android splash из манифеста).

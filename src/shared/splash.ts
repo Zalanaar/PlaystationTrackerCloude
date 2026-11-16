@@ -18,11 +18,21 @@ export const SPLASH_SCREENS: readonly SplashScreen[] = [
   { w: 320, h: 568, dpr: 2 }, // SE 1
 ];
 
-export const splashFile = (s: SplashScreen): string => `splash/iphone-${s.w * s.dpr}x${s.h * s.dpr}.png`;
+/**
+ * П11.5.2: фон заставки по теме (= THEME_COLORS, проверяет splash.test.ts). Night — файлы в корне public/splash (как раньше),
+ * остальные темы — public/splash/<тема>/.
+ */
+export const SPLASH_THEME_BG = {
+  night: '#0e0f16', graphite: '#111113', ps1: '#1c1c22', ps2: '#070b1a', ps3: '#10070b', ps4: '#02173d', ps5: '#0a0a0c',
+} as const;
+export type SplashTheme = keyof typeof SPLASH_THEME_BG;
+
+export const splashFile = (s: SplashScreen, theme: SplashTheme = 'night'): string =>
+  `splash/${theme === 'night' ? '' : `${theme}/`}iphone-${s.w * s.dpr}x${s.h * s.dpr}.png`;
 
 /** media для <link rel="apple-touch-startup-image">: только портрет (PWA открывается в портрете). */
 export const splashMedia = (s: SplashScreen): string =>
   `(device-width: ${s.w}px) and (device-height: ${s.h}px) and (-webkit-device-pixel-ratio: ${s.dpr}) and (orientation: portrait)`;
 
-export const appleStartupImages = (): { url: string; media: string }[] =>
-  SPLASH_SCREENS.map((s) => ({ url: `/${splashFile(s)}`, media: splashMedia(s) }));
+export const appleStartupImages = (theme: SplashTheme = 'night'): { url: string; media: string }[] =>
+  SPLASH_SCREENS.map((s) => ({ url: `/${splashFile(s, theme)}`, media: splashMedia(s) }));

@@ -11,6 +11,8 @@ import { themeFromAttr } from '../theme';
  */
 export function ThemeColorSync() {
   const path = usePathname();
+  // П11.5.2: приложение ожило — заставка холодного старта PWA (.ps-boot) больше не нужна
+  useEffect(() => { document.documentElement.setAttribute('data-hydrated', ''); }, []);
   useEffect(() => {
     const apply = () => { syncThemeMeta(document as never, themeFromAttr(document.documentElement.getAttribute('data-theme'))); };
     apply();
