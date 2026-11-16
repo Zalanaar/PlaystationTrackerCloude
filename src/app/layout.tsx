@@ -45,7 +45,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://image.api.playstation.com" />
       </head>
       <body>
-        <div className="ps-app min-h-screen">{children}</div>
+        <div className="ps-app min-h-screen">{children}<div className="ps-decor" aria-hidden="true" /></div>
         <ServiceWorkerRegister />
         <ThemeColorSync />
       </body>

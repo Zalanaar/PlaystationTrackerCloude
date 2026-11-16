@@ -7,14 +7,14 @@
    .ps-app: position relative, isolation isolate; контент выше декора (z-index 1), декор на z-index -1/-2.
 
    ОБЩИЕ ОГРАНИЧЕНИЯ
-   - Декор только на псевдоэлементах .ps-app (pointer-events none), анимируется только transform (и opacity), без filter/width/top в анимации.
+   - Декор только на псевдоэлементах .ps-app и в .ps-decor (aria-hidden, fixed, pointer-events none), анимируется только transform (и opacity), без filter/width/top в анимации.
    - prefers-reduced-motion: все анимации декора выключены, слои остаются статичными.
    - Мобильный (меньше 768px): тяжёлое отключено или упрощено (см. блок в конце).
    - Печать: декор скрыт.
    - Фигуры из статусов (треугольник, круг, квадрат, крест, пауза, ромб) в декоре не используются.
 
    ОГРАНИЧЕНИЯ КОНТРАСТА (при них верна таблица в docs/design-system.md; не усиливать без пересчёта)
-   | PS2 | суммарная плотность тумана не больше .24 (пятна .16 и .08 разнесены), башни не больше .06 и только в нижних 420px |
+   | PS2 | суммарная плотность тумана не больше .24 (пятна .17 и .07 разнесены), грань кристалла не больше .06 (слой до 82vh снизу, маска сверху), кубы за контентом |
    | PS3 | волна не выше top 240px (ниже уже фон не светлее --xmb-b), полоса не больше .05, линии не больше .06; градиент --xmb-a не светлее яркости .0125 |
    | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются; на мобильном статичные, без подъёма |
    | PS5 | арт opacity не больше .28, затемнение сверху не меньше .45 |
@@ -66,22 +66,39 @@
 /* тёмный текст на светлом чипе поверх обложки: тень от белого текста не нужна */
 [data-theme="ps1"] :is(.ps-card__date, .ps-hero__label) { text-shadow: none; }
 
-/* ---------- PS2: синий туман (дрейф 60 с), силуэты башен внизу, фаска ---------- */
+/* ---------- PS2: синий туман (дрейф 60 с), кристаллы по краям первого экрана, CSS-кубы, фаска ----------
+   Айдентика тем, шаг 3 (Crystal Towers): свои силуэты кристаллов (пятиугольники из двух граней, не фигуры статусов) по краям и в центре,
+   слой на высоту до 82vh с маской сверху — видны в промежутках за годом, чипами месяцев и между обложками; грань не плотнее .06.
+   Кубы — отдельный элемент .ps-decor (aria-hidden, pointer-events none): на мобильном статичные, от 768px медленный сдвиг transform. */
 [data-theme="ps2"] .ps-app::before {
   content: ""; position: fixed; inset: -10%; pointer-events: none; z-index: -2;
-  background: radial-gradient(40% 30% at 20% 12%, rgba(70, 110, 200, .16), transparent 70%),
-              radial-gradient(35% 26% at 82% 48%, rgba(70, 110, 200, .08), transparent 70%);
+  background: radial-gradient(46% 34% at 18% 10%, rgba(70, 110, 200, .17), transparent 70%),
+              radial-gradient(40% 28% at 86% 40%, rgba(70, 110, 200, .07), transparent 70%);
   animation: ps2-fog 60s ease-in-out infinite alternate; will-change: transform;
 }
 [data-theme="ps2"] .ps-app::after {
-  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 420px; pointer-events: none; z-index: -1;
-  background: repeating-linear-gradient(90deg, transparent 0 58px, rgba(120, 160, 255, .06) 58px 64px, transparent 64px 92px, rgba(120, 160, 255, .04) 92px 96px, transparent 96px 140px);
-  -webkit-mask: linear-gradient(transparent, #000 70%); mask: linear-gradient(transparent, #000 70%);
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: min(640px, 82vh); pointer-events: none; z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='4,560 17.0,560 17.0,120 7.9,150'/%3E%3Cpolygon points='36,560 56.0,560 56.0,24 42.0,60'/%3E%3Cpolygon points='84,560 95.0,560 95.0,226 87.3,250'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='17.0,560 30,560 26.1,150 17.0,120'/%3E%3Cpolygon points='56.0,560 76,560 70.0,60 56.0,24'/%3E%3Cpolygon points='95.0,560 106,560 102.7,250 95.0,226'/%3E%3C/g%3E%3C/svg%3E") left bottom / auto 100% no-repeat,
+              url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='30,560 48.0,560 48.0,262 35.4,300'/%3E%3Cpolygon points='74,560 83.0,560 83.0,360 76.7,380'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='48.0,560 66,560 60.6,300 48.0,262'/%3E%3Cpolygon points='83.0,560 92,560 89.3,380 83.0,360'/%3E%3C/g%3E%3C/svg%3E") 58% bottom / auto 100% no-repeat,
+              url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='10,560 20.0,560 20.0,238 13.0,260'/%3E%3Cpolygon points='38,560 60.0,560 60.0,6 44.6,40'/%3E%3Cpolygon points='90,560 103.0,560 103.0,140 93.9,170'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='20.0,560 30,560 27.0,260 20.0,238'/%3E%3Cpolygon points='60.0,560 82,560 75.4,40 60.0,6'/%3E%3Cpolygon points='103.0,560 116,560 112.1,170 103.0,140'/%3E%3C/g%3E%3C/svg%3E") right bottom / auto 100% no-repeat;
+  -webkit-mask: linear-gradient(transparent, #000 40%); mask: linear-gradient(transparent, #000 40%);
+}
+.ps-decor { display: none; }
+[data-theme="ps2"] .ps-decor {
+  /* как на утверждённом макете: справа у карточки профиля, поверх, но прозрачно и без событий; absolute — уезжает вместе с первым экраном */
+  display: block; position: absolute; right: 14px; top: calc(env(safe-area-inset-top, 0px) + 96px); width: 52px; height: 52px;
+  pointer-events: none; z-index: 2; opacity: .55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56'%3E%3Cg stroke='%23c8dcff' stroke-opacity='.35' stroke-width='.6' stroke-linejoin='round'%3E%3Cpolygon points='18,12 26.7,17.0 18,22 9.3,17.0' fill='%23d2e6ff' fill-opacity='.30'/%3E%3Cpolygon points='9.3,17.0 18,22 18,32 9.3,27.0' fill='%23b4d2ff' fill-opacity='.20'/%3E%3Cpolygon points='18,22 26.7,17.0 26.7,27.0 18,32' fill='%23789fe6' fill-opacity='.16'/%3E%3Cpolygon points='38,5.5 45.4,9.75 38,14 30.6,9.75' fill='%23d2e6ff' fill-opacity='.30'/%3E%3Cpolygon points='30.6,9.75 38,14 38,22.5 30.6,18.25' fill='%23b4d2ff' fill-opacity='.20'/%3E%3Cpolygon points='38,14 45.4,9.75 45.4,18.25 38,22.5' fill='%23789fe6' fill-opacity='.16'/%3E%3Cpolygon points='40,31 46.1,34.5 40,38 33.9,34.5' fill='%23d2e6ff' fill-opacity='.30'/%3E%3Cpolygon points='33.9,34.5 40,38 40,45 33.9,41.5' fill='%23b4d2ff' fill-opacity='.20'/%3E%3Cpolygon points='40,38 46.1,34.5 46.1,41.5 40,45' fill='%23789fe6' fill-opacity='.16'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (min-width: 768px) {
+  /* десктоп: правый край строки заголовка страницы (там пусто), медленный сдвиг */
+  [data-theme="ps2"] .ps-decor { right: 32px; top: 64px; width: 60px; height: 60px; opacity: .65; animation: ps2-cubes 30s ease-in-out infinite alternate; will-change: transform; }
 }
 [data-theme="ps2"] :is(.ps-panel, .ps-row-table, .ps-hero__mini) {
   box-shadow: inset 0 1px 0 rgba(170, 200, 255, .10), inset 0 -1px 0 rgba(0, 0, 0, .5);
 }
 @keyframes ps2-fog { to { transform: translate3d(-5%, 4%, 0); } }
+@keyframes ps2-cubes { to { transform: translate3d(-8px, 10px, 0); } }
 
 /* ---------- PS3: градиент XMB сверху (цвета по месяцу: --xmb-a, --xmb-b), волна, свечение выделения ---------- */
 [data-theme="ps3"] .ps-app::before {
@@ -176,11 +193,11 @@
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .ps-skeleton { animation: none !important; }
-  .ps-app::before, .ps-app::after { animation: none !important; }
+  .ps-app::before, .ps-app::after, .ps-decor { animation: none !important; }
   [data-theme="ps4"] .ps-card[data-active="true"] .ps-card__cover { transform: none; }
 }
 
 /* ---------- Печать ---------- */
 @media print {
-  .ps-app::before, .ps-app::after, .ps-header::after { display: none !important; }
+  .ps-app::before, .ps-app::after, .ps-header::after, .ps-decor { display: none !important; }
 }

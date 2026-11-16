@@ -73,3 +73,27 @@ test.describe('Tiles (ps4)', () => {
     }
   });
 });
+
+test.describe('Crystal Towers (ps2)', () => {
+  test('кристаллы по краям первого экрана, кубы: на мобильном статичные, от 768px сдвиг; reduced-motion без анимации; в других темах кубов нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps2');
+    const a = await pseudo(page, '.ps-app', '::after');
+    expect(a!.bg.match(/url\(/g)?.length).toBe(3); // левая, центральная и правая группы кристаллов
+    expect(a!.height).toBeGreaterThan(420); // не только нижние 420px: слой доходит до года и чипов месяцев
+    const decor = page.locator('.ps-decor');
+    await expect(decor).toHaveAttribute('aria-hidden', 'true');
+    const st = await decor.evaluate((el) => { const cs = getComputedStyle(el); return { display: cs.display, anim: cs.animationName, pe: cs.pointerEvents, w: el.getBoundingClientRect().width }; });
+    expect(st.display).toBe('block');
+    expect(st.pe).toBe('none');
+    expect(st.w).toBeGreaterThan(40);
+    expect(st.anim).toBe(isMobile(page) ? 'none' : 'ps2-cubes');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await decor.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+    await page.waitForTimeout(1500);
+    expect(await cls(page)).toBe(0);
+    for (const t of ['night', 'graphite', 'ps4']) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
+      expect(await decor.evaluate((el) => getComputedStyle(el).display), t).toBe('none');
+    }
+  });
+});

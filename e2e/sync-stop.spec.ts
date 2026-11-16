@@ -103,12 +103,14 @@ test.describe('Фаза 32.1: остановка синка', () => {
     const { posts } = await open(page, baseURL as string);
     await page.getByRole('button', { name: 'Остановить' }).click();
     const ok = page.getByRole('alertdialog').getByRole('button', { name: 'Остановить' });
+    await expect(ok).toBeEnabled(); // под нагрузкой CI двойной клик успевал уйти до готовности кнопки и глотался catch (флак)
     await ok.dblclick({ force: true }).catch(() => undefined);
     await expect(page.getByTestId('sync-cancelled')).toBeVisible();
     expect(posts.filter((p) => p.startsWith('cancel'))).toHaveLength(1);
 
     const second = await open(page, baseURL as string);
     const rb = page.getByRole('button', { name: 'Перезапустить' });
+    await expect(rb).toBeEnabled();
     await rb.dblclick({ force: true }).catch(() => undefined);
     await expect.poll(() => second.posts.filter((p) => p.startsWith('sync')).length).toBeGreaterThan(0);
     expect(second.posts.filter((p) => p.startsWith('sync'))).toHaveLength(1);
