@@ -267,6 +267,8 @@
   transform: translate(-50%, calc(-100% - 6px)); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text);
 }
 .ps-heat__tip b { font: 600 13px/16px var(--font-body); }
+/* П11.4 мини-итоги месяца в «Играх месяца» */
+.ps-month-sum { margin: -4px 0 var(--sp-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); overflow-wrap: anywhere; }
 /* П11.3 «Год к году»: место занято сразу (скелет той же высоты) */
 .ps-yoy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-3); min-height: 20px; margin: var(--sp-1) 0 var(--sp-3); font: 400 var(--fs-small)/20px var(--font-body); color: var(--text-2); }
 .ps-yoy__t { color: var(--text-3); }

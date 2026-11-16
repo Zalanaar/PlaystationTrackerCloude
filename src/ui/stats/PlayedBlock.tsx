@@ -17,6 +17,7 @@ import {
 } from './monthExclusion';
 import { monthHoursText, type Selection } from './model';
 import { pickPlayedMonth } from './playedMonth';
+import { monthSummary } from './monthSummary';
 
 const keyOf = (g: PlayedGroup, i: PlayedItem) => `${g.month}:${i.gameId}`;
 
@@ -108,6 +109,15 @@ export function PlayedBlock({
         return (
           <div key={g.month} className="ps-st-played__month">
             <MonthHeader m={{ month: g.monthNumber, completed: g.completed, dropped: g.dropped }} games={g.items.length} />
+            {(() => {
+              // П11.4: мини-итоги месяца одной строкой (часы, трофеи, главная игра)
+              const sum = monthSummary(data, g);
+              return sum.length > 0 && (
+                <p className="ps-month-sum" data-testid="month-summary">
+                  {sum.map((x, i) => <span key={x.key} data-k={x.key}>{i > 0 && <span aria-hidden="true"> · </span>}{x.text}</span>)}
+                </p>
+              );
+            })()}
             {g.items.length > 0 ? (
               <GameGrid density="dense" label={label}>
                 {g.items.map((i) => {
