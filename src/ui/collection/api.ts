@@ -2,6 +2,7 @@
 import { deviceTimeZone, MSK_TZ } from '@/shared/tz';
 import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
+import type { DayResponse } from '@/server/stats/day';
 import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type {
@@ -73,6 +74,9 @@ export const fetchStats = (query: URLSearchParams, signal?: AbortSignal) =>
 /** Стрик и карта активности года (14.3). Грузится лениво, отдельно от /api/stats. */
 export const fetchActivity = (year: number, signal?: AbortSignal) =>
   cachedGet<ActivityResponse>(`/api/stats/activity?year=${year}`, signal);
+
+/** П11.1 «Дневник дня» (контракт П11). */
+export const fetchDay = (date: string, signal?: AbortSignal) => cachedGet<DayResponse>(`/api/stats/day?date=${date}`, signal);
 
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) => {
   const q = withTz(new URLSearchParams(year === null ? '' : `year=${year}`)).toString();

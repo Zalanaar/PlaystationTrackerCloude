@@ -256,7 +256,9 @@
 .ps-heat__c[data-l="f"] { opacity: .4; }
 .ps-heat__c[data-l="x"] { visibility: hidden; }
 .ps-heat__c[data-today] { outline: 1.5px solid var(--text-2); outline-offset: -1px; }
-.ps-heat__c[role="gridcell"] { cursor: default; }
+.ps-heat__c[role="gridcell"] { cursor: pointer; }
+.ps-heat__c[role="gridcell"][data-l="f"] { cursor: default; }
+.ps-heat__c[data-sel] { outline: 2px solid var(--accent); outline-offset: -1px; }
 .ps-heat__c[role="gridcell"]:hover { outline: 1.5px solid var(--text); outline-offset: -1px; }
 .ps-heat__c[role="gridcell"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; position: relative; z-index: 1; }
 .ps-heat__tip {
@@ -265,6 +267,30 @@
   transform: translate(-50%, calc(-100% - 6px)); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text);
 }
 .ps-heat__tip b { font: 600 13px/16px var(--font-body); }
+/* П11.1 «Дневник дня» */
+.ps-day { margin-top: var(--sp-3); padding: var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.ps-day__head { display: flex; align-items: center; gap: var(--sp-1); }
+.ps-day__t { flex: 1 1 auto; min-width: 0; margin: 0; text-align: center; font: var(--fw-h2) 14px/20px var(--font-display); color: var(--text); }
+.ps-day__x { margin-left: var(--sp-1); }
+.ps-day__sum, .ps-day__msg, .ps-day__more { margin: var(--sp-2) 0 0; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); text-align: center; }
+.ps-day__list, .ps-day__trl { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.ps-day__row { display: flex; align-items: center; gap: var(--sp-3); min-height: 44px; padding: 4px var(--sp-2); border-radius: var(--r-sm); color: var(--text); text-decoration: none; }
+.ps-day__row:hover { background: var(--surface-3); }
+.ps-day__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ps-day__c { flex: none; width: 27px; height: 36px; border-radius: var(--r-cover); }
+.ps-day__nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 14px/20px var(--font-body); }
+.ps-day__v { flex: none; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); }
+.ps-day__tr { margin-top: var(--sp-2); }
+.ps-day__trh { margin: var(--sp-2) 0 0; font: 600 13px/18px var(--font-body); color: var(--text); }
+.ps-day__trl li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-2); align-items: start; padding: 4px var(--sp-2); }
+.ps-day__trl li svg { margin-top: 3px; color: var(--bronze); }
+.ps-day__trl li[data-type="silver"] svg { color: var(--silver); }
+.ps-day__trl li[data-type="gold"] svg { color: var(--gold); }
+.ps-day__trl li[data-type="platinum"] svg { color: var(--plat-2); }
+.ps-day__trn { overflow-wrap: anywhere; font: 500 14px/20px var(--font-body); color: var(--text); }
+.ps-day__trg { grid-column: 2; overflow-wrap: anywhere; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
+.ps-day__sk { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ps-day__sk-row { display: block; height: 44px; border-radius: var(--r-sm); }
 .ps-act__legend { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
 .ps-act__unknown { display: flex; align-items: flex-start; gap: 6px; max-width: 620px; margin: 0; }
 .ps-act__unknown svg { flex: none; margin-top: 2px; }

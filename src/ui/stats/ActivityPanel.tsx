@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, errorText, fetchActivity } from '../collection/api';
 import { Icon } from '../icons';
+import { DayDiary } from './DayDiary';
 import {
   GAPS_HELP, GAPS_NOTE, HEAT_ROW_LABELS, LEGEND_TITLES, activityMode, buildHeat, initialHeatFocus, moveHeatFocus, noYearNote, streakTiles,
   totalsText, unknownNote, yearOf, yearRange, type ActivityData, type HeatCell, type HeatLayout, type StreakTile,
@@ -101,6 +102,8 @@ function ActivityBody({ data, mode }: { data: ActivityData; mode: 'ok' | 'noYear
   const layout = useMemo(() => buildHeat(data.days, data.today, data.firstSnapshotDate), [data]);
   const tiles = streakTiles(data);
   const t = totalsText(data.totals);
+  // П11.1: выбранный день (тап по клетке) — «Дневник дня» под картой
+  const [day, setDay] = useState<string | null>(null);
   return (
     <>
       <div className="ps-act__top">
@@ -113,7 +116,8 @@ function ActivityBody({ data, mode }: { data: ActivityData; mode: 'ok' | 'noYear
       {mode === 'noYear' && (
         <p className="ps-st-note ps-act__note" role="note"><Icon name="info" size={14} /><span>{noYearNote(data.year, data.firstSnapshotDate)}</span></p>
       )}
-      <Heat layout={layout} year={data.year} current={yearOf(data.today) === data.year} />
+      <Heat layout={layout} year={data.year} current={yearOf(data.today) === data.year} selected={day} onPick={setDay} />
+      {day && <DayDiary date={day} onDate={setDay} onClose={() => setDay(null)} />}
       <div className="ps-act__legend">
         <p className="ps-act__unknown"><Icon name="info" size={12} /><span>{unknownNote(data.firstSnapshotDate)}</span></p>
         <div className="ps-act__keys" aria-label="Обозначения карты">
@@ -155,7 +159,9 @@ function StreakTileView({ tile }: { tile: StreakTile }) {
 /** x, y: позиция верха-центра клетки внутри карты; vx: центр клетки в окне (для прижатия к краям экрана) */
 type Tip = { index: number; x: number; y: number; vx: number };
 
-function Heat({ layout, year, current }: { layout: HeatLayout; year: number; current: boolean }) {
+function Heat({ layout, year, current, selected, onPick }: {
+  layout: HeatLayout; year: number; current: boolean; selected: string | null; onPick: (date: string) => void;
+}) {
   const { cells, offset, cols, months } = layout;
   const wrap = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -200,6 +206,7 @@ function Heat({ layout, year, current }: { layout: HeatLayout; year: number; cur
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
     if (e.key === 'Escape') { hide(); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && cells[i] && cells[i].level !== 'future') { e.preventDefault(); onPick(cells[i].date); return; }
     const n = moveHeatFocus(i, e.key, offset, cells.length);
     if (n === null) return;
     e.preventDefault();
@@ -231,10 +238,14 @@ function Heat({ layout, year, current }: { layout: HeatLayout; year: number; cur
                   return (
                     <div
                       key={c} ref={(el) => { refs.current[i] = el; }} role="gridcell" className="ps-heat__c" data-l={cell.level === 'unknown' ? 'u' : cell.level === 'future' ? 'f' : cell.level}
-                      data-today={cell.isToday || undefined} aria-label={cell.aria} tabIndex={i === focus ? 0 : -1}
+                      data-today={cell.isToday || undefined} data-sel={cell.date === selected || undefined} aria-selected={cell.date === selected}
+                      aria-label={cell.aria} tabIndex={i === focus ? 0 : -1}
                       onMouseEnter={() => { if (!pinned) show(i); }} onMouseLeave={() => { if (!pinned) setTip(null); }}
                       onFocus={() => { setFocus(i); if (!pinned) show(i); }} onBlur={() => { if (!pinned) setTip(null); }}
-                      onClick={() => { if (pinned && tip?.index === i) hide(); else { setPinned(true); show(i); } }}
+                      onClick={() => {
+                        if (pinned && tip?.index === i) hide(); else { setPinned(true); show(i); }
+                        if (cell.level !== 'future') onPick(cell.date);
+                      }}
                       onKeyDown={(e) => onKey(e, i)}
                     />
                   );
