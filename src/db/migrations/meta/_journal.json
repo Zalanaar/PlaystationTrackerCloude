@@ -253,6 +253,13 @@
       "when": 1794821501563,
       "tag": "0035_drop_global_sync_slot",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794850634773,
+      "tag": "0036_client_errors",
+      "breakpoints": true
     }
   ]
 }

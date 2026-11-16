@@ -4,7 +4,7 @@ import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
@@ -31,6 +31,7 @@ import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { pendingBadge, useTriagePending } from './triagePending';
+import { installErrorReporter } from './errorReporter';
 
 const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
@@ -80,6 +81,7 @@ export function AppHeader() {
   const title = section?.label ?? (/^\/triage(\/|$)/.test(pathname) ? 'Разбор' : null);
   const hdr = headerActionsFor(pathname);
   useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
+  useEffect(() => installErrorReporter(), []); // П10: журнал ошибок браузера
 
   return (
     <>

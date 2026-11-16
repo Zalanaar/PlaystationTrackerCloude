@@ -3593,3 +3593,11 @@ RAWG остаётся главным каталогом, пока отвечае
 - `year`: как в 11.1; `all` и некорректный год — 400 `invalid_request`; год без данных (`mode = empty`) — 404 `not_found`; БД недоступна — 503; сбой рендера — 500 `internal_error`.
 - Обложки сервер скачивает только с `https://image.api.playstation.com` (без логина/порта, редиректы запрещены, таймаут 3 с, до 2 МБ, только PNG/JPEG); иначе плашка с буквой. Шрифты Unbounded/Inter (OFL) лежат в `src/server/wrapped/share-fonts`.
 - Клиент (финальный слайд истории года): картинка запрашивается заранее, Web Share с файлом (`navigator.canShare({ files })`, iOS) вызывается в нажатии; без поддержки — скачивание `itogi-YYYY.png`.
+
+## П10. Журнал ошибок браузера `/api/client-errors`
+Сессия обязательна (401 без неё). Миграция 0036 только добавляет таблицу `client_errors` (user_id → allowed_users ON DELETE CASCADE).
+
+- `POST` (Origin свой, `Content-Type: application/json`): `{ kind: 'error'|'rejection', message, path?, source?, stack?, ua? }`. Сервер обрезает: message 500, stack 2000, source и path 300 и 200 (у path и source отрезаются query и hash), ua 200. Длинные строки, похожие на токены (40+ символов из `[A-Za-z0-9_.-]`), заменяются на «…». Ответ `{ stored: boolean }`: `false`, если за последний час у пользователя уже 30 записей. При каждой записи удаляются записи этого пользователя старше 30 дней. 400 `invalid_request` при плохом теле, 503 `db_unavailable`.
+- `GET`: `{ days: 7, count, recent: [{ at, kind, message, path }] }` — число своих записей за 7 дней и 3 последние.
+
+Клиент (`src/ui/shell/errorReporter.ts`) подключается в шапке после гидратации. Он слушает `error` и `unhandledrejection` и отбрасывает шум: «Script error.», ResizeObserver, AbortError, расширения браузера, чужие источники. За загрузку страницы уходит не больше 10 отчётов, одинаковый текст отправляется один раз. Отправка `fetch` с `keepalive`.

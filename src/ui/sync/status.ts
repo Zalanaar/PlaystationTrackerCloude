@@ -283,3 +283,8 @@ export function npssoErrorText(status: number, code: string | undefined, retryAf
 export function warningsTitle(n: number): string {
   return `Последний запуск: ${n} ${plural(n, 'предупреждение', 'предупреждения', 'предупреждений')}`;
 }
+
+/** П10: строка журнала ошибок браузера в панели синка. */
+export function clientErrorsTitle(n: number, days: number): string {
+  return n === 0 ? `Ошибок в браузере за ${days} дней нет` : `Ошибки в браузере за ${days} дней: ${n}`;
+}

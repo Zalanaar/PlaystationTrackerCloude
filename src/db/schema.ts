@@ -907,3 +907,26 @@ export const guideIndexRuns = pgTable(
     check('guide_index_runs_outcome_check', sql`${t.outcome} in ('ok','challenge','too_few','http_error','network_error')`),
   ],
 );
+
+/**
+ * П10: журнал ошибок браузера (window.onerror / unhandledrejection) — без внешних сервисов.
+ * Пишет сам клиент через POST /api/client-errors; не больше 30 записей в час на пользователя, старше 30 дней удаляются при записи.
+ */
+export const clientErrors = pgTable(
+  'client_errors',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: userIdCol(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    kind: text().notNull(),
+    message: text().notNull(),
+    path: text(),
+    source: text(),
+    stack: text(),
+    ua: text(),
+  },
+  (t) => [
+    index('client_errors_user_created_idx').on(t.userId, t.createdAt.desc()),
+    check('client_errors_kind_check', sql`${t.kind} in ('error','rejection')`),
+  ],
+);

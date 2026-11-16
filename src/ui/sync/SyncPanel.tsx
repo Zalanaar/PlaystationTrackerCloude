@@ -1,17 +1,33 @@
 'use client';
 
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { useSync } from './SyncProvider';
 import {
   buttonLabel, formatLocalDateTime, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
-  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows, warningsTitle,
+  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows, warningsTitle, clientErrorsTitle,
 } from './status';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 const btnPrimary = `h-11 rounded-md bg-accent px-5 font-semibold text-accent-ink disabled:opacity-60 ${focus}`;
 const btnGhost = `h-11 rounded-md border border-border-strong px-4 text-text disabled:opacity-60 ${focus}`;
+
+type ClientErrorsSummary = { days: number; count: number; recent: { at: string; kind: 'error' | 'rejection'; message: string; path: string | null }[] };
+
+/** П10: сводка журнала ошибок браузера (GET /api/client-errors). null — ещё грузится или сбой (строки нет). */
+function useClientErrors(): ClientErrorsSummary | null {
+  const [s, setS] = useState<ClientErrorsSummary | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch('/api/client-errors', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; data?: ClientErrorsSummary } | null) => { if (live && j?.ok && j.data) setS(j.data); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  return s;
+}
 
 export function SyncPanel() {
   const { status, loading, loadError, starting, stopping, restarting, notice, start, cancel, restart, reload } = useSync();
@@ -69,6 +85,7 @@ export function SyncPanel() {
   const setConfirmStop = (v: boolean) => setStopAskedFor(v && run ? run.id : null);
   const stopBusy = stopping || restarting;
   const showForm = isOwner && (npsso || manualOpen);
+  const clientErrors = useClientErrors();
 
   return (
     // P1-4: заголовок один — у sheet («Синхронизация с PSN»), здесь своего нет
@@ -199,6 +216,18 @@ export function SyncPanel() {
               {run.warnings!.map((w, i) => <li key={`${w.code}-${i}`} title={w.code || undefined}>{w.message}</li>)}
             </ul>
             {(run.warningsCount ?? 0) > run.warnings!.length && <p className="text-text-3">Показаны последние {run.warnings!.length}.</p>}
+          </div>
+        )}
+        {clientErrors && (
+          <div className="ps-sync-warn" data-testid="client-errors" data-empty={clientErrors.count === 0 || undefined}>
+            <p className={clientErrors.count > 0 ? 'font-semibold text-text' : undefined}>{clientErrorsTitle(clientErrors.count, clientErrors.days)}</p>
+            {clientErrors.recent.length > 0 && (
+              <ul className="ps-sync-warn__list">
+                {clientErrors.recent.map((e, i) => (
+                  <li key={`${e.at}-${i}`}><span className="font-num">{formatLocalDateTime(e.at)}</span>{e.path ? ` · ${e.path}` : ''} — {e.message}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {loadError && status && (
