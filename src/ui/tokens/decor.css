@@ -65,6 +65,31 @@
 [data-theme="ps1"] .ps-card:hover .ps-card__cover { box-shadow: inset 6px 0 0 rgba(0, 0, 0, .18), var(--shadow-hover); }
 /* тёмный текст на светлом чипе поверх обложки: тень от белого текста не нужна */
 [data-theme="ps1"] :is(.ps-card__date, .ps-hero__label) { text-shadow: none; }
+/* Айдентика тем, шаг 4 (Memory Card): блоки карты памяти вместо полоски уровня, сетка блоков в фоне (швы 1px, только затемняет),
+   разрядка микроподписей, цветная полоса и в окне игры. Высота строки профиля прежняя (56): контент поднят на 4px, блоки снизу */
+[data-theme="ps1"] {
+  --ls-micro: .08em;
+}
+[data-theme="ps1"] .ps-app::before {
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .035) 0 1px, transparent 1px 4px),
+              repeating-linear-gradient(90deg, rgba(0, 0, 0, .03) 0 1px, transparent 1px 16px);
+}
+[data-theme="ps1"] .ps-year__y { letter-spacing: .04em; }
+[data-theme="ps1"] .ps-profile__nick { letter-spacing: .02em; }
+[data-theme="ps1"] .ps-profile--row { padding-bottom: 8px; }
+[data-theme="ps1"] .ps-profile__rbar { bottom: 5px; height: 6px; background: none; border-radius: 0; overflow: visible; }
+[data-theme="ps1"] .ps-profile__rbar > i { display: none; }
+.ps-profile__mc { display: none; }
+[data-theme="ps1"] .ps-profile__mc { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 2px; height: 100%; }
+[data-theme="ps1"] .ps-profile__mc b {
+  display: block; height: 100%; box-sizing: border-box; border-radius: 1px;
+  background: var(--surface-3); border: 1px solid var(--border-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+[data-theme="ps1"] .ps-profile__mc b[data-on] { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+[data-theme="ps1"] .ps-gd::before {
+  content: ""; position: absolute; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 3px; z-index: 7; pointer-events: none;
+  background: linear-gradient(90deg, #e2001a 0 25%, #f2b600 25% 50%, #00a05a 50% 75%, #0070d1 75%);
+}
 
 /* ---------- PS2: синий туман (дрейф 60 с), кристаллы по краям первого экрана, CSS-кубы, фаска ----------
    Айдентика тем, шаг 3 (Crystal Towers): свои силуэты кристаллов (пятиугольники из двух граней, не фигуры статусов) по краям и в центре,
@@ -199,5 +224,5 @@
 
 /* ---------- Печать ---------- */
 @media print {
-  .ps-app::before, .ps-app::after, .ps-header::after, .ps-decor { display: none !important; }
+  .ps-app::before, .ps-app::after, .ps-header::after, .ps-gd::before, .ps-decor { display: none !important; }
 }

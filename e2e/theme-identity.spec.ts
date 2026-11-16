@@ -5,13 +5,14 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';
 
-async function boot(page: Page, context: BrowserContext, baseURL: string, theme: string) {
+async function boot(page: Page, context: BrowserContext, baseURL: string, theme: string, path = '/') {
   await context.addCookies([
     { name: 'pst_session', value: await signedSession(), url: baseURL },
     { name: 'ps-theme', value: theme, url: baseURL },
   ]);
-  await mockApi(page);
-  await page.goto('/');
+  const m = await mockApi(page);
+  m.profile = { onlineId: 'Zalanaar26', avatarUrl: null, level: 327, levelProgress: 93, tier: 5, trophies: { platinum: 35, gold: 100, silver: 200, bronze: 500, total: 835 } };
+  await page.goto(path);
   if (theme === 'night') await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   else await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
   await expect(page.locator('.ps-card').first()).toBeVisible();
@@ -95,5 +96,41 @@ test.describe('Crystal Towers (ps2)', () => {
       await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
       expect(await decor.evaluate((el) => getComputedStyle(el).display), t).toBe('none');
     }
+  });
+});
+
+test.describe('Memory Card (ps1)', () => {
+  test('уровень 15 блоками карты (93% → 14), высота строки профиля прежняя; в других темах обычная полоска', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'строка профиля только на мобильном');
+    await boot(page, context, baseURL!, 'ps1');
+    const bar = page.getByRole('progressbar', { name: 'Прогресс до следующего уровня' });
+    await expect(bar).toHaveAttribute('aria-valuenow', '93');
+    const blocks = bar.locator('.ps-profile__mc b');
+    await expect(blocks).toHaveCount(15);
+    await expect(bar.locator('.ps-profile__mc b[data-on]')).toHaveCount(14);
+    await expect(blocks.first()).toBeVisible();
+    const row = page.locator('.ps-profile--row');
+    expect((await row.boundingBox())!.height).toBe(56);
+    // блоки не налезают на подпись под ником
+    const sub = await row.locator('.ps-profile__sub').boundingBox();
+    const bb = await bar.boundingBox();
+    if (sub) expect(sub.y + sub.height).toBeLessThanOrEqual(bb!.y + 0.5);
+    for (const t of ['night', 'ps4']) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
+      await expect(blocks.first(), t).toBeHidden();
+      expect((await row.boundingBox())!.height, t).toBe(56);
+    }
+  });
+
+  test('полоса четырёх цветов по верхнему краю окна игры; в других темах её нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps1', '/?game=1');
+    const gd = page.locator('.ps-gd');
+    await expect(gd).toBeVisible();
+    const before = (p: Page) => p.locator('.ps-gd').evaluate((el) => { const cs = getComputedStyle(el, '::before'); return { content: cs.content, h: cs.height, bg: cs.backgroundImage }; });
+    const s1 = await before(page);
+    expect(s1.h).toBe('3px');
+    expect(s1.bg).toContain('linear-gradient');
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
+    expect((await before(page)).content).toBe('none');
   });
 });

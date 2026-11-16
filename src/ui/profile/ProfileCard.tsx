@@ -64,10 +64,20 @@ export function ProfileRow({ profile, totals = null }: { profile: PsnProfile | n
       {bar !== null && (
         <span className="ps-profile__rbar" role="progressbar" aria-label="Прогресс до следующего уровня" aria-valuemin={0} aria-valuemax={100} aria-valuenow={bar}>
           <i style={{ width: `${bar}%` }} />
+          {/* Memory Card (ps1): те же данные блоками карты памяти; в остальных темах скрыто CSS (айдентика тем, шаг 4) */}
+          <span className="ps-profile__mc" aria-hidden="true">
+            {Array.from({ length: MC_BLOCKS }, (_, i) => <b key={i} data-on={i < mcBlocksOn(bar) ? '' : undefined} />)}
+          </span>
         </span>
       )}
     </section>
   );
+}
+
+/** Memory Card: полоска уровня 15 блоками карты памяти. Заполнено = округление доли (0..100 → 0..15). */
+export const MC_BLOCKS = 15;
+export function mcBlocksOn(percent: number): number {
+  return Math.max(0, Math.min(MC_BLOCKS, Math.round((MC_BLOCKS * percent) / 100)));
 }
 
 /** Блок профиля PSN в шапке Коллекции. `tier` не показывается. */
