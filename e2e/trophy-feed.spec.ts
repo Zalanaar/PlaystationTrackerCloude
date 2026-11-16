@@ -41,7 +41,8 @@ async function mockFeed(page: Page, delay = 0) {
     if (c) list = list.slice(list.findIndex((x) => String(x.id) === c.split('_')[1]) + 1);
     const page1 = list.slice(0, 50);
     const items = page1.map((x) => ({
-      id: x.id, setId: 1, trophyId: x.id, type: x.type, name: `Трофей ${x.id}`, detail: null, iconUrl: null,
+      // П12.2: сеты чередуются — серий (3+ подряд одного сета) нет, строки ленты не сворачиваются
+      id: x.id, setId: x.id % 2 ? 1 : 2, trophyId: x.id, type: x.type, name: `Трофей ${x.id}`, detail: null, iconUrl: null,
       earnedAt: x.at === null ? null : new Date(x.at).toISOString(), day: x.at === null ? null : mskDay(x.at), earnedRate: x.rate, rarity: x.rarity, setName: 'Набор',
       game: x.gameId === null ? null : { id: x.gameId, title: 'Игра три' },
     }));

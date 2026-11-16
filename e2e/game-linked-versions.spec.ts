@@ -17,6 +17,8 @@ async function open(page: Page, context: BrowserContext, baseURL: string, list: 
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const mock = await mockApi(page, list);
   await page.goto('/?game=1');
+  // окно приходит в HTML (SSR): клик до гидратации терялся (флейк CI 17.11)
+  await expect(page.locator('html')).toHaveAttribute('data-hydrated', '');
   return mock;
 }
 

@@ -144,3 +144,41 @@ export function platinumRateText(r: number | null): string | null {
   return t ? `платина у ${t} игроков` : null;
 }
 export const EASY_HINT = 'Сначала платины, которые чаще всего получают игроки (по данным PSN)';
+
+// П12.2: серия трофеев одной игры подряд в одном дне сворачивается в строку «Игра · +N» (раскрывается по тапу).
+export const RUN_MIN = 3;
+export type FeedEntry =
+  | { kind: 'one'; item: FeedItem }
+  | { kind: 'run'; key: string; title: string; game: FeedItem['game']; items: FeedItem[] };
+
+/** Подряд идущие трофеи одного сета (не платина) от RUN_MIN штук — одна свёрнутая запись; платина всегда отдельной строкой. */
+export function collapseRuns(items: readonly FeedItem[]): FeedEntry[] {
+  const out: FeedEntry[] = [];
+  let run: FeedItem[] = [];
+  const flush = () => {
+    if (run.length >= RUN_MIN) {
+      const f = run[0];
+      out.push({ kind: 'run', key: `run-${f.id}`, title: f.game?.title?.trim() || f.setName.trim() || 'Игра вне коллекции', game: f.game, items: run });
+    } else for (const it of run) out.push({ kind: 'one', item: it });
+    run = [];
+  };
+  for (const it of items) {
+    if (it.type === 'platinum') { flush(); out.push({ kind: 'one', item: it }); continue; }
+    if (run.length > 0 && run[0].setId !== it.setId) flush();
+    run.push(it);
+  }
+  flush();
+  return out;
+}
+
+/** «7 трофеев · 1 золото · 6 бронз». */
+export function runLine(items: readonly FeedItem[]): string {
+  const s: FeedSummary = { total: items.length, platinum: 0, gold: 0, silver: 0, bronze: 0 };
+  for (const it of items) s[it.type] += 1;
+  return [`${items.length} ${plural(items.length, ['трофей', 'трофея', 'трофеев'])}`, ...summaryParts(s).slice(1)].join(' · ');
+}
+
+/** Самый редкий трофей серии (меньший earned rate) — его процент виден в свёрнутой строке. */
+export function runRarest(items: readonly FeedItem[]): FeedItem {
+  return items.reduce((a, b) => (b.earnedRate !== null && (a.earnedRate === null || b.earnedRate < a.earnedRate) ? b : a));
+}

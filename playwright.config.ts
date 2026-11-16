@@ -28,7 +28,7 @@ export default defineConfig({
     // WebKit как Safari на iPhone: регресс прокрутки окна игры и первый экран Коллекции (D-P1); в CI — отдельная job.
     // Раньше здесь был workers: 1 из-за «зависаний WPE». Настоящая причина — backdrop-filter на бейдже каждой карточки
     // (см. .ps-card__glyph в collection.css): поток композитора WPE уходил в 100% CPU и съедал память до OOM.
-    { name: 'webkit-iphone', testMatch: /(dialog-scroll|first-screen-iphone|trophy-feed|stats-sections|guides|wrapped-best|wrapped-preview|mobile-polish|other-platforms|sticky-rows|tap-targets|collection-zero-chips|page-head|trophy-near|dlc|roadmap-release-order|theme-identity|header-title-iphone|wrapped-banner-home|chip-row-fade|stats-month-label|font-min-phone|sync-warnings|stats-pattern-edges|client-errors|stats-day-diary|stats-yoy|stats-month-summary|pwa-tab-transition|pwa-boot-splash|wrapped-look|wrapped-share)\.spec\.ts/, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
+    { name: 'webkit-iphone', testMatch: /(dialog-scroll|first-screen-iphone|trophy-feed|stats-sections|guides|wrapped-best|wrapped-preview|mobile-polish|other-platforms|sticky-rows|tap-targets|collection-zero-chips|page-head|trophy-near|dlc|roadmap-release-order|theme-identity|header-title-iphone|wrapped-banner-home|chip-row-fade|stats-month-label|font-min-phone|sync-warnings|stats-pattern-edges|client-errors|stats-day-diary|stats-yoy|stats-month-summary|pwa-tab-transition|pwa-boot-splash|trophy-feed-runs|wrapped-look|wrapped-share)\.spec\.ts/, use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,

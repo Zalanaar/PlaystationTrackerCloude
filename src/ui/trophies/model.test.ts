@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FeedItem, FeedResponse, NearListItem } from '@/server/trophies/types';
-import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, nearPageUrl, nearSummary, pageUrl, parseNearSort, platinumRateText, sortNear, parsePeriod, parseView, summaryParts, viewUrl } from './model';
+import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, nearPageUrl, nearSummary, pageUrl, parseNearSort, platinumRateText, sortNear, collapseRuns, runLine, runRarest, parsePeriod, parseView, summaryParts, viewUrl } from './model';
 
 const item = (id: number, day: string | null, o: Partial<FeedItem> = {}): FeedItem => ({
   id, setId: 1, trophyId: id, type: 'bronze', name: `T${id}`, detail: null, iconUrl: null, earnedAt: day ? `${day}T10:00:00Z` : null, day,
@@ -82,5 +82,21 @@ describe('П12.1 лёгкие платины', () => {
   it('подпись доли', () => {
     expect(platinumRateText(42.13)).toBe('платина у 42,1% игроков');
     expect(platinumRateText(null)).toBeNull();
+  });
+});
+
+describe('П12.2 свёртка серии', () => {
+  const t = (id: number, setId: number, type: FeedItem['type'] = 'bronze', rate: number | null = 50) => item(id, '2026-11-10', { setId, type, earnedRate: rate, setName: `Set ${setId}`, game: { id: setId, title: `Игра ${setId}` } });
+  it('3+ подряд одного сета — серия; меньше — по одной; платина отдельно и рвёт серию', () => {
+    const e = collapseRuns([t(1, 1), t(2, 1), t(3, 1, 'gold'), t(4, 2), t(5, 2), t(6, 1, 'platinum'), t(7, 1), t(8, 1), t(9, 1)]);
+    expect(e.map((x) => (x.kind === 'run' ? `run:${x.items.map((i) => i.id).join(',')}` : x.item.id))).toEqual(['run:1,2,3', 4, 5, 6, 'run:7,8,9']);
+    const r = e[0];
+    expect(r.kind === 'run' && r.title).toBe('Игра 1');
+    expect(r.kind === 'run' && r.key).toBe('run-1');
+  });
+  it('подпись и самый редкий', () => {
+    const items = [t(1, 1, 'gold', 30), t(2, 1, 'bronze', 4.2), t(3, 1, 'bronze', null)];
+    expect(runLine(items)).toBe('3 трофея · 1 золото · 2 бронзы');
+    expect(runRarest(items).id).toBe(2);
   });
 });

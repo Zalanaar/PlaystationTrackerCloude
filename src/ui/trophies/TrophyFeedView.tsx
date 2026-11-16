@@ -3,11 +3,12 @@
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDataRefresh } from '../shell/refresh';
-import type { FeedPeriod, FeedResponse, NearListResponse } from '@/server/trophies/types';
+import type { FeedItem, FeedPeriod, FeedResponse, NearListResponse } from '@/server/trophies/types';
 import { cachedGet } from '../data/http';
 import { SkRoot } from '../skeletons';
 import { RareIcon, TypeBadge } from '../stats/RareTrophies';
-import { emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, EASY_HINT, NEAR_SORTS, NEAR_URL, nearPageUrl, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type NearSort, type TrophiesView } from './model';
+import { Icon } from '../icons';
+import { collapseRuns, runLine, runRarest, type FeedEntry, emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, EASY_HINT, NEAR_SORTS, NEAR_URL, nearPageUrl, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type NearSort, type TrophiesView } from './model';
 import { NearList } from './NearList';
 import { useChipRow } from '../primitives/useChipRow';
 
@@ -62,12 +63,53 @@ export function TrophyFeedSkeleton() {
   );
 }
 
+function FeedRow({ it }: { it: FeedItem }) {
+  const body = (
+    <>
+      <span className="ps-tf__icw"><RareIcon url={it.iconUrl} className="ps-tf__ic" /><TypeBadge type={it.type} /></span>
+      <span className="ps-tf__tx">
+        <span className="ps-tf__nm" title={it.detail ?? undefined}>{it.name?.trim() || 'Без названия'}</span>
+        <span className="ps-tf__gm">{gameLine(it)}</span>
+      </span>
+      <span className="ps-tf__rate num" data-r={rarityTone(it)}>{rateText(it)}</span>
+    </>
+  );
+  return (
+    <li data-testid="tfeed-row">
+      {it.game
+        ? <Link href={`/?game=${it.game.id}&tab=trophies`} className="ps-tf__row">{body}</Link>
+        : <span className="ps-tf__row" data-static="">{body}</span>}
+    </li>
+  );
+}
+
+/** П12.2: свёрнутая серия одной игры за день; тап раскрывает трофеи под строкой. */
+function RunRow({ run, open, onToggle }: { run: Extract<FeedEntry, { kind: 'run' }>; open: boolean; onToggle: () => void }) {
+  const rarest = runRarest(run.items);
+  const id = `${run.key}-list`;
+  return (
+    <li data-testid="tfeed-run" className="ps-tf__run" data-open={open || undefined}>
+      <button type="button" className="ps-tf__row ps-tf__runbtn" aria-expanded={open} aria-controls={id} onClick={onToggle}>
+        <span className="ps-tf__icw"><RareIcon url={rarest.iconUrl} className="ps-tf__ic" /><span className="ps-tf__runn num" aria-hidden="true">+{run.items.length}</span></span>
+        <span className="ps-tf__tx">
+          <span className="ps-tf__nm">{run.title}</span>
+          <span className="ps-tf__gm">{runLine(run.items)}</span>
+        </span>
+        <span className="ps-tf__rate ps-tf__runr num" data-r={rarityTone(rarest)}>{rateText(rarest)}<Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} /></span>
+      </button>
+      {open && <ul className="ps-tf__rows ps-tf__runlist" id={id}>{run.items.map((it) => <FeedRow key={it.id} it={it} />)}</ul>}
+    </li>
+  );
+}
+
 /** F3 «Лента трофеев» (design-system §20): группы дней МСК, чипы периода и «Только редкие», «Показать ещё». */
 export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed', nearInitial = null, nearSort: s0 = 'close' }: {
   initial: FeedResponse | null; period: FeedPeriod; rare: boolean; view?: TrophiesView; nearInitial?: NearListResponse | null; nearSort?: NearSort;
 }) {
   const [view, setView] = useState<TrophiesView>(v0);
   const [nearSort, setNearSort] = useState<NearSort>(s0);
+  const [openRuns, setOpenRuns] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleRun = (k: string) => setOpenRuns((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const [near, setNear] = useState<NearListResponse | null>(nearInitial);
   const [nearLoad, setNearLoad] = useState<Load>('idle');
   const nearAc = useRef<AbortController | null>(null);
@@ -217,25 +259,9 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
             <section key={g.key} className="ps-tf__day" aria-label={g.label}>
               <h2 className="ps-tf__dayh">{g.label}</h2>
               <ul className="ps-tf__rows">
-                {g.items.map((it) => {
-                  const body = (
-                    <>
-                      <span className="ps-tf__icw"><RareIcon url={it.iconUrl} className="ps-tf__ic" /><TypeBadge type={it.type} /></span>
-                      <span className="ps-tf__tx">
-                        <span className="ps-tf__nm" title={it.detail ?? undefined}>{it.name?.trim() || 'Без названия'}</span>
-                        <span className="ps-tf__gm">{gameLine(it)}</span>
-                      </span>
-                      <span className="ps-tf__rate num" data-r={rarityTone(it)}>{rateText(it)}</span>
-                    </>
-                  );
-                  return (
-                    <li key={it.id} data-testid="tfeed-row">
-                      {it.game
-                        ? <Link href={`/?game=${it.game.id}&tab=trophies`} className="ps-tf__row">{body}</Link>
-                        : <span className="ps-tf__row" data-static="">{body}</span>}
-                    </li>
-                  );
-                })}
+                {collapseRuns(g.items).map((e) => (e.kind === 'one'
+                  ? <FeedRow key={e.item.id} it={e.item} />
+                  : <RunRow key={e.key} run={e} open={openRuns.has(e.key)} onToggle={() => toggleRun(e.key)} />))}
               </ul>
             </section>
           ))}
