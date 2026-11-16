@@ -205,6 +205,15 @@
 @media (min-width: 768px) {
   [data-theme="ps5"] .ps-hero__mini { backdrop-filter: blur(16px); }
 }
+/* Айдентика тем, шаг 5: карточка «Недавно в коллекции» (когда «Играю» пусто) только в ps5;
+   микроанимация нажатия: scale .97 за 120 мс, только transform, при reduced-motion выключена (блок в конце) */
+.ps-recent { display: none; }
+[data-theme="ps5"] .ps-recent { display: block; }
+[data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini, .ps-hero__main) { transition: transform 120ms var(--ease-out), box-shadow var(--dur-base) var(--ease-ui); }
+[data-theme="ps5"] .ps-card__cover { transition: transform 120ms var(--ease-out), box-shadow var(--dur-base) var(--ease-ui); }
+[data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini):active,
+[data-theme="ps5"] .ps-hero__main:has(.ps-hero__hit:active),
+[data-theme="ps5"] .ps-card:active .ps-card__cover { transform: scale(.97); }
 
 /* ---------- Мобильный (меньше 768px): декор упрощён ---------- */
 @media (max-width: 767px) {
@@ -220,6 +229,7 @@
   .ps-skeleton { animation: none !important; }
   .ps-app::before, .ps-app::after, .ps-decor { animation: none !important; }
   [data-theme="ps4"] .ps-card[data-active="true"] .ps-card__cover { transform: none; }
+  [data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini, .ps-hero__main, .ps-card__cover) { transition: none; transform: none !important; }
 }
 
 /* ---------- Печать ---------- */

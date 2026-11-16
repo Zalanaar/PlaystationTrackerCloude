@@ -36,6 +36,7 @@ import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
+import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
 import { useTourCardAnchors } from '../tour/anchors';
@@ -231,7 +232,9 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
-  usePageArt(chronicleMode ? playing[0]?.coverUrl : null, isMobile);
+  // Айдентика тем, шаг 5: без «Играю» — карточка последней игры хроники (видна только в ps5), её обложка и для --page-art
+  const recent = chronicleMode && blocks.includes('playing') && pool && playing.length === 0 ? (L.chron.years[0]?.months[0]?.games[0] ?? null) : null;
+  usePageArt(chronicleMode ? (playing[0]?.coverUrl ?? recent?.coverUrl) : null, isMobile);
 
   const renderCtx: RenderCtx = {
     view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0, checkCount,
@@ -289,6 +292,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       <InboxStrip ctl={inbox} />
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
+      {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}
 
       {mobileMq === null ? <FilterBarSkeleton /> : isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 

@@ -1,21 +1,23 @@
 // Айдентика тем (план Designer, утверждён t194u): усиленные мотивы тем без ассетов Sony, мобильный первым,
 // анимации только на transform и выключены при prefers-reduced-motion. Шаги: 2 Tiles (ps4), 3 Crystal Towers (ps2),
 // 4 Memory Card (ps1), 5 Activity (ps5), 6 Wave (ps3). Night и Dark не меняются.
+import { createRequire } from 'node:module';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import { mockApi } from './collection-mock';
+import { mockApi, seed, type G } from './collection-mock';
 import { signedSession } from './session';
 
-async function boot(page: Page, context: BrowserContext, baseURL: string, theme: string, path = '/') {
+async function boot(page: Page, context: BrowserContext, baseURL: string, theme: string, path = '/', games: G[] = seed()) {
   await context.addCookies([
     { name: 'pst_session', value: await signedSession(), url: baseURL },
     { name: 'ps-theme', value: theme, url: baseURL },
   ]);
-  const m = await mockApi(page);
+  const m = await mockApi(page, games);
   m.profile = { onlineId: 'Zalanaar26', avatarUrl: null, level: 327, levelProgress: 93, tier: 5, trophies: { platinum: 35, gold: 100, silver: 200, bronze: 500, total: 835 } };
   await page.goto(path);
   if (theme === 'night') await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
   else await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
   await expect(page.locator('.ps-card').first()).toBeVisible();
+  return m;
 }
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
 const pseudo = (page: Page, sel: string, pe: '::before' | '::after') =>
@@ -132,5 +134,78 @@ test.describe('Memory Card (ps1)', () => {
     expect(s1.bg).toContain('linear-gradient');
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
     expect((await before(page)).content).toBe('none');
+  });
+});
+
+test.describe('ps5: карточка «Недавно в коллекции» и нажатие', () => {
+  const noPlaying = () => seed().filter((g) => g.status !== 'playing');
+
+  test('без «Играю»: карточка последней игры хроники, открывает окно игры; в других темах скрыта; с «Играю» её нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps5', '/', noPlaying());
+    const hero = page.getByRole('region', { name: 'Недавно в коллекции' });
+    await expect(hero).toBeVisible();
+    const first = (await page.locator('.ps-card .ps-card__title').first().textContent())!.trim();
+    await expect(hero.getByRole('button', { name: `Открыть: ${first}` })).toBeVisible();
+    await expect(hero).toContainText('Недавно в коллекции');
+    await page.waitForTimeout(1500);
+    expect(await cls(page)).toBe(0);
+    for (const t of ['night', 'graphite', 'ps1', 'ps4']) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
+      await expect(page.getByTestId('recent-hero'), t).toBeHidden();
+    }
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps5'));
+    await hero.getByRole('button').click();
+    await expect(page.getByRole('dialog', { name: first })).toBeVisible();
+  });
+
+  test('с «Играю» карточки нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps5');
+    await expect(page.getByRole('region', { name: 'Играю сейчас' })).toBeVisible();
+    await expect(page.getByTestId('recent-hero')).toHaveCount(0);
+  });
+
+  test('нажатие: scale .97 только transform; при reduced-motion без масштаба', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps5', '/', noPlaying());
+    const card = page.getByTestId('recent-hero').getByRole('button');
+    const box = (await card.boundingBox())!;
+    const scaleOf = () => card.evaluate((el) => getComputedStyle(el).transform);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect.poll(scaleOf).toMatch(/^matrix\(0\.97, 0, 0, 0\.97/);
+    await page.mouse.up();
+    await expect.poll(scaleOf).toBe('none');
+    await page.keyboard.press('Escape');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    const card2 = page.getByTestId('recent-hero').getByRole('button');
+    const b2 = (await card2.boundingBox())!;
+    await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(200);
+    expect(await card2.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+    await page.mouse.up();
+  });
+});
+
+test.describe('axe во всех темах с новыми мотивами', () => {
+  const axeSource: string = createRequire(import.meta.url)('axe-core').source;
+  const COVERS = ['.ps-cover', '.ps-hero__art', '.ps-card__cover', '.ps-hero__main'];
+  const RULES = ['color-contrast', 'button-name', 'nested-interactive', 'aria-prohibited-attr', 'aria-hidden-focus', 'duplicate-id'];
+  test('0 нарушений: главная без «Играю» (карточка ps5, кубы ps2, блоки ps1, разделители ps4)', async ({ page, context, baseURL }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await boot(page, context, baseURL!, 'night', '/', seed().filter((g) => g.status !== 'playing'));
+    await page.evaluate(axeSource);
+    const bad: Record<string, string[]> = {};
+    for (const t of ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5']) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
+      await page.waitForTimeout(400);
+      const v = await page.evaluate(async ({ rules, exclude }) => {
+        const w = window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } };
+        const r = await w.axe.run({ include: [['body']], exclude: exclude.map((x) => [x]) }, { runOnly: { type: 'rule', values: rules }, resultTypes: ['violations'] });
+        return r.violations.flatMap((x) => x.nodes.map((n) => `${x.id}: ${n.target.join(' ')}`));
+      }, { rules: RULES, exclude: COVERS });
+      if (v.length) bad[t] = v;
+    }
+    expect(bad).toEqual({});
   });
 });
