@@ -87,3 +87,37 @@ test('без reduced-motion число считается от нуля и до�
   expect(Math.abs((await ow()) - w0)).toBeLessThan(1);
   expect(await page.locator('.ps-story__big .ps-story__num').evaluate((el) => getComputedStyle(el).animationName)).toBe('ps-story-pop');
 });
+
+test('П8.5: видимая кнопка паузы держит слайд, листание не снимает паузу, P продолжает', async ({ page, context, baseURL }) => {
+  await open(page, context, baseURL!, false);
+  const btn = page.getByTestId('story-pause');
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveAccessibleName('Пауза');
+  const box = await btn.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await expect(btn).toHaveAccessibleName('Продолжить');
+  await expect(stage(page)).toHaveAttribute('data-paused', 'true');
+  const fill = page.locator('.ps-story__seg[data-state="cur"] .ps-story__fill');
+  const p = () => fill.evaluate((el) => Number((el as HTMLElement).style.getPropertyValue('--p')));
+  const p0 = await p();
+  await page.waitForTimeout(1200);
+  expect(await p()).toBe(p0);
+  await expect(stage(page)).toHaveAttribute('data-slide', 'start'); // нажатие на кнопку не листает
+  await page.keyboard.press('ArrowRight');
+  await expect(stage(page)).toHaveAttribute('data-slide', 'hours');
+  await page.waitForTimeout(800);
+  expect(await p()).toBe(0);
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('p');
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(p).toBeGreaterThan(0);
+});
+
+test('П8.5: при reduced-motion автоперехода нет, и кнопки паузы тоже', async ({ page, context, baseURL }) => {
+  await open(page, context, baseURL!, true);
+  await expect(page.getByRole('button', { name: 'Закрыть итоги' })).toBeVisible();
+  await expect(page.getByTestId('story-pause')).toHaveCount(0);
+});

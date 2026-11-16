@@ -60,6 +60,11 @@
   display: grid; place-items: center; width: var(--tap-min); height: var(--tap-min); margin-right: calc(-1 * var(--sp-3));
   background: none; border: 0; border-radius: var(--r-pill); color: var(--story-fg); cursor: pointer;
 }
+.ps-story__ctl { display: flex; align-items: center; gap: var(--sp-1); }
+/* П8.5: пауза рядом с ✕; на паузе полоска текущего слайда тусклее (без анимации) */
+.ps-story__pause { margin-right: 0; }
+.ps-story__pause[aria-pressed="true"] { background: color-mix(in srgb, var(--story-fg) 18%, transparent); }
+.ps-story__stage[data-paused] .ps-story__seg[data-state="cur"] .ps-story__fill { opacity: .6; }
 .ps-story__close:focus-visible, .ps-story__btn:focus-visible { box-shadow: 0 0 0 2px var(--story-backdrop), 0 0 0 4px var(--story-fg); }
 
 .ps-story__body { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 72px var(--sp-6) var(--sp-8); padding-top: calc(72px + env(safe-area-inset-top)); padding-bottom: calc(var(--sp-8) + env(safe-area-inset-bottom)); pointer-events: none; }

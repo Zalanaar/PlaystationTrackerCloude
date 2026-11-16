@@ -30,6 +30,8 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   const [index, setIndex] = useState(0);
   const [held, setHeld] = useState(false);
+  // П8.5: пауза кнопкой (или P); держится и при ручном листании, пока не нажмут «Продолжить»
+  const [paused, setPaused] = useState(false);
   const [mounted, setMounted] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
@@ -41,7 +43,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
   const auto = isAutoAdvance({ reducedMotion: reduced, index, count, slide });
   const autoRef = useRef(auto);
   useEffect(() => { autoRef.current = auto; }, [auto]);
-  useEffect(() => { pausedRef.current = held; }, [held]);
+  useEffect(() => { pausedRef.current = held || paused; }, [held, paused]);
 
   const go = useCallback((dir: Dir) => setIndex((i) => stepIndex(i, dir, count)), [count]);
 
@@ -101,7 +103,9 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
       const a = keyAction({ key: e.key, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, onButton });
       if (!a) return;
       e.preventDefault();
-      if (a === 'close') onClose(); else go(a);
+      if (a === 'close') onClose();
+      else if (a === 'pause') { if (autoRef.current) setPaused((p) => !p); }
+      else go(a);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -134,7 +138,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
     <div className="ps-story" data-reduced={rm || undefined}>
       <div
         ref={root} className="ps-story__stage" role="dialog" aria-modal="true" aria-label={isAll ? 'Итоги за всё время' : `Итоги ${data.year}`} tabIndex={-1}
-        data-slide={slide} data-index={index} data-paused={held || undefined} data-auto={auto || undefined}
+        data-slide={slide} data-index={index} data-paused={held || (paused && auto) || undefined} data-auto={auto || undefined}
         style={{ '--slide-base': slideColor(slide) } as CSSProperties}
         onContextMenu={(e) => e.preventDefault()} onPointerDown={onDown} onPointerUp={(e) => finish(e, false)} onPointerCancel={(e) => finish(e, true)}
       >
@@ -149,7 +153,17 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
           </div>
           <div className="ps-story__head">
             <span className="ps-story__brand">PS TRACKER · {isAll ? 'ВСЁ ВРЕМЯ' : data.year}</span>
-            <button type="button" className="ps-story__close" aria-label="Закрыть итоги" onClick={onClose}><Icon name="x" size={20} /></button>
+            <span className="ps-story__ctl">
+              {auto && (
+                <button
+                  type="button" className="ps-story__close ps-story__pause" data-testid="story-pause" aria-pressed={paused}
+                  aria-label={paused ? 'Продолжить' : 'Пауза'} title={paused ? 'Продолжить (P)' : 'Пауза (P)'} onClick={() => setPaused((p) => !p)}
+                >
+                  <Icon name={paused ? 'play' : 'pause'} size={18} />
+                </button>
+              )}
+              <button type="button" className="ps-story__close" aria-label="Закрыть итоги" onClick={onClose}><Icon name="x" size={20} /></button>
+            </span>
           </div>
         </div>
         <div className="ps-story__body" key={index}>
@@ -430,7 +444,6 @@ function SlideView({
           <Rise n={0} rm={rm}><h2 className="ps-story__title">{all ? 'Данных пока нет' : `В ${year} данных нет`}</h2></Rise>
           {since && <Rise n={1} rm={rm}><p className="ps-story__sub">{since}</p></Rise>}
           <Rise n={2} rm={rm} className="ps-story__actions">
-            {!all && <ShareButton year={year} />}
             <button type="button" className="ps-btn ps-story__btn ps-story__btn--solid" onClick={onClose}>Закрыть</button>
           </Rise>
         </div>

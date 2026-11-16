@@ -90,7 +90,7 @@ export function classifyGesture(g: GestureInput): Gesture {
 }
 
 export type Key = { key: string; ctrl?: boolean; meta?: boolean; alt?: boolean; onButton?: boolean };
-export type KeyAction = Dir | 'close' | null;
+export type KeyAction = Dir | 'close' | 'pause' | null;
 
 /** Клавиши истории. Пробел и Enter на кнопке оставляем кнопке. */
 export function keyAction(k: Key): KeyAction {
@@ -99,6 +99,8 @@ export function keyAction(k: Key): KeyAction {
   if (k.key === 'ArrowRight') return 'next';
   if (k.key === 'ArrowLeft') return 'prev';
   if ((k.key === ' ' || k.key === 'Spacebar') && !k.onButton) return 'next';
+  // П8.5: пауза с клавиатуры, P в обеих раскладках (на ЙЦУКЕН это «з»)
+  if (['p', 'P', 'з', 'З'].includes(k.key)) return 'pause';
   return null;
 }
 

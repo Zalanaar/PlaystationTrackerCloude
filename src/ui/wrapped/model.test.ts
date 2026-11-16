@@ -57,6 +57,10 @@ describe('навигация', () => {
     expect(keyAction({ key: 'ArrowRight', ctrl: true })).toBeNull();
     expect(keyAction({ key: 'a' })).toBeNull();
   });
+  it('П8.5: P (и «з» в русской раскладке) = пауза, с модификатором нет', () => {
+    for (const key of ['p', 'P', 'з', 'З']) expect(keyAction({ key }), key).toBe('pause');
+    expect(keyAction({ key: 'p', meta: true })).toBeNull();
+  });
 });
 
 describe('жесты', () => {
