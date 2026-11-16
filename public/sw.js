@@ -2,15 +2,18 @@
  * Кэшируем ТОЛЬКО статику: /_next/static/*, /icons/* и один HTML /offline.
  * НИКОГДА не кэшируем /api/*, закрытые страницы, HTML-документы пользователей и RSC-ответы:
  * после выхода или смены пользователя кэш не содержит чужих данных.
+ * Пакет 7, п. 2: копию для офлайн-просмотра (коллекция, бэклог, статистика) пишет и читает сама страница в кэш DATA_CACHE
+ * («ps-data», src/shared/offline-snapshot.ts); воркер её не трогает при обновлении версии и стирает по PURGE (выход).
  * VERSION = хэш содержимого файла: после КАЖДОЙ правки запустить `node scripts/sw-version.mjs --write`
  * (иначе падает src/ui/pwa/sw.test.ts). Обновление SW идёт по смене байтов, кэш пересоздаётся по смене VERSION,
  * старые кэши удаляются в activate. */
 'use strict';
 
-var VERSION = 'c8a3b3486';
+var VERSION = 'c69246bc3';
 var CACHE_PREFIX = 'ps-';
 var CACHE = CACHE_PREFIX + 'static-' + VERSION;
 var OFFLINE_URL = '/offline';
+var DATA_CACHE = CACHE_PREFIX + 'data';
 var PRECACHE = [OFFLINE_URL, '/icons/icon-192.png'];
 
 /** Что делать с запросом: 'static' (cache-first), 'navigate' (сеть, при отказе /offline) или 'bypass' (SW не вмешивается). */
@@ -89,7 +92,7 @@ if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' &
   self.addEventListener('activate', function (event) {
     event.waitUntil((async function () {
       var keys = await caches.keys();
-      await Promise.all(keys.filter(function (k) { return isOwnCache(k) && k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+      await Promise.all(keys.filter(function (k) { return isOwnCache(k) && k !== CACHE && k !== DATA_CACHE; }).map(function (k) { return caches.delete(k); }));
       await self.clients.claim();
     })());
   });
@@ -106,5 +109,5 @@ if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' &
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { VERSION: VERSION, CACHE: CACHE, OFFLINE_URL: OFFLINE_URL, classify: classify, cacheable: cacheable, extractStaticUrls: extractStaticUrls, isOwnCache: isOwnCache };
+  module.exports = { VERSION: VERSION, CACHE: CACHE, DATA_CACHE: DATA_CACHE, OFFLINE_URL: OFFLINE_URL, classify: classify, cacheable: cacheable, extractStaticUrls: extractStaticUrls, isOwnCache: isOwnCache };
 }

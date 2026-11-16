@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { OFFLINE_DATA_CACHE, OFFLINE_DATA_KEY } from '@/shared/offline-snapshot';
 
 type Sw = {
-  VERSION: string; CACHE: string; OFFLINE_URL: string;
+  VERSION: string; CACHE: string; DATA_CACHE: string; OFFLINE_URL: string;
   classify: (r: { method: string; url: string; mode?: string }, origin: string) => 'static' | 'navigate' | 'bypass';
   cacheable: (kind: string, res: { status: number; type: string }) => boolean;
   extractStaticUrls: (html: string) => string[];
@@ -79,5 +80,18 @@ describe('sw: исходник', () => {
   });
   it('/offline не получает куки пользователя', () => {
     expect(src).toMatch(/credentials: 'omit'/);
+  });
+});
+
+describe('sw: копия для офлайн-просмотра (пакет 7, п. 2)', () => {
+  it('кэш копии общий со страницей, свой (ps-*) и не версионный; адрес копии — не /api и не обрабатывается воркером', () => {
+    expect(sw.DATA_CACHE).toBe(OFFLINE_DATA_CACHE);
+    expect(sw.isOwnCache(sw.DATA_CACHE)).toBe(true);
+    expect(sw.DATA_CACHE).not.toBe(sw.CACHE);
+    expect(OFFLINE_DATA_KEY.startsWith('/api')).toBe(false);
+    expect(sw.classify(get(OFFLINE_DATA_KEY), O)).toBe('bypass');
+  });
+  it('activate не удаляет кэш копии при обновлении версии', () => {
+    expect(swSource).toMatch(/k !== CACHE && k !== DATA_CACHE/);
   });
 });

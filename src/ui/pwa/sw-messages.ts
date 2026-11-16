@@ -1,8 +1,11 @@
 // Общие с public/sw.js константы клиента: URL воркера и типы сообщений.
+import { clearOfflineSnapshot } from './offline-data';
+
 export const SW_URL = '/sw.js';
 
-/** Чистим кэши воркера: вызывается при выходе из аккаунта (в кэше и так только статика, это страховка) */
+/** Чистим кэши воркера: вызывается при выходе из аккаунта. Стирает и копию для офлайн-просмотра (кэш «ps-data», пакет 7, п. 2). */
 export async function purgeServiceWorkerCaches(): Promise<void> {
+  await clearOfflineSnapshot();
   try {
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();

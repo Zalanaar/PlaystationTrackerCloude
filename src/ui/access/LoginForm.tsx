@@ -1,10 +1,13 @@
 'use client';
 
 // Вход (Фаза 20.2): основной способ Google, пароль владельца свёрнут как аварийный вход.
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { clearOfflineSnapshot } from '../pwa/offline-data';
 import { loginErrorText } from './model';
 
 export function LoginForm({ error: errorCode, next: nextParam }: { error?: string; next?: string }) {
+  // Пакет 7, п. 2: на странице входа сессии нет (выход, истёкшая или отозванная сессия): копию офлайн-просмотра стираем
+  useEffect(() => { void clearOfflineSnapshot(); }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

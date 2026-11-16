@@ -8,7 +8,8 @@ import { useToast } from '../primitives/Toast';
 import { fetchAuthSnapshot, setActiveProfile, ProfilesApiError, type AuthSnapshot, type LightProfile } from './api';
 import { switchedToast, switchErrorText, veilText } from './model';
 import { Spinner } from './Spinner';
-import { resetClientCaches, setActiveProfileId } from './scope';
+import { getActiveProfileId, registerCacheReset, resetClientCaches, setActiveProfileId } from './scope';
+import { clearOfflineSnapshot, refreshOfflineSnapshot } from '../pwa/offline-data';
 
 /** Минимум показа завесы, чтобы она не мигала (§17.2 шаг 3) */
 export const VEIL_MIN_MS = 300;
@@ -84,6 +85,18 @@ export function PsnProfileProvider({ children }: { children: ReactNode }) {
     void fetchAuthSnapshot().then((s) => { if (alive && s) apply(s); });
     return () => { alive = false; };
   }, [apply]);
+
+  // Пакет 7, п. 2: копия для офлайн-просмотра — активный профиль; обновляем при входе и возврате во вкладку, смена профиля стирает копию
+  const activeId = snapshot?.activeProfileId ?? null;
+  useEffect(() => registerCacheReset(() => { void clearOfflineSnapshot(); }), []);
+  useEffect(() => {
+    if (activeId === null) return;
+    const run = () => { void refreshOfflineSnapshot(activeId, getActiveProfileId); };
+    const t = setTimeout(run, 1500); // после первого экрана: не спорим с его запросами
+    const onVis = () => { if (document.visibilityState === 'visible') run(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearTimeout(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [activeId]);
 
   // router.refresh() в transition: pending=false после true означает, что новые данные получены
   useEffect(() => {
