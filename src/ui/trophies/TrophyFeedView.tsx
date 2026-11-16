@@ -7,7 +7,7 @@ import type { FeedPeriod, FeedResponse, NearListResponse } from '@/server/trophi
 import { cachedGet } from '../data/http';
 import { SkRoot } from '../skeletons';
 import { RareIcon, TypeBadge } from '../stats/RareTrophies';
-import { emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, NEAR_URL, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type TrophiesView } from './model';
+import { emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, EASY_HINT, NEAR_SORTS, NEAR_URL, nearPageUrl, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type NearSort, type TrophiesView } from './model';
 import { NearList } from './NearList';
 import { useChipRow } from '../primitives/useChipRow';
 
@@ -63,10 +63,11 @@ export function TrophyFeedSkeleton() {
 }
 
 /** F3 «Лента трофеев» (design-system §20): группы дней МСК, чипы периода и «Только редкие», «Показать ещё». */
-export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed', nearInitial = null }: {
-  initial: FeedResponse | null; period: FeedPeriod; rare: boolean; view?: TrophiesView; nearInitial?: NearListResponse | null;
+export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed', nearInitial = null, nearSort: s0 = 'close' }: {
+  initial: FeedResponse | null; period: FeedPeriod; rare: boolean; view?: TrophiesView; nearInitial?: NearListResponse | null; nearSort?: NearSort;
 }) {
   const [view, setView] = useState<TrophiesView>(v0);
+  const [nearSort, setNearSort] = useState<NearSort>(s0);
   const [near, setNear] = useState<NearListResponse | null>(nearInitial);
   const [nearLoad, setNearLoad] = useState<Load>('idle');
   const nearAc = useRef<AbortController | null>(null);
@@ -154,7 +155,7 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
   const switchView = (v: TrophiesView) => {
     if (v === view) return;
     setView(v);
-    window.history.replaceState(window.history.state, '', viewUrl(v, period, rare));
+    window.history.replaceState(window.history.state, '', v === 'near' ? nearPageUrl(nearSort) : viewUrl(v, period, rare));
     // свежие данные при каждом входе (cachedGet отдаёт из кэша 30 с, без лишних запросов)
     if (v === 'near') void fetchNear();
     else void fetchFirst(period, rare);
@@ -192,7 +193,14 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
             </p>
           )}
           {!near && nearLoad !== 'error' && Array.from({ length: 6 }, (_, i) => <span key={i} className="ps-skeleton ps-tnear-sk" aria-hidden="true" />)}
-          {near && <NearList data={near} busy={nearLoad === 'loading'} />}
+          {/* П12.1: порядок списка — «Ближе всего» (прогресс) или «Лёгкие» (доля игроков с платиной) */}
+          <div className="ps-seg ps-tnear__sort" role="group" aria-label="Порядок" data-testid="tnear-sort">
+            {NEAR_SORTS.map((o) => (
+              <button key={o.id} type="button" aria-pressed={nearSort === o.id} title={o.id === 'easy' ? EASY_HINT : undefined}
+                onClick={() => { setNearSort(o.id); window.history.replaceState(window.history.state, '', nearPageUrl(o.id)); }}>{o.label}</button>
+            ))}
+          </div>
+          {near && <NearList data={near} busy={nearLoad === 'loading'} sort={nearSort} />}
         </>
       ) : <>
       <Head period={period} rare={rare} data={data} busy={busy} onPeriod={(p) => apply(p, rare)} onRare={() => apply(period, !rare)} />

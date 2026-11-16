@@ -5,19 +5,21 @@ import type { NearListResponse } from '@/server/trophies/types';
 import { Cover, THUMB_W } from '../collection/Cover';
 import { APPROX_HINT, avgRarityText, dlcLine, isApproximate, nearAria, remainingGrades } from '../collection/nearPlatinum';
 import { Icon } from '../icons';
-import { NEAR_EMPTY } from './model';
+import { NEAR_EMPTY, platinumRateText, sortNear, type NearSort } from './model';
 
 /**
  * Пакет 6, п. 9: «Почти платина» — все игры с прогрессом к платине (блок на Коллекции показывает первые 5 из этого же порядка).
  * Строка ведёт в окно игры на вкладке «Трофеи».
  */
-export function NearList({ data, busy }: { data: NearListResponse; busy: boolean }) {
+export function NearList({ data, busy, sort = 'close' }: { data: NearListResponse; busy: boolean; sort?: NearSort }) {
   if (data.items.length === 0) return <p className="ps-tf__empty" data-testid="tnear-empty">{NEAR_EMPTY}</p>;
   return (
     <ul className="ps-tf__rows ps-tnear" data-busy={busy || undefined} aria-busy={busy || undefined}>
-      {data.items.map(({ gameId, title, coverUrl, forecast: f }) => {
+      {sortNear(data.items, sort).map(({ gameId, title, coverUrl, forecast: f }) => {
         const approx = isApproximate(f);
         const dlc = dlcLine(f);
+        // П12.1: в «Лёгких» вместо средней редкости — доля игроков с платиной
+        const meta = (sort === 'easy' && platinumRateText(f.platinumEarnedRate)) || avgRarityText(f);
         return (
           <li key={gameId} data-testid="tnear-row">
             <Link href={`/?game=${gameId}&tab=trophies`} className="ps-tf__row ps-tnear__row" aria-label={nearAria(title, f)}>
@@ -33,7 +35,7 @@ export function NearList({ data, busy }: { data: NearListResponse; busy: boolean
                     ))}
                   </span>
                 </span>
-                <span className="ps-tf__gm">{avgRarityText(f)}{dlc ? ` · ${dlc}` : ''}</span>
+                <span className="ps-tf__gm" data-testid="tnear-meta">{meta}{dlc ? ` · ${dlc}` : ''}</span>
               </span>
               <span className="ps-tf__rate num" data-testid="tnear-progress">
                 {approx && <span className="ps-approx" title={APPROX_HINT}>≈ </span>}{f.progress}%

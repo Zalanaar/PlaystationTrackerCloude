@@ -1,5 +1,5 @@
 // F3 «Лента трофеев»: чистая часть UI (группы дней МСК, подписи, сводка, адреса). Даты приходят с сервера как «YYYY-MM-DD» МСК.
-import type { FeedItem, FeedPeriod, FeedResponse, FeedSummary } from '@/server/trophies/types';
+import type { FeedItem, FeedPeriod, FeedResponse, FeedSummary, NearListItem } from '@/server/trophies/types';
 import { plural } from '../format';
 import { formatRate } from '../collection/trophies';
 
@@ -113,3 +113,34 @@ export function nearSummary(n: number): string {
   return `${n} ${plural(n, ['игра', 'игры', 'игр'])} с прогрессом к платине`;
 }
 export const NEAR_EMPTY = 'Пока нет игр с прогрессом к платине: здесь появятся игры, где получен хотя бы один трофей, а платины ещё нет';
+
+// П12.1 «Лёгкие платины»: тот же список «Почти платина», другой порядок (?view=near&sort=easy)
+export type NearSort = 'close' | 'easy';
+export const NEAR_SORTS: readonly { id: NearSort; label: string }[] = [
+  { id: 'close', label: 'Ближе всего' },
+  { id: 'easy', label: 'Лёгкие' },
+];
+export const parseNearSort = (v: string | string[] | undefined | null): NearSort => (v === 'easy' ? 'easy' : 'close');
+export const nearPageUrl = (sort: NearSort): string => (sort === 'easy' ? `${NEAR_PAGE}&sort=easy` : NEAR_PAGE);
+
+/**
+ * «Лёгкие»: сначала платины, которые получила бо́льшая доля игроков (PSN earned rate платины), при равенстве — меньше осталось,
+ * затем выше прогресс. Без процента платины — в конце (по остатку). «Ближе всего» — порядок сервера (прогресс).
+ */
+export function sortNear(items: readonly NearListItem[], sort: NearSort): NearListItem[] {
+  if (sort === 'close') return [...items];
+  const rate = (i: NearListItem) => i.forecast.platinumEarnedRate;
+  return [...items].sort((a, b) => {
+    const ra = rate(a), rb = rate(b);
+    if ((ra === null) !== (rb === null)) return ra === null ? 1 : -1;
+    if (ra !== null && rb !== null && ra !== rb) return rb - ra;
+    return a.forecast.remaining.total - b.forecast.remaining.total || b.forecast.progress - a.forecast.progress || a.title.localeCompare(b.title, 'ru');
+  });
+}
+
+/** «платина у 42,1% игроков»; null, если PSN не отдал процент. */
+export function platinumRateText(r: number | null): string | null {
+  const t = formatRate(r);
+  return t ? `платина у ${t} игроков` : null;
+}
+export const EASY_HINT = 'Сначала платины, которые чаще всего получают игроки (по данным PSN)';

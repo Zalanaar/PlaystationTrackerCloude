@@ -58,3 +58,7 @@ a.ps-tf__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
 .ps-tnear__p { display: flex; flex-direction: column; gap: 4px; }
 .ps-tnear__p .ps-near__bar { flex: none; width: 100%; max-width: 280px; }
 .ps-tnear-sk { display: block; height: 84px; margin-top: var(--sp-1); border-radius: var(--r-sm); }
+/* П12.1: порядок «Ближе всего / Лёгкие» в «Почти платине» (зона нажатия 44 на телефоне) */
+.ps-tnear__sort { align-self: flex-start; }
+.ps-tnear__sort button { height: 36px; padding: 0 var(--sp-3); font-size: var(--fs-small); }
+@media (max-width: 767px) { .ps-tnear__sort button { height: var(--tap-min, 44px); } }

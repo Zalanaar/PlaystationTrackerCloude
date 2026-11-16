@@ -105,3 +105,40 @@ test('пустой список: подсказка; данные позже —
   const after = (await sw.boundingBox())!;
   expect(Math.abs(after.y - before.y)).toBeLessThan(0.5);
 });
+
+test('П12.1 «Лёгкие»: порядок по доле игроков с платиной, подпись, адрес помнит порядок; без сдвига и скролла', async ({ page, context, baseURL }) => {
+  const items = [
+    { gameId: 3, title: 'Horizon Forbidden West', coverUrl: null, forecast: forecast(96, { platinumEarnedRate: 4.3 }) },
+    { gameId: 201, title: 'Лёгкая', coverUrl: null, forecast: forecast(40, { platinumEarnedRate: 61.2 }) },
+    { gameId: 202, title: 'Без данных', coverUrl: null, forecast: forecast(80, { platinumEarnedRate: null }) },
+    { gameId: 203, title: 'Средняя', coverUrl: null, forecast: forecast(70, { platinumEarnedRate: 22 }) },
+  ];
+  await setup(page, context, baseURL!, { items });
+  await page.goto('/trophies?view=near');
+  const rows = page.getByTestId('tnear-row');
+  await expect(rows).toHaveCount(4);
+  const sort = page.getByTestId('tnear-sort');
+  await expect(sort.getByRole('button', { name: 'Ближе всего' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(rows.first()).toContainText('Horizon Forbidden West');
+  await sort.getByRole('button', { name: 'Лёгкие' }).click();
+  await expect(page).toHaveURL(/\/trophies\?view=near&sort=easy$/);
+  await expect(rows.nth(0)).toContainText('Лёгкая');
+  await expect(rows.nth(1)).toContainText('Средняя');
+  await expect(rows.nth(2)).toContainText('Horizon Forbidden West');
+  await expect(rows.nth(3)).toContainText('Без данных');
+  await expect(rows.nth(0).getByTestId('tnear-meta')).toContainText('платина у 61,2% игроков');
+  await expect(rows.nth(3).getByTestId('tnear-meta')).toContainText('ср. редкость');
+  const btn = (await sort.getByRole('button', { name: 'Лёгкие' }).boundingBox())!;
+  if ((page.viewportSize()?.width ?? 1280) < 768) expect(btn.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  // SSR с ?sort=easy
+  await page.reload();
+  await expect(rows.nth(0)).toContainText('Лёгкая');
+  await expect(sort.getByRole('button', { name: 'Лёгкие' })).toHaveAttribute('aria-pressed', 'true');
+  // Лента и обратно: порядок сохраняется
+  await page.getByTestId('tf-view').getByRole('button', { name: 'Лента' }).click();
+  await expect(page).toHaveURL(/\/trophies$/);
+  await page.getByTestId('tf-view-near').click();
+  await expect(page).toHaveURL(/\/trophies\?view=near&sort=easy$/);
+  await expect(rows.nth(0)).toContainText('Лёгкая');
+});

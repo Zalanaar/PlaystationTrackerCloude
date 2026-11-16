@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { FeedItem, FeedResponse } from '@/server/trophies/types';
-import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, nearSummary, pageUrl, parsePeriod, parseView, summaryParts, viewUrl } from './model';
+import type { FeedItem, FeedResponse, NearListItem } from '@/server/trophies/types';
+import { dayLabel, feedUrl, gameLine, groupFeed, mergePages, nearPageUrl, nearSummary, pageUrl, parseNearSort, platinumRateText, sortNear, parsePeriod, parseView, summaryParts, viewUrl } from './model';
 
 const item = (id: number, day: string | null, o: Partial<FeedItem> = {}): FeedItem => ({
   id, setId: 1, trophyId: id, type: 'bronze', name: `T${id}`, detail: null, iconUrl: null, earnedAt: day ? `${day}T10:00:00Z` : null, day,
@@ -55,5 +55,32 @@ describe('Пакет 6, п. 9: «Почти платина»', () => {
     expect(m.nearSummary(1)).toBe('1 игра с прогрессом к платине');
     expect(m.nearSummary(3)).toBe('3 игры с прогрессом к платине');
     expect(m.nearSummary(12)).toBe('12 игр с прогрессом к платине');
+  });
+});
+
+
+describe('П12.1 лёгкие платины', () => {
+  const it0 = (title: string, rate: number | null, remaining: number, progress: number): NearListItem => ({
+    gameId: title.length, title, coverUrl: null,
+    forecast: { setId: 1, required: 50, earned: 50 - remaining, progress, remaining: { gold: 0, silver: 0, bronze: remaining, total: remaining }, remainingHidden: 0, avgEarnedRate: null, minEarnedRate: null, ratesKnown: 0, platinumEarnedRate: rate },
+  });
+  const list = [it0('A', 4.3, 2, 96), it0('B', 40, 20, 60), it0('C', null, 1, 98), it0('D', 40, 5, 90), it0('E', null, 10, 80)];
+  it('«Ближе всего» — порядок сервера', () => {
+    expect(sortNear(list, 'close').map((i) => i.title)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  });
+  it('«Лёгкие»: доля игроков с платиной, затем остаток; без процента в конце', () => {
+    expect(sortNear(list, 'easy').map((i) => i.title)).toEqual(['D', 'B', 'A', 'C', 'E']);
+    expect(list.map((i) => i.title)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  });
+  it('адрес и разбор параметра', () => {
+    expect(parseNearSort('easy')).toBe('easy');
+    expect(parseNearSort(['easy'])).toBe('close');
+    expect(parseNearSort(undefined)).toBe('close');
+    expect(nearPageUrl('easy')).toBe('/trophies?view=near&sort=easy');
+    expect(nearPageUrl('close')).toBe('/trophies?view=near');
+  });
+  it('подпись доли', () => {
+    expect(platinumRateText(42.13)).toBe('платина у 42,1% игроков');
+    expect(platinumRateText(null)).toBeNull();
   });
 });
