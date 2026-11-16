@@ -82,8 +82,8 @@ test('телефон без View Transitions API: fade без transform, пер�
   const a = await anim(page);
   expect(a.name).toBe('ps-route-in');
   expect(a.transform).toBe('none');
-  await page.waitForTimeout(400);
-  expect(await page.locator('.ps-route').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  // старт анимации на WebKit под нагрузкой CI может запаздывать: ждём конца fade, а не фиксированные 400 мс
+  await expect.poll(() => page.locator('.ps-route').evaluate((el) => getComputedStyle(el).opacity), { timeout: 3000 }).toBe('1');
   expect(await page.evaluate(() => (window as unknown as W).__cls)).toBeLessThan(0.01);
 });
 
