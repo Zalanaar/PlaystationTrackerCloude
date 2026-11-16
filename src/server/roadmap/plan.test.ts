@@ -311,3 +311,20 @@ describe('notFit: лучшая позиция вставки (17.15)', () => {
     expect(ms).toBeLessThan(3000);
   });
 });
+
+describe('t189u: порядок игр в месяце и неделе — по дате начала', () => {
+  it('релиз 28 янв. в январе после игр очереди 1–7 и с 8 янв.; неделя релиза — по дню начала', () => {
+    const p = plan([bl(1, 10, 'SILENT HILL f'), bl(2, 30, 'Elden')], [rel(7, '2026-01-28', 10)]);
+    const jan = p.months[0];
+    expect(jan.items.map((i) => i.key).slice(0, 2)).toEqual(['g:1', 'p:7']);
+    for (const m of p.months) {
+      const starts = m.items.map((i) => {
+        const it = item(p, i.key)!;
+        return it.segments.filter((s) => s.to >= m.from && s.from <= m.to).map((s) => (s.from < m.from ? m.from : s.from)).sort()[0];
+      });
+      expect(starts).toEqual([...starts].sort());
+    }
+    const wk = p.weeks.find((w) => w.from <= '2026-01-28' && w.to >= '2026-01-28')!;
+    expect(wk.items.map((i) => i.key).at(-1)).toBe('p:7');
+  });
+});

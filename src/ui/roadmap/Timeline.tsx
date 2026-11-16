@@ -172,8 +172,10 @@ function MonthsView({ data, onJump, extra }: { data: RoadmapResponse; onJump: (k
             const when = before && after ? 'весь месяц' : before ? `до ${dayText(end)}` : after ? `с ${dayText(start)}` : rangeText(start, end);
             const left = ((dayNumber(start) - dayNumber(m.from)) / m.days) * 100;
             const width = ((dayNumber(end) - dayNumber(start) + 1) / m.days) * 100;
-            return { it, hours: li.hours, when, left, width };
-          }).filter((x): x is NonNullable<typeof x> => x !== null);
+            return { it, hours: li.hours, when, left, width, start };
+          }).filter((x): x is NonNullable<typeof x> => x !== null)
+            // t189u: по дате начала в месяце (релиз «с 28 янв.» — после игры 1–7 янв.), как бы ни пришёл порядок с сервера
+            .sort((x, y) => (x.start < y.start ? -1 : x.start > y.start ? 1 : 0));
           const mConf = conflicts.map((c, i) => ({ c, n: i + 1 })).filter(({ c }) => c.to >= m.from && c.from <= m.to);
           return (
             <li key={m.month} className="ps-rm-mo__m" data-cur={idx === cur || undefined} data-testid="rm-month">

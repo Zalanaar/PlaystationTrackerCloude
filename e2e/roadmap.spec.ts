@@ -411,7 +411,7 @@ test.describe('План: убрать из плана и «Не распреде
   test('релиз: убрать из плана, вернуть и удалить совсем с подтверждением', async ({ page, context, baseURL }) => {
     const s = await open(page, context, baseURL as string, baseState({ planned: [rel(7, 'Будущая игра', '2026-12-10', { hoursManual: 20, wantAtRelease: true })] }));
     await page.getByRole('button', { name: 'Убрать из плана: Будущая игра' }).click();
-    expect(s.calls.patches.at(-1)).toEqual({ id: 7, body: { status: 'unallocated' } });
+    await expect.poll(() => s.calls.patches.at(-1)).toEqual({ id: 7, body: { status: 'unallocated' } });
     await expect(page.getByTestId('rm-release')).toHaveCount(0);
     const un = page.getByTestId('rm-unallocated');
     await expect(un).toContainText('Будущая игра');

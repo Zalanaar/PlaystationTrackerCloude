@@ -214,15 +214,22 @@ function buildPlanCore(input: PlanInput): Plan {
   const load = (from: string, to: string): { sum: number; items: { key: string; hours: number }[] } => {
     const a = dayNum(from);
     const b = dayNum(to);
-    const list: { key: string; hours: number }[] = [];
+    const list: { key: string; hours: number; at: number }[] = [];
     let sum = 0;
     for (const pl of placed) {
       let h = 0;
-      for (const s of pl.segs) h += (s.hours * overlapDays(a - base, b - base, s.from, s.to)) / (s.to - s.from + 1);
+      let at = Infinity;
+      for (const s of pl.segs) {
+        const ov = overlapDays(a - base, b - base, s.from, s.to);
+        h += (s.hours * ov) / (s.to - s.from + 1);
+        if (ov > 0) at = Math.min(at, Math.max(s.from, a - base));
+      }
       sum += h;
-      if (round1(h) > 0) list.push({ key: pl.entry.key, hours: round1(h) });
+      if (round1(h) > 0) list.push({ key: pl.entry.key, hours: round1(h), at });
     }
-    return { sum, items: list };
+    // t189u: порядок по дате начала в периоде (релиз 28 янв. — после игры 1–7 янв.), а не по порядку раскладки (релизы раскладываются первыми)
+    list.sort((x, y) => x.at - y.at || cmpStr(x.key, y.key));
+    return { sum, items: list.map(({ key, hours }) => ({ key, hours })) };
   };
   const weeks = weeksOfYear(year).map((w) => {
     const l = load(w.from, w.to);
