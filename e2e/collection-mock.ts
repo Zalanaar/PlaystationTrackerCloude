@@ -206,6 +206,8 @@ export type Mock = {
   onThisDay: unknown[];
   /** П12.3: ответ GET /api/trophies/level (по умолчанию уровня нет) */
   level: Record<string, unknown>;
+  /** П12.4: ответ GET /api/collection/backlog-age (по умолчанию пусто = строки и подписей нет) */
+  backlogAge: Record<string, unknown>;
   /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
@@ -280,7 +282,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -301,6 +303,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   });
 
   await page.route(/\/api\/trophies\/level(\?|$)/, (r) => json(r, m.level));
+  await page.route(/\/api\/collection\/backlog-age(\?|$)/, (r) => json(r, m.backlogAge));
   await page.route(/\/api\/stats\/on-this-day(\?|$)/, (r) => json(r, { today: isoDay(Date.now() + 3 * 3600_000), items: m.onThisDay }));
   await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
     const u = new URL(r.request().url());

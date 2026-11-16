@@ -12,7 +12,9 @@ import { formatNumber } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
-import { ApiError, errorText, fetchGameDetails, fetchGames, putStatus } from './api';
+import { ApiError, errorText, fetchBacklogAge, fetchGameDetails, fetchGames, putStatus } from './api';
+import type { BacklogAgeResponse } from '@/server/collection/backlog-age';
+import { AGE_HINT, ageMap, ageSummary } from './backlogAge';
 import { mskDay } from '../inbox/model';
 import { MatchChip } from '../inbox/MatchChip';
 import { ManualCard, ManualRow } from './ManualItems';
@@ -113,6 +115,16 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
     fetchRoadmap(ac.signal).then(setRoadmap, () => {}).finally(() => { if (!ac.signal.aborted) setRoadmapReady(true); });
     return () => ac.abort();
   }, []);
+  // П12.4: возраст бэклога — ждём вместе со списком (строка под заголовком и подписи строк не сдвигают страницу); сбой = без него.
+  // Перезапрос, когда меняется число игр в бэклоге (смена статуса, добавление).
+  const [age, setAge] = useState<BacklogAgeResponse | null>(null);
+  const [ageReady, setAgeReady] = useState(false);
+  const loadAge = useCallback((signal?: AbortSignal) => fetchBacklogAge(signal).then((r) => { if (!signal?.aborted) setAge(r); }, () => {}).finally(() => { if (!signal?.aborted) setAgeReady(true); }), []);
+  useEffect(() => {
+    const ac = new AbortController();
+    void loadAge(ac.signal);
+    return () => ac.abort();
+  }, [loadAge]);
   // чип «Это та игра?» и записи «не куплено» приходят позже списка: до их прихода держим скелетон, чтобы список не сдвигался (QA-43-3)
   const [matchReady, setMatchReady] = useState(false);
   const [auxReady, setAuxReady] = useState({ shelved: false, service: false });
@@ -326,7 +338,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       setNextGone((s) => { const n = new Set(s); if (to === 'backlog') n.delete(g.id); else n.add(g.id); return n; });
     };
     // п. 1 пакета 6: план перечитываем после смены статуса, иначе карточка показывала устаревшую «следующую» или пропадала
-    const sync = () => { void load(); void loadService(); void loadShelved(); fetchRoadmap().then(setRoadmap, () => {}); };
+    const sync = () => { void load(); void loadService(); void loadShelved(); void loadAge(); fetchRoadmap().then(setRoadmap, () => {}); };
     apply(game, status);
     try {
       await putStatus(game.id, status);
@@ -358,7 +370,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         toast({ kind: 'error', text: `Не удалось вернуть статус. ${errorText(e)}` });
       }
     }
-  }, [load, loadService, loadShelved, toast]);
+  }, [load, loadService, loadShelved, loadAge, toast]);
 
   const openGameLink = useOpenGameFromPage();
   const actions: GameActions = useMemo(() => ({
@@ -426,7 +438,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   // D-P2: «Поиск» и «+» мобильной шапки
   useHeaderAction('search', () => setSearchOpen(true));
   useHeaderAction('add', () => openAdd());
-  useDataRefresh(() => { void load(); void loadService(); }); // П9: возврат в приложение, «потяни, чтобы обновить»
+  useDataRefresh(() => { void load(); void loadService(); void loadAge(); }); // П9: возврат в приложение, «потяни, чтобы обновить»
   // П9: «Не куплено (PS)» из меню «+» на другой странице ведёт сюда с `?add=store` — окно сразу, параметр убираем
   const addParam = params.get('add');
   const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
@@ -512,6 +524,10 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   const shownTotal = total + shownManual.length;
   // Фаза 48 (п. 11): число бэклога = игры библиотеки (как чип коллекции, «Подскажи» и «План»); записи вручную подписаны отдельно
   const mainTotal = filters.nb ? 0 : total;
+  // П12.4: «сейчас» берём при получении ответа, чтобы рендер был чистым
+  const ageNow = useMemo(() => (age ? Date.now() : 0), [age]);
+  const ageLine = useMemo(() => (age ? ageSummary(age, ageNow) : null), [age, ageNow]);
+  const ages = useMemo(() => ageMap(age, ageNow), [age, ageNow]);
   const narrowed = !!(filters.q || filters.genres.length || filters.duration.length || filters.hltb.length || filters.nb);
   const manualNote = backlogManualParts(manual.length, nbCount);
 
@@ -563,7 +579,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
     );
     return () => ac.abort();
   }, [needExtra, nextExtra]);
-  const auxDone = giveUp || (manualReady && matchReady && roadmapReady && !nextPending && auxReady.shelved && auxReady.service);
+  const auxDone = giveUp || (manualReady && matchReady && roadmapReady && ageReady && !nextPending && auxReady.shelved && auxReady.service);
   const ready = !!items && !(error && !items) && auxDone;
   const nextUp = ready ? nextCand : null;
   const nextGame = nextUp ? nextInItems ?? (nextExtra?.id === nextUp.gameId ? nextExtra.game : null) : null;
@@ -681,6 +697,10 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(mainTotal)}</small>}
         </h2>
       )}
+      {/* П12.4: строка возраста — общая по бэклогу, поэтому под фильтрами не показывается; приходит вместе со списком */}
+      {ready && !filters.nb && items && auxDone && ageLine && !hasBacklogFilters(filters) && (
+        <p className="ps-bl-age" data-testid="bl-age" title={AGE_HINT}>{ageLine}</p>
+      )}
       {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
       <MatchChip className="ps-bl-match" hold={!items || !auxDone} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />
       {nextUp && nextGame && (
@@ -711,7 +731,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           <ul className="ps-bl-rows" aria-label="Игры в бэклоге">
             {entries.map((e, i) => (e.manual
               ? <ManualRow key={`m${e.manual.id}`} game={e.manual} handlers={manualHandlers} today={today} />
-              : <BacklogRow key={e.game!.id} game={e.game!} priority={i < FIRST_SCREEN} onOpen={() => actions.open(e.game!)} onPlay={() => void change(e.game!, 'playing')} menu={menuFor(e.game!, 'backlog')} />))}
+              : <BacklogRow key={e.game!.id} game={e.game!} priority={i < FIRST_SCREEN} onOpen={() => actions.open(e.game!)} onPlay={() => void change(e.game!, 'playing')} menu={menuFor(e.game!, 'backlog')} age={ages.get(e.game!.id)} />))}
           </ul>
         ) : (
         <GameGrid density="comfort" label="Игры в бэклоге">
