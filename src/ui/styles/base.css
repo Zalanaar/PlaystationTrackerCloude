@@ -394,3 +394,10 @@ body::before {
 /* П10: тексты предупреждений последнего запуска в панели синка */
 .ps-sync-warn { display: grid; gap: var(--sp-2); padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-sync-warn__list { display: grid; gap: var(--sp-1); margin: 0; padding-left: var(--sp-4); list-style: disc; overflow-wrap: anywhere; }
+
+/* П11.5.1: плавная смена вкладок на телефоне (шаблон (app)/template.tsx). Только прозрачность: без transform (не ломает position: fixed
+   внутри страницы) и без сдвига вёрстки. Первая загрузка и prefers-reduced-motion — без анимации. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .ps-route[data-enter] { animation: ps-route-in 180ms var(--ease-ui) both; }
+}
+@keyframes ps-route-in { from { opacity: 0; } to { opacity: 1; } }
