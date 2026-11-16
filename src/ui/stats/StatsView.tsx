@@ -201,7 +201,7 @@ function WrappedLink({ sel, where }: { sel: Selection; where: 'head' | 'switch' 
   const all = sel.period === 'all';
   return (
     <Link href={all ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className={`ps-btn ps-st-wrapped-btn ps-st-wrapped-btn--${where}`} data-tour="stats-wrapped">
-      <Icon name="sparkles" size={16} />{all ? 'Итоги: всё время' : <>Итоги<span className="ps-st-wrapped-btn__y">{` ${sel.year}`}</span></>}
+      <Icon name="sparkles" size={16} />{all ? 'Итоги: всё время' : <><span className="ps-st-wrapped-btn__t">Итоги</span><span className="ps-st-wrapped-btn__y">{` ${sel.year}`}</span></>}
     </Link>
   );
 }

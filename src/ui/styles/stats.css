@@ -458,6 +458,9 @@
   .ps-st-switch > .ps-seg { grid-column: 1 / -1; }
   .ps-st-switch > .ps-st-nav, .ps-st-switch > .ps-st-range { grid-column: 1; min-width: 0; }
   .ps-st-switch > .ps-st-wrapped-btn--switch { grid-column: 2; }
+  /* П9: «Сентябрь 2025» в одну строку рядом с «Итоги»: подпись не переносится, в режиме месяца год у кнопки только для скринридера */
+  .ps-st-nav__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ps-st-switch[data-period="month"] .ps-st-wrapped-btn__y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ps-st-switch[data-period="all"] .ps-seg, .ps-st-switch .ps-seg { display: flex; }
   .ps-st-switch > .ps-seg button { flex: 1 1 0; height: var(--tap-min); }
   .ps-st-range { text-align: center; }
@@ -470,6 +473,11 @@
   .ps-pp__col { height: 104px; }
   .ps-pp__stub { height: 120px; }
   .ps-st-head__y { flex-basis: 100%; }
+}
+@media (max-width: 379px) {
+  /* П9: на узком телефоне в режиме месяца кнопка «Итоги» — только значок 44x44 (подпись остаётся для скринридера), чтобы «Сентябрь 2025» не обрезался */
+  .ps-st-switch[data-period="month"] .ps-st-wrapped-btn--switch { width: var(--tap-min); padding: 0; justify-content: center; }
+  .ps-st-switch[data-period="month"] .ps-st-wrapped-btn__t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ps-st-ychart .ps-st-ystack, .ps-pp__chart .ps-pp__fill { transform: none !important; animation: none !important; }
