@@ -16,7 +16,7 @@
    ОГРАНИЧЕНИЯ КОНТРАСТА (при них верна таблица в docs/design-system.md; не усиливать без пересчёта)
    | PS2 | суммарная плотность тумана не больше .24 (пятна .16 и .08 разнесены), башни не больше .06 и только в нижних 420px |
    | PS3 | волна не выше top 240px (ниже уже фон не светлее --xmb-b), полоса не больше .05, линии не больше .06; градиент --xmb-a не светлее яркости .0125 |
-   | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются |
+   | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются; на мобильном статичные, без подъёма |
    | PS5 | арт opacity не больше .28, затемнение сверху не меньше .45 |
    Производительность: PS5 самая дорогая (blur 64 на полноэкранном слое, backdrop-filter на карточках), PS4 держит слой 100vh+240px,
    поэтому position fixed (не на всю длину страницы: на 214 играх слой был бы огромным). */
@@ -113,6 +113,12 @@
 }
 [data-theme="ps4"] .ps-card[data-active="true"] .ps-card__cover { outline: 3px solid #fff; outline-offset: 2px; transform: scale(1.03); }
 [data-theme="ps4"] .ps-hero__mini { border-left: 3px solid var(--border-strong); }
+/* Айдентика тем, шаг 2 (Tiles): тонкая светлая обводка плиток, зазор сетки чуть шире, шапка как ряд функций (разделители между кнопками) */
+[data-theme="ps4"] .ps-card__cover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .32), var(--shadow-card); }
+[data-theme="ps4"] .ps-card:hover .ps-card__cover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), var(--shadow-hover); }
+[data-theme="ps4"] .ps-grid { gap: calc(var(--row-gap) + 2px) calc(var(--card-gap) + 2px); }
+[data-theme="ps4"] .ps-header { border-bottom-color: rgba(255, 255, 255, .14); }
+[data-theme="ps4"] .ps-header__right > * + * { box-shadow: -5px 0 0 -4px rgba(255, 255, 255, .22); }
 @keyframes ps4-dust { to { transform: translate3d(0, -240px, 0); } }
 
 /* ---------- PS5: размытый арт «Играю сейчас» (--page-art), pill-выделение, стеклянные карточки (только от 768px) ---------- */
@@ -162,7 +168,8 @@
 @media (max-width: 767px) {
   [data-theme="ps2"] .ps-app::before { animation: none; }                 /* туман статичный */
   [data-theme="ps3"] .ps-app::after { animation: none; top: 260px; height: 200px; } /* волна статичная и короче */
-  [data-theme="ps4"] .ps-app::after { display: none; }                    /* частицы скрыты */
+  /* частицы: редкие статичные точки на высоту экрана (шаг 2, Tiles); подъём только от 768px */
+  [data-theme="ps4"] .ps-app::after { animation: none; will-change: auto; height: 100vh; background-size: 300px 300px; opacity: .7; }
   [data-theme="ps5"] .ps-app::before { filter: blur(32px) saturate(1.15); } /* дешевле; backdrop-filter выше 768 */
 }
 
