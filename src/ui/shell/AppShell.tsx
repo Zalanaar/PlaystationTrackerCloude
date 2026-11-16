@@ -29,7 +29,7 @@ import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
-import { ThemeList, ThemePicker } from './ThemePicker';
+import { ThemePicker, ThemeSwatches } from './ThemePicker';
 
 const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
@@ -203,7 +203,7 @@ export function AppHeader() {
             </div>
           )}
           <p className="ps-micro">Тема</p>
-          <div role="menu" className="ps-list"><ThemeList onPick={() => setMore(false)} /></div>
+          <ThemeSwatches />
           <p className="ps-micro">Аккаунт</p>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
             <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>

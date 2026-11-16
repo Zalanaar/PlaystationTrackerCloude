@@ -103,3 +103,20 @@ test.describe('Фаза 48 (п. 15): ссылка «К содержимому»,
     await expect(page.getByRole('heading', { level: 1, name: 'Разбор' })).toBeAttached();
   });
 });
+
+test.describe('П9: меню телефона с рядом кружков тем', () => {
+  test('axe без нарушений в открытом меню, во всех темах', async ({ page, context, baseURL, isMobile }) => {
+    test.skip(!isMobile, 'меню телефона');
+    await open(page, context, baseURL!, '/');
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+    const bad: Record<string, string[]> = {};
+    for (const t of THEMES) {
+      await setTheme(page, t);
+      const v = await axe(page, ['aria-allowed-role', 'aria-required-children', 'aria-required-parent', 'button-name', 'color-contrast', 'nested-interactive', 'target-size', 'aria-valid-attr-value'], COVERS);
+      const all = Object.entries(v).flatMap(([id, nodes]) => nodes.map((n) => `${id} ${n.target.join(' ')}`));
+      if (all.length) bad[t] = all;
+    }
+    expect(bad).toEqual({});
+  });
+});

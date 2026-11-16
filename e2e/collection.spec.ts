@@ -632,9 +632,21 @@ for (const width of [390, 440]) {
     test('тема меняется из меню и сохраняется', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']);
-      await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+      // П9: ряд кружков (radiogroup) вместо списка
+      const row = page.getByRole('radiogroup', { name: 'Тема' });
+      await expect(row.getByRole('radio')).toHaveCount(7);
+      for (const n of ['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']) await expect(row.getByRole('radio', { name: n })).toBeVisible();
+      await expect(row.getByRole('radio', { name: 'Night' })).toHaveAttribute('aria-checked', 'true');
+      await row.getByRole('radio', { name: 'Dark' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
+      await expect(row.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+      // меню остаётся открытым, стрелка вправо — следующая тема
+      await page.keyboard.press('ArrowRight');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'ps1');
+      // ряд в одну строку и не выше 96 px вместе с подписью
+      const box = (await page.locator('.ps-themerow').boundingBox())!;
+      expect(box.height).toBeLessThanOrEqual(96);
+      await row.getByRole('radio', { name: 'Dark' }).click();
       await page.reload();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
     });

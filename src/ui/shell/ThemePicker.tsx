@@ -60,6 +60,39 @@ export function ThemeList({ onPick }: { onPick?: () => void }) {
   );
 }
 
+/**
+ * П9: компактный выбор темы в меню телефона — ряд кружков вместо списка из 7 строк.
+ * radiogroup со стрелками (roving tabindex), у кружка тап-зона 44x44, имя темы — aria-label и подпись под рядом.
+ * Меню не закрывается: можно сравнить темы подряд.
+ */
+export function ThemeSwatches() {
+  const [theme, setTheme] = useTheme();
+  const cur = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const onKey = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const n = (i + d + THEMES.length) % THEMES.length;
+    setTheme(THEMES[n].id);
+    (e.currentTarget.parentElement?.children[n] as HTMLElement | undefined)?.focus();
+  };
+  return (
+    <div className="ps-themerow">
+      <div className="ps-themerow__list" role="radiogroup" aria-label="Тема" data-testid="theme-swatches">
+        {THEMES.map((t, i) => (
+          <button
+            key={t.id} type="button" role="radio" aria-checked={theme === t.id} aria-label={t.label} title={t.label}
+            tabIndex={theme === t.id ? 0 : -1} className="ps-themerow__btn" onClick={() => setTheme(t.id)} onKeyDown={(e) => onKey(e, i)}
+          >
+            <span className="ps-swatch ps-swatch--lg" data-theme={t.attr ?? 'night'} aria-hidden="true"><span className="ps-swatch__dot" /></span>
+          </button>
+        ))}
+      </div>
+      <p className="ps-themerow__cur" aria-hidden="true">{cur.label}</p>
+    </div>
+  );
+}
+
 export function ThemePicker() {
   const [theme] = useTheme();
   const cur = THEMES.find((t) => t.id === theme) ?? THEMES[0];
