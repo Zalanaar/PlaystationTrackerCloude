@@ -128,7 +128,9 @@ export async function startRun(db: AnyDb, userId: UserId, o: { kind: RunKind; no
     return { kind: 'started', run, resumed: o.carryPhase !== undefined && o.carryPhase !== 'games' };
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
-    const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(eq(syncRuns.status, 'running')).limit(1);
+    // Пакет 7, п. 3: слот у каждого профиля свой — занят запуском этого же профиля. null = слот держит чужой запуск
+    // (только пока жив старый общий индекс sync_runs_one_running_idx: между выкатом кода и миграцией, снимающей его)
+    const [running] = await db.select({ id: syncRuns.id }).from(syncRuns).where(and(eq(syncRuns.userId, userId), eq(syncRuns.status, 'running'))).limit(1);
     return { kind: 'already_running', runId: running?.id ?? null };
   }
 }

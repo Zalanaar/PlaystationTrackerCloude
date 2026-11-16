@@ -16,7 +16,8 @@ export const maxDuration = 60;
 const json = (data: unknown, status: number) => NextResponse.json({ ok: true, data }, { status, headers: { 'Cache-Control': 'no-store' } });
 
 /**
- * Слот running один на всю систему. Если его держит не обход (ручной синк или HLTB), обход не обрывается:
+ * Слот running у каждого профиля свой (пакет 7, п. 3): ручной синк профиля обход пропускает и идёт дальше.
+ * Если слот занят иначе (чужой запуск под старым общим индексом или HLTB), обход не обрывается:
  * пауза и самовызов той же позиции очереди (?queue=<id-1>&wait=<N>), не больше QUEUE_MAX_WAITS раз (~20 мин).
  * Дальше страхует догоняющий запуск watchdog.
  */
@@ -86,9 +87,12 @@ export async function GET(req: Request) {
         const r = await launchSync({ userId: u.id, kind: 'daily' });
         if (r.kind === 'started') return respond(r);
         if (r.kind === 'already_running') {
-          // слот держит сам обход (daily): он продолжит очередь сам
+          // Пакет 7, п. 3: слот у каждого профиля свой. runId = идущий запуск этого же профиля:
+          // daily — его ведёт сам обход (он продолжит очередь сам); ручной синк профиля — профиль и так обновляется, идём к следующему.
+          // runId = null — слот занят чужим запуском (старый общий индекс до его снятия), прочие kind (HLTB): ждём, как раньше.
           const [busy] = r.runId === null ? [] : await db.select({ kind: schema.syncRuns.kind }).from(schema.syncRuns).where(eq(schema.syncRuns.id, r.runId)).limit(1);
-          if (!busy || busy.kind === 'daily') return respond(r);
+          if (busy?.kind === 'daily') return respond(r);
+          if (busy?.kind === 'manual') continue;
           const next = (wait ?? 0) + 1;
           if (next > QUEUE_MAX_WAITS) {
             console.error('cron: слот синка занят слишком долго, обход отложен до догоняющего запуска');

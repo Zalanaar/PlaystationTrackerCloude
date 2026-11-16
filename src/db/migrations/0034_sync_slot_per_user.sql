@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "sync_runs_one_running_per_user_idx" ON "sync_runs" USING btree ("user_id") WHERE "sync_runs"."status" = 'running';

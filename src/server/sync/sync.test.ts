@@ -326,7 +326,8 @@ describe('синк на PGlite и фейковом PSN', () => {
     const a = await startRun(t.db, TEST_USER, { kind: 'daily', now: new Date(clock.t) });
     expect(a.kind).toBe('started');
     const b = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t + 60_000) });
-    expect(b).toMatchObject({ kind: 'already_running' });
+    if (a.kind !== 'started') throw new Error();
+    expect(b).toMatchObject({ kind: 'already_running', runId: a.run.id }); // пакет 7, п. 3: id идущего запуска этого же профиля
     expect(await t.db.select().from(syncRuns)).toHaveLength(1);
 
     const c = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t + STALE_RUN_MS + 60_000) });

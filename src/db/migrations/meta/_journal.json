@@ -239,6 +239,13 @@
       "when": 1793729080998,
       "tag": "0033_other_platform_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794821396799,
+      "tag": "0034_sync_slot_per_user",
+      "breakpoints": true
     }
   ]
 }
