@@ -230,7 +230,7 @@ test.describe('Wave (ps3)', () => {
   });
 });
 
-// t199u: айдентика и на десктопе (от 1024 px мотивы в поле страницы, не только по краям)
+// t199u: айдентика и на десктопе (от 1024 px мотивы в поле страницы, не только по краям); заметная волна PS3 в шапке
 test.describe('десктоп: мотивы тем (t199u)', () => {
   test('Tiles — стена плиток, Memory Card — карта памяти и блоки в полоске уровня; на телефоне их нет', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps4');
@@ -254,5 +254,15 @@ test.describe('десктоп: мотивы тем (t199u)', () => {
     }
     await page.waitForTimeout(1500);
     expect(await cls(page)).toBe(0);
+  });
+  test('Wave: волна в шапке заметная (полоса .14) на телефоне и десктопе, шапка непрозрачная; в других темах нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps3');
+    const w = await page.evaluate(() => { const h = document.querySelector('.ps-header')!; const cs = getComputedStyle(h, '::before'); return { content: cs.content, bg: cs.backgroundImage, h: parseFloat(cs.height), z: cs.zIndex, hbg: getComputedStyle(h).backgroundColor }; });
+    expect(w.content).not.toBe('none');
+    expect(w.bg).toContain('.14');
+    expect(w.h).toBeGreaterThan(40);
+    expect(w.hbg).toBe('rgb(16, 7, 11)');
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('.ps-header')!, '::before').content)).toBe('none');
   });
 });

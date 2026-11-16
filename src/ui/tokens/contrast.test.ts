@@ -364,6 +364,21 @@ describe('контраст тем', () => {
     expect(alphas.length).toBe(3);
     for (const a of alphas) expect(a).toBeLessThanOrEqual(0.03);
   });
+  // t199u: заметная волна в шапке. Шапка непрозрачная (--bg), вторичный текст шапки = 60% --text поверх --text-2; полоса и линия вместе до .32
+  it('ps3: волна шапки — полоса <= .14, линии <= .2; --text-2 шапки на --bg под наложением .32 >= 4.5', () => {
+    const block = decorCss.match(/\[data-theme="ps3"\] \.ps-header::before \{([^}]*)\}/)![1];
+    const alphas = [...block.matchAll(/rgba\(255,255,255,([\d.]+)\)/g)].map((x) => Number(x[1]));
+    expect(alphas.length).toBe(3);
+    expect(alphas[0]).toBeLessThanOrEqual(0.14);
+    for (const a of alphas.slice(1)) expect(a).toBeLessThanOrEqual(0.2);
+    expect(decorCss).toMatch(/\[data-theme="ps3"\] \.ps-header \{ background: var\(--bg\); --text-2: color-mix\(in srgb, var\(--text\) 60%, #d3b3bd\); \}/);
+    expect(get('ps3', '--text-2')).toBe(parseColor('#d3b3bd').hex);
+    const fg = over(get('ps3', '--text'), 0.6, get('ps3', '--text-2'));
+    const bg = over('#ffffff', alphas[0] + Math.max(...alphas.slice(1)), get('ps3', '--bg'));
+    expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+    // основной текст шапки (заголовок раздела) тем более
+    expect(ratio(get('ps3', '--text'), bg)).toBeGreaterThanOrEqual(4.5);
+  });
   // Фазы 25-26 (design-system §12.9): графики «по годам» и «Когда ты играешь», плашка охвата
   describe('Фазы 25-26 (§12.9)', () => {
     /** --accent-soft: rgba(...) или color-mix(in srgb, var(--accent) P%, transparent) поверх фона. */

@@ -15,7 +15,8 @@
 
    ОГРАНИЧЕНИЯ КОНТРАСТА (при них верна таблица в docs/design-system.md; не усиливать без пересчёта)
    | PS2 | суммарная плотность тумана не больше .24 (пятна .17 и .07 разнесены), грань кристалла не больше .06 (слой до 82vh снизу, маска сверху), кубы за контентом |
-   | PS3 | волна с top 70px (моб.) / 120px: фон там до --xmb-a, поэтому полоса .03 и линии .03 (наложение не больше .06); градиент --xmb-a не светлее яркости .0125 |
+   | PS3 | волна с top 70px (моб.) / 120px: фон там до --xmb-a, поэтому полоса .03 и линии .03 (наложение не больше .06); градиент --xmb-a не светлее яркости .0125;
+   |     | волна в шапке: шапка --bg, --text-2 шапки = 60% --text, полоса .14 + линия .2 (наложение не больше .32) |
    | PS4 | свет сверху не светлее #0a3584; частицы точечные (до 2px), под текстом не учитываются; на мобильном статичные, без подъёма |
    | PS5 | арт opacity не больше .28, затемнение сверху не меньше .45 |
    Производительность: PS5 самая дорогая (blur 64 на полноэкранном слое, backdrop-filter на карточках), PS4 держит слой 100vh+240px,
@@ -146,6 +147,14 @@
 [data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"]:not(:focus-visible) { box-shadow: 0 0 16px rgba(255, 255, 255, .35); color: var(--text); }
 [data-theme="ps3"] .ps-year__y { text-shadow: 0 0 18px rgba(255, 255, 255, .28); }
 @keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
+/* t199u: волна на мобильном была не видна (.03 за вторичным текстом). Заметная волна — в шапке, она видна на каждом экране и при прокрутке:
+   шапка непрозрачная (--bg, под ней не просвечивают обложки), вторичный текст шапки светлее (--text-2 → 60% --text), поэтому полоса .14
+   и линии .2/.12 (наложение до .32) держат >= 4.5 (contrast.test). Статичная, без анимации. Волна страницы под шапкой — прежняя, .03. */
+[data-theme="ps3"] .ps-header { background: var(--bg); --text-2: color-mix(in srgb, var(--text) 60%, #d3b3bd); }
+[data-theme="ps3"] .ps-header::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--header-h); pointer-events: none; z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 56' preserveAspectRatio='none'%3E%3Cg fill='none'%3E%3Cpath d='M0 34C180 14 360 14 540 30S900 50 1080 32S1320 14 1440 22' stroke='rgba(255,255,255,.14)' stroke-width='20'/%3E%3Cpath d='M0 34C180 14 360 14 540 30S900 50 1080 32S1320 14 1440 22' stroke='rgba(255,255,255,.2)' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M0 44C200 28 380 26 560 40S920 54 1100 42S1330 30 1440 34' stroke='rgba(255,255,255,.12)' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 50% 0 / max(100%, 1100px) 100% no-repeat; /* на телефоне не сжимается по ширине: видна пологая часть */
+}
 
 /* ---------- PS4: свет сверху, частицы (подъём 40 с), активная плитка в белой рамке ---------- */
 [data-theme="ps4"] .ps-app::before {
@@ -274,5 +283,5 @@
 
 /* ---------- Печать ---------- */
 @media print {
-  .ps-app::before, .ps-app::after, .ps-header::after, .ps-gd::before, .ps-decor { display: none !important; }
+  .ps-app::before, .ps-app::after, .ps-header::before, .ps-header::after, .ps-gd::before, .ps-decor { display: none !important; }
 }
