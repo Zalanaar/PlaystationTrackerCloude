@@ -20,6 +20,7 @@ async function boot(page: Page, context: BrowserContext, baseURL: string, theme:
   return m;
 }
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
+const isWide = (page: Page) => (page.viewportSize()?.width ?? 1280) >= 1024;
 const pseudo = (page: Page, sel: string, pe: '::before' | '::after') =>
   page.evaluate(([s, p]) => {
     const el = document.querySelector(s);
@@ -81,7 +82,8 @@ test.describe('Crystal Towers (ps2)', () => {
   test('кристаллы по краям первого экрана, кубы: на мобильном статичные, от 768px сдвиг; reduced-motion без анимации; в других темах кубов нет', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps2');
     const a = await pseudo(page, '.ps-app', '::after');
-    expect(a!.bg.match(/url\(/g)?.length).toBe(3); // левая, центральная и правая группы кристаллов
+    // левая, центральная и правая группы кристаллов; от 1024 px (t199u) ещё две между ними
+    expect(a!.bg.match(/url\(/g)?.length).toBe(isWide(page) ? 5 : 3);
     expect(a!.height).toBeGreaterThan(420); // не только нижние 420px: слой доходит до года и чипов месяцев
     const decor = page.locator('.ps-decor');
     await expect(decor).toHaveAttribute('aria-hidden', 'true');
@@ -94,7 +96,7 @@ test.describe('Crystal Towers (ps2)', () => {
     expect(await decor.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
     await page.waitForTimeout(1500);
     expect(await cls(page)).toBe(0);
-    for (const t of ['night', 'graphite', 'ps4']) {
+    for (const t of ['night', 'graphite', 'ps3', 'ps5']) {
       await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
       expect(await decor.evaluate((el) => getComputedStyle(el).display), t).toBe('none');
     }
@@ -225,5 +227,32 @@ test.describe('Wave (ps3)', () => {
     // в других темах свечения чипа нет
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
     expect(await chip.evaluate((el) => getComputedStyle(el).boxShadow)).not.toContain('0.35');
+  });
+});
+
+// t199u: айдентика и на десктопе (от 1024 px мотивы в поле страницы, не только по краям)
+test.describe('десктоп: мотивы тем (t199u)', () => {
+  test('Tiles — стена плиток, Memory Card — карта памяти и блоки в полоске уровня; на телефоне их нет', async ({ page, context, baseURL }) => {
+    await boot(page, context, baseURL!, 'ps4');
+    const decor = page.locator('.ps-decor');
+    const st = () => decor.evaluate((el) => { const cs = getComputedStyle(el); return { display: cs.display, bg: cs.backgroundImage, pe: cs.pointerEvents, z: cs.zIndex, h: el.getBoundingClientRect().height }; });
+    let d = await st();
+    if (!isWide(page)) { expect(d.display).toBe('none'); } else {
+      expect(d.display).toBe('block'); expect(d.bg).toContain('svg'); expect(d.pe).toBe('none'); expect(d.z).toBe('-1');
+      expect(d.h).toBeGreaterThan(page.viewportSize()!.height * 0.5); // в поле страницы, а не полоска у края
+    }
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps1'));
+    d = await st();
+    expect(d.display).toBe(isWide(page) ? 'block' : 'none');
+    if (!isMobile(page)) {
+      const bar = page.locator('.ps-profile__bar');
+      await expect(bar.locator('.ps-profile__mc b')).toHaveCount(15);
+      await expect(bar.locator('.ps-profile__mc b[data-on]')).toHaveCount(14);
+      await expect(bar.locator('.ps-profile__mc b').first()).toBeVisible();
+      await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps4'));
+      await expect(bar.locator('.ps-profile__mc b').first()).toBeHidden();
+    }
+    await page.waitForTimeout(1500);
+    expect(await cls(page)).toBe(0);
   });
 });

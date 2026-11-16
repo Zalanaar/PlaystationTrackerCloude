@@ -27,6 +27,9 @@ export function RecentHero({ game, actions }: { game: GameItem; actions: GameAct
           {/* eslint-disable-next-line @next/next/no-img-element -- внешний арт PSN */}
           {art && <img src={art} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
         </span>
+        {/* от 768 px (t199u): обложка рядом с подписью, как карточка активности; на телефоне скрыта CSS */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- внешний арт PSN */}
+        {art && <img className="ps-recent__cover" src={art} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />}
         <span className="ps-recent__scrim">
           <span className="ps-recent__k">Недавно в коллекции</span>
           <span className="ps-recent__t">{game.title}</span>

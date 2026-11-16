@@ -86,6 +86,9 @@
   background: var(--surface-3); border: 1px solid var(--border-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55);
 }
 [data-theme="ps1"] .ps-profile__mc b[data-on] { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+/* t199u: те же блоки в полоске уровня карточки профиля (раскладка от 768 px) */
+[data-theme="ps1"] .ps-profile__bar { height: 10px; background: none; border-radius: 0; overflow: visible; }
+[data-theme="ps1"] .ps-profile__bar > i { display: none; }
 [data-theme="ps1"] .ps-gd::before {
   content: ""; position: absolute; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 3px; z-index: 7; pointer-events: none;
   background: linear-gradient(90deg, #e2001a 0 25%, #f2b600 25% 50%, #00a05a 50% 75%, #0070d1 75%);
@@ -219,6 +222,38 @@
 [data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini):active,
 [data-theme="ps5"] .ps-hero__main:has(.ps-hero__hit:active),
 [data-theme="ps5"] .ps-card:active .ps-card__cover { transform: scale(.97); }
+
+/* ---------- Десктоп (t199u): айдентика не только на телефоне. От 1024 px мотивы крупнее и в самом поле страницы (за контентом),
+   а не только по краям; контраст тот же (слои светлее/темнее фона не больше, чем на телефоне), анимации только transform ---------- */
+@media (min-width: 1024px) {
+  /* Tiles: стена плиток в нижней части экрана (обводка .06, заливка .018), растворяется к середине; частицы поверх */
+  [data-theme="ps4"] .ps-decor {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 58vh; pointer-events: none; z-index: -1;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140'%3E%3Crect x='8' y='8' width='124' height='124' rx='3' fill='%23ffffff' fill-opacity='.018' stroke='%23ffffff' stroke-opacity='.06'/%3E%3C/svg%3E") 50% 100% / 140px 140px repeat;
+    -webkit-mask: linear-gradient(transparent, #000 75%); mask: linear-gradient(transparent, #000 75%);
+  }
+  [data-theme="ps4"] .ps-app::before { height: 640px; background: radial-gradient(90% 640px at 50% 0, #0a3584, transparent 75%); }
+  /* Crystal Towers: кристаллы выше (до 92vh) и ещё две группы между краями и центром; кубы крупнее */
+  [data-theme="ps2"] .ps-app::after {
+    height: min(900px, 92vh);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='4,560 17.0,560 17.0,120 7.9,150'/%3E%3Cpolygon points='36,560 56.0,560 56.0,24 42.0,60'/%3E%3Cpolygon points='84,560 95.0,560 95.0,226 87.3,250'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='17.0,560 30,560 26.1,150 17.0,120'/%3E%3Cpolygon points='56.0,560 76,560 70.0,60 56.0,24'/%3E%3Cpolygon points='95.0,560 106,560 102.7,250 95.0,226'/%3E%3C/g%3E%3C/svg%3E") left bottom / auto 100% no-repeat,
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='30,560 48.0,560 48.0,262 35.4,300'/%3E%3Cpolygon points='74,560 83.0,560 83.0,360 76.7,380'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='48.0,560 66,560 60.6,300 48.0,262'/%3E%3Cpolygon points='83.0,560 92,560 89.3,380 83.0,360'/%3E%3C/g%3E%3C/svg%3E") 58% bottom / auto 100% no-repeat,
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='10,560 20.0,560 20.0,238 13.0,260'/%3E%3Cpolygon points='38,560 60.0,560 60.0,6 44.6,40'/%3E%3Cpolygon points='90,560 103.0,560 103.0,140 93.9,170'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='20.0,560 30,560 27.0,260 20.0,238'/%3E%3Cpolygon points='60.0,560 82,560 75.4,40 60.0,6'/%3E%3Cpolygon points='103.0,560 116,560 112.1,170 103.0,140'/%3E%3C/g%3E%3C/svg%3E") right bottom / auto 100% no-repeat,
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='10,560 20.0,560 20.0,238 13.0,260'/%3E%3Cpolygon points='38,560 60.0,560 60.0,6 44.6,40'/%3E%3Cpolygon points='90,560 103.0,560 103.0,140 93.9,170'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='20.0,560 30,560 27.0,260 20.0,238'/%3E%3Cpolygon points='60.0,560 82,560 75.4,40 60.0,6'/%3E%3Cpolygon points='103.0,560 116,560 112.1,170 103.0,140'/%3E%3C/g%3E%3C/svg%3E") 24% bottom / auto 68% no-repeat,
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 560'%3E%3Cg fill='%23a8c6ff' fill-opacity='.06'%3E%3Cpolygon points='4,560 17.0,560 17.0,120 7.9,150'/%3E%3Cpolygon points='36,560 56.0,560 56.0,24 42.0,60'/%3E%3Cpolygon points='84,560 95.0,560 95.0,226 87.3,250'/%3E%3C/g%3E%3Cg fill='%237fa6ee' fill-opacity='.04'%3E%3Cpolygon points='17.0,560 30,560 26.1,150 17.0,120'/%3E%3Cpolygon points='56.0,560 76,560 70.0,60 56.0,24'/%3E%3Cpolygon points='95.0,560 106,560 102.7,250 95.0,226'/%3E%3C/g%3E%3C/svg%3E") 78% bottom / auto 74% no-repeat;
+  }
+  [data-theme="ps2"] .ps-decor { width: 84px; height: 84px; top: 72px; right: 28px; opacity: .6; }
+  /* Memory Card: карта памяти (блоки в полоске уровня — выше, от 768 px) — без логотипов,
+     статичная, за контентом справа внизу (затемняет фон не больше .14 по контуру, текст тёмный — контраст растёт) */
+  [data-theme="ps1"] .ps-decor {
+    display: block; position: fixed; right: 48px; bottom: 40px; width: 132px; height: 168px; pointer-events: none; z-index: -1;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 132 168'%3E%3Cpath d='M6 2H106L130 26V162Q130 166 126 166H6Q2 166 2 162V6Q2 2 6 2Z' fill='%23000' fill-opacity='.05' stroke='%23000' stroke-opacity='.14' stroke-width='1.5'/%3E%3Crect x='16' y='18' width='84' height='40' rx='2' fill='none' stroke='%23000' stroke-opacity='.12'/%3E%3Cg fill='%23000' fill-opacity='.10'%3E%3Crect x='18' y='76' width='16' height='13' rx='1'/%3E%3Crect x='38' y='76' width='16' height='13' rx='1'/%3E%3Crect x='58' y='76' width='16' height='13' rx='1'/%3E%3Crect x='78' y='76' width='16' height='13' rx='1'/%3E%3Crect x='98' y='76' width='16' height='13' rx='1'/%3E%3Crect x='18' y='94' width='16' height='13' rx='1'/%3E%3Crect x='38' y='94' width='16' height='13' rx='1'/%3E%3Crect x='58' y='94' width='16' height='13' rx='1'/%3E%3Crect x='78' y='94' width='16' height='13' rx='1'/%3E%3Crect x='98' y='94' width='16' height='13' rx='1'/%3E%3Crect x='18' y='112' width='16' height='13' rx='1'/%3E%3Crect x='38' y='112' width='16' height='13' rx='1'/%3E%3Crect x='58' y='112' width='16' height='13' rx='1'/%3E%3Crect x='78' y='112' width='16' height='13' rx='1'/%3E%3Crect x='98' y='112' width='16' height='13' rx='1'/%3E%3C/g%3E%3Cg fill='%23000' fill-opacity='.12'%3E%3Crect x='14' y='140' width='8' height='18' rx='1'/%3E%3Crect x='27' y='140' width='8' height='18' rx='1'/%3E%3Crect x='40' y='140' width='8' height='18' rx='1'/%3E%3Crect x='53' y='140' width='8' height='18' rx='1'/%3E%3Crect x='66' y='140' width='8' height='18' rx='1'/%3E%3Crect x='79' y='140' width='8' height='18' rx='1'/%3E%3Crect x='92' y='140' width='8' height='18' rx='1'/%3E%3Crect x='105' y='140' width='8' height='18' rx='1'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; transform: rotate(-8deg);
+  }
+  /* Activity: мягкий свет сверху справа, когда арта «Играю» нет или он тёмный; обложка в карточке «Недавно» (collection.css) */
+  [data-theme="ps5"] .ps-app::after {
+    background: radial-gradient(60% 420px at 85% 0, rgba(255, 255, 255, .06), transparent 70%), linear-gradient(rgba(10, 10, 12, .45), var(--bg) 80%);
+  }
+}
 
 /* ---------- Мобильный (меньше 768px): декор упрощён ---------- */
 @media (max-width: 767px) {

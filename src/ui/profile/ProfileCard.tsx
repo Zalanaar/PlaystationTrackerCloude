@@ -102,6 +102,10 @@ export function ProfileCard({ profile }: { profile: PsnProfile | null }) {
         {bar !== null && (
           <div className="ps-profile__bar" role="progressbar" aria-label="Прогресс до следующего уровня" aria-valuemin={0} aria-valuemax={100} aria-valuenow={bar}>
             <i style={{ width: `${bar}%` }} />
+            {/* Memory Card (ps1) на десктопе (t199u): те же блоки, что в строке профиля на телефоне */}
+            <span className="ps-profile__mc" aria-hidden="true">
+              {Array.from({ length: MC_BLOCKS }, (_, i) => <b key={i} data-on={i < mcBlocksOn(bar) ? '' : undefined} />)}
+            </span>
           </div>
         )}
       </div>

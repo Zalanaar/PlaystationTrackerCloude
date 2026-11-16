@@ -265,6 +265,16 @@
 .ps-recent__m { font-size: var(--fs-small); line-height: var(--lh-small); opacity: .9; }
 .ps-recent__sk { display: block; height: var(--recent-h); border-radius: var(--r-lg); }
 @media (min-width: 768px) { .ps-recent { --recent-h: 240px; } }
+.ps-recent__cover { display: none; }
+@media (min-width: 768px) {
+  .ps-recent__cover {
+    display: block; position: absolute; z-index: 2; right: var(--sp-6); top: var(--sp-6); bottom: var(--sp-6); height: calc(100% - 2 * var(--sp-6)); width: auto;
+    aspect-ratio: 1; object-fit: cover; border-radius: var(--r-md); box-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+  }
+  .ps-recent__card:has(.ps-recent__cover) .ps-recent__scrim { padding-right: calc(var(--recent-h) + var(--sp-4)); }
+  .ps-recent__card:has(.ps-recent__cover) .ps-artbg img { filter: blur(24px) brightness(.6) saturate(1.1); transform: scale(1.2); }
+  .ps-recent__t { font-size: 28px; }
+}
 /* ---------- PlayingHero (§4.4) ---------- */
 .ps-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); min-width: 0; }
 .ps-hero[data-side] { grid-template-columns: minmax(0, 1fr) var(--hero-side-w); }
