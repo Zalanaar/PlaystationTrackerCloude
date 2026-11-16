@@ -13,6 +13,7 @@ import { formatNumber, plural } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useNow } from '../primitives/hooks';
 import { useToast } from '../primitives/Toast';
+import { YoyLine } from './YoyLine';
 import { ActivityPanel } from './ActivityPanel';
 import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
@@ -240,6 +241,7 @@ function Content({
   return (
     <>
       <PeriodHeader data={data} sel={sel} />
+      <YoyLine data={data} sel={sel} today={today} />
       {data.hours.hasEstimate && (
         <p className="ps-st-note" role="note"><Icon name="info" size={14} /><span>{estimateNote(data.hours.firstSnapshotDate)}</span></p>
       )}

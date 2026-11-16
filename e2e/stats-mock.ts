@@ -67,14 +67,15 @@ export function respond(u: URL, o: Opts = {}) {
   };
 }
 
-export type Ctl = { calls: URL[]; opts: Opts; fail: number | null };
+export type Ctl = { calls: URL[]; yoyCalls: URL[]; opts: Opts; fail: number | null };
 export async function open(page: Page, context: BrowserContext, baseURL: string, url = '/stats'): Promise<Ctl> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page);
-  const ctl: Ctl = { calls: [], opts: {}, fail: null };
+  const ctl: Ctl = { calls: [], yoyCalls: [], opts: {}, fail: null };
   await page.route(/\/api\/stats\?/, (r) => {
     const u = new URL(r.request().url());
-    ctl.calls.push(u);
+    if (u.searchParams.get('yoy') === '1') ctl.yoyCalls.push(u); // П11.3: сравнение с прошлым годом — не выбор периода
+    else ctl.calls.push(u);
     if (ctl.fail) return r.fulfill({ status: ctl.fail, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'db_unavailable', message: 'x' } }) });
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(u, ctl.opts) }) });
   });
