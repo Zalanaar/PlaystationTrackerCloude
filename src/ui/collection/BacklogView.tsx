@@ -425,6 +425,20 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   // D-P2: «Поиск» и «+» мобильной шапки
   useHeaderAction('search', () => setSearchOpen(true));
   useHeaderAction('add', () => openAdd());
+  // П9: «Не куплено (PS)» из меню «+» на другой странице ведёт сюда с `?add=store` — окно сразу, параметр убираем
+  const addParam = params.get('add');
+  const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
+  if (addParam !== seenAddParam) {
+    setSeenAddParam(addParam);
+    if (addParam === 'store') { setAddQuery(undefined); setAddOpen(true); }
+  }
+  useEffect(() => {
+    if (addParam !== 'store') return;
+    const q = new URLSearchParams(params.toString());
+    q.delete('add');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [addParam, params, pathname, router]);
   function openAdd(query?: string) {
     // фокус вернётся на то, что видно: на мобильном кнопка страницы скрыта, открывает «+» шапки
     const btn = addBtnRef.current;

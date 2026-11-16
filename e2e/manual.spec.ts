@@ -4,7 +4,7 @@ import { mockApi, type G, type Mock } from './collection-mock';
 import { cand, mgame, mockManual, type ManualMock, type MMatch } from './manual-mock';
 import { isMobile } from './backlog-ui';
 import { signedSession } from './session';
-import { addBtn } from './header-actions';
+import { addBtn, clickAdd } from './header-actions';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -49,9 +49,18 @@ test.describe('Поиск и добавление', () => {
   test('поиск уходит только по Enter/«Найти», не на символ; добавление, пометка, итоговый тост', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades(), cand('77', 'Hades Remix', { releaseDate: null, platforms: ['PlayStation 4'] })] });
     const add = addBtn(page);
-    await expect(add).toHaveAttribute('aria-haspopup', 'dialog');
-    await expect(add).toHaveAttribute('aria-label', 'Добавить из магазина PS');
-    await add.click();
+    if (isMobile(page)) {
+      // П9: «+» шапки — меню выбора, «Не куплено (PS)» первым на Бэклоге
+      await expect(add).toHaveAttribute('aria-haspopup', 'menu');
+      await expect(add).toHaveAccessibleName('Добавить');
+      await add.click();
+      await expect(page.getByRole('menuitem').first()).toContainText('Не куплено (PS)');
+      await page.getByTestId('add-store').click();
+    } else {
+      await expect(add).toHaveAttribute('aria-haspopup', 'dialog');
+      await expect(add).toHaveAttribute('aria-label', 'Добавить из магазина PS');
+      await add.click();
+    }
     const sheet = page.getByRole('dialog', { name: 'Добавить из магазина PS' });
     await expect(sheet).toBeVisible();
     await expect(page.getByTestId('add-input')).toBeFocused();
@@ -95,7 +104,7 @@ test.describe('Поиск и добавление', () => {
 
   test('RAWG недоступен: игры из PlayStation Store добавляются, подпись и ссылка «…» ведут в PS Store', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [cand('ps-10002694', 'Elden Ring', { releaseDate: null, catalog: 'psstore' })] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'elden');
     await expect(page.getByTestId('add-row')).toHaveCount(1);
     const credit = page.getByTestId('catalog-credit');
@@ -116,7 +125,7 @@ test.describe('Поиск и добавление', () => {
 
   test('«Уже в бэклоге» приходит от сервера и не даёт добавить повторно', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: [cand('3328', 'Hades II', { inBacklog: true })] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     const done = page.getByTestId('add-row-done');
     await expect(done).toHaveText('Уже в бэклоге');
@@ -125,7 +134,7 @@ test.describe('Поиск и добавление', () => {
 
   test('дубль: блок решения в корзине, «Всё равно добавить» шлёт confirmDuplicate, строка «Нужно решение»', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades()], batchDup: ['3328'] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await addFirst(page);
     const warn = page.getByTestId('add-warn');
@@ -152,7 +161,7 @@ test.describe('Поиск и добавление', () => {
     const { manual } = await open(page, context, baseURL!, {
       candidates: [hades()], batchFail: { '3328': 'manual_limit' }, batchReplies: [{ status: 500, error: { code: 'internal', message: 'x' } }],
     });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await page.getByTestId('add-pick').click();
     // сбой запроса целиком: корзина цела, «Повторить 1», повтор безопасен
@@ -171,7 +180,7 @@ test.describe('Поиск и добавление', () => {
 
   test('состояния панели: нет результатов, лимит с датой, каталог недоступен, ошибка и повтор, офлайн', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, { candidates: [hades()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'zzzz');
     await expect(page.getByTestId('add-noresults')).toContainText('По запросу «zzzz» нет игр для PS5 и PS4');
     await page.getByRole('button', { name: 'Очистить поиск' }).click();
@@ -201,7 +210,7 @@ test.describe('Поиск и добавление', () => {
 
   test('каталог не настроен и офлайн', async ({ page, context, baseURL }) => {
     const { manual } = await open(page, context, baseURL!, {});
-    await addBtn(page).click();
+    await clickAdd(page);
     await page.getByTestId('add-input').fill('hades');
     await context.setOffline(true);
     await page.getByTestId('add-submit').click();
@@ -399,7 +408,7 @@ test.describe('Список и карточки', () => {
       expect(await noHScroll(page)).toBe(true);
       const buy = await page.getByTestId('np-bought').first().boundingBox();
       expect(buy!.height).toBeGreaterThanOrEqual(43.5);
-      await addBtn(page).click();
+      await clickAdd(page);
       await search(page, 'hades');
       await expect(page.getByTestId('add-row')).toHaveCount(1);
       const btn = await page.getByTestId('add-pick').boundingBox();

@@ -6,6 +6,13 @@ export function addBtn(page: Page): Locator {
   return page.locator('[data-testid="bl-add"]:visible, [data-testid="hdr-add"]:visible').first();
 }
 
+/** П9: «Добавить из магазина PS»: на десктопе кнопка страницы, на телефоне «+» шапки → пункт меню «Не куплено (PS)». */
+export async function clickAdd(page: Page): Promise<void> {
+  const b = addBtn(page);
+  await b.click();
+  if ((await b.getAttribute('data-testid')) === 'hdr-add') await page.getByTestId('add-store').click();
+}
+
 /** Поле поиска игры; на мобильном сначала открывает его кнопкой шапки. */
 export async function searchBox(page: Page): Promise<Locator> {
   const box = page.getByRole('searchbox', { name: 'Поиск игры' }).filter({ visible: true }).first();

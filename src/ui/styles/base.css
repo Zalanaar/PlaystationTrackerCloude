@@ -324,3 +324,14 @@ body::before {
   :root:has(.ps-gd) .ps-totop:not([data-in-dialog]),
   :root:has(.ps-sheet-wrap, .ps-tour, .ps-toast, .ps-selbar, .ps-wn, .ps-install, .ps-update, .ps-story) .ps-totop { display: none; }
 }
+
+/* П9: «+» шапки — меню выбора (AddMenu): только на телефоне, как прежняя кнопка */
+.ps-pop.ps-addmenu { display: none; }
+.ps-addmenu__item { min-height: var(--tap-min); padding-block: var(--sp-1); }
+.ps-addmenu__tx { display: flex; flex-direction: column; min-width: 0; }
+.ps-addmenu__tx small { color: var(--text-2); font-size: 12px; line-height: 16px; }
+.ps-addmenu .ps-pop__panel { min-width: 240px; }
+@media (max-width: 767px) {
+  .ps-pop.ps-addmenu { display: inline-block; flex: none; }
+  .ps-addmenu > .ps-iconbtn { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
+}

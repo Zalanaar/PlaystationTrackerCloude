@@ -4,7 +4,7 @@ import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual, type ManualMock } from './manual-mock';
 import { isMobile } from './backlog-ui';
 import { signedSession } from './session';
-import { addBtn } from './header-actions';
+import { addBtn, clickAdd } from './header-actions';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -48,7 +48,7 @@ const store = (page: Page) => page.locator('[data-testid="bs-opt"][data-kind="st
 test.describe('«Купил / Не купил» и корзина', () => {
   test('сегмент по умолчанию «Не купил»; «Купил» уходит без пометки в основной список, «Не купил» в секцию; тост с «Показать»', async ({ page, context, baseURL }) => {
     const manual = await open(page, context, baseURL!, { candidates: [hades(), remix()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     const rows = page.getByTestId('add-row');
     await expect(rows).toHaveCount(2);
@@ -97,7 +97,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
 
   test('тост с одной игрой «Купил» без действия «Показать»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: [hades()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await page.getByTestId('add-buy-yes').click();
     await page.getByTestId('add-pick').click();
@@ -113,7 +113,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
     const manual = await open(page, context, baseURL!, {
       candidates: [hades(), remix(), cand('5', 'Hades Три')], batchDup: ['77'], batchFail: { '5': 'manual_limit' },
     });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     for (let i = 0; i < 3; i++) await page.getByTestId('add-row').nth(i).getByTestId('add-pick').click();
     await expect(page.getByTestId('add-cart-submit')).toHaveText('Добавить 3');
@@ -138,7 +138,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
 
   test('лимит пачки 10: остальные «+» выключены, подпись «Максимум 10 за раз»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: many(12) });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await expect(page.getByTestId('add-row')).toHaveCount(12);
     for (let i = 0; i < 10; i++) await page.getByTestId('add-row').nth(i).getByTestId('add-pick').click();
@@ -157,7 +157,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
 
   test('закрытие с непустой корзиной: подтверждение, «Вернуться» и «Закрыть без добавления»', async ({ page, context, baseURL }) => {
     const manual = await open(page, context, baseURL!, { candidates: [hades()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await page.getByTestId('add-pick').click();
     await page.getByTestId('add-close').click();
@@ -179,7 +179,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
 
   test('офлайн: «Добавить N» выключена с подписью; без соединения запрос не уходит', async ({ page, context, baseURL }) => {
     const manual = await open(page, context, baseURL!, { candidates: [hades()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     await page.getByTestId('add-pick').click();
     await context.setOffline(true);
@@ -523,7 +523,7 @@ test.describe('Умные подсказки', () => {
     expect(manual.suggestCalls).toEqual(['hades']);
     // панель поиска по Enter тоже остановлена до resetAt
     if (isMobile(page)) await page.keyboard.press('Escape');
-    await addBtn(page).click();
+    await clickAdd(page);
     await expect(page.getByTestId('add-quota')).toBeVisible();
     await expect(page.getByTestId('add-input')).toBeDisabled();
     expect(manual.searchCalls).toEqual([]);
@@ -638,7 +638,7 @@ test.describe('Умные подсказки', () => {
 test.describe('Панель поиска: строки и тап-зоны', () => {
   test('сегмент и «+» помещаются, высота строки не меняется при выборе (CLS)', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { candidates: [hades()] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     const r = page.getByTestId('add-row');
     const before = (await r.boundingBox())!.height;
@@ -654,7 +654,7 @@ test.describe('Панель поиска: строки и тап-зоны', () =
 test.describe('QA-43.1-2: «Купил» для игры, уже лежащей в «Не куплено»', () => {
   test('exists + «Купил» вызывает /purchased и показывает явный текст', async ({ page, context, baseURL }) => {
     const manual = await open(page, context, baseURL!, { candidates: [hades()], items: [mgame(21, 'Hades II', { externalId: '3328' })] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     const r = page.getByTestId('add-row').first();
     await r.getByTestId('add-buy-yes').click();
@@ -667,7 +667,7 @@ test.describe('QA-43.1-2: «Купил» для игры, уже лежащей 
   });
   test('exists + «Не купил»: /purchased не вызывается', async ({ page, context, baseURL }) => {
     const manual = await open(page, context, baseURL!, { candidates: [hades()], items: [mgame(21, 'Hades II', { externalId: '3328' })] });
-    await addBtn(page).click();
+    await clickAdd(page);
     await search(page, 'hades');
     const r = page.getByTestId('add-row').first();
     await r.getByTestId('add-pick').click();

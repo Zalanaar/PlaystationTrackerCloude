@@ -85,14 +85,21 @@ function ReleaseRow({ g, data, today, year, onPatch, onEdit, onRemove, onUnalloc
 
 /** Блок «Релизы»: невышедшие игры (RAWG или вручную), галка «Хочу пройти на релизе», правка, удаление. */
 export function ReleasesPanel({
-  planned, error, data, today, year, onRetry, onAdd, onPatch, onRemove, onUnallocate,
+  planned, error, data, today, year, onRetry, onAdd, onPatch, onRemove, onUnallocate, openAdd = 0,
 }: {
+  /** П9: счётчик «открой окно добавления» (меню «+» шапки); каждое увеличение открывает окно новой игры */
+  openAdd?: number;
   planned: PlannedGameDto[] | null; error: boolean; data: RoadmapResponse | null; today: string; year: number; onRetry: () => void;
   onAdd: (body: PlannedBody, withExternal: boolean) => Promise<void>;
   onPatch: (id: number, patch: Partial<Omit<PlannedBody, 'externalSource' | 'externalId'>>) => Promise<void>;
   onRemove: (g: PlannedGameDto) => Promise<void>; onUnallocate: (g: PlannedGameDto) => void;
 }) {
   const [dlg, setDlg] = useState<{ game: PlannedGameDto | null } | null>(null);
+  const [seenOpenAdd, setSeenOpenAdd] = useState(0);
+  if (openAdd !== seenOpenAdd) {
+    setSeenOpenAdd(openAdd);
+    if (openAdd > 0) setDlg({ game: null });
+  }
   const addBtn = (
     <button type="button" className="ps-btn ps-btn--primary ps-btn--sm ps-rm-add" onClick={() => setDlg({ game: null })}>
       <Icon name="plus" size={14} />Добавить игру

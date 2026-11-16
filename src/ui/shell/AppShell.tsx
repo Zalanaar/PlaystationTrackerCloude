@@ -23,6 +23,7 @@ import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
 import { emitHeaderAction, headerActionsFor } from './headerActions';
+import { AddMenu } from './AddMenu';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
@@ -100,11 +101,7 @@ export function AppHeader() {
                 <Icon name="search" size={22} />
               </button>
             )}
-            {hdr.add && (
-              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid={hdr.add.action === 'add' ? 'hdr-add' : 'hdr-add-other'} aria-label={hdr.add.label} aria-haspopup="dialog" onClick={() => emitHeaderAction(hdr.add!.action)}>
-                <Icon name="plus" size={22} />
-              </button>
-            )}
+            {hdr.add && <AddMenu pathname={pathname} />}
             <SyncIndicator />
             <PsnProfileSwitcher />
             <div className="ps-desktop-only"><ThemePicker /></div>

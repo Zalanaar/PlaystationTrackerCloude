@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { PlannedGameDto, RoadmapEntry, RoadmapResponse } from '@/server/roadmap/types';
 import { ApiError, patchDuration } from '../collection/api';
 import { Icon } from '../icons';
@@ -16,6 +17,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { QueuePanel, type SaveState } from './QueuePanel';
 import { roadmapBacklogText } from '@/shared/backlog';
 import { ReleasesPanel } from './ReleasesPanel';
+import { useHeaderAction } from '../shell/headerActions';
 import { SettingsPanel } from './SettingsPanel';
 import { TimelinePanel } from './Timeline';
 
@@ -24,6 +26,29 @@ const SAVE_DEBOUNCE_MS = 500;
 /** Экран «План»: настройки, прогресс, таймлайн, релизы, очередь бэклога, «Нужны часы», «Не успеваю». Ошибка блока не роняет страницу. */
 export function RoadmapView() {
   const toast = useToast();
+  // П9: «Релиз в План» из меню «+» шапки (здесь — событием, с другой страницы — `/roadmap?add=release`): открыть окно «Добавить игру в план»
+  const [addRelease, setAddRelease] = useState(0);
+  const openAddRelease = useCallback(() => {
+    setAddRelease((n) => n + 1);
+    document.getElementById('rm-releases')?.scrollIntoView({ block: 'start' });
+  }, []);
+  useHeaderAction('add-release', openAddRelease);
+  const router = useRouter();
+  const params = useSearchParams();
+  const addParam = params.get('add');
+  const [seenAddParam, setSeenAddParam] = useState<string | null>(null);
+  if (addParam !== seenAddParam) {
+    setSeenAddParam(addParam);
+    if (addParam === 'release') setAddRelease((n) => n + 1);
+  }
+  useEffect(() => {
+    if (addParam !== 'release') return;
+    document.getElementById('rm-releases')?.scrollIntoView({ block: 'start' });
+    const q = new URLSearchParams(params.toString());
+    q.delete('add');
+    const qs = q.toString();
+    router.replace(qs ? `/roadmap?${qs}` : '/roadmap', { scroll: false });
+  }, [addParam, params, router]);
   const [data, setData] = useState<RoadmapResponse | null>(null);
   const [error, setError] = useState(false);
   // все записи планируемых игр (любой статус): «Релизы» берут planned, «Предстоящие» сверяются по всем
@@ -363,7 +388,7 @@ export function RoadmapView() {
         <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-label="Релизы">
           <ReleasesPanel
             planned={planned} error={plannedErr} data={data} today={today} year={year} onRetry={() => { setPlannedErr(false); void loadPlanned(); }}
-            onAdd={addPlanned} onPatch={patchGame} onRemove={removeGame} onUnallocate={(g) => void removeFromPlan({ gameId: null, plannedId: g.id, title: g.title })}
+            openAdd={addRelease} onAdd={addPlanned} onPatch={patchGame} onRemove={removeGame} onUnallocate={(g) => void removeFromPlan({ gameId: null, plannedId: g.id, title: g.title })}
           />
         </section>
         <section className="ps-rm-panel" id="rm-queue" data-area="queue" aria-label="Очередь бэклога">

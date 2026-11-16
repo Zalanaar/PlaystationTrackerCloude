@@ -1,6 +1,7 @@
 // Фаза 44 + пакет 5: «Игры с других платформ» — блок в самом низу Коллекции (design-system §19c). API эмулируется (other-platform-mock.ts).
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
+import { baseState, mockRoadmap } from './roadmap-mock';
 import { mockManual } from './manual-mock';
 import { mockOtherPlatforms, ocand, op, type OPMock } from './other-platform-mock';
 import { isMobile } from './backlog-ui';
@@ -437,18 +438,31 @@ test.describe('Добавление из шапки и меню', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
 
-  test('«+» шапки на Коллекции открывает панель; на Бэклоге «+» прежний (магазин PS); на десктопе кнопки нет', async ({ page, context, baseURL }) => {
+  test('П9: «+» шапки — меню выбора; на Коллекции первым «Другая платформа», открывает панель; на десктопе кнопки нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { items: [op(1, 'Forza')], candidates: cands() });
-    const plus = page.getByRole('button', { name: 'Добавить игру с другой платформы', exact: true });
+    const plus = page.getByTestId('hdr-add');
     if (!isMobile(page)) {
       await expect(plus).toBeHidden();
       return;
     }
     await expect(plus).toBeVisible();
+    await expect(plus).toHaveAccessibleName('Добавить');
+    await expect(plus).toHaveAttribute('aria-haspopup', 'menu');
     const box = (await plus.boundingBox())!;
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
-    await expect(page.getByTestId('hdr-add')).toHaveCount(0);
     await plus.click();
+    const items = page.getByRole('menuitem');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toContainText('Другая платформа');
+    await expect(items.nth(1)).toContainText('Не куплено (PS)');
+    await expect(items.nth(2)).toContainText('Релиз в План');
+    await expect(items.nth(0)).toBeFocused();
+    for (const it of await items.all()) expect((await it.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.keyboard.press('Escape');
+    await expect(items).toHaveCount(0);
+    await expect(plus).toBeFocused();
+    await plus.click();
+    await page.getByTestId('add-other').click();
     await expect(page.getByTestId('op-sheet')).toBeVisible();
     await expect(page.getByTestId('op-input')).toBeFocused();
     await addHalo(page);
@@ -458,9 +472,34 @@ test.describe('Добавление из шапки и меню', () => {
     await expect(toast).toBeVisible();
     await expect(toast.getByRole('button', { name: 'Показать' })).toHaveCount(0);
     await expect(plus).toBeFocused();
-    await page.goto('/backlog');
-    await expect(page.getByTestId('hdr-add')).toHaveAttribute('aria-label', 'Добавить из магазина PS');
-    await expect(page.getByTestId('hdr-add-other')).toHaveCount(0);
+  });
+
+  test('П9: «+» с другой страницы ведёт туда, где добавляют, и сразу открывает окно (адрес без ?add)', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'меню «+» только на телефоне');
+    await open(page, context, baseURL!, { items: [op(1, 'Forza')], candidates: cands() }, '/backlog');
+    await mockRoadmap(page, baseState());
+    await page.getByTestId('hdr-add').click();
+    await expect(page.getByRole('menuitem').first()).toContainText('Не куплено (PS)');
+    await page.getByTestId('add-other').click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId('op-sheet')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('op-sheet')).toHaveCount(0);
+    await page.getByTestId('hdr-add').click();
+    await page.getByTestId('add-store').click();
+    await expect(page).toHaveURL(/\/backlog$/);
+    await expect(page.getByRole('dialog', { name: 'Добавить из магазина PS' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.getByTestId('hdr-add').click();
+    await page.getByTestId('add-release').click();
+    await expect(page).toHaveURL(/\/roadmap$/);
+    await expect(page.getByRole('dialog', { name: 'Добавить игру в план' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // на Плане «+» тоже есть, «Релиз в План» первым и открывает окно событием
+    await page.getByTestId('hdr-add').click();
+    await expect(page.getByRole('menuitem').first()).toContainText('Релиз в План');
+    await page.getByTestId('add-release').click();
+    await expect(page.getByRole('dialog', { name: 'Добавить игру в план' })).toBeVisible();
   });
 
   test('меню: панель работает и при скрытом блоке; «Показать» сбрасывает фильтры и прокручивает к блоку', async ({ page, context, baseURL }) => {

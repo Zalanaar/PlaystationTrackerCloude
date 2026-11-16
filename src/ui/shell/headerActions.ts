@@ -2,18 +2,41 @@
 // Набор кнопок задаётся путём (статично, одинаково на сервере и клиенте), поэтому шапка не меняется после гидрации (CLS 0).
 import { useEffect, useRef } from 'react';
 
-export type HeaderAction = 'search' | 'add' | 'add-other';
+export type HeaderAction = 'search' | 'add' | 'add-other' | 'add-release';
 export const HEADER_ACTION_EVENT = 'ps:header-action';
 
-/** «+» шапки: на Бэклоге — магазин PS, на Коллекции — игра с другой платформы (t160u). */
-export type HeaderAdd = { action: Extract<HeaderAction, 'add' | 'add-other'>; label: string };
-const ADD_STORE: HeaderAdd = { action: 'add', label: 'Добавить из магазина PS' };
-const ADD_OTHER: HeaderAdd = { action: 'add-other', label: 'Добавить игру с другой платформы' };
+/** П9: пункт меню «+»: на своей странице шлёт событие, с другой ведёт на страницу с параметром, который открывает то же окно. */
+export type AddItem = {
+  id: 'store' | 'other' | 'release';
+  label: string;
+  hint: string;
+  icon: 'shopping-cart' | 'gamepad' | 'calendar-plus';
+  /** Своя страница: событие шапки; иначе null и переход по href. */
+  action: Extract<HeaderAction, 'add' | 'add-other' | 'add-release'> | null;
+  href: string;
+};
 
-/** Какие кнопки показывает мобильная шапка на пути. */
-export function headerActionsFor(pathname: string): { search: boolean; add: HeaderAdd | null } {
-  const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  return { search: p === '/' || p === '/backlog', add: p === '/backlog' ? ADD_STORE : p === '/' ? ADD_OTHER : null };
+const ITEMS = {
+  store: { id: 'store', label: 'Не куплено (PS)', hint: 'Игра из магазина PS в бэклог', icon: 'shopping-cart', page: '/backlog', action: 'add', href: '/backlog?add=store' },
+  other: { id: 'other', label: 'Другая платформа', hint: 'Switch, Xbox, PC', icon: 'gamepad', page: '/', action: 'add-other', href: '/?add=other' },
+  release: { id: 'release', label: 'Релиз в План', hint: 'Игра, которая ещё не вышла', icon: 'calendar-plus', page: '/roadmap', action: 'add-release', href: '/roadmap?add=release' },
+} as const;
+
+const norm = (pathname: string) => (pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname);
+
+/** Какие кнопки показывает мобильная шапка на пути. «+» — меню выбора (П9) на Коллекции, Бэклоге и Плане. */
+export function headerActionsFor(pathname: string): { search: boolean; add: boolean } {
+  const p = norm(pathname);
+  return { search: p === '/' || p === '/backlog', add: p === '/' || p === '/backlog' || p === '/roadmap' };
+}
+
+/** Пункты меню «+»: первым — то, что добавляют на этой странице. */
+export function addItemsFor(pathname: string): AddItem[] {
+  const p = norm(pathname);
+  const all = [ITEMS.store, ITEMS.other, ITEMS.release];
+  const own = all.find((i) => i.page === p);
+  const ordered = own ? [own, ...all.filter((i) => i !== own)] : all;
+  return ordered.map(({ page, action, ...rest }) => ({ ...rest, action: page === p ? action : null }));
 }
 
 export function emitHeaderAction(action: HeaderAction): void {
