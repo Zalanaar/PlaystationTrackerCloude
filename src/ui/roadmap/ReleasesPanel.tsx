@@ -133,6 +133,15 @@ export function ReleasesPanel({
           ))}
         </ul>
       )}
+      {planned && planned.some((g) => g.status === 'planned' && g.releaseDate !== null && g.releaseDate >= today) && (
+        // П12.6: файл .ics (обычная ссылка: iPhone предлагает «Добавить всё» в Календарь, десктоп скачивает файл)
+        <p className="ps-rm-ics">
+          <a className="ps-btn ps-btn--ghost ps-btn--sm" href="/api/roadmap/releases.ics" data-testid="rm-ics">
+            <Icon name="calendar-plus" size={14} />Релизы в календарь (.ics)
+          </a>
+          <small>Даты выхода — события на весь день. Повторный импорт обновит, а не продублирует.</small>
+        </p>
+      )}
       <Attribution />
       {dlg && (
         <ReleaseSheet

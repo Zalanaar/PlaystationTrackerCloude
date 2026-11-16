@@ -3639,3 +3639,9 @@ RAWG остаётся главным каталогом, пока отвечае
 - `finish[]` (до 5) — остаток ≤ `minutes` × 1.15: сначала «Играю», затем больший остаток (заполнить время).
 - `resume[]` (до 3) — остальные «Играю», свежие запуски первыми.
 - Элемент: `{ id, title, coverUrl, status, remainingMinutes, lastPlayedAt }`.
+
+## П12. Календарь релизов `GET /api/roadmap/releases.ics`
+Сессия обязательна (401). Ответ — файл `text/calendar; charset=utf-8`, `Content-Disposition: attachment; filename="releases.ics"`, `Cache-Control: private, no-store`; 503 `db_unavailable` (JSON) без деталей.
+- События: релизы плана (`planned_games`, статус `planned`) и игры бэклога «вручную» (`manual_games`, `ps_backlog`, не связанные с библиотекой) с датой выхода сегодня или позже (по Москве); одинаковое название — одно событие (из плана).
+- Каждое — на весь день (`DTSTART;VALUE=DATE`, `DTEND` = следующий день), `SUMMARY:Релиз: <название>`, `DESCRIPTION` — откуда («В плане: хочу пройти на релизе» / «В плане» / «В бэклоге (вручную)»), `TRANSP:TRANSPARENT`.
+- `UID` стабильный (`planned-<id>@ps-tracker`, `manual-<id>@ps-tracker`): повторный импорт обновляет события. Строки по RFC 5545: CRLF, экранирование TEXT, свёртка по 75 октетов UTF-8.

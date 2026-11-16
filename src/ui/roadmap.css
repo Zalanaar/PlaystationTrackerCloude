@@ -296,6 +296,7 @@ button.ps-rm-state { cursor: pointer; }
   .ps-rm-rel__act { grid-column: 1 / -1; justify-content: flex-end; margin-top: calc(-1 * var(--sp-2)); }
   .ps-rm-apply { align-self: stretch; height: var(--tap-min); }
   .ps-rm-add { width: 100%; height: var(--tap-min); }
+  .ps-rm-ics .ps-btn { height: var(--tap-min); }
   .ps-rm-head:has(.ps-rm-add) { flex-direction: column; align-items: stretch; }
   .ps-rm-dlg__btns .ps-btn, .ps-rm-confirm .ps-btn, .ps-rm-rel__del .ps-btn { height: var(--tap-min); flex: 1 1 0; }
   .ps-rm-rel__del div { width: 100%; }
@@ -421,3 +422,7 @@ button.ps-rm-over__row { cursor: pointer; }
 .ps-rm-pace .ps-micro { display: block; margin: 0 0 var(--sp-2); color: var(--text-3); }
 .ps-rm-pace .ps-rm-status { margin-bottom: 0; }
 .ps-rm-pace .ps-rm-note { margin-top: var(--sp-2); }
+
+/* П12.6: ссылка «Релизы в календарь (.ics)» под списком релизов */
+.ps-rm-ics { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin: var(--sp-3) 0 0; }
+.ps-rm-ics small { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
