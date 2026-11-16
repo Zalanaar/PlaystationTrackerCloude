@@ -2934,3 +2934,10 @@ Contrast: `--text` на подложке 16% `--warning` над `--surface` не
 - Заставки iOS (`apple-touch-startup-image`): night в `public/splash/`, остальные темы в `public/splash/<theme>/` (`scripts/gen-splash.mjs`). Ссылки строит `generateMetadata` в `layout.tsx` по cookie темы. iOS запоминает заставку при «На экран Домой»: после смены темы нужна переустановка.
 - Встроенная заставка `.ps-boot` в начальном HTML: фон `var(--bg)` + маскируемая иконка (28vmin, лёгкая пульсация; при reduced motion — без неё). Видна только в PWA (класс `html.ps-standalone` ставит inline theme-script по `navigator.standalone` / `display-mode: standalone`; плюс media-запрос) и до `html[data-hydrated]` (ставит ThemeColorSync). Через 8 с прячется сама. Вне PWA скрыта, картинка не грузится.
 - Промежуток до первого байта HTML закрывает только системная заставка (iOS startup image / Android splash из манифеста).
+
+### П11.5.3: «нативная» смена вкладок (телефон, PWA)
+- Тап по нижней вкладке (`TabBar`, `src/ui/shell/tabTransition.ts`) запускает View Transition: старый экран остаётся снимком, пока новый раздел не смонтирован (не дольше 800 мс — дальше показывается скелет), затем кроссфейд + сдвиг на 28/20 px за 280 мс, `cubic-bezier(0.22, 1, 0.36, 1)`. Направление по порядку вкладок (`html[data-nav-dir]`). Анимируются только opacity/transform снимков.
+- Шапка (`ps-header`) и нижняя панель (`ps-tabbar`) на время перехода получают свой `view-transition-name` и не анимируются; контент — группа `ps-main`. Имена и `html[data-vt]` стоят только во время перехода.
+- Прокрутка запоминается по вкладке (sessionStorage `ps-tab-scroll`) и восстанавливается до снятия снимка; если контент догружается, повтор до 1,2 с, пока пользователь не тронул экран. Переход без прокрутки наверх (`router.push(…, { scroll: false })`).
+- В установленном PWA разделы таббара подгружаются заранее в простое (через 1,5 с после загрузки); в браузере — по намерению (бюджет JS главной).
+- Без API (старый iOS) — fade `.ps-route` 240 мс без transform. `prefers-reduced-motion`, десктоп, клик с модификатором — без анимации.

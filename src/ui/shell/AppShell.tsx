@@ -4,7 +4,7 @@ import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
@@ -29,6 +29,7 @@ import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
+import { navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { pendingBadge, useTriagePending } from './triagePending';
 import { installErrorReporter } from './errorReporter';
@@ -271,16 +272,76 @@ function TriageMenuItem({ active, role, testid, onClick }: { active: boolean; ro
   );
 }
 
+function session(): Storage | null {
+  try { return window.sessionStorage; } catch { return null; }
+}
+
+/** П11.5.3: прокрутка до сохранённой позиции; контент может догружаться — пробуем до 1,2 с, пока пользователь не тронул экран. */
+function restoreScroll(y: number) {
+  window.scrollTo(0, y);
+  if (y <= 0) return;
+  const until = performance.now() + 1200;
+  let stop = false;
+  const cancel = () => { stop = true; };
+  window.addEventListener('touchstart', cancel, { once: true, passive: true });
+  window.addEventListener('wheel', cancel, { once: true, passive: true });
+  const tick = () => {
+    if (stop || Math.abs(window.scrollY - y) < 2 || performance.now() > until) {
+      window.removeEventListener('touchstart', cancel); window.removeEventListener('wheel', cancel);
+      return;
+    }
+    window.scrollTo(0, y);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 export function TabBar() {
   const pathname = usePathname();
   const offer = useSeasonOffer();
+  const router = useRouter();
+  const active = NAV_TABS.findIndex((n) => isTabActive(pathname, n));
+  const pending = useRef<{ tab: string; y: number; resolve: () => void } | null>(null);
+
+  // П11.5.3: новый раздел смонтирован -> восстановить прокрутку вкладки и отпустить снимок старого экрана
+  useLayoutEffect(() => {
+    const p = pending.current;
+    if (!p || NAV_TABS[active]?.id !== p.tab) return;
+    pending.current = null;
+    restoreScroll(p.y);
+    requestAnimationFrame(() => p.resolve());
+  }, [active, pathname]);
+
+  // П11.5.3: в установленном PWA разделы таббара подгружаются заранее, в простое (в браузере — по намерению, бюджет JS главной)
+  useEffect(() => {
+    const nav = navigator as Navigator & { standalone?: boolean };
+    if (!(nav.standalone === true || matchMedia('(display-mode: standalone)').matches)) return;
+    const id = window.setTimeout(() => {
+      const run = () => NAV_TABS.forEach((n) => { try { router.prefetch(n.href); } catch { /* необязательно */ } });
+      if ('requestIdleCallback' in window) window.requestIdleCallback(run); else run();
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [router]);
+
+  const onTab = (e: MouseEvent<HTMLAnchorElement>, to: number) => {
+    if (!shouldIntercept(e, active, to)) return;
+    e.preventDefault();
+    const ss = session();
+    writeScroll(ss, NAV_TABS[active].id, window.scrollY);
+    const tab = NAV_TABS[to];
+    let resolve: () => void = () => {};
+    const ready = new Promise<void>((r) => { resolve = r; });
+    pending.current = { tab: tab.id, y: readScroll(ss, tab.id), resolve };
+    runTabTransition(navDir(active, to), () => router.push(tab.href, { scroll: false }), () => ready);
+  };
   return (
     <nav className="ps-tabbar" aria-label="Разделы" data-tour="nav">
-      {NAV_TABS.map((n) => {
+      {NAV_TABS.map((n, i) => {
         const dot = n.id === 'stats' && offer !== null;
         return (
           <Link
             key={n.href} href={n.href} className="ps-tab" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => onTab(e, i)}
             aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
           >
             <span className="ps-tab__ico">
