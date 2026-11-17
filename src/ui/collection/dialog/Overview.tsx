@@ -12,6 +12,7 @@ import { PlatinumPath } from './PlatinumPath';
 import { DlcProgress } from './DlcProgress';
 import { dlcProgress } from '../trophies';
 import { ReviewEditor } from './ReviewEditor';
+import { GameTags } from '../../tags/GameTags';
 import type { DialogHandlers } from './types';
 
 function Kv({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -67,6 +68,9 @@ export function Overview({
           {game.genres.length > 0 && <Kv label="Жанры" className="ps-gd__kv--long">{game.genres.map((g) => g.label).join(', ')}</Kv>}
         </dl>
       </section>
+
+      {/* П13.2: свои теги (только у видимой игры: на скрытую и дубль теги не вешаются) */}
+      {onGameChanged && !hidden && <GameTags key={`tags-${game.id}`} gameId={game.id} />}
 
       {onNotDuplicate && <LinkedVersions game={game} onSplit={onNotDuplicate} />}
 

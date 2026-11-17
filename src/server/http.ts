@@ -24,6 +24,8 @@ export type ErrorCode =
   | 'duplicate_game'
   | 'manual_limit'
   | 'manual_status_locked'
+  | 'tag_exists'
+  | 'tag_limit'
   | 'settings_required'
   | 'catalog_unavailable'
   | 'config_error'

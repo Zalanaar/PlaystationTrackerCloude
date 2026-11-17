@@ -5,7 +5,12 @@ const q = (s: string) => parseListQuery(new URLSearchParams(s));
 
 describe('parseListQuery', () => {
   it('значения по умолчанию', () => {
-    expect(q('')).toEqual({ ok: true, value: { q: null, statuses: null, year: null, sort: 'last_played', order: 'desc', limit: 60, offset: 0, hiddenOnly: false, forgottenOnly: false, genres: null, durations: null, hltb: null, platform: null, platformCounts: false } });
+    expect(q('')).toEqual({ ok: true, value: { q: null, statuses: null, year: null, sort: 'last_played', order: 'desc', limit: 60, offset: 0, hiddenOnly: false, forgottenOnly: false, genres: null, durations: null, hltb: null, platform: null, platformCounts: false, tag: null } });
+  });
+  it('tag (П13.2): положительное целое, мусор = ошибка', () => {
+    expect(q('tag=7')).toMatchObject({ value: { tag: 7 } });
+    expect(q('tag=0').ok).toBe(false);
+    expect(q('tag=x').ok).toBe(false);
   });
   it('platform (F4): ps5/ps4/pc, all = все, мусор = ошибка', () => {
     expect(q('platform=ps4')).toMatchObject({ value: { platform: 'ps4' } });

@@ -5,6 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { GENRE_LABELS_RU, GENRE_NONE, effectiveGenres, hasNoGenres, type GenreFilterKey } from '@/shared/genres';
 import { bucketSql, buildDuration, durationFilterSql, hltbFilterSql, hltbStatusSql, uncheckedPendingSql, effectiveHoursSql, type DurationRow } from './duration';
+import { tagFilterSql } from '@/server/tags/tags';
 import { PLATFORM_CATEGORY, type PlatformCounts, type PlatformKey } from '@/shared/platform-filter';
 import type {
   CollectionSummaryResponse,
@@ -351,7 +352,7 @@ async function platformCountsFor(db: AnyDb, userId: UserId, where: SQL | undefin
 }
 
 export async function listGames(db: AnyDb, userId: UserId, p: ListQuery, now: Date = new Date()): Promise<GamesListResponse> {
-  const scope = and(eq(games.userId, userId), p.hiddenOnly ? and(isNotNull(games.hiddenAt), isNull(games.duplicateOfGameId)) : visibleGames);
+  const scope = and(eq(games.userId, userId), p.hiddenOnly ? and(isNotNull(games.hiddenAt), isNull(games.duplicateOfGameId)) : visibleGames, p.tag ? tagFilterSql(userId, p.tag) : undefined);
   const textYear: (SQL | undefined)[] = [
     scope,
     p.q ? ilike(games.name, `%${escapeLike(p.q)}%`) : undefined,

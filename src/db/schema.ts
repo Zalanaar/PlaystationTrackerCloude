@@ -930,3 +930,36 @@ export const clientErrors = pgTable(
     check('client_errors_kind_check', sql`${t.kind} in ('error','rejection')`),
   ],
 );
+
+// П13.2 (миграция 0037 только добавляет таблицы): свои теги/списки игр («Перепройти», «С другом»…). Имя уникально без учёта регистра.
+export const gameTags = pgTable(
+  'game_tags',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: userIdCol(),
+    name: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('game_tags_user_id_id_key').on(t.userId, t.id),
+    uniqueIndex('game_tags_user_name_key').on(t.userId, sql`lower(${t.name})`),
+    check('game_tags_name_check', sql`char_length(${t.name}) between 1 and 32`),
+  ],
+);
+
+// П13.2: тег на игре (главная карточка, не дубль). Удаление тега или игры снимает связь.
+export const gameTagLinks = pgTable(
+  'game_tag_links',
+  {
+    userId: userIdCol(),
+    tagId: integer('tag_id').notNull(),
+    gameId: integer('game_id').notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tagId, t.gameId] }),
+    index('game_tag_links_user_game_idx').on(t.userId, t.gameId),
+    foreignKey({ name: 'game_tag_links_user_tag_fk', columns: [t.userId, t.tagId], foreignColumns: [gameTags.userId, gameTags.id] }).onDelete('cascade'),
+    foreignKey({ name: 'game_tag_links_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+  ],
+);

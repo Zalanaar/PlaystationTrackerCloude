@@ -217,6 +217,9 @@ export type Mock = {
   backlogAge: Record<string, unknown>;
   /** П13.1: ответ GET /api/stats/achievements (по умолчанию 12 неполученных); null — 503 */
   achievements: Record<string, unknown> | null;
+  /** П13.2: свои теги и их привязка к играм (gameId -> tagIds) */
+  tags: { id: number; name: string }[];
+  gameTags: Record<number, number[]>;
   /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
@@ -291,7 +294,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -314,6 +317,41 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   await page.route(/\/api\/trophies\/level(\?|$)/, (r) => json(r, m.level));
   await page.route(/\/api\/collection\/backlog-age(\?|$)/, (r) => json(r, m.backlogAge));
   await page.route(/\/api\/stats\/achievements(\?|$)/, (r) => (m.achievements ? json(r, m.achievements) : json(r, { code: 'db_unavailable', message: 'x' }, 503)));
+  // П13.2: теги
+  const tagDto = (t: { id: number; name: string }) => ({ ...t, count: visible().filter((g) => (m.gameTags[g.id] ?? []).includes(t.id)).length });
+  await page.route(/\/api\/tags(\?|$)/, async (r) => {
+    if (r.request().method() === 'GET') return json(r, { items: m.tags.map(tagDto) });
+    const name = String((r.request().postDataJSON() as { name?: string }).name ?? '').trim();
+    m.mutations.push({ method: 'POST', url: r.request().url(), body: { name } });
+    if (m.tags.some((t) => t.name.toLowerCase() === name.toLowerCase())) return json(r, { code: 'tag_exists', message: 'x' }, 409);
+    const t = { id: Math.max(0, ...m.tags.map((x) => x.id)) + 1, name };
+    m.tags.push(t);
+    return json(r, { tag: tagDto(t) });
+  });
+  await page.route(/\/api\/tags\/\d+$/, async (r) => {
+    const id = Number(new URL(r.request().url()).pathname.split('/').pop());
+    const method = r.request().method();
+    const body = method === 'PATCH' ? (r.request().postDataJSON() as { name: string }) : {};
+    m.mutations.push({ method, url: r.request().url(), body });
+    if (method === 'DELETE') {
+      m.tags = m.tags.filter((t) => t.id !== id);
+      for (const k of Object.keys(m.gameTags)) m.gameTags[+k] = m.gameTags[+k].filter((x) => x !== id);
+      return json(r, { id });
+    }
+    const t = m.tags.find((x) => x.id === id);
+    if (!t) return json(r, { code: 'not_found', message: 'x' }, 404);
+    t.name = String(body.name).trim();
+    return json(r, { id, name: t.name });
+  });
+  await page.route(/\/api\/games\/\d+\/tags$/, async (r) => {
+    const id = Number(new URL(r.request().url()).pathname.split('/')[3]);
+    if (r.request().method() === 'PUT') {
+      const body = r.request().postDataJSON() as { tagIds: number[] };
+      m.mutations.push({ method: 'PUT', url: r.request().url(), body });
+      m.gameTags[id] = body.tagIds.filter((t) => m.tags.some((x) => x.id === t));
+    }
+    return json(r, { tagIds: m.gameTags[id] ?? [] });
+  });
   await page.route(/\/api\/stats\/on-this-day(\?|$)/, (r) => json(r, { today: isoDay(Date.now() + 3 * 3600_000), items: m.onThisDay }));
   await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
     const u = new URL(r.request().url());
@@ -373,7 +411,9 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const scope = u.searchParams.get('hidden') === 'only' ? m.games.filter((g) => g.hiddenAt) : visible();
     const plat = u.searchParams.get('platform') as 'ps5' | 'ps4' | 'pc' | null;
     const base0 = scope.filter((g) => (!q || g.title.toLowerCase().includes(q)) && (!year || (done(g) !== null && g.status && mskYear(done(g) as string) === Number(year))));
-    const base = plat ? base0.filter((g) => platformsOf(g).includes(plat)) : base0;
+    const tagQ = Number(u.searchParams.get('tag') ?? 0);
+    const base1 = tagQ ? base0.filter((g) => (m.gameTags[g.id] ?? []).includes(tagQ)) : base0;
+    const base = plat ? base1.filter((g) => platformsOf(g).includes(plat)) : base1;
     const wanted = st ? st.split(',') : null;
     const genresQ = u.searchParams.get('genres')?.split(',').map((x) => x.toUpperCase()) ?? null;
     const durQ = u.searchParams.get('duration')?.split(',') ?? null;

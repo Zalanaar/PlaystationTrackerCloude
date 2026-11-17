@@ -11,6 +11,7 @@ import Link from '@/ui/IntentLink';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
 import { useChipRow } from '../primitives/useChipRow';
+import { TagFilterChip, TagsSheet } from '../tags/TagsSheet';
 
 const DEBOUNCE_MS = 250;
 
@@ -97,9 +98,18 @@ function ViewSeg({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => vo
 export type BackupInfo = { id: number; createdAt: string; count: number };
 
 /** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). Сброс и откат статусов: меню профиля (Фаза 48). */
-function CollectionMenuItems({ hidden, onHidden, onAddOther, close }: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; close: () => void }) {
+function CollectionMenuItems({ hidden, onHidden, onAddOther, onTags, close }: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; onTags?: () => void; close: () => void }) {
   return (
     <>
+    {onTags && !hidden && (
+      <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="menu-tags" aria-haspopup="dialog" onClick={() => { close(); onTags(); }}>
+        <Icon name="bookmark" size={16} />
+        <span className="ps-menu-item__label">
+          Теги
+          <small className="ps-menu-item__hint">Свои списки игр и фильтр по ним</small>
+        </span>
+      </button>
+    )}
     {onAddOther && (
       <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="menu-add-other" aria-haspopup="dialog" onClick={() => { close(); onAddOther(); }}>
         <Icon name="plus" size={16} />
@@ -120,7 +130,7 @@ function CollectionMenuItems({ hidden, onHidden, onAddOther, close }: { hidden: 
   );
 }
 
-function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void }) {
+function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; onTags?: () => void }) {
   return (
     <Popover
       align="end" className="ps-collmenu"
@@ -201,6 +211,7 @@ export function FilterBar(p: BarProps) {
   const { filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const active = hasActiveFilters(filters);
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   const selectBtn = (
     <button type="button" className="ps-btn ps-btn--select" aria-pressed={selectMode} aria-label={selectMode ? 'Готово' : 'Выбрать'} onClick={onSelect} disabled={!canSelect}>
@@ -212,14 +223,16 @@ export function FilterBar(p: BarProps) {
     <div className="ps-filters">
       <div className="ps-filters__row">
         <SearchBox value={filters.q} onCommit={commit} />
+        {filters.tag && <TagFilterChip tagId={filters.tag} onClear={() => onChange({ tag: null })} />}
         <StatusChips filters={filters} counts={counts} platinumCount={platinumCount} onChange={onChange} />
         <PlatformSelect filters={filters} platformCounts={p.platformCounts} onChange={onChange} />
         <SortSelect f={filters} onChange={onChange} />
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
         {active && !p.empty && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} />
+        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} />
       </div>
+      <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />
     </div>
   );
 }
@@ -277,6 +290,7 @@ function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filt
 export function MobileChips(p: BarProps) {
   const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const [sheet, setSheet] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const active = hasActiveFilters(filters);
   const dot = filtersDot(filters, view);
   return (
@@ -296,6 +310,7 @@ export function MobileChips(p: BarProps) {
           <span className="ps-filterchip__t">{PLATFORM_KEY_LABEL[filters.platform]}</span><Icon name="x" size={14} />
         </button>
       )}
+      {filters.tag && <TagFilterChip tagId={filters.tag} onClear={() => onChange({ tag: null })} />}
       <StatusChips filters={filters} counts={p.counts} platinumCount={p.platinumCount} onChange={onChange} />
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
         <div className="ps-stack">
@@ -307,11 +322,12 @@ export function MobileChips(p: BarProps) {
             <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={!canSelect && !selectMode} onClick={() => { setSheet(false); onSelect(); }}>
               <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">{selectMode ? 'Готово' : 'Выбрать игры'}</span>
             </button>
-            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} close={() => setSheet(false)} />
+            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} close={() => setSheet(false)} />
           </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
       </Sheet>
+      <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />
     </div>
   );
 }

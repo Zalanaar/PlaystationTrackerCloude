@@ -43,6 +43,8 @@ export type ListQuery = {
   platform: PlatformKey | null;
   /** F4: `platform_counts=1` — вернуть счётчики платформ для этой выборки без учёта фильтра платформы (Бэклог). */
   platformCounts: boolean;
+  /** П13.2: только игры с этим тегом (`tag=<id>`); нет/null = все. */
+  tag?: number | null;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -126,7 +128,13 @@ export function parseListQuery(sp: URLSearchParams): Parsed<ListQuery> {
   const platRaw = sp.get('platform')?.trim().toLowerCase() ?? '';
   const platform = platRaw === '' || platRaw === PLATFORM_ALL ? null : parsePlatform(platRaw);
   if (platRaw !== '' && platRaw !== PLATFORM_ALL && !platform) return bad('platform: ps5, ps4, pc или all.');
-  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations, hltb, platform, platformCounts: sp.get('platform_counts') === '1' } };
+  let tag: number | null = null;
+  const tagRaw = sp.get('tag');
+  if (tagRaw !== null && tagRaw !== '') {
+    tag = intParam(tagRaw, 1, 2_147_483_647);
+    if (tag === null) return bad('Некорректный тег.');
+  }
+  return { ok: true, value: { q: qRaw || null, statuses, year, sort, order, limit, offset, hiddenOnly, forgottenOnly, genres, durations, hltb, platform, platformCounts: sp.get('platform_counts') === '1', tag } };
 }
 
 const statusSchema = z.union([z.enum(STATUS_VALUES), z.null()]);

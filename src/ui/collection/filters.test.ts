@@ -19,7 +19,7 @@ describe('фильтры <-> URL', () => {
   });
   it('круг: разбор и сборка', () => {
     const f = parseFilters(p('status=completed&sort=hours&order=asc&q=halo&view=dense'));
-    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false, platinum: false, platform: null });
+    expect(f).toEqual({ status: 'completed', sort: 'hours', order: 'asc', q: 'halo', view: 'dense', hidden: false, platinum: false, platform: null, tag: null });
     expect(filtersToUrl(f).toString()).toBe('status=completed&sort=hours&order=asc&q=halo&view=dense');
   });
   it('мусор откатывается, год из URL игнорируется', () => {
@@ -177,5 +177,22 @@ describe('chipVisible (Пакет 6, п. 5)', () => {
     expect(chipVisible('all', 0, 'all')).toBe(true);
     expect(chipVisible('dropped', 0, 'dropped')).toBe(true);
     expect(chipVisible('shelved', null, 'all')).toBe(true);
+  });
+});
+
+describe('П13.2: фильтр тега', () => {
+  it('URL <-> фильтры <-> API, мусор отбрасывается', () => {
+    const f = parseFilters(new URLSearchParams('tag=7'));
+    expect(f.tag).toBe(7);
+    expect(filtersToUrl(f).get('tag')).toBe('7');
+    expect(filtersToApi(f, { limit: 10, offset: 0 }).get('tag')).toBe('7');
+    for (const bad of ['0', '-1', 'x', '1.5', '9999999999']) expect(parseFilters(new URLSearchParams(`tag=${bad}`)).tag).toBeNull();
+  });
+  it('тег — плоский список, активный фильтр и точка; сброс снимает тег', () => {
+    const f = { ...DEFAULT_FILTERS, tag: 3 };
+    expect(isChronicleMode(f)).toBe(false);
+    expect(hasActiveFilters(f)).toBe(true);
+    expect(filtersDot(f, 'comfort')).toBe(true);
+    expect(resetFilters(f).tag).toBeNull();
   });
 });

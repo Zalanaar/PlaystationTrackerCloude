@@ -569,3 +569,23 @@
   .ps-rm-page > .ps-pagehead.ps-pagehead { margin-bottom: var(--sp-3); }
   .ps-wrapped-page > .ps-pagehead.ps-pagehead { margin-bottom: calc(var(--sp-3) - var(--sp-5)); }
 }
+
+/* П13.2: чип активного тега и sheet «Теги» */
+.ps-filterchip--tag .ps-filterchip__t { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tags__lead, .ps-tags__empty { margin: 0; font-size: var(--fs-small); color: var(--text-2); }
+.ps-tags__sk { height: 96px; border-radius: var(--r-sm); }
+.ps-tags__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.ps-tags__row { display: flex; align-items: center; gap: var(--sp-1); min-height: var(--tap-min); }
+.ps-tags__pick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: var(--tap-min); padding: 0 var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ps-tags__pick[aria-pressed="true"] { border-color: var(--accent); }
+.ps-tags__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tags__n { flex: none; font-size: var(--fs-small); color: var(--text-2); }
+.ps-tags__form { display: flex; flex: 1 1 auto; gap: var(--sp-2); min-width: 0; }
+.ps-tags__form .ps-input { flex: 1 1 auto; min-width: 0; }
+.ps-tags__confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); flex: 1 1 auto; }
+.ps-tags__q { flex: 1 1 100%; font-size: var(--fs-small); }
+.ps-tags__err { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-small); color: var(--danger); }
+@media (max-width: 767px) {
+  .ps-tags__form .ps-input { font-size: 16px; height: var(--tap-min); }
+  .ps-tags__form .ps-btn, .ps-tags__confirm .ps-btn { min-height: var(--tap-min); }
+}
