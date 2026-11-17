@@ -30,7 +30,7 @@ async function axe(page: Page, sel: string) {
   await page.evaluate(axeSource);
   for (const t of THEMES) {
     await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(500); // смена темы и анимация sheet (WebKit) — иначе axe меряет контраст посреди перехода
     const v = await page.evaluate(async (s) => {
       const ax = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
       const r = await ax.run({ include: [[s]] }, { resultTypes: ['violations'] });
@@ -122,6 +122,7 @@ test.describe('П13.2: теги', () => {
       await page.goto('/');
       const sheet = await openTagsSheet(page);
       await expect(sheet.getByTestId('tag-row')).toHaveCount(2);
+      await expect.poll(() => sheet.evaluate((el) => getComputedStyle(el.closest('.ps-sheet') ?? el).opacity)).toBe('1');
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       await axe(page, '.ps-tags');
     });
