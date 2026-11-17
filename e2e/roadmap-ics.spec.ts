@@ -16,7 +16,7 @@ const rel = (id: number, title: string, date: string | null, o: Partial<RmPlanne
 async function open(page: Page, baseURL: string, planned: RmPlanned[]) {
   await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page, []);
-  await mockRoadmap(page, baseState({ planned }));
+  await mockRoadmap(page, baseState({ planned, today: day(0) })); // «сегодня» настоящее: иначе фиксированная дата мока делает «вышедшую» игру будущей
   await page.route('**/api/roadmap/releases.ics', (r) => r.fulfill({
     status: 200, body: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n',
     headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'attachment; filename="releases.ics"' },
