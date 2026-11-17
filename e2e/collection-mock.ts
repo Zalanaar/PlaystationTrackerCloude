@@ -331,7 +331,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   await page.route(/\/api\/tags\/\d+$/, async (r) => {
     const id = Number(new URL(r.request().url()).pathname.split('/').pop());
     const method = r.request().method();
-    const body = method === 'PATCH' ? (r.request().postDataJSON() as { name: string }) : {};
+    const body: { name?: string } = method === 'PATCH' ? (r.request().postDataJSON() as { name: string }) : {};
     m.mutations.push({ method, url: r.request().url(), body });
     if (method === 'DELETE') {
       m.tags = m.tags.filter((t) => t.id !== id);
