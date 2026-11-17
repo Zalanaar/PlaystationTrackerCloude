@@ -7,6 +7,7 @@ import type { StatsResponse } from '@/server/stats/types';
 import type { WrappedResponse } from '@/server/wrapped/types';
 import type { BacklogAgeResponse } from '@/server/collection/backlog-age';
 import type { TimeFitResponse } from '@/server/collection/time-fit';
+import type { AchievementsResponse } from '@/server/achievements/achievements';
 import type {
   BulkStatusResponse, CollectionSummaryResponse, GameDetailsResponse, GameGuide, GameItem, GameReview, GameMutationResponse, GamesBatchResponse, GamesListResponse, GameStatusValue,
   StatusBackupsResponse, StatusResetAllResponse, StatusRestoreResponse,
@@ -85,6 +86,8 @@ export const fetchDay = (date: string, signal?: AbortSignal) => cachedGet<DayRes
 export const fetchBacklogAge = (signal?: AbortSignal) => call<BacklogAgeResponse>('/api/collection/backlog-age', { signal });
 /** П12.5: «У меня 2 часа». */
 export const fetchTimeFit = (minutes: number, signal?: AbortSignal) => call<TimeFitResponse>(`/api/collection/time-fit?minutes=${minutes}`, { signal });
+/** П13.1: достижения (кэш как у прочих блоков Статистики). */
+export const fetchAchievements = (signal?: AbortSignal) => cachedGet<AchievementsResponse>('/api/stats/achievements', signal);
 export const fetchOnThisDay = (signal?: AbortSignal) => cachedGet<OnThisDayResponse>('/api/stats/on-this-day', signal);
 
 export const fetchWrapped = (year: number | 'all' | null, signal?: AbortSignal) => {

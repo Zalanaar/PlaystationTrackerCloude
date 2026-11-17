@@ -567,3 +567,18 @@
 .ps-st-genres__row--btn::after { content: ""; position: absolute; inset: calc(var(--sp-3) / -2) 0; }
 .ps-st-genres > li:first-child .ps-st-genres__row--btn::after { top: min(calc(var(--sp-3) / -2), calc((100% - var(--tap-min)) / 2 - 1px)); }
 .ps-st-genres > li:last-child .ps-st-genres__row--btn::after { bottom: min(calc(var(--sp-3) / -2), calc((100% - var(--tap-min)) / 2 - 1px)); }
+
+/* П13.1 «Достижения»: 12 плиток постоянной высоты (2 колонки на телефоне, 3 на планшете, 4 на десктопе) */
+.ps-ach__grid { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+.ps-ach__item { display: flex; gap: var(--sp-2); height: 112px; padding: var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface); min-width: 0; overflow: hidden; }
+.ps-ach__item[data-unlocked] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.ps-ach__ic { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface-2); color: var(--text-2); }
+.ps-ach__item[data-unlocked] .ps-ach__ic { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--text); }
+.ps-ach__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-ach__t { font: 600 14px/18px var(--font-body); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-ach__d { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ps-ach__s { margin-top: auto; font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-ach__bar { display: block; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.ps-ach__bar i { display: block; height: 100%; background: var(--accent); }
+@media (max-width: 1023px) { .ps-ach__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .ps-ach__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ps-ach__item { height: 128px; flex-direction: column; gap: var(--sp-1); } .ps-ach__ic { width: 28px; height: 28px; } }

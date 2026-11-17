@@ -158,6 +158,13 @@ function counts(list: G[]) {
   return c;
 }
 
+/** П13.1: 12 вех без прогресса (порядок как у сервера). */
+export const ACH_IDS = ['completed_1', 'completed_10', 'completed_50', 'platinum_1', 'platinum_10', 'trophies_1000', 'ultra_rare', 'hours_100', 'hours_1000', 'marathon', 'genres_5', 'critic_10'] as const;
+const ACH_TARGETS = [1, 10, 50, 1, 10, 1000, 1, 100, 1000, 100, 5, 10];
+export function emptyAchievements(): { items: Record<string, unknown>[]; unlocked: number; total: number } {
+  return { items: ACH_IDS.map((id, i) => ({ id, target: ACH_TARGETS[i], value: 0, unlocked: false, at: null, detail: null })), unlocked: 0, total: 12 };
+}
+
 export type Mock = {
   games: G[];
   /** URL-ы запросов GET /api/games в порядке отправки */
@@ -208,6 +215,8 @@ export type Mock = {
   level: Record<string, unknown>;
   /** П12.4: ответ GET /api/collection/backlog-age (по умолчанию пусто = строки и подписей нет) */
   backlogAge: Record<string, unknown>;
+  /** П13.1: ответ GET /api/stats/achievements (по умолчанию 12 неполученных); null — 503 */
+  achievements: Record<string, unknown> | null;
   /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
@@ -282,7 +291,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -304,6 +313,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
 
   await page.route(/\/api\/trophies\/level(\?|$)/, (r) => json(r, m.level));
   await page.route(/\/api\/collection\/backlog-age(\?|$)/, (r) => json(r, m.backlogAge));
+  await page.route(/\/api\/stats\/achievements(\?|$)/, (r) => (m.achievements ? json(r, m.achievements) : json(r, { code: 'db_unavailable', message: 'x' }, 503)));
   await page.route(/\/api\/stats\/on-this-day(\?|$)/, (r) => json(r, { today: isoDay(Date.now() + 3 * 3600_000), items: m.onThisDay }));
   await page.route(/\/api\/stats\/activity(\?|$)/, async (r) => {
     const u = new URL(r.request().url());

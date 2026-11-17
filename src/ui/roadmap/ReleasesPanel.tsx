@@ -139,7 +139,7 @@ export function ReleasesPanel({
           <a className="ps-btn ps-btn--ghost ps-btn--sm" href="/api/roadmap/releases.ics" data-testid="rm-ics">
             <Icon name="calendar-plus" size={14} />Релизы в календарь (.ics)
           </a>
-          <small>Даты выхода — события на весь день. Повторный импорт обновит, а не продублирует.</small>
+          <small>Даты выхода — события на весь день. Это разовый импорт: новые релизы появятся после повторного импорта, а прежние события календарь может продублировать.</small>
         </p>
       )}
       <Attribution />

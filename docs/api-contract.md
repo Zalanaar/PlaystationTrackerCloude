@@ -3644,4 +3644,9 @@ RAWG остаётся главным каталогом, пока отвечае
 Сессия обязательна (401). Ответ — файл `text/calendar; charset=utf-8`, `Content-Disposition: attachment; filename="releases.ics"`, `Cache-Control: private, no-store`; 503 `db_unavailable` (JSON) без деталей.
 - События: релизы плана (`planned_games`, статус `planned`) и игры бэклога «вручную» (`manual_games`, `ps_backlog`, не связанные с библиотекой) с датой выхода сегодня или позже (по Москве); одинаковое название — одно событие (из плана).
 - Каждое — на весь день (`DTSTART;VALUE=DATE`, `DTEND` = следующий день), `SUMMARY:Релиз: <название>`, `DESCRIPTION` — откуда («В плане: хочу пройти на релизе» / «В плане» / «В бэклоге (вручную)»), `TRANSP:TRANSPARENT`.
-- `UID` стабильный (`planned-<id>@ps-tracker`, `manual-<id>@ps-tracker`): повторный импорт обновляет события. Строки по RFC 5545: CRLF, экранирование TEXT, свёртка по 75 октетов UTF-8.
+- `UID` стабильный (`planned-<id>@ps-tracker`, `manual-<id>@ps-tracker`): повторный импорт может обновить события (зависит от календаря; iOS бывает дублирует). Строки по RFC 5545: CRLF, экранирование TEXT, свёртка по 75 октетов UTF-8.
+
+## П13. Достижения `GET /api/stats/achievements`
+Сессия обязательна (401). Ответ `{ ok: true, data: { items: Achievement[12], unlocked, total } }`, ETag/304; 503 `db_unavailable` без деталей. Без новых таблиц: всё считается по данным.
+- `Achievement` — `{ id, target, value, unlocked, at, detail }`; `at` — ISO момента получения, если его можно восстановить (N-я пройденная игра по `completed_at`, N-я платина / 1000-й трофей / первый ультраредкий по `earned_at`), иначе `null`; `detail` — название игры у «Марафона».
+- Вехи: `completed_1/10/50` (пройдено, видимые игры), `platinum_1/10`, `trophies_1000`, `ultra_rare` (трофей с долей < 1%), `hours_100/1000` (часы всех не скрытых игр), `marathon` (100 ч в одной игре, с дублями), `genres_5` (жанры пройденных), `critic_10` (оценено игр). Трофеи — все трофеи пользователя (как PSN, включая скрытые игры).
