@@ -589,3 +589,21 @@
   .ps-tags__form .ps-input { font-size: 16px; height: var(--tap-min); }
   .ps-tags__form .ps-btn, .ps-tags__confirm .ps-btn { min-height: var(--tap-min); }
 }
+
+/* П13.4: «Первая неделя» — постоянная высота: заголовок и один ряд пунктов с горизонтальной прокруткой */
+.ps-week1 { height: 112px; margin: 0 0 var(--sp-3); padding: var(--sp-3); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; overflow: hidden; }
+.ps-week1--sk { padding: 0; border: 0; background: none; }
+.ps-week1__sk { height: 100%; border-radius: var(--r-md); }
+.ps-week1__head { display: flex; align-items: center; gap: var(--sp-2); height: 32px; min-width: 0; }
+.ps-week1__t { margin: 0; font: 600 16px/20px var(--font-body); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-week1__p { flex: none; font-size: var(--fs-small); color: var(--text-2); }
+.ps-week1__x { margin-left: auto; flex: none; }
+.ps-week1__list { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.ps-week1__list::-webkit-scrollbar { display: none; }
+.ps-week1__list > li { flex: none; }
+.ps-week1__item { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); font: inherit; font-size: var(--fs-small); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.ps-week1__item:hover { border-color: var(--accent); }
+.ps-week1__item--done { cursor: default; color: var(--text-2); background: none; }
+.ps-week1__item--done:hover { border-color: var(--border); }
+.ps-week1__item--done svg { color: var(--success, var(--accent)); }
+@media (max-width: 767px) { .ps-week1__x { width: 44px; height: 44px; } .ps-week1__head { height: 44px; } .ps-week1 { height: 124px; } }

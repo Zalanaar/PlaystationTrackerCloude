@@ -75,6 +75,7 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       await client.exec(`DO $$ BEGIN IF to_regclass('public.guide_index_runs') IS NOT NULL THEN TRUNCATE guide_index_runs RESTART IDENTITY; END IF; END $$`);
       // теги (0037): связи уходят каскадом с games, сами теги — нет
       await client.exec(`DO $$ BEGIN IF to_regclass('public.game_tags') IS NOT NULL THEN TRUNCATE game_tags RESTART IDENTITY CASCADE; END IF; END $$`);
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.user_checklist') IS NOT NULL THEN TRUNCATE user_checklist; END IF; END $$`);
     },
     close: () => client.close(),
   };

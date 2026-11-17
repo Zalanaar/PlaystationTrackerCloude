@@ -984,3 +984,14 @@ export const gamePrices = pgTable(
     check('game_prices_price_check', sql`${t.price} between 0 and 1000000`),
   ],
 );
+
+/**
+ * П13.4: «Первая неделя» скрыта пользователем (одна строка на пользователя, общая для Safari и PWA).
+ * Отдельная таблица, а не колонка allowed_users: старые наборы миграций в тестах вставляют пользователей по текущей схеме.
+ */
+export const userChecklist = pgTable('user_checklist', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+  dismissedAt: tz('dismissed_at').notNull().defaultNow(),
+});

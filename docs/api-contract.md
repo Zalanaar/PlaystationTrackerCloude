@@ -3665,3 +3665,10 @@ RAWG остаётся главным каталогом, пока отвечае
 - `GET /api/games/:id/price` → `{ price: number | null }`; `PUT` `{ price: number | null }` — поставить (0 = бесплатно) или убрать (null).
 - `GET /api/stats/cost` (ETag/304) → `{ priced, total, hours, perHour, best, worst, idle: { count, total } }`. Часы — с дублями, как у карточки, до 0,1. Стоимость часа = цена / часы: целые ₽ (меньше 10 ₽ — с десятыми); меньше часа сыграно — `null` (игра уходит в `idle`). `best` — до 3 с наименьшей ₽/ч, `worst` — до 3 с наибольшей (платные, без повторов из `best`). Элемент — `{ id, title, price, hours, perHour }`.
 - Цены в резервную копию пока не входят.
+
+## П13.4. «Первая неделя» `GET /api/me/checklist`, `POST /api/me/checklist/dismiss`
+Сессия обязательна (401); 503 `db_unavailable` без деталей. Миграция 0039 (аддитивная): таблица `user_checklist` (user_id PK, dismissed_at; каскад с пользователем).
+- `GET` → `{ show, endsAt, items }`. Неделя — 7 дней от `onboarded_at` (иначе от `created_at`); `show = false`, если неделя прошла или пользователь нажал «Скрыть» (тогда `items = null`).
+- `items` — `{ sync, statuses: { count, goal, done }, hltb, telegram }`: был успешный или частичный синк (не HLTB); статусы у видимых игр (цель — 5 или все игры, если их меньше); у какой-либо игры есть проверка HLTB; привязан Telegram. Тема и установка PWA — признаки клиента (localStorage `ps-theme`, `display-mode: standalone` / флаг установки).
+- `POST …/dismiss` (Origin проверяется) → `{ dismissed: true }`: скрыть насовсем, на всех устройствах.
+- Cookie-подсказка `ps-week1` (`1`/`0`, 8 дней): клиент запоминает последний `show`, онбординг ставит `1`; сервер по ней резервирует место под карточку.

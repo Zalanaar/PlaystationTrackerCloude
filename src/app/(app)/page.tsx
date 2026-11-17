@@ -3,6 +3,7 @@ import { preload } from 'react-dom';
 import { cookies, headers } from 'next/headers';
 import { CollectionView } from '@/ui/collection/CollectionView';
 import { HERO_HINT_COOKIE, parseHeroHint } from '@/shared/hero-hint';
+import { WEEK1_HINT_COOKIE, parseWeek1Hint } from '@/shared/week1-hint';
 import { LAYOUT_HINT_COOKIE, parseLayoutHint, withDeviceWidth, type LayoutHint } from '@/shared/layout-hint';
 import { CollectionPageSkeleton } from '@/ui/skeletons';
 import { loadCollectionInitialSlim } from '@/server/collection/initial';
@@ -33,6 +34,8 @@ export default async function CollectionPage({ searchParams }: Props) {
   const jar = await cookies();
   // Подсказка «есть ли игры „Играю“» с прошлого визита: без неё скелет hero исчезал и сдвигал страницу
   const heroHint = parseHeroHint(jar.get(HERO_HINT_COOKIE)?.value);
+  // П13.4: место под «Первую неделю» в первом рендере
+  const week1Hint = parseWeek1Hint(jar.get(WEEK1_HINT_COOKIE)?.value);
   // F4: запомненная платформа; параметр URL всё равно главнее (CollectionView)
   const platform = parsePlatform(jar.get(PLATFORM_COOKIE)?.value);
   // П8.4: баннер «Итоги года готовы» сразу в HTML (МСК, cookie «закрыт»), чтобы он не появлялся после гидрации
@@ -51,14 +54,14 @@ export default async function CollectionPage({ searchParams }: Props) {
   const cookieHeader = ssr ? h.get('cookie') : null;
   return (
     <Suspense fallback={<CollectionPageSkeleton hero={heroHint !== false} />}>
-      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} wrappedSsr={wrappedSsr} />
+      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} />
     </Suspense>
   );
 }
 
 /** Внутри Suspense: скелет страницы уходит в первом куске HTML, коллекция дописывается тем же ответом, как только готова БД. */
-async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform, wrappedSsr }: {
-  heroHint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null; platform: PlatformKey | null;
+async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform, wrappedSsr, week1Hint }: {
+  heroHint: boolean | undefined; week1Hint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null; platform: PlatformKey | null;
   wrappedSsr: WrappedSeason | null;
 }) {
   const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, batchUrlFor(platform), linkId) : null;
@@ -66,5 +69,5 @@ async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, plat
   const lg = initial?.linkGame;
   const art = lg ? (lg.bannerUrl ? psnImageUrl(lg.bannerUrl, PSN_W.banner) : lg.coverUrl ? psnImageUrl(lg.coverUrl, PSN_W.card) : null) : null;
   if (art) preload(art, { as: 'image', fetchPriority: 'high', referrerPolicy: 'no-referrer' });
-  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} wrappedSsr={wrappedSsr} />;
+  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} />;
 }

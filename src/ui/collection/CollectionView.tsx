@@ -37,6 +37,7 @@ import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { useDataRefresh } from '../shell/refresh';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
+import { FirstWeekCard } from '../checklist/FirstWeekCard';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
@@ -76,8 +77,10 @@ const AddOtherPlatformSheet = dynamic(() => import('../other-platforms/AddOtherP
  * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
  * platformDefault (F4): запомненная платформа из cookie; параметр URL главнее.
  */
-export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null }: {
+export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null, week1Hint }: {
   heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint; platformDefault?: PlatformKey | null;
+  /** П13.4: cookie-подсказка «Первой недели» (место под карточку без сдвига) */
+  week1Hint?: boolean;
   /** П8.4: баннер «Итоги года готовы», который нарисовал сервер (сезон и не закрыт), иначе null */
   wrappedSsr?: WrappedSeason | null;
 } = {}) {
@@ -299,6 +302,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
 
       <InboxStrip ctl={inbox} />
       <WrappedBanner ssr={wrappedSsr} compact />
+      {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
       {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}

@@ -2,6 +2,7 @@
 
 // Онбординг (Фаза 20.4, design-system §9): ник PSN -> проверка доступа -> первая загрузка игр.
 // Шаг определяется данными GET /api/me/psn, перезагрузка возвращает на тот же шаг.
+import { week1HintCookie } from '@/shared/week1-hint';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '../icons';
@@ -529,8 +530,8 @@ function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; recheck
         <h2 className="ps-ob__h2">Готово</h2>
         <p className="ps-ob__rtext">{seen !== null ? `Загружено игр: ${seen}. ` : ''}Осталось разобрать, что вы уже прошли, а что бросили.</p>
         <div className="ps-ob__acts">
-          <button type="button" className="ps-btn ps-btn--primary" onClick={() => { queueTourStart(); router.push('/'); }}>Начать тур</button>
-          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { skipTourSilently(); router.push('/triage'); }}>Пропустить, открыть Разбор</button>
+          <button type="button" className="ps-btn ps-btn--primary" onClick={() => { document.cookie = week1HintCookie(true); queueTourStart(); router.push('/'); }}>Начать тур</button>
+          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { document.cookie = week1HintCookie(true); skipTourSilently(); router.push('/triage'); }}>Пропустить, открыть Разбор</button>
         </div>
       </div>
     );
