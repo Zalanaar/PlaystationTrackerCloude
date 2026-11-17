@@ -359,3 +359,17 @@ button.ps-gd__dlcpr { cursor: pointer; }
   .ps-gtags__new .ps-btn, .ps-gtags__edit, .ps-gtags__chip, .ps-gtags__opt { min-height: var(--tap-min); }
   .ps-gtags__chip, .ps-gtags__opt { display: inline-flex; align-items: center; }
 }
+
+/* П13.3: «Цена покупки» в окне игры. Скелет высотой строки — без сдвига. */
+.ps-gprice__sk { height: 32px; border-radius: var(--r-sm); }
+.ps-gprice__row, .ps-gprice__form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-height: 32px; }
+.ps-gprice__v { flex: 1 1 auto; min-width: 0; }
+.ps-gprice__field { position: relative; flex: 1 1 140px; min-width: 0; display: flex; }
+.ps-gprice__field .ps-input { flex: 1 1 auto; min-width: 0; padding-right: 28px; }
+.ps-gprice__cur { position: absolute; right: var(--sp-2); top: 50%; transform: translateY(-50%); color: var(--text-2); pointer-events: none; }
+.ps-gprice__hint { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--text-2); }
+.ps-gprice__err { display: flex; align-items: center; gap: 6px; margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--danger); }
+@media (max-width: 767px) {
+  .ps-gprice__field .ps-input { font-size: 16px; height: var(--tap-min); }
+  .ps-gprice .ps-btn { min-height: var(--tap-min); }
+}

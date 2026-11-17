@@ -220,6 +220,9 @@ export type Mock = {
   /** П13.2: свои теги и их привязка к играм (gameId -> tagIds) */
   tags: { id: number; name: string }[];
   gameTags: Record<number, number[]>;
+  /** П13.3: цены покупки (gameId -> ₽) и ответ GET /api/stats/cost (null — 503) */
+  prices: Record<number, number>;
+  cost: Record<string, unknown> | null;
   /** Фаза 15 (14.2): `summary.nearPlatinum` по id игры; пусто = блока нет */
   nearPlatinum: { id: number; forecast: Record<string, unknown> }[];
   /** ответы без новых полей Фазы 15 (старый контракт): проверка устойчивости */
@@ -294,7 +297,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, prices: {}, cost: { priced: 0, total: 0, hours: 0, perHour: null, best: [], worst: [], idle: { count: 0, total: 0 } }, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -342,6 +345,17 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     if (!t) return json(r, { code: 'not_found', message: 'x' }, 404);
     t.name = String(body.name).trim();
     return json(r, { id, name: t.name });
+  });
+  // П13.3: цена покупки и сводка
+  await page.route(/\/api\/stats\/cost(\?|$)/, (r) => (m.cost ? json(r, m.cost) : json(r, { code: 'db_unavailable', message: 'x' }, 503)));
+  await page.route(/\/api\/games\/\d+\/price$/, async (r) => {
+    const id = Number(new URL(r.request().url()).pathname.split('/')[3]);
+    if (r.request().method() === 'PUT') {
+      const body = r.request().postDataJSON() as { price: number | null };
+      m.mutations.push({ method: 'PUT', url: r.request().url(), body });
+      if (body.price === null) delete m.prices[id]; else m.prices[id] = body.price;
+    }
+    return json(r, { price: m.prices[id] ?? null });
   });
   await page.route(/\/api\/games\/\d+\/tags$/, async (r) => {
     const id = Number(new URL(r.request().url()).pathname.split('/')[3]);

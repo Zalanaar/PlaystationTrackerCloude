@@ -963,3 +963,24 @@ export const gameTagLinks = pgTable(
     foreignKey({ name: 'game_tag_links_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
   ],
 );
+
+/**
+ * П13.3: цена покупки игры (в рублях, целое) для «стоимости часа». Одна строка на игру; 0 — бесплатно (PS Plus, раздача).
+ * Только по видимой главной карточке; удаляется вместе с игрой.
+ */
+export const gamePrices = pgTable(
+  'game_prices',
+  {
+    gameId: integer('game_id')
+      .primaryKey()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    userId: userIdCol(),
+    price: integer().notNull(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('game_prices_user_idx').on(t.userId),
+    foreignKey({ name: 'game_prices_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    check('game_prices_price_check', sql`${t.price} between 0 and 1000000`),
+  ],
+);

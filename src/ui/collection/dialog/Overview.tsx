@@ -13,6 +13,7 @@ import { DlcProgress } from './DlcProgress';
 import { dlcProgress } from '../trophies';
 import { ReviewEditor } from './ReviewEditor';
 import { GameTags } from '../../tags/GameTags';
+import { GamePrice } from '../../prices/GamePrice';
 import type { DialogHandlers } from './types';
 
 function Kv({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -71,6 +72,8 @@ export function Overview({
 
       {/* П13.2: свои теги (только у видимой игры: на скрытую и дубль теги не вешаются) */}
       {onGameChanged && !hidden && <GameTags key={`tags-${game.id}`} gameId={game.id} />}
+      {/* П13.3: цена покупки и стоимость часа */}
+      {onGameChanged && !hidden && <GamePrice key={`price-${game.id}`} gameId={game.id} hours={game.hours} />}
 
       {onNotDuplicate && <LinkedVersions game={game} onSplit={onNotDuplicate} />}
 

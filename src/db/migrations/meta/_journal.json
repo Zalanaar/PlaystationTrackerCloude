@@ -267,6 +267,13 @@
       "when": 1794873892697,
       "tag": "0037_game_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794874787527,
+      "tag": "0038_game_prices",
+      "breakpoints": true
     }
   ]
 }

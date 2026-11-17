@@ -21,6 +21,7 @@ import { PlayedBlock } from './PlayedBlock';
 import { Panel } from './Panel';
 import { SectionChips } from './SectionChips';
 import { AchievementsPanel } from './Achievements';
+import { CostPanel } from './Cost';
 import { FeedLink } from './FeedLink';
 import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel } from './AllTime';
 import { yearRange } from './allTime';
@@ -235,6 +236,7 @@ function Content({
             <PlayPatternPanel pattern={data.playPattern} periodKey="all" />
             <TrophiesByYearPanel data={data} currentYear={today.year} />
             <AchievementsPanel />
+            <CostPanel />
           </>
         )}
       </>

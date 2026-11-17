@@ -582,3 +582,19 @@
 .ps-ach__bar i { display: block; height: 100%; background: var(--accent); }
 @media (max-width: 1023px) { .ps-ach__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 767px) { .ps-ach__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ps-ach__item { height: 128px; flex-direction: column; gap: var(--sp-1); } .ps-ach__ic { width: 28px; height: 28px; } }
+
+/* П13.3 «Стоимость часа»: три цифры, списки выгодных и дорогих за час (строки — ссылки в окно игры, 44 px на телефоне) */
+.ps-cost__kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.ps-cost__kpi { height: 72px; padding: var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface); min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.ps-cost__kpi dt { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
+.ps-cost__kpi dd { margin: 0; font: 600 18px/24px var(--font-body); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-cost__empty, .ps-cost__idle { margin: var(--sp-3) 0 0; font-size: var(--fs-small); color: var(--text-2); }
+.ps-cost__grp { margin-top: var(--sp-4); }
+.ps-cost__h { margin: 0 0 var(--sp-1); font: 600 var(--fs-small)/20px var(--font-body); color: var(--text); }
+.ps-cost__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ps-cost__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t m" "d d"; column-gap: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-sm); color: inherit; text-decoration: none; min-height: 44px; }
+.ps-cost__row:hover { background: var(--surface-2); }
+.ps-cost__t { grid-area: t; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.ps-cost__m { grid-area: m; font-weight: 600; color: var(--text); }
+.ps-cost__d { grid-area: d; font-size: var(--fs-micro); color: var(--text-2); }
+@media (max-width: 767px) { .ps-cost__kpi { height: 76px; padding: var(--sp-2); } .ps-cost__kpi dd { font-size: 16px; } }

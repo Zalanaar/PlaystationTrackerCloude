@@ -10,6 +10,7 @@ export const STATS_SECTIONS: readonly StatsSection[] = [
   { id: 'when', label: 'Когда', selector: '[aria-labelledby^="st-pp-"]' },
   { id: 'trophies', label: 'Трофеи', selector: '[aria-labelledby="st-trophies"], [aria-labelledby^="st-ty-"]' },
   { id: 'ach', label: 'Достижения', selector: '.ps-ach' },
+  { id: 'cost', label: 'Стоимость часа', selector: '.ps-cost' },
   { id: 'rare', label: 'Редкие', selector: '.ps-rare' },
   { id: 'activity', label: 'Активность', selector: '.ps-act' },
   { id: 'played', label: 'Игры', selector: '#st-played-sec' },
