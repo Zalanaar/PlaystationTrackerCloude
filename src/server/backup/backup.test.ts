@@ -10,7 +10,7 @@ import { isDataError } from './errors';
 import { applyRestore, previewRestore } from './restore';
 import { BACKUP_KIND, isBackupDue, isSundayMsk, runWeeklyBackup } from './weekly';
 
-const { games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
+const { gameTags, gameTagLinks, gamePrices, games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z'); // четверг
 const SUNDAY = new Date('2026-11-01T06:00:00Z');
 const ENV = { token: '123:SECRET-TOKEN', chatId: '42' };
@@ -81,7 +81,7 @@ describe('backup', () => {
       { userId: 1, gameId: id('A'), rating: 9, note: 'Лучший рогалик' },
     ]);
     const f = await buildBackup(t.db, TEST_USER, NOW);
-    expect(f.schemaVersion).toBe(2);
+    expect(f.schemaVersion).toBe(BACKUP_SCHEMA_VERSION);
     expect(f.games.map((g) => g.titleId)).toEqual(['A', 'B', 'C', 'D', 'E']); // D попадает только из-за оценки 0
     expect(f.games[0].review).toEqual({ rating: 9, note: 'Лучший рогалик' });
     expect(f.games[3].review).toEqual({ rating: 0, note: null });
@@ -115,6 +115,51 @@ describe('backup', () => {
     expect((await previewRestore(t.db, TEST_USER, p2.value)).sections.review).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
   });
 
+  // --- П13 (v3): свои теги и цены — только в ручной выгрузке; восстановление добавляет теги и цены, не стирая
+  it('v3: теги и цены в ручной выгрузке, не в еженедельной; восстановление и идемпотентность', async () => {
+    const id = await seed();
+    const [coop] = await t.db.insert(gameTags).values({ userId: 1, name: 'Кооп' }).returning();
+    await t.db.insert(gameTagLinks).values({ userId: 1, tagId: coop.id, gameId: id('B') });
+    await t.db.insert(gamePrices).values([{ userId: 1, gameId: id('B'), price: 1999 }, { userId: 1, gameId: id('D'), price: 0 }]);
+    const weekly = await buildBackup(t.db, TEST_USER, NOW);
+    expect(weekly.games.some((g) => 'tags' in g || 'price' in g)).toBe(false);
+    expect(weekly.games.map((g) => g.titleId)).not.toContain('D');
+    const f = await buildBackup(t.db, TEST_USER, NOW, { personal: true });
+    const b = f.games.find((g) => g.titleId === 'B')!;
+    expect(b).toMatchObject({ tags: ['Кооп'], price: 1999 });
+    expect(f.games.find((g) => g.titleId === 'D')).toMatchObject({ tags: [], price: 0 });
+    const parsed = parseBackup(JSON.parse(JSON.stringify(f)));
+    if (!parsed.ok) throw new Error('parse');
+
+    // стёрли теги и цены, добавили своё: восстановление добавляет, существующее не снимает; null цены не стирает
+    await t.db.delete(gameTags);
+    await t.db.delete(gamePrices);
+    const [mine] = await t.db.insert(gameTags).values({ userId: 1, name: 'кооп' }).returning(); // тот же тег в другом регистре
+    await t.db.insert(gamePrices).values({ userId: 1, gameId: id('A'), price: 500 });
+    const file = JSON.parse(JSON.stringify(parsed.value)) as BackupFile;
+    file.games.find((g) => g.titleId === 'B')!.tags = ['Кооп', 'Перепройти'];
+    file.games.find((g) => g.titleId === 'A')!.price = null;
+    const pre = await previewRestore(t.db, TEST_USER, file);
+    expect(pre.sections.tags).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
+    expect(pre.sections.price).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
+    await applyRestore(t.db, TEST_USER, file, NOW);
+    const tags = await t.db.select().from(gameTags);
+    expect(tags.map((x) => x.name).sort()).toEqual(['Перепройти', 'кооп']);
+    const links = await t.db.select().from(gameTagLinks);
+    expect(links.filter((l) => l.gameId === id('B')).map((l) => l.tagId).sort()).toEqual([mine.id, tags.find((x) => x.name === 'Перепройти')!.id].sort());
+    const prices = new Map((await t.db.select().from(gamePrices)).map((p) => [p.gameId, p.price]));
+    expect([prices.get(id('A')), prices.get(id('B')), prices.get(id('D'))]).toEqual([500, 1999, 0]);
+    const again = await previewRestore(t.db, TEST_USER, file);
+    expect(again.sections.tags).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
+    expect(again.sections.price).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
+    // битые поля v3
+    const bad = (o: Record<string, unknown>) => { const x = JSON.parse(JSON.stringify(f)); Object.assign(x.games[0], o); return parseBackup(x).ok; };
+    expect(bad({ price: -1 })).toBe(false);
+    expect(bad({ price: 1.5 })).toBe(false);
+    expect(bad({ tags: ['  '] })).toBe(false);
+    expect(bad({ tags: ['я'.repeat(33)] })).toBe(false);
+  });
+
   it('v2: битый review = invalid_format', async () => {
     await seed();
     const good = JSON.parse(JSON.stringify(await buildBackup(t.db, TEST_USER, NOW))) as BackupFile;
@@ -146,7 +191,7 @@ describe('backup', () => {
     expect(parseBackup(null)).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup([])).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup({ ...clone(), app: 'other' })).toEqual({ ok: false, failure: { reason: 'invalid_format', path: 'app' } });
-    expect(parseBackup({ ...clone(), schemaVersion: 3 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 3 } });
+    expect(parseBackup({ ...clone(), schemaVersion: 4 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 4 } });
     expect(parseBackup({ ...clone(), schemaVersion: '1' })).toMatchObject({ ok: false, failure: { reason: 'invalid_format', path: 'schemaVersion' } });
     const bad = (mutate: (f: BackupFile) => void) => { const f = clone(); mutate(f); return parseBackup(f); };
     expect(bad((f) => { f.games[0].status!.value = 'wat' as never; }).ok).toBe(false);

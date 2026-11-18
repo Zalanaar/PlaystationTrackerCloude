@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   if (!a.ok) return a.response;
   try {
     const now = new Date();
-    const file = await buildBackup(getDb(), a.user.id, now);
+    const file = await buildBackup(getDb(), a.user.id, now, { personal: true });
     return new NextResponse(JSON.stringify(file, null, 1), {
       status: 200,
       headers: {
