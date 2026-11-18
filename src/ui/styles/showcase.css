@@ -1,0 +1,20 @@
+/* П14.3: публичная витрина /s/<ключ>. Только токены темы, без тяжёлых фонов. */
+.ps-sc { max-width: 640px; margin: 0 auto; padding: calc(var(--sp-6) + env(safe-area-inset-top)) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: var(--sp-5, 20px); color: var(--text); }
+.ps-sc__head { display: flex; align-items: center; gap: var(--sp-3); }
+.ps-sc__ava { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: var(--surface-2); }
+.ps-sc__h1 { margin: 0; font: 600 24px/30px var(--font-display, var(--font-body)); overflow-wrap: anywhere; }
+.ps-sc__lead { margin: 2px 0 0; color: var(--text-2); font-size: 14px; line-height: 20px; }
+.ps-sc__stats { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.ps-sc__stat { padding: var(--sp-3); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); min-width: 0; }
+.ps-sc__stat dt { color: var(--text-2); font-size: 12px; line-height: 16px; }
+.ps-sc__stat dd { margin: 2px 0 0; font-size: 20px; line-height: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ps-sc__h2 { margin: 0 0 var(--sp-2); font-size: 16px; line-height: 22px; font-weight: 600; }
+.ps-sc__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-sc__item { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 60px; padding: 6px var(--sp-2); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-sc__cover { width: 48px; height: 48px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface-2); }
+.ps-sc__cover--empty { display: inline-flex; align-items: center; justify-content: center; color: var(--text-2); font-weight: 600; }
+.ps-sc__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.ps-sc__meta { color: var(--text-2); font-size: 13px; white-space: nowrap; }
+.ps-sc__foot { margin: 0; color: var(--text-2); font-size: 12px; line-height: 16px; }
+@media (max-width: 380px) { .ps-sc__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-contrast: more) { .ps-sc__stat, .ps-sc__item { border-width: 2px; } }

@@ -221,3 +221,20 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-pcmp__err .ps-btn { height: var(--tap-min); }
 }
 @media (prefers-contrast: more) { .ps-pcmp__sel select { border-width: 2px; } }
+
+/* П14.3 «Публичная витрина» */
+.ps-psc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-psc > h2 { flex: 1 1 100%; margin: 0; }
+.ps-psc__lead, .ps-psc__state, .ps-psc__note, .ps-psc__msg { flex: 1 1 100%; margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small, 20px); }
+.ps-psc__lead b, .ps-psc__state { color: var(--text); }
+.ps-psc__note, .ps-psc__msg { font-size: var(--fs-micro); line-height: 16px; }
+.ps-psc__msg:empty { display: none; }
+.ps-psc__url { flex: 1 1 100%; display: flex; gap: var(--sp-2); min-width: 0; }
+.ps-psc__url .ps-input { flex: 1 1 auto; min-width: 0; }
+.ps-psc__open { text-decoration: none; gap: var(--sp-1); }
+.ps-psc__btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+@media (max-width: 767px) {
+  .ps-psc .ps-btn { height: var(--tap-min); }
+  .ps-psc__url .ps-input { height: var(--tap-min); font-size: 16px; }
+}
+@media (prefers-contrast: more) { .ps-psc { border-width: 2px; } }

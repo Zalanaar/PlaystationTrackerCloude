@@ -39,6 +39,17 @@ describe('proxy: закрытый доступ', () => {
     expect((await proxy(req('/api/roadmap/calendar'))).status).toBe(401);
   });
 
+  it('витрина /s/* и /api/showcase/* без cookie проходят; /s/* — noindex и no-referrer; /api/me/showcase — 401', async () => {
+    const r = await proxy(req('/s/abc'));
+    expect(r.status).toBe(200);
+    expect(r.headers.get('location')).toBeNull();
+    expect(r.headers.get('x-robots-tag')).toContain('noindex');
+    expect(r.headers.get('referrer-policy')).toBe('no-referrer');
+    expect((await proxy(req('/api/showcase/abc'))).status).toBe(200);
+    expect((await proxy(req('/api/me/showcase'))).status).toBe(401);
+    expect((await proxy(req('/showcase'))).status).toBe(307);
+  });
+
   it('API без cookie: 401 JSON, без редиректа', async () => {
     for (const p of ['/api/health', '/api/anything', '/api']) {
       const r = await proxy(req(p));

@@ -47,6 +47,15 @@ async function route(req: NextRequest, nonce: string, csp: string): Promise<Next
   // Подписка на календарь релизов: без сессии (приложение Календарь не шлёт cookie), доступ по личному ключу в адресе, проверка в роуте
   if (pathname.startsWith('/api/cal/')) return next();
 
+  // П14.3: публичная витрина по ссылке с ключом (проверка в странице; закрытая — 404). Не индексировать, ключ не уходит в Referer.
+  if (pathname.startsWith('/api/showcase/')) return next();
+  if (pathname.startsWith('/s/')) {
+    const res = next();
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    res.headers.set('Referrer-Policy', 'no-referrer');
+    return res;
+  }
+
   if (pathname === '/api/cron' || pathname.startsWith('/api/cron/')) {
     if (!checkBearer(req.headers.get('authorization'), getCronSecret())) {
       return json(401, 'unauthorized', 'Не авторизован.');

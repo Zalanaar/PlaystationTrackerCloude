@@ -108,3 +108,9 @@ export type CompareSide = { id: number; onlineId: string | null; isPrimary: bool
 export type CommonGame = { name: string; a: { hours: number; status: string | null }; b: { hours: number; status: string | null } };
 export type CompareData = { a: CompareSide; b: CompareSide; common: { count: number; items: CommonGame[] } };
 export const fetchCompare = (a: number, b: number, signal?: AbortSignal) => req<CompareData>(`/api/me/profiles/compare?a=${a}&b=${b}`, { signal });
+
+/** П14.3: публичная витрина открытого профиля (контракт «П14.3»). Ссылка с ключом приходит только в ответе POST. */
+export type ShowcaseState = { open: boolean; createdAt: string | null };
+export const fetchShowcase = (signal?: AbortSignal) => req<ShowcaseState>('/api/me/showcase', { signal });
+export const openShowcase = () => req<ShowcaseState & { path: string }>('/api/me/showcase', { method: 'POST' });
+export const closeShowcase = () => req<ShowcaseState>('/api/me/showcase', { method: 'DELETE' });

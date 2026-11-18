@@ -11,6 +11,7 @@ import {
 } from './model';
 import { ProfileArchive } from './ProfileArchive';
 import { ProfileCompare } from './ProfileCompare';
+import { ShowcaseShare } from './ShowcaseShare';
 import { ProfilesSkeleton } from './ProfilesSkeleton';
 import { usePsnProfiles } from './PsnProfileProvider';
 import { UnlinkProfileSheet, type UnlinkMode, type UnlinkResult, type UnlinkTarget } from './UnlinkProfileSheet';
@@ -189,6 +190,8 @@ export function ProfilesPage() {
       )}
 
       {data.profiles.length >= 2 && <ProfileCompare profiles={data.profiles} activeId={data.activeProfileId} />}
+
+      <ShowcaseShare key={data.activeProfileId} nick={data.profiles.find((p) => p.id === data.activeProfileId)?.onlineId ?? 'Без ника'} />
 
       <ProfileArchive
         ref={archiveRef} items={data.archived} nowMs={now} busyId={restoringId} disabled={restoringId !== null}

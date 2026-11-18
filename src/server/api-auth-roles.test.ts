@@ -19,8 +19,8 @@ vi.mock('@/db', async (orig) => ({
 
 const SECRET = 'q'.repeat(48);
 const API_DIR = join(process.cwd(), 'src/app/api');
-// cal/[token] — подписка на календарь: доступ по ключу в пути (проверка ниже: кривой ключ — 404 без БД)
-const PUBLIC = new Set(['auth/login', 'auth/logout', 'auth/google', 'auth/google/callback', 'cal/[token]']);
+// cal/[token] — подписка на календарь, showcase/[token] — публичная витрина: доступ по ключу в пути (проверка ниже: кривой ключ — 404 без БД)
+const PUBLIC = new Set(['auth/login', 'auth/logout', 'auth/google', 'auth/google/callback', 'cal/[token]', 'showcase/[token]']);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 function routeFiles(dir: string, out: string[] = []): string[] {
@@ -71,6 +71,17 @@ describe('все /api/* роуты закрыты без сессии', () => {
     const GET = mod.GET as (r: Request, c: unknown) => Promise<Response>;
     for (const t of ['1', 'x.ics', `${'a'.repeat(42)}!.ics`]) {
       const res = await GET(new Request('http://x/api/cal/' + t), { params: Promise.resolve({ token: t }) });
+      expect(res.status, t).toBe(404);
+    }
+  });
+
+  it('/api/showcase/[token]: только GET; кривой ключ — 404 и в БД не ходит', async () => {
+    holder.db = null;
+    const mod = (await import('@/app/api/showcase/[token]/route')) as Record<string, unknown>;
+    expect(METHODS.filter((m) => typeof mod[m] === 'function')).toEqual(['GET']);
+    const GET = mod.GET as (r: Request, c: unknown) => Promise<Response>;
+    for (const t of ['1', 'x', `${'a'.repeat(42)}!`]) {
+      const res = await GET(new Request('http://x/api/showcase/' + t), { params: Promise.resolve({ token: t }) });
       expect(res.status, t).toBe(404);
     }
   });

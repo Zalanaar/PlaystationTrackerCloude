@@ -1043,3 +1043,16 @@ export const pushLog = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.kind, t.ref] })],
 );
+
+/** П14.3: публичная витрина профиля — по умолчанию закрыта (нет строки). Ключ ссылки хранится только хэшем (SHA-256 hex). */
+export const showcaseShares = pgTable(
+  'showcase_shares',
+  {
+    userId: integer('user_id')
+      .primaryKey()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('showcase_shares_token_hash_key').on(t.tokenHash), check('showcase_shares_token_hash_check', sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`)],
+);
