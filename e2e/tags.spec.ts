@@ -3,6 +3,7 @@
 import { createRequire } from 'node:module';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
+import { settle } from './settle';
 import { signedSession } from './session';
 import { isMobile } from './backlog-ui';
 
@@ -30,12 +31,14 @@ async function axe(page: Page, sel: string) {
   await page.evaluate(axeSource);
   for (const t of THEMES) {
     await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
-    await page.waitForTimeout(500); // смена темы и анимация sheet (WebKit) — иначе axe меряет контраст посреди перехода
-    const v = await page.evaluate(async (s) => {
+    await settle(page); // смена темы / sheet (WebKit): ждём конца переходов, иначе axe меряет контраст посреди перехода
+    const run = () => page.evaluate(async (s) => {
       const ax = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
       const r = await ax.run({ include: [[s]] }, { resultTypes: ['violations'] });
       return r.violations.map((x) => `${x.id}: ${x.nodes.map((n) => n.target.join(' ')).join(', ')}`);
     }, sel);
+    let v = await run();
+    if (v.length) { await page.waitForTimeout(1000); v = await run(); }
     expect(v, t).toEqual([]);
   }
 }
