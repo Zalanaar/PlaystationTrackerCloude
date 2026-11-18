@@ -20,3 +20,4 @@
   .ps-tg .ps-btn { height: var(--tap-min); justify-content: center; }
   .ps-tg__code { font-size: 20px; }
 }
+.ps-tg__cap:empty { display: none; }

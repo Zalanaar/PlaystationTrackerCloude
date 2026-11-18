@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 export type ErrorCode =
   | 'invalid_request'
+  | 'push_not_configured'
   | 'unauthorized'
   | 'forbidden'
   | 'user_exists'

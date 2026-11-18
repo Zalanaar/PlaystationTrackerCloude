@@ -1011,3 +1011,35 @@ export const calendarFeeds = pgTable(
   },
   (t) => [uniqueIndex('calendar_feeds_token_hash_key').on(t.tokenHash), check('calendar_feeds_token_hash_check', sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`)],
 );
+
+/** П14.2: подписки Web Push (по устройству; endpoint — адрес push-сервиса браузера). Включаются только по кнопке пользователя. */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer('user_id')
+      .notNull()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    endpoint: text().notNull(),
+    p256dh: text().notNull(),
+    auth: text().notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+    lastOkAt: tz('last_ok_at'),
+    failCount: integer('fail_count').notNull().default(0),
+  },
+  (t) => [uniqueIndex('push_subscriptions_endpoint_key').on(t.endpoint), index('push_subscriptions_user_idx').on(t.userId)],
+);
+
+/** П14.2: журнал отправленных push (не слать одно событие дважды). */
+export const pushLog = pgTable(
+  'push_log',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    kind: text().notNull(),
+    ref: text().notNull(),
+    sentAt: tz('sent_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind, t.ref] })],
+);

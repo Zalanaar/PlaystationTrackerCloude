@@ -8,6 +8,7 @@ type Sw = {
   cacheable: (kind: string, res: { status: number; type: string }) => boolean;
   extractStaticUrls: (html: string) => string[];
   isOwnCache: (n: string) => boolean;
+  pushView: (raw: string) => { title: string; body: string; url: string; tag: string };
 };
 // sw.js - классический скрипт воркера: исполняем исходник как CommonJS-подобный модуль
 const swSource = readFileSync(new URL('../../../public/sw.js', import.meta.url), 'utf8');
@@ -93,5 +94,17 @@ describe('sw: копия для офлайн-просмотра (пакет 7, �
   });
   it('activate не удаляет кэш копии при обновлении версии', () => {
     expect(swSource).toMatch(/k !== CACHE && k !== DATA_CACHE/);
+  });
+});
+
+describe('sw: push (П14.2)', () => {
+  it('только свой путь, иначе «/»; без данных — общий заголовок', () => {
+    expect(sw.pushView('{"title":"Релиз завтра","body":"Завтра выходит «X».","url":"/roadmap","tag":"release-2026-12-01"}'))
+      .toEqual({ title: 'Релиз завтра', body: 'Завтра выходит «X».', url: '/roadmap', tag: 'release-2026-12-01' });
+    for (const url of ['//evil.example', 'https://evil.example', '/\\evil.example', 'javascript:alert(1)', 42]) {
+      expect(sw.pushView(JSON.stringify({ url })).url, String(url)).toBe('/');
+    }
+    expect(sw.pushView('не json')).toEqual({ title: 'PS Tracker', body: '', url: '/', tag: 'ps' });
+    expect(sw.pushView(JSON.stringify({ title: 'x'.repeat(200) })).title).toHaveLength(80);
   });
 });

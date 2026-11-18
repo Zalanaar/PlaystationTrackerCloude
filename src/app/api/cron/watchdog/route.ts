@@ -11,6 +11,7 @@ import { listSyncUsers } from '@/server/sync/users';
 import { purgeExpiredArchive } from '@/server/auth/profiles';
 import { findCatchupStart } from '@/server/sync/catchup';
 import { queueChain, queueGuideRefresh } from '@/server/sync/service';
+import { getPushEnv, runReleasePushes, webPushSender } from '@/server/push/push';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,8 +78,10 @@ export async function GET(req: Request) {
   const ownerBackup = results[0];
   // Фаза 29 (F29.2): недельная сводка в воскресенье МСК и догоняющий запуск в понедельник; в остальные дни digest = null. Не бросает.
   const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
+  // П14.2: push «Релиз завтра» тем, кто включил уведомления (без ключей VAPID — ничего). Не бросает.
+  const push = await runReleasePushes(db, new Date(), getPushEnv(), webPushSender).catch(() => null);
   return NextResponse.json(
-    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, archivePurged, catchupFrom } },
+    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, push, archivePurged, catchupFrom } },
     { headers: NO_STORE },
   );
 }

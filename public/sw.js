@@ -9,7 +9,7 @@
  * старые кэши удаляются в activate. */
 'use strict';
 
-var VERSION = 'c69246bc3';
+var VERSION = 'cde162547';
 var CACHE_PREFIX = 'ps-';
 var CACHE = CACHE_PREFIX + 'static-' + VERSION;
 var OFFLINE_URL = '/offline';
@@ -84,7 +84,32 @@ async function navigate(req) {
   }
 }
 
+/** П14.2: разбор push-сообщения. Только свой путь (/...), иначе «/»; длина текста ограничена; без данных — общий текст. */
+function pushView(raw) {
+  var d = {};
+  try { d = raw ? JSON.parse(raw) : {}; } catch { d = {}; }
+  var str = function (v, max, def) { return typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : def; };
+  var url = str(d.url, 200, '/');
+  if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\') url = '/';
+  return { title: str(d.title, 80, 'PS Tracker'), body: str(d.body, 300, ''), url: url, tag: str(d.tag, 64, 'ps') };
+}
+
 if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' && typeof window === 'undefined') {
+  self.addEventListener('push', function (event) {
+    var v = pushView(event.data ? event.data.text() : '');
+    event.waitUntil(self.registration.showNotification(v.title, { body: v.body, tag: v.tag, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { url: v.url } }));
+  });
+  self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    var url = pushView(JSON.stringify(event.notification.data || {})).url;
+    event.waitUntil((async function () {
+      var list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (var i = 0; i < list.length; i++) {
+        if ('focus' in list[i]) { await list[i].focus(); if ('navigate' in list[i]) await list[i].navigate(url).catch(function () {}); return; }
+      }
+      await self.clients.openWindow(url);
+    })());
+  });
   self.addEventListener('install', function (event) {
     // skipWaiting только по сообщению клиента (пользователь согласился обновиться)
     event.waitUntil(precache());
@@ -109,5 +134,5 @@ if (typeof self !== 'undefined' && typeof self.addEventListener === 'function' &
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { VERSION: VERSION, CACHE: CACHE, DATA_CACHE: DATA_CACHE, OFFLINE_URL: OFFLINE_URL, classify: classify, cacheable: cacheable, extractStaticUrls: extractStaticUrls, isOwnCache: isOwnCache };
+  module.exports = { VERSION: VERSION, CACHE: CACHE, DATA_CACHE: DATA_CACHE, OFFLINE_URL: OFFLINE_URL, classify: classify, cacheable: cacheable, extractStaticUrls: extractStaticUrls, isOwnCache: isOwnCache, pushView: pushView };
 }

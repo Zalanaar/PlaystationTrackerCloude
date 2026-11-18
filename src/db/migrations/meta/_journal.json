@@ -288,6 +288,13 @@
       "when": 1795040655116,
       "tag": "0040_calendar_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795043505626,
+      "tag": "0041_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }
