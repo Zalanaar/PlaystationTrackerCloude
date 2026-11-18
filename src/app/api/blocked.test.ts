@@ -15,6 +15,7 @@ const PUBLIC: Record<string, string> = {
   'cron/sync/route.ts': 'CRON_SECRET',
   'cron/watchdog/route.ts': 'CRON_SECRET',
   'cron/digest/route.ts': 'CRON_SECRET',
+  'cal/[token]/route.ts': 'личный ключ подписки на календарь в адресе (в БД SHA-256), неверный — 404',
   'telegram/webhook/route.ts': 'секрет webhook Telegram (X-Telegram-Bot-Api-Secret-Token)',
 };
 

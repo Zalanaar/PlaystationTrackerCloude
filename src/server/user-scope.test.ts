@@ -10,7 +10,7 @@ const SRC = join(__dirname, '..');
 const USER_TABLES = [
   'games', 'gameStatus', 'trophySets', 'gameTrophySets', 'trophies', 'playtimeSnapshots', 'syncRuns', 'psnProfile', 'statusBackups',
   'gameMonthExclusions', 'roadmapSettings', 'plannedGames', 'roadmapOrder', 'roadmapExcluded', 'recommendDislikes', 'recommendReasons',
-  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes', 'providerUsage', 'ownedMarks', 'manualGames', 'clientErrors', 'gameTags', 'gameTagLinks', 'gamePrices', 'userChecklist',
+  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes', 'providerUsage', 'ownedMarks', 'manualGames', 'clientErrors', 'gameTags', 'gameTagLinks', 'gamePrices', 'userChecklist', 'calendarFeeds',
 ];
 
 /** Модули, которым userId не нужен, и почему. Новые записи только с причиной. */

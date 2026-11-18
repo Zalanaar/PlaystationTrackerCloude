@@ -6,6 +6,7 @@ import { Icon } from '../icons';
 import { HoursField, Thumb } from './parts';
 import { dayYearText, isReleased, outsideYear, plannedPlanState, type PlannedBody } from './model';
 import { ReleaseSheet } from './ReleaseSheet';
+import { CalendarSubscribe } from './CalendarSubscribe';
 
 export function Attribution() {
   return (
@@ -133,13 +134,14 @@ export function ReleasesPanel({
           ))}
         </ul>
       )}
+      {planned && planned.length > 0 && <CalendarSubscribe />}
       {planned && planned.some((g) => g.status === 'planned' && g.releaseDate !== null && g.releaseDate >= today) && (
-        // П12.6: файл .ics (обычная ссылка: iPhone предлагает «Добавить всё» в Календарь, десктоп скачивает файл)
+        // П12.6: разовый файл .ics (снимок на сегодня; живая подписка — выше)
         <p className="ps-rm-ics">
           <a className="ps-btn ps-btn--ghost ps-btn--sm" href="/api/roadmap/releases.ics" data-testid="rm-ics">
-            <Icon name="calendar-plus" size={14} />Релизы в календарь (.ics)
+            <Icon name="cloud-download" size={14} />Скачать файл .ics
           </a>
-          <small>Даты выхода — события на весь день. Это разовый импорт: новые релизы появятся после повторного импорта, а прежние события календарь может продублировать.</small>
+          <small>Разовый снимок на сегодня: даты выхода — события на весь день, сам файл не обновляется.</small>
         </p>
       )}
       <Attribution />

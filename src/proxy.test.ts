@@ -31,6 +31,14 @@ describe('proxy: закрытый доступ', () => {
     expect(r.headers.get('cache-control')).toBe('no-store');
   });
 
+  it('подписка на календарь /api/cal/* без cookie проходит (ключ проверяет роут); /api/calendar — нет', async () => {
+    const r = await proxy(req('/api/cal/abc.ics'));
+    expect(r.status).toBe(200);
+    expect(r.headers.get('location')).toBeNull();
+    expect((await proxy(req('/api/calendar'))).status).toBe(401);
+    expect((await proxy(req('/api/roadmap/calendar'))).status).toBe(401);
+  });
+
   it('API без cookie: 401 JSON, без редиректа', async () => {
     for (const p of ['/api/health', '/api/anything', '/api']) {
       const r = await proxy(req(p));

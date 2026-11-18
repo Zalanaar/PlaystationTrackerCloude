@@ -3676,3 +3676,11 @@ RAWG остаётся главным каталогом, пока отвечае
 ## Резервная копия v3 (теги и цены, без миграции)
 `schemaVersion: 3`; файлы v1/v2 читаются как раньше. У игры необязательные `tags: string[]` (имена своих тегов) и `price: number | null` (цена покупки, ₽). Только ручная выгрузка `GET /api/backup` (`personal`); еженедельная копия в Telegram их не содержит (личное). Восстановление добавляет: тег по имени (без учёта регистра) создаётся при отсутствии и вешается на игру, существующие теги не снимаются; цена ставится/заменяется, `null` и отсутствие цены ничего не стирают. Разделы предпросмотра: «Свои теги», «Цены покупки».
 
+
+## П13+. Подписка на календарь релизов (живая, миграция 0040)
+Миграция `0040_calendar_feeds` (аддитивная): `calendar_feeds` (`user_id` PK → `allowed_users` с каскадом, `token_hash` — SHA-256 hex, уникальный, `created_at`). Ключ — 32 случайных байта в base64url (43 символа); в БД только хэш, поэтому ссылку видно один раз — в ответе POST.
+- `GET /api/roadmap/calendar` (сессия) → `{ active, createdAt }`.
+- `POST /api/roadmap/calendar` (сессия, проверка Origin) → `{ active: true, createdAt, path: "/api/cal/<ключ>.ics" }`, `Cache-Control: private, no-store`. Повторный POST выпускает новый ключ, старый сразу перестаёт работать.
+- `DELETE /api/roadmap/calendar` (сессия, проверка Origin) → `{ active: false, createdAt: null }`.
+- `GET /api/cal/<ключ>.ics` — без сессии (в `proxy.ts` пропускается `/api/cal/`, доступ — по ключу). 200 `text/calendar; charset=utf-8`, `Content-Disposition: inline`; неизвестный или кривой ключ — 404 (текст), сбой БД — 503 с `Retry-After`, без деталей. Всегда `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow, noarchive`, `Referrer-Policy: no-referrer`.
+- Содержимое — те же события, что у файла `releases.ics` (П12), плюс вышедшие за последние 30 дней; только `SUMMARY:Релиз: <название>` и дата, без `DESCRIPTION` (никаких заметок, цен, статусов). Заголовки календаря `REFRESH-INTERVAL;VALUE=DURATION:PT6H` и `X-PUBLISHED-TTL:PT6H`.

@@ -995,3 +995,19 @@ export const userChecklist = pgTable('user_checklist', {
     .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
   dismissedAt: tz('dismissed_at').notNull().defaultNow(),
 });
+
+/**
+ * Живая подписка на календарь релизов: личная ссылка с ключом. Хранится только SHA-256 ключа (сам ключ показывается один раз).
+ * Одна ссылка на пользователя: «Новая ссылка» заменяет хэш (старая перестаёт работать), «Отключить» удаляет строку.
+ */
+export const calendarFeeds = pgTable(
+  'calendar_feeds',
+  {
+    userId: integer('user_id')
+      .primaryKey()
+      .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    createdAt: tz('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('calendar_feeds_token_hash_key').on(t.tokenHash), check('calendar_feeds_token_hash_check', sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`)],
+);

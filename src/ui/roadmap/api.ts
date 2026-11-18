@@ -40,3 +40,9 @@ export { ApiError };
 export function mutationError(e: unknown): string {
   return e instanceof ApiError ? mutationErrorText(e.status, e.code, e.reason) : 'Нет связи с сервером.';
 }
+
+/** Подписка на календарь релизов (контракт «П13+. Подписка на календарь»): ссылка с ключом приходит только в ответе POST. */
+export type CalendarFeedState = { active: boolean; createdAt: string | null };
+export const fetchCalendarFeed = (signal?: AbortSignal) => call<CalendarFeedState>('/api/roadmap/calendar', { signal });
+export const issueCalendarFeed = () => call<CalendarFeedState & { path: string }>('/api/roadmap/calendar', { method: 'POST' });
+export const revokeCalendarFeed = () => call<CalendarFeedState>('/api/roadmap/calendar', { method: 'DELETE' });
