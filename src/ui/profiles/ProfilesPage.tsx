@@ -10,6 +10,7 @@ import {
   accessStatusText, addBlockedText, addErrorText, counterText, initialOf, profileMeta, restoreErrorText,
 } from './model';
 import { ProfileArchive } from './ProfileArchive';
+import { ProfileCompare } from './ProfileCompare';
 import { ProfilesSkeleton } from './ProfilesSkeleton';
 import { usePsnProfiles } from './PsnProfileProvider';
 import { UnlinkProfileSheet, type UnlinkMode, type UnlinkResult, type UnlinkTarget } from './UnlinkProfileSheet';
@@ -186,6 +187,8 @@ export function ProfilesPage() {
           {blocked && <p id="ps-padd-why" className="ps-padd-why">{blocked}</p>}
         </div>
       )}
+
+      {data.profiles.length >= 2 && <ProfileCompare profiles={data.profiles} activeId={data.activeProfileId} />}
 
       <ProfileArchive
         ref={archiveRef} items={data.archived} nowMs={now} busyId={restoringId} disabled={restoringId !== null}

@@ -8,7 +8,7 @@ export type A = { id: number; onlineId: string; archivedAt: string; purgeAt: str
 export type ProfState = {
   active: number; profiles: P[]; archived: A[]; games: Record<number, G[]>; mock: Mock; calls: string[];
   addFail: { status: number; code: string; details?: unknown } | 'abort' | null; delFail: { status: number; code: string } | null;
-  switchDelay: number; switchFail: { status: number; code: string } | null; nextId: number; bodies: Array<{ url: string; body: unknown }>;
+  switchDelay: number; switchFail: { status: number; code: string } | null; compareFail?: boolean; nextId: number; bodies: Array<{ url: string; body: unknown }>;
 };
 
 const mk = (id: number, nick: string, o: Partial<P> = {}): P => ({
@@ -93,8 +93,25 @@ export async function setup(page: Page, baseURL: string, profiles: P[], extra: P
     if (s.active === id) { s.active = 1; applyActive(); }
     return ok(r, body.purge ? { purged: true, activeProfileId: s.active } : { archived: true, activeProfileId: s.active });
   });
+  // П14.1: сравнение профилей (цифры из gamesCount; общие игры — фиксированные; compareFail — сбой)
+  await page.route(/\/api\/me\/profiles\/compare\?/, async (r) => {
+    const q = new URL(r.request().url()).searchParams;
+    const a = s.profiles.find((x) => x.id === Number(q.get('a')));
+    const b = s.profiles.find((x) => x.id === Number(q.get('b')));
+    s.calls.push(`GET compare ${q.get('a')} ${q.get('b')}`);
+    if (s.compareFail) return fail(r, 503, 'db_unavailable');
+    if (!a || !b || a.id === b.id) return fail(r, 404, 'not_found');
+    const side = (p: P) => ({ id: p.id, onlineId: p.onlineId, isPrimary: p.isPrimary, values: { games: p.gamesCount, completed: Math.floor(p.gamesCount / 4), hours: p.gamesCount * 3, trophies: p.gamesCount * 10, platinum: p.id === 1 ? 7 : 0, ultra_rare: 2, achievements: p.id === 1 ? 9 : 3 } });
+    const items = p2Common(a.id, b.id);
+    return ok(r, { a: side(a), b: side(b), common: { count: items.length, items } });
+  });
   return s;
 }
+
+const p2Common = (a: number, b: number) => (a === 3 || b === 3 ? [] : [
+  { name: 'Elden Ring — очень длинное название для проверки обрезки строки', a: { hours: 120.5, status: 'completed' }, b: { hours: 14, status: 'playing' } },
+  { name: 'Astro Bot', a: { hours: 0, status: null }, b: { hours: 9.5, status: 'completed' } },
+]);
 
 export const THREE = () => [mk(1, 'Artem_PS', { gamesCount: 214 }), mk(2, 'Second_Nick', { gamesCount: 12 }), mk(3, 'Third_Nick', { gamesCount: 0, lastSyncAt: null })];
 export const TWO = () => [mk(1, 'Artem_PS', { gamesCount: 214 }), mk(2, 'Second_Nick', { gamesCount: 12 })];

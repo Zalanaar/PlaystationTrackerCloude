@@ -3684,3 +3684,9 @@ RAWG остаётся главным каталогом, пока отвечае
 - `DELETE /api/roadmap/calendar` (сессия, проверка Origin) → `{ active: false, createdAt: null }`.
 - `GET /api/cal/<ключ>.ics` — без сессии (в `proxy.ts` пропускается `/api/cal/`, доступ — по ключу). 200 `text/calendar; charset=utf-8`, `Content-Disposition: inline`; неизвестный или кривой ключ — 404 (текст), сбой БД — 503 с `Retry-After`, без деталей. Всегда `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow, noarchive`, `Referrer-Policy: no-referrer`.
 - Содержимое — те же события, что у файла `releases.ics` (П12), плюс вышедшие за последние 30 дней; только `SUMMARY:Релиз: <название>` и дата, без `DESCRIPTION` (никаких заметок, цен, статусов). Заголовки календаря `REFRESH-INTERVAL;VALUE=DURATION:PT6H` и `X-PUBLISHED-TTL:PT6H`.
+
+## П14.1. Сравнение профилей `GET /api/me/profiles/compare?a=ID&b=ID`
+Сессия обязательна (401). `a` и `b` — разные id профилей PSN **своего входа** (`loginId` из сессии); чужой, архивный или несуществующий профиль — 404 `not_found` (неотличимы), не число / одинаковые / нет параметра — 400 `invalid_request`, сбой БД — 503 без деталей. Без новых таблиц. `Cache-Control: private, no-store`.
+- Ответ `{ a: Side, b: Side, common: { count, items: CommonGame[≤20] } }`; `Side` — `{ id, onlineId, isPrimary, values: { games, completed, hours, trophies, platinum, ultra_rare, achievements } }`.
+- Цифры — как в «Достижениях» (П13): `games` — видимые игры (без скрытых и дублей), `completed` — пройденные видимые, `hours` — целые часы всех не скрытых игр, `trophies`/`platinum`/`ultra_rare` — все трофеи профиля (как PSN), `achievements` — получено вех из 12.
+- Общие игры — пересечение видимых игр по `coalesce(concept_id, title_id)`; у каждой стороны одна строка (из нескольких версий — с большими часами), часы с версиями-дублями (до 0,1 ч), `status` — статус в приложении или `null`. Сортировка по сумме часов, показываются первые 20, `count` — всего.

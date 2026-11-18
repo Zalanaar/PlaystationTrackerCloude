@@ -187,5 +187,37 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-parch__row { transition: none; }
 }
 @media (prefers-contrast: more) {
-  .ps-plist__item, .ps-parch__row, .ps-padd .ps-input { border-width: 2px; }
+  .ps-plist__item, .ps-parch__row, .ps-padd .ps-input, .ps-pcmp { border-width: 2px; }
 }
+
+/* П14.1 «Сравнение профилей» */
+.ps-pcmp { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-pcmp__picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.ps-pcmp__pick { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; font-size: var(--fs-small); color: var(--text-2); }
+.ps-pcmp__sel { position: relative; display: flex; }
+.ps-pcmp__sel select { appearance: none; width: 100%; min-width: 0; height: var(--control-h); padding: 0 32px 0 var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text); font: inherit; text-overflow: ellipsis; cursor: pointer; color-scheme: dark; }
+.ps-pcmp__sel select option { background: var(--surface-2); color: var(--text); }
+.ps-pcmp__sel svg { position: absolute; right: var(--sp-2); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-3); }
+.ps-pcmp__t { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-small); }
+.ps-pcmp__cap, .ps-pcmp__vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ps-pcmp__t th, .ps-pcmp__t td { height: 40px; padding: 0 var(--sp-2); border-bottom: var(--border-w) solid var(--border); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-pcmp__t th:first-child { width: 44%; text-align: left; font-weight: 400; color: var(--text-2); white-space: normal; line-height: 16px; }
+.ps-pcmp__t thead th { height: 32px; font-weight: 600; color: var(--text); }
+.ps-pcmp__t td { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ps-pcmp__t td[data-lead] { color: var(--text); font-weight: 700; }
+.ps-pcmp__note { margin: 0; font-size: var(--fs-micro); line-height: 16px; color: var(--text-2); }
+.ps-pcmp__err { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); color: var(--text-2); }
+.ps-pcmp__common { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-pcmp__h { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; font-size: var(--fs-body, 15px); font-weight: 600; }
+.ps-pcmp__h .num { color: var(--text-2); font-weight: 400; }
+.ps-pcmp__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ps-pcmp__game { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--sp-2); min-height: 44px; padding: var(--sp-1) var(--sp-2); background: var(--surface-2); border-radius: var(--r-sm); font-size: var(--fs-small); color: var(--text-2); }
+.ps-pcmp__game b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 600; }
+.ps-pcmp__who { color: var(--text-3, var(--text-2)); }
+@media (max-width: 767px) {
+  .ps-pcmp__sel select { height: var(--tap-min); font-size: 16px; }
+  .ps-pcmp__t th, .ps-pcmp__t td { height: 44px; }
+  .ps-pcmp__game { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: var(--sp-2); }
+  .ps-pcmp__err .ps-btn { height: var(--tap-min); }
+}
+@media (prefers-contrast: more) { .ps-pcmp__sel select { border-width: 2px; } }

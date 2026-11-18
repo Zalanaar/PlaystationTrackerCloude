@@ -101,3 +101,10 @@ export async function fetchAuthSnapshot(signal?: AbortSignal, opts: { fresh?: bo
     return null;
   }
 }
+
+/** П14.1: сравнение двух профилей своего входа (контракт «П14.1. Сравнение профилей»). */
+export type CompareMetricId = 'games' | 'completed' | 'hours' | 'trophies' | 'platinum' | 'ultra_rare' | 'achievements';
+export type CompareSide = { id: number; onlineId: string | null; isPrimary: boolean; values: Record<CompareMetricId, number> };
+export type CommonGame = { name: string; a: { hours: number; status: string | null }; b: { hours: number; status: string | null } };
+export type CompareData = { a: CompareSide; b: CompareSide; common: { count: number; items: CommonGame[] } };
+export const fetchCompare = (a: number, b: number, signal?: AbortSignal) => req<CompareData>(`/api/me/profiles/compare?a=${a}&b=${b}`, { signal });
