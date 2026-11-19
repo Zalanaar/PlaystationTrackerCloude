@@ -625,9 +625,15 @@ const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле
 
 export type PaceView = { kind: 'ok' | 'info'; title: string; note: string | null };
 
-/** «последних 4 недель» или «последних 15 дней» (история часов моложе 4 недель). */
+/** F4: «последних 3 месяцев» или «последних 45 дней» (история часов моложе 90 дней). */
 function windowWords(days: number): string {
-  return days >= 28 ? 'последних 4 недель' : `последних ${days} ${plural(days, ['дня', 'дней', 'дней'])}`;
+  return days >= 90 ? 'последних 3 месяцев' : `последних ${days} ${plural(days, ['дня', 'дней', 'дней'])}`;
+}
+
+function whenText(closeDate: string | null | undefined, weeks: number | null | undefined): string {
+  const d = closeDate ? parseYmd(closeDate) : null;
+  const years = weeks == null ? 0 : weeks / 52.18;
+  return !d ? '' : years > 100 ? 'больше чем через 100 лет' : `≈ в ${MONTHS_IN[d.m - 1]} ${d.y}`;
 }
 
 /** Текст блока «Прогноз бэклога»; null — старый ответ без поля. */
@@ -638,14 +644,20 @@ export function paceView(p: NonNullable<RoadmapResponse['pace']> | undefined): P
     : '';
   if (p.status === 'empty') return { kind: 'info', title: 'Бэклог пуст', note: null };
   if (p.status === 'no_hours') return { kind: 'info', title: 'Прогноза нет: у игр бэклога нет длительности', note: 'Укажите часы в бэклоге — и здесь появится дата.' };
-  if (p.status === 'no_data') return { kind: 'info', title: 'Прогноз появится через неделю истории часов', note: 'Темп считается по ежедневным снимкам синка.' };
-  if (p.status === 'no_pace') return { kind: 'info', title: `За ${p.days >= 28 ? 'последние 4 недели' : `последние ${p.days} ${plural(p.days, ['день', 'дня', 'дней'])}`} игр не было — темп не посчитать`, note: `В бэклоге ${hoursLabel(p.backlogHours)}.${unknown}` };
-  const d = p.closeDate ? parseYmd(p.closeDate) : null;
-  const years = p.weeks === null ? 0 : p.weeks / 52.18;
-  const when = !d ? '' : years > 100 ? 'больше чем через 100 лет' : `≈ в ${MONTHS_IN[d.m - 1]} ${d.y}`;
+  // F4: вариант по бюджету плана — показываем всегда, когда он есть; по факту — только при 30+ днях истории
+  const budget = p.budgetCloseDate && p.budgetHoursPerWeek
+    ? `По бюджету плана (${hoursLabel(p.budgetHoursPerWeek)} в неделю) — ${whenText(p.budgetCloseDate, p.budgetWeeks)}.`
+    : null;
+  if (p.status === 'no_data') {
+    const wait = `Прогноз по факту появится, когда наберётся 30 дней истории часов${p.days > 0 ? ` (сейчас ${p.days} ${plural(p.days, ['день', 'дня', 'дней'])})` : ''}.`;
+    return budget
+      ? { kind: 'ok', title: `По бюджету плана бэклог закончится ${whenText(p.budgetCloseDate, p.budgetWeeks)}`, note: `${hoursLabel(p.budgetHoursPerWeek!)} в неделю, в бэклоге ${hoursLabel(p.backlogHours)}. ${wait}${unknown}` }
+      : { kind: 'info', title: 'Прогноз появится через месяц истории часов', note: 'Темп считается по ежедневным снимкам синка.' };
+  }
+  if (p.status === 'no_pace') return { kind: 'info', title: `За ${p.days >= 90 ? 'последние 3 месяца' : `последние ${p.days} ${plural(p.days, ['день', 'дня', 'дней'])}`} игр не было — темп не посчитать`, note: `В бэклоге ${hoursLabel(p.backlogHours)}.${budget ? ` ${budget}` : ''}${unknown}` };
   return {
     kind: 'ok',
-    title: `Бэклог закончится ${when}`,
-    note: `В темпе ${windowWords(p.days)}: ${hoursLabel(p.hoursPerWeek)} в неделю, в бэклоге ${hoursLabel(p.backlogHours)}.${unknown}`,
+    title: `Бэклог закончится ${whenText(p.closeDate, p.weeks)}`,
+    note: `В темпе ${windowWords(p.days)}: ${hoursLabel(p.hoursPerWeek)} в неделю, в бэклоге ${hoursLabel(p.backlogHours)}.${budget ? ` ${budget}` : ''}${unknown}`,
   };
 }

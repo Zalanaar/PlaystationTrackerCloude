@@ -1,11 +1,11 @@
-// Пакет 6, п. 11: прогноз бэклога — «в темпе последних 4 недель бэклог закончится к …». Чистая функция, без БД.
+// Пакет 6, п. 11: прогноз бэклога. F4 (аудит UX): темп по 90 дням, не меньше 30 дней истории, плюс вариант по бюджету плана. Чистая функция, без БД.
 import { gameSecondsInRange } from '@/server/stats/hours';
 import { dayNum, dayStr } from './dates';
 import { round1 } from './plan';
 
-export const PACE_DAYS = 28;
-/** Меньше недели истории часов — темп не считаем (одна сессия дала бы случайный прогноз). */
-export const PACE_MIN_DAYS = 7;
+export const PACE_DAYS = 90;
+/** F4: меньше 30 дней истории часов — прогноз по факту не показываем (23 дня дали «2050 год»). */
+export const PACE_MIN_DAYS = 30;
 
 export type BacklogPaceStatus = 'ok' | 'empty' | 'no_hours' | 'no_data' | 'no_pace';
 
@@ -26,6 +26,10 @@ export type BacklogPace = {
   /** Недель до конца бэклога в этом темпе и дата (МСК); null, если не считается. */
   weeks: number | null;
   closeDate: string | null;
+  /** F4: тот же остаток по бюджету плана (ч/нед из настроек); null — бюджета нет или считать нечего. */
+  budgetHoursPerWeek?: number | null;
+  budgetWeeks?: number | null;
+  budgetCloseDate?: string | null;
 };
 
 export type PaceInput = {
@@ -60,4 +64,12 @@ export function computeBacklogPace(i: PaceInput): BacklogPace {
   const perDay = playedHours / days;
   const daysLeft = Math.ceil(backlogHours / perDay);
   return { ...base, status: 'ok', weeks: round1(backlogHours / (perDay * 7)), closeDate: dayStr(dayNum(to) + daysLeft) };
+}
+
+/** F4: дата конца бэклога по бюджету плана (часов в неделю из настроек «Плана»). */
+export function withBudget(p: BacklogPace, hoursPerWeek: number | null | undefined): BacklogPace {
+  const ok = typeof hoursPerWeek === 'number' && Number.isFinite(hoursPerWeek) && hoursPerWeek > 0 && p.backlogHours > 0;
+  if (!ok) return { ...p, budgetHoursPerWeek: null, budgetWeeks: null, budgetCloseDate: null };
+  const perDay = hoursPerWeek / 7;
+  return { ...p, budgetHoursPerWeek: hoursPerWeek, budgetWeeks: round1(p.backlogHours / hoursPerWeek), budgetCloseDate: dayStr(dayNum(p.to) + Math.ceil(p.backlogHours / perDay)) };
 }

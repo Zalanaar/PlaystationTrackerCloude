@@ -281,20 +281,26 @@ describe('единое расписание', () => {
   });
 });
 
-describe('Пакет 6, п. 11: paceView', () => {
-  const base = { status: 'ok' as const, from: '2026-10-14', to: '2026-11-10', days: 28, playedHours: 28, hoursPerWeek: 7, games: 3, unknownGames: 1, backlogHours: 70, weeks: 10, closeDate: '2027-01-19' };
+describe('Пакет 6, п. 11 + F4: paceView', () => {
+  const base = { status: 'ok' as const, from: '2026-08-13', to: '2026-11-10', days: 90, playedHours: 90, hoursPerWeek: 7, games: 3, unknownGames: 1, backlogHours: 70, weeks: 10, closeDate: '2027-01-19' };
   it('ok: месяц и год, темп, остаток, игры без длительности', () => {
-    expect(paceView(base)).toEqual({ kind: 'ok', title: 'Бэклог закончится ≈ в январе 2027', note: 'В темпе последних 4 недель: 7 ч в неделю, в бэклоге 70 ч. У 1 игры нет длительности — она не учтена.' });
-    expect(paceView({ ...base, days: 15, unknownGames: 0, hoursPerWeek: 3.5 })?.note).toBe('В темпе последних 15 дней: 3,5 ч в неделю, в бэклоге 70 ч.');
+    expect(paceView(base)).toEqual({ kind: 'ok', title: 'Бэклог закончится ≈ в январе 2027', note: 'В темпе последних 3 месяцев: 7 ч в неделю, в бэклоге 70 ч. У 1 игры нет длительности — она не учтена.' });
+    expect(paceView({ ...base, days: 45, unknownGames: 0, hoursPerWeek: 3.5 })?.note).toBe('В темпе последних 45 дней: 3,5 ч в неделю, в бэклоге 70 ч.');
     expect(paceView({ ...base, unknownGames: 2 })?.note).toContain('У 2 игр нет длительности — они не учтены.');
     expect(paceView({ ...base, weeks: 6000, closeDate: '2141-01-01' })?.title).toBe('Бэклог закончится больше чем через 100 лет');
   });
-  it('нет прогноза: пусто, без длительностей, мало истории, не играл; старый ответ', () => {
+  it('F4: оба варианта — по факту и по бюджету плана', () => {
+    const v = paceView({ ...base, unknownGames: 0, budgetHoursPerWeek: 14, budgetWeeks: 5, budgetCloseDate: '2026-12-15' });
+    expect(v?.note).toBe('В темпе последних 3 месяцев: 7 ч в неделю, в бэклоге 70 ч. По бюджету плана (14 ч в неделю) — ≈ в декабре 2026.');
+    const short = paceView({ ...base, status: 'no_data', days: 23, unknownGames: 0, budgetHoursPerWeek: 14, budgetWeeks: 5, budgetCloseDate: '2026-12-15' });
+    expect(short).toEqual({ kind: 'ok', title: 'По бюджету плана бэклог закончится ≈ в декабре 2026', note: '14 ч в неделю, в бэклоге 70 ч. Прогноз по факту появится, когда наберётся 30 дней истории часов (сейчас 23 дня).' });
+  });
+  it('нет прогноза: пусто, без длительностей, мало истории без бюджета, не играл; старый ответ', () => {
     expect(paceView({ ...base, status: 'empty' })?.title).toBe('Бэклог пуст');
     expect(paceView({ ...base, status: 'no_hours' })?.title).toBe('Прогноза нет: у игр бэклога нет длительности');
-    expect(paceView({ ...base, status: 'no_data' })?.title).toBe('Прогноз появится через неделю истории часов');
-    expect(paceView({ ...base, status: 'no_pace', unknownGames: 0 })).toEqual({ kind: 'info', title: 'За последние 4 недели игр не было — темп не посчитать', note: 'В бэклоге 70 ч.' });
-    expect(paceView({ ...base, status: 'no_pace', days: 21 })?.title).toBe('За последние 21 день игр не было — темп не посчитать');
+    expect(paceView({ ...base, status: 'no_data' })?.title).toBe('Прогноз появится через месяц истории часов');
+    expect(paceView({ ...base, status: 'no_pace', unknownGames: 0 })).toEqual({ kind: 'info', title: 'За последние 3 месяца игр не было — темп не посчитать', note: 'В бэклоге 70 ч.' });
+    expect(paceView({ ...base, status: 'no_pace', days: 41 })?.title).toBe('За последние 41 день игр не было — темп не посчитать');
     expect(paceView(undefined)).toBeNull();
   });
 });

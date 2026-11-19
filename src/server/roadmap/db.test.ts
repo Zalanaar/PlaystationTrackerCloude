@@ -344,7 +344,7 @@ describe('roadmap на БД', () => {
     });
   });
 
-  it('Пакет 6, п. 11: прогноз бэклога — весь бэклог (и убранные из плана), темп 4 недель без сервисов и скрытых', async () => {
+  it('Пакет 6, п. 11: прогноз бэклога — весь бэклог (и убранные из плана), темп 90 дней без сервисов и скрытых', async () => {
     const id = await seed();
     const [svc] = await t.db.insert(games).values({ userId: 1, titleId: 'S', name: 'Service', category: 'ps5_native_game', lastSeenAt: NOW }).returning({ id: games.id });
     await t.db.insert(gameStatus).values({ userId: 1, gameId: svc.id, status: 'service' });
@@ -360,9 +360,11 @@ describe('roadmap на БД', () => {
     ]);
     const p = await getBacklogPace(t.db, TEST_USER, '2026-10-29');
     // бэклог: A 10 (убрана из плана, но в бэклоге), B 5, D без длительности; C скрыта
-    expect(p).toMatchObject({ status: 'ok', from: '2026-10-02', to: '2026-10-29', days: 28, playedHours: 14, hoursPerWeek: 3.5, games: 3, unknownGames: 1, backlogHours: 15, weeks: 4.3 });
-    expect(p.closeDate).toBe('2026-11-28');
+    // F4: окно 90 дней, но история с 2.09 (день после первого снимка) — 58 дней
+    expect(p).toMatchObject({ status: 'ok', from: '2026-09-02', to: '2026-10-29', days: 58, playedHours: 14, hoursPerWeek: 1.7, games: 3, unknownGames: 1, backlogHours: 15, weeks: 8.9 });
+    expect(p.closeDate).toBe('2026-12-31');
     const r = await getRoadmap(t.db, TEST_USER, NOW);
-    expect(r.pace).toEqual(p);
+    expect(r.pace).toMatchObject(p);
+    expect(r.pace).toHaveProperty('budgetCloseDate');
   });
 });

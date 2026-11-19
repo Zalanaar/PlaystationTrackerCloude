@@ -15,7 +15,7 @@ import { dayNum, dayStr, yearBounds } from './dates';
 import { computeGoal, type GoalMode, type GoalView } from './goal';
 import { buildPlan, isValidBudget, round1 } from './plan';
 import { computeProgress } from './progress';
-import { computeBacklogPace, PACE_DAYS, type BacklogPace } from './pace';
+import { computeBacklogPace, PACE_DAYS, withBudget, type BacklogPace } from './pace';
 import type { PlannedGameDto, PlannedGameStatus, RoadmapEntry, RoadmapResponse, ServiceGame, SettingsView } from './types';
 import type { PlannedCreate, PlannedPatch } from './validation';
 
@@ -352,7 +352,7 @@ async function getSnapshots(db: AnyDb, userId: UserId, year: number): Promise<{ 
 
 /**
  * Пакет 6, п. 11: прогноз бэклога. Остаток часов всех игр бэклога (и убранных из плана: бэклог закрывается целиком),
- * темп — часы всех видимых игр, кроме сервисов, за последние 4 недели по снимкам (дубли склеены, как в статистике).
+ * темп — часы всех видимых игр, кроме сервисов, за последние 90 дней по снимкам (дубли склеены, как в статистике).
  */
 export async function getBacklogPace(db: AnyDb, userId: UserId, today: string): Promise<BacklogPace> {
   const from = dayStr(dayNum(today) - (PACE_DAYS - 1));
@@ -396,7 +396,7 @@ export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
-  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal, pace };
+  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal, pace: withBudget(pace, isValidBudget(settings.hoursPerWeek) ? settings.hoursPerWeek : null) };
 }
 
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };

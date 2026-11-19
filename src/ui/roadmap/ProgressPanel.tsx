@@ -69,7 +69,7 @@ export function ProgressPanel({ data }: { data: RoadmapResponse }) {
   );
 }
 
-/** Пакет 6, п. 11: «В темпе последних 4 недель бэклог закончится ≈ в …» — по фактическим часам, не по плану. */
+/** Пакет 6, п. 11 + F4: прогноз по факту за 90 дней (от 30 дней истории) и по бюджету плана. */
 function BacklogPace({ data }: { data: RoadmapResponse }) {
   const v = paceView(data.pace);
   if (!v) return null;
