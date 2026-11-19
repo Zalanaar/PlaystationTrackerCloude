@@ -265,7 +265,7 @@ button.ps-rm-state { cursor: pointer; }
 .ps-rm-q__name small { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: var(--fs-small); color: var(--text-2); }
 .ps-rm-q__name small > svg { color: var(--text-3); }
 .ps-rm-q__plan { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
-.ps-rm-q__plan small { color: var(--text-3); }
+.ps-rm-q__plan small { color: var(--text-3); font-size: inherit; }   /* F15: small по умолчанию «smaller» = 9,6 px от 12 px */
 .ps-rm-q__conf { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
 .ps-rm-q__conf svg { color: var(--danger); }
 .ps-rm-q__act { display: flex; align-items: center; gap: 2px; min-width: 0; }

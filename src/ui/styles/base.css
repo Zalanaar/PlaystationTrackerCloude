@@ -346,6 +346,8 @@ body::before {
 .ps-pop.ps-addmenu { display: none; }
 .ps-addmenu__item { min-height: var(--tap-min); padding-block: var(--sp-1); }
 .ps-addmenu__tx { display: flex; flex-direction: column; min-width: 0; }
+/* F15: вложенный small не мельчит ещё раз (правило «не меньше 12 px» на телефоне) */
+small small { font-size: inherit; }
 .ps-addmenu__tx small { color: var(--text-2); font-size: 12px; line-height: 16px; }
 .ps-addmenu .ps-pop__panel { min-width: 240px; }
 @media (max-width: 767px) {

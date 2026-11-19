@@ -3,6 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { open as openStats } from './stats-mock';
 import { signedSession } from './session';
+import { baseState, mockRoadmap } from './roadmap-mock';
 
 /** Видимые элементы со своим текстом мельче 12 px (aria-hidden и визуально скрытые не считаем). */
 const small = (page: Page) => page.evaluate(() => {
@@ -59,4 +60,15 @@ test('вкладки внизу: подписи 12 px помещаются и п
     .filter((t) => { const r = t.getBoundingClientRect(); return [...t.querySelectorAll('*'), t].some((e) => { const b = e.getBoundingClientRect(); return e.scrollWidth > e.clientWidth + 1 || b.left < r.left - 1 || b.right > r.right + 1; }); })
     .map((t) => t.textContent));
   expect(cut).toEqual([]);
+});
+
+// F15: подписи очереди «выходит … · 2 нед.» были 9,6 px (small в 12 px)
+test('текст ≥ 12 px: /roadmap', async ({ page, context, baseURL }) => {
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+  await mockApi(page, []);
+  await mockRoadmap(page, baseState());
+  await page.goto('/roadmap');
+  await page.getByTestId('rm-queue-row').first().waitFor();
+  await page.waitForTimeout(800);
+  expect(await small(page)).toEqual([]);
 });
