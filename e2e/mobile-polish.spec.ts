@@ -255,9 +255,9 @@ test.describe('Бэклог: одна главная кнопка (D-P3, P2-13)'
     await expect(card).toContainText('Затем по плану: Новый релиз');
     // главная (primary) кнопка в списке одна — в карточке
     await expect(page.locator('.ps-bl-list .ps-btn--primary')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Начать играть: Игра 6' })).toBeVisible();
-    await card.getByRole('button', { name: 'Начать играть по плану: Игра 6' }).click();
-    await expect(page.getByRole('button', { name: 'Начать играть: Игра 6' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^(Начать играть|Продолжить): Игра 6$/ })).toBeVisible();
+    await card.getByRole('button', { name: /^(Начать играть|Продолжить) по плану: Игра 6$/ }).click();
+    await expect(page.getByRole('button', { name: /^(Начать играть|Продолжить): Игра 6$/ })).toHaveCount(0);
     await expect(card).toHaveCount(0); // дальше по плану только релиз: карточки нет
   });
 
@@ -270,7 +270,7 @@ test.describe('Бэклог: одна главная кнопка (D-P3, P2-13)'
     await expect(card).toBeVisible();
     await expect(card.getByRole('button', { name: 'Игра 6', exact: true })).toBeVisible();
     expect(m.detailCalls).toContain(205);
-    await card.getByRole('button', { name: 'Начать играть по плану: Игра 6' }).click();
+    await card.getByRole('button', { name: /^(Начать играть|Продолжить) по плану: Игра 6$/ }).click();
     await expect(card).toHaveCount(0); // ушла из бэклога; дальше по плану только релиз
   });
 
@@ -289,7 +289,7 @@ test.describe('Бэклог: одна главная кнопка (D-P3, P2-13)'
     await page.goto('/backlog');
     const row = page.getByTestId('bl-row').first();
     await expect(row).toBeVisible();
-    for (const loc of [row.getByRole('button', { name: /^Начать играть:/ }), row.getByRole('button', { name: /^Действия:/ })]) {
+    for (const loc of [row.getByRole('button', { name: /^(Начать играть|Продолжить):/ }), row.getByRole('button', { name: /^Действия:/ })]) {
       const b = (await loc.boundingBox())!;
       expect(b.width).toBeGreaterThanOrEqual(44);
       expect(b.height).toBeGreaterThanOrEqual(44);

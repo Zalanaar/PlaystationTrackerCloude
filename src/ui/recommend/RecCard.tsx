@@ -112,9 +112,9 @@ export function RecCard({
       )}
 
       <div className="ps-rec__actions">
-        <button type="button" className="ps-btn ps-btn--primary ps-rec__start" disabled={disabled} aria-label={`Начать играть: ${game.name}`} onClick={onStart}>
+        <button type="button" className="ps-btn ps-btn--primary ps-rec__start" disabled={disabled} aria-label={`${started ? 'Продолжить' : 'Начать играть'}: ${game.name}`} onClick={onStart}>
           {busy === 'start' && <span className="ps-rec__spin" aria-hidden="true" />}
-          {busy === 'start' ? 'Запускаю…' : 'Начать играть'}
+          {busy === 'start' ? 'Запускаю…' : started ? 'Продолжить' : 'Начать играть'}
         </button>
         <button type="button" className="ps-btn ps-btn--ghost ps-rec__hide" disabled={disabled} title={hideHint} aria-label={`Не интересно: ${game.name}`} onClick={onHide}>
           {busy === 'hide' ? <span className="ps-rec__spin" aria-hidden="true" /> : <Icon name="thumbs-down" size={16} />}

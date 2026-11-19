@@ -58,9 +58,9 @@ test.describe('Бэклог: блок «Отложено»', () => {
     await expect(page.locator('[data-tour="backlog-list"] .ps-card__title')).toContainText(['Отложена 1']);
   });
 
-  test('«Начать играть»: игра уходит из блока, в бэклог не попадает', async ({ page, context, baseURL }) => {
+  test('«Продолжить» (F23: игра уже запускалась): игра уходит из блока, в бэклог не попадает', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, games(2, 2));
-    await shelved(page).getByRole('button', { name: 'Начать играть' }).first().click();
+    await shelved(page).getByRole('button', { name: /^(Начать играть|Продолжить)$/ }).first().click();
     await expect(page.getByTestId('bl-shelved-count')).toHaveText('1');
     await expect(tab(page, 'Отложено')).toContainText('1');
     await expect(page.getByTestId('bl-main-count')).toHaveText('2');

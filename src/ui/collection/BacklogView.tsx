@@ -54,6 +54,7 @@ import { GameGrid, GameGridItem } from './GameGrid';
 import { BacklogJumpNav, scrollToBlock, useBacklogJump } from './BacklogJump';
 import { BacklogSideSection } from './BacklogSideSection';
 import { BacklogSearchSheet } from './BacklogSearchSheet';
+import { playLabel } from './playLabel';
 import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
@@ -515,7 +516,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
       <div className="ps-bl-actions">
         <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
-          <StatusGlyph status="playing" size={14} />Начать играть
+          <StatusGlyph status="playing" size={14} />{playLabel(g.playSeconds)}
         </button>
         <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'service')}>
           <StatusGlyph status="service" size={14} />В сервис
@@ -706,7 +707,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
                   <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
                 </button>
                 <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'playing')}>
-                  <StatusGlyph status="playing" size={14} />Начать играть
+                  <StatusGlyph status="playing" size={14} />{playLabel(g.playSeconds)}
                 </button>
               </div>
             </>

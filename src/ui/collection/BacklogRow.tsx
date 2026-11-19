@@ -4,6 +4,7 @@ import type { GameItem } from '@/server/collection/types';
 import { Icon, PlatinumIcon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { RemainingMeter } from './RemainingMeter';
+import { playLabel } from './playLabel';
 import { Cover, THUMB_W } from './Cover';
 
 export type RowMenuItem = { label: string; run: () => void };
@@ -25,7 +26,7 @@ export function BacklogRow({
         {age && <span className="ps-blrow__age num" data-testid="bl-row-age">{age}</span>}
       </div>
       {/* D-P3: главная кнопка страницы одна (карточка «Следующая по плану»), в строках тихая ▶ 44×44 */}
-      <button type="button" className="ps-btn ps-btn--icon ps-blrow__play" aria-label={`Начать играть: ${game.title}`} title="Начать играть" onClick={onPlay}>
+      <button type="button" className="ps-btn ps-btn--icon ps-blrow__play" aria-label={`${playLabel(game.playSeconds)}: ${game.title}`} title={playLabel(game.playSeconds)} onClick={onPlay}>
         <Icon name="play" size={16} />
       </button>
       <Popover
