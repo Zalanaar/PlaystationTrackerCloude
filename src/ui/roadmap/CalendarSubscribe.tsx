@@ -4,6 +4,7 @@
 // webcal:// открывает «Подписаться» в Календаре iPhone; «Скопировать» — для Google/Outlook. «Новая ссылка» отключает старую.
 import { useEffect, useId, useState } from 'react';
 import { Icon } from '../icons';
+import './calendar.css';
 import { fetchCalendarFeed, issueCalendarFeed, mutationError, revokeCalendarFeed, type CalendarFeedState } from './api';
 
 const dateRu = (iso: string) => new Date(iso).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric' });

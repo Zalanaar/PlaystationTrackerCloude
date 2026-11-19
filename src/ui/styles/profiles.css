@@ -238,3 +238,16 @@ html[data-psw] .ps-main { visibility: hidden; }
   .ps-psc__url .ps-input { height: var(--tap-min); font-size: 16px; }
 }
 @media (prefers-contrast: more) { .ps-psc { border-width: 2px; } }
+
+/* F7: экран «Настройки» */
+.ps-settings { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-4); }
+.ps-settings__head .ps-h1 { margin: 0; }
+.ps-settings__lead { margin: var(--sp-1) 0 0; color: var(--text-2); }
+.ps-settings__sec { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-settings__sec--bare { padding: 0; background: none; border: 0; border-radius: 0; }
+.ps-settings .ps-rm-cal { margin: 0; }
+.ps-settings__sec--bare > .ps-tg { background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
+.ps-settings__sec > .ps-h3 { margin: 0; font-size: 16px; line-height: 22px; }
+.ps-settings__note { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-settings__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ps-settings__acts .ps-btn { min-height: var(--tap-min); }

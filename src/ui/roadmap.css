@@ -428,17 +428,3 @@ button.ps-rm-over__row { cursor: pointer; }
 .ps-rm-ics small { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
 
 /* Подписка на календарь релизов (П13+) */
-.ps-rm-cal { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: var(--sp-4) 0 0; padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
-.ps-rm-cal > small, .ps-rm-cal__btns small { flex: 1 1 100%; font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
-.ps-rm-cal__t { flex: 1 1 100%; display: flex; align-items: center; gap: var(--sp-1); margin: 0; font: 600 var(--fs-small, 14px)/20px var(--font-body); color: var(--text); }
-.ps-rm-cal__state { margin: 0; color: var(--text); }
-.ps-rm-cal__url { flex: 1 1 100%; display: flex; gap: var(--sp-2); min-width: 0; }
-.ps-rm-cal__url .ps-input { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
-.ps-rm-cal__btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-.ps-rm-cal__msg { flex: 1 1 100%; margin: 0; font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
-.ps-rm-cal__msg:empty { display: none; }
-@media (max-width: 767px) {
-  .ps-rm-cal .ps-btn { height: var(--tap-min); }
-  .ps-rm-cal__url .ps-input { height: var(--tap-min); font-size: 16px; }
-}
-@media (forced-colors: active) { .ps-rm-cal { border-width: 2px; } }

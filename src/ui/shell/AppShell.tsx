@@ -154,6 +154,10 @@ export function AppHeader() {
                       <Icon name="users" size={16} />
                       <span className="ps-menu-item__label">PSN-профили</span>
                     </Link>
+                    <Link href="/settings" role="menuitem" className="ps-menu-item" data-testid="menu-settings" onClick={close}>
+                      <Icon name="sliders" size={16} />
+                      <span className="ps-menu-item__label">Настройки</span>
+                    </Link>
                     <a href="/api/backup" download role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="download" size={16} />
                       <span className="ps-menu-item__label">Скачать копию</span>
@@ -229,6 +233,9 @@ export function AppHeader() {
           </Link>
           <Link href="/profiles" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="users" size={16} /><span className="ps-menu-item__label">PSN-профили</span>
+          </Link>
+          <Link href="/settings" className="ps-menu-item" data-testid="sheet-settings" onClick={() => setMore(false)}>
+            <Icon name="sliders" size={16} /><span className="ps-menu-item__label">Настройки</span>
           </Link>
           <a href="/api/backup" download className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="download" size={16} /><span className="ps-menu-item__label">Скачать копию</span>
