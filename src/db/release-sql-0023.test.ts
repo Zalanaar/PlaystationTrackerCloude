@@ -1,4 +1,4 @@
-// docs/release-neon-0023.sql (значение cancelled в sync_error_reason) поверх 0000–0022 на PGlite: идемпотентность,
+// docs/archive/release-neon/release-neon-0023.sql (значение cancelled в sync_error_reason) поверх 0000–0022 на PGlite: идемпотентность,
 // схема = drizzle-миграция 0023, журнал, данные целы, check-запрос, повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
@@ -14,8 +14,8 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0023.sql'), 'utf8');
-const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0023-check.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0023.sql'), 'utf8');
+const checkSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0023-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0023_sync_cancelled');
 
 
@@ -41,7 +41,7 @@ async function after0022(): Promise<PGlite> {
   return c;
 }
 
-describe('docs/release-neon-0023.sql', () => {
+describe('docs/archive/release-neon/release-neon-0023.sql', () => {
   it('0023 идёт сразу после 0022', () => {
     expect(E).toBeGreaterThan(0);
     expect(journalRaw.entries[E - 1].tag).toBe('0022_roadmap_goal');

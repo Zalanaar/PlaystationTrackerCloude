@@ -1,4 +1,4 @@
-// QA: docs/release-neon-0013.sql поверх 0000–0012 на PGlite: идемпотентность, схема = drizzle-миграция 0013, журнал, данные целы; owner-SQL.
+// QA: docs/archive/release-neon/release-neon-0013.sql поверх 0000–0012 на PGlite: идемпотентность, схема = drizzle-миграция 0013, журнал, данные целы; owner-SQL.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
 import { folderUpTo } from './test-utils/release';
@@ -13,8 +13,8 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0013.sql'), 'utf8');
-const ownerSql = readFileSync(join(process.cwd(), 'docs/release-neon-0013-owner.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0013.sql'), 'utf8');
+const ownerSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0013-owner.sql'), 'utf8');
 
 
 async function schemaDump(c: PGlite): Promise<string[]> {
@@ -28,7 +28,7 @@ async function schemaDump(c: PGlite): Promise<string[]> {
   return [...cols.rows.map((r) => r.s), ...cons.rows.map((r) => r.s), ...idx.rows.map((r) => r.s)];
 }
 
-describe('docs/release-neon-0013.sql', () => {
+describe('docs/archive/release-neon/release-neon-0013.sql', () => {
   it('поверх 0000–0012 дважды: схема как у drizzle, журнал верный, данные целы', async () => {
     const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(14) });

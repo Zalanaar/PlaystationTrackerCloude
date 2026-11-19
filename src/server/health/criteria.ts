@@ -1,4 +1,4 @@
-// Критерии включения MULTIUSER_ENABLED=1 (docs/qa/phase-20-5.md, контракт F35.1). Чистая логика: данные и env приходят аргументами.
+// Критерии включения MULTIUSER_ENABLED=1 (docs/archive/qa/phase-20-5.md, контракт F35.1). Чистая логика: данные и env приходят аргументами.
 import { LLM_DEFAULT_USER_DAILY_LIMIT } from '@/server/env';
 import type { LlmLimitView } from './limits';
 

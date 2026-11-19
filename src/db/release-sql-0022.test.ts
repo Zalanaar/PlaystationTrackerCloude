@@ -1,4 +1,4 @@
-// docs/release-neon-0022.sql (цель года) поверх 0000–0021 на PGlite: идемпотентность, схема = drizzle-миграция 0022,
+// docs/archive/release-neon/release-neon-0022.sql (цель года) поверх 0000–0021 на PGlite: идемпотентность, схема = drizzle-миграция 0022,
 // журнал, данные целы, check-запрос, повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
@@ -14,8 +14,8 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0022.sql'), 'utf8');
-const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0022-check.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0022.sql'), 'utf8');
+const checkSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0022-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0022_roadmap_goal');
 
 
@@ -42,7 +42,7 @@ async function after0021(): Promise<PGlite> {
   return c;
 }
 
-describe('docs/release-neon-0022.sql', () => {
+describe('docs/archive/release-neon/release-neon-0022.sql', () => {
   it('0022 идёт сразу после 0021', () => {
     expect(E).toBeGreaterThan(0);
     expect(journalRaw.entries[E - 1].tag).toBe('0021_telegram_digest');

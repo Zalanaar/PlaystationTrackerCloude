@@ -7,7 +7,7 @@
 Контракт 13.1–13.2 и §4.17 выполнены, блокеров нет. Остались два замечания низкой серьёзности.
 
 ## Прогоны
-Общие с Фазой 9 (см. `docs/qa/phase-9.md`): lint, typecheck, vitest 615 + контраст, Playwright 362 passed, 0 failed. Серверная логика покрыта `src/server/stats/genres-top.test.ts` и `top.test.ts` на PGlite.
+Общие с Фазой 9 (см. `docs/archive/qa/phase-9.md`): lint, typecheck, vitest 615 + контраст, Playwright 362 passed, 0 failed. Серверная логика покрыта `src/server/stats/genres-top.test.ts` и `top.test.ts` на PGlite.
 
 ## Что проверено
 

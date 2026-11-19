@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const rd = (f: string) => readFileSync(join(process.cwd(), 'docs', f), 'utf8');
+const rd = (f: string) => readFileSync(join(process.cwd(), 'docs/archive/release-neon', f), 'utf8');
 const s13 = rd('release-neon-0013.sql');
 const owner = rd('release-neon-0013-owner.sql').replaceAll('ВАШ_EMAIL@gmail.com', 'owner@example.com').replaceAll('ВАШ_ONLINE_ID', 'Target');
 const s14 = rd('release-neon-0014.sql');

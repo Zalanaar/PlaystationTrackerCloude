@@ -1,6 +1,6 @@
-// QA/backend 20.3: docs/release-neon-0015.sql (contract) поверх 0000–0014 с данными на PGlite: идемпотентность, схема = drizzle-миграция 0015,
+// QA/backend 20.3: docs/archive/release-neon/release-neon-0015.sql (contract) поверх 0000–0014 с данными на PGlite: идемпотентность, схема = drizzle-миграция 0015,
 // журнал, данные owner целы, второй пользователь с теми же title_id/np_id/snapshots и своими psn_profile/roadmap_settings вставляется,
-// B-1 (recommend_reasons), откат docs/release-neon-0015-rollback.sql возвращает схему 0014 без потери данных.
+// B-1 (recommend_reasons), откат docs/archive/release-neon/release-neon-0015-rollback.sql возвращает схему 0014 без потери данных.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
 import { folderUpTo } from './test-utils/release';
@@ -15,9 +15,9 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015.sql'), 'utf8');
-const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015-check.sql'), 'utf8');
-const rollbackSql = readFileSync(join(process.cwd(), 'docs/release-neon-0015-rollback.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0015.sql'), 'utf8');
+const checkSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0015-check.sql'), 'utf8');
+const rollbackSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0015-rollback.sql'), 'utf8');
 
 
 async function schemaDump(c: PGlite): Promise<string[]> {
@@ -82,7 +82,7 @@ async function ownerData(c: PGlite): Promise<unknown[]> {
   ];
 }
 
-describe('docs/release-neon-0015.sql', () => {
+describe('docs/archive/release-neon/release-neon-0015.sql', () => {
   it('поверх 0000–0014 с данными дважды: схема как у drizzle, журнал верный, данные owner целы, check «до/после»', async () => {
     const full = await freshPglite();
     await migrate(drizzle(full), { migrationsFolder: folderUpTo(16) });
@@ -200,7 +200,7 @@ describe('docs/release-neon-0015.sql', () => {
   });
 });
 
-describe('docs/release-neon-0015-rollback.sql', () => {
+describe('docs/archive/release-neon/release-neon-0015-rollback.sql', () => {
   it('возвращает схему 0014 и журнал без потери данных; повторный прогон и повторное применение 0015 работают', async () => {
     const c = await after0014();
     await seed(c);

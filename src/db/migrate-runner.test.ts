@@ -38,7 +38,7 @@ function folder(count: number, extra: { sql: string; when?: number }[] = []): st
 async function prodLike(): Promise<PGlite> {
   const db = await freshPglite();
   await migrate(drizzle(db), { migrationsFolder: folder(LEGACY_LAST_IDX) });
-  await db.exec(readFileSync(join(process.cwd(), 'docs/release-neon-0027.sql'), 'utf8'));
+  await db.exec(readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0027.sql'), 'utf8'));
   return db;
 }
 

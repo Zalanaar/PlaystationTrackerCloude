@@ -1,4 +1,4 @@
-// docs/release-neon-0027.sql (Фаза 45: allowed_users.session_epoch и revoked_sessions) поверх 0000–0026 на PGlite: идемпотентность, схема = drizzle-миграция 0027,
+// docs/archive/release-neon/release-neon-0027.sql (Фаза 45: allowed_users.session_epoch и revoked_sessions) поверх 0000–0026 на PGlite: идемпотентность, схема = drizzle-миграция 0027,
 // журнал, данные целы, check-запрос, ограничения (PK sid, каскад), повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
@@ -14,8 +14,8 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0027.sql'), 'utf8');
-const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0027-check.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0027.sql'), 'utf8');
+const checkSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0027-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0027_session_revocation');
 
 
@@ -44,7 +44,7 @@ async function after0026(): Promise<PGlite> {
 
 const count = async (c: PGlite): Promise<number> => (await c.query<{ n: number }>(`select count(*)::int as n from revoked_sessions`)).rows[0].n;
 
-describe('docs/release-neon-0027.sql', () => {
+describe('docs/archive/release-neon/release-neon-0027.sql', () => {
   it('0027 идёт сразу после 0026', () => {
     expect(E).toBeGreaterThan(0);
     expect(journalRaw.entries[E - 1].tag).toBe('0026_manual_games');

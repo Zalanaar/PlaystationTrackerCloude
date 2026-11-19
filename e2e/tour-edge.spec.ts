@@ -102,7 +102,7 @@ test.describe('QA 21: темы, движение, forced colors', () => {
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps5'));
     const r = await pop.evaluate((e) => getComputedStyle(e).borderTopLeftRadius);
     if (!isMobile(page)) expect(r).toBe('22px');
-    // «Далее» = .ps-btn темы (--r-md 14 в PS5), не pill: расхождение с §10.9 зафиксировано в docs/qa/phase-21.md (N-3)
+    // «Далее» = .ps-btn темы (--r-md 14 в PS5), не pill: расхождение с §10.9 зафиксировано в docs/archive/qa/phase-21.md (N-3)
   });
 
   test('reduced-motion: у прожектора и поповера нет transition/animation', async ({ page, context, baseURL }) => {

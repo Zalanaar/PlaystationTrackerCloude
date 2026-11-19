@@ -7,7 +7,7 @@
 Код в `main` ссылается на статус `service`. Без миграции `0001` в базе запрос сводки коллекции падает («invalid input value for enum game_status_value»). Поэтому порядок строгий: **миграция, потом деплой**.
 
 1. **Backup.** В Neon сделать ветку (branch) от прода: миграция трогает enum `game_status_value`, которым пользуется `game_status` (ручные статусы, невосстановимые, `api-contract.md` §6.7).
-2. **Миграция.** Без терминала: выполнить `docs/release-neon-0001-0003.sql` в Neon → SQL Editor (0001–0003 разом, идемпотентно, пишет журнал drizzle). Или локально/из CI с `DATABASE_URL_UNPOOLED` прода: `npm run db:migrate`. Применится `0001_game_status_service.sql` (`ALTER TYPE ... ADD VALUE 'service'`). Данные не теряются; откатить нельзя (значение enum остаётся неиспользованным).
+2. **Миграция.** Без терминала: выполнить `docs/archive/release-neon/release-neon-0001-0003.sql` в Neon → SQL Editor (0001–0003 разом, идемпотентно, пишет журнал drizzle). Или локально/из CI с `DATABASE_URL_UNPOOLED` прода: `npm run db:migrate`. Применится `0001_game_status_service.sql` (`ALTER TYPE ... ADD VALUE 'service'`). Данные не теряются; откатить нельзя (значение enum остаётся неиспользованным).
 3. **Деплой.** Мёрдж PR в `main` (Vercel собирает prod). Дождаться зелёного деплоя.
 4. **Проверка после деплоя** (под паролем):
    - `/` открывается, блоки на месте, блок «Игры-сервисы» скрыт, пока нет игр с этим статусом.
@@ -56,7 +56,7 @@
 - Отложено из Фазы 3 и редизайна: hover-попап карточки, цвет акцента из обложки (`--tint`, нужна миграция).
 
 ## Сводка в Telegram (Фаза 29)
-1. Миграция: выполнить `docs/release-neon-0021.sql` в Neon SQL Editor (все флаги итоговой проверки `true`), потом деплой.
+1. Миграция: выполнить `docs/archive/release-neon/release-neon-0021.sql` в Neon SQL Editor (все флаги итоговой проверки `true`), потом деплой.
 2. Vercel Environment Variables: `APP_ORIGIN` (ссылки в сводке), `TELEGRAM_WEBHOOK_SECRET` (16–256 символов `A-Za-z0-9_-`), по желанию `TELEGRAM_BOT_USERNAME`. `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` уже заданы.
 3. Один раз зарегистрировать webhook, открыв в браузере (подставить свои значения): `https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<APP_ORIGIN>/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`. Ответ `{"ok":true,...}`.
 4. Расписание watchdog в `vercel.json` теперь `0 16 * * *` (19:00 МСК): в воскресенье он же шлёт сводку, в понедельник догоняет пропущенную. Ручной запуск: `GET /api/cron/digest?force=1` с `Authorization: Bearer <CRON_SECRET>`.
@@ -70,6 +70,6 @@
 2. GitHub → Settings → Variables (repository): `NEON_PROJECT_ID`, `NEON_PROD_BRANCH` (имя или id прод-ветки Neon), при необходимости `NEON_DATABASE` / `NEON_ROLE` (по умолчанию `neondb` / `neondb_owner`).
 3. Environment `production-db-approve`: Required reviewers = Zalanaar, без секретов.
 4. Пробный прогон: Actions → CI → Run workflow на `main` (`apply_prod` выключен, переменная `MIGRATIONS_CI` не нужна): статус журнала прода, план и (если есть ожидающие) verify на ветке Neon; прод не меняется. Сейчас ожидающих нет, job должен показать «применено 28, ожидают 0».
-5. Сразу друг за другом, без push между ними: Vercel → Project → Settings → Deployment Checks → Add → GitHub → `DB migrate (prod)` (автоназначение production-домена включено); GitHub → repo variable `MIGRATIONS_CI=on`. С этого момента `docs/release-neon-*.sql` не пишутся.
+5. Сразу друг за другом, без push между ними: Vercel → Project → Settings → Deployment Checks → Add → GitHub → `DB migrate (prod)` (автоназначение production-домена включено); GitHub → repo variable `MIGRATIONS_CI=on`. С этого момента `docs/archive/release-neon/release-neon-*.sql` не пишутся.
 
 Сбой: красный job = прод на старой схеме и старом коде (миграция в транзакции откатилась, деплой не выкачен). Исправить коммитом в `main` или Re-run job. Откат данных: Neon → Restore из ветки `pre-migrate-*` или point-in-time. Force Promote в Vercel не использовать: обходит гарантию «миграция до кода».

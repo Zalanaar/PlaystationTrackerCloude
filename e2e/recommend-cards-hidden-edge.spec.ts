@@ -132,7 +132,7 @@ test.describe('QA 13b: блок «Скрытые»', () => {
     const s = state(2, { hiddenIds: [1, 2], failList: true });
     await open(page, context, baseURL as string, s);
     await expect(page.getByText(/Подсказывать нечего|Подсказать пока нечего/)).toBeVisible();
-    // фиксируем фактическое поведение: после ошибки списка кнопки возврата нет (см. BUG-R1 в docs/qa/phase-13.md)
+    // фиксируем фактическое поведение: после ошибки списка кнопки возврата нет (см. BUG-R1 в docs/archive/qa/phase-13.md)
     const hasWay = await page.getByRole('button', { name: /Показать скрытые|Повторить|Вернуть/ }).count();
     test.info().annotations.push({ type: 'BUG-R1', description: `способов вернуть при failList: ${hasWay}` });
     expect(hasWay).toBeGreaterThan(0);

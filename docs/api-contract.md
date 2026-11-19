@@ -559,7 +559,7 @@ Matcher: `/api/*` проходит через proxy всегда (расшире
 `src/server/sync/status-rules.ts` реализует правила 1.3: чистая функция перехода + запись в БД. Синк в `game_status` не пишет.
 
 ### 8.8 Остановка и перезапуск синка (Фаза 32.1)
-Пользователь может остановить идущий синк и запустить его заново. Миграция `0023_sync_cancelled` (`docs/release-neon-0023.sql`): только `ALTER TYPE sync_error_reason ADD VALUE IF NOT EXISTS 'cancelled'`, данные не меняются. Значение enum нельзя использовать в той же транзакции, где оно добавлено, поэтому миграция ничего не пишет с ним.
+Пользователь может остановить идущий синк и запустить его заново. Миграция `0023_sync_cancelled` (`docs/archive/release-neon/release-neon-0023.sql`): только `ALTER TYPE sync_error_reason ADD VALUE IF NOT EXISTS 'cancelled'`, данные не меняются. Значение enum нельзя использовать в той же транзакции, где оно добавлено, поэтому миграция ничего не пишет с ним.
 
 **Состояние отменённого запуска:** `status = 'failed'`, `error_reason = 'cancelled'`, `error_message` = «Остановлено пользователем.» (если отменил владелец чужой запуск: «Остановлено владельцем.»), `finished_at = now()`. Слот `running` (1.7) освобождается сразу. `cursor`, счётчики, `warnings` и все данные игр/трофеев/снимков **не трогаются** (курсор остаётся для перезапуска). `cancelled` не ошибка: красный баннер не показывается, Telegram-алерты о сбое (15.4, 22.13) по самой отмене не отправляются, `GET /api/health` не считает такой запуск `degraded`. Алерт `sync_missed` (20.2) остаётся временным: он смотрит только на давность последнего `success`.
 
@@ -1281,7 +1281,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 
 ### 15.5 Применение миграций на Neon
 
-Файл `docs/release-neon-0004-0005.sql` для Neon SQL Editor (формат как `docs/release-neon-0001-0003.sql`): идемпотентные `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, запись в журнал drizzle (хеш = sha256 файла миграции, `created_at` = `when` из `_journal.json`), итоговый проверочный `SELECT`. Повторный запуск безопасен. После этого `npm run db:migrate` ничего не применит повторно.
+Файл `docs/archive/release-neon/release-neon-0004-0005.sql` для Neon SQL Editor (формат как `docs/archive/release-neon/release-neon-0001-0003.sql`): идемпотентные `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`, запись в журнал drizzle (хеш = sha256 файла миграции, `created_at` = `when` из `_journal.json`), итоговый проверочный `SELECT`. Повторный запуск безопасен. После этого `npm run db:migrate` ничего не применит повторно.
 
 ## 16. Бэклог: фильтры и длительность прохождения (Фаза 11)
 
@@ -1381,10 +1381,10 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 - Ошибки: `400 invalid_request` (Origin/Content-Type, тело, `since` отсутствует/не ISO/в будущем), `409 sync_in_progress`, `503 db_unavailable` (отдаётся на ЛЮБУЮ внутреннюю ошибку, не только недоступность БД). Ошибка HLTB НЕ ошибка эндпоинта: ответ `200`, `failed > 0`, предупреждение в `warnings`, запись `hltb_runs` закрывается как `success`.
 - Идемпотентность: повторный вызов обрабатывает только то, что ещё подходит под правило; проверенные игры не трогаются.
 - Влияние на индикацию синка: запуски HLTB (`hltb_runs` и старые `sync_runs.kind = 'hltb'`) ИСКЛЮЧЕНЫ из `GET /api/sync/status`, `GET /api/health`, расчёта `sync_stale` (15.4) и из возобновления `partial`-синка (8.2). Они не сдвигают «последний успешный синк», не показывают баннеры и не маскируют отсутствие настоящего синка. Значение `kind` в этих ответах никогда не бывает `hltb`.
-- Схема: миграция `0007_sync_run_kind_hltb`: `ALTER TYPE "sync_run_kind" ADD VALUE 'hltb'` (только добавляет). `docs/release-neon-0007.sql`. Применять ДО деплоя кода: без значения enum вставка запуска упадёт, эндпоинт ответит `503`.
+- Схема: миграция `0007_sync_run_kind_hltb`: `ALTER TYPE "sync_run_kind" ADD VALUE 'hltb'` (только добавляет). `docs/archive/release-neon/release-neon-0007.sql`. Применять ДО деплоя кода: без значения enum вставка запуска упадёт, эндпоинт ответит `503`.
 
 ### 16.8 Применение на Neon
-`docs/release-neon-0006.sql`: идемпотентный (`ADD COLUMN IF NOT EXISTS`, CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Применяет Артём вручную до деплоя кода Фазы 11 (код читает новые колонки).
+`docs/archive/release-neon/release-neon-0006.sql`: идемпотентный (`ADD COLUMN IF NOT EXISTS`, CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Применяет Артём вручную до деплоя кода Фазы 11 (код читает новые колонки).
 
 
 ## 17. Роадмап бэклога на год (Фаза 12)
@@ -1623,7 +1623,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 - PS Store через `psn-api` не используется (в библиотеке нет каталога магазина, `docs/api-notes.md`). Обложка и дата только из RAWG или вручную.
 
 ### 17.10 Применение на Neon
-`docs/release-neon-0008.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, FK и CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт новые таблицы, существующие данные не затрагивает (потери данных нет). Применяет Артём вручную в Neon SQL Editor до деплоя кода Фазы 12 (код читает новые таблицы; без них эндпоинты раздела 17 отвечают `503 db_unavailable`). Остальная часть сайта от миграции не зависит.
+`docs/archive/release-neon/release-neon-0008.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, FK и CHECK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт новые таблицы, существующие данные не затрагивает (потери данных нет). Применяет Артём вручную в Neon SQL Editor до деплоя кода Фазы 12 (код читает новые таблицы; без них эндпоинты раздела 17 отвечают `503 db_unavailable`). Остальная часть сайта от миграции не зависит.
 
 ### 17.11 Игры-сервисы (правка после выкатки)
 Статусы `backlog` и `service` взаимоисключающие (одна строка `game_status`), поэтому игра-сервис в очередь и так не попадает. Правка это закрепляет и даёт отдельный список:
@@ -1678,7 +1678,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 - Ошибки: `400 invalid_request`; `503 catalog_unavailable` с `details.reason` как в 17.9; `503 db_unavailable` (не удалось проверить пометки).
 
 ### 17.14 Применение 0009 на Neon
-`docs/release-neon-0009.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, FK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт таблицу `roadmap_excluded`, потери данных нет. Применять ДО деплоя этой правки: без таблицы `GET /api/roadmap` отвечает `503 db_unavailable`.
+`docs/archive/release-neon/release-neon-0009.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, FK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт таблицу `roadmap_excluded`, потери данных нет. Применять ДО деплоя этой правки: без таблицы `GET /api/roadmap` отвечает `503 db_unavailable`.
 
 ### 17.15 Лучшая позиция вставки для `notFit`
 Для записей `notFit` с `kind = "backlog"` и `reason = "no_capacity"` добавлены поля (у `p:*`, `after_year_end`, `exceeds_year_end` их НЕТ):
@@ -1752,7 +1752,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 «Начать играть» использует существующее изменение статуса (раздел 9), отдельного эндпоинта нет. «Не интересно» — 18.5. После обоих frontend перезапрашивает `GET /api/recommend`.
 
 ### 18.7 Применение 0010 на Neon
-`docs/release-neon-0010.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, FK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт три таблицы. Применять ДО деплоя кода: без таблиц `GET /api/recommend` отвечает `503 db_unavailable`.
+`docs/archive/release-neon/release-neon-0010.sql`: идемпотентный (`CREATE TABLE IF NOT EXISTS`, FK через проверку `pg_constraint`), запись в журнал drizzle, проверочный `SELECT`. Только создаёт три таблицы. Применять ДО деплоя кода: без таблиц `GET /api/recommend` отвечает `503 db_unavailable`.
 
 ### 18.8 Уточнения реализации (Фаза 13, backend)
 **Фаза 16.4:** хэш кэша (`stableHash`), срок кэша, счёт неудачных вызовов и атомарный лимит заменены в 20.4.
@@ -1797,7 +1797,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 ### 19.1 Схема (миграция `0011_recommend_discover`, только добавляет)
 **`recommend_discover_cache`**: `day` date PK (сутки МСК); `profile_hash` text not null; `payload` jsonb not null (объект `{ "proposed": число, "candidates": [ { externalSource, externalId, title, releaseDate, coverUrl, platforms, reason } ] }`: подтверждённые кандидаты со своими причинами, до 15 штук, до фильтра владения/скрытия; `proposed` = сколько валидных названий предложила модель); `refreshes` integer not null default 0 (CHECK `>= 0`; сколько раз за сутки сработал `?refresh=1`, нужен для лимита 3 в сутки); `created_at` timestamptz default now().
 **`recommend_external_dislikes`**: `external_source` text (CHECK `= 'rawg'`), `external_id` text, `title` text not null (1..200), `cover_url` text null, `created_at` timestamptz default now(); PK `(external_source, external_id)`. Срок действия тот же, что у 18.9 (`DISLIKE_TTL_DAYS`), продлевается повторным POST.
-Применение: `docs/release-neon-0011.sql` (идемпотентный, как 18.7). Без таблиц режим отвечает `503 db_unavailable`.
+Применение: `docs/archive/release-neon/release-neon-0011.sql` (идемпотентный, как 18.7). Без таблиц режим отвечает `503 db_unavailable`.
 
 ### 19.2 Переменные окружения
 Новых нет. Режим доступен, только если `LLM_PROVIDER=groq` и задан `LLM_API_KEY`, и задан `RAWG_API_KEY`. Иначе `200` с `items: []` и `meta.llm = "disabled"` или `meta.catalog = "unavailable"` (экран объясняет, что настроить). Шаблонной замены нет: источник идей — модель.
@@ -1978,7 +1978,7 @@ PK составной `(game_id, month)`. Синк таблицу не трог�
 - Пакет 6, п. 3: `GET /api/stats` и `GET /api/wrapped` принимают необязательный `tz` (IANA-пояс устройства, например `Europe/Vilnius`). Он влияет только на `playPattern` (часы и дни недели трофеев). Нет, пусто или мусор = `Europe/Moscow` без ошибки. Границы периодов, годы и месяцы остаются по МСК. Клиент шлёт `tz`, только если пояс устройства не московский.
 
 ### 20.9 Миграция `0012_llm_budget` (только добавляет)
-`recommend_llm_usage`: колонки `phrase_calls`, `discover_auto_calls`, `discover_manual_calls` (integer not null default 0, CHECK `>= 0`). Новая таблица `recommend_llm_state`: `id` smallint PK (CHECK `= 1`), `fail_streak` integer not null default 0 (CHECK `>= 0`), `last_reason` text null, `updated_at` timestamptz default now(). Данные не теряются. Применение: `docs/release-neon-0012.sql` (идемпотентный, как 18.7), ДО деплоя кода: без таблицы и колонок `GET /api/recommend`, шаг синка LLM и discover `?refresh=1` ответят ошибкой БД (шаг синка только предупреждением). Остальные пункты раздела (20.1–20.3, 20.7, 20.8) миграции не требуют.
+`recommend_llm_usage`: колонки `phrase_calls`, `discover_auto_calls`, `discover_manual_calls` (integer not null default 0, CHECK `>= 0`). Новая таблица `recommend_llm_state`: `id` smallint PK (CHECK `= 1`), `fail_streak` integer not null default 0 (CHECK `>= 0`), `last_reason` text null, `updated_at` timestamptz default now(). Данные не теряются. Применение: `docs/archive/release-neon/release-neon-0012.sql` (идемпотентный, как 18.7), ДО деплоя кода: без таблицы и колонок `GET /api/recommend`, шаг синка LLM и discover `?refresh=1` ответят ошибкой БД (шаг синка только предупреждением). Остальные пункты раздела (20.1–20.3, 20.7, 20.8) миграции не требуют.
 
 ### 20.10 Переменные окружения
 Новых нет. Изменён смысл `LLM_DAILY_LIMIT` (общий предохранитель, 20.4). `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` теперь используются также для алерта `sync_missed` и еженедельной копии; без них эти отправки `telegram_disabled`, остальное работает.
@@ -2177,11 +2177,11 @@ Nonce (хвост 20.5): `proxy.ts` на каждый запрос генери�
 ### 22.11 Уточнения реализации `0014` (20.3)
 
 - `user_id integer not null default 1 references allowed_users(id) on delete cascade` в 19 таблицах (список в 22.1). Литерал `1` вместо подстановки id скриптом: `db:bootstrap-owner` гарантирует `owner.id = 1`. Первый блок миграции проверяет это: данные есть, а owner `id = 1` нет — `RAISE EXCEPTION` до любых изменений (пустая БД проходит).
-- Внешние ключи добавлены обычными (без `NOT VALID` + `VALIDATE`): данные малы; идемпотентный вариант `docs/release-neon-0014.sql` проверяет `pg_constraint` по имени.
+- Внешние ключи добавлены обычными (без `NOT VALID` + `VALIDATE`): данные малы; идемпотентный вариант `docs/archive/release-neon/release-neon-0014.sql` проверяет `pg_constraint` по имени.
 - Составные FK `(user_id, game_id) -> games(user_id, id)` стоят у `game_status`, `game_trophy_sets`, `playtime_snapshots`, `game_month_exclusions`, `roadmap_order`, `roadmap_excluded`, `recommend_dislikes`, `recommend_reasons`; `(user_id, trophy_set_id) -> trophy_sets(user_id, id)` у `game_trophy_sets` и `trophies`. Для них созданы `unique (user_id, id)` в `games` и `trophy_sets`.
 - Чтобы слой `scope` мог между `0014` и `0015` писать `ON CONFLICT` по финальным ключам, рядом со старыми PK добавлены unique: `psn_profile(user_id)`, `roadmap_settings(user_id)`, `recommend_llm_usage(user_id, day)`, `recommend_discover_cache(user_id, day)`, `recommend_external_dislikes(user_id, external_source, external_id)`. У `psn_profile.id` и `roadmap_settings.id` добавлен `default 1`: код `scope` колонку `id` не передаёт (до `0015` она заполняется сама, после — удалена).
 - Старые PK `game_trophy_sets (game_id, trophy_set_id)` и `game_month_exclusions (game_id, month)` не меняются (`game_id` глобален, составной PK избыточен).
-- Контрольные значения до и после: `docs/release-neon-0014-check.sql` (счётчики, суммы часов и трофеев). Тест `src/db/release-sql-0014.test.ts`.
+- Контрольные значения до и после: `docs/archive/release-neon/release-neon-0014-check.sql` (счётчики, суммы часов и трофеев). Тест `src/db/release-sql-0014.test.ts`.
 - Тесты, которые создают данные, должны сначала вставить owner (`createTestDb` делает это сам).
 
 ### 22.10 Уточнения реализации 20.2
@@ -2255,7 +2255,7 @@ Nonce (хвост 20.5): `proxy.ts` на каждый запрос генери�
 
 ### 22.14 Реализация `0015_user_id_contract` (20.3)
 
-Миграция `src/db/migrations/0015_user_id_contract.sql`, для прода `docs/release-neon-0015.sql` (идемпотентный, пишет в журнал drizzle, в конце флаги `true`), контрольные значения `docs/release-neon-0015-check.sql`, откат `docs/release-neon-0015-rollback.sql`. Тесты: `src/db/release-sql-0015.test.ts`, `src/server/post-0015-sync.test.ts`; состояние «ровно после 0014» проверяет `src/server/post-0014-compat.test.ts` (`createTestDb({ migrations: 15 })`).
+Миграция `src/db/migrations/0015_user_id_contract.sql`, для прода `docs/archive/release-neon/release-neon-0015.sql` (идемпотентный, пишет в журнал drizzle, в конце флаги `true`), контрольные значения `docs/archive/release-neon/release-neon-0015-check.sql`, откат `docs/archive/release-neon/release-neon-0015-rollback.sql`. Тесты: `src/db/release-sql-0015.test.ts`, `src/server/post-0015-sync.test.ts`; состояние «ровно после 0014» проверяет `src/server/post-0014-compat.test.ts` (`createTestDb({ migrations: 15 })`).
 
 Что меняется (данные строк не меняются, не удаляются):
 - **PK `user_id`** у `psn_profile` и `roadmap_settings`; колонки `id` удалены вместе со singleton CHECK (`-- DATA LOSS`: значение всегда 1; в SQL-миграции это `DROP COLUMN`).
@@ -2271,7 +2271,7 @@ Nonce (хвост 20.5): `proxy.ts` на каждый запрос генери�
 
 **Совместимость кода и схемы.** Код 20.3 (прод на момент написания) пишет `user_id` явно везде и работает на схемах после 0014 и после 0015 (кроме кэша фраз, см. выше). Код 20.3 до слоя `userId` (до PR #19) на схеме после 0015 не работает.
 
-**Откат.** Откат кода без обратной SQL после 0015 невозможен: старый код вставляет в `psn_profile`/`roadmap_settings` колонку `id` и не передаёт `user_id` (default снят). `docs/release-neon-0015-rollback.sql` возвращает схему 0014 (колонки `id` со значением 1, старые PK/unique/индексы, `DEFAULT 1`) и убирает запись 0015 из журнала без потери данных, но только пока данные принадлежат одному пользователю (`user_id = 1`); при данных второго пользователя скрипт останавливается до изменений, остаётся восстановление из ветки Neon `before-0015` или PITR. После отката нужно выкатить предыдущую версию кода (до коммита 0015); новый код на схеме 0014 только не кэширует фразы «Подскажи».
+**Откат.** Откат кода без обратной SQL после 0015 невозможен: старый код вставляет в `psn_profile`/`roadmap_settings` колонку `id` и не передаёт `user_id` (default снят). `docs/archive/release-neon/release-neon-0015-rollback.sql` возвращает схему 0014 (колонки `id` со значением 1, старые PK/unique/индексы, `DEFAULT 1`) и убирает запись 0015 из журнала без потери данных, но только пока данные принадлежат одному пользователю (`user_id = 1`); при данных второго пользователя скрипт останавливается до изменений, остаётся восстановление из ветки Neon `before-0015` или PITR. После отката нужно выкатить предыдущую версию кода (до коммита 0015); новый код на схеме 0014 только не кэширует фразы «Подскажи».
 
 **Порядок выкладки:** копия разметки (16.3) -> ветка Neon `before-0015` -> `release-neon-0015-check.sql` («до») -> `release-neon-0015.sql` -> `release-neon-0015-check.sql` («после») -> деплой кода -> сутки наблюдения -> `MULTIUSER_ENABLED=1` только после QA изоляции (22.7, шаг 8).
 
@@ -2333,7 +2333,7 @@ Fail-open: если БД недоступна или таблицы ещё не�
 | `tour_version` | integer | да | наибольшая версия тура, которую пользователь прошёл или пропустил. `null` = тур не пройден (равносильно 0) |
 | `tour_completed_at` | timestamptz | да | когда `tour_version` записан в последний раз (UTC) |
 
-Прод: `docs/release-neon-0016.sql` (идемпотентный, пишет в журнал drizzle), `docs/release-neon-0016-check.sql`; тест `src/db/release-sql-0016.test.ts`. Совместимость: старый код колонок не знает и работает на новой схеме; новый код на старой схеме падает на запросе тура (503 `db_unavailable`), остальные эндпоинты не затронуты (выбор `select()` в `getUserById` перечислит новые колонки, поэтому миграцию применять ДО деплоя кода).
+Прод: `docs/archive/release-neon/release-neon-0016.sql` (идемпотентный, пишет в журнал drizzle), `docs/archive/release-neon/release-neon-0016-check.sql`; тест `src/db/release-sql-0016.test.ts`. Совместимость: старый код колонок не знает и работает на новой схеме; новый код на старой схеме падает на запросе тура (503 `db_unavailable`), остальные эндпоинты не затронуты (выбор `select()` в `getUserById` перечислит новые колонки, поэтому миграцию применять ДО деплоя кода).
 
 ### 23.3 Эндпоинты
 
@@ -2383,7 +2383,7 @@ Fail-open: если БД недоступна или таблицы ещё не�
 | `duplicate_of_game_id` | integer | да | не NULL = эта игра дубль главной игры с таким id. FK `(user_id, duplicate_of_game_id)` -> `games(user_id, id)` (главная того же пользователя, чужую указать нельзя), `ON DELETE NO ACTION`. CHECK: не равно собственному `id` (`games_duplicate_self_check`). Пишет только синк (25.2) и `POST .../not-duplicate` (25.5). Главная всегда имеет `duplicate_of_game_id = NULL` (цепочек нет) |
 | `not_duplicate` | boolean NOT NULL DEFAULT false | нет | ручной флаг «это не дубль». `true` = игра исключена из склейки навсегда, синк флаг не меняет и не перезаписывает |
 
-Индекс `games_user_duplicate_of_idx (user_id, duplicate_of_game_id) WHERE duplicate_of_game_id IS NOT NULL`. Прод: `docs/release-neon-0018.sql` (идемпотентный, пишет в журнал drizzle), тест `src/db/release-sql-0018.test.ts`. Совместимость: старый код колонок не знает и на новой схеме работает (дубли для него просто не помечены); новый код на старой схеме падает, поэтому миграцию применять ДО деплоя.
+Индекс `games_user_duplicate_of_idx (user_id, duplicate_of_game_id) WHERE duplicate_of_game_id IS NOT NULL`. Прод: `docs/archive/release-neon/release-neon-0018.sql` (идемпотентный, пишет в журнал drizzle), тест `src/db/release-sql-0018.test.ts`. Совместимость: старый код колонок не знает и на новой схеме работает (дубли для него просто не помечены); новый код на старой схеме падает, поэтому миграцию применять ДО деплоя.
 
 ### 25.2 Правило склейки (синк)
 
@@ -2765,7 +2765,7 @@ DiscoverMeta = {
 
 ### 27.5 Секреты и проверки
 - NPSSO существует только в теле запроса и локальной переменной на время обмена; не пишется в БД, `sync_runs`, `details`, ответы, `console.*`. Ошибки PSN проходят через `safeErr` с NPSSO и code в списке секретов, а в ответ идёт только фиксированный текст.
-- Тесты: `src/app/api/sync/npsso/route.test.ts` (роль, CSRF, лимит, формат, нет NPSSO в ответах и логах, в т.ч. при ошибке PSN), `src/server/psn/token-events.test.ts` (журнал), `src/db/release-sql-0019.test.ts`. Прод: `docs/release-neon-0019.sql` + `docs/release-neon-0019-check.sql`. Миграцию применять ДО деплоя: журнал и статус без таблицы работают мягко (события не пишутся, `psnToken = null`), но лимит `kind = 'npsso'` на старой CHECK падает, и вставка NPSSO ответит `503`.
+- Тесты: `src/app/api/sync/npsso/route.test.ts` (роль, CSRF, лимит, формат, нет NPSSO в ответах и логах, в т.ч. при ошибке PSN), `src/server/psn/token-events.test.ts` (журнал), `src/db/release-sql-0019.test.ts`. Прод: `docs/archive/release-neon/release-neon-0019.sql` + `docs/archive/release-neon/release-neon-0019-check.sql`. Миграцию применять ДО деплоя: журнал и статус без таблицы работают мягко (события не пишутся, `psnToken = null`), но лимит `kind = 'npsso'` на старой CHECK падает, и вставка NPSSO ответит `503`.
 
 ## 28. Подсказки смены статуса (Фаза 27)
 
@@ -2781,7 +2781,7 @@ DiscoverMeta = {
 | `rule` | text | нет | одно из `started`, `stale`, `platinum`, `returned` (CHECK `status_hint_dismissals_rule_check`) |
 | `created_at` | timestamptz | нет | default `now()` |
 
-PK `(user_id, game_id, rule)`: уникальность по тройке, повторный отказ идемпотентен (`ON CONFLICT DO NOTHING`). Прод: `docs/release-neon-0020.sql` (идемпотентный, пишет в журнал drizzle), `docs/release-neon-0020-check.sql`, тест `src/db/release-sql-0020.test.ts`. Миграцию применять ДО деплоя: новый код на старой схеме отвечает на подсказки `503 db_unavailable`, остальной сайт не затронут.
+PK `(user_id, game_id, rule)`: уникальность по тройке, повторный отказ идемпотентен (`ON CONFLICT DO NOTHING`). Прод: `docs/archive/release-neon/release-neon-0020.sql` (идемпотентный, пишет в журнал drizzle), `docs/archive/release-neon/release-neon-0020-check.sql`, тест `src/db/release-sql-0020.test.ts`. Миграцию применять ДО деплоя: новый код на старой схеме отвечает на подсказки `503 db_unavailable`, остальной сайт не затронут.
 
 ### 28.2 Правила (чистая часть: `src/server/sync/status-hints.ts`, константы и типы: `src/shared/status-hints.ts`)
 
@@ -3027,7 +3027,7 @@ owned_marks
 - Связь 1 -> много: у одной игры библиотеки (`games.id`) может быть много отметок (`covered_by_game_id` одинаков). Составной FK гарантирует на уровне БД, что покрывающая игра принадлежит тому же `user_id`.
 - Два вида отметки: `covered` (`covered_by_game_id IS NOT NULL`, `completed = false`) и `not_in_library` (`covered_by_game_id IS NULL`, `completed` true/false: «прошёл» или просто «есть/не интересует»).
 - Игра библиотеки удалена из БД (сейчас не бывает): отметки `covered` каскадно исчезают, игра может вернуться в выдачу.
-- `docs/release-neon-0024.sql` идемпотентен, пишет в журнал drizzle; `docs/release-neon-0024-check.sql` для проверки до/после. Миграция на прод применяется Артёмом через Neon SQL Editor.
+- `docs/archive/release-neon/release-neon-0024.sql` идемпотентен, пишет в журнал drizzle; `docs/archive/release-neon/release-neon-0024-check.sql` для проверки до/после. Миграция на прод применяется Артёмом через Neon SQL Editor.
 
 ### 40.2 Роуты (сессия `requireUser`; запись требует `Content-Type: application/json` и проверку Origin; везде `user_id` сессии)
 
@@ -3162,9 +3162,9 @@ Profile = { id: number; isPrimary: boolean; onlineId: string | null; accessStatu
 
 `src/db/migrations/0025_psn_profiles.sql`: DDL из 41.1, **бэкфилл не нужен**: все существующие строки автоматически основные (`primary_user_id` NULL по умолчанию; в проде 3 пользователя, 1237 игр, данные не трогаются). Никакие таблицы с данными не затрагиваются. Миграция в одной транзакции.
 
-`docs/release-neon-0025.sql` (Артём применяет сам в Neon SQL Editor): идемпотентный (проверка `information_schema`/`pg_indexes`/`pg_constraint`, `IF NOT EXISTS`/`IF EXISTS`), в начале `RAISE EXCEPTION`, если есть дубли `psn_account_id` / `lower(psn_online_id)` или owner не `id = 1`; в конце запись в журнал `drizzle.__drizzle_migrations` (по образцу 0024, без дублей) и три boolean-флага «колонки/индексы/журнал на месте».
-`docs/release-neon-0025-check.sql` («до» и «после»): `count(*)` по `allowed_users`, `games`, `trophies`, `playtime_snapshots`, `game_status` равны до и после; `count(*) where primary_user_id is not null` = 0; нет вложенных профилей; нет дублей PSN среди не-архивных; индексы на месте.
-`docs/release-neon-0025-rollback.sql`: останавливается без изменений, если есть строки с `primary_user_id IS NOT NULL` (сначала удалить/перенести дополнительные профили), иначе возвращает прежний `allowed_users_email_key`, прежний CHECK статусов, убирает новые индексы/колонки и запись журнала.
+`docs/archive/release-neon/release-neon-0025.sql` (Артём применяет сам в Neon SQL Editor): идемпотентный (проверка `information_schema`/`pg_indexes`/`pg_constraint`, `IF NOT EXISTS`/`IF EXISTS`), в начале `RAISE EXCEPTION`, если есть дубли `psn_account_id` / `lower(psn_online_id)` или owner не `id = 1`; в конце запись в журнал `drizzle.__drizzle_migrations` (по образцу 0024, без дублей) и три boolean-флага «колонки/индексы/журнал на месте».
+`docs/archive/release-neon/release-neon-0025-check.sql` («до» и «после»): `count(*)` по `allowed_users`, `games`, `trophies`, `playtime_snapshots`, `game_status` равны до и после; `count(*) where primary_user_id is not null` = 0; нет вложенных профилей; нет дублей PSN среди не-архивных; индексы на месте.
+`docs/archive/release-neon/release-neon-0025-rollback.sql`: останавливается без изменений, если есть строки с `primary_user_id IS NOT NULL` (сначала удалить/перенести дополнительные профили), иначе возвращает прежний `allowed_users_email_key`, прежний CHECK статусов, убирает новые индексы/колонки и запись журнала.
 Тест `src/db/release-sql-0025.test.ts` (PGlite, по образцу 0024): цепочка 0000..0024 + сидинг 3 пользователей с играми -> release-SQL дважды (идемпотентность) -> данные и счётчики без изменений, журнал без дублей; ограничения работают: два основных с одной почтой нельзя, дополнительный с копией почты можно, owner как дополнительный нельзя, вложенность ловит проверка из `check.sql`, дубль `psn_account_id`/ника нельзя, архивный профиль не блокирует тот же аккаунт, `archived_at` согласован со `status`, каскад удаляет данные профиля, а не соседнего; rollback отказывает при наличии дополнительных профилей.
 
 Порядок: ветка Neon `before-0025` -> `check` («до») -> `release-neon-0025.sql` -> `check` («после») -> деплой кода. Миграция строго ДО кода (новый код на старой схеме падает), старый код на новой схеме работает (не знает `primary_user_id`, статус `archived` не использует). Откат кода: деплой предыдущей версии; если уже созданы дополнительные профили, старый код видит их как обычных `member` (их обойдёт cron, они попадут в «Доступ»), поэтому перед откатом профили архивируют/удаляют. Новое окружение (добавлено в `.env.example`): `MAX_PROFILES_PER_LOGIN` (необязательно, 1..5, по умолчанию 3).
@@ -3244,7 +3244,7 @@ Profile = { id: number; isPrimary: boolean; onlineId: string | null; accessStatu
 - RAWG: `disabled` при отсутствии `RAWG_API_KEY` (`reason: 'no_key'`) или `RAWG_DAILY_LIMIT=0` (`reason: 'limit_zero'`). HLTB: `disabled` при `HLTB_DAILY_LIMIT=0`. LLM: `disabled` при нет провайдера/ключа (`reason: 'no_provider'`, если `LLM_PROVIDER` не `gemini|groq` (проверяется первым, в том числе когда нет и ключа); `'no_key'`, если провайдер задан, а `LLM_API_KEY` пуст) или `LLM_DAILY_LIMIT=0` (`'limit_zero'`). `provider` у LLM = `gemini|groq|null`; ключ и модель не отдаются.
 - `userSource`/`totalSource`: `default` (переменная не задана или не число), `env` (значение принято как есть), `clamped` (значение вне допустимого диапазона приведено к границе; например `RAWG_USER_DAILY_LIMIT=0` на самом деле даёт 1, так как нижняя граница 1). Эффективное число всегда в `userLimit`/`totalLimit`.
 
-**Критерии для `MULTIUSER_ENABLED=1` (`criteria`).** Чеклист из `docs/qa/phase-20-5.md`. `status`: `pass` (вычислено, выполнено), `fail` (вычислено, нет), `pending` (вычисляется только после включения мультипользователя), `manual` (из данных не вычислить, отмечает человек). Значения env в `detail` не попадают (только факт «задано/нет» и числа).
+**Критерии для `MULTIUSER_ENABLED=1` (`criteria`).** Чеклист из `docs/archive/qa/phase-20-5.md`. `status`: `pass` (вычислено, выполнено), `fail` (вычислено, нет), `pending` (вычисляется только после включения мультипользователя), `manual` (из данных не вычислить, отмечает человек). Значения env в `detail` не попадают (только факт «задано/нет» и числа).
 | `id` | Что считается |
 |---|---|
 | `owner_ready` | пункт 1: владелец `role='owner'`, `status='active'`, `psn_access_status='ok'`, `psn_online_id` равен `PSN_TARGET_ONLINE_ID` без учёта регистра. `fail` с перечнем невыполненного, если нет |
@@ -3294,7 +3294,7 @@ manual_games
   CHECK manual_games_linked_check: linked_game_id IS NULL OR (not_purchased = false AND suggested_game_id IS NULL)
   INDEX (user_id, kind); INDEX (user_id, suggested_game_id) WHERE suggested_game_id IS NOT NULL
 ```
-Колонки `suggested_game_id` и `rejected_game_ids` добавлены сверх брифа (нужны для «Входящих» и запоминания «Нет», решение оркестратора 2). Запись `linked_game_id IS NOT NULL` остаётся в таблице (защита от повторного предложения), но в Бэклоге отдельно не показывается. Миграцию на прод применяет Артём: `docs/release-neon-0026.sql` (идемпотентный, журнал drizzle), `docs/release-neon-0026-check.sql`, тест `src/db/release-sql-0026.test.ts`. Новый код на старой схеме: роуты `manual-games` отвечают `503`, шаг синка даёт предупреждение `manual_match_failed`, «У тебя нет», План и Входящие работают.
+Колонки `suggested_game_id` и `rejected_game_ids` добавлены сверх брифа (нужны для «Входящих» и запоминания «Нет», решение оркестратора 2). Запись `linked_game_id IS NOT NULL` остаётся в таблице (защита от повторного предложения), но в Бэклоге отдельно не показывается. Миграцию на прод применяет Артём: `docs/archive/release-neon/release-neon-0026.sql` (идемпотентный, журнал drizzle), `docs/archive/release-neon/release-neon-0026-check.sql`, тест `src/db/release-sql-0026.test.ts`. Новый код на старой схеме: роуты `manual-games` отвечают `503`, шаг синка даёт предупреждение `manual_match_failed`, «У тебя нет», План и Входящие работают.
 
 Игры «не куплено» живут ТОЛЬКО в `manual_games`, не в `games`/`game_status`. Поэтому Статистика, Итоги, часы, прогноз платины, «Подскажи» (скоринг бэклога библиотеки) их не видят по построению; `rawg_id` записей исключается из «У тебя нет» и из поиска/«Скоро» в План (`ownedRawgIds`/`filterOwned`, как отметки Фазы 40).
 
@@ -3450,7 +3450,7 @@ OtherPlatformGame = {
 ### 45.1 Схема (миграция `0027_session_revocation`, только добавляет)
 - `allowed_users.session_epoch integer NOT NULL DEFAULT 0` — эпоха сессий входа (значима только у основной строки, `primary_user_id IS NULL`).
 - `revoked_sessions (sid text PK, user_id → allowed_users ON DELETE CASCADE, expires_at timestamptz, revoked_at timestamptz DEFAULT now())`, индекс `revoked_sessions_expires_idx`.
-- Прод: Артём применяет `docs/release-neon-0027.sql` (идемпотентный, журнал drizzle) и `docs/release-neon-0027-check.sql` ДО деплоя кода; тест `src/db/release-sql-0027.test.ts`. Новый код на старой схеме не читает `allowed_users` (все роуты 503), старый код на новой схеме работает.
+- Прод: Артём применяет `docs/archive/release-neon/release-neon-0027.sql` (идемпотентный, журнал drizzle) и `docs/archive/release-neon/release-neon-0027-check.sql` ДО деплоя кода; тест `src/db/release-sql-0027.test.ts`. Новый код на старой схеме не читает `allowed_users` (все роуты 503), старый код на новой схеме работает.
 
 ### 45.2 Токен
 - v:2 дополняется полями `sid` (случайные 128 бит, base64url, при каждом входе) и `se` (эпоха входа на момент входа; 0 не пишется). Переключение профиля (41.2) сохраняет `sid`/`se`.

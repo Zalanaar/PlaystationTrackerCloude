@@ -1,4 +1,4 @@
-// docs/release-neon-0025.sql (профили PSN, Фаза 41) поверх 0000–0024 на PGlite: идемпотентность, схема = drizzle-миграция 0025,
+// docs/archive/release-neon/release-neon-0025.sql (профили PSN, Фаза 41) поверх 0000–0024 на PGlite: идемпотентность, схема = drizzle-миграция 0025,
 // журнал, данные целы, check-запрос, ограничения (роль, google_sub, вложенность, PSN-уникальность, архив, каскады), rollback.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
@@ -14,7 +14,7 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const doc = (n: string) => readFileSync(join(process.cwd(), 'docs', n), 'utf8');
+const doc = (n: string) => readFileSync(join(process.cwd(), 'docs/archive/release-neon', n), 'utf8');
 const releaseSql = doc('release-neon-0025.sql');
 const checkSql = doc('release-neon-0025-check.sql');
 const rollbackSql = doc('release-neon-0025-rollback.sql');
@@ -49,7 +49,7 @@ async function after0024(): Promise<PGlite> {
 const n = async (c: PGlite, sql: string): Promise<number> => Number((await c.query<{ n: number }>(`select count(*)::int as n from ${sql}`)).rows[0].n);
 const ins = (c: PGlite, cols: string) => c.exec(`insert into allowed_users (email, role, status, primary_user_id, psn_online_id, psn_account_id, google_sub, archived_at) values (${cols})`);
 
-describe('docs/release-neon-0025.sql', () => {
+describe('docs/archive/release-neon/release-neon-0025.sql', () => {
   it('0025 идёт сразу после 0024', () => {
     expect(E).toBeGreaterThan(0);
     expect(journalRaw.entries[E - 1].tag).toBe('0024_owned_marks');

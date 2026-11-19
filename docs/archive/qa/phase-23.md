@@ -23,5 +23,5 @@
 - Статус главной: копируется статус с наибольшим `status_changed_at`, если у новой главной его нет; покрыто тестом, риск низкий. Смена главной после первого синка (по часам) может поменять карточку, к которой привязан статус, но данные не теряются.
 
 ## Файлы
-- `/home/user/PlaystationTrackerCloude/docs/qa/phase-23.md`
+- `/home/user/PlaystationTrackerCloude/docs/archive/qa/phase-23.md`
 - `/home/user/PlaystationTrackerCloude/e2e/game-linked-versions-shots.spec.ts`

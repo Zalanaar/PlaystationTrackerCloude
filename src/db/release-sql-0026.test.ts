@@ -1,4 +1,4 @@
-// docs/release-neon-0026.sql (таблица owned_marks) поверх 0000–0025 на PGlite: идемпотентность, схема = drizzle-миграция 0024,
+// docs/archive/release-neon/release-neon-0026.sql (таблица owned_marks) поверх 0000–0025 на PGlite: идемпотентность, схема = drizzle-миграция 0024,
 // журнал, данные целы, check-запрос, ограничения (изоляция по user_id, уникальность, CHECK, каскады), повторный drizzle migrate ничего не применяет.
 import { PGlite } from '@electric-sql/pglite';
 import { freshPglite } from './test-utils/pglite';
@@ -14,8 +14,8 @@ const root = join(process.cwd(), 'src/db/migrations');
 const journalRaw = JSON.parse(readFileSync(join(root, 'meta/_journal.json'), 'utf8')) as {
   entries: { idx: number; when: number; tag: string }[];
 };
-const releaseSql = readFileSync(join(process.cwd(), 'docs/release-neon-0026.sql'), 'utf8');
-const checkSql = readFileSync(join(process.cwd(), 'docs/release-neon-0026-check.sql'), 'utf8');
+const releaseSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0026.sql'), 'utf8');
+const checkSql = readFileSync(join(process.cwd(), 'docs/archive/release-neon/release-neon-0026-check.sql'), 'utf8');
 const E = journalRaw.entries.findIndex((e) => e.tag === '0026_manual_games');
 
 
@@ -43,7 +43,7 @@ async function after0025(): Promise<PGlite> {
 
 const count = async (c: PGlite): Promise<number> => (await c.query<{ n: number }>(`select count(*)::int as n from manual_games`)).rows[0].n;
 
-describe('docs/release-neon-0026.sql', () => {
+describe('docs/archive/release-neon/release-neon-0026.sql', () => {
   it('0026 идёт сразу после 0025', () => {
     expect(E).toBeGreaterThan(0);
     expect(journalRaw.entries[E - 1].tag).toBe('0025_psn_profiles');

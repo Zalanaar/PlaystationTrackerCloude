@@ -115,6 +115,6 @@
 - Вне MVP по CLAUDE.md были «Подскажи» и «План». Это меняется: обновить раздел «Вне MVP» и `plan.md`.
 
 ## Verification
-- Каждая фаза: `npm run lint`, `npm run typecheck`, `npx vitest run`, e2e Playwright на изменённые экраны, QA-отчёт в `docs/qa/phase-N.md`.
+- Каждая фаза: `npm run lint`, `npm run typecheck`, `npx vitest run`, e2e Playwright на изменённые экраны, QA-отчёт в `docs/archive/qa/phase-N.md`.
 - 8.1/8.2: юнит-тесты `calc.test.ts` на границу года и кейс Trails. Сверка на реальной БД за декабрь 2025 делается после деплоя (доступ к Neon есть только у владельца).
 - HLTB/Haiku: модули с моками в тестах, плюс один ручной прогон на реальном API.

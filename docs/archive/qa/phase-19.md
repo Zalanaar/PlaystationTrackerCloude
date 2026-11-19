@@ -41,4 +41,4 @@
 - N-3 (инфо): `connect-src 'self'`: внешние API с клиента (RAWG/Groq) недопустимы; сейчас все вызовы идут через `/api`, ломаться нечему.
 
 ## Добавленные файлы (зона QA)
-`e2e/csp-screens.spec.ts` (CSP по экранам; `CSP_PROD=1` для http-аватара на прод-сборке), `e2e/css-refactor-shots.spec.ts` (снимки до/после), `docs/qa/phase-19.md`.
+`e2e/csp-screens.spec.ts` (CSP по экранам; `CSP_PROD=1` для http-аватара на прод-сборке), `e2e/css-refactor-shots.spec.ts` (снимки до/после), `docs/archive/qa/phase-19.md`.

@@ -12,7 +12,7 @@
   - Плохой `mode`, чужой `app`, `schemaVersion:2`, невалидный JSON дают 400 с `details.reason` (`invalid_format`/`unsupported_version`+`supported`/`invalid_json`).
   - Запись `completed` с `droppedAt` отклоняется на валидации.
   - `withService=yes` в `/api/stats` и `/api/wrapped` дает 400.
-- Сверка контракта §20 с кодом, `sha256` миграции `0012` совпадает с хешем в `docs/release-neon-0012.sql`, номер в `_journal.json` верный.
+- Сверка контракта §20 с кодом, `sha256` миграции `0012` совпадает с хешем в `docs/archive/release-neon/release-neon-0012.sql`, номер в `_journal.json` верный.
 
 ## Чек-лист
 - 16.1 service исключены из отбора и массового запуска: ок (`dueWhere` общий, `ne(status,'service')`). Порядок приоритета по 20.1 соблюдён. Замечание N-3.

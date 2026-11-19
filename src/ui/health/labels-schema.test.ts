@@ -20,7 +20,7 @@ describe('QA-35: подписи против схемы', () => {
     for (const r of reasons.filter((x) => x !== 'cancelled')) expect(errorReasonLabel(r), r).not.toBe('другая ошибка');
   });
   it('в подписях нет несуществующих kind (initial/onboarding/trophies)', () => {
-    // Документируем расхождение: см. docs/qa/phase-35.md QA-35-1. Тест фиксирует, что реальные значения покрыты.
+    // Документируем расхождение: см. docs/archive/qa/phase-35.md QA-35-1. Тест фиксирует, что реальные значения покрыты.
     expect(kinds).toEqual(['daily', 'manual', 'trophy_backfill', 'hltb']);
   });
 });

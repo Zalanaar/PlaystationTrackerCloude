@@ -1,5 +1,5 @@
 // QA Фазы 21: снимки тура в темах Night, PS1, PS5 на 360 / 768 / 1440 + проверка геометрии (кольцо не перекрыто, поповер в экране).
-// Без SHOTS_DIR пропускается. Запуск на своём порту: см. docs/qa/phase-21.md.
+// Без SHOTS_DIR пропускается. Запуск на своём порту: см. docs/archive/qa/phase-21.md.
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
