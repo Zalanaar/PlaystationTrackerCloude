@@ -110,11 +110,12 @@ function Floating({
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
   useLayoutEffect(() => {
-    const place = () => {
+    // закрываем, только если «⋯» уехал за экран прокруткой; при смене шага (меню → подтверждение) панель просто переставляется
+    const place = (scrolled: boolean) => {
       const a = anchor.current?.getBoundingClientRect();
       const p = ref.current;
       if (!a || !p) return;
-      if (a.bottom < 0 || a.top > window.innerHeight) {
+      if (scrolled && (a.bottom < 0 || a.top > window.innerHeight)) {
         onClose(false);
         return;
       }
@@ -126,14 +127,16 @@ function Floating({
       const flip = h > below && above > below;
       setPos({ left: Math.max(MARGIN, Math.min(a.right - w, vw - w - MARGIN)), top: flip ? a.top - GAP - h : a.bottom + GAP });
     };
-    place();
-    window.addEventListener('scroll', place, true);
-    return () => window.removeEventListener('scroll', place, true);
+    place(false);
+    const onScroll = () => place(true);
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
   }, [anchor, onClose, layoutKey]);
 
   const placed = pos !== null;
   useEffect(() => {
-    if (placed) ref.current?.querySelector<HTMLElement>('button')?.focus();
+    // preventScroll: панель fixed; фокус у нижнего края окна не должен прокручивать страницу (иначе «⋯» уезжает и панель закрывается)
+    if (placed) ref.current?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
   }, [placed, layoutKey]);
 
   useEffect(() => {

@@ -4,6 +4,8 @@ import { STATIC_ASSET_CSP, baseSecurityHeaders } from './src/shared/security-hea
 const nextConfig: NextConfig = {
   // Не светить фреймворк в X-Powered-By (повторный аудит P2-7).
   poweredByHeader: false,
+  // Только `next dev`: значок/подсказки dev-оверлея в левом нижнем углу перекрывали всплывающие меню в e2e (клик уходил в nextjs-portal)
+  devIndicators: false,
   // П8.3: шрифты картинки «Поделиться» читаются с диска в маршруте — включить их в сборку функции
   outputFileTracingIncludes: { '/api/wrapped/share': ['./src/server/wrapped/share-fonts/*.woff'] },
   async headers() {
