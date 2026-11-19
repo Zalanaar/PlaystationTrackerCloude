@@ -182,7 +182,7 @@ test.describe('/stats', () => {
     await expect(page.getByRole('heading', { name: 'Часы по дням' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Часы по месяцам' })).toHaveCount(0);
     const days = page.getByTestId('st-days').locator('.ps-st-bar');
-    expect(await days.count()).toBeGreaterThanOrEqual(28);
+    await expect.poll(() => days.count()).toBeGreaterThanOrEqual(28);
     await expect(page.getByTestId('st-days-sum')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.getByRole('button', { name: 'Год', exact: true }).click();
