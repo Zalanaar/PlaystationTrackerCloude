@@ -31,7 +31,8 @@ test('холодный первый вход: скелет, затем соде�
   test.skip(!isMobile, 'нижняя панель только на телефоне');
   await open(page, baseURL!, false);
   await tapBacklog(page);
-  await expect(page.getByTestId('bl-main-head')).toBeVisible();
+  // холодная компиляция /backlog в dev-сервере (WebKit в CI) бывает дольше 5 с
+  await expect(page.getByTestId('bl-main-head')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('[data-tour-page="backlog"]')).toHaveAttribute('data-fresh', '');
   const anim = await page.locator('.ps-bl-list').evaluate((el) => getComputedStyle(el).animationName);
   expect(anim).toBe('ps-bl-fresh');
