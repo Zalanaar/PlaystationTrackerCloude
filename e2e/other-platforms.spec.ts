@@ -478,7 +478,11 @@ test.describe('Добавление из шапки и меню', () => {
     test.skip(!isMobile(page), 'меню «+» только на телефоне');
     await open(page, context, baseURL!, { items: [op(1, 'Forza')], candidates: cands() }, '/backlog');
     await mockRoadmap(page, baseState());
-    await page.getByTestId('hdr-add').click();
+    // WebKit dev: первое касание до гидрации шапки теряется — жмём, пока меню не откроется
+    await expect(async () => {
+      if (!(await page.getByRole('menuitem').first().isVisible())) await page.getByTestId('hdr-add').click();
+      await expect(page.getByRole('menuitem').first()).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 10_000 });
     await expect(page.getByRole('menuitem').first()).toContainText('Не куплено (PS)');
     await page.getByTestId('add-other').click();
     await expect(page).toHaveURL(/\/$/);
