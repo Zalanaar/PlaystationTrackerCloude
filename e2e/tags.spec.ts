@@ -43,6 +43,14 @@ async function axe(page: Page, sel: string) {
   }
 }
 
+async function openTagsFromFilters(page: Page) {
+  await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
+  await page.getByTestId('filters-tags').click();
+  const sheet = page.getByRole('dialog', { name: 'Теги' });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 async function openTagsSheet(page: Page) {
   if (isMobile(page)) {
     // F13: «Теги» — в меню «⋯» шапки
@@ -102,7 +110,10 @@ test.describe('П13.2: теги', () => {
     await expect(page).toHaveURL(/tag=1/);
     await expect.poll(() => titles(page)).toEqual(['Бета Кооп', 'Гамма Кооп']);
 
-    sheet = await openTagsSheet(page);
+    // на телефоне теги и из листа «Фильтры» (не только из «⋯»), с пометкой выбранного
+    if (isMobile(page)) {
+      sheet = await openTagsFromFilters(page);
+    } else sheet = await openTagsSheet(page);
     await sheet.getByRole('button', { name: 'Переименовать тег Кооп' }).click();
     await sheet.getByRole('textbox', { name: 'Новое название тега Кооп' }).fill('Вдвоём');
     await sheet.getByRole('button', { name: 'Сохранить' }).click();

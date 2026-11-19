@@ -293,7 +293,7 @@ function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filt
   );
 }
 
-/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид) и чипы статусов. Действия — в «⋯» и «+» шапки (F13). */
+/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид, теги) и чипы статусов. Действия — в «⋯» и «+» шапки (F13). */
 export function MobileChips(p: BarProps) {
   const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect } = p;
   const [sheet, setSheet] = useState(false);
@@ -329,6 +329,12 @@ export function MobileChips(p: BarProps) {
           <PlatformSeg filters={filters} platformCounts={p.platformCounts} onChange={onChange} />
           <SortSelect f={filters} onChange={onChange} wide />
           <ViewSeg view={view} onView={onView} />
+          {/* Артём (после F13): теги — снова рядом с фильтрами, а не только в «⋯» шапки */}
+          {!filters.hidden && (
+            <button type="button" className="ps-btn ps-filters__tags" data-testid="filters-tags" aria-haspopup="dialog" onClick={() => { setSheet(false); setTagsOpen(true); }}>
+              <Icon name="bookmark" size={16} /><span>Теги</span>{filters.tag && <span className="ps-filters__tags-on">выбран</span>}<Icon name="chevron-right" size={16} className="ps-filters__tags-chev" />
+            </button>
+          )}
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
