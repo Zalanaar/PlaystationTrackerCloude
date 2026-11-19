@@ -31,11 +31,23 @@ export function ShowcaseView({ token }: { token: string }) {
         const b = await r.json().catch(() => null);
         if (!r.ok || !b?.ok) return setS({ kind: 'error' });
         setS({ kind: 'ready', d: b.data as Showcase });
-        if (b.data.onlineId) document.title = `Витрина ${b.data.onlineId} · PS Tracker`;
       })
       .catch(() => { if (!ac.signal.aborted) setS({ kind: 'error' }); });
     return () => ac.abort();
   }, [token]);
+
+  // Заголовок с ником. Next дописывает метаданные потоком уже после гидратации (в WebKit — позже нашего ответа),
+  // поэтому держим свой заголовок, пока страница открыта.
+  const nick = s.kind === 'ready' ? s.d.onlineId : null;
+  useEffect(() => {
+    if (!nick) return;
+    const title = `Витрина ${nick} · PS Tracker`;
+    const apply = () => { if (document.title !== title) document.title = title; };
+    apply();
+    const mo = new MutationObserver(apply);
+    mo.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => mo.disconnect();
+  }, [nick]);
 
   if (s.kind === 'closed' || s.kind === 'error') {
     return (
