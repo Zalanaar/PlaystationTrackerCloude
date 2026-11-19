@@ -131,7 +131,7 @@ describe('список Бэклога', () => {
 describe('«Это та игра?»', () => {
   const g = { gameId: 1, name: 'Hades II', imageUrl: null };
   it('мета игры библиотеки: дата запуска или часы', () => {
-    const f = (h: number) => String(h);
+    const f = (h: number) => `${h} ч`;
     expect(matchGameMeta({ lastPlayedAt: '2026-10-05T10:00:00.000Z', hours: 3 }, f)).toBe('Последний запуск 5 окт.');
     expect(matchGameMeta({ lastPlayedAt: null, hours: 12 }, f)).toBe('Играл 12 ч');
     expect(matchGameMeta({ lastPlayedAt: null, hours: 0 }, f)).toBe('Нет данных о запуске');

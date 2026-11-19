@@ -187,7 +187,7 @@ test.describe('/wrapped: истории', () => {
     expect(await idx(page)).toBe(0); // перед первым некуда
     await tap(page, 'right');
     expect(await idx(page)).toBe(1);
-    await expect(page.locator('.ps-story__big')).toContainText('412,4');
+    await expect(page.locator('.ps-story__big')).toContainText('412');
     await expect(page.getByText('≈ 17 дней')).toBeVisible();
     await expect(page.locator('.ps-story__badge')).toContainText(`04.03.${NOW_YEAR}`);
     await tap(page, 'left');
@@ -285,7 +285,7 @@ test.describe('/wrapped: истории', () => {
     await page.waitForTimeout(1200);
     expect(await idx(page)).toBe(0);
     await page.keyboard.press('ArrowRight');
-    await expect(page.locator('.ps-story__big .ps-num [aria-hidden]')).toHaveText('412,4');
+    await expect(page.locator('.ps-story__big .ps-num [aria-hidden]')).toHaveText('412');
   });
 
   test('год «нет часов, но есть трофеи»: слайды 2, 3, 7 пропущены', async ({ page, context, baseURL }) => {
@@ -371,7 +371,7 @@ test.describe('/wrapped: оценочные часы (§4.12)', () => {
     expect(await slideId(page)).toBe('hours');
     const big = page.locator('.ps-story__big');
     await expect(big).toContainText('≈');
-    await expect(big).toContainText('412,4');
+    await expect(big).toContainText('412');
     await expect(page.locator('.ps-story__badge[data-kind="estimate"]')).toHaveText(
       `До 04.03.${NOW_YEAR} часы оценены: распределены равномерно между первым и последним запуском игры`,
     );
@@ -388,7 +388,7 @@ test.describe('/wrapped: оценочные часы (§4.12)', () => {
 
     for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
     expect(await slideId(page)).toBe('longestGame');
-    await expect(page.locator('.ps-story__body')).toContainText('≈ 28,3 ч');
+    await expect(page.locator('.ps-story__body')).toContainText('≈ 28 ч');
   });
 
   test('без оценки: нет «≈», при periodPartial прежняя пометка про первый синк', async ({ page, context, baseURL }) => {

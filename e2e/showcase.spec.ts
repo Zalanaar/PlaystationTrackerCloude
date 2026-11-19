@@ -75,7 +75,7 @@ test('публичная страница без входа: цифры, топ,
   await expect(page.getByTestId('showcase')).toContainText('Уровень трофеев 412');
   await expect(page.locator('.ps-sc__stat').nth(2)).toContainText('1 642');
   await expect(page.getByTestId('sc-top')).toHaveCount(2);
-  await expect(page.getByTestId('sc-top').first()).toContainText('120,5 ч');
+  await expect(page.getByTestId('sc-top').first()).toContainText('120 ч');
   await expect(page.getByTestId('sc-done').first()).toContainText('октябрь 2026');
   expect(await page.locator('meta[name="robots"]').getAttribute('content')).toContain('noindex');
 });

@@ -159,7 +159,8 @@ describe('форматирование', () => {
     expect(gamesText(3)).toBe('3 игры');
     expect(gamesText(12)).toBe('12 игр');
     expect(launchesLabel(21)).toBe('21 запуск');
-    expect(hoursText(412.4)).toBe('412,4');
+    expect(hoursText(412.4)).toBe('412');
+    expect(hoursText(7.25)).toBe('7,3');
     expect(hoursText(1234)).toBe('1 234');
   });
   it('аватар', () => {
@@ -176,8 +177,8 @@ describe('форматирование', () => {
     expect(partialBadge(null)).not.toContain('(');
     expect(estimateBadge('2026-03-04')).toBe('До 04.03.2026 часы оценены: распределены равномерно между первым и последним запуском игры');
     expect(estimateBadge(null)).toBe('Часы оценены: распределены равномерно между первым и последним запуском игры');
-    expect(approxHours(412.4, true)).toBe('≈ 412,4');
-    expect(approxHours(412.4, false)).toBe('412,4');
+    expect(approxHours(412.4, true)).toBe('≈ 412');
+    expect(approxHours(412.4, false)).toBe('412');
   });
   it('доля жанра', () => {
     expect(genreShare(5, 10)).toBe(0.5);

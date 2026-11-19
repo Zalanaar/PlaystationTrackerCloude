@@ -68,7 +68,7 @@ describe('сводка года', () => {
     expect(s.gameOfYear).toMatchObject({ id: 1, reason: 'hours', rating: null });
     const r = yearSummary(base({ bestGame: { hasData: true, rating: 9, hours: 12, estimated: false, game: g(7, null) } }));
     expect(r.gameOfYear).toMatchObject({ id: 7, reason: 'rating', rating: 9 });
-    expect(summaryTiles(s).map((t) => `${t.value} ${t.label}`)).toEqual(['412,4 ч в играх', '12 игр пройдено', '7 платин', '366 трофеев']);
+    expect(summaryTiles(s).map((t) => `${t.value} ${t.label}`)).toEqual(['412 ч в играх', '12 игр пройдено', '7 платин', '366 трофеев']);
   });
   it('без часов плитки часов нет; оценка без игры не считается; «всё время» берёт платины по годам', () => {
     const s = yearSummary(base({ hours: { ...base().hours, total: null }, bestGame: { hasData: false, rating: null, hours: 0, estimated: false, game: null } }));

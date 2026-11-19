@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import type { OfflineGame, OfflineSnapshot } from '@/shared/offline-snapshot';
 import { readOfflineSnapshot } from './offline-data';
 import {
-  asOfLabel, backlogView, COLLECTION_FILTERS, filterCounts, filterGames, hoursText, MONTHS_SHORT_NOM, OFFLINE_TABS, tabFromPath, trophiesText,
+  asOfLabel, backlogView, COLLECTION_FILTERS, filterCounts, filterGames, hoursText, approxText, MONTHS_SHORT_NOM, OFFLINE_TABS, tabFromPath, trophiesText,
   type CollectionFilter, type OfflineTab,
 } from './offline-view';
 
@@ -109,10 +109,10 @@ function BacklogPanel({ s }: { s: OfflineSnapshot }) {
   return (
     <>
       <p className="ps-offline__sum" data-testid="offline-backlog-sum">
-        {v.items.length} в бэклоге{v.knownHours > 0 ? ` · ≈ ${hoursText(v.knownHours)}` : ''}{v.unknown > 0 ? ` · без длительности: ${v.unknown}` : ''}
+        {v.items.length} в бэклоге{v.knownHours > 0 ? ` · ≈ ${approxText(v.knownHours)}` : ''}{v.unknown > 0 ? ` · без длительности: ${v.unknown}` : ''}
       </p>
       <ul className="ps-offline__list">
-        {v.items.slice(0, shown).map((g) => <GameRow key={g.id} g={g} extra={g.durationHours !== null ? `≈ ${hoursText(g.durationHours)} на прохождение` : null} />)}
+        {v.items.slice(0, shown).map((g) => <GameRow key={g.id} g={g} extra={g.durationHours !== null ? `≈ ${approxText(g.durationHours)} на прохождение` : null} />)}
       </ul>
       <More shown={shown} total={v.items.length} onMore={() => setShown((n) => n + PAGE)} />
     </>

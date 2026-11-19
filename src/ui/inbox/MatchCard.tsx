@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 import { Cover } from '../collection/Cover';
-import { formatHours } from '../collection/backlog';
+import { formatHours } from '../format';
 import { NotPurchasedBadge } from '../collection/NotPurchasedBadge';
 import { matchGameMeta, type ManualMatch } from './match';
 import { Icon } from '../icons';

@@ -176,9 +176,9 @@ export const gamesText = (n: number) => `${n} ${plural(n, ['игра', 'игры
 export const trophiesText = (n: number) => `${n} ${plural(n, ['трофей', 'трофея', 'трофеев'])}`;
 export const launchesLabel = (n: number) => `${n} ${plural(n, ['запуск', 'запуска', 'запусков'])}`;
 
-/** Часы с одним знаком: «412,4». */
+/** Число часов без единицы (плитки, счётчик): F28 — от 10 ч целые «412», меньше — с одним знаком «7,5». */
 export function hoursText(n: number): string {
-  const r = Math.round(n * 10) / 10;
+  const r = Math.abs(n) >= 10 ? Math.round(n) : Math.round(n * 10) / 10;
   const [int, frac] = r.toFixed(1).split('.');
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return frac === '0' ? grouped : `${grouped},${frac}`;

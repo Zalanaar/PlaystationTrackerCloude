@@ -43,7 +43,7 @@ test('цифры года: часы ≈, пройдено и брошено, т�
   await open(page, context, baseURL!);
   await expect(card(page).getByRole('heading', { level: 2, name: String(Y - 1) })).toBeVisible();
   await expect(card(page).getByText('Превью · твой год')).toBeVisible();
-  await expect(page.getByTestId('wpreview-hours')).toHaveText('≈ 803,3 ч');
+  await expect(page.getByTestId('wpreview-hours')).toHaveText('≈ 803 ч');
   await expect(page.getByTestId('wpreview-done')).toHaveText('21');
   await expect(card(page).getByText('пройдено · 17 брошено')).toBeVisible();
   await expect(page.getByTestId('wpreview-trophies')).toHaveText('1 067');
@@ -51,7 +51,7 @@ test('цифры года: часы ≈, пройдено и брошено, т�
   await expect(card(page).getByText('платин', { exact: true })).toBeVisible();
   await expect(page.getByTestId('wpreview-game')).toContainText('Больше всего часов');
   await expect(page.getByTestId('wpreview-game')).toContainText('Clair Obscur: Expedition 33');
-  await expect(page.getByTestId('wpreview-game')).toContainText('49,6 ч');
+  await expect(page.getByTestId('wpreview-game')).toContainText('50 ч');
 });
 
 test('«Игра года» по моей оценке, если она есть', async ({ page, context, baseURL }) => {

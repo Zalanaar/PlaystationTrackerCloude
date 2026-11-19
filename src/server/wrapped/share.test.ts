@@ -27,7 +27,7 @@ describe('картинка «Поделиться» (П8.3)', () => {
   });
   it('модель: часы, пройдено/платины/трофеи, игра года по оценке, топ-3; текущий год — «предварительно», прошлый — нет', () => {
     const m = shareModel(data(), 2026);
-    expect(m).toMatchObject({ year: 2026, preliminary: true, nick: 'Zalanaar26', hours: '412,4' });
+    expect(m).toMatchObject({ year: 2026, preliminary: true, nick: 'Zalanaar26', hours: '412' });
     expect(m.stats).toEqual([{ value: '12', label: 'игр пройдено' }, { value: '7', label: 'платин' }, { value: '366', label: 'трофеев' }]);
     expect(m.goty).toMatchObject({ title: 'Astro Bot', kicker: 'Игра года · оценка 10 из 10', cover: `${cdn(1)}?w=480` });
     expect(m.top3.map((x) => [x.title, x.hoursText, x.cover])).toEqual([['Astro Bot', '53 ч', `${cdn(1)}?w=160`], ['Final Fantasy VII Rebirth', '46 ч', `${cdn(2)}?w=160`], ['Hades II', '39 ч', null]]);

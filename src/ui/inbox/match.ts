@@ -9,7 +9,7 @@ export const MATCH_PAGE = 10;
 export function matchGameMeta(g: Pick<ManualMatch['game'], 'lastPlayedAt' | 'hours'>, formatHours: (h: number) => string): string {
   const d = formatDayMonth(g.lastPlayedAt);
   if (d) return `Последний запуск ${d}`;
-  return g.hours > 0 ? `Играл ${formatHours(g.hours)} ч` : 'Нет данных о запуске';
+  return g.hours > 0 ? `Играл ${formatHours(g.hours)}` : 'Нет данных о запуске';
 }
 
 export const matchToast = (answer: 'yes' | 'no', m: Pick<ManualMatch, 'title' | 'game'>): string =>

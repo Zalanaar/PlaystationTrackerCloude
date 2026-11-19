@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cssUrl, psnImageUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
+import { cssUrl, psnImageUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatHours, formatHoursApprox, formatNumber, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
 
 const NOW = Date.parse('2026-10-27T09:00:00Z');
 
@@ -71,5 +71,25 @@ describe('psnImageUrl (Фаза 47)', () => {
     expect(psnImageUrl('https://image.api.playstation.com/a/b.png?w=100', 480)).toBe('https://image.api.playstation.com/a/b.png?w=100');
     expect(psnImageUrl('https://cdn.example.com/a.png', 480)).toBe('https://cdn.example.com/a.png');
     expect(psnImageUrl('not a url', 480)).toBe('not a url');
+  });
+});
+
+describe('F28: одно правило часов', () => {
+  it('точное время: до 100 ч часы и минуты, дальше целые', () => {
+    expect(formatHours(45.49)).toBe('45 ч 29 м');
+    expect(formatHours(502.2)).toBe('502 ч');
+    expect(formatHours(1234.4)).toBe(`${formatNumber(1234)} ч`);
+    expect(formatHours(0.5)).toBe('30 м');
+    expect(formatHours(0)).toBe('0 ч');
+  });
+  it('оценка: до 10 ч часы и минуты (шаг 5 м), дальше целые', () => {
+    expect(formatHoursApprox(45.49)).toBe('45 ч');
+    expect(formatHoursApprox(502.2)).toBe('502 ч');
+    expect(formatHoursApprox(7.5)).toBe('7 ч 30 м');
+    expect(formatHoursApprox(8)).toBe('8 ч');
+    expect(formatHoursApprox(9.99)).toBe('10 ч');
+    expect(formatHoursApprox(0.75)).toBe('45 м');
+    expect(formatHoursApprox(0.01)).toBe('5 м');
+    expect(formatHoursApprox(0)).toBe('0 ч');
   });
 });

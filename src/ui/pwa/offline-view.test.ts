@@ -29,8 +29,9 @@ describe('офлайн-просмотр (пакет 7, п. 2)', () => {
     expect(asOfLabel('мусор', now)).toBe('Данные на неизвестную дату');
   });
   it('часы и трофеи', () => {
-    expect(hoursText(7.25)).toBe('7,3 ч');
-    expect(hoursText(12.6)).toBe('13 ч');
+    expect(hoursText(7.25)).toBe('7 ч 15 м');
+    expect(hoursText(12.6)).toBe('12 ч 36 м');
+    expect(hoursText(502.2)).toBe('502 ч');
     expect(hoursText(null)).toBe('—');
     expect(trophiesText([3, 10, false])).toBe('3/10');
     expect(trophiesText([10, 10, true])).toBe('10/10 · платина');

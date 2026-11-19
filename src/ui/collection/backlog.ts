@@ -4,6 +4,7 @@ import { GENRE_LABELS_RU, GENRE_NONE } from '@/shared/genres';
 import { suggestQuery } from './suggest';
 import type { PlatformKey } from '@/shared/platform-filter';
 import { parsePlatformParam } from './filters';
+import { formatHoursApprox } from '../format';
 
 export const BACKLOG_PAGE = 300;
 
@@ -128,7 +129,7 @@ export function formatHours(h: number): string {
 
 /** «≈ 12 ч» или «—» для неизвестной. */
 export function durationText(d: Pick<GameDuration, 'hours'> | undefined): string {
-  return d && d.hours !== null ? `≈ ${formatHours(d.hours)} ч` : '—';
+  return d && d.hours !== null ? `≈ ${formatHoursApprox(d.hours)}` : '—';
 }
 
 export function sourceLabel(source: GameDuration['source']): string | null {

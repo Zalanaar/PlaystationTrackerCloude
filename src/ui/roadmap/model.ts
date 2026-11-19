@@ -3,7 +3,7 @@
 import type {
   Conflict, NotFitEntry, PlanItem, PlanSegment, PlannedGameDto, Progress, QueueState, RoadmapEntry, RoadmapResponse,
 } from '@/server/roadmap/types';
-import { plural } from '../format';
+import { plural, formatHoursApprox } from '../format';
 
 // ---------- Числа и даты ----------
 export const BUDGET_MIN = 0.5;
@@ -17,7 +17,8 @@ export function hoursNum(h: number): string {
   const r = h >= 10 ? Math.round(h) : Math.round(h * 10) / 10;
   return String(r).replace('.', ',');
 }
-export const hoursLabel = (h: number): string => `${hoursNum(h)} ч`;
+/** F28: подписи часов Плана — как оценки по всему сайту: «12 ч», до 10 ч «7 ч 30 м». */
+export const hoursLabel = (h: number): string => formatHoursApprox(h);
 
 /** Поле часов: «12», «7,5», «7.5» -> число с округлением до 0,1; null при ошибке или выходе из min..max. */
 export function parseHoursField(text: string, min: number, max: number): number | null {

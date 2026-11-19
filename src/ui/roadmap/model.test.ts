@@ -13,7 +13,7 @@ const e = (key: string, o: Record<string, unknown> = {}) => ({
 
 describe('форматирование', () => {
   it('часы и даты', () => {
-    expect(hoursLabel(7.5)).toBe('7,5 ч');
+    expect(hoursLabel(7.5)).toBe('7 ч 30 м');
     expect(hoursLabel(14.4)).toBe('14 ч');
     expect(rangeText('2026-03-03', '2026-03-17')).toBe('3–17 мар.');
     expect(rangeText('2026-02-28', '2026-03-06')).toBe('28 февр. – 6 мар.');
@@ -285,7 +285,7 @@ describe('Пакет 6, п. 11 + F4: paceView', () => {
   const base = { status: 'ok' as const, from: '2026-08-13', to: '2026-11-10', days: 90, playedHours: 90, hoursPerWeek: 7, games: 3, unknownGames: 1, backlogHours: 70, weeks: 10, closeDate: '2027-01-19' };
   it('ok: месяц и год, темп, остаток, игры без длительности', () => {
     expect(paceView(base)).toEqual({ kind: 'ok', title: 'Бэклог закончится ≈ в январе 2027', note: 'В темпе последних 3 месяцев: 7 ч в неделю, в бэклоге 70 ч. У 1 игры нет длительности — она не учтена.' });
-    expect(paceView({ ...base, days: 45, unknownGames: 0, hoursPerWeek: 3.5 })?.note).toBe('В темпе последних 45 дней: 3,5 ч в неделю, в бэклоге 70 ч.');
+    expect(paceView({ ...base, days: 45, unknownGames: 0, hoursPerWeek: 3.5 })?.note).toBe('В темпе последних 45 дней: 3 ч 30 м в неделю, в бэклоге 70 ч.');
     expect(paceView({ ...base, unknownGames: 2 })?.note).toContain('У 2 игр нет длительности — они не учтены.');
     expect(paceView({ ...base, weeks: 6000, closeDate: '2141-01-01' })?.title).toBe('Бэклог закончится больше чем через 100 лет');
   });

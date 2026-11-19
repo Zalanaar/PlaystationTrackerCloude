@@ -2,7 +2,7 @@
 import { DISLIKE_TTL_DAYS } from '@/shared/recommend';
 import { recommendPoolText } from '@/shared/backlog';
 import { GENRE_LABELS_RU, type GenreKey } from '@/shared/genres';
-import { formatPlayTime, plural } from '../format';
+import { formatPlayTime, plural, formatHoursApprox } from '../format';
 
 export const TIME_VALUES = ['any', 'short', 'medium', 'long'] as const;
 export type TimeValue = (typeof TIME_VALUES)[number];
@@ -33,10 +33,10 @@ export function candidatesText(n: number, total?: number | null): string {
   return recommendPoolText(n, total);
 }
 
-/** «≈ 22 ч 30 м»; null, если часов нет. */
+/** F28: оценка — «≈ 22 ч», до 10 ч «≈ 7 ч 30 м»; null, если часов нет. */
 export function hoursText(hours: number | null): string | null {
   if (hours === null || !Number.isFinite(hours) || hours <= 0) return null;
-  return `≈ ${formatPlayTime(Math.round(hours * 3600)) ?? '1 м'}`;
+  return `≈ ${formatHoursApprox(hours)}`;
 }
 
 export function hoursSourceText(src: 'manual' | 'hltb' | null): string | null {

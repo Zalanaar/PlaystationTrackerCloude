@@ -54,13 +54,13 @@ test('цвет слайда, мозаика на «Старте», размыт�
   expect(await slideVar(page)).not.toBe(c0);
   await expect(page.locator('.ps-story__bg')).toHaveAttribute('data-art', 'cover');
   // reduced-motion: число сразу итоговое, без «пружины»
-  await expect(page.locator('.ps-story__big .ps-story__digits')).toHaveText('412,4');
+  await expect(page.locator('.ps-story__big .ps-story__digits')).toHaveText('412');
   expect(await page.locator('.ps-story__big .ps-story__num').evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
   for (let i = 0; i < 7; i++) await page.keyboard.press('ArrowRight');
   await expect(stage(page)).toHaveAttribute('data-slide', 'final');
   const sum = page.getByTestId('story-summary');
   await expect(sum).toBeVisible();
-  await expect(sum.locator('.ps-sum__tiles li')).toHaveText(['412,4ч в играх', '12игр пройдено', '7платин', '366трофеев']);
+  await expect(sum.locator('.ps-sum__tiles li')).toHaveText(['412ч в играх', '12игр пройдено', '7платин', '366трофеев']);
   await expect(sum.locator('.ps-sum__gt')).toContainText('Игра года · ★ 10 из 10');
   await expect(sum.locator('.ps-sum__gt b')).toHaveText('Astro Bot');
   await expect(page.getByRole('heading', { name: `До встречи в ${Y + 1}` })).toBeVisible();
@@ -82,8 +82,8 @@ test('без reduced-motion число считается от нуля и до�
   const ow = () => d.evaluate((el) => (el as HTMLElement).offsetWidth); // без transform «пружины»
   const w0 = await ow();
   const early = await d.textContent();
-  expect(early).not.toBe('412,4');
-  await expect(d).toHaveText('412,4');
+  expect(early).not.toBe('412');
+  await expect(d).toHaveText('412');
   expect(Math.abs((await ow()) - w0)).toBeLessThan(1);
   expect(await page.locator('.ps-story__big .ps-story__num').evaluate((el) => getComputedStyle(el).animationName)).toBe('ps-story-pop');
 });

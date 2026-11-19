@@ -360,7 +360,7 @@ test.describe('Итоги: «Всё время» (Фаза 26)', () => {
         await expect(page.locator('.ps-story__hero')).toBeVisible();
       }
       if (order[i] === 'hours') {
-        await expect(page.locator('.ps-story__big')).toContainText('2 840,5');
+        await expect(page.locator('.ps-story__big')).toContainText('2 841');
         await expect(page.locator('.ps-story__badge')).toContainText('оценены');
         await expect(page.locator('.ps-story__badge')).not.toContainText('равен сумме'); // unattributed = 40
       }

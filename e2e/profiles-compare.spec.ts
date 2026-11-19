@@ -35,7 +35,7 @@ test('два профиля: цифры, «больше — жирным», об
   await expect(box.getByRole('heading', { name: /Общие игры/ })).toContainText('2');
   const games = page.getByTestId('pcmp-game');
   await expect(games).toHaveCount(2);
-  await expect(games.first()).toContainText('Artem_PS: 120,5 ч · пройдена');
+  await expect(games.first()).toContainText('Artem_PS: 120 ч · пройдена');
   await expect(games.first()).toContainText('Second_Nick: 14 ч · играю');
   await expect(games.nth(1)).toContainText('Artem_PS: не играл');
   // в dev React StrictMode запускает эффект дважды (первый запрос отменяется): проверяем, что спрашивали только пару 1–2

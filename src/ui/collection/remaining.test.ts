@@ -6,9 +6,9 @@ const hltb = { status: 'found', id: 1, name: 'X', mainHours: 20, extraHours: nul
 const dur = (p: Partial<GameDuration>): GameDuration => ({ hours: 20, source: 'hltb', bucket: '10_30', overrideHours: null, hltb, ...p });
 
 describe('remainingView (Фаза 32)', () => {
-  it('formatRemaining: минуты, шаг 0,5 ч, целые', () => {
+  it('formatRemaining (F28): минуты, до 10 ч часы и минуты, дальше целые', () => {
     expect(formatRemaining(0.75)).toBe('≈ 45 м');
-    expect(formatRemaining(2.4)).toBe('≈ 2,5 ч');
+    expect(formatRemaining(2.4)).toBe('≈ 2 ч 25 м');
     expect(formatRemaining(12.4)).toBe('≈ 12 ч');
   });
   it('A: остаток и доля из API, подсказка «Наиграно»', () => {

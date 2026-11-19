@@ -108,7 +108,7 @@ test.describe('Подскажи: нормальный ответ', () => {
     await expect(cards(page)).toHaveCount(3);
     const first = page.getByRole('listitem', { name: 'Рекомендация 1 из 3: Хейдес' });
     await expect(first.getByText('Экшен · Приключения')).toBeVisible();
-    await expect(first.getByText('≈ 22 ч 30 м')).toBeVisible();
+    await expect(first.getByText('≈ 23 ч')).toBeVisible();
     await expect(first.getByText('HLTB')).toBeVisible();
     await expect(first.getByText('Тебе заходит экшен, и Хейдес уйдёт около 22 часов.')).toBeVisible();
     await expect(first.getByText('шаблон', { exact: true })).toHaveCount(0); // Фаза 48 (п. 15): метка «шаблон» скрыта

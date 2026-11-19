@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../icons';
 import { fetchCompare, type CompareData, type CompareMetricId, type Profile } from './api';
+import { formatHours } from '../format';
 
 const METRICS: { id: CompareMetricId; label: string }[] = [
   { id: 'games', label: 'Игр в коллекции' },
@@ -18,7 +19,7 @@ const METRICS: { id: CompareMetricId; label: string }[] = [
 const STATUS: Record<string, string> = { playing: 'играю', completed: 'пройдена', dropped: 'брошена', backlog: 'в бэклоге', shelved: 'отложена', service: 'сервис' };
 const num = (n: number) => n.toLocaleString('ru-RU');
 const nickOf = (p: Pick<Profile, 'onlineId'>) => p.onlineId ?? 'Без ника';
-const hoursText = (h: number) => (h > 0 ? `${h.toLocaleString('ru-RU')} ч` : 'не играл');
+const hoursText = (h: number) => (h > 0 ? formatHours(h) : 'не играл');
 const sideText = (s: { hours: number; status: string | null }) => [hoursText(s.hours), s.status ? STATUS[s.status] : null].filter(Boolean).join(' · ');
 
 type Load = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; data: CompareData };

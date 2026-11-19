@@ -86,7 +86,7 @@ describe('показ длительности', () => {
   it('часы и прочерк', () => {
     expect(durationText({ hours: 12 })).toBe('≈ 12 ч');
     expect(durationText({ hours: 21.9 })).toBe('≈ 22 ч');
-    expect(durationText({ hours: 7.5 })).toBe('≈ 7,5 ч');
+    expect(durationText({ hours: 7.5 })).toBe('≈ 7 ч 30 м');
     expect(durationText({ hours: null })).toBe('—');
     expect(durationText(undefined)).toBe('—');
     expect(formatHours(0.1)).toBe('0,1');

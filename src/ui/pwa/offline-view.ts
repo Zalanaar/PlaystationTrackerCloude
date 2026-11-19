@@ -1,5 +1,6 @@
 // Пакет 7, п. 2: чистые функции экрана офлайн-просмотра (/offline с сохранённой копией).
 import type { OfflineGame, OfflineSnapshot, OfflineStatus } from '@/shared/offline-snapshot';
+import { formatHours, formatHoursApprox } from '../format';
 
 export type OfflineTab = 'collection' | 'backlog' | 'stats';
 export const OFFLINE_TABS: { id: OfflineTab; label: string }[] = [
@@ -33,11 +34,15 @@ export function asOfLabel(iso: string, nowMs: number, timeZone?: string): string
   return `Данные на ${Number(p.day)} ${MONTHS[Number(p.month) - 1]}${sameYear ? '' : ` ${p.year}`}, ${p.hour}:${p.minute}`;
 }
 
-/** «12 ч», «7,5 ч», «0 ч». */
+/** F28: наиграно — «12 ч 30 м», от 100 ч «128 ч», «0 ч». */
 export function hoursText(h: number | null | undefined): string {
   if (h === null || h === undefined || !Number.isFinite(h)) return '—';
-  const r = h >= 10 ? Math.round(h) : Math.round(h * 10) / 10;
-  return `${String(r).replace('.', ',')} ч`;
+  return formatHours(h);
+}
+
+/** F28: оценка (длительность бэклога) — «12 ч», до 10 ч «7 ч 30 м». */
+export function approxText(h: number): string {
+  return formatHoursApprox(h);
 }
 
 export function trophiesText(t: OfflineGame['trophies']): string | null {

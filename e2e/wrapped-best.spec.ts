@@ -44,7 +44,7 @@ test('слайд «Лучшая игра года»: обложка, назва�
   await expect(page.getByRole('heading', { name: 'Лучшая игра года' })).toBeVisible();
   await expect(page.locator('.ps-story__gtitle')).toHaveText('Astro Bot');
   await expect(page.getByTestId('best-rating')).toHaveText('★ 9 из 10');
-  await expect(page.getByText('42,5 ч в этом году')).toBeVisible();
+  await expect(page.getByText('43 ч в этом году')).toBeVisible();
   await expect(page.getByText('По твоей оценке')).toBeVisible();
   await page.keyboard.press('ArrowRight');
   expect(await slideId(page)).toBe('final');

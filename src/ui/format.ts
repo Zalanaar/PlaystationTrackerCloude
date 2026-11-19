@@ -31,6 +31,25 @@ export function formatPlayTime(seconds: number): string | null {
   return `${h} ч ${m} м`;
 }
 
+/**
+ * F28 (аудит UX): одно правило часов на весь сайт. Точное время (наиграно): «45 м», «45 ч 29 м», от 100 ч целые «502 ч»;
+ * 0 и меньше — «0 ч». Оценки — formatHoursApprox.
+ */
+export function formatHours(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0 ч';
+  return formatPlayTime(Math.round(hours * 3600)) ?? 'меньше минуты';
+}
+
+/** F28: оценка (знак «≈» ставит вызывающий): до 10 ч часы и минуты с шагом 5 м («7 ч 30 м», «45 м»), от 10 ч целые («45 ч», «1 200 ч»). */
+export function formatHoursApprox(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0 ч';
+  const m5 = Math.max(5, Math.round(hours * 12) * 5);
+  if (m5 >= 600) return `${formatNumber(Math.round(hours))} ч`;
+  const h = Math.floor(m5 / 60);
+  const m = m5 % 60;
+  return h === 0 ? `${m} м` : m === 0 ? `${h} ч` : `${h} ч ${m} м`;
+}
+
 /** «56 ч» для таблицы. */
 export function formatHoursShort(hours: number): string {
   return `${formatNumber(Math.round(hours))} ч`;

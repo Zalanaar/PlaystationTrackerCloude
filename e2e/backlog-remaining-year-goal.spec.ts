@@ -38,7 +38,7 @@ test.describe('Бэклог: «осталось»', () => {
     await expect(meter(page, 'Альфа').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40');
     await expect(meter(page, 'Браво')).toContainText('≈ 10 ч');
     await expect(meter(page, 'Браво').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
-    await expect(meter(page, 'Чарли')).toContainText('≈ 1,5 ч');
+    await expect(meter(page, 'Чарли')).toContainText('≈ 1 ч 30 м');
     await expect(meter(page, 'Чарли')).toContainText('мин. 15%');
     await expect(meter(page, 'Чарли').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '85');
     await expect(meter(page, 'Эхо')).toContainText('≈ 20 ч');

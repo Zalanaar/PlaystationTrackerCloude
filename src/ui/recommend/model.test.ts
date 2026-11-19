@@ -19,7 +19,8 @@ describe('recommend model', () => {
     expect(candidatesText(37)).toBe('Из 37 игр бэклога по твоей истории');
   });
   it('hoursText', () => {
-    expect(hoursText(22.5)).toBe('≈ 22 ч 30 м');
+    expect(hoursText(22.4)).toBe('≈ 22 ч');
+    expect(hoursText(7.5)).toBe('≈ 7 ч 30 м');
     expect(hoursText(8)).toBe('≈ 8 ч');
     expect(hoursText(null)).toBeNull();
     expect(hoursText(0)).toBeNull();

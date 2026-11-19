@@ -1,20 +1,18 @@
 // Модель блока «осталось ≈ N ч» (Фаза 32, спека docs/design/phase-32-remaining-goal.md, п.1). Чистые функции, остаток UI не считает.
 import type { GameDuration } from '@/server/collection/types';
+import { formatHours, formatHoursApprox } from '../format';
 
 /** Потолок заливки при сработавшем минимуме 15% (полоса не доходит до конца). */
 export const MINIMUM_PROGRESS = 0.85;
 
-/** «≈ 45 м», «≈ 2,5 ч», «≈ 12 ч»: до 1 ч минуты, до 10 ч шаг 0,5 ч, дальше целые часы. */
+/** F28: «≈ 45 м», «≈ 2 ч 30 м», «≈ 12 ч» (formatHoursApprox: до 10 ч часы и минуты, дальше целые). */
 export function formatRemaining(h: number): string {
-  if (h < 1) return `≈ ${Math.max(1, Math.round(h * 60))} м`;
-  if (h < 10) return `≈ ${String(Math.round(h * 2) / 2).replace('.', ',')} ч`;
-  return `≈ ${Math.round(h)} ч`;
+  return `≈ ${formatHoursApprox(h)}`;
 }
 
-/** Часы без «≈»: «20», «7,5» (для tooltip «Наиграно 8 ч из ≈ 20 ч»). */
+/** Наиграно, без «≈» (для tooltip «Наиграно 8 ч 10 м из ≈ 20 ч»). */
 export function plainHours(h: number): string {
-  const r = h >= 10 ? Math.round(h) : Math.round(h * 10) / 10;
-  return `${String(r).replace('.', ',')} ч`;
+  return formatHours(h);
 }
 
 export type RemainingKind =
@@ -74,7 +72,7 @@ export function remainingView(d: GameDuration | undefined, playedSeconds?: numbe
   if (isMinimum) hint = 'Игра идёт дольше оценки HLTB. Показан минимум 15% оценки.';
   else if (source === 'manual') hint = 'Оценка введена вручную';
   else hint = played !== null ? `Наиграно ${plainHours(played)} из ${formatRemaining(d.hours)}` : `Полная длительность ${formatRemaining(d.hours)}`;
-  const playedPart = played !== null ? `Наиграно ${plainHours(played)} из ${plainHours(d.hours)}, ` : '';
+  const playedPart = played !== null ? `Наиграно ${plainHours(played)} из ≈ ${formatHoursApprox(d.hours)}, ` : '';
   const label = `${playedPart}осталось ${text}${isMinimum ? ', минимум 15%' : source === 'manual' ? ', оценка вручную' : srcWord ? `, ${srcWord}` : ''}`;
   return {
     kind: 'remaining', text, hasWord: true, fill: fill > 0 ? fill : 0, isMinimum, source,

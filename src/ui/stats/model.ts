@@ -1,6 +1,6 @@
 // Чистая логика экрана «Статистика»: параметры URL, навигация по периодам, подготовка данных для графиков.
 import type { PlayedGroup, StatsGenreGame, StatsGenreItem, StatsResponse, TopHoursItem, TopTrophyItem, TrophyCountsByType } from '@/server/stats/types';
-import { formatNumber, formatPlayTime, mskParts, monthName, plural } from '../format';
+import { formatNumber, formatPlayTime, mskParts, monthName, plural, formatHours as formatHoursText } from '../format';
 
 export type PeriodType = 'year' | 'month' | 'all';
 export type Selection = { period: PeriodType; year: number; month: number | null };
@@ -94,8 +94,7 @@ export function formatHours(n: number): string {
  * Оценка помечается снаружи знаком «≈» (и «примерно» для скринридера). 0 = «0 ч», меньше минуты = «меньше минуты».
  */
 export function hoursText(hours: number): string {
-  if (!Number.isFinite(hours) || hours <= 0) return '0 ч';
-  return formatPlayTime(Math.round(hours * 3600)) ?? 'меньше минуты';
+  return formatHoursText(hours);
 }
 
 /** «2026-03-04» -> «04.03.2026». Невалидное -> null. */

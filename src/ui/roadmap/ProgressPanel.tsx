@@ -52,7 +52,7 @@ export function ProgressPanel({ data }: { data: RoadmapResponse }) {
             <i style={{ width: `${pct(v.actual, v.scale)}%` }} />
             <u style={{ left: `${pct(v.planned, v.scale)}%` }} />
           </div>
-          <small className="num">из {hoursNum(v.scale)} ч</small>
+          <small className="num">из {hoursLabel(v.scale)}</small>
         </div>
         <p className="ps-rm-note">
           Часы игр из плана по ежедневным снимкам: {dayYearText(v.from)} – {dayYearText(v.asOf)}. Допуск «по плану»: {hoursLabel(v.tolerance)}.

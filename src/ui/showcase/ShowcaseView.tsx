@@ -4,6 +4,7 @@
 // Ничего личного, кроме ника и общих цифр; обложки без Referer (ключ в адресе не уходит на CDN).
 import { useEffect, useState } from 'react';
 import type { Showcase } from '@/server/showcase/showcase';
+import { formatHours } from '../format';
 
 type Load = { kind: 'loading' } | { kind: 'closed' } | { kind: 'error' } | { kind: 'ready'; d: Showcase };
 
@@ -77,7 +78,7 @@ export function ShowcaseView({ token }: { token: string }) {
         <section aria-labelledby="sc-top">
           <h2 id="sc-top" className="ps-sc__h2">Больше всего часов</h2>
           <ul className="ps-sc__list">
-            {d.top.map((g, i) => <li key={i} className="ps-sc__item" data-testid="sc-top"><Cover url={g.imageUrl} name={g.name} /><span className="ps-sc__name">{g.name}</span><span className="ps-sc__meta num">{num(g.hours)} ч</span></li>)}
+            {d.top.map((g, i) => <li key={i} className="ps-sc__item" data-testid="sc-top"><Cover url={g.imageUrl} name={g.name} /><span className="ps-sc__name">{g.name}</span><span className="ps-sc__meta num">{formatHours(g.hours)}</span></li>)}
           </ul>
         </section>
       )}
