@@ -6,13 +6,14 @@ import { Popover } from '../primitives/Popover';
 import { RemainingMeter } from './RemainingMeter';
 import { playLabel } from './playLabel';
 import { Cover, THUMB_W } from './Cover';
+import { serviceLine } from './serviceLine';
 
 export type RowMenuItem = { label: string; run: () => void };
 
 /** Строка вида «Список» страницы «Бэклог» (Фаза 33): обложка, название, длительность, «Играть» и меню «…». Нажатие на строку открывает окно игры. */
 export function BacklogRow({
-  game, onOpen, onPlay, menu, hideBar = false, priority = false, age,
-}: { game: GameItem; /** П12.4: «В бэклоге 8 мес.» */ age?: string; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean; /** первый экран: eager + fetchpriority=high */ priority?: boolean }) {
+  game, onOpen, onPlay, menu, hideBar = false, priority = false, age, service = false,
+}: { game: GameItem; /** F11: игра-сервис — наиграно и последний запуск вместо «осталось … HLTB» */ service?: boolean; /** П12.4: «В бэклоге 8 мес.» */ age?: string; onOpen: () => void; onPlay: () => void; menu: readonly RowMenuItem[]; hideBar?: boolean; /** первый экран: eager + fetchpriority=high */ priority?: boolean }) {
   const plat = game.trophies?.platinumEarned === true;
   return (
     <li className="ps-blrow" data-testid="bl-row" data-game={game.id}>
@@ -22,7 +23,9 @@ export function BacklogRow({
           {game.title}
           {plat && <PlatinumIcon size={14} className="ps-blrow__plat" title="Платина получена" />}
         </span>
-        <RemainingMeter duration={game.duration} playedSeconds={game.playSeconds} variant="row" hideBar={hideBar} />
+        {service
+          ? <span className="ps-blrow__svc num" data-testid="bl-service-line">{serviceLine(game.playSeconds, game.lastPlayedAt)}</span>
+          : <RemainingMeter duration={game.duration} playedSeconds={game.playSeconds} variant="row" hideBar={hideBar} />}
         {age && <span className="ps-blrow__age num" data-testid="bl-row-age">{age}</span>}
       </div>
       {/* D-P3: главная кнопка страницы одна (карточка «Следующая по плану»), в строках тихая ▶ 44×44 */}

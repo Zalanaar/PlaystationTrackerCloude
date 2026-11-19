@@ -31,6 +31,9 @@ test.describe('Бэклог: блок «Сервис»', () => {
     // у карточки сервиса нет «Начать играть»
     await expect(page.getByTestId('bl-service').getByRole('button', { name: 'Начать играть' })).toHaveCount(0);
     await expect(page.getByTestId('bl-service').getByRole('button', { name: 'Вернуть в бэклог' })).toHaveCount(2);
+    // F11: у сервиса наиграно и последний запуск, без «осталось … HLTB»
+    await expect(page.getByTestId('bl-service').getByTestId('bl-service-line').first()).toContainText('наиграно 1 ч');
+    await expect(page.getByTestId('bl-service')).not.toContainText('осталось');
   });
 
   test('пустой блок «Сервис» скрыт', async ({ page, context, baseURL }) => {

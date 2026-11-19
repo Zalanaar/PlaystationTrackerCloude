@@ -238,3 +238,5 @@
 }
 /* F24: источник длительности один раз под списком */
 .ps-bl-srcnote { margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+/* F11: строка игры-сервиса (наиграно · последний запуск) */
+.ps-blrow__svc { display: block; margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }

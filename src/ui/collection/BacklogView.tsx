@@ -55,6 +55,7 @@ import { BacklogJumpNav, scrollToBlock, useBacklogJump } from './BacklogJump';
 import { BacklogSideSection } from './BacklogSideSection';
 import { BacklogSearchSheet } from './BacklogSearchSheet';
 import { playLabel } from './playLabel';
+import { serviceLine } from './serviceLine';
 import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
@@ -528,7 +529,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   const rows = (list: GameItem[], kind: 'backlog' | 'shelved' | 'service', label: string) => (
     <ul className="ps-bl-rows" aria-label={label}>
       {list.map((g) => (
-        <BacklogRow key={g.id} game={g} hideBar={kind === 'service'} onOpen={() => actions.open(g)} onPlay={() => void change(g, 'playing')} menu={menuFor(g, kind)} />
+        <BacklogRow key={g.id} game={g} hideBar={kind === 'service'} service={kind === 'service'} onOpen={() => actions.open(g)} onPlay={() => void change(g, 'playing')} menu={menuFor(g, kind)} />
       ))}
     </ul>
   );
@@ -720,12 +721,15 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         <BacklogSideSection
           kind="service" items={service} total={serviceTotal} open={serviceOpen} onToggle={() => setServiceOpen((v) => !v)} view={view} rows={rows} actions={actions}
           cardBody={(g) => (
+            <>
+            <p className="ps-blrow__svc num" data-testid="bl-service-line">{serviceLine(g.playSeconds, g.lastPlayedAt)}</p>
             <div className="ps-bl-actions">
               <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
                 <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
               </button>
               <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из сервиса</button>
             </div>
+            </>
           )}
         />
       )}
