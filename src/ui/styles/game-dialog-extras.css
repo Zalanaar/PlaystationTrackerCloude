@@ -40,7 +40,8 @@
   .ps-gd__doneedit { width: var(--tap-min); height: var(--tap-min); }
   .ps-rate__opt { height: var(--tap-min); }
   .ps-gd__rvreset { min-height: var(--tap-min); }
-  .ps-rate { gap: 3px; }
+  /* F14: 0–10 в две строки (0–5, 6–10) — каждая кнопка не уже 44 px */
+  .ps-rate { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   /* три плитки в 390: подписи переносятся на 2 строки вместо обрезки («посл. 2 нед. назад», «платина 5 окт. 2026») */
   .ps-gd__ts, .ps-gd__tplatl { white-space: normal; overflow-wrap: anywhere; }
   .ps-gd__tplatl { align-items: flex-start; }

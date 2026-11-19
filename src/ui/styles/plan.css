@@ -34,3 +34,13 @@
   .ps-rm-jump__a:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
   .ps-rm-panel[id] { scroll-margin-top: calc(var(--sticky-top) + 60px); }
 }
+
+/* F14: зоны нажатия 44 на телефоне — поле часов, чип «Нужны часы»/«Не успеваю», ссылка RAWG */
+@media (max-width: 767px) {
+  /* поле во всю высоту рамки: тап по краю тоже ставит курсор */
+  span.ps-rm-input input { height: calc(100% + 2 * var(--border-w)); margin-block: calc(-1 * var(--border-w)); }
+  button.ps-rm-state { position: relative; }
+  button.ps-rm-state::after { content: ''; position: absolute; inset: -12px -4px; }
+  .ps-rm-attr a { position: relative; }
+  .ps-rm-attr a::after { content: ''; position: absolute; inset: -14px -8px; }
+}

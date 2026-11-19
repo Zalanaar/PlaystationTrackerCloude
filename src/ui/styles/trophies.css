@@ -101,3 +101,6 @@ a.ps-tf__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2
   .ps-tlevel__top { flex-wrap: wrap; row-gap: 2px; }
   .ps-tlevel__next { flex-basis: 100%; }
 }
+
+/* F14: фильтры ленты 44 на телефоне (скелет того же класса — без сдвига) */
+@media (max-width: 767px) { .ps-tf__chip { height: var(--tap-min); } }

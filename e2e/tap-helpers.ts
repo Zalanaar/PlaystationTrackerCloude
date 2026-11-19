@@ -17,7 +17,7 @@ export async function smallHitTargets(page: Page, scope = 'main'): Promise<strin
       const r = e.getBoundingClientRect();
       if (r.width === 0 || r.height === 0 || e.closest('[inert],[aria-hidden="true"]')) return false;
       const cs = getComputedStyle(e);
-      if (cs.visibility === 'hidden' || cs.pointerEvents === 'none' || (e.getAttribute('aria-label') ?? '').startsWith('Open Next.js')) return false; // оверлей dev-сервера
+      if (cs.visibility === 'hidden' || cs.pointerEvents === 'none' || /^(Open Next.js|Open issues overlay|Collapse issues badge)/.test(e.getAttribute('aria-label') ?? '')) return false; // оверлей dev-сервера
       if (e.classList.contains('ps-st-bar')) return false; // столбцы графика: исключение по отступу (WCAG 2.5.8), см. stats.css
       return r.width < 44 || r.height < 44;
     });
