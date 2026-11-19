@@ -46,6 +46,9 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
   const totalsRes = await db.execute(sql`
     select
       (select count(*) from games where user_id = ${userId})::int as games,
+      (select count(*) from games where user_id = ${userId} and hidden_at is null and duplicate_of_game_id is null)::int as games_visible,
+      (select count(*) from games where user_id = ${userId} and hidden_at is not null)::int as games_hidden,
+      (select count(*) from games where user_id = ${userId} and hidden_at is null and duplicate_of_game_id is not null)::int as games_duplicates,
       (select count(*) from trophy_sets where user_id = ${userId})::int as trophy_sets,
       count(*)::int as trophies,
       (count(*) filter (where earned))::int as trophies_earned,
@@ -55,6 +58,9 @@ export async function getSyncStatus(db: AnyDb, userId: UserId, now: Date = new D
   const tr = rows[0] ?? {};
   const totals = {
     games: Number(tr.games ?? 0),
+    gamesVisible: Number(tr.games_visible ?? 0),
+    gamesHidden: Number(tr.games_hidden ?? 0),
+    gamesDuplicates: Number(tr.games_duplicates ?? 0),
     trophySets: Number(tr.trophy_sets ?? 0),
     trophies: Number(tr.trophies ?? 0),
     trophiesEarned: Number(tr.trophies_earned ?? 0),

@@ -47,6 +47,10 @@ describe('sync status mapping', () => {
     expect(rows.map((r) => r.label)).toEqual(['Игр', 'Трофеев', 'Платин']);
     expect(rows[1].value.replace(/\s/g, ' ')).toBe('4 321 из 9 000');
     expect(totalsRows(null)).toEqual([]);
+    // F3: разбивка PSN / коллекция / скрытые и дубли
+    const f3 = totalsRows({ games: 216, gamesVisible: 209, gamesHidden: 5, gamesDuplicates: 2, trophySets: 1, trophies: 1, trophiesEarned: 1, platinumEarned: 0 });
+    expect(f3.slice(0, 2).map((r) => [r.label, r.value.replace(/\s/g, ' ')])).toEqual([['Игр', '216 в PSN · 209 в коллекции'], ['Не в коллекции', '5 скрыто · 2 дубля']]);
+    expect(totalsRows({ games: 10, gamesVisible: 10, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 })[0].value).toBe('10');
     expect(totalsRows(undefined)).toEqual([]);
   });
   it('счётчики запуска как прогресс', () => {

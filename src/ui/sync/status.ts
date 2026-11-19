@@ -36,7 +36,12 @@ export interface SyncRun {
 
 /** Итоги из БД (не по запуску). */
 export interface SyncTotals {
+  /** все игры PSN в базе, включая скрытые и дубли */
   games: number;
+  /** F3: как в коллекции (без скрытых и дублей); старый ответ сервера — поля нет */
+  gamesVisible?: number;
+  gamesHidden?: number;
+  gamesDuplicates?: number;
   trophySets: number;
   trophies: number;
   trophiesEarned: number;
@@ -152,7 +157,17 @@ const nf = new Intl.NumberFormat('ru-RU');
 export function totalsRows(t: SyncTotals | null | undefined): { label: string; value: string }[] {
   if (!t) return [];
   const rows: { label: string; value: string }[] = [];
-  if (Number.isFinite(t.games)) rows.push({ label: 'Игр', value: nf.format(t.games) });
+  if (Number.isFinite(t.games)) {
+    // F3: «216 в PSN · 209 в коллекции» + почему разница (скрытые, дубли), чтобы не выглядело потерей данных
+    const vis = t.gamesVisible;
+    if (typeof vis === 'number' && Number.isFinite(vis) && vis !== t.games) {
+      rows.push({ label: 'Игр', value: `${nf.format(t.games)} в PSN · ${nf.format(vis)} в коллекции` });
+      const parts: string[] = [];
+      if (t.gamesHidden) parts.push(`${nf.format(t.gamesHidden)} ${plural(t.gamesHidden, 'скрыта', 'скрыто', 'скрыто')}`);
+      if (t.gamesDuplicates) parts.push(`${nf.format(t.gamesDuplicates)} ${plural(t.gamesDuplicates, 'дубль', 'дубля', 'дублей')}`);
+      if (parts.length) rows.push({ label: 'Не в коллекции', value: parts.join(' · ') });
+    } else rows.push({ label: 'Игр', value: nf.format(t.games) });
+  }
   if (Number.isFinite(t.trophiesEarned) && Number.isFinite(t.trophies)) {
     rows.push({ label: 'Трофеев', value: `${nf.format(t.trophiesEarned)} из ${nf.format(t.trophies)}` });
   }

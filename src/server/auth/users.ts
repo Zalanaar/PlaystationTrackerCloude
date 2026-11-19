@@ -164,10 +164,11 @@ async function profilesCountByLogin(db: AnyDb): Promise<Map<number, number>> {
 
 /** gamesCount и lastSyncAt по user_id (22.12): одним запросом на каждый показатель, группировка по пользователю. */
 export async function statsByUser(db: AnyDb, ids?: number[]): Promise<Map<number, { games: number; lastSync: Date | null }>> {
+  // F3: игры как в коллекции (без скрытых и дублей) — одно число с шапкой «N игр»; разбивка «в PSN / скрыто» — в панели синка
   const gameRows = await db
     .select({ userId: games.userId, n: count() })
     .from(games)
-    .where(ids ? inArray(games.userId, ids) : undefined)
+    .where(and(isNull(games.hiddenAt), isNull(games.duplicateOfGameId), ids ? inArray(games.userId, ids) : undefined))
     .groupBy(games.userId);
   const syncRows = await db
     .select({ userId: syncRuns.userId, at: max(syncRuns.finishedAt) })
