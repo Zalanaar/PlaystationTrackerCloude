@@ -25,6 +25,7 @@ import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusM
 import { SyncIndicator } from './SyncIndicator';
 import { collectionMenuOn, emitHeaderAction, headerActionsFor } from './headerActions';
 import { AddMenu } from './AddMenu';
+import { useOfflineNav } from './offlineNav';
 import { PullToRefresh } from './PullToRefresh';
 import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
@@ -62,6 +63,7 @@ function useLogout() {
 
 export function AppHeader() {
   const pathname = usePathname();
+  const offlineNav = useOfflineNav();
   const { openPanel } = useSync();
   const { busy, logout, logoutAll } = useLogout();
   const [more, setMore] = useState(false);
@@ -98,6 +100,7 @@ export function AppHeader() {
               return (
                 <Link
                   key={n.href} href={n.href} className="ps-nav-item" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
+                  onClick={(e: MouseEvent<HTMLAnchorElement>) => { if (!isTabActive(pathname, n) && offlineNav()) e.preventDefault(); }}
                   aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
                 >
                   {n.label}
@@ -371,9 +374,11 @@ export function TabBar() {
     void import('./tabPrefetch').then((m) => m.prefetchTabData(NAV_TABS[to].id), () => {});
   };
 
+  const offlineNav = useOfflineNav();
   const onTab = (e: MouseEvent<HTMLAnchorElement>, to: number) => {
     if (!shouldIntercept(e, active, to)) return;
     e.preventDefault();
+    if (offlineNav()) return;
     try { performance.clearMarks(MARK_TAP); performance.clearMeasures(MEASURE_TAB); performance.mark(MARK_TAP); } catch { /* метки необязательны */ }
     // подсветка новой вкладки — синхронно, до снимка View Transition: обратная связь в первом же кадре
     flushSync(() => setOptimistic({ path: pathname, to }));
