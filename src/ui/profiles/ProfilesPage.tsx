@@ -169,14 +169,13 @@ export function ProfilesPage() {
       </ul>
 
       {single && data.canAdd ? (
-        <section className="ps-panel ps-pempty" aria-labelledby="ps-pempty-h">
-          <Icon name="users" size={32} className="ps-pempty__ico" />
-          <h3 id="ps-pempty-h" className="ps-h3">Один профиль PSN</h3>
-          <p>Можно добавить ещё до двух профилей, например аккаунт друга или семьи. У каждого свои игры и статистика.</p>
-          <button ref={addRef} type="button" className="ps-btn ps-btn--primary ps-padd-open" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={16} />Добавить PSN-профиль
+        // F27: второй профиль не главное на экране — строка-ссылка под карточкой профиля вместо большой пустой карточки
+        <p className="ps-pempty" data-testid="profiles-add-row">
+          <button ref={addRef} type="button" className="ps-link ps-padd-open" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={14} />Добавить PSN-профиль
           </button>
-        </section>
+          <span className="ps-pempty__why"> — сейчас один профиль PSN; можно добавить друга или семью</span>
+        </p>
       ) : (
         <div className="ps-padd-wrap">
           <button

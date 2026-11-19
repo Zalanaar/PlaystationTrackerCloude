@@ -118,9 +118,9 @@ html[data-psw] .ps-main { visibility: hidden; }
 .ps-padd-open { align-self: flex-start; }
 .ps-padd-open:disabled { opacity: .6; }
 .ps-padd-why { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
-.ps-pempty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); }
-.ps-pempty p { margin: 0; color: var(--text-2); }
-.ps-pempty__ico { color: var(--text-3); }
+/* F27: «добавить профиль» — строка-ссылка, а не большая карточка */
+.ps-pempty { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-1); margin: 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-pempty .ps-padd-open { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap-min); font-size: var(--fs-body, 14px); }
 
 /* скелет (§17.7) */
 .ps-pprof__sk-pill { display: block; width: 60px; height: 24px; border-radius: var(--r-chip); }

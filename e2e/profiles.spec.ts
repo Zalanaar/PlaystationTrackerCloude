@@ -116,7 +116,9 @@ test.describe('/profiles', () => {
     await setup(page, baseURL!, ONE());
     await page.goto('/profiles');
     await expect(page.getByRole('heading', { level: 1, name: 'Профили PSN' })).toBeVisible();
-    await expect(page.locator('.ps-pempty')).toContainText('Один профиль PSN');
+    await expect(page.locator('.ps-pempty')).toContainText('один профиль PSN');
+    // F27: строка-ссылка, не карточка во всю ширину
+    expect((await page.getByTestId('profiles-add-row').boundingBox())!.height).toBeLessThanOrEqual(96);
     await expect(page.getByText('Основной профиль нельзя отвязать')).toBeVisible();
     await expect(page.getByRole('button', { name: /Отвязать профиль/ })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
