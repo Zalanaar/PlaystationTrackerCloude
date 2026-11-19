@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { MonthChipsSkeleton } from './collection/MonthChips';
 import { BacklogSubnav } from './shell/Subnav';
+// Стили шапки Бэклога нужны скелету с первого кадра: иначе loading.tsx рисуется до чанка BacklogView с backlog.css,
+// шапка без своих правил ниже на 10–28 px, и при подгрузке CSS экран прыгал (CLS 0,024 в e2e backlog-first-visit)
+import './backlog.css';
 
 // Скелеты страниц (docs/design-system.md §8.4). Размеры по таблице; реальные контейнеры получают те же размеры через токены,
 // поэтому подмена не сдвигает вёрстку (CLS <= 0.05). Статичная обвязка (подвкладки, h1) рендерится сразу.

@@ -232,7 +232,10 @@
 
 /* П16.3: первый вход в Бэклог через скелет — блоки списка появляются fade 180 мс (без сдвига: только opacity) */
 @keyframes ps-bl-fresh { from { opacity: 0; } to { opacity: 1; } }
-.ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: ps-bl-fresh 180ms ease-out both; }
+.ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: ps-bl-fresh 180ms ease-out backwards; }
+/* fill «backwards», не «both»: после fade у блоков не остаётся анимированного opacity — иначе каждый блок навсегда свой
+   stacking context, и меню «⋯» карточки (F19) уходило под заголовок следующей секции («Отложено»). Пока меню открыто, блок выше соседей. */
+.ps-collection > :is(.ps-bl-list, .ps-bl-service, section):has(.ps-pop__panel) { position: relative; z-index: 4; }
 @media (prefers-reduced-motion: reduce) {
   .ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: none; }
 }
