@@ -81,9 +81,13 @@ test('мобильная шапка: статус синка коротким в
   const t = page.locator('.ps-btn--sync .ps-sync-text-m');
   await expect(t).toBeVisible();
   await expect(t).toHaveText(/^(\d+ [а-я]+|сейчас|Ошибка|Идёт…|Нет)$/);
+  // F8: рядом значок ↻ (возраст синка, не наигранное время), точка тона скрыта
+  await expect(page.locator('.ps-btn--sync .ps-sync-ic')).toBeVisible();
+  await expect(page.locator('.ps-btn--sync .ps-dot')).toBeHidden();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(t).toBeHidden();
   await expect(page.locator('.ps-btn--sync .ps-sync-text')).toBeVisible();
+  await expect(page.locator('.ps-btn--sync .ps-sync-ic')).toBeHidden();
 });
 
 for (const w of [320, 360, 390]) {

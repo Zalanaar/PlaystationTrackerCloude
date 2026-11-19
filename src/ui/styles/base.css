@@ -66,6 +66,7 @@ a.ps-btn { text-decoration: none; }
 .ps-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
 .ps-btn--sync, .ps-btn--theme { background: transparent; border-color: transparent; font-size: var(--fs-small); color: var(--text-2); }
 .ps-sync-text-m { display: none; }
+.ps-sync-ic { display: none; }
 .ps-header__title { display: none; }
 .ps-btn--theme { border-color: var(--border); color: var(--text-2); height: 32px; border-radius: var(--r-chip); }
 .ps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); display: inline-block; flex: none; }
@@ -172,6 +173,13 @@ a.ps-btn { text-decoration: none; }
   .ps-header__right .ps-iconbtn.ps-mobile-only { flex: none; }
   .ps-btn--sync { padding: 0 var(--sp-2); gap: var(--sp-1); min-width: var(--tap-min); height: var(--tap-min); }
   .ps-btn--sync[data-tone="bad"] { color: var(--danger); }
+  /* F8: на телефоне вместо точки значок ↻ — «12 ч» читается как возраст синка; тон — цветом значка */
+  .ps-btn--sync .ps-dot { display: none; }
+  .ps-sync-ic { display: inline-grid; place-items: center; flex: none; color: var(--text-3); }
+  .ps-sync-ic[data-tone="warn"] { color: var(--warning); }
+  .ps-btn--sync[data-tone="warn"] { color: var(--warning); }
+  .ps-sync-ic[data-tone="bad"] { color: var(--danger); }
+  .ps-sync-ic[data-tone="busy"] { color: var(--accent); }
   .ps-iconbtn.ps-mobile-only { display: inline-grid; width: var(--tap-min); height: var(--tap-min); }
 }
 @media (max-width: 767px) {
