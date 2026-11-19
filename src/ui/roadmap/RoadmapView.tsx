@@ -371,6 +371,13 @@ export function RoadmapView() {
         <h1 className="ps-h1 ps-h1--hdr">План</h1>
         <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника</p>
       </div>
+      {/* F5: на телефоне липкий ряд переходов к главным блокам длинной страницы */}
+      <nav className="ps-rm-jump" aria-label="Блоки плана" data-testid="rm-jump">
+        <a className="ps-rm-jump__a" href="#rm-goal">Цель</a>
+        <a className="ps-rm-jump__a" href="#rm-tl">Таймлайн</a>
+        <a className="ps-rm-jump__a" href="#rm-releases">Релизы</a>
+        <a className="ps-rm-jump__a" href="#rm-queue">Очередь</a>
+      </nav>
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
           <div className="ps-rm-set__head">
@@ -402,7 +409,7 @@ export function RoadmapView() {
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">
           {data ? <ProgressPanel data={data} /> : <><h2 className="ps-h2">Прогресс</h2><div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" /></>}
         </section>
-        <section className="ps-rm-panel" data-area="tl" aria-label={`Таймлайн ${year}`}>
+        <section className="ps-rm-panel" id="rm-tl" data-area="tl" aria-label={`Таймлайн ${year}`}>
           {data ? <TimelinePanel data={data} recalculating={recalculating} extra={extra} /> : <><h2 className="ps-h2">Таймлайн {year}</h2><div className="ps-skeleton ps-rm-sk-tl" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" id="rm-upcoming" data-area="upc" aria-label="Предстоящие релизы">

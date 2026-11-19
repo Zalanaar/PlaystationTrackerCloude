@@ -328,6 +328,21 @@ test.describe('План: настройки и прогресс', () => {
 });
 
 test.describe('План: вёрстка', () => {
+  test('F5: на телефоне липкий ряд «Цель · Таймлайн · Релизы · Очередь», переход к блоку', async ({ page, context, baseURL, isMobile }) => {
+    await open(page, context, baseURL as string);
+    const jump = page.getByRole('navigation', { name: 'Блоки плана' });
+    if (!isMobile) { await expect(jump).toBeHidden(); return; }
+    await expect(jump.getByRole('link')).toHaveText(['Цель', 'Таймлайн', 'Релизы', 'Очередь']);
+    for (const a of await jump.getByRole('link').all()) expect((await a.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await jump.getByRole('link', { name: 'Очередь' }).click();
+    await expect(page.locator('#rm-queue')).toBeInViewport();
+    // ряд остаётся под шапкой
+    const top = (await jump.boundingBox())!.y;
+    expect(top).toBeGreaterThanOrEqual(50);
+    expect(top).toBeLessThan(80);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
   test('F5: таймлайн по месяцам — текущий и следующий месяц, остальное по «Весь год»', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string);
     if (!isMobile) await page.getByRole('group', { name: 'Вид таймлайна' }).getByRole('button', { name: 'По месяцам' }).click();
