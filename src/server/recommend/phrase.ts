@@ -15,7 +15,11 @@ export const PHRASES_SYNC_TIMEOUT_MS = 12_000;
 /** «Новое от ИИ»: 12 игр с reason до 120 символов (контракт 20.6). */
 export const DISCOVER_MAX_OUTPUT_TOKENS = 4000;
 export const LLM_MAX_RESPONSE_BYTES = 64 * 1024;
-export const DEFAULT_MODELS = { gemini: 'gemini-2.5-flash-lite', groq: 'llama-3.1-8b-instant' } as const;
+// Groq отключил llama-3.1-8b-instant 16.08.2026 (http_404:model_not_found); замена по их рекомендации — openai/gpt-oss-20b
+export const DEFAULT_MODELS = { gemini: 'gemini-2.5-flash-lite', groq: 'openai/gpt-oss-20b' } as const;
+
+/** gpt-oss — модели с рассуждением: токены рассуждения входят в max_tokens, поэтому просим короткое рассуждение. */
+export const isReasoningGroqModel = (model: string): boolean => /^openai\/gpt-oss-/i.test(model);
 
 export type LlmProviderName = 'gemini' | 'groq';
 export type LlmConfig = { provider: LlmProviderName; apiKey: string; model: string };
@@ -122,6 +126,7 @@ export function groqProvider(cfg: LlmConfig, fetchImpl: FetchLike = fetch): Phra
           response_format: { type: 'json_object' },
           temperature: 0.4,
           max_tokens: opts?.maxTokens ?? LLM_MAX_OUTPUT_TOKENS,
+          ...(isReasoningGroqModel(cfg.model) ? { reasoning_effort: 'low' } : {}),
         },
         signal,
       );

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getLlmEnv } from '@/server/env';
-import { LLM_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, stableHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
+import { DEFAULT_MODELS, LLM_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, createProvider, factsOf, geminiProvider, groqProvider, isValidPhrase, LlmError, parsePhrases, requestPhrases, stableHash, templateReason, type LlmConfig, type PhraseFact, type PhraseProvider } from './phrase';
 import type { ScoredItem } from './types';
 
 const item = (id: number, o: Partial<ScoredItem> = {}, name = `Игра ${id}`): ScoredItem => ({
@@ -154,6 +154,16 @@ describe('провайдеры (мок fetch)', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://api.groq.com/openai/v1/chat/completions');
     expect((init.headers as Record<string, string>).authorization).toBe(`Bearer ${SECRET}`);
+  });
+
+  it('groq: по умолчанию openai/gpt-oss-20b (llama-3.1-8b-instant отключён), для gpt-oss — reasoning_effort low', async () => {
+    expect(DEFAULT_MODELS.groq).toBe('openai/gpt-oss-20b');
+    const fetchMock = vi.fn(async () => jsonRes({ choices: [{ message: { content: 'RAW' } }] }));
+    await groqProvider({ provider: 'groq', apiKey: SECRET, model: 'openai/gpt-oss-20b' }, fetchMock as unknown as typeof fetch).complete({ system: 's', user: 'u' }, ctrl());
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-20b', reasoning_effort: 'low', response_format: { type: 'json_object' } });
+    await groqProvider({ provider: 'groq', apiKey: SECRET, model: 'qwen/qwen3.8-27b' }, fetchMock as unknown as typeof fetch).complete({ system: 's', user: 'u' }, ctrl());
+    expect(JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body))).not.toHaveProperty('reasoning_effort');
   });
 
   it('HTTP-ошибка, сеть, не тот формат: LlmError без ключа и тела в сообщении', async () => {
