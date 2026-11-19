@@ -10,11 +10,11 @@
 }
 
 /* F5: настройки плана свёрнуты в строку, раскрываются «Изменить» */
-.ps-rm-set__head { margin-bottom: var(--sp-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.ps-rm-set__head { margin-bottom: var(--sp-2); min-height: var(--tap-min); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .ps-rm-set__toggle { min-height: var(--tap-min); padding-inline: var(--sp-2); margin-inline-end: calc(-1 * var(--sp-2)); }
 .ps-rm-set__sum { margin: 0; color: var(--text-2); }
 .ps-rm-set__sum b { color: var(--text); }
-.ps-rm-sk-set-sum { height: 24px; }
+.ps-rm-sk-set-sum { height: 21px; }
 .ps-rm-mo__all { margin: var(--sp-3) 0 0; }
 
 /* F5: липкий ряд «Цель · Таймлайн · Релизы · Очередь» — только телефон */
