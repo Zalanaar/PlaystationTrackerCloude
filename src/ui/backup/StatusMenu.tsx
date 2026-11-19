@@ -33,18 +33,21 @@ export function useStatusMenu() {
 
 type Menu = ReturnType<typeof useStatusMenu>;
 
-/** Пункты меню. Монтируются при открытии меню и тогда же читают последнюю копию. menu = роль menuitem (поповер десктопа). */
-export function StatusMenuItems({ m, close, menu }: { m: Menu; close: () => void; menu: boolean }) {
+/** Пункты меню. Монтируются при открытии меню и тогда же читают последнюю копию. menu = роль menuitem (поповер десктопа).
+ * F6: part — «restore» в группе «Данные», «reset» — в опасной зоне внизу меню (не рядом с безопасным действием). */
+export function StatusMenuItems({ m, close, menu, part = 'all' }: { m: Menu; close: () => void; menu: boolean; part?: 'all' | 'restore' | 'reset' }) {
   const { loadBackup, backup } = m;
-  useEffect(() => { void loadBackup(); }, [loadBackup]);
+  useEffect(() => { if (part !== 'reset') void loadBackup(); }, [loadBackup, part]);
   const role = menu ? 'menuitem' : undefined;
   return (
     <>
-      {backup && <RestoreItem backup={backup} role={role} onClick={() => { close(); m.setRestoreOpen(true); }} />}
-      <button type="button" role={role} className="ps-menu-item ps-menu-item--danger" data-testid="menu-reset-all" onClick={() => { close(); m.openReset(); }}>
-        <Icon name="undo" size={16} />
-        <span className="ps-menu-item__label">Сбросить все статусы…</span>
-      </button>
+      {part !== 'reset' && backup && <RestoreItem backup={backup} role={role} onClick={() => { close(); m.setRestoreOpen(true); }} />}
+      {part !== 'restore' && (
+        <button type="button" role={role} className="ps-menu-item ps-menu-item--danger" data-testid="menu-reset-all" onClick={() => { close(); m.openReset(); }}>
+          <Icon name="undo" size={16} />
+          <span className="ps-menu-item__label">Сбросить все статусы…</span>
+        </button>
+      )}
     </>
   );
 }

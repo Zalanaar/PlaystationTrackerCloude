@@ -137,14 +137,7 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
-                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); startTour(); }}>
-                      <Icon name="circle-help" size={16} />
-                      <span className="ps-menu-item__label">Как пользоваться</span>
-                    </button>
-                    <button type="button" role="menuitem" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { close(); setTimeout(openWhatsNew, 0); }}>
-                      <Icon name="info" size={16} />
-                      <span className="ps-menu-item__label">Что нового</span>
-                    </button>
+                    {/* F6: группы — разделы, данные, помощь, администрирование, выход; сброс статусов — отдельно в самом низу */}
                     <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
@@ -158,7 +151,7 @@ export function AppHeader() {
                       <Icon name="sliders" size={16} />
                       <span className="ps-menu-item__label">Настройки</span>
                     </Link>
-                    <a href="/api/backup" download role="menuitem" className="ps-menu-item" onClick={close}>
+                    <a href="/api/backup" download role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={close}>
                       <Icon name="download" size={16} />
                       <span className="ps-menu-item__label">Скачать копию</span>
                     </a>
@@ -166,9 +159,17 @@ export function AppHeader() {
                       <Icon name="upload" size={16} />
                       <span className="ps-menu-item__label">Восстановить из файла</span>
                     </button>
-                    <StatusMenuItems m={statusMenu} close={close} menu />
+                    <StatusMenuItems m={statusMenu} close={close} menu part="restore" />
+                    <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => { close(); startTour(); }}>
+                      <Icon name="circle-help" size={16} />
+                      <span className="ps-menu-item__label">Как пользоваться</span>
+                    </button>
+                    <button type="button" role="menuitem" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { close(); setTimeout(openWhatsNew, 0); }}>
+                      <Icon name="info" size={16} />
+                      <span className="ps-menu-item__label">Что нового</span>
+                    </button>
                     {isOwner && (
-                      <Link href="/access" role="menuitem" className="ps-menu-item" onClick={close}>
+                      <Link href="/access" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={close}>
                         <Icon name="users" size={16} />
                         <span className="ps-menu-item__label">Доступ</span>
                       </Link>
@@ -187,6 +188,7 @@ export function AppHeader() {
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти на всех устройствах</span>
                     </button>
+                    <div className="ps-menu-danger" role="none"><StatusMenuItems m={statusMenu} close={close} menu part="reset" /></div>
                   </>
                 )}
               </Popover>
@@ -212,18 +214,8 @@ export function AppHeader() {
           )}
           <p className="ps-micro">Тема</p>
           <ThemeSwatches />
-          <p className="ps-micro">Аккаунт</p>
-          <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
-            <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>
-          </button>
-          <button type="button" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { setMore(false); setTimeout(openWhatsNew, 0); }}>
-            <Icon name="info" size={16} /><span className="ps-menu-item__label">Что нового</span>
-          </button>
-          {install.available && (
-            <button type="button" className="ps-menu-item" data-testid="menu-install" onClick={() => { setMore(false); setTimeout(install.open, 250); }}>
-              <Icon name="download" size={16} /><span className="ps-menu-item__label">Установить приложение</span>
-            </button>
-          )}
+          {/* F6: группы вместо одного «Аккаунт»; сброс статусов — отдельная опасная зона внизу */}
+          <p className="ps-micro ps-menu-group">Разделы</p>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
@@ -237,29 +229,50 @@ export function AppHeader() {
           <Link href="/settings" className="ps-menu-item" data-testid="sheet-settings" onClick={() => setMore(false)}>
             <Icon name="sliders" size={16} /><span className="ps-menu-item__label">Настройки</span>
           </Link>
+          <p className="ps-micro ps-menu-group">Данные</p>
           <a href="/api/backup" download className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="download" size={16} /><span className="ps-menu-item__label">Скачать копию</span>
           </a>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); setRestore(true); }}>
             <Icon name="upload" size={16} /><span className="ps-menu-item__label">Восстановить из файла</span>
           </button>
-          {more && <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} />}
-          {isOwner && (
-            <Link href="/access" className="ps-menu-item" onClick={() => setMore(false)}>
-              <Icon name="users" size={16} /><span className="ps-menu-item__label">Доступ</span>
-            </Link>
+          {more && <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} part="restore" />}
+          <p className="ps-micro ps-menu-group">Помощь</p>
+          <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
+            <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>
+          </button>
+          <button type="button" className="ps-menu-item" data-testid="menu-whats-new" onClick={() => { setMore(false); setTimeout(openWhatsNew, 0); }}>
+            <Icon name="info" size={16} /><span className="ps-menu-item__label">Что нового</span>
+          </button>
+          {install.available && (
+            <button type="button" className="ps-menu-item" data-testid="menu-install" onClick={() => { setMore(false); setTimeout(install.open, 250); }}>
+              <Icon name="download" size={16} /><span className="ps-menu-item__label">Установить приложение</span>
+            </button>
           )}
           {isOwner && (
-            <Link href="/health" className="ps-menu-item" onClick={() => setMore(false)}>
-              <Icon name="shield-alert" size={16} /><span className="ps-menu-item__label">Здоровье</span>
-            </Link>
+            <>
+              <p className="ps-micro ps-menu-group">Администрирование</p>
+              <Link href="/access" className="ps-menu-item" onClick={() => setMore(false)}>
+                <Icon name="users" size={16} /><span className="ps-menu-item__label">Доступ</span>
+              </Link>
+              <Link href="/health" className="ps-menu-item" onClick={() => setMore(false)}>
+                <Icon name="shield-alert" size={16} /><span className="ps-menu-item__label">Здоровье</span>
+              </Link>
+            </>
           )}
+          <p className="ps-micro ps-menu-group">Выход</p>
           <button type="button" className="ps-menu-item" onClick={() => void logout()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти</span>
           </button>
           <button type="button" className="ps-menu-item" data-testid="sheet-logout-all" onClick={() => void logoutAll()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти на всех устройствах</span>
           </button>
+          {more && (
+            <div className="ps-menu-danger" data-testid="sheet-danger">
+              <p className="ps-micro ps-menu-group">Опасная зона</p>
+              <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} part="reset" />
+            </div>
+          )}
         </div>
       </Sheet>
       {restoreEver && <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />}

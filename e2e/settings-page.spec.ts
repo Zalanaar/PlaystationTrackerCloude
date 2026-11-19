@@ -62,3 +62,14 @@ for (const w of [360, 390]) {
     }
   });
 }
+
+test('F6: меню по группам, сброс статусов — отдельно в самом низу', async ({ page, baseURL, isMobile }) => {
+  test.skip(!isMobile, 'лист «Меню» — телефон');
+  await open(page, baseURL!, '/');
+  await page.getByRole('button', { name: 'Меню', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Меню' });
+  await expect(sheet.locator('.ps-menu-group')).toHaveText(['Разделы', 'Данные', 'Помощь', 'Администрирование', 'Выход', 'Опасная зона']);
+  const items = sheet.locator('.ps-menu-item');
+  await expect(items.last()).toHaveText('Сбросить все статусы…');
+  await expect(sheet.getByTestId('sheet-danger').getByTestId('menu-reset-all')).toBeVisible();
+});
