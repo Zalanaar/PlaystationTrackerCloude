@@ -106,11 +106,14 @@ for (const w of [360, 390]) {
     for (const t of THEMES) {
       await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
       await page.waitForTimeout(500);
-      const v = await page.evaluate(async () => {
+      const run = () => page.evaluate(async () => {
         const ax = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
         const r = await ax.run({ include: [['.ps-rm-ics'], ['.ps-rm-cal']] }, { resultTypes: ['violations'] });
         return r.violations.map((x) => `${x.id}: ${x.nodes.map((n) => n.target.join(' ')).join(', ')}`);
       });
+      // WebKit: переход цвета кнопки после смены темы бывает дольше 500 мс — один повтор, как в tags.spec
+      let v = await run();
+      if (v.length) { await page.waitForTimeout(1000); v = await run(); }
       expect(v, t).toEqual([]);
     }
   });
