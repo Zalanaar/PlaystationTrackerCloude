@@ -38,7 +38,7 @@ export function YearHeader({
             <span className="ps-year__k"><StatusGlyph status="dropped" size={16} />брошено <b className="num">{dropped}</b></span>
           </>
         )}
-        {hours !== null && hours > 0 && <span className="ps-year__k"><b className="num">{formatNumber(hours)} ч</b><span className="ps-year__more"> в этих играх</span></span>}
+        {hours !== null && hours > 0 && <span className="ps-year__k"><b className="num">{formatNumber(hours)} ч</b><span className="ps-year__more ps-year__more--keep"> в этих играх</span></span>}
         {hint && expanded && <span className="ps-year__hint">{hint}</span>}
         {!expanded && <span className="ps-year__exp">Развернуть <Icon name="chevron-down" size={12} /></span>}
       </button>

@@ -28,6 +28,8 @@
   .ps-year__y { font-size: var(--fs-year); }
   .ps-year__k { font-size: 13px; }
   .ps-year__more, .ps-year__hint { display: none; }
+  /* F2: в хронике коллекции часы года — по играм года (≠ «≈ N ч» Статистики за год), подпись нужна и на телефоне */
+  .ps-year__more--keep { display: inline; }
   .ps-block__head { margin-bottom: var(--sp-3); }
 }
 .ps-block__head:has(.ps-chipbtn) { flex-wrap: wrap; }
