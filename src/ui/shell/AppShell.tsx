@@ -153,6 +153,10 @@ export function AppHeader() {
                     )}
                     {/* F6: группы — разделы, данные, помощь, администрирование, выход; сброс статусов — отдельно в самом низу */}
                     <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
+                    <Link href="/ratings" role="menuitem" className="ps-menu-item" data-testid="menu-ratings" onClick={close}>
+                      <Icon name="sparkles" size={16} />
+                      <span className="ps-menu-item__label">Мои оценки</span>
+                    </Link>
                     <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="eye-off" size={16} />
                       <span className="ps-menu-item__label">Скрытые игры</span>
@@ -246,6 +250,9 @@ export function AppHeader() {
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
           <TriageMenuItem active={more} testid="more-menu-triage" onClick={() => setMore(false)} />
+          <Link href="/ratings" className="ps-menu-item" data-testid="sheet-ratings" onClick={() => setMore(false)}>
+            <Icon name="sparkles" size={16} /><span className="ps-menu-item__label">Мои оценки</span>
+          </Link>
           <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
           </Link>

@@ -44,6 +44,7 @@ describe('sectionTitle (F25)', () => {
     expect(sectionTitle('/access/')).toBe('Доступ');
     expect(sectionTitle('/health')).toBe('Здоровье');
     expect(sectionTitle('/settings')).toBe('Настройки');
+    expect(sectionTitle('/ratings')).toBe('Мои оценки'); // идея 6
     expect(sectionTitle('/onboarding')).toBeNull();
   });
 });

@@ -159,3 +159,24 @@
 .ps-st-days__sum { margin: var(--sp-2) 0 0; font-size: var(--fs-small); line-height: var(--lh-small, 20px); color: var(--text-2); }
 .ps-st-days__sum b { color: var(--text); }
 @media (max-width: 767px) { .ps-st-bars--days { gap: 1px; } .ps-st-days__sum { min-height: calc(2 * var(--lh-small, 20px)); } }
+
+/* Идея 6: «Мои оценки» */
+.ps-ratings { display: grid; gap: var(--sp-4); max-width: 720px; padding-block: var(--sp-4) var(--sp-6); }
+.ps-ratings__ph { height: 320px; border-radius: var(--r-lg); background: var(--surface-2); }
+.ps-ratings__lead { margin: 0; color: var(--text-2); }
+.ps-ratings__sec { display: grid; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); min-width: 0; }
+.ps-ratings__sec > h2 { margin: 0; font-size: var(--fs-h3); line-height: var(--lh-h3); }
+.ps-ratings__dist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; height: 160px; align-items: end; }
+.ps-ratings__dist li { display: grid; grid-template-rows: 1fr auto auto; height: 100%; align-items: end; justify-items: center; gap: 2px; }
+.ps-ratings__bar { width: 100%; min-height: 2px; border-radius: var(--r-sm) var(--r-sm) 0 0; background: var(--accent); }
+.ps-ratings__bar[data-empty] { background: var(--border); }
+.ps-ratings__n, .ps-ratings__s { font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--text-2); }
+.ps-ratings__s { color: var(--text); font-weight: 600; }
+.ps-ratings__table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-ratings__table :is(th, td) { padding: var(--sp-2) var(--sp-1); text-align: left; border-top: var(--border-w) solid var(--border); }
+.ps-ratings__table thead th { border-top: 0; color: var(--text-2); font-weight: 500; }
+.ps-ratings__list { list-style: none; margin: 0; padding: 0; display: grid; }
+.ps-ratings__list li { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: var(--tap-min); border-top: var(--border-w) solid var(--border); }
+.ps-ratings__list li:first-child { border-top: 0; }
+.ps-ratings__list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.ps-ratings__note { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
