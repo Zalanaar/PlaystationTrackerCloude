@@ -48,6 +48,9 @@ test.describe('липкие ряды', () => {
     await expect(jump).toHaveAttribute('data-stuck', 'true');
     await jump.getByRole('button', { name: /^Сервис/ }).click();
     await expect(jump.getByRole('button', { name: /^Сервис/ })).toHaveAttribute('aria-current', 'location');
+    // F10: после плавной прокрутки подсветка не перескакивает на предыдущий блок
+    await page.waitForTimeout(1200);
+    await expect(jump.getByRole('button', { name: /^Сервис/ })).toHaveAttribute('aria-current', 'location');
     await expect.poll(async () => page.evaluate(() => {
       const nav = document.querySelector('[data-testid="bl-jump"]')!.getBoundingClientRect().bottom;
       const t = document.getElementById('h-bl-service')!.getBoundingClientRect().top;

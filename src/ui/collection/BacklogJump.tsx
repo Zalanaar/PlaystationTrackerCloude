@@ -23,6 +23,8 @@ export function useBacklogJump(show: boolean, tabIds: string) {
   const spyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // пересчёт scroll-spy после снятия блокировки: прокрутка во время неё иначе не учитывалась
   const spyRun = useRef<() => void>(() => {});
+  // F10: блок, к которому перешли по нажатию; держим его подсвеченным, пока его заголовок на экране
+  const jumped = useRef<string | null>(null);
   useEffect(() => () => { if (spyTimer.current) clearTimeout(spyTimer.current); }, []);
   const jumpTo = (id: string) => {
     const el = document.getElementById(id);
@@ -31,6 +33,7 @@ export function useBacklogJump(show: boolean, tabIds: string) {
     el.focus({ preventScroll: true });
     // клик ставит вкладку активной сразу; пока идёт прокрутка, scroll-spy её не перебивает
     setActiveTab(id);
+    jumped.current = id;
     spyLock.current = true;
     if (spyTimer.current) clearTimeout(spyTimer.current);
     spyTimer.current = setTimeout(() => { spyLock.current = false; spyRun.current(); }, 900);
@@ -60,6 +63,22 @@ export function useBacklogJump(show: boolean, tabIds: string) {
         const el = document.getElementById(id);
         if (el && el.getBoundingClientRect().top <= line) cur = id;
       }
+      // F10: у низа страницы последние короткие блоки не доходят до линии под липкой панелью —
+      // текущим считаем последний блок, чей заголовок виден на экране
+      const vh = window.innerHeight;
+      if (window.scrollY + vh >= document.documentElement.scrollHeight - 2) {
+        for (const id of ids) {
+          const t = document.getElementById(id)?.getBoundingClientRect().top;
+          if (t !== undefined && t < vh && t >= line - 8) cur = id;
+        }
+      }
+      // F10: блок, выбранный нажатием, остаётся текущим, пока его заголовок виден ниже линии и выше середины экрана
+      const j = jumped.current;
+      if (j && ids.indexOf(j) > ids.indexOf(cur)) {
+        const t = document.getElementById(j)?.getBoundingClientRect().top;
+        if (t !== undefined && t >= line - 8 && t < vh) cur = j;
+        else jumped.current = null;
+      } else if (j && j !== cur) jumped.current = null;
       if (window.scrollY <= 0) cur = ids[0];
       setActiveTab(cur);
     };
