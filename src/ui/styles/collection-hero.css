@@ -112,6 +112,8 @@
   .ps-hero__main[data-nobanner] .ps-hero__title { padding-left: calc(72px + var(--sp-3)); }
   .ps-hero__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
   .ps-hero__facts dt { color: var(--text-3); }
+  /* F16: при крупном системном тексте подпись («Последний запуск») переносится внутри колонки, а не вылезает за карточку */
+  .ps-hero__facts dt { overflow-wrap: anywhere; hyphens: auto; }
   .ps-hero__facts dd { font-size: 14px; color: var(--text); }
   .ps-hero__facts dd[data-muted] { color: var(--text-3); }
   .ps-hero__bar { background: var(--surface-3); }

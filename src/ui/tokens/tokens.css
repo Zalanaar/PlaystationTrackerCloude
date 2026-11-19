@@ -1,15 +1,19 @@
 /* PS Tracker: базовые токены. НЕ зависят от темы. Темы переопределяют только то, что помечено в themes.css.
    Направление A «Полка» + B «Хроника». Источник правил: docs/design-system.md. */
 :root {
-  /* Типографика: семейства задаются в themes.css (общие для всех тем), здесь размеры */
+  /* Типографика: семейства задаются в themes.css (общие для всех тем), здесь размеры.
+     F16 (аудит UX): текст чтения (body, small, micro, h2, h3) растёт вместе с системным размером текста: на iOS корень берёт
+     -apple-system-body (17 px по умолчанию = база 17, ниже), в браузере — размер шрифта по умолчанию (16 px = база 16).
+     clamp: не мельче макета и не крупнее 150 % (шапка, обложки и крупные числа фиксированы, раскладка держится). */
+  --rem-base: 16;
   --fs-display: 32px; --lh-display: 40px; --fw-display: 700;
   --fs-year: 28px;    --lh-year: 32px;    --fw-year: 700;   /* год в заголовке хроники, display-шрифт */
   --fs-h1: 22px;      --lh-h1: 28px;      --fw-h1: 700;
-  --fs-h2: 15px;      --lh-h2: 20px;      --fw-h2: 600;     /* заголовки блоков (display-шрифт) */
-  --fs-h3: 16px;      --lh-h3: 24px;      --fw-h3: 600;
-  --fs-body: 14px;    --lh-body: 20px;    --fw-body: 400;
-  --fs-small: 12px;   --lh-small: 16px;   --fw-small: 500;
-  --fs-micro: 12px;   --lh-micro: 16px;   --fw-micro: 600;  /* UPPERCASE, letter-spacing .06em */
+  --fs-h2: clamp(15px, calc(15rem / var(--rem-base)), 22.5px);      --lh-h2: clamp(20px, calc(20rem / var(--rem-base)), 30px);      --fw-h2: 600;     /* заголовки блоков (display-шрифт) */
+  --fs-h3: clamp(16px, calc(16rem / var(--rem-base)), 24px);      --lh-h3: clamp(24px, calc(24rem / var(--rem-base)), 36px);      --fw-h3: 600;
+  --fs-body: clamp(14px, calc(14rem / var(--rem-base)), 21px);    --lh-body: clamp(20px, calc(20rem / var(--rem-base)), 30px);    --fw-body: 400;
+  --fs-small: clamp(12px, calc(12rem / var(--rem-base)), 18px);   --lh-small: clamp(16px, calc(16rem / var(--rem-base)), 24px);   --fw-small: 500;
+  --fs-micro: clamp(12px, calc(12rem / var(--rem-base)), 18px);   --lh-micro: clamp(16px, calc(16rem / var(--rem-base)), 24px);   --fw-micro: 600;  /* UPPERCASE, letter-spacing .06em */
   --fs-stat: 28px;    --lh-stat: 32px;    --fw-stat: 700;   /* крупные числа, tabular-nums */
   --ls-micro: 0.06em;
 
@@ -208,7 +212,7 @@
     --fs-year: 24px; --lh-year: 28px;
     --fs-h1: 19px; --lh-h1: 26px;
     --fs-stat: 22px; --lh-stat: 26px;
-    --fs-micro: 12px; --lh-micro: 16px; /* П9: на телефоне текст не мельче 12 px */
+    --fs-micro: clamp(12px, calc(12rem / var(--rem-base)), 18px); --lh-micro: clamp(16px, calc(16rem / var(--rem-base)), 24px); /* П9: на телефоне текст не мельче 12 px */
     --gutter: 16px;
     --card-gap: 12px;
     --control-h: 44px;     /* тап-зона ≥ 44 px (WCAG 2.5.5), раньше 40 */
@@ -239,6 +243,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --hover-lift: 0px; }
+}
+
+/* F16: iOS (Safari и PWA) — корень от настройки «Размер текста» / Dynamic Type. Только тач-устройства Apple: на macOS
+   -apple-system-body 13 px, там не трогаем. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html { font: -apple-system-body; }
+  :root { --rem-base: 17; }
 }
 
 /* Базовые правила */
