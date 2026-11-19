@@ -136,7 +136,7 @@ test.describe('Бэклог (/backlog)', () => {
     const mock = await open(page, context, baseURL!, '/backlog');
     await expect(page.getByRole('heading', { level: 1, name: 'Бэклог' })).toBeVisible();
     await expect(list(page).locator('.ps-card__title')).toHaveText(['Stray']);
-    await list(page).getByRole('button', { name: 'Начать играть' }).click();
+    await list(page).getByRole('button', { name: /^(Начать играть|Продолжить)$/ }).click();
     await expect.poll(() => mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'playing' } });
     await expect(page.getByText('Бэклог пуст')).toBeVisible();
     await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
@@ -158,7 +158,7 @@ test.describe('Бэклог (/backlog)', () => {
   test('сбой смены статуса возвращает игру в список', async ({ page, context, baseURL }) => {
     const mock = await open(page, context, baseURL!, '/backlog');
     mock.failNextMutation = 503;
-    await list(page).getByRole('button', { name: 'Начать играть' }).click();
+    await list(page).getByRole('button', { name: /^(Начать играть|Продолжить)$/ }).click();
     await expect(page.getByText(/Не удалось сменить статус/)).toBeVisible();
     await expect(list(page).locator('.ps-card__title')).toHaveText(['Stray']);
   });
