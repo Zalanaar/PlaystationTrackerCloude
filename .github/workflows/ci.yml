@@ -125,7 +125,7 @@ jobs:
   e2e-webkit:
     name: E2E webkit (iPhone)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -136,8 +136,9 @@ jobs:
       - uses: ./.github/actions/playwright-browsers
         with:
           browsers: webkit
+      # 240+ тестов уже ~10 мин: запас до 15 мин (прогон 23bde8b упёрся в 10 мин)
       - run: npx playwright test --project=webkit-iphone
-        timeout-minutes: 10
+        timeout-minutes: 15
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
