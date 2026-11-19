@@ -44,9 +44,14 @@ async function axe(page: Page, sel: string) {
 }
 
 async function openTagsSheet(page: Page) {
-  if (isMobile(page)) await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
-  else await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-  await page.getByTestId('menu-tags').click();
+  if (isMobile(page)) {
+    // F13: «Теги» — в меню «⋯» шапки
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    await page.getByTestId('sheet-tags').click();
+  } else {
+    await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+    await page.getByTestId('menu-tags').click();
+  }
   const sheet = page.getByRole('dialog', { name: 'Теги' });
   await expect(sheet).toBeVisible();
   return sheet;

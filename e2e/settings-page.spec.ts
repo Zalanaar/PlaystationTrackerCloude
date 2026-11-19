@@ -68,8 +68,10 @@ test('F6: меню по группам, сброс статусов — отде
   await open(page, baseURL!, '/');
   await page.getByRole('button', { name: 'Меню', exact: true }).click();
   const sheet = page.getByRole('dialog', { name: 'Меню' });
-  await expect(sheet.locator('.ps-menu-group')).toHaveText(['Разделы', 'Данные', 'Помощь', 'Администрирование', 'Выход', 'Опасная зона']);
+  // F13: на Коллекции первая группа — «Коллекция» (Выбрать игры, Теги)
+  await expect(sheet.locator('.ps-menu-group')).toHaveText(['Коллекция', 'Разделы', 'Данные', 'Помощь', 'Администрирование', 'Выход', 'Опасная зона']);
   const items = sheet.locator('.ps-menu-item');
   await expect(items.last()).toHaveText('Сбросить все статусы…');
   await expect(sheet.getByTestId('sheet-danger').getByTestId('menu-reset-all')).toBeVisible();
 });
+

@@ -23,7 +23,7 @@ import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
-import { emitHeaderAction, headerActionsFor } from './headerActions';
+import { collectionMenuOn, emitHeaderAction, headerActionsFor } from './headerActions';
 import { AddMenu } from './AddMenu';
 import { PullToRefresh } from './PullToRefresh';
 import { useRefreshOnReturn } from './refresh';
@@ -215,6 +215,18 @@ export function AppHeader() {
           <p className="ps-micro">Тема</p>
           <ThemeSwatches />
           {/* F6: группы вместо одного «Аккаунт»; сброс статусов — отдельная опасная зона внизу */}
+          {collectionMenuOn(pathname) && (
+            <>
+              {/* F13: действия Коллекции вынесены из листа «Фильтры» в «⋯»; «Другая платформа» — в «+» */}
+              <p className="ps-micro ps-menu-group">Коллекция</p>
+              <button type="button" className="ps-menu-item" data-testid="sheet-select" onClick={() => { setMore(false); emitHeaderAction('select'); }}>
+                <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">Выбрать игры</span>
+              </button>
+              <button type="button" className="ps-menu-item" data-testid="sheet-tags" aria-haspopup="dialog" onClick={() => { setMore(false); emitHeaderAction('tags'); }}>
+                <Icon name="bookmark" size={16} /><span className="ps-menu-item__label">Теги</span>
+              </button>
+            </>
+          )}
           <p className="ps-micro ps-menu-group">Разделы</p>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); openPanel(); }}>
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>

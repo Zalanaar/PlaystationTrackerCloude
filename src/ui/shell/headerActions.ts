@@ -2,7 +2,8 @@
 // Набор кнопок задаётся путём (статично, одинаково на сервере и клиенте), поэтому шапка не меняется после гидрации (CLS 0).
 import { useEffect, useRef } from 'react';
 
-export type HeaderAction = 'search' | 'add' | 'add-other' | 'add-release';
+/** F13: 'select' и 'tags' — пункты «Выбрать игры» и «Теги» в меню «⋯» на Коллекции (телефон). */
+export type HeaderAction = 'search' | 'add' | 'add-other' | 'add-release' | 'select' | 'tags';
 export const HEADER_ACTION_EVENT = 'ps:header-action';
 
 /** П9: пункт меню «+»: на своей странице шлёт событие, с другой ведёт на страницу с параметром, который открывает то же окно. */
@@ -29,6 +30,9 @@ export function headerActionsFor(pathname: string): { search: boolean; add: bool
   const p = norm(pathname);
   return { search: p === '/' || p === '/backlog', add: p === '/' || p === '/backlog' || p === '/roadmap' };
 }
+
+/** F13: группа «Коллекция» в меню «⋯» (телефон) — только на самой Коллекции. */
+export const collectionMenuOn = (pathname: string) => norm(pathname) === '/';
 
 /** Пункты меню «+»: первым — то, что добавляют на этой странице. */
 export function addItemsFor(pathname: string): AddItem[] {

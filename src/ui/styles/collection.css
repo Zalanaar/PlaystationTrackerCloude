@@ -34,6 +34,8 @@
 .ps-select select { appearance: none; height: var(--control-h); padding: 0 32px 0 var(--sp-3); background: transparent; border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text-2); font: inherit; cursor: pointer; }
 .ps-select select option { background: var(--surface-2); color: var(--text); }
 .ps-select svg { position: absolute; right: var(--sp-3); pointer-events: none; color: var(--text-3); }
+.ps-select--wide { display: flex; width: 100%; }
+.ps-select--wide select { width: 100%; }
 .ps-seg { display: inline-flex; padding: 2px; background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); }
 .ps-seg button { height: 30px; padding: 0 10px; background: none; border: 0; border-radius: calc(var(--r-sm) - 2px); color: var(--text-2); font-size: var(--fs-small); font-weight: 500; cursor: pointer; white-space: nowrap; }
 .ps-seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
@@ -154,7 +156,6 @@
 .ps-detail__hint { flex-basis: 100%; margin: 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-card__restore { width: 100%; }
 .ps-card__restore span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ps-filters__coll { border-top: var(--border-w) solid var(--border); padding-top: var(--sp-2); }
 .ps-reset__text p { margin: 0 0 var(--sp-2); color: var(--text-2); }
 .ps-reset__text b { color: var(--text); }
 .ps-reset__field { display: flex; flex-direction: column; gap: var(--sp-2); }

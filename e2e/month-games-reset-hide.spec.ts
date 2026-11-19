@@ -33,10 +33,14 @@ async function statusMenu(page: Page, mobile: boolean, item: RegExp) {
   await openProfileMenu(page, mobile);
   await profileItem(page, mobile, item).click();
 }
-/** Пункт меню коллекции: десктоп = «…», мобильный = sheet «Фильтры». */
+/** Пункт меню коллекции: десктоп = «…», мобильный = меню «⋯» шапки (F13: из листа «Фильтры» действия убраны). */
 async function collectionMenu(page: Page, mobile: boolean, item: RegExp) {
-  if (mobile) await page.getByRole('button', { name: 'Фильтры' }).click();
-  else await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+  if (mobile) {
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    await page.getByRole('dialog').getByRole('link', { name: item }).click();
+    return;
+  }
+  await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
   await page.getByRole('menuitem', { name: item }).click();
 }
 
@@ -192,9 +196,16 @@ test.describe('Фаза 8: сброс статуса', () => {
     page.on('request', (r) => { if (r.url().includes('/api/games/status-backups')) backupCalls.push(r.url()); });
     const mock = await openCollection(page, context, baseURL!);
     mock.backups.push({ id: 1, reason: 'reset_all', rows: [] as never });
-    if (mobile) await page.getByRole('button', { name: 'Фильтры' }).click();
-    else await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-    await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toBeVisible();
+    if (mobile) {
+      // F13: лист «Фильтры» — только платформа, сортировка и вид; «Скрытые игры» в меню «⋯»
+      await page.getByRole('button', { name: /Фильтры/ }).click();
+      const dlg = page.getByRole('dialog', { name: 'Фильтры' });
+      await expect(dlg.getByLabel('Сортировка')).toBeVisible();
+      await expect(dlg.getByText(/Скрытые игры|Выбрать игры|Теги|другой платформы/)).toHaveCount(0);
+    } else {
+      await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
+      await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toBeVisible();
+    }
     await expect(page.getByRole('menuitem', { name: /Сбросить все статусы|Вернуть статусы из копии/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     expect(backupCalls).toEqual([]);

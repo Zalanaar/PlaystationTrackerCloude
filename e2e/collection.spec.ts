@@ -524,6 +524,30 @@ for (const width of [390, 440]) {
     test.use({ viewport: { width, height: 844 } });
     test.beforeEach(({}, info) => { test.skip(info.project.name !== 'mobile', 'мобильный сценарий'); });
 
+    test('F13: лист «Фильтры» — только платформа, сортировка на всю ширину и вид; «Выбрать игры» и «Теги» из «⋯»', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!);
+      await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
+      const dlg = page.getByRole('dialog', { name: 'Фильтры' });
+      await expect(dlg.getByRole('group', { name: 'Вид' })).toBeVisible();
+      await expect(dlg.getByRole('menuitem')).toHaveCount(0);
+      const [sel, box] = await Promise.all([dlg.getByLabel('Сортировка').boundingBox(), dlg.getByRole('group', { name: 'Вид' }).evaluate((n) => n.parentElement!.getBoundingClientRect().width)]);
+      expect(sel!.width).toBeGreaterThanOrEqual(box - 2);
+      await dlg.getByRole('button', { name: 'Готово' }).click();
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      await page.getByTestId('sheet-tags').click();
+      await expect(page.getByRole('dialog', { name: 'Теги' })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      await page.getByTestId('sheet-select').click();
+      await expect(page.getByRole('dialog', { name: 'Меню' })).toHaveCount(0);
+      await expect(page.locator('.ps-selbar')).toBeVisible();
+      // на других разделах группы «Коллекция» нет
+      await page.goto('/stats');
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      await expect(page.getByTestId('sheet-select')).toHaveCount(0);
+    });
+
     test('F12: ряд «Перейти» на телефоне — одна строка, блоки первыми, «Бэклог» ведёт к блоку', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       const nav = page.getByRole('navigation', { name: 'Годы и блоки' });

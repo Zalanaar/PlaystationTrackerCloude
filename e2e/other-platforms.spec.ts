@@ -422,8 +422,12 @@ test.describe('Добавление из шапки и меню', () => {
   const cands = () => [ocand('1', 'Halo Infinite', { platforms: ['Xbox One'] })];
   async function openFromMenu(page: Page) {
     if (isMobile(page)) {
-      await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
-      await page.getByRole('dialog', { name: 'Фильтры' }).getByRole('menuitem', { name: /Добавить игру с другой платформы/ }).click();
+      // F13: на телефоне пункт ушёл из листа «Фильтры» — остался «+» шапки (WebKit dev теряет первое касание до гидрации)
+      await expect(async () => {
+        if (!(await page.getByTestId('add-other').isVisible())) await page.getByTestId('hdr-add').click();
+        await expect(page.getByTestId('add-other')).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 10_000 });
+      await page.getByTestId('add-other').click();
     } else {
       await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
       await page.getByRole('menuitem', { name: /Добавить игру с другой платформы/ }).click();

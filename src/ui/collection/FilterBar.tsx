@@ -13,6 +13,7 @@ import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
 import { useChipRow } from '../primitives/useChipRow';
 import { TagFilterChip } from '../tags/TagFilterChip';
+import { useHeaderAction } from '../shell/headerActions';
 
 // П15.5: sheet «Теги» — по первому открытию, не на старте Коллекции
 const TagsSheet = dynamic(() => import('../tags/TagsSheet').then((m) => m.TagsSheet), { ssr: false });
@@ -77,9 +78,9 @@ function SearchBox({ value, onCommit, autoFocus, onEscape }: { value: string; on
   );
 }
 
-function SortSelect({ f, onChange }: { f: Filters; onChange: (p: Partial<Filters>) => void }) {
+function SortSelect({ f, onChange, wide }: { f: Filters; onChange: (p: Partial<Filters>) => void; wide?: boolean }) {
   return (
-    <label className="ps-select">
+    <label className={wide ? 'ps-select ps-select--wide' : 'ps-select'}>
       <span className="ps-sr">Сортировка</span>
       <select value={f.sort} onChange={(e) => onChange({ sort: e.target.value as Filters['sort'], order: null })}>
         {SORT_OPTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -292,13 +293,16 @@ function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filt
   );
 }
 
-/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид, выбор игр, действия с коллекцией) и чипы статусов. */
+/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид) и чипы статусов. Действия — в «⋯» и «+» шапки (F13). */
 export function MobileChips(p: BarProps) {
-  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
+  const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect } = p;
   const [sheet, setSheet] = useState(false);
   const [tagsOpen, setTagsOpenRaw] = useState(false);
   const [tagsEver, setTagsEver] = useState(false);
   const setTagsOpen = (v: boolean) => { if (v) setTagsEver(true); setTagsOpenRaw(v); };
+  // F13: «Выбрать игры» и «Теги» живут в меню «⋯» шапки, лист «Фильтры» — только платформа, сортировка и вид
+  useHeaderAction('select', () => { if (!selectMode && canSelect) onSelect(); });
+  useHeaderAction('tags', () => { if (!filters.hidden) setTagsOpen(true); });
   const active = hasActiveFilters(filters);
   const dot = filtersDot(filters, view);
   return (
@@ -323,15 +327,9 @@ export function MobileChips(p: BarProps) {
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
         <div className="ps-stack">
           <PlatformSeg filters={filters} platformCounts={p.platformCounts} onChange={onChange} />
-          <SortSelect f={filters} onChange={onChange} />
+          <SortSelect f={filters} onChange={onChange} wide />
           <ViewSeg view={view} onView={onView} />
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
-          <div role="menu" aria-label="Коллекция" className="ps-list ps-filters__coll">
-            <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={!canSelect && !selectMode} onClick={() => { setSheet(false); onSelect(); }}>
-              <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">{selectMode ? 'Готово' : 'Выбрать игры'}</span>
-            </button>
-            <CollectionMenuItems hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} close={() => setSheet(false)} />
-          </div>
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
       </Sheet>
