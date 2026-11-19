@@ -197,11 +197,12 @@ test.describe('Фаза 8: сброс статуса', () => {
     const mock = await openCollection(page, context, baseURL!);
     mock.backups.push({ id: 1, reason: 'reset_all', rows: [] as never });
     if (mobile) {
-      // F13: лист «Фильтры» — только платформа, сортировка и вид; «Скрытые игры» в меню «⋯»
+      // F13: лист «Фильтры» — платформа, сортировка, вид и (по замечанию Артёма) «Теги»; «Скрытые игры» в меню «⋯»
       await page.getByRole('button', { name: /Фильтры/ }).click();
       const dlg = page.getByRole('dialog', { name: 'Фильтры' });
       await expect(dlg.getByLabel('Сортировка')).toBeVisible();
-      await expect(dlg.getByText(/Скрытые игры|Выбрать игры|Теги|другой платформы/)).toHaveCount(0);
+      await expect(dlg.getByText(/Скрытые игры|Выбрать игры|другой платформы/)).toHaveCount(0);
+      await expect(dlg.getByTestId('filters-tags')).toBeVisible();
     } else {
       await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
       await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toBeVisible();
