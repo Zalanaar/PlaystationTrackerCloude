@@ -229,3 +229,10 @@
 .ps-tfit__empty { margin: 0; font: 400 var(--fs-small)/20px var(--font-body); color: var(--text-2); }
 .ps-tfit__sk { display: grid; gap: var(--sp-3); }
 .ps-tfit__sk span { display: block; height: 52px; border-radius: var(--r-sm); }
+
+/* П16.3: первый вход в Бэклог через скелет — блоки списка появляются fade 180 мс (без сдвига: только opacity) */
+@keyframes ps-bl-fresh { from { opacity: 0; } to { opacity: 1; } }
+.ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: ps-bl-fresh 180ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: none; }
+}

@@ -559,6 +559,12 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   }, [needExtra, nextExtra]);
   const auxDone = giveUp || (manualReady && matchReady && roadmapReady && ageReady && !nextPending && auxReady.shelved && auxReady.service);
   const ready = !!items && !(error && !items) && auxDone;
+  // П16.3: данные шли дольше 120 мс (виден скелет) — содержимое появляется коротким fade, а не «выскакивает»;
+  // из кэша (предзагрузка вкладки) — сразу. Решение фиксируется в момент готовности, чтобы fade не перезапускался.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSlow(true), 120); return () => clearTimeout(t); }, []);
+  const [fresh, setFresh] = useState<boolean | null>(null);
+  if (ready && fresh === null) setFresh(slow);
   const nextUp = ready ? nextCand : null;
   const nextGame = nextUp ? nextInItems ?? (nextExtra?.id === nextUp.gameId ? nextExtra.game : null) : null;
   const tabs = [
@@ -576,7 +582,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   return (
     <>
     <LoaderOverlay loading={loading && !error} blocking={!items} contentRef={rootRef} />
-    <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)}>
+    <div ref={rootRef} className="ps-collection" data-tour-page="backlog" data-tour-ready={String(!!items || error)} data-fresh={fresh ? '' : undefined}>
       <div className="ps-pagehead ps-bl-pagehead">
         <h1 className="ps-h1 ps-h1--hdr">Бэклог</h1>
         {/* строка числа ждёт ручные записи вместе со списком (ready), до того на её месте скелет той же высоты.
