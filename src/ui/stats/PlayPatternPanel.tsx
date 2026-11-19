@@ -6,6 +6,8 @@ import { Icon } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import { ChartTip, useChartTip, useInViewOnce } from './chartTip';
 import { Panel } from './Panel';
+import { ChartTable } from './ChartTable';
+import { patternTable } from './tableData';
 import {
   hourBars, hourLabel, hourRange, patternReady, PATTERN_CAPTION, rovingNext, trophiesCount, WEEKDAY_NOM, WEEKDAY_SHORT, weekdayBars, type PatternBar,
 } from './playPattern';
@@ -107,6 +109,8 @@ export function PlayPatternPanel({ pattern, periodKey }: { pattern: PlayPattern 
               />
             </div>
           </div>
+          <ChartTable caption="Трофеи по часам суток" data={patternTable(hours, 'Час', (b) => hourRange(b.index))} testId="tab-pp-hours" />
+          <ChartTable caption="Трофеи по дням недели" data={patternTable(days, 'День недели', (b) => WEEKDAY_NOM[b.index] ?? '')} testId="tab-pp-days" />
         </>
       ) : (
         <div className="ps-pp__stub" data-testid="pp-stub">

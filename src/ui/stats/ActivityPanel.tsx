@@ -6,6 +6,8 @@ import { ApiError, errorText, fetchActivity, fetchOnThisDay } from '../collectio
 import { Icon } from '../icons';
 import { DayDiary } from './DayDiary';
 import { OnThisDay } from './OnThisDay';
+import { ChartTable } from './ChartTable';
+import { activityTable } from './tableData';
 import {
   GAPS_HELP, GAPS_NOTE, HEAT_ROW_LABELS, LEGEND_TITLES, activityMode, buildHeat, initialHeatFocus, moveHeatFocus, noYearNote, streakTiles,
   totalsText, unknownNote, yearOf, yearRange, type ActivityData, type HeatCell, type HeatLayout, type StreakTile,
@@ -130,6 +132,7 @@ function ActivityBody({ data, mode, otd }: { data: ActivityData; mode: 'ok' | 'n
         <p className="ps-st-note ps-act__note" role="note"><Icon name="info" size={14} /><span>{noYearNote(data.year, data.firstSnapshotDate)}</span></p>
       )}
       <Heat layout={layout} year={data.year} current={yearOf(data.today) === data.year} selected={day} onPick={setDay} />
+      <ChartTable caption={`Активность по месяцам, ${data.year}`} data={activityTable(data.days)} testId="tab-activity" />
       <div className="ps-act__legend">
         <p className="ps-act__unknown"><Icon name="info" size={12} /><span>{unknownNote(data.firstSnapshotDate)}</span></p>
         <div className="ps-act__keys" aria-label="Обозначения карты">

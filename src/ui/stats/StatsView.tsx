@@ -19,6 +19,8 @@ import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
 import { Panel } from './Panel';
+import { ChartTable } from './ChartTable';
+import { hoursTable, trophiesTable } from './tableData';
 import { SectionChips } from './SectionChips';
 import { AchievementsPanel } from './Achievements';
 import { CostPanel } from './Cost';
@@ -343,6 +345,7 @@ function HoursPanel({ data, sel, today, wide }: { data: StatsResponse; sel: Sele
           </button>
         ))}
       </div>
+      <ChartTable caption={`Часы по месяцам, ${sel.year}`} data={hoursTable(bars)} testId="tab-hours" />
     </Panel>
   );
 }
@@ -427,6 +430,7 @@ function TrophiesPanel({ data, sel }: { data: StatsResponse; sel: Selection }) {
           <div className="ps-st-line__lbls" aria-hidden="true">{MONTH_LABELS.map((m) => <span key={m}>{m}</span>)}</div>
         </div>
       )}
+      {hasLine && <ChartTable caption={`Трофеи по месяцам, ${sel.year}`} data={trophiesTable(data.trophies.byMonth)} testId="tab-trophies" />}
     </Panel>
   );
 }
