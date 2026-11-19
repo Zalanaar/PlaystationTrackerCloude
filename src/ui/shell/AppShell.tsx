@@ -26,6 +26,7 @@ import { SyncIndicator } from './SyncIndicator';
 import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
 import { AddMenu } from './AddMenu';
 import { AfterCompleteHost } from '../complete/AfterCompleteHost';
+import { useAppBadge } from '../pwa/appBadge';
 import { useOfflineNav } from './offlineNav';
 import { PullToRefresh } from './PullToRefresh';
 import { useRefreshOnReturn } from './refresh';
@@ -88,6 +89,7 @@ export function AppHeader() {
   const localSearch = localSearchOn(pathname);
   const [gsearch, setGsearch] = useState(false);
   const gsearchMounted = useEverTrue(gsearch);
+  useAppBadge(); // идея 4: число «Разбора» на иконке PWA
   useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
   useEffect(() => installErrorReporter(), []); // П10: журнал ошибок браузера
 
