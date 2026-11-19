@@ -74,7 +74,10 @@
   .ps-collection > .ps-filters--chips ~ .ps-results { margin-top: 0; }
   /* заголовок страницы в шапке (D-P2), строка профиля сразу под ней */
   .ps-pagehead--coll .ps-profile, .ps-pagehead--coll .ps-sk-profile { margin-top: 0; }
-  /* F12: «Перейти:» на телефоне — одна прокручиваемая строка, блоки (К платине, Бэклог, Сервисы…) первыми, годы следом */
+  /* F12: «Перейти:» на телефоне — после первого года хроники (первый экран за обложками), одна прокручиваемая строка,
+     блоки (К платине, Бэклог, Сервисы…) первыми, годы следом */
+  .ps-anchors--top, .ps-sk-anchors { display: none; }
+  .ps-anchors--m { margin: var(--sp-2) calc(-1 * var(--gutter)) var(--sp-3); }
   .ps-anchors > span:first-child { order: -2; }
   .ps-anchors__blk { order: -1; }
 }
@@ -137,4 +140,4 @@
 .ps-week1__item--done:hover { border-color: var(--border); }
 .ps-week1__item--done svg { color: var(--success, var(--accent)); }
 @media (max-width: 767px) { .ps-week1__x { width: 44px; height: 44px; } .ps-week1__head { height: 44px; } .ps-week1 { height: 124px; } }
-@media (min-width: 768px) { .ps-anchors__m { display: none; } }
+@media (min-width: 768px) { .ps-anchors__m, .ps-anchors--m { display: none; } }

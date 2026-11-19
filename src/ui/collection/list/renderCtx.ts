@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { GameItem, StatusCounts } from '@/server/collection/types';
 import type { ViewMode } from '../../tokens';
 import type { BlockId } from '../blocks';
@@ -8,6 +8,8 @@ import type { GameActions } from '../GameCard';
 
 /** Всё, что нужно функциям отрисовки списков коллекции: собирается в CollectionView и передаётся первым аргументом. */
 export type RenderCtx = {
+  /** F12: ряд «Перейти» на телефоне — после первого года хроники */
+  afterFirstYear?: ReactNode;
   /** П9: hero «Играю» сверху уже показывает все эти игры — блок «Сейчас» не дублируем */
   heroCovers: boolean;
   view: ViewMode;

@@ -247,11 +247,26 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
 
   // П9: hero «Играю» показывает все игры «Играю» — блок «Сейчас» под ним был бы тем же списком второй раз
   const heroCovers = chronicleMode && blocks.includes('playing') && !!pool && playing.length > 0 && playing.length >= shownCount(counts.playing, playing);
+  // F12: ряд «Перейти». На компьютере — над списком; на телефоне — после первого года хроники
+  // (первый экран остаётся за обложками, а до блоков внизу — один экран, а не восемь)
+  const anchorsNav = (where: 'top' | 'm') => showAnchors && (
+    <nav className={`ps-anchors ps-anchors--${where}`} aria-label="Годы и блоки">
+      <span>Перейти:</span>
+      {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
+      {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «К платине» и «Другие платформы» только там: на компьютере они и так на виду */}
+      {nearShown && <a href="#near-platinum" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'near-platinum')}>К платине</a>}
+      {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
+      {(byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
+      {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
+      {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
+    </nav>
+  );
   const renderCtx: RenderCtx = {
     heroCovers, view, density, cols, filters, actions, selectMode, selected, hiddenView, setFilters, setHidden, counts, forgotten: pool?.forgotten ?? 0, checkCount,
     more: data.more, loadMore, byBlock, chron: L.chron, played, isOpen: L.isOpen, toggle: L.toggle, isPlayedOpen: L.isPlayedOpen, togglePlayed: L.togglePlayed,
     rawLoaded: L.rawLoaded, shownCount, serviceFull: L.serviceFull, serviceOpen: L.serviceOpen, setServiceOpen: L.setServiceOpen,
     serviceRows: L.serviceRows, setServiceRows: L.setServiceRows,
+    afterFirstYear: mobileMq !== false ? anchorsNav('m') : null,
   };
 
   function jump(e: React.MouseEvent, target: string, year?: number) {
@@ -317,18 +332,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         </nav>
       )}
 
-      {showAnchors && (
-        <nav className="ps-anchors" aria-label="Годы и блоки">
-          <span>Перейти:</span>
-          {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
-          {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «К платине» и «Другие платформы» только там: на компьютере они и так на виду */}
-          {nearShown && <a href="#near-platinum" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'near-platinum')}>К платине</a>}
-          {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
-          {(byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
-          {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
-          {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
-        </nav>
-      )}
+      {mobileMq !== true && anchorsNav('top')}
 
       {!pool && loading && chronicleMode && filters.status === 'all' && <AnchorsSkeleton />}
 

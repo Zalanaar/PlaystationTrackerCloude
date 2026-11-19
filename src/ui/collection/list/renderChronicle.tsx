@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import { GamesFact, YearHeader } from '../Chronicle';
 import { MonthChips } from '../MonthChips';
@@ -14,7 +14,7 @@ export function renderChronicle(c: RenderCtx): ReactNode {
     <>
       {chron.years.map((y, yi) => {
         const open = isOpen(y.year);
-        return (
+        const sec = (
           <section key={y.year} className="ps-chron" id={`y${y.year}`} aria-labelledby={`h${y.year}`}>
             <YearHeader
               id={`h${y.year}`} label={String(y.year)} completed={y.completed} dropped={y.dropped} hours={Math.round(y.seconds / 3600)}
@@ -26,6 +26,7 @@ export function renderChronicle(c: RenderCtx): ReactNode {
             </div>
           </section>
         );
+        return yi === 0 && c.afterFirstYear ? <Fragment key={y.year}>{sec}{c.afterFirstYear}</Fragment> : sec;
       })}
       {chron.undated.length > 0 && (
         <section className="ps-chron" id="undated" aria-labelledby="h-undated">
