@@ -1,5 +1,6 @@
 'use client';
 
+import '../styles/stats-rare.css';
 import { useMemo, useState } from 'react';
 import type { RareTrophy, StatsGenreGame, StatsResponse } from '@/server/stats/types';
 import { Cover, THUMB_W } from '../collection/Cover';

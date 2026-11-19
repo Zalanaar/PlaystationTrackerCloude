@@ -1,0 +1,138 @@
+/* Коллекция: чип-ссылка «Забытые», «Ближе всего к платине». Вынесено из collection.css (П15.4), порядок подключения — src/ui/styles/app-styles.ts. */
+/* ---------- Чип-ссылка (счётчик «Забытых») ---------- */
+.ps-chipbtn {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--sp-3); border-radius: var(--r-pill);
+  background: var(--surface-2); border: var(--border-w) solid var(--border); color: var(--text-2); font: 500 var(--fs-small)/var(--lh-small) var(--font-body);
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.ps-chipbtn:hover { background: var(--surface-3); color: var(--text); border-color: var(--border-strong); }
+.ps-chipbtn::after { content: ""; position: absolute; inset: -8px 0; }
+@media (max-width: 767px) {
+  #unsorted .ps-chipbtn { order: 5; flex-basis: auto; }
+}
+/* ---------- Ближе всего к платине (п.8.2) ---------- */
+.ps-nearblock__ico { flex: none; color: var(--plat-text); }
+.ps-nearblock__hint { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-near__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); gap: var(--sp-3); margin: 0; padding: 0; list-style: none; }
+.ps-near__list > li { min-width: 0; }
+.ps-near {
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 112px; height: 100%; padding: 10px; text-align: left; cursor: pointer;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); border: var(--border-w) solid var(--border); border-radius: var(--r-md);
+  color: var(--text); font: inherit; transition: background var(--dur-fast) var(--ease-ui), border-color var(--dur-fast) var(--ease-ui);
+}
+.ps-near:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.ps-near:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.ps-near .ps-near__c { flex: none; width: 64px; height: 85px; aspect-ratio: auto; border-radius: var(--r-cover); }
+.ps-near__t { display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1); flex: 1; min-width: 0; }
+.ps-near__t b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font: 600 13px/16px var(--font-body); }
+.ps-near__p { display: flex; align-items: center; gap: var(--sp-2); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); }
+.ps-near__bar { flex: 1; height: 6px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.ps-near__bar i { display: block; height: 100%; background: var(--plat-fill); }
+.ps-near__s { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-2); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-2); }
+.ps-near__g { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; }
+.ps-near__g .num { color: var(--text); }
+.ps-near__g[data-grade="gold"] { color: var(--gold); }
+.ps-near__g[data-grade="silver"] { color: var(--silver); }
+.ps-near__g[data-grade="bronze"] { color: var(--bronze); }
+.ps-near__dlc { overflow-wrap: anywhere; font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
+.ps-near__s2 { font: 400 var(--fs-small)/var(--lh-small) var(--font-body); color: var(--text-3); }
+.ps-near__sk { height: 112px; }
+.ps-nearblock__tgl { min-height: var(--tap-min); padding: 0 var(--sp-2); margin-right: calc(-1 * var(--sp-2)); }
+.ps-nearblock__hint + .ps-nearblock__tgl { margin-left: 0; }
+/* Пакет 6, п. 9: «Все» → /trophies?view=near; тап-зона 44 px */
+.ps-nearblock__all { min-height: var(--tap-min); padding: 0 var(--sp-2); }
+.ps-nearblock__hint + .ps-nearblock__all, .ps-nearblock__all + .ps-nearblock__tgl { margin-left: 0; }
+.ps-nearblock__all:last-child { margin-right: calc(-1 * var(--sp-2)); }
+.ps-nearblock:not(:has(.ps-near__list)) .ps-block__head { margin-bottom: 0; }
+@media (max-width: 767px) {
+  .ps-near__list { display: flex; gap: var(--sp-2); overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); scroll-padding-left: var(--gutter); }
+  .ps-near__list::-webkit-scrollbar { display: none; }
+  .ps-near__list > li { flex: 0 0 264px; scroll-snap-align: start; }
+}
+.ps-fchip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; margin-bottom: var(--sp-2); padding: 0 10px; border-radius: var(--r-pill);
+  background: var(--accent-soft); color: var(--text); font: 600 var(--fs-small)/var(--lh-small) var(--font-body);
+}
+.ps-card[id^="m"], .ps-row[id^="m"] { scroll-margin-top: calc(var(--sticky-top) + var(--mchips-h) + var(--sp-3)); }
+.ps-card[id^="m"]:focus-visible, .ps-row[id^="m"]:focus-visible { box-shadow: none; outline: 2px solid var(--focus); outline-offset: 2px; }
+.ps-statline { line-height: 20px; }
+.ps-statline__sk { height: 20px; }
+.ps-filters--search { margin-top: 0; }
+.ps-filters--chips { margin-top: var(--sp-1); }
+.ps-filters__srow { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-filters__srow .ps-search { flex: 1 1 auto; width: auto; max-width: none; }
+.ps-filters__sclose { flex: none; height: 40px; }
+.ps-filterchip--platx { gap: 4px; }
+@media (max-width: 767px) {
+  /* D-P1: кнопка «Фильтры» слева от чипов статусов, одна строка вместо двух */
+  .ps-filters--chips { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: var(--sp-1); }
+  .ps-filters--chips > .ps-tabs { flex: 1 1 auto; min-width: 0; margin: 0 calc(-1 * var(--gutter)) 0 0; padding: 0 var(--gutter) 0 0; scroll-padding-left: 0; }
+  .ps-filters--chips > .ps-btn--fsheet { height: var(--control-h); }
+  /* D-P1: плотнее над хроникой: отступы задаёт gap колонки .ps-collection */
+  .ps-collection > .ps-inbox, .ps-collection > .ps-inbox--err { margin-bottom: 0; }
+  .ps-collection > .ps-filters--chips { margin-top: 0; }
+  .ps-collection > .ps-filters--chips ~ .ps-results { margin-top: 0; }
+  /* заголовок страницы в шапке (D-P2), строка профиля сразу под ней */
+  .ps-pagehead--coll .ps-profile, .ps-pagehead--coll .ps-sk-profile { margin-top: 0; }
+  /* «Перейти:» на телефоне не показываем: первый экран отдан обложкам, заголовки лет и так видны */
+  .ps-anchors { display: none; }
+}
+.ps-filters--search .ps-search__input { height: 40px; }
+@media (max-width: 767px) {
+  .ps-statline { font-size: var(--fs-body); }
+  .ps-pagehead--coll { padding-bottom: 0; }
+  /* D1: итоги коллекции на телефоне внутри строки профиля (ProfileRow) */
+  .ps-pagehead--coll .ps-statline, .ps-pagehead--coll .ps-statline__sk { display: none; }
+  .ps-hero__main { min-height: var(--hero-box-h); }
+}
+/* Фаза 27: вход в «Проверить» одной строкой под StatLine, когда блока «Не разобрано» нет */
+.ps-pagehead__check { margin: var(--sp-2) 0 0; }
+
+/* Пакет 6, п. 6: одна шапка страниц на мобильном. Ряд шапки без нижнего отступа (пустой ряд 4 px на «Подскажи» убран),
+   от шапки до первого блока везде 12 px (раньше 12/16/16/16/12/20 на Коллекции, Бэклоге, Подскажи, Плане, Ленте, Итогах).
+   Шапка, где кроме скрытого h1 ничего нет, не занимает места (как на Статистике). Проверка: e2e/page-head.spec.ts. */
+@media (max-width: 767px) {
+  .ps-pagehead.ps-pagehead { padding-bottom: 0; }
+  .ps-rec-page > .ps-rec-head.ps-rec-head { display: contents; }
+  .ps-collection > .ps-bl-pagehead.ps-bl-pagehead { margin-bottom: calc(-1 * var(--sp-1)); }
+  .ps-rm-page > .ps-pagehead.ps-pagehead { margin-bottom: var(--sp-3); }
+  .ps-wrapped-page > .ps-pagehead.ps-pagehead { margin-bottom: calc(var(--sp-3) - var(--sp-5)); }
+}
+
+/* П13.2: чип активного тега и sheet «Теги» */
+.ps-filterchip--tag .ps-filterchip__t { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tags__lead, .ps-tags__empty { margin: 0; font-size: var(--fs-small); color: var(--text-2); }
+.ps-tags__sk { height: 96px; border-radius: var(--r-sm); }
+.ps-tags__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.ps-tags__row { display: flex; align-items: center; gap: var(--sp-1); min-height: var(--tap-min); }
+.ps-tags__pick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: var(--tap-min); padding: 0 var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ps-tags__pick[aria-pressed="true"] { border-color: var(--accent); }
+.ps-tags__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tags__n { flex: none; font-size: var(--fs-small); color: var(--text-2); }
+.ps-tags__form { display: flex; flex: 1 1 auto; gap: var(--sp-2); min-width: 0; }
+.ps-tags__form .ps-input { flex: 1 1 auto; min-width: 0; }
+.ps-tags__confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); flex: 1 1 auto; }
+.ps-tags__q { flex: 1 1 100%; font-size: var(--fs-small); }
+.ps-tags__err { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-small); color: var(--danger); }
+@media (max-width: 767px) {
+  .ps-tags__form .ps-input { font-size: 16px; height: var(--tap-min); }
+  .ps-tags__form .ps-btn, .ps-tags__confirm .ps-btn { min-height: var(--tap-min); }
+}
+
+/* П13.4: «Первая неделя» — постоянная высота: заголовок и один ряд пунктов с горизонтальной прокруткой */
+.ps-week1 { height: 112px; margin: 0 0 var(--sp-3); padding: var(--sp-3); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; overflow: hidden; }
+.ps-week1--sk { padding: 0; border: 0; background: none; }
+.ps-week1__sk { height: 100%; border-radius: var(--r-md); }
+.ps-week1__head { display: flex; align-items: center; gap: var(--sp-2); height: 32px; min-width: 0; }
+.ps-week1__t { margin: 0; font: 600 16px/20px var(--font-body); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-week1__p { flex: none; font-size: var(--fs-small); color: var(--text-2); }
+.ps-week1__x { margin-left: auto; flex: none; }
+.ps-week1__list { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.ps-week1__list::-webkit-scrollbar { display: none; }
+.ps-week1__list > li { flex: none; }
+.ps-week1__item { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); font: inherit; font-size: var(--fs-small); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.ps-week1__item:hover { border-color: var(--accent); }
+.ps-week1__item--done { cursor: default; color: var(--text-2); background: none; }
+.ps-week1__item--done:hover { border-color: var(--border); }
+.ps-week1__item--done svg { color: var(--success, var(--accent)); }
+@media (max-width: 767px) { .ps-week1__x { width: 44px; height: 44px; } .ps-week1__head { height: 44px; } .ps-week1 { height: 124px; } }

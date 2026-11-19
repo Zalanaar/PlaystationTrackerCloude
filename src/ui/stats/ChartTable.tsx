@@ -1,5 +1,6 @@
 // П15.3: «Таблицей» под графиком — раскрывающаяся таблица с теми же цифрами. Нативные <details>/<summary>: клавиатура и
 // экранные чтецы без своего кода; на телефоне таблица прокручивается вбок внутри блока, страница — нет.
+import '../styles/stats-tables.css';
 import type { TableData } from './tableData';
 
 export function ChartTable({ caption, data, testId }: { caption: string; data: TableData; testId?: string }) {

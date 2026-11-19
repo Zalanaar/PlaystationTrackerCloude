@@ -1,0 +1,22 @@
+/* Статистика: графики «Таблицей». Вынесено из stats.css (П15.4), порядок подключения — src/ui/styles/app-styles.ts. */
+/* ---------- П15.3: график «Таблицей» ---------- */
+.ps-ctab { margin-top: var(--sp-3); }
+.ps-ctab__sum {
+  display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-2); margin-left: calc(var(--sp-2) * -1);
+  border-radius: var(--r-sm); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); cursor: pointer; list-style: none;
+}
+.ps-ctab__sum::-webkit-details-marker { display: none; }
+.ps-ctab__sum::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform var(--dur-fast, 120ms); }
+.ps-ctab[open] > .ps-ctab__sum::before { transform: rotate(45deg); }
+.ps-ctab__sum:hover { color: var(--text); }
+.ps-ctab__sum:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ps-ctab__wrap { margin-top: var(--sp-2); max-width: 100%; overflow-x: auto; border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-ctab__wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ps-ctab__t { width: 100%; border-collapse: collapse; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); }
+.ps-ctab__t th, .ps-ctab__t td { padding: 8px var(--sp-3); text-align: right; white-space: nowrap; border-top: var(--border-w) solid var(--border); }
+.ps-ctab__t thead th { border-top: 0; color: var(--text-2); font-weight: 600; background: var(--surface-2); }
+.ps-ctab__t th[scope="row"], .ps-ctab__t thead th:first-child { text-align: left; font-weight: 500; }
+@media (max-width: 767px) {
+  .ps-ctab__sum { min-height: var(--tap-min); }
+}
+@media (prefers-reduced-motion: reduce) { .ps-ctab__sum::before { transition: none; } }
