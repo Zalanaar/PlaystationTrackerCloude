@@ -29,9 +29,11 @@ test('уровень, полоса, остаток, прирост и прогн
   await open(page, baseURL!, LEVEL);
   const card = page.getByTestId('tlevel');
   await expect(card.getByTestId('tlevel-num')).toHaveText('312');
-  await expect(card.getByTestId('tlevel-next')).toHaveText('47% · 477 очков до 313');
+  await expect(card.getByTestId('tlevel-next')).toHaveText('47%');
+  // F21: две строки — когда следующий уровень и прирост за год
+  await expect(card.getByTestId('tlevel-eta')).toHaveText(`До 313: 477 очков, ≈ 14 янв. ${Number(today().slice(0, 4)) + 1}`);
   await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '47');
-  await expect(card.getByTestId('tlevel-meta')).toHaveText(`За 30 дней +1 уровень · за год +13 · 313 ≈ 14 янв. ${Number(today().slice(0, 4)) + 1} · 400 ≈ март ${Number(today().slice(0, 4)) + 2}`);
+  await expect(card.getByTestId('tlevel-meta')).toHaveText(`За год +13 уровней · за 30 дней +1 · 400 ≈ март ${Number(today().slice(0, 4)) + 2}`);
 });
 
 test('без профиля — подсказка; ответ позже — без сдвига ленты', async ({ page, baseURL }) => {
@@ -52,7 +54,7 @@ for (const w of [360, 390]) {
     await expect(page.getByTestId('tlevel-num')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
     const card = (await page.getByTestId('tlevel').boundingBox())!;
-    for (const id of ['tlevel-next', 'tlevel-meta']) {
+    for (const id of ['tlevel-next', 'tlevel-eta', 'tlevel-meta']) {
       const b = (await page.getByTestId(id).boundingBox())!;
       expect(b.x + b.width).toBeLessThanOrEqual(card.x + card.width + 0.5);
       expect(b.y + b.height).toBeLessThanOrEqual(card.y + card.height + 0.5);

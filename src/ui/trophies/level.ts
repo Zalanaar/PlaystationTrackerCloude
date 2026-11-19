@@ -13,13 +13,20 @@ export function levelGrade(level: number): 'bronze' | 'silver' | 'gold' | 'plati
   return 'bronze';
 }
 
-/** «80% · 90 очков до 313» / «80% до 313» (без очков) / «Максимальный уровень». */
-export function levelNextText(r: Pick<LevelResponse, 'level' | 'progress' | 'toNext' | 'approximate'>): string | null {
+/** F21: справа от полосы — только процент («47%»); «Максимальный уровень» на 999. Очки и дата — строкой «До 313: …». */
+export function levelNextText(r: Pick<LevelResponse, 'level' | 'progress'>): string | null {
   if (r.level === null) return null;
   if (r.level >= 999) return 'Максимальный уровень';
-  const pct = r.progress !== null ? `${Math.max(0, Math.min(100, r.progress))}%` : null;
+  return r.progress !== null ? `${Math.max(0, Math.min(100, r.progress))}%` : null;
+}
+
+/** F21, строка 1: «До 313: 477 очков, ≈ 14 дек.»; без прогноза — «… прогноза нет: за 90 дней трофеев нет». */
+export function levelEta(r: LevelResponse, today: string): string | null {
+  if (r.level === null || r.level >= 999) return null;
   const pts = r.toNext !== null ? `${r.approximate ? '≈ ' : ''}${formatNumber(r.toNext)} ${plural(r.toNext, ['очко', 'очка', 'очков'])}` : null;
-  return [pct, pts ? `${pts} до ${r.level + 1}` : `до ${r.level + 1}`].filter(Boolean).join(' · ');
+  const when = r.eta?.next ? `≈ ${shortDate(r.eta.next, today)}` : r.gained && !r.eta ? 'прогноза нет: за 90 дней трофеев нет' : null;
+  const tail = [pts, when].filter(Boolean).join(', ');
+  return tail ? `До ${r.level + 1}: ${tail}` : null;
 }
 
 /** «14 дек.»; другой год — «14 дек. 2027». */
@@ -33,16 +40,14 @@ export function monthYear(day: string, today: string): string {
   return `${MONTHS_NOM[m - 1]}${String(y) !== today.slice(0, 4) ? ` ${y}` : ''}`;
 }
 
-/** Строка под полосой: прирост и прогноз. Пустые части опускаются; без истории — null. */
+/** F21, строка 2: «За год +13 уровней · за 30 дней +1 · 400 ≈ март 2028». Без истории — null. */
 export function levelMeta(r: LevelResponse, today: string): string | null {
   const parts: string[] = [];
   if (r.gained) {
-    const g = (n: number) => (n > 0 ? `+${n} ${plural(n, ['уровень', 'уровня', 'уровней'])}` : 'без нового уровня');
-    parts.push(`За 30 дней ${g(r.gained.d30.levels)}`, `за год ${r.gained.d365.levels > 0 ? `+${r.gained.d365.levels}` : '0'}`);
+    const y = r.gained.d365.levels, m = r.gained.d30.levels;
+    parts.push(`За год ${y > 0 ? `+${y} ${plural(y, ['уровень', 'уровня', 'уровней'])}` : 'без нового уровня'}`, `за 30 дней ${m > 0 ? `+${m}` : '0'}`);
   }
-  if (r.eta?.next && r.level !== null) parts.push(`${r.level + 1} ≈ ${shortDate(r.eta.next, today)}`);
   if (r.eta?.milestone?.date) parts.push(`${r.eta.milestone.level} ≈ ${monthYear(r.eta.milestone.date, today)}`);
-  if (r.gained && !r.eta) parts.push('за 90 дней трофеев нет — прогноза нет');
   return parts.length ? parts.join(' · ') : null;
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { LevelResponse } from '@/server/trophies/level-query';
 import { cachedGet } from '../data/http';
 import { Icon } from '../icons';
-import { LEVEL_EMPTY, LEVEL_HINT, levelGrade, levelMeta, levelNextText } from './level';
+import { LEVEL_EMPTY, LEVEL_HINT, levelEta, levelGrade, levelMeta, levelNextText } from './level';
 
 const URL_LEVEL = '/api/trophies/level';
 const mskToday = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
@@ -30,6 +30,7 @@ export function LevelCard({ initial }: { initial: LevelResponse | null }) {
     return <section className="ps-tlevel ps-tlevel--empty" aria-label="Уровень PSN" data-testid="tlevel"><p className="ps-tlevel__meta">{failed ? 'Не удалось загрузить уровень PSN' : LEVEL_EMPTY}</p></section>;
   }
   const next = levelNextText(data);
+  const eta = levelEta(data, mskToday());
   const meta = levelMeta(data, mskToday());
   const bar = data.level >= 999 ? 100 : data.progress;
   return (
@@ -42,7 +43,9 @@ export function LevelCard({ initial }: { initial: LevelResponse | null }) {
         {bar !== null && <span className="ps-tlevel__bar" role="progressbar" aria-label={`До уровня ${data.level + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={bar}><i style={{ width: `${bar}%` }} /></span>}
         {next && <span className="ps-tlevel__next num" data-testid="tlevel-next">{next}</span>}
       </div>
-      {meta && <p className="ps-tlevel__meta" data-testid="tlevel-meta" title={data.eta ? LEVEL_HINT : undefined}>{meta}</p>}
+      {/* F21: две строки вместо одной «шифровки»: когда следующий уровень и сколько набрано за год */}
+      {eta && <p className="ps-tlevel__eta" data-testid="tlevel-eta" title={data.eta ? LEVEL_HINT : undefined}>{eta}</p>}
+      {meta && <p className="ps-tlevel__meta" data-testid="tlevel-meta">{meta}</p>}
     </section>
   );
 }
