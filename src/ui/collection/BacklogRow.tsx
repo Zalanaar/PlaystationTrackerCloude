@@ -50,3 +50,28 @@ export function BacklogRow({
     </li>
   );
 }
+
+/** F19: действия карточки Бэклога (вид «Крупно/Плотно») — тихая ▶ и меню «…», как в строке списка; без трёх полноширинных кнопок. */
+export function BacklogCardActions({ game, onPlay, menu }: { game: GameItem; onPlay: () => void; menu: readonly RowMenuItem[] }) {
+  return (
+    <div className="ps-bl-cact" data-testid="bl-card-actions">
+      <button type="button" className="ps-btn ps-btn--icon ps-bl-cact__play" aria-label={`${playLabel(game.playSeconds)}: ${game.title}`} title={playLabel(game.playSeconds)} onClick={onPlay}>
+        <Icon name="play" size={16} />
+      </button>
+      <Popover
+        align="end" className="ps-blrow__menu"
+        trigger={(t) => (
+          <button type="button" className="ps-btn ps-btn--icon ps-bl-cact__more" aria-label={`Действия: ${game.title}`} {...t}>
+            <Icon name="more" size={18} />
+          </button>
+        )}
+      >
+        {(close) => menu.map((m) => (
+          <button key={m.label} type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); m.run(); }}>
+            <span className="ps-menu-item__label">{m.label}</span>
+          </button>
+        ))}
+      </Popover>
+    </div>
+  );
+}

@@ -61,7 +61,7 @@ test.describe('Бэклог: кнопки карточек на одной ли�
         const byTop = new Map<number, number[]>();
         for (const li of lis) {
           const top = Math.round(li.getBoundingClientRect().top);
-          const btn = li.querySelector('.ps-bl-actions .ps-btn');
+          const btn = li.querySelector('.ps-bl-cact .ps-btn, .ps-bl-actions .ps-btn');
           if (!btn) continue;
           byTop.set(top, [...(byTop.get(top) ?? []), Math.round(btn.getBoundingClientRect().top)]);
         }

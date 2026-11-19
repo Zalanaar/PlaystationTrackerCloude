@@ -33,7 +33,7 @@ import { platformCookie, type PlatformCounts, type PlatformKey } from '@/shared/
 import { useHeaderAction } from '../shell/headerActions';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
-import { BacklogRow, type RowMenuItem } from './BacklogRow';
+import { BacklogCardActions, BacklogRow, type RowMenuItem } from './BacklogRow';
 import { NextUpCard } from './NextUpCard';
 import { mayBeInBacklog, pickNextUp } from './nextUp';
 import { fetchRoadmap } from '../roadmap/api';
@@ -515,15 +515,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
     <GameCard game={g} actions={actions} selectMode={false} selected={false} priority={priority}>
       <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
       {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
-      <div className="ps-bl-actions">
-        <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'playing')}>
-          <StatusGlyph status="playing" size={14} />{playLabel(g.playSeconds)}
-        </button>
-        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'service')}>
-          <StatusGlyph status="service" size={14} />В сервис
-        </button>
-        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из бэклога</button>
-      </div>
+      <BacklogCardActions game={g} onPlay={() => void change(g, 'playing')} menu={menuFor(g, 'backlog').filter((m) => m.label !== 'Указать часы')} />
     </GameCard>
   );
   const rows = (list: GameItem[], kind: 'backlog' | 'shelved' | 'service', label: string) => (

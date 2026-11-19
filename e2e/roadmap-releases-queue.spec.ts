@@ -228,7 +228,8 @@ test.describe('Бэклог: заголовки, переключатель, к�
         test.skip(isMobile && width === 1280, 'ширина задаётся вручную один раз');
         await page.setViewportSize({ width, height: 900 });
         await openBacklog(page, context, baseURL as string, many().slice(0, 6).concat([g(100, 'Сервис игра с очень длинным названием', 'service')]), t.id);
-        const rows = await page.locator('.ps-bl-actions').evaluateAll((boxes) => boxes.map((box) => Array.from(box.querySelectorAll('button')).map((b) => {
+        // F19: в карточках бэклога ▶ и «…» (.ps-bl-cact)
+        const rows = await page.locator('.ps-bl-list .ps-bl-cact').evaluateAll((boxes) => boxes.map((box) => Array.from(box.querySelectorAll('button')).map((b) => {
           const r = b.getBoundingClientRect();
           return { w: Math.round(r.width), h: Math.round(r.height), clipped: b.scrollWidth > b.clientWidth + 1 };
         })));

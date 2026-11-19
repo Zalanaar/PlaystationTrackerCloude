@@ -240,3 +240,10 @@
 .ps-bl-srcnote { margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
 /* F11: строка игры-сервиса (наиграно · последний запуск) */
 .ps-blrow__svc { display: block; margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+/* F19: карточка Бэклога — тихая ▶ и «…» справа, ▶ заливается акцентом при наведении на карточку */
+.ps-bl-cact { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: auto; }
+.ps-bl-cact .ps-btn--icon { width: 36px; height: 36px; }
+.ps-bl-cact .ps-btn.ps-bl-cact__play { color: var(--accent); }
+.ps-card:hover .ps-bl-cact .ps-btn.ps-bl-cact__play, .ps-bl-cact .ps-btn.ps-bl-cact__play:focus-visible { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 767px) { .ps-bl-cact .ps-btn--icon { width: var(--tap-min); height: var(--tap-min); } }
+@media (prefers-reduced-motion: no-preference) { .ps-bl-cact__play { transition: background-color .15s, color .15s; } }

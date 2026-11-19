@@ -152,7 +152,8 @@ test.describe('QA 12c: /backlog блок «Сервис»', () => {
   test('ошибка PUT при «В сервис»: карточка возвращается в бэклог, счётчики прежние, тост ошибки', async ({ page, context, baseURL }) => {
     const mock = await openBl(page, context, baseURL as string, bl());
     mock.failNextMutation = 500;
-    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: 'В сервис' }).click();
+    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: /^Действия:/ }).click(); // F19
+    await page.getByRole('menuitem', { name: 'В сервис' }).click();
     await expect(page.getByText('Не удалось сменить статус')).toBeVisible();
     await expect.poll(() => page.locator('.ps-bl-list .ps-card__title').allTextContents().then((l) => l.length)).toBe(2);
     await expect(page.getByTestId('bl-service-count')).toHaveText('2');
@@ -161,7 +162,8 @@ test.describe('QA 12c: /backlog блок «Сервис»', () => {
 
   test('«Отменить» после перезагрузки списков: игра не дублируется', async ({ page, context, baseURL }) => {
     await openBl(page, context, baseURL as string, bl());
-    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: 'В сервис' }).click();
+    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: /^Действия:/ }).click(); // F19
+    await page.getByRole('menuitem', { name: 'В сервис' }).click();
     await expect(page.getByTestId('bl-service-count')).toHaveText('3');
     await page.getByRole('button', { name: 'Отменить' }).click();
     await expect(page.getByTestId('bl-service-count')).toHaveText('2');
@@ -185,7 +187,8 @@ test.describe('QA 12c: /backlog блок «Сервис»', () => {
 
   test('aria-live у тоста, кнопки с именами, «Свернуть» держит aria-expanded', async ({ page, context, baseURL }) => {
     await openBl(page, context, baseURL as string, bl());
-    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: 'В сервис' }).click();
+    await page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа' }).getByRole('button', { name: /^Действия:/ }).click(); // F19
+    await page.getByRole('menuitem', { name: 'В сервис' }).click();
     const toast = page.getByText('Статус изменён: Сервис');
     await expect(toast).toBeVisible();
     expect(await toast.evaluate((el) => !!el.closest('[aria-live],[role=status],[role=alert]'))).toBe(true);

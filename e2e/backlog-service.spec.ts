@@ -45,7 +45,8 @@ test.describe('Бэклог: блок «Сервис»', () => {
     const mock = await open(page, context, baseURL as string, [g(1, 'Альфа Экшен', 'backlog'), g(2, 'Браво Хоррор', 'backlog')]);
     await expect(page.getByTestId('bl-service')).toHaveCount(0);
     const card = page.locator('.ps-bl-list .ps-card', { hasText: 'Альфа Экшен' });
-    await card.getByRole('button', { name: 'В сервис' }).click();
+    await card.getByRole('button', { name: /^Действия:/ }).click(); // F19: на карточке ▶ и «…»
+    await page.getByRole('menuitem', { name: 'В сервис' }).click();
     await expect(page.getByText('Статус изменён: Сервис')).toBeVisible();
     expect(await blTitles(page)).toEqual(['Браво Хоррор']);
     expect(await svTitles(page)).toEqual(['Альфа Экшен']);
