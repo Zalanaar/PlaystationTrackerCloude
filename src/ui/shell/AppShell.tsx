@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { useIsOwner } from '../access/useIsOwner';
 import { Icon } from '../icons';
 import { Avatar } from '../primitives/Avatar';
@@ -29,7 +30,7 @@ import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive } from './nav';
-import { navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
+import { MARK_TAP, MEASURE_TAB, navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { pendingBadge, useTriagePending } from './triagePending';
 import { installErrorReporter } from './errorReporter';
@@ -301,6 +302,9 @@ export function TabBar() {
   const offer = useSeasonOffer();
   const router = useRouter();
   const active = NAV_TABS.findIndex((n) => isTabActive(pathname, n));
+  // П16.2: вкладка подсвечивается сразу по касанию (до смены маршрута); действует, пока адрес прежний
+  const [optimistic, setOptimistic] = useState<{ path: string; to: number } | null>(null);
+  const shown = optimistic && optimistic.path === pathname ? optimistic.to : active;
   const pending = useRef<{ tab: string; y: number; resolve: () => void } | null>(null);
 
   // П11.5.3: новый раздел смонтирован -> восстановить прокрутку вкладки и отпустить снимок старого экрана
@@ -309,23 +313,38 @@ export function TabBar() {
     if (!p || NAV_TABS[active]?.id !== p.tab) return;
     pending.current = null;
     restoreScroll(p.y);
-    requestAnimationFrame(() => p.resolve());
+    // П16.2: сразу, не в requestAnimationFrame — пока ждёт колбэк View Transition, кадры (и rAF) на паузе, и снимок
+    // отпускался только по пределу ожидания
+    p.resolve();
   }, [active, pathname]);
 
-  // П11.5.3: в установленном PWA разделы таббара подгружаются заранее, в простое (в браузере — по намерению, бюджет JS главной)
+  // П11.5.3/П16.2: в установленном PWA разделы таббара и данные Бэклога подгружаются заранее, в простое после первого запуска
+  // (в браузере — по намерению: касание вкладки; бюджет JS главной)
   useEffect(() => {
     const nav = navigator as Navigator & { standalone?: boolean };
     if (!(nav.standalone === true || matchMedia('(display-mode: standalone)').matches)) return;
     const id = window.setTimeout(() => {
-      const run = () => NAV_TABS.forEach((n) => { try { router.prefetch(n.href); } catch { /* необязательно */ } });
+      const run = () => {
+        // полная предзагрузка (не только до loading.tsx): с staleTimes.dynamic переход на вкладку не ходит на сервер
+        const full = { kind: 'full' } as unknown as Parameters<typeof router.prefetch>[1];
+        NAV_TABS.forEach((n) => { try { router.prefetch(n.href, full); } catch { /* необязательно */ } });
+        void import('./tabPrefetch').then((m) => m.prefetchTabData('backlog'), () => {});
+      };
       if ('requestIdleCallback' in window) window.requestIdleCallback(run); else run();
     }, 1500);
     return () => window.clearTimeout(id);
   }, [router]);
+  const warmData = (to: number) => {
+    if (to === active) return;
+    void import('./tabPrefetch').then((m) => m.prefetchTabData(NAV_TABS[to].id), () => {});
+  };
 
   const onTab = (e: MouseEvent<HTMLAnchorElement>, to: number) => {
     if (!shouldIntercept(e, active, to)) return;
     e.preventDefault();
+    try { performance.clearMarks(MARK_TAP); performance.clearMeasures(MEASURE_TAB); performance.mark(MARK_TAP); } catch { /* метки необязательны */ }
+    // подсветка новой вкладки — синхронно, до снимка View Transition: обратная связь в первом же кадре
+    flushSync(() => setOptimistic({ path: pathname, to }));
     const ss = session();
     writeScroll(ss, NAV_TABS[active].id, window.scrollY);
     const tab = NAV_TABS[to];
@@ -340,8 +359,8 @@ export function TabBar() {
         const dot = n.id === 'stats' && offer !== null;
         return (
           <Link
-            key={n.href} href={n.href} className="ps-tab" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
-            onClick={(e: MouseEvent<HTMLAnchorElement>) => onTab(e, i)}
+            key={n.href} href={n.href} className="ps-tab" aria-current={i === shown ? 'page' : undefined}
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => onTab(e, i)} onTouchStart={() => warmData(i)} onMouseEnter={() => warmData(i)}
             aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
           >
             <span className="ps-tab__ico">

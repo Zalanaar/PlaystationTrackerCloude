@@ -27,8 +27,15 @@ export function writeScroll(store: Pick<Storage, 'getItem' | 'setItem'> | null, 
   } catch { /* приватный режим: без запоминания */ }
 }
 
-/** Ждать новый экран не дольше: дальше снимок отпускается, даже если раздел ещё грузится (скелет). */
-export const VT_MAX_WAIT_MS = 800;
+/**
+ * Ждать новый экран не дольше: дальше снимок отпускается, даже если раздел ещё грузится (скелет той же раскладки).
+ * П16.2: было 800 мс — на iPhone экран «замирал» на 200–400 мс до начала анимации; разделы и данные теперь грузятся заранее.
+ */
+export const VT_MAX_WAIT_MS = 150;
+/** Метки Performance API: касание вкладки и старт анимации (замер задержки в e2e). */
+export const MARK_TAP = 'ps-tab-tap';
+export const MARK_VT = 'ps-tab-vt-start';
+export const MEASURE_TAB = 'ps-tab-delay';
 export const TAB_VT_MS = 280;
 
 type VT = { finished: Promise<void>; ready: Promise<void>; updateCallbackDone: Promise<void> };
@@ -61,6 +68,9 @@ export function runTabTransition(dir: 'fwd' | 'back', navigate: () => void, read
     });
     const quiet = () => {};
     t.ready.catch(quiet); t.updateCallbackDone.catch(quiet); // пропущенный переход отклоняет промисы — это не ошибка
+    t.ready.then(() => {
+      try { performance.mark(MARK_VT); performance.measure(MEASURE_TAB, MARK_TAP, MARK_VT); } catch { /* метки необязательны */ }
+    }, quiet);
     t.finished.then(done, done);
   } catch { done(); navigate(); }
 }

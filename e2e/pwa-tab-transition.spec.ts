@@ -107,3 +107,20 @@ test('десктоп: без анимации', async ({ page, baseURL, isMobile
   expect((await anim(page)).name).toBe('none');
   expect((await vt(page)) ?? []).toHaveLength(0);
 });
+
+test('П16.2: касание вкладки — подсветка в том же кадре, анимация стартует без долгой паузы (метки ps-tab-tap → ps-tab-vt-start)', async ({ page, baseURL, isMobile }) => {
+  test.skip(!isMobile, 'нижние вкладки только на телефоне');
+  await open(page, baseURL!);
+  test.skip(!(await page.evaluate(() => typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function')), 'нет View Transitions API');
+  // aria-current новой вкладки выставлен синхронно в обработчике касания (до смены адреса и до снимка перехода)
+  const current = await tab(page, 'Бэклог').evaluate((el) => { (el as HTMLElement).click(); return el.getAttribute('aria-current'); });
+  expect(current).toBe('page');
+  await expect(page).toHaveURL(/\/backlog/);
+  const delay = await expect.poll(() => page.evaluate(() => performance.getEntriesByName('ps-tab-delay')[0]?.duration ?? null)).not.toBeNull()
+    .then(() => page.evaluate(() => performance.getEntriesByName('ps-tab-delay')[0].duration));
+  console.log(`tap→transition ${Math.round(delay)} ms`);
+  // было ~830 мс (снимок держался до предела 800 мс); теперь ожидание ≤150 мс — прод-сборка 23–34 мс, dev-сервер медленнее
+  expect(delay).toBeLessThan(400);
+  await expect(tab(page, 'Бэклог')).toHaveAttribute('aria-current', 'page');
+  await expect(tab(page, 'Коллекция')).not.toHaveAttribute('aria-current', /.*/);
+});

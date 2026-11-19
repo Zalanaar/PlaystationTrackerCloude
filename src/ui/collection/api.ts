@@ -84,7 +84,8 @@ export const fetchDay = (date: string, signal?: AbortSignal) => cachedGet<DayRes
 
 /** П11.2 «В этот день». */
 /** П12.4: возраст бэклога (без кэша: после смены статуса нужен свежий ответ). */
-export const fetchBacklogAge = (signal?: AbortSignal) => call<BacklogAgeResponse>('/api/collection/backlog-age', { signal });
+// П16.2: через общий кэш GET — предзагрузка вкладки «Бэклог» (shell/tabPrefetch) отдаёт ответ без второго запроса
+export const fetchBacklogAge = (signal?: AbortSignal) => cachedGet<BacklogAgeResponse>('/api/collection/backlog-age', signal);
 /** П12.5: «У меня 2 часа». */
 export const fetchTimeFit = (minutes: number, signal?: AbortSignal) => call<TimeFitResponse>(`/api/collection/time-fit?minutes=${minutes}`, { signal });
 /** П13.1: достижения (кэш как у прочих блоков Статистики). */
