@@ -52,11 +52,12 @@ test('пройдено без оценки: «Оценить» открывае�
   await expect(page.getByRole('dialog', { name: 'God of War' })).toBeVisible();
 });
 
-test('нет оценок: пустое состояние; пункт меню ведёт на экран', async ({ page, context, baseURL }, info) => {
+test('нет оценок: пустое состояние; пункт меню ведёт на экран', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL as string, seed());
   await expect(page.getByText('Оценок пока нет')).toBeVisible();
   await page.goto('/stats');
-  if (info.project.name === 'mobile') {
+  // телефон (mobile, webkit-iphone) — меню «⋯» шапки; компьютер — меню профиля
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
     await page.getByRole('button', { name: 'Меню', exact: true }).click();
     await page.getByTestId('sheet-ratings').click();
   } else {
