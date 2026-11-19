@@ -426,7 +426,7 @@ describe('синк на PGlite и фейковом PSN', () => {
   });
 
   it('статус: прогресс, счётчики и конверт для running', async () => {
-    expect(await getSyncStatus(t.db, TEST_USER)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnToken: null, psnAuthExpiresAt: null, totals: { games: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
+    expect(await getSyncStatus(t.db, TEST_USER)).toEqual({ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnToken: null, psnAuthExpiresAt: null, totals: { games: 0, gamesVisible: 0, gamesHidden: 0, gamesDuplicates: 0, trophySets: 0, trophies: 0, trophiesEarned: 0, platinumEarned: 0 }, overdue: { isOverdue: false, ageHours: null, thresholdHours: 30 } });
     const s = await startRun(t.db, TEST_USER, { kind: 'manual', now: new Date(clock.t) });
     if (s.kind !== 'started') throw new Error();
     const st = await getSyncStatus(t.db, TEST_USER);
@@ -445,8 +445,11 @@ describe('синк на PGlite и фейковом PSN', () => {
       { userId: 1, trophySetId: set.id, trophyId: 3, type: 'platinum' },
     ]);
     const st = await getSyncStatus(t.db, TEST_USER);
-    const gamesCount = (await t.db.select().from(schema.games)).length;
-    expect(st.totals).toEqual({ games: gamesCount, trophySets: 1, trophies: 4, trophiesEarned: 2, platinumEarned: 1 });
+    const all = await t.db.select().from(schema.games);
+    const gamesCount = all.length;
+    // F3: разбивка «в PSN / в коллекции / скрыто / дубли»
+    expect(st.totals!.gamesVisible + st.totals!.gamesHidden + st.totals!.gamesDuplicates).toBe(gamesCount);
+    expect(st.totals).toEqual({ games: gamesCount, gamesVisible: st.totals!.gamesVisible, gamesHidden: st.totals!.gamesHidden, gamesDuplicates: st.totals!.gamesDuplicates, trophySets: 1, trophies: 4, trophiesEarned: 2, platinumEarned: 1 });
   });
 
   it('ошибка БД/внутренняя: failed/internal без SQL-параметров в сообщении', async () => {
