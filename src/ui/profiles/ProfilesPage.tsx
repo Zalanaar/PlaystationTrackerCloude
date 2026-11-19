@@ -125,7 +125,7 @@ export function ProfilesPage() {
   const header = (count: string | null, locked: boolean) => (
     <header className="ps-plist-head">
       <div className="ps-plist-head__row">
-        <h1 ref={headingRef} tabIndex={-1} className="ps-h1">Профили PSN</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="ps-h1 ps-h1--hdr">Профили PSN</h1>
         {count && <span className="ps-plist-count num" aria-label={`Профилей: ${count}`}>{locked && <Icon name="lock" size={12} />}{count}</span>}
       </div>
       <p className="ps-plist-lead">Один вход, до 3 профилей PSN. Игры, статусы и статистика у каждого свои.</p>

@@ -98,7 +98,7 @@ export function AccessView() {
 
   return (
     <div className="ps-access">
-      <h1 className="ps-h1">Доступ</h1>
+      <h1 className="ps-h1 ps-h1--hdr">Доступ</h1>
       <p className="ps-access__lead">Вход только для email из этого списка, через Google. У каждого участника своя коллекция.</p>
 
       <form className="ps-access__add" onSubmit={(e) => void onAdd(e)} noValidate>

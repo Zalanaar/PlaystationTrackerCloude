@@ -30,7 +30,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useRefreshOnReturn } from './refresh';
 import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
-import { isTabActive } from './nav';
+import { isTabActive, sectionTitle } from './nav';
 import { MARK_TAP, MEASURE_TAB, navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { pendingBadge, useTriagePending } from './triagePending';
@@ -80,9 +80,8 @@ export function AppHeader() {
   const install = useInstall();
   const { open: openWhatsNew } = useWhatsNew();
   // D-P2: на мобильном вместо логотипа название раздела, рядом «Поиск» и «+» той страницы, где они есть
-  const section = NAV_TABS.find((n) => isTabActive(pathname, n)) ?? null;
-  // П9: у «Разбора» больше нет вкладки, но заголовок раздела в шапке телефона остаётся
-  const title = section?.label ?? (/^\/triage(\/|$)/.test(pathname) ? 'Разбор' : null);
+  // П9/F25: и у экранов без вкладки («Разбор», «Профили», «Доступ», «Здоровье», «Настройки») название в шапке телефона
+  const title = sectionTitle(pathname);
   const hdr = headerActionsFor(pathname);
   useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
   useEffect(() => installErrorReporter(), []); // П10: журнал ошибок браузера

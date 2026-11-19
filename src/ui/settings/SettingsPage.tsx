@@ -19,7 +19,7 @@ export function SettingsPage() {
   return (
     <div className="ps-settings" data-tour-page="settings" data-tour-ready="true">
       <header className="ps-settings__head">
-        <h1 className="ps-h1">Настройки</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Настройки</h1>
         <p className="ps-settings__lead">Тема, уведомления, календарь релизов и копия данных.</p>
       </header>
 

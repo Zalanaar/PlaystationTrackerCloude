@@ -5,7 +5,7 @@ export function ProfilesSkeleton() {
   return (
     <div className="ps-pprof" aria-busy="true">
       <header className="ps-plist-head">
-        <div className="ps-plist-head__row"><h1 className="ps-h1">Профили PSN</h1></div>
+        <div className="ps-plist-head__row"><h1 className="ps-h1 ps-h1--hdr">Профили PSN</h1></div>
       </header>
       <SkRoot>
         <span className="ps-skeleton ps-pprof__sk-pill" />

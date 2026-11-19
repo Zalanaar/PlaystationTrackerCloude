@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NAV_TABS } from '../tokens';
-import { isSubnavActive, isTabActive } from './nav';
+import { isSubnavActive, isTabActive, sectionTitle } from './nav';
 
 const active = (path: string) => NAV_TABS.filter((t) => isTabActive(path, t)).map((t) => t.id);
 
@@ -31,5 +31,19 @@ describe('isSubnavActive', () => {
     expect(isSubnavActive('/roadmap', '/roadmap')).toBe(true);
     expect(isSubnavActive('/roadmap/x', '/roadmap')).toBe(true);
     expect(isSubnavActive('/backlog', '/roadmap')).toBe(false);
+  });
+});
+
+describe('sectionTitle (F25)', () => {
+  it('вкладки и экраны без вкладки', () => {
+    expect(sectionTitle('/')).toBe('Коллекция');
+    expect(sectionTitle('/roadmap')).toBe('Бэклог');
+    expect(sectionTitle('/wrapped')).toBe('Статистика');
+    expect(sectionTitle('/triage')).toBe('Разбор');
+    expect(sectionTitle('/profiles')).toBe('Профили');
+    expect(sectionTitle('/access/')).toBe('Доступ');
+    expect(sectionTitle('/health')).toBe('Здоровье');
+    expect(sectionTitle('/settings')).toBe('Настройки');
+    expect(sectionTitle('/onboarding')).toBeNull();
   });
 });

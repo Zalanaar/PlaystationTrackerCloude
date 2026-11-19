@@ -14,3 +14,15 @@ export function isSubnavActive(pathname: string, href: string): boolean {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   return p === href || p.startsWith(`${href}/`);
 }
+
+/** F25 (аудит UX): экраны без вкладки — тоже с названием в шапке телефона (а не «PS TRACKER»); h1 на них скрыт так же, как на вкладках. */
+const PAGE_TITLES: readonly (readonly [string, string])[] = [
+  ['/triage', 'Разбор'], ['/profiles', 'Профили'], ['/access', 'Доступ'], ['/health', 'Здоровье'], ['/settings', 'Настройки'],
+];
+
+/** Название раздела для шапки телефона: вкладка либо экран из PAGE_TITLES; иначе null (логотип). */
+export function sectionTitle(pathname: string): string | null {
+  const tab = NAV_TABS.find((n) => isTabActive(pathname, n));
+  if (tab) return tab.label;
+  return PAGE_TITLES.find(([href]) => isSubnavActive(pathname, href))?.[1] ?? null;
+}

@@ -60,7 +60,7 @@ export function HealthView() {
   return (
     <div className="ps-health">
       <div className="ps-health__head">
-        <h1 className="ps-h1">Здоровье</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Здоровье</h1>
         <button type="button" className="ps-btn ps-btn--ghost" onClick={retry} disabled={state.kind === 'loading'}>
           <Icon name="refresh" size={16} />Обновить
         </button>

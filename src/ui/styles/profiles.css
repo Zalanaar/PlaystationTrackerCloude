@@ -84,6 +84,8 @@ html[data-psw] .ps-main { visibility: hidden; }
 .ps-pprof { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-4); }
 .ps-plist-head { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ps-plist-head__row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+/* F25: на телефоне h1 скрыт (название в шапке) — ряд держит высоту чипа счётчика и в скелете (CLS 0) */
+@media (max-width: 767px) { .ps-plist-head__row { min-height: 24px; } }
 .ps-plist-head h1:focus { outline: none; }
 .ps-plist-head h1:focus-visible { box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
 .ps-plist-count { display: inline-flex; align-items: center; gap: var(--sp-1); height: 24px; padding: 0 var(--sp-3); border-radius: var(--r-chip); background: var(--surface-3); color: var(--text-2); font-size: var(--fs-small); font-weight: 600; }

@@ -56,7 +56,7 @@ function Head({ period, rare, data, onPeriod, onRare, busy }: {
 export function TrophyFeedSkeleton() {
   return (
     <SkRoot className="ps-tf">
-      <div className="ps-pagehead ps-tf__head"><h1 className="ps-h1">Трофеи</h1></div>
+      <div className="ps-pagehead ps-tf__head"><h1 className="ps-h1 ps-h1--hdr">Трофеи</h1></div>
       <LevelCardSkeleton />
       <div className="ps-seg ps-tf__view"><button type="button" disabled>Лента</button><button type="button" disabled>Почти платина</button></div>
       <p className="ps-tf__sum"><span className="ps-tf__sum-sk">{'\u00a0'}</span></p>
@@ -224,7 +224,7 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
   return (
     <div className="ps-tf" data-testid="tfeed" data-view={view}>
       <div className="ps-pagehead ps-tf__head">
-        <h1 className="ps-h1">Трофеи</h1>
+        <h1 className="ps-h1 ps-h1--hdr">Трофеи</h1>
       </div>
       <LevelCard initial={levelInitial} />
       <ViewSwitch view={view} onView={switchView} />
