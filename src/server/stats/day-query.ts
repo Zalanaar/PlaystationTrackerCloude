@@ -7,6 +7,7 @@ import { effectiveGameIdSql, snapshotGameVisible, trophySetCounted } from '@/ser
 import type { TrophyType } from '@/server/trophies/types';
 import { DAY_TROPHIES_MAX, ON_THIS_DAY_TROPHIES, ON_THIS_DAY_YEARS, parseDayDate, secondsToMinutes, type DayFinished, type DayGame, type DayResponse, type DayTrophy, type OnThisDayResponse } from './day';
 import { mskDateString, mskMidnightUtc } from './period';
+import { snapshotDeltaSql } from './snapshot-delta';
 
 const { games, gameTrophySets, trophies, trophySets } = schema;
 
@@ -21,8 +22,9 @@ async function dayGames(db: AnyDb, userId: UserId, date: string): Promise<{ know
   const res = await db.execute(sql`
     with d as (
       select p.game_id, p.snapshot_date,
-             p.play_duration_seconds - lag(p.play_duration_seconds) over (partition by p.game_id order by p.snapshot_date) as delta
+             ${snapshotDeltaSql(userId)} as delta
       from playtime_snapshots p
+      join games g on g.id = p.game_id and g.user_id = p.user_id
       where p.user_id = ${userId} and p.snapshot_date <= ${date}::date
         and p.game_id in (select s.game_id from playtime_snapshots s where s.user_id = ${userId} and s.snapshot_date = ${date}::date)
     )
@@ -49,7 +51,7 @@ async function neighbours(db: AnyDb, userId: UserId, date: string, today: string
   const res = await db.execute(sql`
     with d as (
       select p.snapshot_date,
-             p.play_duration_seconds - lag(p.play_duration_seconds) over (partition by p.game_id order by p.snapshot_date) as delta,
+             ${snapshotDeltaSql(userId)} as delta,
              (g.hidden_at is null and pg.hidden_at is null) as visible
       from playtime_snapshots p
       join games g on g.id = p.game_id and g.user_id = p.user_id

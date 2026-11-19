@@ -4,16 +4,17 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { buildActivity, type ActivityDay, type ActivityResponse } from './activity';
 import { mskDateString } from './period';
+import { snapshotDeltaSql } from './snapshot-delta';
 
 type Row = { date: string; seconds: number | string; deltas: number | string; first: string | null };
 
 export async function getActivity(db: AnyDb, userId: UserId, year: number, now: Date = new Date()): Promise<ActivityResponse> {
-  // Дельта к предыдущему снимку той же игры (lag по всем снимкам); видимость (9.10) применяется к сумме и счётчику дельт.
+  // Дельта к предыдущему снимку той же игры (lag по всем снимкам; первый снимок игры, начатой после начала учёта, — с нуля, snapshot-delta.ts); видимость (9.10) применяется к сумме и счётчику дельт.
   // first = min(snapshot_date) по всей БД (как hours.firstSnapshotDate, скрытие не влияет).
   const res = await db.execute(sql`
     with d as (
       select p.snapshot_date,
-             p.play_duration_seconds - lag(p.play_duration_seconds) over (partition by p.game_id order by p.snapshot_date) as delta,
+             ${snapshotDeltaSql(userId)} as delta,
              (g.hidden_at is null and pg.hidden_at is null) as visible
       from playtime_snapshots p
       join games g on g.id = p.game_id and g.user_id = p.user_id

@@ -32,16 +32,29 @@ describe('getDay на PGlite', () => {
   beforeEach(() => t.reset());
 
   let n = 0;
-  async function game(o: { user?: number; hidden?: boolean; dupOf?: number; name?: string } = {}) {
+  async function game(o: { user?: number; hidden?: boolean; dupOf?: number; name?: string; firstPlayedAt?: Date } = {}) {
     n++;
     const [g] = await t.db.insert(games).values({
       userId: o.user ?? 1, titleId: `CUSA${n}`, name: o.name ?? `G${n}`, category: 'ps5_native_game', lastSeenAt: NOW,
-      hiddenAt: o.hidden ? NOW : null, duplicateOfGameId: o.dupOf ?? null,
+      hiddenAt: o.hidden ? NOW : null, duplicateOfGameId: o.dupOf ?? null, firstPlayedAt: o.firstPlayedAt ?? null,
     }).returning();
     return g.id;
   }
   const snaps = (gameId: number, m: Record<string, number>, user = 1) =>
     t.db.insert(playtimeSnapshots).values(Object.entries(m).map(([d, s]) => ({ userId: user, gameId, snapshotDate: d, playDurationSeconds: s })));
+
+  it('игра, начатая после начала учёта: первый снимок — время с нуля в день снимка (GTA VI 18.11); старая всплывшая игра — нет', async () => {
+    const base = await game({ name: 'База' });
+    await snaps(base, { '2026-11-01': 1000, '2026-11-18': 1000 });
+    const gta = await game({ name: 'GTA VI', firstPlayedAt: new Date('2026-11-18T18:34:15Z') });
+    await snaps(gta, { '2026-11-18': 7316 });
+    const old = await game({ name: 'Старая', firstPlayedAt: new Date('2026-10-20T10:00:00Z') });
+    await snaps(old, { '2026-11-18': 50000 });
+    const d = await getDay(t.db, TEST_USER, '2026-11-18', new Date('2026-11-19T09:00:00Z'));
+    expect(d.known).toBe(true);
+    expect(d.games.map((g) => [g.title, g.minutes])).toEqual([['GTA VI', 122]]);
+    expect(d.minutes).toBe(122);
+  });
 
   it('игры дня: дельта к предыдущему снимку, дубль к главной, скрытые и чужие не видны, первый снимок не в счёт', async () => {
     const a = await game({ name: 'Астро' });

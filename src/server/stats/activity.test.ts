@@ -39,6 +39,23 @@ describe('dailyActivity (эталон SQL)', () => {
   });
 });
 
+describe('dailyActivity: игра, начатая после начала учёта', () => {
+  it('первый снимок даёт время с нуля, если first_played_at не раньше первого дня учёта и снимок позже него', () => {
+    const s: Snapshot[] = [
+      { gameId: 1, date: '2026-10-27', seconds: 1000 },
+      { gameId: 1, date: '2026-11-18', seconds: 1000 },
+      { gameId: 2, date: '2026-11-18', seconds: 7316 }, // GTA VI: впервые запущена 18.11
+      { gameId: 3, date: '2026-11-18', seconds: 50000 }, // старая игра всплыла позже — не в счёт
+      { gameId: 4, date: '2026-10-27', seconds: 300 }, // первая игра первого синка — не в счёт
+    ];
+    const fp = new Map<number, string | null>([[2, '2026-11-18T18:34:15Z'], [3, '2026-10-20T10:00:00Z'], [4, '2026-10-27T05:00:00Z']]);
+    expect(dailyActivity(s, fp)).toEqual([
+      { date: '2026-10-27', seconds: 0, deltas: 0 },
+      { date: '2026-11-18', seconds: 7316, deltas: 2 },
+    ]);
+  });
+});
+
 describe('buildActivity (чистая)', () => {
   it('нет снимков: все дни null, нули, пустые стрики; 366 дней в високосном году', () => {
     const r = buildActivity({ rows: [], year: 2024, today: '2026-10-28', firstSnapshotDate: null });
@@ -121,8 +138,8 @@ describe('getActivity на PGlite', () => {
   afterAll(() => t.close());
   beforeEach(() => t.reset());
 
-  async function game(name: string, hidden = false) {
-    const [g] = await t.db.insert(games).values({ userId: 1, titleId: name, name, category: 'ps5_native_game', lastSeenAt: new Date(), hiddenAt: hidden ? new Date() : null }).returning();
+  async function game(name: string, hidden = false, firstPlayedAt: Date | null = null) {
+    const [g] = await t.db.insert(games).values({ userId: 1, titleId: name, name, category: 'ps5_native_game', lastSeenAt: new Date(), hiddenAt: hidden ? new Date() : null, firstPlayedAt }).returning();
     return g.id;
   }
 
@@ -160,5 +177,22 @@ describe('getActivity на PGlite', () => {
     const y2026 = await getActivity(t.db, TEST_USER, 2026, now);
     expect(minutesOf(y2026, '2026-01-01')).toBe(40);
     expect(minutesOf(y2026, '2026-01-02')).toBeNull(); // будущее относительно today
+  });
+
+  it('новая игра после начала учёта: её первый снимок попадает в день (SQL = эталон)', async () => {
+    const a = await game('A');
+    const gta = await game('GTA', false, new Date('2026-11-18T18:34:15Z'));
+    const old = await game('OLD', false, new Date('2026-10-01T00:00:00Z'));
+    const snaps: Snapshot[] = [
+      { gameId: a, date: '2026-10-27', seconds: 100 }, { gameId: a, date: '2026-11-17', seconds: 100 }, { gameId: a, date: '2026-11-18', seconds: 100 },
+      { gameId: gta, date: '2026-11-18', seconds: 7316 }, { gameId: old, date: '2026-11-18', seconds: 9000 },
+    ];
+    await t.db.insert(playtimeSnapshots).values(snaps.map((s) => ({ userId: 1, gameId: s.gameId, snapshotDate: s.date, playDurationSeconds: s.seconds })));
+    const now = new Date('2026-11-19T09:00:00Z');
+    const got = await getActivity(t.db, TEST_USER, 2026, now);
+    const fp = new Map<number, string | null>([[gta, '2026-11-18T18:34:15Z'], [old, '2026-10-01T00:00:00Z']]);
+    expect(got).toEqual(buildActivity({ rows: dailyActivity(snaps, fp), year: 2026, today: '2026-11-19', firstSnapshotDate: '2026-10-27' }));
+    expect(minutesOf(got, '2026-11-18')).toBe(122);
+    expect(got.streak.current.days).toBe(1);
   });
 });

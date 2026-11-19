@@ -18,9 +18,14 @@ export type ActivityResponse = {
 
 /**
  * Эталон SQL-агрегата (activity-query.ts): по снимкам строит суточные дельты.
- * Первый снимок игры дельты не даёт; отрицательная дельта = 0. Строка есть для каждой даты, где есть хоть один снимок.
+ * Первый снимок игры дельты не даёт (кроме игры, начатой после начала учёта: с нуля); отрицательная дельта = 0. Строка есть для каждой даты, где есть хоть один снимок.
  */
-export function dailyActivity(snaps: readonly Snapshot[]): ActivityDay[] {
+export function dailyActivity(snaps: readonly Snapshot[], firstPlayed: ReadonlyMap<number, string | null> = new Map()): ActivityDay[] {
+  // firstPlayed: gameId -> first_played_at ISO. Игра, начатая не раньше первого дня учёта (00:00 МСК), в первом снимке
+  // (если он позже первого дня учёта) даёт дельту с нуля — см. snapshot-delta.ts.
+  let firstDate: string | null = null;
+  for (const s of snaps) if (firstDate === null || s.date < firstDate) firstDate = s.date;
+  const trackingFrom = firstDate ? Date.parse(`${firstDate}T00:00:00+03:00`) : Infinity;
   const byGame = new Map<number, { date: string; seconds: number }[]>();
   for (const s of snaps) {
     const arr = byGame.get(s.gameId) ?? [];
@@ -28,12 +33,19 @@ export function dailyActivity(snaps: readonly Snapshot[]): ActivityDay[] {
     byGame.set(s.gameId, arr);
   }
   const out = new Map<string, ActivityDay>();
-  for (const arr of byGame.values()) {
+  for (const [gameId, arr] of byGame) {
+    const fp = firstPlayed.get(gameId);
+    const startedLater = !!fp && Date.parse(fp) >= trackingFrom;
     arr.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     arr.forEach((s, i) => {
       const d = out.get(s.date) ?? { date: s.date, seconds: 0, deltas: 0 };
       out.set(s.date, d);
-      if (i === 0) return;
+      if (i === 0) {
+        if (!startedLater || s.date === firstDate) return;
+        d.deltas++;
+        d.seconds += Math.max(0, s.seconds);
+        return;
+      }
       d.deltas++;
       d.seconds += Math.max(0, s.seconds - arr[i - 1].seconds);
     });
