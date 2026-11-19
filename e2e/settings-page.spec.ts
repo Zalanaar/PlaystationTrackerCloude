@@ -52,7 +52,9 @@ for (const w of [360, 390]) {
     await open(page, baseURL!);
     await expect(page.getByTestId('push-panel')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    for (const b of await page.locator('.ps-settings .ps-btn').all()) if (await b.isVisible()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // одним снимком: панель push перерисовывается после проверки поддержки, и кнопка между isVisible и boundingBox могла смениться (CI)
+    const hs = await page.locator('.ps-settings .ps-btn').evaluateAll((els) => els.filter((e) => e.getClientRects().length > 0).map((e) => e.getBoundingClientRect().height));
+    for (const h of hs) expect(h).toBeGreaterThanOrEqual(44);
     await page.evaluate(axeSource);
     for (const t of THEMES) {
       await page.evaluate((th) => { if (th === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', th); }, t);

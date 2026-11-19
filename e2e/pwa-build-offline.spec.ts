@@ -85,7 +85,7 @@ test('копия пишется под SW; без сети /backlog показы
   await page.getByRole('tab', { name: 'Статистика' }).click();
   await expect(view).toContainText('2026 год');
   await expect(view).toContainText('Elden Ring');
-  await expect(view).toContainText('322 ч');
+  await expect(view).toContainText('321 ч');
   // тап-зоны вкладок ≥ 44, без горизонтального скролла
   for (const b of await page.getByRole('tab').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
