@@ -51,7 +51,7 @@ test.describe('Фаза 32.1: остановка синка', () => {
     await dlg.getByRole('button', { name: 'Остановить' }).click();
     await expect(page.getByTestId('sync-cancelled')).toContainText('Остановлено вами');
     await expect(page.getByRole('button', { name: 'Синк сейчас' })).toBeEnabled();
-    await expect(page.getByTestId('run-status')).toHaveText('Остановлен');
+    await expect(page.getByTestId('run-status')).toHaveText(/^остановлен, /);
     expect(posts).toEqual(['cancel {}']);
     await page.keyboard.press('Escape');
     await expect(page.getByText('Не удалось обновить данные из PSN')).toHaveCount(0);

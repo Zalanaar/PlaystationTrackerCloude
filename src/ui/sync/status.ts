@@ -303,3 +303,30 @@ export function warningsTitle(n: number): string {
 export function clientErrorsTitle(n: number, days: number): string {
   return n === 0 ? `Ошибок в браузере за ${days} дней нет` : `Ошибки в браузере за ${days} дней: ${n}`;
 }
+
+const RUN_WORD: Record<SyncRunStatus, string> = { running: 'идёт', success: 'успешно', partial: 'частично', failed: 'ошибка' };
+
+/** F29: «успешно, 23:55» (сегодня), «успешно, вчера 23:55», иначе «успешно, 16.11.2026, 23:55». */
+export function lastRunText(run: Pick<SyncRun, 'status' | 'errorReason' | 'startedAt' | 'finishedAt'>, now = new Date(), timeZone?: string): string {
+  const word = isCancelledRun(run) ? 'остановлен' : RUN_WORD[run.status];
+  const iso = run.status === 'running' ? run.startedAt : (run.finishedAt ?? run.startedAt);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return word;
+  const tz = timeZone ? { timeZone } : {};
+  const day = (x: Date) => new Intl.DateTimeFormat('ru-RU', { ...tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(x);
+  const time = new Intl.DateTimeFormat('ru-RU', { ...tz, hour: '2-digit', minute: '2-digit' }).format(d);
+  if (day(d) === day(now)) return `${word}, ${time}`;
+  if (day(d) === day(new Date(now.getTime() - 86_400_000))) return `${word}, вчера ${time}`;
+  return `${word}, ${formatLocalDateTime(iso, timeZone)}`;
+}
+
+/** F29: предупреждение синка человеческим языком; код и исходный текст — в «Подробнее». */
+export function warningText(w: { code: string; message: string }): { text: string; detail: string | null } {
+  if (w.code === 'llm_phrases_failed') {
+    return { text: 'ИИ-подсказки для бэклога не обновились — попробуем в следующем синке. На игры, часы и трофеи это не влияет.', detail: `${w.code}: ${w.message}` };
+  }
+  if (w.code.startsWith('llm_')) {
+    return { text: 'Часть ИИ-подсказок не обновилась — попробуем в следующем синке. На данные синка это не влияет.', detail: `${w.code}: ${w.message}` };
+  }
+  return { text: w.message, detail: null };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buttonLabel, formatLocalDateTime, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText, startErrorText, totalsRows, type SyncRun } from './status';
+import { buttonLabel, formatLocalDateTime, formatMoscow, needsNewNpsso, phaseText, progressFraction, reasonText, runCountersText, startErrorText, totalsRows, lastRunText, warningText, type SyncRun } from './status';
 
 const run = (o: Partial<SyncRun> = {}): SyncRun => ({
   id: 1, kind: 'manual', status: 'running', phase: 'trophies', errorReason: null, errorMessage: null,
@@ -135,5 +135,22 @@ describe('П10: заголовок предупреждений', () => {
     expect(warningsTitle(1)).toBe('Последний запуск: 1 предупреждение');
     expect(warningsTitle(3)).toBe('Последний запуск: 3 предупреждения');
     expect(warningsTitle(12)).toBe('Последний запуск: 12 предупреждений');
+  });
+});
+
+describe('F29: lastRunText / warningText', () => {
+  const now = new Date('2026-11-19T09:00:00.000Z');
+  const run = (o: Partial<Parameters<typeof lastRunText>[0]>) => ({ status: 'success' as const, errorReason: null, startedAt: '2026-11-18T20:55:00.000Z', finishedAt: '2026-11-18T20:55:49.000Z', ...o });
+  it('сегодня, вчера, раньше', () => {
+    expect(lastRunText(run({ finishedAt: '2026-11-19T06:10:00.000Z' }), now, 'Europe/Moscow')).toBe('успешно, 09:10');
+    expect(lastRunText(run({}), now, 'Europe/Moscow')).toBe('успешно, вчера 23:55');
+    expect(lastRunText(run({ status: 'failed', finishedAt: '2026-11-10T20:55:00.000Z' }), now, 'Europe/Moscow')).toBe('ошибка, 10.11.2026, 23:55');
+    expect(lastRunText(run({ status: 'failed', errorReason: 'cancelled' }), now, 'Europe/Moscow')).toMatch(/^остановлен, /);
+  });
+  it('ошибка ИИ — человеческим текстом, код в подробностях; прочие — как есть', () => {
+    const h = warningText({ code: 'llm_phrases_failed', message: 'LLM: фразы (http_404:model_not_found)' });
+    expect(h.text).not.toContain('http_404');
+    expect(h.detail).toContain('http_404:model_not_found');
+    expect(warningText({ code: 'hltb_failed', message: 'abc' })).toEqual({ text: 'abc', detail: null });
   });
 });

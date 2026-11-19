@@ -38,3 +38,21 @@ test('без предупреждений блока нет; старый отв
   await expect(page.getByTestId('run-status')).toBeVisible();
   await expect(page.getByTestId('sync-warnings')).toHaveCount(0);
 });
+
+test('F29: «Последний синк: успешно, …» одной строкой; ошибка ИИ — человеческим текстом, код в «Подробнее»', async ({ page, baseURL }) => {
+  const warnings = [{ code: 'llm_phrases_failed', message: 'LLM: фразы бэклога, ошибок 3 (http_404:model_not_found), игры повторятся в следующем синке.' }];
+  await open(page, baseURL!, { warningsCount: 1, warnings });
+  await expect(page.getByTestId('run-status')).toHaveText(/^успешно, /);
+  await expect(page.getByText('Последний успешный')).toHaveCount(0);
+  const li = page.getByTestId('sync-warnings').getByRole('listitem');
+  await expect(li).toContainText('ИИ-подсказки для бэклога не обновились');
+  await expect(li.locator('code')).not.toBeVisible();
+  await li.getByText('Подробнее').click();
+  await expect(li.locator('code')).toContainText('http_404:model_not_found');
+});
+
+test('F29: последний запуск с ошибкой — отдельно строка «Последний успешный»', async ({ page, baseURL }) => {
+  await open(page, baseURL!, { status: 'failed', errorReason: 'network', errorMessage: 'x' });
+  await expect(page.getByTestId('run-status')).toHaveText(/^ошибка, /);
+  await expect(page.getByText('Последний успешный')).toBeVisible();
+});

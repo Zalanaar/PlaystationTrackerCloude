@@ -6,7 +6,7 @@ import { Icon } from '../icons';
 import { useSync } from './SyncProvider';
 import {
   buttonLabel, formatLocalDateTime, needsNewNpsso, npssoErrorText, phaseText, progressFraction, psnTokenRows,
-  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, runStatusLabel, totalsRows, warningsTitle, clientErrorsTitle,
+  CANCEL_CONFIRM_TEXT, isCancelledRun, reasonText, runCountersText, lastRunText, warningText, totalsRows, warningsTitle, clientErrorsTitle,
 } from './status';
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -132,12 +132,13 @@ export function SyncPanel() {
           <p role="status" className="text-text-2">Не удалось получить статус синка.</p>
         ) : (
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-text-2">
-            <dt>Последний успешный синк</dt>
-            <dd className="text-text">{last ?? 'ещё не было'}</dd>
-            {run && (
+            {/* F29: одна строка «Последний синк: успешно, 23:55»; успешный — отдельно, только если последний не удался */}
+            <dt>Последний синк</dt>
+            <dd className="text-text" data-testid="run-status">{run ? lastRunText(run) : (last ?? 'ещё не было')}</dd>
+            {run && run.status !== 'success' && run.status !== 'running' && (
               <>
-                <dt>Последний запуск</dt>
-                <dd className="text-text" data-testid="run-status">{runStatusLabel(run)}</dd>
+                <dt>Последний успешный</dt>
+                <dd className="text-text">{last ?? 'ещё не было'}</dd>
               </>
             )}
             {totalsRows(status?.totals).map((r) => (
@@ -213,7 +214,20 @@ export function SyncPanel() {
           <div className="ps-sync-warn" data-testid="sync-warnings">
             <p className="font-semibold text-text">{warningsTitle(run.warningsCount ?? run.warnings!.length)}</p>
             <ul className="ps-sync-warn__list">
-              {run.warnings!.map((w, i) => <li key={`${w.code}-${i}`} title={w.code || undefined}>{w.message}</li>)}
+              {run.warnings!.map((w, i) => {
+                const h = warningText(w);
+                return (
+                  <li key={`${w.code}-${i}`}>
+                    {h.text}
+                    {h.detail && (
+                      <details className="ps-sync-warn__det">
+                        <summary>Подробнее</summary>
+                        <code className="break-all">{h.detail}</code>
+                      </details>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             {(run.warningsCount ?? 0) > run.warnings!.length && <p className="text-text-3">Показаны последние {run.warnings!.length}.</p>}
           </div>
