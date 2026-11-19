@@ -1,5 +1,13 @@
+import type { ReactNode } from 'react';
 import { PlatinumIcon } from '../../icons';
 import type { Tile } from '../details';
+
+/** F18: «45 ч 29 м» переносится целыми частями («45 ч» / «29 м»), а не обрезается на краю узкой плитки. */
+export function valueParts(v: string): ReactNode {
+  const m = /^(.+?\sч)\s+(\d+\s*м)$/.exec(v);
+  if (!m) return v;
+  return <><span className="ps-gd__tvp">{m[1]}</span> <span className="ps-gd__tvp">{m[2]}</span></>;
+}
 
 /**
  * D-P4: три метрики (часы, запуски, трофеи) одной строкой; платина — строкой внутри ячейки «Трофеи».
@@ -14,7 +22,7 @@ export function TileGrid({ tiles }: { tiles: Tile[] }) {
         return (
           <li key={x.id} className="ps-gd__tile" data-tile={x.id} data-muted={x.muted || undefined} aria-label={`${x.label}: ${name}`}>
             <span className="ps-gd__tl" aria-hidden="true">{x.label}</span>
-            <span className="ps-gd__tv num" aria-hidden="true">{x.value}</span>
+            <span className="ps-gd__tv num" aria-hidden="true">{valueParts(x.value)}</span>
             {x.sub && <span className="ps-gd__ts" aria-hidden="true">{x.sub}</span>}
             {x.id === 'trophies' && x.progress !== null && (
               <span className="ps-gd__tbar" aria-hidden="true"><i style={{ width: `${x.progress}%` }} /></span>

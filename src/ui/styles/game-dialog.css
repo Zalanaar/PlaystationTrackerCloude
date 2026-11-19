@@ -195,6 +195,8 @@ button.ps-gd__dlcpr { cursor: pointer; }
 }
 @container (max-width: 110px) { .ps-gd__tv { font-size: 16px; }
 }
+.ps-gd__tv:has(.ps-gd__tvp) { flex-wrap: wrap; column-gap: .3em; row-gap: 0; white-space: normal; }   /* F18 */
+.ps-gd__tvp { white-space: nowrap; }
 .ps-gd__ts { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* D-P4: платина — строкой в ячейке «Трофеи» */
 .ps-gd__tplatl { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
