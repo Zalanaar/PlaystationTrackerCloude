@@ -69,7 +69,7 @@ export const NAV_TABS = [
 ] as const;
 /** Подвкладки группы «Бэклог» (ссылки, не кнопки). */
 export const BACKLOG_SUBNAV = [
-  { href: '/backlog', label: 'Бэклог' },
+  { href: '/backlog', label: 'Список' }, // F9: «Бэклог» уже в шапке и нижней вкладке
   { href: '/roadmap', label: 'План' },
   { href: '/recommend', label: 'Подскажи' },
 ] as const;

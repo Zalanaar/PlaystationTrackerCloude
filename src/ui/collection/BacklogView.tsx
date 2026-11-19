@@ -569,11 +569,12 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   if (ready && fresh === null) setFresh(slow);
   const nextUp = ready ? nextCand : null;
   const nextGame = nextUp ? nextInItems ?? (nextExtra?.id === nextUp.gameId ? nextExtra.game : null) : null;
+  // F9: сегменты по действию — «Играть / Купить / Отложено / Сервисы», без четвёртого повтора слова «Бэклог»
   const tabs = [
-    { id: 'h-bl-main', label: 'Бэклог', n: mainTotal, on: !filters.nb },
-    { id: 'h-bl-nb', label: 'Не куплено', n: nbShown.length, on: showNbSection },
+    { id: 'h-bl-main', label: 'Играть', n: mainTotal, on: !filters.nb },
+    { id: 'h-bl-nb', label: 'Купить', n: nbShown.length, on: showNbSection },
     { id: 'h-bl-shelved', label: 'Отложено', n: shelvedTotal, on: showShelved },
-    { id: 'h-bl-service', label: 'Сервис', n: serviceTotal, on: showService },
+    { id: 'h-bl-service', label: 'Сервисы', n: serviceTotal, on: showService },
   ].filter((t) => t.on);
   // P2-6: ряд блоков и заголовок списка появляются вместе со списком (ready), иначе поздние «Сервис»/«Не куплено» сдвигали заголовок на ~90 px (CLS 0,06)
   const showJump = ready && tabs.length >= 2;
@@ -633,7 +634,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       {showJump && <BacklogJumpNav tabs={tabs} sentinelRef={sentinelRef} stuck={stuck} activeTab={activeTab} onJump={jumpTo} />}
       {ready && !filters.nb && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
-          <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(mainTotal)}</small>}
+          <StatusGlyph status="backlog" size={16} />Играть {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(mainTotal)}</small>}
         </h2>
       )}
       {/* П12.4: строка возраста — общая по бэклогу, поэтому под фильтрами не показывается; приходит вместе со списком */}

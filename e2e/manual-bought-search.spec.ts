@@ -215,7 +215,7 @@ test.describe('Секция «Не куплено»', () => {
     expect(style.col).not.toBe(warning);
     await expect(sec.getByRole('heading', { level: 2, name: /Не куплено/ })).toBeVisible();
     // вкладка в липкой плашке
-    const tab = page.getByTestId('bl-jump').getByRole('button', { name: /Не куплено/ });
+    const tab = page.getByTestId('bl-jump').getByRole('button', { name: /Купить/ });
     await expect(tab).toContainText('14');
     await tab.click();
     await expect(page.locator('#h-bl-nb')).toBeFocused();
@@ -271,7 +271,7 @@ test.describe('Секция «Не куплено»', () => {
   test('без записей «не куплено» секции нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { items: [] });
     await expect(page.getByTestId('bl-nb')).toHaveCount(0);
-    await expect(page.getByTestId('bl-jump').getByRole('button', { name: /Не куплено/ })).toHaveCount(0);
+    await expect(page.getByTestId('bl-jump').getByRole('button', { name: /Купить/ })).toHaveCount(0);
   });
 
   test('секция в режиме «Список» на мобильном: нет горизонтального скролла 320-412', async ({ page, context, baseURL }) => {

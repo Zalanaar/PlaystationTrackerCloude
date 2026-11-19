@@ -87,7 +87,7 @@ test.describe('Бэклог: переход по переключателю не
       await page.setViewportSize({ width: w, height: h });
       await open(page, context, baseURL as string, long());
       const jump = page.getByTestId('bl-jump');
-      for (const [name, id] of [['Сервис', 'h-bl-service'], ['Бэклог', 'h-bl-main']] as const) {
+      for (const [name, id] of [['Сервисы', 'h-bl-service'], ['Играть', 'h-bl-main']] as const) {
         await jump.getByRole('button', { name: new RegExp(name) }).click();
         await expect(page.locator(`#${id}`)).toBeFocused();
         // ждём конца плавной прокрутки: положение заголовка перестаёт меняться

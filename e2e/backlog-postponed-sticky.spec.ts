@@ -33,7 +33,7 @@ test.describe('Бэклог: блок «Отложено»', () => {
     await expect(shelved(page).locator('.ps-card__title')).toHaveText(['Отложена 1', 'Отложена 2']);
     await expect(shelved(page)).toContainText('Отложено на потом. В бэклог и план эти игры не входят.');
     await expect(tab(page, 'Отложено')).toContainText('2');
-    await expect(jump(page).getByRole('button')).toHaveText([/^Бэклог 3/, /^Отложено 2/, /^Сервис 1/]);
+    await expect(jump(page).getByRole('button')).toHaveText([/^Играть 3/, /^Отложено 2/, /^Сервисы 1/]);
     const y = async (sel: string) => (await page.locator(sel).boundingBox())?.y ?? 0;
     expect(await y('#h-bl-main')).toBeLessThan(await y('#h-bl-shelved'));
     expect(await y('#h-bl-shelved')).toBeLessThan(await y('#h-bl-service'));
@@ -54,7 +54,7 @@ test.describe('Бэклог: блок «Отложено»', () => {
     await expect(page.getByTestId('bl-shelved-count')).toHaveText('0');
     await expect(shelved(page).getByRole('heading', { name: 'Отложенных игр нет' })).toBeVisible();
     await expect(tab(page, 'Отложено')).toContainText('0');
-    await expect(tab(page, 'Бэклог')).toContainText('3');
+    await expect(tab(page, 'Играть')).toContainText('3');
     await expect(page.locator('[data-tour="backlog-list"] .ps-card__title')).toContainText(['Отложена 1']);
   });
 
@@ -120,12 +120,12 @@ test.describe('Бэклог: липкая плашка', () => {
   test('aria-current по прокрутке и клик по вкладке', async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: 1280, height: 700 });
     await open(page, context, baseURL as string, games(24, 2));
-    await expect(tab(page, 'Бэклог')).toHaveAttribute('aria-current', 'location');
+    await expect(tab(page, 'Играть')).toHaveAttribute('aria-current', 'location');
     await tab(page, 'Отложено').click();
     await expect(tab(page, 'Отложено')).toHaveAttribute('aria-current', 'location');
-    await expect(tab(page, 'Бэклог')).not.toHaveAttribute('aria-current', 'location');
+    await expect(tab(page, 'Играть')).not.toHaveAttribute('aria-current', 'location');
     await expect(page.locator('#h-bl-shelved')).toBeFocused();
     await page.evaluate(() => window.scrollTo(0, 0));
-    await expect(tab(page, 'Бэклог')).toHaveAttribute('aria-current', 'location');
+    await expect(tab(page, 'Играть')).toHaveAttribute('aria-current', 'location');
   });
 });

@@ -83,7 +83,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
       await expect(page.locator('header nav[aria-label="Разделы"] a[aria-current="page"]')).toHaveText(tab);
       if (sub) await expect(page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]')).toHaveText(sub);
     };
-    await cur('/backlog', 'Бэклог', 'Бэклог');
+    await cur('/backlog', 'Бэклог', 'Список');
     await cur('/roadmap', 'Бэклог', 'План');
     await cur('/recommend', 'Бэклог', 'Подскажи');
     await cur('/stats', 'Статистика');

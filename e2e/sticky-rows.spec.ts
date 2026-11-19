@@ -42,7 +42,7 @@ test.describe('липкие ряды', () => {
     await login(page, context, baseURL!, backlog());
     await page.goto('/backlog');
     const jump = page.getByTestId('bl-jump');
-    await expect(jump.getByRole('button')).toHaveText([/^Бэклог 40/, /^Сервис 3/]);
+    await expect(jump.getByRole('button')).toHaveText([/^Играть 40/, /^Сервисы 3/]);
     await page.evaluate(() => window.scrollBy(0, 1500));
     await stuckUnderHeader(page, jump);
     await expect(jump).toHaveAttribute('data-stuck', 'true');
