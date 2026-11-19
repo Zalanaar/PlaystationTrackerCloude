@@ -191,7 +191,7 @@ export function checkSwipe(dx: number, dy: number, width: number, fraction = 0.3
 
 /** Подпись режима в сегменте и чипе Коллекции. */
 export const checkSegmentText = (n: number) => `Проверить ${n}`;
-export const checkChipText = (n: number) => `Проверить статусы: ${n}`;
+export { checkChipText } from './checkChip';
 /** Безопасное число из ответа count (нет поля, не число = 0). */
 export const checkCountOf = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
 

@@ -1,12 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useState } from 'react';
 import { Icon } from '../icons';
 import { useIsMobile } from '../primitives/hooks';
 import type { Chip } from './model';
 import type { InboxCtl } from './useInbox';
-import { MatchSheet } from './MatchSheet';
+// П15.5: sheet «Это та игра?» — по первому открытию
+const MatchSheet = dynamic(() => import('./MatchSheet').then((m) => m.MatchSheet), { ssr: false });
 
 function ChipLink({ c, mobile, onOpen }: { c: Chip; mobile: boolean; onOpen?: () => void }) {
   const segs = mobile ? c.mobile : c.desktop;

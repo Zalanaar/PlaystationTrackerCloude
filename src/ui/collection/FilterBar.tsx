@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StatusCounts } from '@/server/collection/types';
 import { formatNumber } from '../format';
@@ -11,7 +12,10 @@ import Link from '@/ui/IntentLink';
 import { VIEW_LABELS, VIEW_MODES, type ViewMode } from '../tokens';
 import { PLATFORM_KEY_LABEL, parsePlatform, platformChoices, type PlatformCounts } from '@/shared/platform-filter';
 import { useChipRow } from '../primitives/useChipRow';
-import { TagFilterChip, TagsSheet } from '../tags/TagsSheet';
+import { TagFilterChip } from '../tags/TagFilterChip';
+
+// П15.5: sheet «Теги» — по первому открытию, не на старте Коллекции
+const TagsSheet = dynamic(() => import('../tags/TagsSheet').then((m) => m.TagsSheet), { ssr: false });
 
 const DEBOUNCE_MS = 250;
 
@@ -211,7 +215,9 @@ export function FilterBar(p: BarProps) {
   const { filters, view, counts, platinumCount, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const active = hasActiveFilters(filters);
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
-  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsOpen, setTagsOpenRaw] = useState(false);
+  const [tagsEver, setTagsEver] = useState(false);
+  const setTagsOpen = (v: boolean) => { if (v) setTagsEver(true); setTagsOpenRaw(v); };
 
   const selectBtn = (
     <button type="button" className="ps-btn ps-btn--select" aria-pressed={selectMode} aria-label={selectMode ? 'Готово' : 'Выбрать'} onClick={onSelect} disabled={!canSelect}>
@@ -232,7 +238,7 @@ export function FilterBar(p: BarProps) {
         {active && !p.empty && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
         <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} />
       </div>
-      <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />
+      {tagsEver && <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />}
     </div>
   );
 }
@@ -290,7 +296,9 @@ function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filt
 export function MobileChips(p: BarProps) {
   const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect, onHidden } = p;
   const [sheet, setSheet] = useState(false);
-  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsOpen, setTagsOpenRaw] = useState(false);
+  const [tagsEver, setTagsEver] = useState(false);
+  const setTagsOpen = (v: boolean) => { if (v) setTagsEver(true); setTagsOpenRaw(v); };
   const active = hasActiveFilters(filters);
   const dot = filtersDot(filters, view);
   return (
@@ -327,7 +335,7 @@ export function MobileChips(p: BarProps) {
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>
       </Sheet>
-      <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />
+      {tagsEver && <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />}
     </div>
   );
 }

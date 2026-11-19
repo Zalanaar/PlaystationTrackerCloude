@@ -4,7 +4,7 @@ import type { GameItem } from '@/server/collection/types';
 import { formatNumber } from '../../format';
 import { Icon, StatusGlyph } from '../../icons';
 import { forgottenCountText } from '../../triage/forgotten';
-import { checkChipText } from '../../triage/hints';
+import { checkChipText } from '../../triage/checkChip';
 import { isFull, type BlockId } from '../blocks';
 import { BlockHead } from '../Chronicle';
 import { previewSlots } from '../chronicle';

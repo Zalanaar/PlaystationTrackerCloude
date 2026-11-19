@@ -1,10 +1,11 @@
 // Пакет 6 (JS главной): бюджет JS первого захода на `/` в прод-сборке. Было ~1,07 МБ (Next качал JS всех разделов
 // таббара и окно игры сразу после гидрации), стало ~0,77 МБ: разделы — по намерению (IntentLink), окна — по первому открытию.
+// П15.5: бюджет 800 КБ (было 900): sheet «Теги», «Это та игра?», окно другой платформы и карточка установки — по первому открытию (~0,76 МБ).
 import { test, expect } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
 
-const BUDGET_KB = 900;
+const BUDGET_KB = 800;
 
 test('`/`: JS первого захода в бюджете, переход по таббару и окно игры работают', async ({ page, context, baseURL }, info) => {
   test.skip(info.project.name !== 'mobile', 'бюджет меряем на мобильном');

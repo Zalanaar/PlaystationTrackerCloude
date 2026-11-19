@@ -19,12 +19,9 @@ export type HltbLoopEnd =
   | { kind: 'error'; status: number; code: string; reason?: string };
 export type HltbLoopResult = { end: HltbLoopEnd; totals: HltbRunTotals; warnings: HltbRunWarning[] };
 
-/** Ошибка вызова с кодом HTTP; бросается вызывающей стороной (fetchHltbRun) и разбирается циклом. */
-export class HltbCallError extends Error {
-  constructor(public status: number, public code: string, public reason?: string) {
-    super(code);
-  }
-}
+// П15.5: класс ошибки — в маленьком модуле, чтобы api.ts (общий для всех страниц) не тянул тексты цикла HLTB.
+import { HltbCallError } from './hltbError';
+export { HltbCallError };
 
 /** Запас на разброс часов устройства и сервера: сервер отвергает since из будущего больше чем на 5 секунд. */
 export const HLTB_SINCE_MARGIN_MS = 60_000;

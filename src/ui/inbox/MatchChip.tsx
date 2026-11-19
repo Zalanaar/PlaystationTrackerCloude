@@ -1,9 +1,11 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../icons';
 import { fetchMatches } from '../collection/manualApi';
-import { MatchSheet } from './MatchSheet';
+// П15.5: sheet «Это та игра?» — по первому открытию
+const MatchSheet = dynamic(() => import('./MatchSheet').then((m) => m.MatchSheet), { ssr: false });
 
 /**
  * Чип «Это та игра? N» на странице «Бэклог» (Фаза 43): полосы «С прошлого визита» здесь нет, а подтверждение нужно рядом со списком.

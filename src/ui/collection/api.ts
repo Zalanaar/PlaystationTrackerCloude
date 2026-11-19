@@ -1,6 +1,7 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
 import { deviceTimeZone, MSK_TZ } from '@/shared/tz';
-import { HltbCallError, type HltbRunBody, type HltbRunResponse } from './hltbRun';
+import { HltbCallError } from './hltbError';
+import type { HltbRunBody, HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
 import type { DayResponse, OnThisDayResponse } from '@/server/stats/day';
 import type { StatsResponse } from '@/server/stats/types';

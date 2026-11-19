@@ -161,7 +161,8 @@ export function OtherPlatformsBlock({ onAdd }: { onAdd: () => void }) {
         </>
       )}
 
-      <OtherPlatformDialog game={open} onClose={closeDialog} onChanged={replace} onRemove={(g) => void remove(g)} />
+      {/* П15.5: чанк окна — по первому открытию */}
+      {open && <OtherPlatformDialog game={open} onClose={closeDialog} onChanged={replace} onRemove={(g) => void remove(g)} />}
     </section>
   );
 }
