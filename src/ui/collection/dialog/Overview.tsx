@@ -39,8 +39,11 @@ export function Overview({
   // пока детали грузятся, место под прогноз резервируем, если платина в игре есть и не получена
   const forecastPending = loading && !details && game.trophies?.platinumDefined === true && !game.trophies.platinumEarned;
   const dateOr = (iso: string | null | undefined) => (details ? (formatDayMonth(iso ?? null, true) ?? 'нет данных') : loading ? skeleton : 'нет данных');
+  // П15.1: на широком экране «Обзор» в две колонки — слева прогресс, оценка и история, справа даты и управление.
+  // На телефоне и планшете обёртки «прозрачны» (display: contents) — порядок блоков прежний.
   return (
     <>
+      <div className="ps-gd__ovmain">
       {/* D-P4: «Путь к платине» — первым блоком «Обзора» */}
       {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
         <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
@@ -57,7 +60,9 @@ export function Overview({
       {details ? (
         <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} />
       ) : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
+      </div>
 
+      <div className="ps-gd__ovside">
       <section className="ps-gd__sec" aria-labelledby="gd-s2">
         <h3 id="gd-s2">Даты</h3>
         <dl>
@@ -102,6 +107,7 @@ export function Overview({
           {onHidden && !hidden && <p className="ps-detail__hint" id={hintId}>Игра не будет показываться нигде, синк её не вернёт.</p>}
         </section>
       )}
+      </div>
     </>
   );
 }
