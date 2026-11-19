@@ -19,6 +19,7 @@ import { GenreRow } from './GenrePopover';
 import { RareTrophies } from './RareTrophies';
 import { PlayedBlock } from './PlayedBlock';
 import { Panel } from './Panel';
+import { DaysPanel } from './DaysPanel';
 import { ChartTable } from './ChartTable';
 import { hoursTable, trophiesTable } from './tableData';
 import { SectionChips } from './SectionChips';
@@ -256,7 +257,9 @@ function Content({
       ) : (
         <>
           <div className="ps-st-grid">
-            <HoursPanel data={data} sel={sel} today={today} wide={!data.genres.hasData} />
+            {sel.period === 'month' && sel.month
+              ? <DaysPanel year={sel.year} month={sel.month} wide={!data.genres.hasData} />
+              : <HoursPanel data={data} sel={sel} today={today} wide={!data.genres.hasData} />}
             {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} />}
           </div>
           <TopGames top={data.top} onOpen={onOpenGame} />

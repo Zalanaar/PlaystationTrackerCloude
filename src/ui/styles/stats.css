@@ -151,3 +151,11 @@
 @media (prefers-reduced-motion: reduce) {
   .ps-st-excl__body, .ps-st-excl__chev { transition: none; }
 }
+/* F20: «Часы по дням» в режиме «Месяц» — те же столбцы, N колонок, подписи 1, 5, 10…; не кнопки (значения — строкой ниже и таблицей) */
+.ps-st-bars--days { grid-template-columns: repeat(var(--n, 30), minmax(0, 1fr)); gap: 2px; }
+.ps-st-bars--days .ps-st-bar { cursor: default; }
+.ps-st-bars--days .ps-st-bar__lbl { white-space: nowrap; overflow: visible; }
+.ps-st-days__sksum { display: inline-block; width: 60%; height: 1em; vertical-align: middle; border-radius: var(--r-sm); }
+.ps-st-days__sum { margin: var(--sp-2) 0 0; font-size: var(--fs-small); line-height: var(--lh-small, 20px); color: var(--text-2); }
+.ps-st-days__sum b { color: var(--text); }
+@media (max-width: 767px) { .ps-st-bars--days { gap: 1px; } .ps-st-days__sum { min-height: calc(2 * var(--lh-small, 20px)); } }
