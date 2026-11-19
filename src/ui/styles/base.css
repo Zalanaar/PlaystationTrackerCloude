@@ -85,6 +85,7 @@ a.ps-btn { text-decoration: none; }
 .ps-swatch--lg .ps-swatch__dot { width: 14px; height: 14px; }
 .ps-themerow__btn[aria-checked="true"] .ps-swatch { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus, var(--accent)); }
 .ps-themerow__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.ps-themerow__sel { color: var(--text-3); }
 .ps-themerow__cur { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 /* ---------- Меню, попап, окно ---------- */
 .ps-pop { position: relative; display: inline-block; }

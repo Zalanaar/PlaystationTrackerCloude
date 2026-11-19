@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Icon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { applyTheme, themeFromAttr } from '../theme';
@@ -67,7 +67,9 @@ export function ThemeList({ onPick }: { onPick?: () => void }) {
  */
 export function ThemeSwatches() {
   const [theme, setTheme] = useTheme();
-  const cur = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  // F26: подпись показывает тему под пальцем / фокусом / курсором, а не только выбранную — не приходится выбирать наугад
+  const [peek, setPeek] = useState<ThemeId | null>(null);
+  const cur = THEMES.find((t) => t.id === (peek ?? theme)) ?? THEMES[0];
   const onKey = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
     const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!d) return;
@@ -83,12 +85,15 @@ export function ThemeSwatches() {
           <button
             key={t.id} type="button" role="radio" aria-checked={theme === t.id} aria-label={t.label} title={t.label}
             tabIndex={theme === t.id ? 0 : -1} className="ps-themerow__btn" onClick={() => setTheme(t.id)} onKeyDown={(e) => onKey(e, i)}
+            onPointerEnter={() => setPeek(t.id)} onPointerLeave={() => setPeek(null)} onFocus={() => setPeek(t.id)} onBlur={() => setPeek(null)}
           >
             <span className="ps-swatch ps-swatch--lg" data-theme={t.attr ?? 'night'} aria-hidden="true"><span className="ps-swatch__dot" /></span>
           </button>
         ))}
       </div>
-      <p className="ps-themerow__cur" aria-hidden="true">{cur.label}</p>
+      <p className="ps-themerow__cur" aria-hidden="true" data-testid="theme-caption">
+        {cur.label}{cur.id === theme ? <span className="ps-themerow__sel"> · выбрана</span> : null}
+      </p>
     </div>
   );
 }

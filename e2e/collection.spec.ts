@@ -645,6 +645,11 @@ for (const width of [390, 440]) {
       // ряд в одну строку и не выше 96 px вместе с подписью
       const box = (await page.locator('.ps-themerow').boundingBox())!;
       expect(box.height).toBeLessThanOrEqual(96);
+      // F26: подпись показывает тему под курсором/фокусом, у выбранной — «· выбрана»
+      await row.getByRole('radio', { name: 'Crystal Towers' }).hover();
+      await expect(page.getByTestId('theme-caption')).toHaveText('Crystal Towers');
+      await row.getByRole('radio', { name: 'Memory Card' }).hover();
+      await expect(page.getByTestId('theme-caption')).toHaveText('Memory Card · выбрана');
       await row.getByRole('radio', { name: 'Dark' }).click();
       await page.reload();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
