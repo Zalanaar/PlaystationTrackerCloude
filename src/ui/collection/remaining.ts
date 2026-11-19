@@ -58,11 +58,13 @@ export function remainingView(d: GameDuration | undefined, playedSeconds?: numbe
     return { ...base, kind: 'unknown', text: null, hasWord: false, label: 'Длительность неизвестна' };
   }
   const srcWord = source === 'manual' ? 'вручную' : source === 'hltb' ? 'HLTB' : null;
+  // F24: в строках видно только «вручную»; HLTB — источник по умолчанию, он назван один раз в подписи блока (в aria-label остаётся)
+  const shownSrc = source === 'manual' ? 'вручную' : null;
   const rem = d.remainingHours;
   const prog = d.progress;
   if (rem === undefined || rem === null || prog === undefined || prog === null) {
     // H: остаток не известен синку, не выдумываем
-    return { ...base, kind: 'total', text: formatRemaining(d.hours), hasWord: false, sourceText: srcWord, label: `Длительность ${formatRemaining(d.hours)}${srcWord ? `, ${srcWord}` : ''}` };
+    return { ...base, kind: 'total', text: formatRemaining(d.hours), hasWord: false, sourceText: shownSrc, label: `Длительность ${formatRemaining(d.hours)}${srcWord ? `, ${srcWord}` : ''}` };
   }
   const isMinimum = prog >= MINIMUM_PROGRESS;
   const fill = isMinimum ? Math.min(prog, MINIMUM_PROGRESS) : Math.min(1, Math.max(0, prog));
@@ -76,6 +78,6 @@ export function remainingView(d: GameDuration | undefined, playedSeconds?: numbe
   const label = `${playedPart}осталось ${text}${isMinimum ? ', минимум 15%' : source === 'manual' ? ', оценка вручную' : srcWord ? `, ${srcWord}` : ''}`;
   return {
     kind: 'remaining', text, hasWord: true, fill: fill > 0 ? fill : 0, isMinimum, source,
-    sourceText: isMinimum ? 'мин. 15%' : srcWord, notOnHltb, hint, label, percent: Math.round(fill * 100),
+    sourceText: isMinimum ? 'мин. 15%' : shownSrc, notOnHltb, hint, label, percent: Math.round(fill * 100),
   };
 }

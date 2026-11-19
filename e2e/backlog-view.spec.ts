@@ -65,7 +65,8 @@ test.describe('Бэклог: строка списка', () => {
   test('длительность: часы и источник, только «нет на HLTB», ничего без данных', async ({ page }) => {
     const dur = (t: string) => rows(page).filter({ hasText: t }).getByTestId('bl-duration');
     await expect(dur('Альфа')).toContainText('≈ 8 ч');
-    await expect(dur('Альфа')).toContainText('HLTB');
+    await expect(dur('Альфа')).not.toContainText('HLTB'); // F24: источник по умолчанию — в подписи под списком
+    await expect(page.getByTestId('bl-src-note')).toContainText('HowLongToBeat');
     await expect(dur('Эхо')).toContainText('≈ 25 ч');
     await expect(dur('Эхо')).toContainText('вручную');
     await expect(dur('Чарли')).toHaveText('нет на HLTB');

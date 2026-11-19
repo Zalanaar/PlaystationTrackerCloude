@@ -681,6 +681,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         </div>
       )}
       {/* П16.3: блоки ниже списка — только вместе со списком; иначе они рисуются под скелетом и въезжают в экран (CLS 0,13) */}
+      {/* F24: источник длительности один раз под списком, а не «HLTB» в каждой строке */}
+      {ready && items && items.length > 0 && !filters.nb && <p className="ps-bl-srcnote" data-testid="bl-src-note">Длительность — по HowLongToBeat, «вручную» — твоя оценка.</p>}
       {ready && items && !filters.nb && items.length > 0 && items.length < total && (
         <div className="ps-more">
           <button type="button" className="ps-btn" onClick={() => void loadMore()} disabled={more}>

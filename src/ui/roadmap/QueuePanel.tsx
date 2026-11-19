@@ -203,7 +203,8 @@ export function QueuePanel({
                       {started ? (
                         <span className="num" title={`Наиграно ${hoursLabel(e.playedHours ?? 0)} из ${hoursLabel(e.totalHours ?? 0)}`}>осталось {hoursLabel(e.hours)}</span>
                       ) : <span className="num">{hoursLabel(e.hours)}</span>}
-                      {src && <span className="ps-rm-src">{r.movable ? src : 'ручн.'}</span>}
+                      {/* F24: «HLTB» не повторяется в каждой строке — источник назван в подписи блока */}
+                      {src && (!r.movable || e.hoursSource === 'manual') && <span className="ps-rm-src">{r.movable ? src : 'ручн.'}</span>}
                     </>
                   ) : (
                     <button
@@ -291,7 +292,7 @@ export function QueuePanel({
         </span>
       </div>
       {backlogNote && <p className="ps-rm-sub ps-num" data-testid="rm-backlog-total" title={BACKLOG_DEFINITION}>{backlogNote}</p>}
-      <p className="ps-rm-sub">Порядок бэклога задаёшь ты; релизы с галкой стоят по дате выхода и двигаться не могут.</p>
+      <p className="ps-rm-sub">Порядок бэклога задаёшь ты; релизы с галкой стоят по дате выхода и двигаться не могут. Часы — по HowLongToBeat, «вручную» — твоя оценка.</p>
       <p className="ps-sr" aria-live="polite" data-testid="rm-live">{live}</p>
       {body}
     </>

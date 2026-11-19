@@ -13,7 +13,7 @@ describe('remainingView (Фаза 32)', () => {
   });
   it('A: остаток и доля из API, подсказка «Наиграно»', () => {
     const v = remainingView(dur({ remainingHours: 12, progress: 0.4 }), 8 * 3600);
-    expect(v).toMatchObject({ kind: 'remaining', text: '≈ 12 ч', hasWord: true, fill: 0.4, percent: 40, isMinimum: false, sourceText: 'HLTB' });
+    expect(v).toMatchObject({ kind: 'remaining', text: '≈ 12 ч', hasWord: true, fill: 0.4, percent: 40, isMinimum: false, sourceText: null }); // F24: «HLTB» в строке не пишем
     expect(v.hint).toBe('Наиграно 8 ч из ≈ 20 ч');
     expect(v.label).toContain('осталось ≈ 12 ч');
   });

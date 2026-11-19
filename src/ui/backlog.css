@@ -236,3 +236,5 @@
 @media (prefers-reduced-motion: reduce) {
   .ps-collection[data-fresh] :is(.ps-bl-jump, .ps-bl-h, .ps-bl-age, .ps-bl-match, .ps-nextup, .ps-bl-list, .ps-bl-service, .ps-more) { animation: none; }
 }
+/* F24: источник длительности один раз под списком */
+.ps-bl-srcnote { margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
