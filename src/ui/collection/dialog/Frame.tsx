@@ -4,6 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { tintStyle } from '../tint';
 import { holdScroll } from '../../shell/holdScroll';
 import { BackToTop } from '../../shell/BackToTop';
+import { attachSwipeClose } from './swipe-close';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -69,8 +70,16 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // П15.2: свайп вниз закрывает окно на телефоне
+  useEffect(() => {
+    const root = ref.current, sc = scrollRef.current;
+    if (!root || !sc) return;
+    return attachSwipeClose(root, sc, () => closeRef.current());
+  }, []);
+
   return (
     <div ref={ref} className="ps-gd" style={tintStyle(tint)} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <span className="ps-gd__grab" aria-hidden="true" />
       <div ref={scrollRef} className="ps-gd__scroll">{children(titleId)}</div>
       <BackToTop scroller={scrollRef} inDialog />
     </div>

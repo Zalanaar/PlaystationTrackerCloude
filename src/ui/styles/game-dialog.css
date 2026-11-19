@@ -7,6 +7,8 @@
 @keyframes ps-gd-up { from { transform: translateY(100%); } }
 .ps-gd__scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .ps-gd__closewrap { position: sticky; top: 0; z-index: 6; height: 0; }
+/* П15.2: «ручка» — подсказка, что окно можно смахнуть вниз (только телефон) */
+.ps-gd__grab { display: none; }
 .ps-gd__close {
   position: absolute; top: var(--sp-4); right: var(--sp-4); display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%;
   background: var(--on-cover-bg); color: var(--on-cover-text); border: var(--border-w) solid var(--on-cover-border); backdrop-filter: blur(4px); cursor: pointer;
@@ -109,6 +111,7 @@ button.ps-gd__dlcpr { cursor: pointer; }
 @media (max-width: 767px) {
   .ps-gd { animation-name: ps-gd-up; }
   .ps-gd__closewrap { top: env(safe-area-inset-top); }
+  .ps-gd__grab { display: block; position: absolute; z-index: 7; top: calc(env(safe-area-inset-top) + 6px); left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: var(--r-pill); background: var(--on-cover-text); opacity: .55; pointer-events: none; }
   .ps-gd__close { top: var(--sp-2); right: var(--sp-2); width: var(--tap-min); height: var(--tap-min); }
   /* вкладки по центру равными колонками; поля симметричны под липкий ✕ (44 px), чтобы ряд не съезжал влево и «Трофеи N/M» влезали на 375 */
   .ps-tabs2 { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 var(--tap-min); margin-top: var(--sp-4); top: env(safe-area-inset-top); }
