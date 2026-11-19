@@ -59,7 +59,8 @@
 
 /* Мобильный (D-P1): одна прокручиваемая строка чипов и ✕ справа, метка только для скринридера. Было 2 колонки и «Ещё N» (~245 px первого экрана) */
 @media (max-width: 767px) {
-  .ps-inbox { padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+  /* F31 (аудит UX): без карточки во всю ширину ради одного чипа — просто ряд чипов (как фильтры), ✕ в конце ряда; −18 px до «Играю» */
+  .ps-inbox { padding: 0; margin-bottom: var(--sp-3); background: none; border: 0; border-radius: 0; }
   .ps-inbox__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "list x"; row-gap: 0; column-gap: var(--sp-1); }
   .ps-inbox__row > .ps-inbox__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .ps-inbox__x { width: var(--tap-min); height: var(--tap-min); }
@@ -69,7 +70,7 @@
   .ps-inbox .ps-chipbtn.ps-inbox__chip { height: var(--tap-min); white-space: nowrap; border-radius: var(--r-chip); }
   .ps-inbox__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ps-inbox__chev { display: none; }
-  .ps-inbox__note { padding: 0 var(--sp-3); }
+  .ps-inbox__note { padding: 0; }
   .ps-inbox__note .ps-inbox__x { margin: 0 calc(-1 * var(--sp-2)) 0 auto; }
   /* Скелет той же высоты: один ряд чипов по --tap-min, без метки */
   .ps-inbox--sk { flex-direction: row; gap: var(--sp-2); }

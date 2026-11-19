@@ -99,7 +99,9 @@ test.describe('Полоса «С прошлого визита»', () => {
     expect(new Set(ys).size).toBe(1);
     const box = await strip.getByTestId('inbox-new').boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
-    expect((await strip.boundingBox())!.height).toBeLessThanOrEqual(64);
+    // F31: на телефоне без карточки — ряд чипов высотой с чип, без фона и рамки
+    expect((await strip.boundingBox())!.height).toBeLessThanOrEqual(45);
+    expect(await strip.evaluate((el) => { const cs = getComputedStyle(el); return [cs.borderTopWidth, cs.backgroundColor]; })).toEqual(['0px', 'rgba(0, 0, 0, 0)']);
     expect(await strip.locator('.ps-inbox__list').evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     expect(await noHScroll(page)).toBe(true);
   });
