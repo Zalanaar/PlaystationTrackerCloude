@@ -328,6 +328,20 @@ test.describe('План: настройки и прогресс', () => {
 });
 
 test.describe('План: вёрстка', () => {
+  test('F5: таймлайн по месяцам — текущий и следующий месяц, остальное по «Весь год»', async ({ page, context, baseURL, isMobile }) => {
+    await open(page, context, baseURL as string);
+    if (!isMobile) await page.getByRole('group', { name: 'Вид таймлайна' }).getByRole('button', { name: 'По месяцам' }).click();
+    const months = page.getByTestId('rm-month');
+    await expect(months).toHaveCount(2);
+    await expect(months.first()).toContainText('Октябрь');
+    await expect(months.nth(1)).toContainText('Ноябрь');
+    const all = page.getByTestId('rm-months-all');
+    await expect(all).toHaveText('Весь год: ещё 1 месяц');
+    await all.click();
+    await expect(months).toHaveCount(3);
+    await expect(all).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('вкладка «План» в навигации активна', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string);
     const nav = isMobile ? page.locator('nav.ps-tabbar') : page.locator('header nav.ps-nav');

@@ -145,6 +145,11 @@ function MonthsView({ data, onJump, extra }: { data: RoadmapResponse; onJump: (k
   const [open, setOpen] = useState(false);
   const collapsed = cur > 0 && !open;
   const first = collapsed ? cur : 0;
+  // F5: по умолчанию текущий и следующий месяц (для будущего года — первые два), остальное по «Весь год»
+  const [all, setAll] = useState(false);
+  const base = cur >= 0 ? cur : 0;
+  const last = all ? months.length - 1 : Math.min(months.length - 1, base + 1);
+  const hiddenAfter = months.length - 1 - Math.min(months.length - 1, base + 1);
   const nums = useMemo(() => conflictNumbers(conflicts), [conflicts]);
 
   return (
@@ -156,7 +161,7 @@ function MonthsView({ data, onJump, extra }: { data: RoadmapResponse; onJump: (k
         </button>
       )}
       <ol className="ps-rm-mo" aria-label={`Таймлайн плана по месяцам, ${settings.year}`}>
-        {months.slice(first).map((m, k) => {
+        {months.slice(first, last + 1).map((m, k) => {
           const idx = first + k;
           const list = m.items.map((li) => {
             const it = byKey.get(li.key);
@@ -215,6 +220,12 @@ function MonthsView({ data, onJump, extra }: { data: RoadmapResponse; onJump: (k
           );
         })}
       </ol>
+      {hiddenAfter > 0 && (
+        <button type="button" className="ps-rm-mo__past ps-rm-mo__all" aria-expanded={all} data-testid="rm-months-all" onClick={() => setAll((v) => !v)}>
+          <Icon name={all ? 'chevron-up' : 'chevron-down'} size={14} />
+          {all ? 'Свернуть до двух месяцев' : `Весь год: ещё ${hiddenAfter} ${plural(hiddenAfter, ['месяц', 'месяца', 'месяцев'])}`}
+        </button>
+      )}
     </div>
   );
 }
