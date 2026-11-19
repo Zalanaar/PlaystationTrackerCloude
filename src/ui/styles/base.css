@@ -388,18 +388,18 @@ small small { font-size: inherit; }
 .ps-chiprow[data-edge-l] { --fl: 28px; }
 .ps-chiprow[data-edge-r] { --fr: 28px; }
 
-/* П9 «Удобство»: на телефоне видимый текст не мельче 12 px. Правила с жёстким 9–11 px поднимаются до 12 (подписи графиков,
-   редкость, метки на обложках, вкладки). --fs-micro на телефоне тоже 12 (tokens.css). Префикс html — чтобы перекрыть
-   мобильные правила файлов, подключённых позже (та же специфичность). */
+/* П9 «Удобство» + F30 (аудит UX): видимый текст не мельче 12 px — на телефоне и на компьютере. Правила с жёстким 9–11 px
+   поднимаются до 12 (подписи графиков, редкость, метки на обложках, вкладки). --fs-micro тоже 12 (tokens.css). Префикс html — чтобы
+   перекрыть правила файлов, подключённых позже (та же специфичность). */
 @media (max-width: 767px) {
   html .ps-tab { font-size: 12px; letter-spacing: -.01em; }
-  html :is(.ps-rec-seg__h, .ps-rec__chip, .ps-own-h, .ps-trophy__dlc, .ps-trophy__hidtag, .ps-gd__cover span, .ps-search__kbd,
-    .ps-tri kbd, .ps-tri__hints kbd, .ps-card__tag, .ps-stack3__fg, .ps-sg__rule, .ps-pswitch__ini, .ps-nb,
-    .ps-st-bar__lbl, .ps-st-line__lbls, .ps-heat__wd, .ps-heat__months, .ps-streak__s, .ps-streak__gaps,
-    .ps-st-yslot__top, .ps-st-yslot__lbl, .ps-st-yslot__sub, .ps-pp__val, .ps-pp__lbl,
-    .ps-bs__cap, .ps-bs-opt__cover, .ps-bs__attr, .ps-match__cap) { font-size: 12px; }
-  html .ps-trophy__name > :is(.ps-trophy__dlc, .ps-trophy__hidtag), html .ps-gd .ps-gd__cover span, html .ps-bs-opt .ps-bs-opt__cover { font-size: 12px; }
 }
+html :is(.ps-rec-seg__h, .ps-rec__chip, .ps-own-h, .ps-trophy__dlc, .ps-trophy__hidtag, .ps-gd__cover span, .ps-search__kbd,
+  .ps-tri kbd, .ps-tri__hints kbd, .ps-card__tag, .ps-stack3__fg, .ps-sg__rule, .ps-pswitch__ini, .ps-nb,
+  .ps-st-bar__lbl, .ps-st-line__lbls, .ps-heat__wd, .ps-heat__months, .ps-streak__s, .ps-streak__gaps,
+  .ps-st-yslot__top, .ps-st-yslot__lbl, .ps-st-yslot__sub, .ps-pp__val, .ps-pp__lbl,
+  .ps-bs__cap, .ps-bs-opt__cover, .ps-bs__attr, .ps-match__cap) { font-size: 12px; }
+html .ps-trophy__name > :is(.ps-trophy__dlc, .ps-trophy__hidtag), html .ps-gd .ps-gd__cover span, html .ps-bs-opt .ps-bs-opt__cover { font-size: 12px; }
 
 /* П9: бейдж числа у пункта меню («Разбор»: игры без статуса) */
 .ps-menu-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--text); font: 600 12px/20px var(--font-body); text-align: center; }
