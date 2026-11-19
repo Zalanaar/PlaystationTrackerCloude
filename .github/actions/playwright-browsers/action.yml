@@ -28,9 +28,14 @@ runs:
         for mirror in '' http://azure.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/; do
           if [ -n "$mirror" ]; then
             echo "::warning::apt медленный или упал — пробую зеркало $mirror"
+            # timeout не достаёт apt-get, запущенный через sudo: добиваем сами ([a] — чтобы pkill не задел собственный sudo) и ждём освобождения блокировки dpkg
+            sudo pkill -TERM -f '[a]pt-get|/usr/lib/[a]pt/methods/' || true
+            for _ in $(seq 1 30); do pgrep -f '[a]pt-get|/usr/lib/[a]pt/methods/' >/dev/null || break; sleep 1; done
+            sudo pkill -KILL -f '[a]pt-get|/usr/lib/[a]pt/methods/' || true
+            sleep 2
             sudo dpkg --configure -a || true
             if [ -f /etc/apt/apt-mirrors.txt ]; then echo "$mirror" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null; fi
           fi
-          if timeout -k 15 300 npx playwright install-deps ${{ inputs.browsers }}; then exit 0; fi
+          if timeout -k 15 240 npx playwright install-deps ${{ inputs.browsers }}; then exit 0; fi
         done
         exit 1
