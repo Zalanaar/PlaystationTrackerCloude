@@ -256,3 +256,16 @@
 .ps-filters__tags-on { margin-left: auto; color: var(--text-2); font-size: var(--fs-small); }
 .ps-filters__tags-chev { color: var(--text-3); }
 .ps-filters__tags > span:nth-child(2) + .ps-filters__tags-chev { margin-left: auto; }
+
+/* Идея 2: поиск игры из любого раздела (лист «Найти игру») */
+.ps-gsearch { display: grid; gap: var(--sp-3); }
+.ps-gsearch__input { width: 100%; min-height: var(--tap-min); }
+.ps-gsearch__hint { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-gsearch__state:empty { display: none; }
+.ps-gsearch__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ps-gsearch__row { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-md); color: var(--text); text-decoration: none; }
+.ps-gsearch__row:hover, .ps-gsearch__row:focus-visible { background: var(--surface-2); }
+.ps-gsearch__cover { flex: none; width: 36px; height: 48px; border-radius: var(--r-sm); overflow: hidden; font-size: 12px; }
+.ps-gsearch__txt { display: grid; min-width: 0; }
+.ps-gsearch__txt b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-gsearch__txt small { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }

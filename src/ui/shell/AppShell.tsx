@@ -23,7 +23,7 @@ import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
-import { collectionMenuOn, emitHeaderAction, headerActionsFor } from './headerActions';
+import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
 import { AddMenu } from './AddMenu';
 import { useOfflineNav } from './offlineNav';
 import { PullToRefresh } from './PullToRefresh';
@@ -36,6 +36,7 @@ import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { pendingBadge, useTriagePending } from './triagePending';
 import { installErrorReporter } from './errorReporter';
 
+const GlobalSearch = dynamic(() => import('./GlobalSearch').then((m) => m.GlobalSearch), { ssr: false });
 const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
 function useLogout() {
@@ -83,6 +84,9 @@ export function AppHeader() {
   // П9/F25: и у экранов без вкладки («Разбор», «Профили», «Доступ», «Здоровье», «Настройки») название в шапке телефона
   const title = sectionTitle(pathname);
   const hdr = headerActionsFor(pathname);
+  const localSearch = localSearchOn(pathname);
+  const [gsearch, setGsearch] = useState(false);
+  const gsearchMounted = useEverTrue(gsearch);
   useRefreshOnReturn(); // П9: долгий возврат в приложение — тихо перечитать данные экрана
   useEffect(() => installErrorReporter(), []); // П10: журнал ошибок браузера
 
@@ -110,10 +114,14 @@ export function AppHeader() {
           </nav>
           <div className="ps-header__right">
             {hdr.search && (
-              <button type="button" className="ps-iconbtn ps-mobile-only" data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру" onClick={() => emitHeaderAction('search')}>
+              <button
+                type="button" className={localSearch ? 'ps-iconbtn ps-mobile-only' : 'ps-iconbtn'} data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру"
+                aria-haspopup={localSearch ? undefined : 'dialog'} onClick={() => (localSearch ? emitHeaderAction('search') : setGsearch(true))}
+              >
                 <Icon name="search" size={22} />
               </button>
             )}
+            {gsearchMounted && <GlobalSearch open={gsearch} onClose={() => setGsearch(false)} />}
             {hdr.add && <AddMenu pathname={pathname} />}
             <SyncIndicator />
             <PsnProfileSwitcher />

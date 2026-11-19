@@ -28,8 +28,12 @@ const norm = (pathname: string) => (pathname.length > 1 ? pathname.replace(/\/+$
 /** Какие кнопки показывает мобильная шапка на пути. «+» — меню выбора (П9) на Коллекции, Бэклоге и Плане. */
 export function headerActionsFor(pathname: string): { search: boolean; add: boolean } {
   const p = norm(pathname);
-  return { search: p === '/' || p === '/backlog', add: p === '/' || p === '/backlog' || p === '/roadmap' };
+  return { search: localSearchOn(p) || GLOBAL_SEARCH_PATHS.some((x) => p === x || p.startsWith(`${x}/`)), add: p === '/' || p === '/backlog' || p === '/roadmap' };
 }
+
+/** Идея 2: Коллекция и Бэклог ищут сами (строка поиска списка); в остальных разделах кнопка открывает лист «Найти игру». */
+export const localSearchOn = (pathname: string) => { const p = norm(pathname); return p === '/' || p === '/backlog'; };
+const GLOBAL_SEARCH_PATHS = ['/stats', '/trophies', '/roadmap', '/recommend', '/wrapped', '/triage'];
 
 /** F13: группа «Коллекция» в меню «⋯» (телефон) — только на самой Коллекции. */
 export const collectionMenuOn = (pathname: string) => norm(pathname) === '/';

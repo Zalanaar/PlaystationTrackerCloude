@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { addItemsFor, headerActionsFor } from './headerActions';
+import { addItemsFor, headerActionsFor, localSearchOn } from './headerActions';
 
 describe('headerActionsFor', () => {
   it('поиск на Коллекции и Бэклоге; «+» (меню) на Коллекции, Бэклоге и Плане', () => {
     expect(headerActionsFor('/')).toEqual({ search: true, add: true });
     expect(headerActionsFor('/backlog')).toEqual({ search: true, add: true });
     expect(headerActionsFor('/backlog/')).toEqual({ search: true, add: true });
-    expect(headerActionsFor('/roadmap')).toEqual({ search: false, add: true });
-    expect(headerActionsFor('/stats')).toEqual({ search: false, add: false });
+    expect(headerActionsFor('/roadmap')).toEqual({ search: true, add: true });
+    expect(headerActionsFor('/stats')).toEqual({ search: true, add: false });
+  });
+
+  it('Идея 2: поиск из любого раздела; свой поиск — только у Коллекции и Бэклога', () => {
+    for (const p of ['/trophies', '/recommend', '/wrapped', '/triage', '/stats/']) expect(headerActionsFor(p).search).toBe(true);
+    for (const p of ['/settings', '/access', '/health', '/profiles']) expect(headerActionsFor(p).search).toBe(false);
+    expect(localSearchOn('/')).toBe(true);
+    expect(localSearchOn('/backlog/')).toBe(true);
+    expect(localSearchOn('/stats')).toBe(false);
   });
 });
 
