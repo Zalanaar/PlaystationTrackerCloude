@@ -303,6 +303,9 @@ test.describe('План: настройки и прогресс', () => {
     await expect(page.getByText('Отстаю на 19 ч')).toBeVisible();
     await expect(page.getByText('Допуск «по плану»: 2 ч')).toBeVisible();
     const before = s.calls.roadmap;
+    // F5: настройки свёрнуты в строку, раскрываются «Изменить», после «Применить» сворачиваются
+    await expect(page.getByTestId('rm-set-summary')).toHaveText('2026 · 10 ч в неделю');
+    await page.getByRole('button', { name: 'Изменить' }).click();
     const apply = page.getByRole('button', { name: 'Применить' });
     await expect(apply).toBeDisabled();
     await page.getByLabel('Часов в неделю').fill('15');
@@ -311,10 +314,13 @@ test.describe('План: настройки и прогресс', () => {
     await expect(page.getByText('План пересчитан')).toBeVisible();
     expect(s.calls.settings).toEqual([{ year: 2026, hoursPerWeek: 15 }]);
     expect(s.calls.roadmap).toBeGreaterThan(before);
+    await expect(page.getByTestId('rm-set-summary')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Изменить' })).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('невалидные часы: ошибка у поля, кнопка выключена', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
+    await page.getByRole('button', { name: 'Изменить' }).click();
     await page.getByLabel('Часов в неделю').fill('0');
     await expect(page.getByText('Введи число от 0,5 до 100')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Применить' })).toBeDisabled();

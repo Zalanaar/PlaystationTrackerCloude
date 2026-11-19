@@ -8,7 +8,7 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
-import { applyOrder, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
+import { applyOrder, hoursLabel, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { GoalPanel } from './GoalPanel';
@@ -58,6 +58,8 @@ export function RoadmapView() {
   const [plannedErr, setPlannedErr] = useState(false);
   const [recalc, setRecalc] = useState(0);
   const [applying, setApplying] = useState(false);
+  // F5: настройки плана свёрнуты в строку «2026 · 14 ч в неделю · Изменить», раскрываются по кнопке
+  const [setOpen, setSetOpen] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const dataRef = useRef<RoadmapResponse | null>(null);
@@ -135,6 +137,7 @@ export function RoadmapView() {
     try {
       await putSettings(year, hours);
       await load(); // часы в неделю пересчитывают план
+      setSetOpen(false); // F5: после «Применить» настройки сворачиваются в строку
       toast({ text: first ? 'План составлен' : 'План пересчитан' });
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сохранить настройки. ${e instanceof ApiError && e.status === 400 ? 'Проверь значения.' : 'Повтори'}`, action: { label: 'Повторить', run: () => void latest.current?.apply(year, hours) } });
@@ -370,12 +373,30 @@ export function RoadmapView() {
       </div>
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
-          <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
-          {data ? <SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /> : <div className="ps-skeleton ps-rm-sk-set" aria-hidden="true" />}
+          <div className="ps-rm-set__head">
+            <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
+            {data && (
+              <button
+                type="button" className="ps-link ps-rm-set__toggle" aria-expanded={setOpen} aria-controls="rm-set-body"
+                onClick={() => setSetOpen((v) => !v)}
+              >
+                {setOpen ? 'Свернуть' : 'Изменить'}
+              </button>
+            )}
+          </div>
+          {data ? (
+            setOpen ? (
+              <div id="rm-set-body"><SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /></div>
+            ) : (
+              <p className="ps-rm-set__sum" id="rm-set-body" data-testid="rm-set-summary">
+                <b className="num">{data.settings.year}</b> · {data.settings.hoursPerWeek != null ? `${hoursLabel(data.settings.hoursPerWeek)} в неделю` : 'часы не заданы'}
+              </p>
+            )
+          ) : <div className="ps-skeleton ps-rm-sk-set-sum" aria-hidden="true" />}
         </section>
         <section className="ps-rm-panel" id="rm-goal" data-area="goal" data-tour="roadmap-goal" aria-labelledby="rm-goal-h" aria-busy={!data || undefined}>
           {data ? (
-            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} onChanged={setGoal} onSettings={() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })} />
+            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} onChanged={setGoal} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })); }} />
           ) : <><h2 className="ps-h2" id="rm-goal-h">Цель года</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">
