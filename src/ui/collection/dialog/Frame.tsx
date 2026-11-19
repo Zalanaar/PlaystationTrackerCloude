@@ -12,6 +12,7 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select
 export function Frame({ onClose, tint, children }: { onClose: () => void; tint?: string | null; children: (titleId: string) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
   // Layout-эффекты: окно открывается в переходе роутера, и обычный эффект мог выполниться уже после отрисовки.
@@ -72,16 +73,20 @@ export function Frame({ onClose, tint, children }: { onClose: () => void; tint?:
 
   // П15.2: свайп вниз закрывает окно на телефоне
   useEffect(() => {
-    const root = ref.current, sc = scrollRef.current;
-    if (!root || !sc) return;
-    return attachSwipeClose(root, sc, () => closeRef.current());
+    const root = ref.current, sc = scrollRef.current, sheet = sheetRef.current;
+    if (!root || !sc || !sheet) return;
+    return attachSwipeClose(root, sc, () => closeRef.current(), sheet);
   }, []);
 
   return (
     <div ref={ref} className="ps-gd" style={tintStyle(tint)} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-      <span className="ps-gd__grab" aria-hidden="true" />
-      <div ref={scrollRef} className="ps-gd__scroll">{children(titleId)}</div>
-      <BackToTop scroller={scrollRef} inDialog />
+      {/* Телефон: затемнение над листом (касание закрывает, как у системных sheet); на десктопе лист во всё окно */}
+      <span className="ps-gd__dim" aria-hidden="true" onClick={() => closeRef.current()} />
+      <div ref={sheetRef} className="ps-gd__sheet">
+        <span className="ps-gd__grab" aria-hidden="true" />
+        <div ref={scrollRef} className="ps-gd__scroll">{children(titleId)}</div>
+        <BackToTop scroller={scrollRef} inDialog />
+      </div>
     </div>
   );
 }

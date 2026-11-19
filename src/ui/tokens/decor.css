@@ -90,7 +90,7 @@
 /* t199u: те же блоки в полоске уровня карточки профиля (раскладка от 768 px) */
 [data-theme="ps1"] .ps-profile__bar { height: 10px; background: none; border-radius: 0; overflow: visible; }
 [data-theme="ps1"] .ps-profile__bar > i { display: none; }
-[data-theme="ps1"] .ps-gd::before {
+[data-theme="ps1"] .ps-gd__sheet::before {
   content: ""; position: absolute; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 3px; z-index: 7; pointer-events: none;
   background: linear-gradient(90deg, #e2001a 0 25%, #f2b600 25% 50%, #00a05a 50% 75%, #0070d1 75%);
 }
@@ -283,5 +283,8 @@
 
 /* ---------- Печать ---------- */
 @media print {
-  .ps-app::before, .ps-app::after, .ps-header::before, .ps-header::after, .ps-gd::before, .ps-decor { display: none !important; }
+  .ps-app::before, .ps-app::after, .ps-header::before, .ps-header::after, .ps-gd__sheet::before, .ps-decor { display: none !important; }
 }
+
+/* лист окна игры на телефоне: полоса по верхнему краю листа (он уже ниже safe area) */
+@media (max-width: 767px) { [data-theme="ps1"] .ps-gd__sheet::before { top: 0; } }

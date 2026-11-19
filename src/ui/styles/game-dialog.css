@@ -5,6 +5,9 @@
 .ps-gd:focus { outline: none; box-shadow: none; }
 @keyframes ps-gd-in { from { opacity: 0; transform: translateY(12px); } }
 @keyframes ps-gd-up { from { transform: translateY(100%); } }
+@keyframes ps-gd-dim { from { opacity: 0; } }
+.ps-gd__sheet { position: absolute; inset: 0; }
+.ps-gd__dim { display: none; }
 .ps-gd__scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .ps-gd__closewrap { position: sticky; top: 0; z-index: 6; height: 0; }
 /* П15.2: «ручка» — подсказка, что окно можно смахнуть вниз (только телефон) */
@@ -109,15 +112,18 @@ button.ps-gd__dlcpr { cursor: pointer; }
 .ps-trophy__sk-tx span { display: block; height: 14px; }
 .ps-trophy__sk-tx span:last-child { width: 70%; }
 @media (max-width: 767px) {
-  .ps-gd { animation-name: ps-gd-up; }
-  .ps-gd__closewrap { top: env(safe-area-inset-top); }
-  .ps-gd__grab { display: block; position: absolute; z-index: 7; top: calc(env(safe-area-inset-top) + 6px); left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: var(--r-pill); background: var(--on-cover-text); opacity: .55; pointer-events: none; }
-  .ps-gd__close { top: var(--sp-2); right: var(--sp-2); width: var(--tap-min); height: var(--tap-min); }
+  /* П17: окно игры на телефоне — лист ниже safe area: сверху видно затемнение, скруглённые верхние углы, «ручка», баннер внутри листа */
+  .ps-gd { --gd-sheet-top: calc(env(safe-area-inset-top) + 10px); background: transparent; animation: none; }
+  .ps-gd__dim { display: block; position: absolute; inset: 0; background: rgba(0, 0, 0, .6); opacity: calc(1 - var(--gd-drag, 0)); animation: ps-gd-dim var(--dur-slow) var(--ease-out); }
+  .ps-gd:not([data-dragging]) .ps-gd__dim { transition: opacity var(--dur-base, 200ms) var(--ease-out, ease-out); }
+  .ps-gd__sheet { top: var(--gd-sheet-top); overflow: hidden; border-radius: var(--r-lg) var(--r-lg) 0 0; background: var(--bg); box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); animation: ps-gd-up var(--dur-slow) var(--ease-out); }
+  .ps-gd__grab { display: block; position: absolute; z-index: 7; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: var(--r-pill); background: var(--on-cover-text); opacity: .55; pointer-events: none; }
+  .ps-gd__close { top: var(--sp-4); right: var(--sp-3); width: var(--tap-min); height: var(--tap-min); }
   /* вкладки по центру равными колонками; поля симметричны под липкий ✕ (44 px), чтобы ряд не съезжал влево и «Трофеи N/M» влезали на 375 */
-  .ps-tabs2 { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 var(--tap-min); margin-top: var(--sp-4); top: env(safe-area-inset-top); }
+  .ps-tabs2 { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 var(--tap-min); margin-top: var(--sp-4); top: 0; }
   .ps-tab2 { height: 48px; padding: 0; gap: var(--sp-1); white-space: nowrap; }
   .ps-tab2[aria-selected="true"]::after { left: 0; right: 0; }
-  .ps-gd__ctl { top: calc(48px + env(safe-area-inset-top)); flex-wrap: wrap; }
+  .ps-gd__ctl { top: 48px; flex-wrap: wrap; }
   .ps-gd__ctl .ps-seg { flex: 1 1 100%; }
   .ps-gd__ctl .ps-seg button { flex: 1; height: 36px; }
   .ps-gd__sort { flex: 1 1 100%; }
@@ -127,7 +133,8 @@ button.ps-gd__dlcpr { cursor: pointer; }
   .ps-trophy__meta { grid-column: 2; flex-direction: row; flex-wrap: wrap; gap: 4px var(--sp-3); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ps-gd { animation: none; }
+  .ps-gd, .ps-gd__sheet, .ps-gd__dim { animation: none; }
+  .ps-gd .ps-gd__dim { transition: none; }
 }
 .ps-gp__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 .ps-gp__head b { font: 600 13px/16px var(--font-body); color: var(--text); }
@@ -257,7 +264,7 @@ button.ps-gd__dlcpr { cursor: pointer; }
 .ps-gd__note svg { flex: none; margin-top: 2px; }
 @media (max-width: 767px) {
   .ps-gd__scroll { padding: 0; }
-  .ps-gd__col { display: flex; flex-direction: column; max-width: none; min-height: 100dvh; border-radius: 0; }
+  .ps-gd__col { display: flex; flex-direction: column; max-width: none; min-height: 100%; border-radius: 0; }
   .ps-gd__art { border-radius: 0; }
   .ps-gd .ps-gd__cover { left: var(--sp-4); }
   .ps-gd__tt { left: calc(var(--sp-4) + var(--gd-cover-w) + var(--sp-3)); right: 56px; bottom: var(--sp-3); }

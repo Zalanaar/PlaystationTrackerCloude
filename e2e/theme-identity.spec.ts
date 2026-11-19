@@ -128,9 +128,9 @@ test.describe('Memory Card (ps1)', () => {
 
   test('полоса четырёх цветов по верхнему краю окна игры; в других темах её нет', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps1', '/?game=1');
-    const gd = page.locator('.ps-gd');
+    const gd = page.locator('.ps-gd__sheet');
     await expect(gd).toBeVisible();
-    const before = (p: Page) => p.locator('.ps-gd').evaluate((el) => { const cs = getComputedStyle(el, '::before'); return { content: cs.content, h: cs.height, bg: cs.backgroundImage }; });
+    const before = (p: Page) => p.locator('.ps-gd__sheet').evaluate((el) => { const cs = getComputedStyle(el, '::before'); return { content: cs.content, h: cs.height, bg: cs.backgroundImage }; });
     const s1 = await before(page);
     expect(s1.h).toBe('3px');
     expect(s1.bg).toContain('linear-gradient');

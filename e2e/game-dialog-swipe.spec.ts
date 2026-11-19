@@ -46,7 +46,7 @@ test.describe('П15.2 свайп вниз', () => {
     await swipe(page, '.ps-gd__tiles', 60, 10, 80);
     await page.waitForTimeout(400);
     await expect(d).toBeVisible();
-    expect(await page.locator('.ps-gd').evaluate((e) => (e as HTMLElement).style.transform)).toBe('');
+    expect(await page.locator('.ps-gd__sheet').evaluate((e) => (e as HTMLElement).style.transform)).toBe('');
   });
 
   test('прокрученное окно свайпом не закрывается; поле заметки жест не перехватывает', async ({ page, baseURL }) => {

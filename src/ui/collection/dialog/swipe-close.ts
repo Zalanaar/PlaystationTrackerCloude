@@ -25,15 +25,17 @@ function scrollsSideways(el: Element | null, stop: Element): boolean {
   return false;
 }
 
-export function attachSwipeClose(root: HTMLElement, scroller: HTMLElement, close: () => void): () => void {
+/** root — окно (слушает жест), sheet — что сдвигается пальцем (лист; затемнение над ним остаётся на месте). */
+export function attachSwipeClose(root: HTMLElement, scroller: HTMLElement, close: () => void, sheet: HTMLElement = root): () => void {
   const mq = window.matchMedia('(max-width: 767px)');
   let startX = 0, startY = 0, t0 = 0, dy = 0;
   let state: 'idle' | 'maybe' | 'drag' | 'off' = 'idle';
 
   const reset = (animate: boolean) => {
-    root.style.transition = animate ? 'transform var(--dur-base, 200ms) var(--ease-out, ease-out)' : '';
-    root.style.transform = '';
-    if (animate) window.setTimeout(() => { root.style.transition = ''; }, 260);
+    sheet.style.transition = animate ? 'transform var(--dur-base, 200ms) var(--ease-out, ease-out)' : '';
+    sheet.style.transform = '';
+    root.style.removeProperty('--gd-drag'); delete root.dataset.dragging;
+    if (animate) window.setTimeout(() => { sheet.style.transition = ''; }, 260);
   };
 
   const onStart = (e: TouchEvent) => {
@@ -57,11 +59,13 @@ export function attachSwipeClose(root: HTMLElement, scroller: HTMLElement, close
       if (Math.abs(x) < DECIDE_PX && Math.abs(y) < DECIDE_PX) return;
       if (y <= 0 || Math.abs(x) > Math.abs(y) || scroller.scrollTop > 0) { state = 'off'; return; }
       state = 'drag';
-      root.style.transition = 'none';
+      sheet.style.transition = 'none';
+      root.dataset.dragging = '';
     }
     e.preventDefault(); // своя прокрутка/«резинка» не нужна, пока тянем окно
     dy = Math.max(0, y);
-    root.style.transform = `translateY(${dy}px)`;
+    sheet.style.transform = `translateY(${dy}px)`;
+    root.style.setProperty('--gd-drag', String(Math.min(1, dy / Math.max(1, sheet.offsetHeight))));   // затемнение светлеет вслед за листом
   };
 
   const onEnd = (e: TouchEvent) => {
@@ -70,8 +74,9 @@ export function attachSwipeClose(root: HTMLElement, scroller: HTMLElement, close
     if (!shouldClose(dy, e.timeStamp - t0)) { reset(true); return; }
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (still) { reset(false); close(); return; }
-    root.style.transition = 'transform var(--dur-base, 200ms) var(--ease-out, ease-out)';
-    root.style.transform = 'translateY(100%)';
+    sheet.style.transition = 'transform var(--dur-base, 200ms) var(--ease-out, ease-out)';
+    sheet.style.transform = 'translateY(100%)';
+    delete root.dataset.dragging; root.style.setProperty('--gd-drag', '1');
     window.setTimeout(close, 180);
   };
 
