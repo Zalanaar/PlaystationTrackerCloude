@@ -30,7 +30,7 @@ describe('маршрут /api/collection/backlog-age', () => {
   it('пусто без бэклога', async () => {
     const r = await (await get()).json();
     expect(r.ok).toBe(true);
-    expect(r.data).toEqual({ items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } });
+    expect(r.data).toEqual({ items: [], summary: { count: 0, medianDays: null, overYear: 0, cleanup: 0, oldest: null } });
   });
   it('503 без утечки', async () => {
     holder.db = null;

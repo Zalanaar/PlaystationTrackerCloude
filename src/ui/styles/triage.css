@@ -159,3 +159,23 @@
 @media (prefers-contrast: more) {
   .ps-sg, .ps-key { border-width: 2px; }
 }
+
+/* Идея 5: «Чистка бэклога» */
+.ps-clean { display: grid; gap: var(--sp-3); max-width: 560px; padding-block: var(--sp-4) var(--sp-6); }
+.ps-clean__lead, .ps-clean__hint, .ps-clean__count { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-clean__card { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); touch-action: pan-y; user-select: none; transition: transform .18s ease, border-color .18s ease; }
+.ps-clean__card--ph { height: 160px; }
+.ps-clean__card[data-dir='keep'] { border-color: var(--accent); }
+.ps-clean__card[data-dir='shelved'] { border-color: var(--st-shelved); }
+.ps-clean__cover { width: 96px; aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; }
+.ps-clean__info { display: grid; gap: var(--sp-1); min-width: 0; }
+.ps-clean__title { margin: 0; font-size: var(--fs-h3); line-height: var(--lh-h3); overflow-wrap: anywhere; }
+.ps-clean__meta { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-clean__acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.ps-clean__acts .ps-btn { min-height: var(--tap-min); justify-content: center; }
+.ps-clean__done { display: grid; gap: var(--sp-2); justify-items: start; padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-lg); }
+.ps-clean__done h2 { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.ps-clean__done p { margin: 0; color: var(--text-2); }
+.ps-clean__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.ps-clean__sofar { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .ps-clean__card { transition: none; } }

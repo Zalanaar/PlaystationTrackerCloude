@@ -16,6 +16,7 @@ import { STATUS_META } from '../tokens';
 import { ApiError, errorText, fetchBacklogAge, fetchGameDetails, fetchGames, putStatus } from './api';
 import type { BacklogAgeResponse } from '@/server/collection/backlog-age';
 import { AGE_HINT, ageMap, ageSummary } from './backlogAge';
+import { cleanupText } from '../cleanup/model';
 import { mskDay } from '../inbox/model';
 import { MatchChip } from '../inbox/MatchChip';
 import { ManualCard, ManualRow } from './ManualItems';
@@ -633,7 +634,11 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       )}
       {/* П12.4: строка возраста — общая по бэклогу, поэтому под фильтрами не показывается; приходит вместе со списком */}
       {ready && !filters.nb && items && auxDone && ageLine && !hasBacklogFilters(filters) && (
-        <p className="ps-bl-age" data-testid="bl-age" title={AGE_HINT}>{ageLine}</p>
+        <p className="ps-bl-age" data-testid="bl-age" title={AGE_HINT}>
+          {ageLine}
+          {/* идея 5: «Чистка бэклога» — только когда есть кандидаты */}
+          {(age?.summary.cleanup ?? 0) > 0 && <> · <Link href="/backlog/cleanup" className="ps-bl-age__clean" data-testid="bl-cleanup">Чистка: {cleanupText(age?.summary.cleanup ?? 0)}</Link></>}
+        </p>
       )}
       {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}
       <MatchChip className="ps-bl-match" hold={!items || !auxDone} onSettled={onMatchSettled} onChanged={() => { void loadManual(); void load(); }} />

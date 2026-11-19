@@ -250,3 +250,4 @@
 .ps-card:hover .ps-bl-cact .ps-btn.ps-bl-cact__play, .ps-bl-cact .ps-btn.ps-bl-cact__play:focus-visible { background: var(--accent); color: var(--accent-ink); }
 @media (max-width: 767px) { .ps-bl-cact .ps-btn--icon { width: var(--tap-min); height: var(--tap-min); } }
 @media (prefers-reduced-motion: no-preference) { .ps-bl-cact__play { transition: background-color .15s, color .15s; } }
+.ps-bl-age__clean { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }   /* идея 5 */

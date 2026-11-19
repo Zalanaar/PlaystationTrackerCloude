@@ -10,7 +10,16 @@ import { backlogGameWhere } from './backlog';
 const { games, gameStatus } = schema;
 const DAY = 86_400_000;
 
-export type BacklogAgeItem = { gameId: number; since: string; source: 'played' | 'status' };
+export type BacklogAgeItem = {
+  gameId: number; since: string; source: 'played' | 'status';
+  /** Идея 5 («Чистка бэклога»): наиграно, с. Необязательное в типе (старые ответы и фикстуры). */
+  playSeconds?: number;
+};
+
+/** Идея 5: кандидат в «Чистку» — в бэклоге не меньше 2 лет и наиграно меньше часа. */
+export const CLEANUP_MIN_DAYS = 730;
+export const CLEANUP_MAX_PLAY_SECONDS = 3600;
+export const isCleanupCandidate = (days: number, playSeconds: number) => days >= CLEANUP_MIN_DAYS && playSeconds < CLEANUP_MAX_PLAY_SECONDS;
 export type BacklogAgeResponse = {
   items: BacklogAgeItem[];
   summary: {
@@ -20,6 +29,8 @@ export type BacklogAgeResponse = {
     /** сколько игр в бэклоге дольше года */
     overYear: number;
     oldest: { gameId: number; title: string; since: string } | null;
+    /** Идея 5: сколько игр подходят для «Чистки». Необязательное в типе (старые ответы и фикстуры). */
+    cleanup?: number;
   };
 };
 
@@ -32,7 +43,7 @@ export function median(xs: readonly number[]): number | null {
 
 export async function getBacklogAge(db: AnyDb, userId: UserId, now: Date): Promise<BacklogAgeResponse> {
   const rows = await db
-    .select({ id: games.id, title: games.name, played: games.firstPlayedAt, changed: gameStatus.statusChangedAt })
+    .select({ id: games.id, title: games.name, played: games.firstPlayedAt, changed: gameStatus.statusChangedAt, secs: games.playDurationSeconds })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
     .where(and(eq(games.userId, userId), backlogGameWhere()))
@@ -40,16 +51,17 @@ export async function getBacklogAge(db: AnyDb, userId: UserId, now: Date): Promi
   const items: (BacklogAgeItem & { title: string; at: number })[] = rows.map((r) => {
     const played = r.played && r.played.getTime() < r.changed.getTime();
     const at = Math.min(now.getTime(), (played ? r.played! : r.changed).getTime());
-    return { gameId: r.id, title: r.title, since: new Date(at).toISOString(), source: played ? 'played' : 'status', at };
+    return { gameId: r.id, title: r.title, since: new Date(at).toISOString(), source: played ? 'played' : 'status', at, playSeconds: r.secs ?? 0 };
   });
   const days = items.map((i) => Math.floor((now.getTime() - i.at) / DAY));
   const oldest = items.reduce<(typeof items)[number] | null>((a, b) => (a === null || b.at < a.at ? b : a), null);
   return {
-    items: items.map(({ gameId, since, source }) => ({ gameId, since, source })),
+    items: items.map(({ gameId, since, source, playSeconds }) => ({ gameId, since, source, playSeconds })),
     summary: {
       count: items.length,
       medianDays: median(days),
       overYear: days.filter((d) => d >= 365).length,
+      cleanup: items.filter((it, i) => isCleanupCandidate(days[i], it.playSeconds ?? 0)).length,
       oldest: oldest ? { gameId: oldest.gameId, title: oldest.title, since: oldest.since } : null,
     },
   };
