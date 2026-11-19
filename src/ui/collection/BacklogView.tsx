@@ -679,7 +679,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         )}
         </div>
       )}
-      {items && !filters.nb && items.length > 0 && items.length < total && (
+      {/* П16.3: блоки ниже списка — только вместе со списком; иначе они рисуются под скелетом и въезжают в экран (CLS 0,13) */}
+      {ready && items && !filters.nb && items.length > 0 && items.length < total && (
         <div className="ps-more">
           <button type="button" className="ps-btn" onClick={() => void loadMore()} disabled={more}>
             {more ? 'Загрузка…' : `Показать ещё (${formatNumber(total - items.length)})`}
@@ -692,7 +693,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           handlers={manualHandlers} today={today}
         />
       )}
-      {showShelved && shelved && (
+      {ready && showShelved && shelved && (
         <BacklogSideSection
           kind="shelved" items={shelved} total={shelvedTotal} open={shelvedOpen} onToggle={() => setShelvedOpen((v) => !v)} view={view} rows={rows} actions={actions}
           more={{ busy: moreShelved, onMore: () => void loadMoreShelved() }}
@@ -712,7 +713,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           )}
         />
       )}
-      {showService && service && (
+      {ready && showService && service && (
         <BacklogSideSection
           kind="service" items={service} total={serviceTotal} open={serviceOpen} onToggle={() => setServiceOpen((v) => !v)} view={view} rows={rows} actions={actions}
           cardBody={(g) => (

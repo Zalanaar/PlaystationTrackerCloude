@@ -112,6 +112,15 @@ test('П16.2: касание вкладки — подсветка в том ж�
   test.skip(!isMobile, 'нижние вкладки только на телефоне');
   await open(page, baseURL!);
   test.skip(!(await page.evaluate(() => typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function')), 'нет View Transitions API');
+  // прогрев: первый заход на вкладку в dev-сервере включает компиляцию маршрута (WebKit в CI — до ~1,2 с); меряем повторное касание
+  await go(page, 'Бэклог');
+  await expect(page).toHaveURL(/\/backlog/);
+  await expect(page.getByTestId('bl-main-head')).toBeVisible();
+  await go(page, 'Коллекция');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator('.ps-card').first()).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { performance.clearMarks(); performance.clearMeasures(); });
   // aria-current новой вкладки выставлен синхронно в обработчике касания (до смены адреса и до снимка перехода)
   const current = await tab(page, 'Бэклог').evaluate((el) => { (el as HTMLElement).click(); return el.getAttribute('aria-current'); });
   expect(current).toBe('page');
