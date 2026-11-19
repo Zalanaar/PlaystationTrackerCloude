@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as syncPost } from './route';
+import { POST as autoPost } from './auto/route';
 import { GET as cronGet } from '../cron/sync/route';
 
 vi.mock('@/server/auth/require-user', async () => (await import('@/server/auth/test-require-user')).requireUserMock);
@@ -37,6 +38,14 @@ describe('API синка: защита и валидация (без PSN и БД
     expect(noType.status).toBe(400);
     const badOrigin = await syncPost(
       new Request('http://x/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.example', host: 'x' } }),
+    );
+    expect(badOrigin.status).toBe(400);
+  });
+
+  it('POST /api/sync/auto требует application/json и совпадающий Origin', async () => {
+    expect((await autoPost(new Request('http://x/api/sync/auto', { method: 'POST' }))).status).toBe(400);
+    const badOrigin = await autoPost(
+      new Request('http://x/api/sync/auto', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.example', host: 'x' } }),
     );
     expect(badOrigin.status).toBe(400);
   });

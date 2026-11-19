@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { invalidateApiCache } from '../data/http';
 import { Sheet } from '../primitives/Sheet';
 import { startErrorText, stopErrorText, type SyncStatus } from './status';
+import { maybeAutoSync } from './autoSync';
 
 // Панель синка открывается по клику: отдельный чанк (Фаза 47)
 const SyncPanel = dynamic(() => import('./SyncPanel').then((m) => m.SyncPanel), { ssr: false });
@@ -50,7 +51,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const busy = useRef(false); // синхронная защита от двойного клика
   const lastSuccessRef = useRef<string | null | undefined>(undefined);
 
-  const reload = useCallback(async () => {
+  const reloadRef = useRef<() => Promise<void>>(async () => {});
+  const reload = useCallback(async (opts?: { auto?: boolean }) => {
     try {
       const res = await fetch('/api/sync/status', { cache: 'no-store' });
       const json = await res.json();
@@ -61,6 +63,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       lastSuccessRef.current = next.lastSuccessAt;
       setStatus(next);
       setLoadError(false);
+      // идея 1: открытие или возврат в приложение с данными старше 6 ч — тихий синк (сервер решает и держит лимит)
+      if (opts?.auto) void maybeAutoSync(next).then((started) => { if (started) void reloadRef.current(); });
     } catch {
       setLoadError(true);
     } finally {
@@ -68,11 +72,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  useEffect(() => { reloadRef.current = () => reload(); }, [reload]);
   useEffect(() => {
-    const t = setTimeout(() => void reload(), 0);
+    const t = setTimeout(() => void reload({ auto: true }), 0);
     return () => clearTimeout(t);
   }, [reload]);
-  useDataRefresh(() => void reload()); // П9: статус синка тоже свежий после возврата
+  useDataRefresh(() => void reload({ auto: true })); // П9: статус синка тоже свежий после возврата (и автосинк, если данные устарели)
 
   const running = status?.running ?? false;
   useEffect(() => {

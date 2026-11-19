@@ -309,6 +309,8 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(status === 200 ? { ok: true, data } : { ok: false, error: data }) });
 
   await page.route('**/api/sync/status', (r) => json(r, m.syncStatus));
+  // идея 1: автосинк при открытии — по умолчанию сервер отвечает «рано» (спеки автосинка перекрывают маршрут)
+  await page.route('**/api/sync/auto', (r) => json(r, { started: false, reason: 'recent' }));
 
   await page.route('**/api/inbox', async (r) => {
     m.inboxCalls++;
