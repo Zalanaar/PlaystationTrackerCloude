@@ -45,6 +45,8 @@ async function open(page: Page, baseURL: string, cfg: Cfg = {}) {
       get permission() { return perm; },
       requestPermission: async () => { perm = c.grant ?? 'granted'; return perm; },
     });
+    // приложение с экрана «Домой» (navigator.standalone), кроме сценария «iPhone в Safari»: в проекте webkit-iphone UA уже iPhone
+    Object.defineProperty(navigator, 'standalone', { configurable: true, get: () => !c.ios });
     if (c.ios) {
       Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
     }
