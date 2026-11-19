@@ -97,3 +97,17 @@
   .ps-gprice__field .ps-input { font-size: 16px; height: var(--tap-min); }
   .ps-gprice .ps-btn { min-height: var(--tap-min); }
 }
+
+/* Идея 3: лист после «Пройдено» */
+.ps-done__body { display: grid; gap: var(--sp-3); }
+.ps-done__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-done__ph { height: 210px; border-radius: var(--r-md); background: var(--surface-2); }
+.ps-done__ph--row { height: 56px; }
+.ps-done__next { display: grid; gap: var(--sp-2); }
+.ps-done__next > h3 { margin: 0; font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-micro); letter-spacing: var(--ls-micro); text-transform: uppercase; color: var(--text-3); }
+.ps-done__row { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; }
+.ps-done__cover { flex: none; width: 36px; height: 48px; border-radius: var(--r-sm); overflow: hidden; font-size: 12px; }
+.ps-done__txt { display: grid; min-width: 0; flex: 1; }
+.ps-done__txt b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-done__txt small { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-done__foot { display: flex; justify-content: flex-end; gap: var(--sp-2); flex-wrap: wrap; }

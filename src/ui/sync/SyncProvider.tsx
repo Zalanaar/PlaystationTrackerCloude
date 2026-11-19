@@ -77,7 +77,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const t = setTimeout(() => void reload({ auto: true }), 0);
     return () => clearTimeout(t);
   }, [reload]);
-  useDataRefresh(() => void reload({ auto: true })); // П9: статус синка тоже свежий после возврата (и автосинк, если данные устарели)
+  useDataRefresh((why) => void reload({ auto: why !== 'change' })); // П9: статус синка тоже свежий после возврата (и автосинк, если данные устарели)
 
   const running = status?.running ?? false;
   useEffect(() => {

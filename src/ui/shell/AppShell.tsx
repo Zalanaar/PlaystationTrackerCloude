@@ -25,6 +25,7 @@ import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusM
 import { SyncIndicator } from './SyncIndicator';
 import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
 import { AddMenu } from './AddMenu';
+import { AfterCompleteHost } from '../complete/AfterCompleteHost';
 import { useOfflineNav } from './offlineNav';
 import { PullToRefresh } from './PullToRefresh';
 import { useRefreshOnReturn } from './refresh';
@@ -93,6 +94,7 @@ export function AppHeader() {
   return (
     <>
       <PullToRefresh />
+      <AfterCompleteHost />
       <header className="ps-header">
         <div className="ps-header__in ps-container">
           <Link href="/" className="ps-logo" data-section={title ? '' : undefined}>PS TRACKER</Link>

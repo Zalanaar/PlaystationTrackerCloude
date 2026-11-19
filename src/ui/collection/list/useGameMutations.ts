@@ -5,6 +5,7 @@ import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { formatNumber } from '../../format';
 import { useToast } from '../../primitives/Toast';
 import { STATUS_META } from '../../tokens';
+import { announceCompleted } from '../../complete/afterComplete';
 import { errorText, patchStatusDate, postBulk, putHidden, putStatus } from '../api';
 import { applyStatusLocally, adjustCounts, removeFromCounts } from '../filters';
 import { mapLimit } from '../limit';
@@ -66,6 +67,7 @@ export function useGameMutations({ poolRef, setPool, setOpen, refresh, selected,
         text: silent ? 'Статус возвращён' : status === null ? 'Статус сброшен' : `Статус изменён: ${STATUS_META[status].label}`,
         action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true, oldDate(prev)) },
       });
+      if (!silent && status === 'completed') announceCompleted(r.game); // идея 3: оценка и «что дальше»
       refresh();
     } catch (e) {
       replaceGames([prev]);

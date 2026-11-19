@@ -7,7 +7,8 @@ export const DATA_REFRESH_EVENT = 'ps:data-refresh';
 /** Сколько вкладка должна пробыть скрытой, чтобы при возврате перечитать данные (короткое переключение — не повод). */
 export const RETURN_REFRESH_AFTER_MS = 2 * 60_000;
 
-export type RefreshReason = 'return' | 'pull';
+/** 'change' — данные поменял сам пользователь (идея 3): экраны перечитывают, автосинк не спрашиваем. */
+export type RefreshReason = 'return' | 'pull' | 'change';
 
 export function requestDataRefresh(reason: RefreshReason): void {
   invalidateApiCache();

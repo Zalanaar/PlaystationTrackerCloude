@@ -22,7 +22,7 @@ const normNote = (s: string) => {
  * Запросы идут по одному: новая правка ждёт ответа предыдущей и уходит с последними значениями (порядок на сервере = порядок правок).
  */
 export function ReviewEditor({ game, review, onChanged, save }: {
-  game?: GameItem; review: GameReview | Saved | null; onChanged?: (g: GameItem) => void;
+  game?: Pick<GameItem, 'id'>; review: GameReview | Saved | null; onChanged?: (g: GameItem) => void;
   /** Пакет 5: свой способ сохранения (запись «с другой платформы», PATCH /api/manual-games/{id}); иначе PUT отзыва игры */
   save?: (v: Saved, keepalive: boolean) => Promise<Saved>;
 }) {
