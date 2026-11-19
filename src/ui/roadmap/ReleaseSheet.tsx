@@ -170,7 +170,7 @@ export function ReleaseSheet({
                 </ul>
               </>
             )}
-            <p className="ps-rm-attr">Данные: <a href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="Данные: RAWG (откроется в новой вкладке)">RAWG<Icon name="external-link" size={12} /></a></p>
+            <p className="ps-rm-attr">Данные: <a href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="RAWG (откроется в новой вкладке)">RAWG<Icon name="external-link" size={12} /></a></p>
           </div>
         )}
 

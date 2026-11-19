@@ -244,7 +244,7 @@ test.describe('Фаза 10: топ-10 игр', () => {
     const row = panel.locator('li.ps-top__li');
     await expect(row).toHaveCount(1);
     await expect(row.locator('.ps-top__val')).toHaveText('840 очк.');
-    await expect(row.getByRole('button')).toHaveAttribute('aria-label', /840 очков: платина 1, золото 5, серебро 12, бронза 20/);
+    await expect(row.getByRole('button')).toHaveAccessibleName(/840 очков: платина 1, золото 5, серебро 12, бронза 20/);
     await expect(row.locator('.ps-top__counts > span')).toHaveCount(4);
     await panel.getByRole('button', { name: 'Часы', exact: true }).click();
     await expect(panel.locator('li.ps-top__li')).toHaveCount(2); // выбор не хранится, переключается свободно

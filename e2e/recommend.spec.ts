@@ -1,4 +1,5 @@
 // Фаза 13: экран /recommend. API «Подскажи» эмулируется по контракту §18, остальное через mockApi.
+import { createRequire } from 'node:module';
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
@@ -88,6 +89,18 @@ const cards = (page: Page) => page.getByRole('listitem').filter({ has: page.getB
 const noHScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test.describe('Подскажи: нормальный ответ', () => {
+  test('F17: порядок заголовков и имена кнопок совпадают с видимым текстом (axe)', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL as string);
+    await expect(cards(page)).toHaveCount(3);
+    await page.evaluate(createRequire(import.meta.url)('axe-core').source as string);
+    const v = await page.evaluate(async () => {
+      const ax = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
+      const r = await ax.run(document, { runOnly: { type: 'rule', values: ['heading-order', 'label-content-name-mismatch', 'aria-prohibited-attr'] }, rules: { 'label-content-name-mismatch': { enabled: true } }, resultTypes: ['violations'] });
+      return r.violations.flatMap((x) => x.nodes.map((n) => `${x.id}: ${n.target.join(' ')}`));
+    });
+    expect(v).toEqual([]);
+  });
+
   test('вкладка, три карточки, причина, источник, часы, жанры', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
     await expect(h1(page)).toBeVisible();

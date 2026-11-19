@@ -27,7 +27,7 @@ test.describe('переключатель в шапке', () => {
     await page2.goto('/');
     await expect(page2.locator('.ps-pswitch')).toHaveCount(1);
     await expect(page2.locator('.ps-pswitch')).toContainText('Artem_PS');
-    await expect(page2.locator('.ps-pswitch')).toHaveAttribute('aria-label', 'Профиль PSN: Artem_PS. Сменить');
+    await expect(page2.locator('.ps-pswitch')).toHaveAccessibleName(/Artem_PS — профиль PSN, сменить/);
   });
 
   test('смена профиля: завеса, чужие данные не мелькают, фокус на h1, тост', async ({ page, baseURL }, info) => {

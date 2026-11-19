@@ -108,7 +108,7 @@ test.describe('План: релизы', () => {
     await expect(row).toContainText('Добавлено вручную');
     await expect(row).toContainText('В плане с даты выхода');
     await expect(page.getByText('Не в плане')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' }).first()).toHaveAttribute('href', 'https://rawg.io');
+    await expect(page.getByRole('link', { name: 'RAWG (откроется в новой вкладке)' }).first()).toHaveAttribute('href', 'https://rawg.io');
   });
 
   test('поиск в каталоге: фильтр «Только PlayStation» включён по умолчанию, выбор заполняет форму и уходит с externalId', async ({ page, context, baseURL }) => {
@@ -237,7 +237,7 @@ test.describe('План: состояния', () => {
     await expect(page.getByRole('heading', { name: 'В бэклоге нет игр' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Релизов пока нет' })).toBeVisible();
     await expect(page.getByText('Пока нечего сравнивать: в плане нет игр')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'К коллекции' })).toHaveAttribute('href', '/');
   });
 
@@ -481,7 +481,7 @@ test.describe('План: предстоящие релизы', () => {
     await expect(rows.nth(1).getByRole('button')).toHaveCount(0);
     await expect(rows.nth(2)).toContainText('Не распределено');
     await expect(rows.nth(0)).toContainText('PS5');
-    await expect(page.getByRole('link', { name: 'Данные: RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'RAWG (откроется в новой вкладке)' }).first()).toBeVisible();
     // «В план»: wantAtRelease по умолчанию, часы потом вручную
     await rows.nth(0).getByRole('button', { name: 'В план: Новинка 1' }).click();
     await expect(rows.nth(0)).toContainText('В плане');

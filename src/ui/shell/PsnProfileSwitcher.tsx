@@ -66,13 +66,15 @@ export function PsnProfileSwitcher() {
   const chip = (p: { onClick?: () => void; 'aria-expanded'?: boolean; 'aria-controls'?: string; 'aria-haspopup'?: 'menu' }) => (
     <button
       type="button" ref={chipRef} className="ps-pswitch" disabled={busy}
-      aria-label={`Профиль PSN: ${nick}. Сменить`} aria-busy={busy || undefined}
+      aria-busy={busy || undefined}
       aria-haspopup="menu" aria-expanded={p['aria-expanded'] ?? sheet} aria-controls={p['aria-controls']}
       onClick={p.onClick ?? (() => setSheet(true))}
       onKeyDown={(e) => { if (e.key === 'ArrowDown' && p.onClick && !p['aria-expanded']) { e.preventDefault(); p.onClick(); } }}
     >
       <span className="ps-pswitch__ini" aria-hidden="true">{initialOf(active.onlineId)}</span>
-      <span className="ps-pswitch__nick" title={nick}>{nick}</span>
+      <span className="ps-pswitch__nick" title={nick} aria-hidden="true">{nick}</span>
+      {/* F17: имя начинается с видимого ника (Voice Control: «нажми Artem_PS») */}
+      <span className="ps-sr">{nick} — профиль PSN, сменить</span>
       {busy
         ? <Spinner size={14} />
         : <Icon name="chevron-down" size={14} className="ps-pswitch__chev" />}

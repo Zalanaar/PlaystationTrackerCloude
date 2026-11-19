@@ -105,6 +105,7 @@
 .ps-top__row:hover { background: var(--surface-2); }
 .ps-top__rank { font: 600 13px/16px var(--font-body); color: var(--text-3); text-align: right; }
 .ps-top__row[data-top] .ps-top__rank { color: var(--text); }
+.ps-top__cvw { display: contents; }
 .ps-top .ps-top__cover { width: 32px; height: 42px; aspect-ratio: auto; border-radius: var(--r-sm); flex: none; }
 .ps-top .ps-top__cover.ps-cover--empty { padding: 0; display: grid; place-items: center; overflow: hidden; }
 .ps-top .ps-top__cover span { display: block; font-size: 0; }

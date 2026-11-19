@@ -10,9 +10,10 @@ import { TOP_EMPTY, TOP_MODES, TOP_SUBTITLE, TROPHY_POINTS, topHoursRows, topTro
 function Row({ row, mode, onOpen }: { row: TopRow; mode: TopMode; onOpen: (g: GameItem) => void }) {
   return (
     <li className="ps-top__li">
-      <button type="button" className="ps-top__row" aria-label={`${row.rank}. ${row.game.title}. ${row.valueLabel}`} onClick={() => onOpen(row.game)} data-top={row.rank <= 3 || undefined}>
+      <button type="button" className="ps-top__row" onClick={() => onOpen(row.game)} data-top={row.rank <= 3 || undefined}>
         <span className="ps-top__rank num">{row.rank}</span>
-        <Cover url={row.game.coverUrl} title={row.game.title} className="ps-top__cover" w={THUMB_W} />
+        {/* F17: имя кнопки — видимый текст строки (место, название, часы); обложка не дублирует название */}
+        <span className="ps-top__cvw" aria-hidden="true"><Cover url={row.game.coverUrl} title={row.game.title} className="ps-top__cover" w={THUMB_W} /></span>
         <span className="ps-top__tx">
           <span className="ps-top__name" title={row.game.title}>{row.game.title}</span>
           {mode === 'hours' ? (
@@ -31,6 +32,7 @@ function Row({ row, mode, onOpen }: { row: TopRow; mode: TopMode; onOpen: (g: Ga
         <span className="ps-top__val num" title={row.approx ? 'Часть часов оценена' : row.valueLabel}>
           {row.approx && <span className="ps-approx" aria-hidden="true">≈ </span>}{row.valueText}
         </span>
+        {row.valueLabel !== row.valueText && <span className="ps-sr">, {row.valueLabel}</span>}
       </button>
     </li>
   );
