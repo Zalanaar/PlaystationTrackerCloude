@@ -321,9 +321,12 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         <nav className="ps-anchors" aria-label="Годы и блоки">
           <span>Перейти:</span>
           {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
-          {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
-          {(byBlock.service?.length ?? 0) > 0 && <a href="#service" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
-          {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
+          {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «К платине» и «Другие платформы» только там: на компьютере они и так на виду */}
+          {nearShown && <a href="#near-platinum" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'near-platinum')}>К платине</a>}
+          {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
+          {(byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
+          {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
+          {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
         </nav>
       )}
 

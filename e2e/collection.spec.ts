@@ -524,6 +524,20 @@ for (const width of [390, 440]) {
     test.use({ viewport: { width, height: 844 } });
     test.beforeEach(({}, info) => { test.skip(info.project.name !== 'mobile', 'мобильный сценарий'); });
 
+    test('F12: ряд «Перейти» на телефоне — одна строка, блоки первыми, «Бэклог» ведёт к блоку', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!);
+      const nav = page.getByRole('navigation', { name: 'Годы и блоки' });
+      await expect(nav.getByRole('link', { name: 'Бэклог' })).toBeVisible();
+      await expect(nav.getByRole('link', { name: 'Другие платформы' })).toBeVisible();
+      const order = await nav.evaluate((n) => [...n.querySelectorAll('a')].filter((a) => a.offsetParent).sort((x, y) => x.getBoundingClientRect().left - y.getBoundingClientRect().left).map((a) => a.textContent));
+      expect(order.slice(-3)).toEqual(['2026', '2025', '2024']);
+      expect(order.indexOf('Бэклог')).toBeLessThan(order.indexOf('2026'));
+      expect(await nav.evaluate((n) => n.getBoundingClientRect().height)).toBeLessThanOrEqual(56);   // одна строка
+      expect(await noOverflow(page)).toBeLessThanOrEqual(0);
+      await nav.getByRole('link', { name: 'Бэклог' }).click();
+      await expect(page.locator('#backlog')).toBeInViewport();
+    });
+
     const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
     test('каркас: tab bar, нет горизонтального скролла, сортировка в sheet, чипы с подписями', async ({ page, context, baseURL }) => {
