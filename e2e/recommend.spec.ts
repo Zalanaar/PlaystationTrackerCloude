@@ -442,7 +442,10 @@ test.describe('Подскажи: адаптив', () => {
       const bar = page.locator('nav.ps-tabbar');
       await expect(bar.locator('a')).toHaveCount(4);
       await expect(bar.locator('a[aria-current="page"]')).toContainText('Бэклог');
-      await expect(page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]')).toHaveText('Подскажи');
+      // при смене экрана подвкладки на миг бывают дважды (уходящий и новый экран) — ждём, пока останется одна
+      const cur = page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]');
+      await expect(cur).toHaveCount(1);
+      await expect(cur).toHaveText('Подскажи');
       const over = await bar.locator('a').evaluateAll((els) => els.map((e) => {
         const t = Array.from(e.querySelectorAll('span')).find((s) => getComputedStyle(s).display !== 'none') as HTMLElement;
         return t.scrollWidth > e.clientWidth ? `${t.textContent}:${t.scrollWidth}>${e.clientWidth}` : '';
