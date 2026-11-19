@@ -25,7 +25,6 @@ import {
 import { addedSummaryText, hasNotPurchased } from './cart';
 import { BacklogSearch, type SearchPick } from './BacklogSearch';
 import { NotPurchasedSection, readNbOpen, writeNbOpen } from './NotPurchasedSection';
-import { Sheet } from '../primitives/Sheet';
 import type { AddedItem } from './AddFromStoreSheet';
 import { fetchManual, markPurchased, removeManual, unmarkPurchased } from './manualApi';
 import { RemoveManualSheet } from './RemoveManualSheet';
@@ -52,6 +51,9 @@ import { useFocusRescue } from '../primitives/useFocusRescue';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
 import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
+import { BacklogJumpNav, scrollToBlock, useBacklogJump } from './BacklogJump';
+import { BacklogSideSection } from './BacklogSideSection';
+import { BacklogSearchSheet } from './BacklogSearchSheet';
 import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
 
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
@@ -178,35 +180,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   const showShelved = !!shelved && (shelvedTotal > 0 || shelved.length > 0 || seenShelved);
   const showService = !!service && service.length > 0;
   if (!seenShelved && shelved && (shelved.length > 0 || shelvedTotal > 0)) setSeenShelved(true);
-  // липкая плашка: сентинел + IntersectionObserver даёт data-stuck, scroll-spy даёт aria-current
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   useFocusRescue(rootRef);
-  const [stuck, setStuck] = useState(false);
-  const [activeTab, setActiveTab] = useState('h-bl-main');
-  const spyLock = useRef(false);
-  const spyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // пересчёт scroll-spy после снятия блокировки: прокрутка во время неё иначе не учитывалась
-  const spyRun = useRef<() => void>(() => {});
-  useEffect(() => () => { if (spyTimer.current) clearTimeout(spyTimer.current); }, []);
-  // прокрутка к заголовку блока: ниже шапки и липкой панели переключателя (высоты меряем, на мобильном они другие)
-  const scrollToEl = (el: HTMLElement) => {
-    const headerH = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
-    const navH = document.querySelector<HTMLElement>('[data-testid="bl-jump"]')?.offsetHeight ?? 0;
-    const top = window.scrollY + el.getBoundingClientRect().top - Math.max(0, headerH) - navH - 8;
-    window.scrollTo({ top: Math.max(0, top), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  };
-  const jumpTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    scrollToEl(el);
-    el.focus({ preventScroll: true });
-    // клик ставит вкладку активной сразу; пока идёт прокрутка, scroll-spy её не перебивает
-    setActiveTab(id);
-    spyLock.current = true;
-    if (spyTimer.current) clearTimeout(spyTimer.current);
-    spyTimer.current = setTimeout(() => { spyLock.current = false; spyRun.current(); }, 900);
-  };
   const loadShelved = useCallback(async () => {
     const my = ++shelvedReq.current;
     try {
@@ -487,7 +462,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
 
   // ---------- поиск по списку (Фаза 43.1) ----------
   function revealAndFocus(el: HTMLElement, target: HTMLElement | null) {
-    scrollToEl(el);
+    scrollToBlock(el);
     (target ?? el).focus({ preventScroll: true });
   }
   function focusPicked(p: SearchPick, stage = 0) {
@@ -596,41 +571,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   const showJump = ready && tabs.length >= 2;
   const tabIds = tabs.map((t) => t.id).join(',');
 
-  useEffect(() => {
-    if (!showJump) return;
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    // низ шапки меряем: в PWA standalone к --header-h добавляется вырез сверху
-    const h = Math.round(document.querySelector('.ps-header')?.getBoundingClientRect().bottom ?? 56);
-    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting), { rootMargin: `-${h}px 0px 0px 0px` });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [showJump]);
-
-  useEffect(() => {
-    if (!showJump) return;
-    const ids = tabIds.split(',');
-    const onScroll = () => {
-      if (spyLock.current) return;
-      const headerH = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
-      const navH = document.querySelector<HTMLElement>('[data-testid="bl-jump"]')?.offsetHeight ?? 0;
-      const line = Math.max(0, headerH) + navH + 16;
-      let cur = ids[0];
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= line) cur = id;
-      }
-      if (window.scrollY <= 0) cur = ids[0];
-      setActiveTab(cur);
-    };
-    spyRun.current = onScroll;
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    const onEnd = () => { spyLock.current = false; onScroll(); };
-    window.addEventListener('scrollend', onEnd);
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); window.removeEventListener('scrollend', onEnd); };
-  }, [showJump, tabIds]);
+  const { sentinelRef, stuck, activeTab, jumpTo } = useBacklogJump(showJump, tabIds);
 
   return (
     <>
@@ -681,20 +622,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         </div>
       )}
       <HltbStatus runner={hltb} />
-      {showJump && (
-        <>
-          <div className="ps-bl-jump__sentinel" ref={sentinelRef} aria-hidden="true" />
-          <nav className="ps-bl-jump" aria-label="Блоки страницы" data-testid="bl-jump" data-stuck={stuck ? 'true' : 'false'}>
-            <div className="ps-bl-jump__tabs">
-              {tabs.map((t) => (
-                <button key={t.id} type="button" className="ps-bl-jump__tab" aria-current={activeTab === t.id ? 'location' : undefined} onClick={() => jumpTo(t.id)}>
-                  {t.label} <b className="num">{formatNumber(t.n)}</b>
-                </button>
-              ))}
-            </div>
-          </nav>
-        </>
-      )}
+      {showJump && <BacklogJumpNav tabs={tabs} sentinelRef={sentinelRef} stuck={stuck} activeTab={activeTab} onJump={jumpTo} />}
       {ready && !filters.nb && (
         <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-main" tabIndex={-1} data-testid="bl-main-head">
           <StatusGlyph status="backlog" size={16} />Бэклог {items && <small className="num ps-bl-service__n" data-testid="bl-main-count">{formatNumber(mainTotal)}</small>}
@@ -759,100 +687,43 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         />
       )}
       {showShelved && shelved && (
-        <section className="ps-bl-service" id="shelved" aria-labelledby="h-bl-shelved" data-testid="bl-shelved">
-          <div className="ps-bl-service__head">
-            <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-shelved" tabIndex={-1}>
-              <StatusGlyph status="shelved" size={16} />Отложено <small className="num ps-bl-service__n" data-testid="bl-shelved-count">{formatNumber(shelvedTotal)}</small>
-            </h2>
-            <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" aria-expanded={shelvedOpen} aria-controls="bl-shelved-list" onClick={() => setShelvedOpen((v) => !v)}>
-              <Icon name={shelvedOpen ? 'chevron-up' : 'chevron-down'} size={14} />{shelvedOpen ? 'Свернуть' : 'Развернуть'}
-            </button>
-          </div>
-          <p className="ps-bl-service__sub">Отложено на потом. В бэклог и план эти игры не входят.</p>
-          {shelvedOpen && (
-            <div id="bl-shelved-list">
-              {shelved.length === 0 ? (
-                <EmptyState icon={<StatusGlyph status="shelved" size={40} />} title="Отложенных игр нет" text="Поставь игре статус «Отложено» в меню карточки, и она появится здесь." />
-              ) : view === 'list' ? rows(shelved, 'shelved', 'Отложенные игры') : (
-                <GameGrid density="comfort" label="Отложенные игры">
-                  {shelved.map((g) => (
-                    <GameGridItem key={g.id}>
-                      <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                        <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
-                        {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
-                        <div className="ps-bl-actions">
-                          <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
-                            <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
-                          </button>
-                          <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'playing')}>
-                            <StatusGlyph status="playing" size={14} />Начать играть
-                          </button>
-                        </div>
-                      </GameCard>
-                    </GameGridItem>
-                  ))}
-                </GameGrid>
-              )}
-              {shelved.length > 0 && shelved.length < shelvedTotal && (
-                <div className="ps-more">
-                  <button type="button" className="ps-btn" data-testid="bl-shelved-more" onClick={() => void loadMoreShelved()} disabled={moreShelved}>
-                    {moreShelved ? 'Загрузка…' : `Показать ещё (${formatNumber(shelvedTotal - shelved.length)})`}
-                  </button>
-                </div>
-              )}
-            </div>
+        <BacklogSideSection
+          kind="shelved" items={shelved} total={shelvedTotal} open={shelvedOpen} onToggle={() => setShelvedOpen((v) => !v)} view={view} rows={rows} actions={actions}
+          more={{ busy: moreShelved, onMore: () => void loadMoreShelved() }}
+          cardBody={(g) => (
+            <>
+              <RemainingMeter duration={g.duration} playedSeconds={g.playSeconds} variant="card" />
+              {needsHours(g) && <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-rem__act" onClick={() => actions.open(g)}>Указать часы</button>}
+              <div className="ps-bl-actions">
+                <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
+                  <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
+                </button>
+                <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, 'playing')}>
+                  <StatusGlyph status="playing" size={14} />Начать играть
+                </button>
+              </div>
+            </>
           )}
-        </section>
+        />
       )}
       {showService && service && (
-        <section className="ps-bl-service" id="service" aria-labelledby="h-bl-service" data-testid="bl-service">
-          <div className="ps-bl-service__head">
-            <h2 className="ps-h2 ps-h2--icon ps-bl-h" id="h-bl-service" tabIndex={-1}>
-              <StatusGlyph status="service" size={16} />Сервис <small className="num ps-bl-service__n" data-testid="bl-service-count">{formatNumber(serviceTotal)}</small>
-            </h2>
-            <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" aria-expanded={serviceOpen} aria-controls="bl-service-list" onClick={() => setServiceOpen((v) => !v)}>
-              <Icon name={serviceOpen ? 'chevron-up' : 'chevron-down'} size={14} />{serviceOpen ? 'Свернуть' : 'Развернуть'}
-            </button>
-          </div>
-          <p className="ps-bl-service__sub">Игры-сервисы не попадают в план прохождения.</p>
-          {serviceOpen && (
-            <div id="bl-service-list">
-              {view === 'list' ? rows(service, 'service', 'Игры-сервисы') : (
-              <GameGrid density="comfort" label="Игры-сервисы">
-                {service.map((g) => (
-                  <GameGridItem key={g.id}>
-                    <GameCard game={g} actions={actions} selectMode={false} selected={false}>
-                      <div className="ps-bl-actions">
-                        <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
-                          <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
-                        </button>
-                        <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из сервиса</button>
-                      </div>
-                    </GameCard>
-                  </GameGridItem>
-                ))}
-              </GameGrid>
-              )}
+        <BacklogSideSection
+          kind="service" items={service} total={serviceTotal} open={serviceOpen} onToggle={() => setServiceOpen((v) => !v)} view={view} rows={rows} actions={actions}
+          cardBody={(g) => (
+            <div className="ps-bl-actions">
+              <button type="button" className="ps-btn ps-btn--primary ps-btn--sm" onClick={() => void change(g, 'backlog')}>
+                <StatusGlyph status="backlog" size={14} />Вернуть в бэклог
+              </button>
+              <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => void change(g, null)}>Убрать из сервиса</button>
             </div>
           )}
-        </section>
+        />
       )}
       {mobile && searchOpen && (
-        <Sheet open onClose={() => setSearchOpen(false)} title="Поиск" className="ps-bs-sheet" initialFocus="[data-testid='bs-input']">
-          <div className="ps-bs-sheet__body">
-            <BacklogSearch
-              variant="sheet" manual={manual} appliedQ={filters.q} onApply={(q) => setFilters({ q })} onPick={onSearchPick}
-              onAdded={(title) => addedToast([{ title, bought: false }])} onOpenStore={(q) => openAdd(q)} onDone={() => setSearchOpen(false)}
-            />
-          </div>
-          <div className="ps-add__foot ps-bs-sheet__foot">
-            <p className="ps-rec-note">
-              <span>Данные об играх:</span>
-              <a className="ps-rec-note__link" href="https://rawg.io" target="_blank" rel="noopener noreferrer" aria-label="RAWG (новая вкладка)">RAWG<Icon name="external-link" size={12} /></a>
-            </p>
-            <button type="button" className="ps-btn ps-btn--ghost" onClick={() => setSearchOpen(false)}>Закрыть</button>
-          </div>
-        </Sheet>
+        <BacklogSearchSheet
+          manual={manual} appliedQ={filters.q} onApply={(q) => setFilters({ q })} onPick={onSearchPick}
+          onAdded={(title) => addedToast([{ title, bought: false }])} onOpenStore={(q) => openAdd(q)} onClose={() => setSearchOpen(false)}
+        />
       )}
       <RemoveManualSheet game={removing} onClose={() => setRemoving(null)} onConfirm={confirmRemove} />
       {addOpen && <AddFromStoreSheet onClose={closeAdd} initialQuery={addQuery} />}
