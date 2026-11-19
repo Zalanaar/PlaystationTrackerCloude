@@ -51,3 +51,38 @@ test('PWA (запуск с экрана «Домой»): заставка в ц�
   await expect(p2.locator('html')).toHaveAttribute('data-hydrated', '', { timeout: 15_000 });
   await expect(p2.locator('.ps-boot')).toBeHidden();
 });
+
+test('П16.1 PWA: заставка держится до готовности раздела и уходит crossfade; иконка предзагружена; без пульсации', async ({ page, context, baseURL }) => {
+  await context.addCookies([{ name: THEME_COOKIE, value: 'ps5', url: baseURL! }]);
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });
+    // журнал смены атрибутов html: порядок «гидратация → fade → снята»
+    const log: string[] = [];
+    (window as unknown as { __boot: string[] }).__boot = log;
+    new MutationObserver((ms) => { for (const m of ms) if (m.target === document.documentElement && m.attributeName && document.documentElement.hasAttribute(m.attributeName)) log.push(m.attributeName); })
+      .observe(document, { attributes: true, subtree: true, attributeFilter: ['data-hydrated', 'data-boot-fade', 'data-booted'] });
+  });
+  await page.goto('/login');
+  await expect(page.locator('link[rel="preload"][as="image"][href="/icons/icon-maskable-512.png"]')).toHaveCount(1);
+  await expect(page.locator('html')).toHaveAttribute('data-booted', '', { timeout: 15_000 });
+  await expect(page.locator('.ps-boot')).toBeHidden();
+  const log = await page.evaluate(() => (window as unknown as { __boot: string[] }).__boot);
+  // dev (StrictMode) ставит атрибут дважды — сравниваем порядок первых появлений
+  expect([...new Set(log)]).toEqual(['data-hydrated', 'data-boot-fade', 'data-booted']);
+});
+
+test('П16.1 PWA + reduced motion: заставка снимается без fade', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  await context.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true, configurable: true }));
+  const page = await context.newPage();
+  await page.goto(`${baseURL}/login`);
+  await expect(page.locator('html')).toHaveAttribute('data-booted', '', { timeout: 15_000 });
+  expect(await page.locator('html').getAttribute('data-boot-fade')).toBeNull();
+  await context.close();
+});
+
+test('вне PWA: иконка заставки не предзагружается, data-booted сразу после гидратации', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page.locator('html')).toHaveAttribute('data-booted', '');
+  await expect(page.locator('link[rel="preload"][href="/icons/icon-maskable-512.png"]')).toHaveCount(0);
+});

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { syncThemeMeta } from '../theme-meta';
 import { themeFromAttr } from '../theme';
+import { releaseBoot } from './bootRelease';
 
 /**
  * Держит <meta name="theme-color"> в соответствии с data-theme на html. Next при клиентской навигации может вернуть
@@ -11,8 +12,11 @@ import { themeFromAttr } from '../theme';
  */
 export function ThemeColorSync() {
   const path = usePathname();
-  // П11.5.2: приложение ожило — заставка холодного старта PWA (.ps-boot) больше не нужна
-  useEffect(() => { document.documentElement.setAttribute('data-hydrated', ''); }, []);
+  // П11.5.2: приложение ожило; заставка холодного старта PWA (.ps-boot) уходит, когда раздел готов (crossfade, bootRelease.ts)
+  useEffect(() => {
+    document.documentElement.setAttribute('data-hydrated', '');
+    return releaseBoot();
+  }, []);
   useEffect(() => {
     const apply = () => { syncThemeMeta(document as never, themeFromAttr(document.documentElement.getAttribute('data-theme'))); };
     apply();

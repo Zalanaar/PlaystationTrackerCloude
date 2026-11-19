@@ -422,17 +422,19 @@ body::before {
 @keyframes ps-vt-out-back { to { opacity: 0; transform: translate3d(20px, 0, 0); } }
 
 /* П11.5.2: заставка холодного старта PWA до гидратации — тот же кадр, что apple-touch-startup-image (фон темы, иконка 28% ширины),
-   поверх скелета, пока не ожил JS. Только PWA (класс ps-standalone ставит theme-script; запасной путь — media display-mode); data-hydrated ставит ThemeColorSync; через 8 с прячется сама (JS упал). */
+   поверх скелета, пока не ожил JS. Только PWA (класс ps-standalone ставит theme-script; запасной путь — media display-mode); data-booted ставит bootRelease (после гидратации и готовности раздела); через 8 с прячется сама (JS упал). */
 .ps-boot { display: none; }
-html.ps-standalone:not([data-hydrated]) .ps-boot {
+html.ps-standalone:not([data-booted]) .ps-boot {
   position: fixed; inset: 0; z-index: 2147483000; display: block; background: var(--bg);
   animation: ps-boot-hide 0s 8s forwards;
 }
 @media (display-mode: standalone) {
-  html:not([data-hydrated]) .ps-boot { position: fixed; inset: 0; z-index: 2147483000; display: block; background: var(--bg); animation: ps-boot-hide 0s 8s forwards; }
+  html:not([data-booted]) .ps-boot { position: fixed; inset: 0; z-index: 2147483000; display: block; background: var(--bg); animation: ps-boot-hide 0s 8s forwards; }
 }
-/* картинка — фоном только у видимой заставки: вне PWA не скачивается */
-html:not([data-hydrated]) .ps-boot::before { content: ''; position: absolute; inset: 0; background: url(/icons/icon-maskable-512.png) center / 28vmin no-repeat; animation: ps-boot-pulse 1.2s ease-in-out .6s infinite alternate both; }
+/* картинка — фоном только у видимой заставки: вне PWA не скачивается (в PWA theme-script заранее её предзагружает).
+   Без пульсации: кадр совпадает со статичной заставкой iOS, переход незаметен */
+html:not([data-booted]) .ps-boot::before { content: ''; position: absolute; inset: 0; background: url(/icons/icon-maskable-512.png) center / 28vmin no-repeat; }
+/* П16.1: раздел готов — crossfade заставки 220 мс (bootRelease.ts), без пустого кадра */
+html[data-boot-fade] .ps-boot { opacity: 0; transition: opacity 220ms ease-out; pointer-events: none; }
 @keyframes ps-boot-hide { to { visibility: hidden; } }
-@keyframes ps-boot-pulse { from { opacity: 1; } to { opacity: .6; } }
-@media (prefers-reduced-motion: reduce) { .ps-boot::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { html[data-boot-fade] .ps-boot { transition: none; } }
