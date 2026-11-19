@@ -20,6 +20,17 @@ runs:
     - if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: npx playwright install --with-deps ${{ inputs.browsers }}
+    # Зеркало apt у раннера иногда отдаёт ~70 КБ/с, и job WebKit упирается в 20 минут. Попытка ограничена 5 минутами,
+    # затем меняем зеркало и повторяем (скачанное остаётся в /var/cache/apt/archives, докачивается).
     - if: steps.cache.outputs.cache-hit == 'true'
       shell: bash
-      run: npx playwright install-deps ${{ inputs.browsers }}
+      run: |
+        for mirror in '' http://azure.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/; do
+          if [ -n "$mirror" ]; then
+            echo "::warning::apt медленный или упал — пробую зеркало $mirror"
+            sudo dpkg --configure -a || true
+            if [ -f /etc/apt/apt-mirrors.txt ]; then echo "$mirror" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null; fi
+          fi
+          if timeout -k 15 300 npx playwright install-deps ${{ inputs.browsers }}; then exit 0; fi
+        done
+        exit 1
