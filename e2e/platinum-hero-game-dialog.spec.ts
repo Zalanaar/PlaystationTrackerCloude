@@ -564,7 +564,8 @@ test.describe('Фаза 9: профиль PSN', () => {
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Artem_PS');
     await expect(menu.locator('.ps-profmenu__head')).toContainText('Ур. 312 · 38 платин');
     await expect(menu.getByRole('menuitem').filter({ hasText: 'Разобрать игры' })).toHaveCount(0); // Фаза 18: есть вкладка «Разбор»
-    await expect(menu.getByRole('menuitem').filter({ hasText: /Скрытые игры|Выйти/ })).toHaveText([/Скрытые игры/, /^Выйти$/, /Выйти на всех устройствах/]);
+    await expect(menu.getByRole('menuitem', { name: 'Скрытые игры' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem').filter({ hasText: /^Выйти/ })).toHaveText([/^Выйти$/, /Выйти на всех устройствах/]);
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
   });

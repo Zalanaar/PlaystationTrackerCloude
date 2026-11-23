@@ -101,7 +101,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await setup(page, context, baseURL!);
     await page.goto('/');
     await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-    await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toHaveCount(0);
     await expect(page.getByText('Разобрать игры')).toHaveCount(0);
     const item = page.getByTestId('menu-triage');
     await expect(item.getByTestId('triage-pending')).toHaveText(/^\d+$/);

@@ -102,8 +102,21 @@ function ViewSeg({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => vo
 
 export type BackupInfo = { id: number; createdAt: string; count: number };
 
-/** Пункты меню коллекции «…» (десктоп) и раздела «Коллекция» в sheet «Фильтры» (мобильный). Сброс и откат статусов: меню профиля (Фаза 48). */
-function CollectionMenuItems({ hidden, onHidden, onAddOther, onTags, close }: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; onTags?: () => void; close: () => void }) {
+/** Переключатель раздела «Скрытые игры» (фильтр, адрес /?hidden=1). */
+function HiddenFilterBtn({ hidden, onToggle, className, close }: { hidden: boolean; onToggle: (v: boolean) => void; className?: string; close?: () => void }) {
+  return (
+    <button
+      type="button" className={className ?? 'ps-btn'} data-testid="filters-hidden" aria-pressed={hidden}
+      onClick={() => { close?.(); onToggle(!hidden); }}
+    >
+      <Icon name={hidden ? 'library' : 'eye-off'} size={16} />
+      <span>{hidden ? 'Вся коллекция' : 'Скрытые игры'}</span>
+    </button>
+  );
+}
+
+/** Пункты меню коллекции «…»: теги и «другая платформа». Скрытые игры — в фильтрах. */
+function CollectionMenuItems({ hidden, onAddOther, onTags, close }: { hidden: boolean; onAddOther?: () => void; onTags?: () => void; close: () => void }) {
   return (
     <>
     {onTags && !hidden && (
@@ -124,18 +137,11 @@ function CollectionMenuItems({ hidden, onHidden, onAddOther, onTags, close }: { 
         </span>
       </button>
     )}
-    <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" onClick={() => { close(); onHidden(!hidden); }}>
-      <Icon name={hidden ? 'library' : 'eye-off'} size={16} />
-      <span className="ps-menu-item__label">
-        {hidden ? 'Вся коллекция' : 'Скрытые игры'}
-        {!hidden && <small className="ps-menu-item__hint">Убранные из коллекции, можно вернуть</small>}
-      </span>
-    </button>
     </>
   );
 }
 
-function CollectionMenu(p: { hidden: boolean; onHidden: (v: boolean) => void; onAddOther?: () => void; onTags?: () => void }) {
+function CollectionMenu(p: { hidden: boolean; onAddOther?: () => void; onTags?: () => void }) {
   return (
     <Popover
       align="end" className="ps-collmenu"
@@ -237,7 +243,8 @@ export function FilterBar(p: BarProps) {
         <ViewSeg view={view} onView={onView} />
         {selectBtn}
         {active && !p.empty && <button type="button" className="ps-link" onClick={onReset}>Сбросить</button>}
-        <CollectionMenu hidden={filters.hidden} onHidden={onHidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} />
+        <HiddenFilterBtn hidden={filters.hidden} onToggle={onHidden} />
+        <CollectionMenu hidden={filters.hidden} onAddOther={p.onAddOther} onTags={() => setTagsOpen(true)} />
       </div>
       {tagsEver && <TagsSheet open={tagsOpen} onClose={() => setTagsOpen(false)} activeTag={filters.tag} onPick={(tag) => onChange({ tag })} />}
     </div>
@@ -293,14 +300,14 @@ function PlatformSeg({ filters, platformCounts, onChange }: Pick<BarProps, 'filt
   );
 }
 
-/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид, теги) и чипы статусов. Действия — в «⋯» и «+» шапки (F13). */
+/** Мобильный слот 2: кнопка «Фильтры» (sheet: платформа, сортировка, вид, теги, скрытые) и чипы статусов. */
 export function MobileChips(p: BarProps) {
   const { filters, view, onChange, onView, onReset, selectMode, onSelect, canSelect } = p;
   const [sheet, setSheet] = useState(false);
   const [tagsOpen, setTagsOpenRaw] = useState(false);
   const [tagsEver, setTagsEver] = useState(false);
   const setTagsOpen = (v: boolean) => { if (v) setTagsEver(true); setTagsOpenRaw(v); };
-  // F13: «Выбрать игры» и «Теги» живут в меню «⋯» шапки, лист «Фильтры» — только платформа, сортировка и вид
+  // «Выбрать игры» и «Теги» также в меню «⋯» шапки; «Скрытые игры» — в листе «Фильтры», рядом с тегами.
   useHeaderAction('select', () => { if (!selectMode && canSelect) onSelect(); });
   useHeaderAction('tags', () => { if (!filters.hidden) setTagsOpen(true); });
   const active = hasActiveFilters(filters);
@@ -335,6 +342,7 @@ export function MobileChips(p: BarProps) {
               <Icon name="bookmark" size={16} /><span>Теги</span>{filters.tag && <span className="ps-filters__tags-on">выбран</span>}<Icon name="chevron-right" size={16} className="ps-filters__tags-chev" />
             </button>
           )}
+          <HiddenFilterBtn hidden={filters.hidden} onToggle={p.onHidden} className="ps-btn ps-filters__tags" close={() => setSheet(false)} />
           {active && <button type="button" className="ps-link" onClick={() => { onReset(); setSheet(false); }}>Сбросить фильтры</button>}
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => setSheet(false)}>Готово</button>
         </div>

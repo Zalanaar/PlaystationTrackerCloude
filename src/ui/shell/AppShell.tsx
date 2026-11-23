@@ -148,12 +148,8 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
-                    {/* Тема, копия и сброс статусов — в «Настройках»; скрытые уйдут в фильтры */}
+                    {/* Тема, копия и сброс статусов — в «Настройках»; скрытые игры — в фильтрах Коллекции */}
                     <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
-                    <Link href="/?hidden=1" role="menuitem" className="ps-menu-item" onClick={close}>
-                      <Icon name="eye-off" size={16} />
-                      <span className="ps-menu-item__label">Скрытые игры</span>
-                    </Link>
                     <Link href="/profiles" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="users" size={16} />
                       <span className="ps-menu-item__label">PSN-профили</span>
@@ -230,9 +226,6 @@ export function AppHeader() {
             <Icon name="refresh" size={16} /><span className="ps-menu-item__label">Синк с PSN</span>
           </button>
           <TriageMenuItem active={more} testid="more-menu-triage" onClick={() => setMore(false)} />
-          <Link href="/?hidden=1" className="ps-menu-item" onClick={() => setMore(false)}>
-            <Icon name="eye-off" size={16} /><span className="ps-menu-item__label">Скрытые игры</span>
-          </Link>
           <Link href="/profiles" className="ps-menu-item" onClick={() => setMore(false)}>
             <Icon name="users" size={16} /><span className="ps-menu-item__label">PSN-профили</span>
           </Link>

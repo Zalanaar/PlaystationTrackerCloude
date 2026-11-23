@@ -42,15 +42,14 @@ async function statusMenu(page: Page, mobile: boolean, item: RegExp) {
   await goSettings(page, mobile);
   await settingsAction(page, item).click();
 }
-/** Пункт меню коллекции: десктоп = «…», мобильный = меню «⋯» шапки (F13: из листа «Фильтры» действия убраны). */
-async function collectionMenu(page: Page, mobile: boolean, item: RegExp) {
+/** Раздел «Скрытые игры»: в фильтрах Коллекции (лист на телефоне, кнопка в панели на компьютере). Адрес /?hidden=1. */
+async function openHidden(page: Page, mobile: boolean) {
   if (mobile) {
-    await page.getByRole('button', { name: 'Меню', exact: true }).click();
-    await page.getByRole('dialog').getByRole('link', { name: item }).click();
+    await page.getByRole('button', { name: /Фильтры/ }).click();
+    await page.getByRole('dialog', { name: 'Фильтры' }).getByTestId('filters-hidden').click();
     return;
   }
-  await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-  await page.getByRole('menuitem', { name: item }).click();
+  await page.getByTestId('filters-hidden').click();
 }
 
 const statsGame = (id: number, title: string, status: 'completed' | 'dropped' | 'playing') => ({
@@ -204,15 +203,16 @@ test.describe('Фаза 8: сброс статуса', () => {
     const mock = await openCollection(page, context, baseURL!);
     mock.backups.push({ id: 1, reason: 'reset_all', rows: [] as never });
     if (mobile) {
-      // F13: лист «Фильтры» — платформа, сортировка, вид и (по замечанию Артёма) «Теги»; «Скрытые игры» в меню «⋯»
       await page.getByRole('button', { name: /Фильтры/ }).click();
       const dlg = page.getByRole('dialog', { name: 'Фильтры' });
       await expect(dlg.getByLabel('Сортировка')).toBeVisible();
-      await expect(dlg.getByText(/Скрытые игры|Выбрать игры|другой платформы/)).toHaveCount(0);
+      await expect(dlg.getByText(/Выбрать игры|другой платформы/)).toHaveCount(0);
       await expect(dlg.getByTestId('filters-tags')).toBeVisible();
+      await expect(dlg.getByTestId('filters-hidden')).toHaveText('Скрытые игры');
     } else {
+      await expect(page.getByTestId('filters-hidden')).toHaveText('Скрытые игры');
       await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
-      await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /Скрытые игры/ })).toHaveCount(0);
     }
     await expect(page.getByRole('menuitem', { name: /Сбросить все статусы|Вернуть статусы из копии/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -295,7 +295,7 @@ test.describe('Фаза 8: скрытие игр', () => {
     await card(page, 'Tetris Effect').locator('.ps-card__hit').click();
     await dlg.getByRole('button', { name: 'Убрать из коллекции' }).click();
     await expect(card(page, 'Tetris Effect')).toHaveCount(0);
-    await collectionMenu(page, mobile, /Скрытые игры/);
+    await openHidden(page, mobile);
     await expect(page).toHaveURL(/hidden=1/);
     await expect(coll(page).getByRole('heading', { name: 'Скрытые игры' })).toBeVisible();
     expect(mock.listCalls.at(-1)?.searchParams.get('hidden')).toBe('only');
