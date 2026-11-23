@@ -38,6 +38,7 @@ import { useDataRefresh } from '../shell/refresh';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
+import { MonthGoalsCard } from '../goals/MonthGoalsCard';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
@@ -318,6 +319,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       <InboxStrip ctl={inbox} />
       <WrappedBanner ssr={wrappedSsr} compact />
       {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
+      {chronicleMode && !hiddenView && <MonthGoalsCard />}
 
       {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
       {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}

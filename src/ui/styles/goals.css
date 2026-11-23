@@ -1,0 +1,28 @@
+/* Цели месяца на главной. */
+.ps-mgoals { margin: 0 0 var(--sp-3); padding: var(--sp-3); background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ps-mgoals__head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: 32px; }
+.ps-mgoals__t { margin: 0; font: 600 16px/20px var(--font-body); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-mgoals__edit { margin-left: auto; flex: none; }
+.ps-mgoals__rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-mgoals__row { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--sp-2); align-items: baseline; min-width: 0; }
+.ps-mgoals__lbl { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-mgoals__val { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); font-variant-numeric: tabular-nums; }
+.ps-mgoals__bar { grid-column: 1 / -1; height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.ps-mgoals__bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; }
+.ps-mgoals__row[data-done] .ps-mgoals__bar > i { background: var(--success, var(--accent)); }
+.ps-mgoals__empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.ps-mgoals__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-mgoals-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-mgoals-form__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-mgoals-form__row { display: flex; flex-direction: column; gap: 4px; }
+.ps-mgoals-form__lbl { font-size: var(--fs-small); font-weight: 600; }
+.ps-mgoals-form__h { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-mgoals-form__err { margin: 0; color: var(--danger); font-size: var(--fs-small); }
+.ps-mgoals-form__btns { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ps-mgoals-form .ps-input { width: 100%; max-width: 12rem; }
+.ps-mgoals-form .ps-btn { min-height: var(--tap-min); }
+@media (max-width: 767px) {
+  .ps-mgoals__head { min-height: 44px; }
+  .ps-mgoals__edit { width: 44px; height: 44px; }
+  .ps-mgoals-form .ps-input { max-width: none; height: var(--tap-min); font-size: 16px; }
+}

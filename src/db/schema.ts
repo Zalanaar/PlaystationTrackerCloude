@@ -1056,3 +1056,23 @@ export const showcaseShares = pgTable(
   },
   (t) => [uniqueIndex('showcase_shares_token_hash_key').on(t.tokenHash), check('showcase_shares_token_hash_check', sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`)],
 );
+
+/** Цели месяца на главной (решение Артёма 19.11: задаёт вручную). Строка на месяц МСК 'YYYY-MM'; NULL в поле = цели по нему нет. */
+export const monthGoals = pgTable(
+  'month_goals',
+  {
+    userId: userIdCol(),
+    month: text().notNull(),
+    games: smallint(),
+    hours: smallint(),
+    trophies: smallint(),
+    updatedAt: tz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.month] }),
+    check('month_goals_month_check', sql`${t.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    check('month_goals_games_check', sql`${t.games} is null or (${t.games} >= 1 and ${t.games} <= 100)`),
+    check('month_goals_hours_check', sql`${t.hours} is null or (${t.hours} >= 1 and ${t.hours} <= 744)`),
+    check('month_goals_trophies_check', sql`${t.trophies} is null or (${t.trophies} >= 1 and ${t.trophies} <= 5000)`),
+  ],
+);

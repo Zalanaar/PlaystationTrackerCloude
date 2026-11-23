@@ -302,6 +302,13 @@
       "when": 1795044417265,
       "tag": "0042_showcase_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795103208732,
+      "tag": "0043_month_goals",
+      "breakpoints": true
     }
   ]
 }
