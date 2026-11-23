@@ -161,7 +161,7 @@
 @media (max-width: 767px) { .ps-st-bars--days { gap: 1px; } .ps-st-days__sum { min-height: calc(2 * var(--lh-small, 20px)); } }
 
 /* Идея 6: «Мои оценки» */
-.ps-ratings { display: grid; gap: var(--sp-4); max-width: 720px; padding-block: var(--sp-4) var(--sp-6); }
+.ps-ratings { display: grid; gap: var(--sp-4); max-width: 720px; padding-block: 0 var(--sp-6); min-width: 0; }
 .ps-ratings__ph { height: 320px; border-radius: var(--r-lg); background: var(--surface-2); }
 .ps-ratings__lead { margin: 0; color: var(--text-2); }
 .ps-ratings__sec { display: grid; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); min-width: 0; }

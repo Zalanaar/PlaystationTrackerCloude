@@ -14,6 +14,7 @@ export const STATS_SECTIONS: readonly StatsSection[] = [
   { id: 'rare', label: 'Редкие', selector: '.ps-rare' },
   { id: 'activity', label: 'Активность', selector: '.ps-act' },
   { id: 'played', label: 'Игры', selector: '#st-played-sec' },
+  { id: 'ratings', label: 'Оценки', selector: '[data-testid="ratings"]' },
 ];
 
 /**

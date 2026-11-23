@@ -17,7 +17,7 @@ export function isSubnavActive(pathname: string, href: string): boolean {
 
 /** F25 (аудит UX): экраны без вкладки — тоже с названием в шапке телефона (а не «PS TRACKER»); h1 на них скрыт так же, как на вкладках. */
 const PAGE_TITLES: readonly (readonly [string, string])[] = [
-  ['/triage', 'Разбор'], ['/profiles', 'Профили'], ['/access', 'Доступ'], ['/health', 'Здоровье'], ['/settings', 'Настройки'], ['/ratings', 'Мои оценки'],
+  ['/triage', 'Разбор'], ['/profiles', 'Профили'], ['/access', 'Доступ'], ['/health', 'Здоровье'], ['/settings', 'Настройки'], ['/ratings', 'Статистика'],
 ];
 
 /** Название раздела для шапки телефона: вкладка либо экран из PAGE_TITLES; иначе null (логотип). */

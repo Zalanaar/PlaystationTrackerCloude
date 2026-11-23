@@ -25,6 +25,7 @@ import { DaysPanel } from './DaysPanel';
 import { ChartTable } from './ChartTable';
 import { hoursTable, trophiesTable } from './tableData';
 import { SectionChips } from './SectionChips';
+import { RatingsView } from '../ratings/RatingsView';
 import { AchievementsPanel } from './Achievements';
 import { CostPanel } from './Cost';
 import { FeedLink } from './FeedLink';
@@ -81,6 +82,12 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
     const t = setTimeout(() => void load(sel, key, withService), 0);
     return () => clearTimeout(t);
   }, [load, sel, key, withService]);
+
+  // /ratings и чип «Оценки»: /stats?sec=ratings прокручивает к разделу.
+  useLayoutEffect(() => {
+    if (params.get('sec') !== 'ratings') return;
+    document.getElementById('ratings')?.scrollIntoView({ block: 'start' });
+  }, [params]);
 
   // последний выбранный год: возврат с «Всё время» на «Год» (в памяти страницы)
   const lastYear = useRef<number | null>(null);
@@ -170,6 +177,7 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
           <Content data={data} sel={sel} years={years} onOpenYear={openYear} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
         </div>
       )}
+      <RatingsView />
     </div>
     </>
   );

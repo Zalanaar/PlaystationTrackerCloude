@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { RatingsView } from '@/ui/ratings/RatingsView';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Мои оценки · PS Tracker' };
+export const metadata: Metadata = { title: 'Оценки · PS Tracker' };
 
+/** Старый адрес «Мои оценки» — в раздел «Оценки» Статистики. */
 export default function Page() {
-  return <RatingsView />;
+  redirect('/stats?sec=ratings');
 }

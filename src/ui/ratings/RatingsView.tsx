@@ -1,5 +1,5 @@
 'use client';
-// Идея 6: «Мои оценки». Данные — вся коллекция из /api/games (страницами по 300), считается на клиенте.
+// «Оценки» — раздел Статистики. Данные — вся коллекция из /api/games (страницами по 300), считается на клиенте.
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GameItem } from '@/server/collection/types';
@@ -39,8 +39,8 @@ export function RatingsView() {
   const unrated = useMemo(() => completedUnrated(games), [games]);
 
   return (
-    <div className="ps-container ps-ratings" data-testid="ratings">
-      <h1 className="ps-h1 ps-h1--hdr">Мои оценки</h1>
+    <section className="ps-ratings" id="ratings" data-testid="ratings" aria-labelledby="st-ratings">
+      <h2 id="st-ratings" className="ps-h2">Оценки</h2>
       {load.kind === 'loading' && <div className="ps-ratings__ph" aria-busy="true" aria-label="Загружаю оценки" />}
       {load.kind === 'error' && (
         <EmptyState icon="circle-alert" role="alert" title="Не удалось загрузить оценки" text="Проверь связь и попробуй ещё раз.">
@@ -108,6 +108,6 @@ export function RatingsView() {
           {unrated.length > UNRATED_SHOWN && <p className="ps-ratings__note">Ещё {formatNumber(unrated.length - UNRATED_SHOWN)} — в Коллекции, фильтр «Пройдено».</p>}
         </section>
       )}
-    </div>
+    </section>
   );
 }

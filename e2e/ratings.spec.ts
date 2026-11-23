@@ -1,8 +1,9 @@
-// Идея 6 (аудит UX): экран «Мои оценки» — распределение, часы по оценкам, лучшие жанры, пройденные без оценки.
+// «Оценки» в Статистике: распределение, часы по оценкам, лучшие жанры, пройденные без оценки. /ratings → /stats?sec=ratings.
 import { createRequire } from 'node:module';
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { mockApi, seed, type G } from './collection-mock';
 import { signedSession } from './session';
+import { respond } from './stats-mock';
 
 function games(): G[] {
   const s = seed();
@@ -17,7 +18,13 @@ function games(): G[] {
 async function open(page: Page, context: BrowserContext, baseURL: string, list = games()) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   await mockApi(page, list);
+  await page.route(/\/api\/stats\?/, (r) => {
+    const u = new URL(r.request().url());
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: respond(u) }) });
+  });
   await page.goto('/ratings');
+  await expect(page).toHaveURL(/\/stats\?sec=ratings/);
+  await expect(page.getByTestId('ratings')).toBeVisible();
 }
 
 test('сводка, распределение, часы, жанры; без оценки — ссылка в окно игры', async ({ page, context, baseURL }) => {
@@ -52,17 +59,23 @@ test('пройдено без оценки: «Оценить» открывае�
   await expect(page.getByRole('dialog', { name: 'God of War' })).toBeVisible();
 });
 
-test('нет оценок: пустое состояние; пункт меню ведёт на экран', async ({ page, context, baseURL }) => {
+test('нет оценок: пустое состояние; в меню пункта нет, чип «Оценки» в Статистике', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL as string, seed());
   await expect(page.getByText('Оценок пока нет')).toBeVisible();
   await page.goto('/stats');
-  // телефон (mobile, webkit-iphone) — меню «⋯» шапки; компьютер — меню профиля
   if ((page.viewportSize()?.width ?? 1280) < 768) {
     await page.getByRole('button', { name: 'Меню', exact: true }).click();
-    await page.getByTestId('sheet-ratings').click();
+    const sheet = page.getByRole('dialog', { name: 'Меню' });
+    await expect(sheet.getByRole('link', { name: 'Мои оценки' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
   } else {
     await page.locator('.ps-avatar').click();
-    await page.getByTestId('menu-ratings').click();
+    await expect(page.getByTestId('menu-ratings')).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Мои оценки' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
   }
-  await expect(page).toHaveURL(/\/ratings$/);
+  const chip = page.getByTestId('stats-sections').locator('[data-sec="ratings"]');
+  await expect(chip).toHaveText('Оценки');
+  await chip.click();
+  await expect(page.getByTestId('ratings').getByRole('heading', { name: 'Оценки' })).toBeVisible();
 });

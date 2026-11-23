@@ -145,7 +145,7 @@
 .ps-st-secs__chip:hover { background: var(--surface-2); }
 .ps-st-secs__chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .ps-st-secs__chip:focus-visible { box-shadow: var(--shadow-focus); outline: none; }
-.ps-stats-page .ps-panel, .ps-stats-page .ps-st-played { scroll-margin-top: calc(var(--header-h) + 1px + env(safe-area-inset-top, 0px) + 52px + var(--sp-3)); }
+.ps-stats-page .ps-panel, .ps-stats-page .ps-st-played, .ps-stats-page .ps-ratings { scroll-margin-top: calc(var(--header-h) + 1px + env(safe-area-inset-top, 0px) + 52px + var(--sp-3)); }
 .ps-st-feedlink { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-1); color: var(--accent); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); text-decoration: none; }
 .ps-st-feedlink:hover { text-decoration: underline; }
 .ps-sk-secs { display: block; height: 52px; margin: calc(-1 * var(--sp-2)) 0; }
