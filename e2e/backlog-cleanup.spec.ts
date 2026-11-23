@@ -35,13 +35,14 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url: s
   return m;
 }
 
-test('Бэклог → «Чистка»: отложить, бросить, оставить; «Вернуть»; итог в часах', async ({ page, context, baseURL }) => {
+test('Бэклог → «Чистка»: отложить, бросить, оставить; «Отменить последнее»; итог в часах', async ({ page, context, baseURL }) => {
   const m = await open(page, context, baseURL as string, '/backlog');
   const link = page.getByTestId('bl-cleanup');
   await expect(link).toHaveText('Чистка: 3 игры');
   await link.click();
-  await expect(page).toHaveURL(/\/backlog\/cleanup$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Чистка бэклога' })).toBeVisible();
+  await expect(page).toHaveURL(/\/triage\?mode=cleanup/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Разбор' })).toBeAttached();
+  await expect(page.getByRole('group', { name: 'Какие игры разбирать' }).getByRole('button', { name: /Чистка 3/ })).toHaveAttribute('aria-pressed', 'true');
 
   const card = page.getByTestId('cleanup-card');
   await expect(card).toHaveAttribute('aria-label', 'Old Long'); // дольше всех ждёт — первой
@@ -62,7 +63,7 @@ test('Бэклог → «Чистка»: отложить, бросить, ос�
   expect(m.games.find((g) => g.id === 30)?.status).toBe('shelved');
   await expect(page.getByTestId('cleanup-sofar')).toHaveText('−100 ч из бэклога');
 
-  // «Вернуть последнюю»: игра снова в бэклоге и снова на экране
+  // «Отменить последнее»: игра снова в бэклоге и снова на экране
   await page.getByTestId('cleanup-undo').click();
   await expect(card).toHaveAttribute('aria-label', 'Old Long');
   await expect.poll(() => m.games.find((g) => g.id === 30)?.status).toBe('backlog');
@@ -86,6 +87,7 @@ test('нечего чистить: пустое состояние со ссыл
   await page.unroute(/\/api\/collection\/backlog-age(\?|$)/);
   await page.route(/\/api\/collection\/backlog-age(\?|$)/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { items: [], summary: { count: 0, medianDays: null, overYear: 0, cleanup: 0, oldest: null } } }) }));
   await page.goto('/backlog/cleanup');
+  await expect(page).toHaveURL(/\/triage\?mode=cleanup/);
   await expect(page.getByText('Чистить нечего')).toBeVisible();
   await page.goto('/backlog');
   await expect(page.getByTestId('bl-cleanup')).toHaveCount(0);

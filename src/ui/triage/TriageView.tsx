@@ -18,6 +18,8 @@ import { STATUS_META, TRIAGE_KEYS, type StatusKey } from '../tokens';
 import { CheckBody } from './CheckView';
 import { useDataRefresh } from '../shell/refresh';
 import { checkSegmentText, hintProgress, primaryTarget } from './hints';
+import { CleanupView } from '../cleanup/CleanupView';
+import { cleanupSegmentText, useCleanupCount } from './useCleanupCount';
 import { useCheckCount } from './useCheckCount';
 import { useCheckQueue } from './useCheckQueue';
 import { FORGOTTEN_HINT, forgottenChipText, forgottenCountOf, forgottenSpan, isForgotten, triageSegments } from './forgotten';
@@ -41,10 +43,13 @@ export function TriageView() {
   const toast = useToast();
   const wide = useMediaQuery('(min-width: 1000px)');
   const params = useSearchParams();
-  const check = params.get('mode') === 'check';
+  const mode = params.get('mode');
+  const check = mode === 'check';
+  const cleanup = mode === 'cleanup';
   const rootRef = useRef<HTMLDivElement>(null);
-  const forgotten = !check && params.get('forgotten') === '1';
+  const forgotten = !check && !cleanup && params.get('forgotten') === '1';
   const hintCount = useCheckCount();
+  const cleanupCount = useCleanupCount();
   const cq = useCheckQueue(check);
   const now = useNow();
   const [forgottenCount, setForgottenCount] = useState(0);
@@ -103,6 +108,7 @@ export function TriageView() {
   };
   const setMode = (only: boolean) => router.replace(only ? '/triage?forgotten=1' : '/triage');
   const setCheck = () => router.replace('/triage?mode=check');
+  const setCleanup = () => router.replace('/triage?mode=cleanup');
 
   const send = useCallback((game: GameItem, status: GameStatusValue | null, onFail: () => void) => {
     const run = async () => {
@@ -168,6 +174,11 @@ export function TriageView() {
       if (document.querySelector('[role="dialog"]')) return;
       const cmd = keyCommand(e.key, check);
       if (!cmd) return;
+      if (cleanup) {
+        // статусы 1–6 относятся к очереди «Новые»; Z обрабатывает CleanupView
+        if (cmd.type === 'exit') { e.preventDefault(); router.push('/'); }
+        return;
+      }
       if ((cmd.type === 'skip' || cmd.type === 'accept') && el && (el.tagName === 'BUTTON' || el.tagName === 'A')) return; // пробел и Enter на кнопке нажимают кнопку
       e.preventDefault();
       if (check) {
@@ -188,21 +199,24 @@ export function TriageView() {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [act, doSkip, doUndo, router, check, cq]);
+  }, [act, doSkip, doUndo, router, check, cleanup, cq]);
 
   // ---------- вывод ----------
-  // сегменты режимов: «Все N» / «Забытые N» / «Проверить N»; «Проверить» виден при N > 0 или в активном режиме (§13.1)
+  // сегменты: «Новые N» / «Забытые N» / «Проверить N» / «Чистка N»; последние два видны при N > 0 или в активном режиме
   const checkN = check && cq.state ? cq.state.queue.length : hintCount ?? 0;
+  const cleanupN = cleanupCount ?? 0;
   const modeSeg = () => {
     const showCheck = checkN > 0 || check;
     const showForgotten = forgottenCount > 0 || forgotten;
-    if (!counts || !(showCheck || showForgotten)) return null;
-    const seg = triageSegments(counts.none, forgottenCount);
+    const showCleanup = cleanupN > 0 || cleanup;
+    if (!(showCheck || showForgotten || showCleanup)) return null;
+    const seg = triageSegments(counts?.none ?? 0, forgottenCount);
     return (
       <div className="ps-seg ps-tri__mode" role="group" aria-label="Какие игры разбирать">
-        <button type="button" aria-pressed={!forgotten && !check} onClick={() => setMode(false)}>{seg.all}</button>
+        <button type="button" aria-pressed={!forgotten && !check && !cleanup} onClick={() => setMode(false)}>{seg.all}</button>
         {showForgotten && <button type="button" aria-pressed={forgotten} onClick={() => setMode(true)}>{seg.forgotten}</button>}
         {showCheck && <button type="button" aria-pressed={check} onClick={setCheck}>{checkSegmentText(checkN)}</button>}
+        {showCleanup && <button type="button" aria-pressed={cleanup} onClick={setCleanup}>{cleanupSegmentText(cleanupN)}</button>}
       </div>
     );
   };
@@ -240,7 +254,13 @@ export function TriageView() {
       </div>
     );
   };
+  const renderCleanup = () => (
+    <div className="ps-tri ps-tri--cleanup">
+      <CleanupView chrome={modeSeg()} />
+    </div>
+  );
   const render = () => {
+  if (cleanup) return renderCleanup();
   if (check) return renderCheck();
   if (error && !state) {
     return (
@@ -303,10 +323,12 @@ export function TriageView() {
   );
   };
   // маркер готовности страницы для тура (design-system §10.7); обёртка не влияет на вёрстку
-  const ready = check
-    ? (cq.error && !cq.state) || !!cq.state
-    : (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
-  const busy = check ? !cq.state && !cq.error : !error && (!state || !counts);
+  const ready = cleanup
+    ? true
+    : check
+      ? (cq.error && !cq.state) || !!cq.state
+      : (error && !state) || (!!state && !!counts && (state.queue.length > 0 || counts.none === 0 || (forgotten && forgottenCount === 0)));
+  const busy = cleanup ? false : check ? !cq.state && !cq.error : !error && (!state || !counts);
   return (
     <>
       <LoaderOverlay loading={busy} contentRef={rootRef} />

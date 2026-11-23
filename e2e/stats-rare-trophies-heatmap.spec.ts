@@ -315,11 +315,11 @@ test.describe('Забытые игры', () => {
     test.beforeEach(({}, info) => { test.skip(info.project.name !== 'desktop', 'десктопный сценарий'); });
     test.use({ viewport: { width: 1440, height: 900 } });
 
-    test('сегмент «Все / Забытые», чип и подсказка карточки, очередь только забытых, пустой экран', async ({ page, context, baseURL }) => {
+    test('сегмент «Новые / Забытые», чип и подсказка карточки, очередь только забытых, пустой экран', async ({ page, context, baseURL }) => {
       const mock = await setup(page, context, baseURL!, { games: forgottenGames() });
       await page.goto('/triage');
       const seg = page.getByRole('group', { name: 'Какие игры разбирать' });
-      await expect(seg.getByRole('button', { name: /Все 4/ })).toHaveAttribute('aria-pressed', 'true');
+      await expect(seg.getByRole('button', { name: /Новые 4/ })).toHaveAttribute('aria-pressed', 'true');
       await expect(seg.getByRole('button', { name: 'Забытые 2' })).toBeVisible();
       await seg.getByRole('button', { name: 'Забытые 2' }).click();
       await expect(page).toHaveURL(/forgotten=1/);

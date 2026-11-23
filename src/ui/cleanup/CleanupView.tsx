@@ -2,7 +2,7 @@
 // Идея 5: «Чистка бэклога». По одной игре: «Оставить», «Отложить», «Бросить» (свайп вправо — оставить, влево — отложить),
 // «Вернуть» отменяет последнее решение с прежней датой. В конце — итог «−N ч из бэклога».
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { errorText, fetchBacklogAge, fetchGames, putStatus } from '../collection/api';
@@ -29,7 +29,7 @@ type Load = { kind: 'loading' } | { kind: 'error' } | { kind: 'ok'; queue: Clean
 
 const LABEL: Record<CleanupChoice, string> = { keep: 'Оставить', shelved: 'Отложить', dropped: 'Бросить' };
 
-export function CleanupView() {
+export function CleanupView({ chrome }: { chrome?: ReactNode } = {}) {
   const toast = useToast();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [pos, setPos] = useState(0);
@@ -71,9 +71,9 @@ export function CleanupView() {
     headRef.current?.focus();
   }
 
-  async function undoLast() {
+  const undoLast = useCallback(async () => {
     const last = decisions.at(-1);
-    const item = queue[pos - 1];
+    const item = load.kind === 'ok' ? load.queue[pos - 1] : undefined;
     if (!last || !item || busy) return;
     if (last.choice !== 'keep') {
       setBusy(true);
@@ -88,7 +88,21 @@ export function CleanupView() {
     }
     setDecisions((d) => d.slice(0, -1));
     setPos((p) => p - 1);
-  }
+  }, [busy, decisions, load, pos, toast]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.key !== 'z' && e.key !== 'Z' && e.key !== 'я' && e.key !== 'Я' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      void undoLast();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [undoLast]);
 
   const onDown = (e: RPointerEvent<HTMLElement>) => {
     if (e.pointerType === 'mouse' || busy) return;
@@ -111,7 +125,8 @@ export function CleanupView() {
 
   return (
     <div className="ps-container ps-clean" data-testid="cleanup">
-      <h1 className="ps-h1" ref={headRef} tabIndex={-1}>Чистка бэклога</h1>
+      {chrome}
+      <h2 className="ps-sr" ref={headRef} tabIndex={-1}>Чистка</h2>
       <p className="ps-clean__lead">Игры, которые ждут дольше 2 лет и наиграно меньше часа. Оставь, отложи или брось — прогноз бэклога станет честнее.</p>
 
       {load.kind === 'loading' && <div className="ps-clean__card ps-clean__card--ph" aria-busy="true" aria-label="Загружаю бэклог" />}
@@ -164,7 +179,7 @@ export function CleanupView() {
       {decisions.length > 0 && (
         <div className="ps-clean__foot">
           {!finished && freed && <span className="ps-clean__sofar num" data-testid="cleanup-sofar">{freed}</span>}
-          <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void undoLast()} data-testid="cleanup-undo">Вернуть последнюю</button>
+          <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void undoLast()} data-testid="cleanup-undo">Отменить последнее</button>
         </div>
       )}
     </div>

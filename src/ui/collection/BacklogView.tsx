@@ -642,7 +642,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         <p className="ps-bl-age" data-testid="bl-age" title={AGE_HINT}>
           {ageLine}
           {/* идея 5: «Чистка бэклога» — только когда есть кандидаты */}
-          {(age?.summary.cleanup ?? 0) > 0 && <> · <Link href="/backlog/cleanup" className="ps-bl-age__clean" data-testid="bl-cleanup">Чистка: {cleanupText(age?.summary.cleanup ?? 0)}</Link></>}
+          {(age?.summary.cleanup ?? 0) > 0 && <> · <Link href="/triage?mode=cleanup" className="ps-bl-age__clean" data-testid="bl-cleanup">Чистка: {cleanupText(age?.summary.cleanup ?? 0)}</Link></>}
         </p>
       )}
       {/* чип под заголовком: появляясь вместе со списком, он не сдвигает заголовок и блоки выше (QA-43-3) */}

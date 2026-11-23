@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { CleanupView } from '@/ui/cleanup/CleanupView';
+import { permanentRedirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Чистка бэклога · PS Tracker' };
+export const metadata: Metadata = { title: 'Разбор · PS Tracker' };
 
 export default function Page() {
-  return <CleanupView />;
+  permanentRedirect('/triage?mode=cleanup');
 }

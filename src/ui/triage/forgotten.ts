@@ -34,8 +34,8 @@ export const FORGOTTEN_HINT = 'Начата, но давно не запуска
 
 /** Чип в блоке «Не разобрано» на Коллекции. */
 export const forgottenCountText = (n: number) => `Забытых: ${n}`;
-/** Подпись сегментов Разбора. */
-export const triageSegments = (none: number, forgotten: number) => ({ all: `Все ${none}`, forgotten: `Забытые ${forgotten}` });
+/** Подпись сегментов Разбора: «Новые N» / «Забытые N». */
+export const triageSegments = (none: number, forgotten: number) => ({ all: `Новые ${none}`, forgotten: `Забытые ${forgotten}` });
 
 /** Безопасное число из ответа (старый ответ без поля = 0). */
 export const forgottenCountOf = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
