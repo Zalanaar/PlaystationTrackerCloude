@@ -1,6 +1,6 @@
 // Фаза 9.1 (UI): «Убрать из этого месяца» (контракт 15.1), окно игры (шапка, плитки, прогноз платины 14.2/15.3), платиновый уголок.
 // API эмулируется по контракту, БД не нужна.
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { mockApi, seed, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
 
@@ -237,25 +237,31 @@ test.describe('Фаза 9.1: окно игры', () => {
     await page.locator('article.ps-card', { has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) }).locator('.ps-card__hit').click();
     const dlg = page.getByRole('dialog', { name: title });
     await expect(dlg).toBeVisible();
-    // Окно въезжает анимацией (translateY); boundingBox разных элементов снимается в разных кадрах, под нагрузкой это даёт расхождение на десятки px.
-    await dlg.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)).then(() => undefined));
+    // На мобилке анимация translateY на .ps-gd__sheet, не на самом dialog; без subtree ожидание пустое.
+    // boundingBox разных элементов в разных кадрах даёт расхождение на десятки px — снимаем в одном evaluate.
+    await dlg.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined))).then(() => undefined));
     return dlg;
   };
+  const boxes = (root: Locator, ...sels: string[]) =>
+    root.evaluate((el, qs: string[]) => qs.map((q) => {
+      const r = el.querySelector(q)!.getBoundingClientRect();
+      return { y: r.y, height: r.height };
+    }), sels);
   const base = (): G[] => seed().map((g) => (g.id === 3 ? { ...g, bannerUrl: 'https://img.test/banner.svg', coverUrl: 'https://img.test/cover.svg' } : g.id === 4 ? { ...g, coverUrl: 'https://img.test/cover.svg' } : g));
 
   test('баннер: высота арта 208 (176), обложка выступает за арт, название на арте белым', async ({ page, context, baseURL }, info) => {
     await openGame(page, context, baseURL!, base());
     const dlg = await open(page, 'Horizon Forbidden West');
     await expect(dlg.locator('.ps-gd__hero')).toHaveAttribute('data-art', 'banner');
-    const [art, cover] = await Promise.all([dlg.locator('.ps-gd__art').boundingBox(), dlg.locator('.ps-gd__cover').boundingBox()]);
+    const [art, cover] = await boxes(dlg, '.ps-gd__art', '.ps-gd__cover');
     const m = isMobile(info.project.name);
-    expect(Math.round(art!.height)).toBe(m ? 176 : 208);
-    expect(Math.round(cover!.y + cover!.height - (art!.y + art!.height))).toBe(m ? 24 : 32);
+    expect(Math.round(art.height)).toBe(m ? 176 : 208);
+    expect(Math.round(cover.y + cover.height - (art.y + art.height))).toBe(m ? 24 : 32);
     const color = await dlg.locator('.ps-gd__title').evaluate((el) => getComputedStyle(el).color);
     expect(color).toBe('rgb(255, 255, 255)');
-    const [tt, ca] = await Promise.all([dlg.locator('.ps-gd__tt').boundingBox(), dlg.locator('.ps-gd__art').boundingBox()]);
-    expect(tt!.y).toBeGreaterThanOrEqual(ca!.y + 40 - 1);
-    expect(tt!.y + tt!.height).toBeLessThanOrEqual(ca!.y + ca!.height + 1);
+    const [tt, ca] = await boxes(dlg, '.ps-gd__tt', '.ps-gd__art');
+    expect(tt.y).toBeGreaterThanOrEqual(ca.y + 40 - 1);
+    expect(tt.y + tt.height).toBeLessThanOrEqual(ca.y + ca.height + 1);
   });
 
   test('нет баннера, есть обложка: компактная размытая лента; нет ничего: компактная заливка', async ({ page, context, baseURL }, info) => {
