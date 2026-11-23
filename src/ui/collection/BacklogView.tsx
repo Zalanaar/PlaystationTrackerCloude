@@ -64,7 +64,6 @@ import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
 // Панель поиска грузится лениво: до первого нажатия «Добавить» её кода на странице нет (Фаза 43)
 /** Предельное ожидание второстепенных запросов Бэклога до показа списка (мс). */
 const SKELETON_MAX_MS = 5000;
-const TimeFitSheet = dynamic(() => import('./TimeFitSheet').then((m) => m.TimeFitSheet), { ssr: false });
 const AddFromStoreSheet = dynamic(() => import('./AddFromStoreSheet').then((m) => m.AddFromStoreSheet), { ssr: false });
 
 /** Страница «Бэклог»: игры со статусом backlog, быстрые действия «Начать играть» и «Убрать из бэклога». */
@@ -127,8 +126,6 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   // Перезапрос, когда меняется число игр в бэклоге (смена статуса, добавление).
   const [age, setAge] = useState<BacklogAgeResponse | null>(null);
   const [ageReady, setAgeReady] = useState(false);
-  // П12.5: окно «У меня 2 часа» (из меню страницы «…»)
-  const [timeOpen, setTimeOpen] = useState(false);
   const loadAge = useCallback((signal?: AbortSignal) => fetchBacklogAge(signal).then((r) => { if (!signal?.aborted) setAge(r); }, () => {}).finally(() => { if (!signal?.aborted) setAgeReady(true); }), []);
   useEffect(() => {
     const ac = new AbortController();
@@ -606,7 +603,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
             <Icon name="plus" size={16} />{mobile ? 'Добавить' : 'Добавить из магазина PS'}
           </button>
           {!mobile && (items || counts) && <BacklogViewSeg view={view} onView={setView} />}
-          <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} onAdd={() => openAdd()} onTime={() => setTimeOpen(true)} />
+          <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} onAdd={() => openAdd()} />
         </div>
       </div>
       {/* поле поиска на десктопе: строка между шапкой и фильтрами; CSS прячет её на < 768, чтобы первый кадр не прыгал */}
@@ -749,7 +746,6 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       )}
       <RemoveManualSheet game={removing} onClose={() => setRemoving(null)} onConfirm={confirmRemove} />
       {addOpen && <AddFromStoreSheet onClose={closeAdd} initialQuery={addQuery} />}
-      {timeOpen && <TimeFitSheet open onClose={() => setTimeOpen(false)} onOpenGame={(id) => openGameLink(id)} />}
     </div>
     </>
   );

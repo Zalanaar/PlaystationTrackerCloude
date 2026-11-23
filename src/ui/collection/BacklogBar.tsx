@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from '@/ui/IntentLink';
 import type { DurationCounts, GenreCounts, HltbCounts } from '@/server/collection/types';
 import { PLATFORM_KEY_LABEL, type PlatformCounts } from '@/shared/platform-filter';
 import { formatNumber } from '../format';
@@ -20,8 +21,8 @@ export function BacklogViewSeg({ view, onView }: { view: BacklogView; onView: (v
   );
 }
 
-/** Меню страницы «…»: подгрузка длительности с HLTB и перепроверка не найденных. */
-export function BacklogPageMenu({ running, onHltb, onAdd, onTime }: { running: boolean; onHltb: (recheckNotFound: boolean) => void; onAdd?: () => void; /** П12.5 */ onTime?: () => void }) {
+/** Меню страницы «…»: «У меня 2 часа» ведёт в «Подскажи», плюс HLTB. */
+export function BacklogPageMenu({ running, onHltb, onAdd }: { running: boolean; onHltb: (recheckNotFound: boolean) => void; onAdd?: () => void }) {
   return (
     <Popover
       align="end" className="ps-bl-pagemenu"
@@ -39,15 +40,13 @@ export function BacklogPageMenu({ running, onHltb, onAdd, onTime }: { running: b
               <span className="ps-menu-item__label">Добавить из магазина PS</span>
             </button>
           )}
-          {onTime && (
-            <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="bl-menu-time" onClick={() => { close(); onTime(); }}>
-              <Icon name="timer" size={16} />
-              <span className="ps-menu-item__label">
-                У меня 2 часа
-                <small className="ps-menu-item__hint">Что успеть пройти или продолжить</small>
-              </span>
-            </button>
-          )}
+          <Link href="/recommend?time=short" role="menuitem" className="ps-menu-item ps-menu-item--tall" data-testid="bl-menu-time" onClick={() => close()}>
+            <Icon name="timer" size={16} />
+            <span className="ps-menu-item__label">
+              У меня 2 часа
+              <small className="ps-menu-item__hint">Короткие игры в «Подскажи»</small>
+            </span>
+          </Link>
           <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--tall" disabled={running} data-testid="hltb-start" onClick={() => { close(); onHltb(false); }}>
             <Icon name="cloud-download" size={16} />
             <span className="ps-menu-item__label">
