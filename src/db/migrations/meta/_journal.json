@@ -330,6 +330,13 @@
       "when": 1795445795149,
       "tag": "0046_game_diary",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1795447763380,
+      "tag": "0047_month_goal_games",
+      "breakpoints": true
     }
   ]
 }

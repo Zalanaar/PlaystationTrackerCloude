@@ -5,7 +5,7 @@ import { GOAL_LIMITS, type GoalFields, type GoalKey, type GoalProgress } from '@
 export { GOAL_LIMITS };
 export type { GoalFields, GoalKey, GoalProgress };
 
-export const GOAL_ORDER: readonly GoalKey[] = ['games', 'hours', 'trophies'];
+export const GOAL_ORDER: readonly GoalKey[] = ['games', 'hours'];
 
 export const GOAL_LABEL: Record<GoalKey, string> = {
   games: 'Игр пройти',
@@ -42,4 +42,8 @@ export function parseField(raw: string, key: GoalKey): { ok: true; value: number
 export function fieldHint(key: GoalKey): string {
   const { min, max } = GOAL_LIMITS[key];
   return `От ${min} до ${formatNumber(max)}. Пусто — без этой цели.`;
+}
+
+export function hoursHintLabel(n: number): string {
+  return `В среднем ${formatNumber(n)} ч в месяц`;
 }

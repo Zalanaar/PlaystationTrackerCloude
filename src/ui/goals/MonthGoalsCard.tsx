@@ -1,29 +1,24 @@
 'use client';
 
-// Цели месяца на главной: прогресс по играм / часам / трофеям; пустое состояние предлагает задать цель.
-import { useCallback, useEffect, useId, useState } from 'react';
+// Цели месяца на главной: выбранные игры (из «Играю» и Плана) и часы; подсказка среднего; без цели по трофеям.
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { GOAL_PICK_MAX, hasGoals as hasGoalFields, type GoalGame, type MonthGoalsView, type ParsedGoals } from '@/shared/month-goals';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
+import { Cover } from '../collection/Cover';
 import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
-import type { MonthGoalsView } from '@/shared/month-goals';
 import { fetchMonthGoals, saveMonthGoalsApi } from './api';
-import { barPercent, fieldHint, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, monthTitle, parseField, progressLine, type GoalFields, type GoalKey } from './model';
-
-const emptyFields = (): Record<GoalKey, string> => ({ games: '', hours: '', trophies: '' });
-
-function fieldsFrom(g: GoalFields): Record<GoalKey, string> {
-  const o = emptyFields();
-  for (const k of GOAL_ORDER) o[k] = g[k] == null ? '' : String(g[k]);
-  return o;
-}
+import { barPercent, fieldHint, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine } from './model';
 
 export function MonthGoalsCard() {
   const hid = useId();
   const [data, setData] = useState<MonthGoalsView | null>(null);
   const [gone, setGone] = useState(false);
   const [open, setOpen] = useState(false);
-  const [fields, setFields] = useState<Record<GoalKey, string>>(emptyFields);
+  const [hours, setHours] = useState('');
+  const [selected, setSelected] = useState<GoalGame[]>([]);
+  const [picksTouched, setPicksTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editorEver = useEverTrue(open);
@@ -47,14 +42,23 @@ export function MonthGoalsCard() {
     return () => window.removeEventListener(STATUSES_CHANGED_EVENT, on);
   }, [load]);
 
+  const catalog = useMemo(() => {
+    const m = new Map<number, GoalGame>();
+    if (!data) return m;
+    for (const g of [...data.picked, ...data.candidates.playing, ...data.candidates.plan]) m.set(g.id, g);
+    return m;
+  }, [data]);
+
   function openEditor() {
     if (!data) return;
-    setFields(fieldsFrom(data.goals));
+    setSelected(data.picked);
+    setPicksTouched(false);
+    setHours(data.goals.hours == null ? '' : String(data.goals.hours));
     setError(null);
     setOpen(true);
   }
 
-  async function save(next: GoalFields) {
+  async function save(next: ParsedGoals) {
     setBusy(true); setError(null);
     try {
       const r = await saveMonthGoalsApi(next);
@@ -65,21 +69,38 @@ export function MonthGoalsCard() {
     } finally { setBusy(false); }
   }
 
+  function toggle(game: GoalGame) {
+    setPicksTouched(true);
+    setSelected((s) => {
+      if (s.some((x) => x.id === game.id)) return s.filter((x) => x.id !== game.id);
+      if (s.length >= GOAL_PICK_MAX) return s;
+      return [...s, game];
+    });
+  }
+
   function submit() {
-    const value: GoalFields = { games: null, hours: null, trophies: null };
-    for (const k of GOAL_ORDER) {
-      const p = parseField(fields[k], k);
-      if (!p.ok) { setError(fieldHint(k)); return; }
-      value[k] = p.value;
+    if (!data) return;
+    const parsed = parseField(hours, 'hours');
+    if (!parsed.ok) { setError(fieldHint('hours')); return; }
+    const body: ParsedGoals = { games: null, hours: parsed.value, trophies: data.goals.trophies };
+    if (selected.length || picksTouched) body.gameIds = selected.map((g) => g.id);
+    else body.games = data.goals.games;
+    const gamesGoal = body.gameIds ? (body.gameIds.length || null) : body.games;
+    if (!hasGoalFields({ games: gamesGoal, hours: body.hours, trophies: null }, body.gameIds?.length ?? 0)) {
+      setError('Укажи хотя бы одну цель — или убери все.');
+      return;
     }
-    if (!value.games && !value.hours && !value.trophies) { setError('Укажи хотя бы одну цель — или убери все.'); return; }
-    void save(value);
+    void save(body);
   }
 
   if (gone || !data) return null;
 
   const title = `Цели на ${monthTitle(data.monthNum)}`;
   const rows = GOAL_ORDER.filter((k) => data.goals[k] != null);
+  const selectedIds = new Set(selected.map((g) => g.id));
+  const playing = data.candidates.playing.filter((g) => !selectedIds.has(g.id));
+  const plan = data.candidates.plan.filter((g) => !selectedIds.has(g.id));
+  const atLimit = selected.length >= GOAL_PICK_MAX;
 
   return (
     <>
@@ -104,44 +125,92 @@ export function MonthGoalsCard() {
                   <span className="ps-mgoals__lbl">{GOAL_LABEL[k]}</span>
                   <span className="ps-mgoals__val num">{progressLine(k, current, goal)}</span>
                   <span className="ps-mgoals__bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+                  {k === 'games' && data.picked.length > 0 && (
+                    <ul className="ps-mgoals__picked" data-testid="month-goals-picked">
+                      {data.picked.map((g) => (
+                        <li key={g.id} data-done={g.completed || undefined}>{g.title}</li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
           </ul>
         ) : (
           <div className="ps-mgoals__empty">
-            <p className="ps-mgoals__lead">Сколько игр пройти, часов наиграть или трофеев взять — цель задаёшь сам.</p>
+            <p className="ps-mgoals__lead">Выбери игры, которые хочешь пройти в этом месяце, и сколько часов наиграть.</p>
             <button type="button" className="ps-btn ps-btn--primary" onClick={openEditor} data-testid="month-goals-set">Задать цель</button>
           </div>
         )}
       </section>
       {editorEver && (
-        <Sheet open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy} initialFocus="input">
+        <Sheet open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy}>
           <form className="ps-mgoals-form" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
-            <p className="ps-mgoals-form__lead">Можно заполнить одно поле или несколько. Пустое поле — без этой цели.</p>
-            {GOAL_ORDER.map((k) => {
-              const parsed = parseField(fields[k], k);
-              const invalid = fields[k].trim() !== '' && !parsed.ok;
-              const fid = `${hid}-${k}`;
-              return (
-                <div key={k} className="ps-mgoals-form__row">
-                  <label className="ps-mgoals-form__lbl" htmlFor={fid}>{GOAL_LABEL[k]}</label>
-                  <input
-                    id={fid} className="ps-input" type="number" inputMode="numeric" min={GOAL_LIMITS[k].min} max={GOAL_LIMITS[k].max} step={1}
-                    value={fields[k]} disabled={busy} data-testid={`month-goals-input-${k}`}
-                    aria-invalid={invalid || undefined} aria-describedby={`${fid}-h`}
-                    onChange={(e) => setFields((f) => ({ ...f, [k]: e.target.value }))}
-                  />
-                  <p className="ps-mgoals-form__h" id={`${fid}-h`}>{fieldHint(k)}</p>
+            <p className="ps-mgoals-form__lead">Игры — из «Играю» (сначала) и из Плана. Часы можно не задавать.</p>
+
+            <fieldset className="ps-mgoals-form__row" data-testid="month-goals-picks">
+              <legend className="ps-mgoals-form__lbl">Игры пройти</legend>
+              {selected.length > 0 && (
+                <ul className="ps-mgoals-pick">
+                  {selected.map((g) => (
+                    <li key={g.id}>
+                      <PickRow game={catalog.get(g.id) ?? g} checked onToggle={() => toggle(g)} disabled={busy} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {playing.length > 0 && (
+                <div className="ps-mgoals-pickblock">
+                  <p className="ps-mgoals-form__h" id={`${hid}-playing`}>Играю</p>
+                  <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-playing`}>
+                    {playing.map((g) => (
+                      <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
+                    ))}
+                  </ul>
                 </div>
-              );
-            })}
+              )}
+              {plan.length > 0 && (
+                <div className="ps-mgoals-pickblock">
+                  <p className="ps-mgoals-form__h" id={`${hid}-plan`}>План</p>
+                  <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-plan`}>
+                    {plan.map((g) => (
+                      <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selected.length === 0 && playing.length === 0 && plan.length === 0 && (
+                <p className="ps-mgoals-form__h">Нет игр в «Играю» и в Плане — добавь их туда, чтобы выбрать.</p>
+              )}
+              {atLimit && <p className="ps-mgoals-form__h">Можно выбрать до {GOAL_PICK_MAX} игр.</p>}
+            </fieldset>
+
+            <div className="ps-mgoals-form__row">
+              <label className="ps-mgoals-form__lbl" htmlFor={`${hid}-hours`}>{GOAL_LABEL.hours}</label>
+              <input
+                id={`${hid}-hours`} className="ps-input" type="number" inputMode="numeric" min={GOAL_LIMITS.hours.min} max={GOAL_LIMITS.hours.max} step={1}
+                value={hours} disabled={busy} data-testid="month-goals-input-hours"
+                aria-invalid={hours.trim() !== '' && !parseField(hours, 'hours').ok || undefined} aria-describedby={`${hid}-hours-h`}
+                onChange={(e) => setHours(e.target.value)}
+              />
+              <p className="ps-mgoals-form__h" id={`${hid}-hours-h`}>{fieldHint('hours')}</p>
+              {data.hoursHint != null && (
+                <button
+                  type="button" className="ps-btn ps-btn--ghost ps-btn--sm" disabled={busy}
+                  data-testid="month-goals-hours-hint"
+                  onClick={() => setHours(String(data.hoursHint))}
+                >
+                  {hoursHintLabel(data.hoursHint)}
+                </button>
+              )}
+            </div>
+
             {error && <p className="ps-mgoals-form__err" role="alert">{error}</p>}
             <div className="ps-mgoals-form__btns">
               <button type="submit" className="ps-btn ps-btn--primary" disabled={busy} aria-busy={busy || undefined}>Сохранить</button>
               <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => setOpen(false)}>Отмена</button>
               {data.hasGoals && (
-                <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} data-testid="month-goals-clear" onClick={() => void save({ games: null, hours: null, trophies: null })}>
+                <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} data-testid="month-goals-clear" onClick={() => void save({ games: null, hours: null, trophies: null, gameIds: [] })}>
                   Убрать цели
                 </button>
               )}
@@ -150,5 +219,20 @@ export function MonthGoalsCard() {
         </Sheet>
       )}
     </>
+  );
+}
+
+function PickRow({ game, checked, onToggle, disabled }: { game: GoalGame; checked: boolean; onToggle: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button" className="ps-mgoals-pick__btn" data-on={checked || undefined} disabled={disabled}
+      data-testid={`month-goals-game-${game.id}`} aria-pressed={checked}
+      onClick={onToggle}
+    >
+      <Cover url={game.coverUrl} title={game.title} className="ps-mgoals-pick__cover" w={32} />
+      <span className="ps-mgoals-pick__name">{game.title}</span>
+      {game.completed && <span className="ps-mgoals-pick__done">пройдено</span>}
+      <Icon name={checked ? 'check' : 'plus'} size={16} />
+    </button>
   );
 }

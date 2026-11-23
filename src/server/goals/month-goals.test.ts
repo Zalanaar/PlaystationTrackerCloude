@@ -1,4 +1,5 @@
 // Цели месяца: разбор тела, прогресс (границы МСК, скрытые, чужой профиль), сохранение и снятие.
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from '@/server/sync/test-helpers';
@@ -25,6 +26,11 @@ describe('разбор и месяц', () => {
     expect(parseGoals(null)).toEqual({ ok: false });
     expect(hasGoals({ games: 1, hours: null, trophies: null })).toBe(true);
     expect(hasGoals({ games: null, hours: null, trophies: null })).toBe(false);
+    expect(hasGoals({ games: null, hours: null, trophies: 10 })).toBe(false);
+    expect(parseGoals({ gameIds: [3, 1, 3] })).toEqual({ ok: true, value: { games: 2, hours: null, trophies: null, gameIds: [3, 1] } });
+    expect(parseGoals({ gameIds: [] })).toEqual({ ok: true, value: { games: null, hours: null, trophies: null, gameIds: [] } });
+    expect(parseGoals({ gameIds: [0] })).toEqual({ ok: false });
+    expect(parseGoals({ gameIds: 1 })).toEqual({ ok: false });
   });
 });
 
@@ -91,5 +97,53 @@ describe('на PGlite', () => {
     ]);
     const v = await getMonthGoals(t.db, TEST_USER, NOW);
     expect(v.progress).toEqual({ games: 1, hours: 5, trophies: 1 });
+    expect(v.picked).toEqual([]);
+    expect(v.hoursHint).toBeNull();
+  });
+
+  it('выбранные игры: прогресс по «Пройдено», кандидаты из «Играю» и Плана', async () => {
+    const playing = await game({ name: 'GTA' });
+    const planned = await game({ name: 'PlanA' });
+    const done = await game({ name: 'Old' });
+    await t.db.insert(schema.gameStatus).values([
+      { userId: TEST_USER, gameId: playing, status: 'playing' },
+      { userId: TEST_USER, gameId: planned, status: 'backlog' },
+      { userId: TEST_USER, gameId: done, status: 'completed', completedAt: NOW },
+    ]);
+    await t.db.insert(schema.roadmapOrder).values({ userId: TEST_USER, gameId: planned, position: 0, updatedAt: NOW });
+    const empty = await getMonthGoals(t.db, TEST_USER, NOW);
+    expect(empty.candidates.playing.map((g) => g.title)).toEqual(['GTA']);
+    expect(empty.candidates.plan.map((g) => g.title)).toEqual(['PlanA']);
+    expect(empty.candidates.playing[0].id).toBe(playing);
+
+    const saved = await saveMonthGoals(t.db, TEST_USER, NOW, { games: null, hours: null, trophies: null, gameIds: [playing, planned] });
+    expect(saved.hasGoals).toBe(true);
+    expect(saved.goals.games).toBe(2);
+    expect(saved.picked.map((g) => g.title)).toEqual(['GTA', 'PlanA']);
+    expect(saved.progress.games).toBe(0);
+    expect(saved.candidates.playing).toEqual([]);
+    expect(saved.candidates.plan).toEqual([]);
+
+    await t.db.update(schema.gameStatus).set({ status: 'completed', completedAt: NOW }).where(eq(schema.gameStatus.gameId, playing));
+    const after = await getMonthGoals(t.db, TEST_USER, NOW);
+    expect(after.progress.games).toBe(1);
+    expect(after.picked.find((g) => g.id === playing)?.completed).toBe(true);
+    expect(after.picked.find((g) => g.id === planned)?.completed).toBe(false);
+
+    const other = await getMonthGoals(t.db, TEST_USER_2, NOW);
+    expect(other.picked).toEqual([]);
+    expect(other.hasGoals).toBe(false);
+  });
+
+  it('подсказка часов: среднее за прошедшие месяцы со снимками', async () => {
+    const g = await game({ name: 'H' });
+    await t.db.insert(schema.playtimeSnapshots).values([
+      { userId: TEST_USER, gameId: g, snapshotDate: '2026-08-31', playDurationSeconds: 5 * 3600 },
+      { userId: TEST_USER, gameId: g, snapshotDate: '2026-09-30', playDurationSeconds: 15 * 3600 },
+      { userId: TEST_USER, gameId: g, snapshotDate: '2026-10-31', playDurationSeconds: 35 * 3600 },
+    ]);
+    const v = await getMonthGoals(t.db, TEST_USER, NOW);
+    // сентябрь +10 ч, октябрь +20 ч (снимок 31.08 — база); среднее 15.
+    expect(v.hoursHint).toBe(15);
   });
 });

@@ -1077,6 +1077,25 @@ export const monthGoals = pgTable(
   ],
 );
 
+/** Игры, которые пользователь хочет пройти в этом месяце (цель «игр»). */
+export const monthGoalGames = pgTable(
+  'month_goal_games',
+  {
+    userId: userIdCol(),
+    month: text().notNull(),
+    gameId: integer('game_id').notNull(),
+    position: integer().notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.month, t.gameId] }),
+    index('month_goal_games_user_month_pos_idx').on(t.userId, t.month, t.position),
+    foreignKey({ name: 'month_goal_games_goal_fk', columns: [t.userId, t.month], foreignColumns: [monthGoals.userId, monthGoals.month] }).onDelete('cascade'),
+    foreignKey({ name: 'month_goal_games_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+    check('month_goal_games_month_check', sql`${t.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    check('month_goal_games_position_check', sql`${t.position} >= 0`),
+  ],
+);
+
 /** Настройки web-push на профиль. Нет строки = значения по умолчанию (напоминание об отложенной игре включено). */
 export const pushPrefs = pgTable('push_prefs', {
   userId: integer('user_id')

@@ -10,7 +10,7 @@ const SRC = join(__dirname, '..');
 const USER_TABLES = [
   'games', 'gameStatus', 'trophySets', 'gameTrophySets', 'trophies', 'playtimeSnapshots', 'syncRuns', 'psnProfile', 'statusBackups',
   'gameMonthExclusions', 'roadmapSettings', 'plannedGames', 'roadmapOrder', 'roadmapExcluded', 'recommendDislikes', 'recommendReasons',
-  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes', 'providerUsage', 'ownedMarks', 'manualGames', 'clientErrors', 'gameTags', 'gameTagLinks', 'gamePrices', 'userChecklist', 'calendarFeeds', 'pushSubscriptions', 'pushLog', 'showcaseShares', 'monthGoals', 'pushPrefs', 'huntGames', 'huntTrophies', 'gameDiaryEntries',
+  'recommendLlmUsage', 'recommendDiscoverCache', 'recommendExternalDislikes', 'providerUsage', 'ownedMarks', 'manualGames', 'clientErrors', 'gameTags', 'gameTagLinks', 'gamePrices', 'userChecklist', 'calendarFeeds', 'pushSubscriptions', 'pushLog', 'showcaseShares', 'monthGoals', 'monthGoalGames', 'pushPrefs', 'huntGames', 'huntTrophies', 'gameDiaryEntries',
 ];
 
 /** Модули, которым userId не нужен, и почему. Новые записи только с причиной. */

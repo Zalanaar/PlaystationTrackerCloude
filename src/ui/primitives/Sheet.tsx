@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons';
+import { keyboardHeight } from '../keyboard';
 
 /** Модальное окно: на десктопе по центру, на мобильном bottom sheet. Портал в body (шапка с blur ломает fixed). */
 export function Sheet({
@@ -33,6 +34,29 @@ export function Sheet({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- селектор фокуса нужен только в момент открытия
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const wrap = ref.current?.parentElement;
+    const vv = window.visualViewport;
+    const upd = () => {
+      const kb = keyboardHeight(window.innerHeight, vv ?? null);
+      wrap?.style.setProperty('--sheet-kb', `${kb}px`);
+      const el = document.activeElement;
+      if (kb > 0 && el instanceof HTMLElement && wrap?.contains(el)) el.scrollIntoView({ block: 'nearest' });
+    };
+    upd();
+    window.addEventListener('resize', upd);
+    vv?.addEventListener('resize', upd);
+    vv?.addEventListener('scroll', upd);
+    return () => {
+      window.removeEventListener('resize', upd);
+      vv?.removeEventListener('resize', upd);
+      vv?.removeEventListener('scroll', upd);
+      wrap?.style.removeProperty('--sheet-kb');
+    };
+  }, [open]);
+
 
   // Фокус мог упасть на body: сфокусированная кнопка внутри исчезла (например, «Повторить» сменилась сообщением),
   // а onKeyDown панели ловит только события изнутри. Тогда Esc ловим на документе, но только верхней модалкой.

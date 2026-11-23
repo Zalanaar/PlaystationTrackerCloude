@@ -216,8 +216,8 @@ a.ps-btn { text-decoration: none; }
 }
 @media (max-width: 767px) {
 
-  .ps-sheet-wrap { place-items: end center; }
-  .ps-sheet, .ps-sheet[data-wide="true"] { width: 100%; max-height: 85dvh; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+  .ps-sheet-wrap { place-items: end center; padding-bottom: var(--sheet-kb, 0px); }
+  .ps-sheet, .ps-sheet[data-wide="true"] { width: 100%; max-height: calc(85dvh - var(--sheet-kb, 0px)); border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
   .ps-sheet__handle { display: block; width: 36px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); margin: 0 auto var(--sp-2); }
   .ps-menu-item--tall { min-height: 48px; }
   .ps-menu-item { min-height: 48px; }

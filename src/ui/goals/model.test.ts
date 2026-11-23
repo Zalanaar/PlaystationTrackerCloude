@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barPercent, fieldHint, monthTitle, parseField, progressLine } from './model';
+import { barPercent, fieldHint, hoursHintLabel, monthTitle, parseField, progressLine } from './model';
 
 describe('подписи целей месяца', () => {
   it('заголовок, строка прогресса, шкала, разбор поля', () => {
@@ -14,5 +14,6 @@ describe('подписи целей месяца', () => {
     expect(parseField('0', 'games')).toEqual({ ok: false });
     expect(parseField('101', 'games')).toEqual({ ok: false });
     expect(fieldHint('hours')).toContain('744');
+    expect(hoursHintLabel(42)).toBe('В среднем 42 ч в месяц');
   });
 });
