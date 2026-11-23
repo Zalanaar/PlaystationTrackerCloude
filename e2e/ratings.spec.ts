@@ -77,5 +77,5 @@ test('нет оценок: пустое состояние; в меню пунк
   const chip = page.getByTestId('stats-sections').locator('[data-sec="ratings"]');
   await expect(chip).toHaveText('Оценки');
   await chip.click();
-  await expect(page.getByTestId('ratings').getByRole('heading', { name: 'Оценки' })).toBeVisible();
+  await expect(page.getByTestId('ratings').getByRole('heading', { name: 'Оценки', exact: true })).toBeVisible();
 });
