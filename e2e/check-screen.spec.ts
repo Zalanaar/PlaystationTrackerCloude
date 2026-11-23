@@ -263,7 +263,7 @@ test.describe('Проверить (desktop)', () => {
     await expect(page).toHaveURL(/mode=check/);
     await expect(title(page, 'Stray')).toBeVisible();
     await page.keyboard.press('0');
-    await page.getByRole('group', { name: 'Какие игры разбирать' }).getByRole('button', { name: /^Все/ }).click();
+    await page.getByRole('group', { name: 'Какие игры разбирать' }).getByRole('button', { name: /^Новые/ }).click();
     await expect(page).toHaveURL(/\/triage$/);
     await page.getByRole('group', { name: 'Какие игры разбирать' }).getByRole('button', { name: /^Проверить/ }).click();
     await expect(title(page, 'Stray')).toBeVisible();
