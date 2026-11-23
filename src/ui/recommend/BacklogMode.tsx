@@ -4,6 +4,7 @@ import Link from '@/ui/IntentLink'; // Пакет 6: без предзагруз
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ApiError, fetchSummary, putStatus } from '../collection/api';
+import { announcePlaying } from '../guides/startPlaying';
 import { useOpenGameFromPage } from '../collection/useGameLink';
 import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
@@ -135,6 +136,7 @@ export function BacklogMode({ active, onCandidates, onTime }: { active: boolean;
     setBusyFor(id, 'start');
     try {
       await putStatus(id, 'playing');
+      announcePlaying({ id, title: name });
       toast({ text: `«${name}» теперь в «Играю»`, ttl: 6000, action: { label: 'К коллекции', run: () => router.push('/') } });
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) { setBusyFor(id, null); return; }

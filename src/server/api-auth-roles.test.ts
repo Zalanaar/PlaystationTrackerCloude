@@ -249,6 +249,10 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const bk = await import('@/app/api/games/status-backups/route');
     const feed = await import('@/app/api/trophies/feed/route');
     const near = await import('@/app/api/trophies/near/route');
+    const gd = await import('@/app/api/games/[id]/guide/route');
+    const guideRes = await gd.GET(await asB(`/api/games/${aGame}/guide`, 'GET'), pid(aGame));
+    expect(guideRes.status, await guideRes.text()).toBe(404);
+
     const calls: [string, Promise<Response>][] = [
       ['activity', act.GET(await asB('/api/stats/activity?year=2026', 'GET'))],
       ['recommend', rec.GET(await asB('/api/recommend', 'GET'))],

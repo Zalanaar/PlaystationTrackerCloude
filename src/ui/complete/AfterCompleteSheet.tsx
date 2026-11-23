@@ -12,6 +12,7 @@ import { Sheet } from '../primitives/Sheet';
 import { useToast } from '../primitives/Toast';
 import { fetchRoadmap } from '../roadmap/api';
 import { requestDataRefresh } from '../shell/refresh';
+import { announcePlaying } from '../guides/startPlaying';
 import { nextFromPlan, type CompletedGame, type NextUp } from './afterComplete';
 
 type Review = { kind: 'loading' } | { kind: 'ok'; review: GameReview | null } | { kind: 'error' };
@@ -38,6 +39,7 @@ export function AfterCompleteSheet({ game, onClose }: { game: CompletedGame; onC
     setBusy(true);
     try {
       await putStatus(n.gameId, 'playing');
+      announcePlaying({ id: n.gameId, title: n.title });
       toast({ text: `«${n.title}»: Играю` });
       requestDataRefresh('change');
       onClose();

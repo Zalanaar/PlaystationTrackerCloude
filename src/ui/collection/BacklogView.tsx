@@ -2,6 +2,7 @@
 
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { announceCompleted } from '../complete/afterComplete';
+import { announcePlaying } from '../guides/startPlaying';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useDataRefresh } from '../shell/refresh';
 import dynamic from 'next/dynamic';
@@ -330,6 +331,7 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
         action: { label: 'Отменить', run: () => void restore(game) },
       });
       if (status === 'completed') announceCompleted(game); // идея 3
+      if (status === 'playing') announcePlaying(game);
     } catch (e) {
       itemsRef.current = beforeB;
       serviceRef.current = beforeS;

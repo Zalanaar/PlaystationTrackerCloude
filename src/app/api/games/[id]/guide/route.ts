@@ -2,12 +2,27 @@ import { getDb } from '@/db';
 import { readJsonBody } from '@/server/collection/http';
 import { NotFoundError } from '@/server/collection/mutations';
 import { parseGameId } from '@/server/collection/validation';
-import { parseGuideBody, setGameGuide } from '@/server/guides/game-guide';
+import { getGameGuide, parseGuideBody, setGameGuide } from '@/server/guides/game-guide';
 import { fail, ok } from '@/server/http';
 import { requireUser } from '@/server/auth/require-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+
+// GET — гайд главной карточки (совпадение из индекса / своя ссылка). Нужен листу «Не пропусти» при старте игры.
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const a = await requireUser(req);
+  if (!a.ok) return a.response;
+  const id = parseGameId((await ctx.params).id);
+  if (id === null) return fail(400, 'invalid_request', 'Некорректный id игры.');
+  try {
+    return ok({ guide: await getGameGuide(getDb(), a.user.id, id) });
+  } catch (e) {
+    if (e instanceof NotFoundError) return fail(404, 'not_found', 'Игра не найдена.');
+    return fail(503, 'db_unavailable', 'База данных недоступна.');
+  }
+}
 
 // F2-B: своя ссылка на гайд {"override": "https://…"|null} и/или «Не тот гайд» {"dismissed": true|false}. Контракт F2-B.
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {

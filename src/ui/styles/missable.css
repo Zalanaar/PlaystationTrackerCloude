@@ -1,0 +1,5 @@
+/* Лист «Не пропусти» при старте игры. */
+.ps-missable__body { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ps-missable__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-missable__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ps-missable__acts .ps-btn { min-height: var(--tap-min); }

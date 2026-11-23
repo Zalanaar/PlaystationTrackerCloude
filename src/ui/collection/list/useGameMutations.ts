@@ -6,6 +6,7 @@ import { formatNumber } from '../../format';
 import { useToast } from '../../primitives/Toast';
 import { STATUS_META } from '../../tokens';
 import { announceCompleted } from '../../complete/afterComplete';
+import { announcePlaying } from '../../guides/startPlaying';
 import { errorText, patchStatusDate, postBulk, putHidden, putStatus } from '../api';
 import { applyStatusLocally, adjustCounts, removeFromCounts } from '../filters';
 import { mapLimit } from '../limit';
@@ -68,6 +69,7 @@ export function useGameMutations({ poolRef, setPool, setOpen, refresh, selected,
         action: silent ? undefined : { label: 'Отменить', run: () => void undoRef.current?.(r.game, prev.status, true, oldDate(prev)) },
       });
       if (!silent && status === 'completed') announceCompleted(r.game); // идея 3: оценка и «что дальше»
+      if (!silent && status === 'playing') announcePlaying(r.game);
       refresh();
     } catch (e) {
       replaceGames([prev]);

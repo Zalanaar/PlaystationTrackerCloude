@@ -2,6 +2,7 @@
 
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { announceCompleted } from '../complete/afterComplete';
+import { announcePlaying } from '../guides/startPlaying';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
@@ -124,6 +125,7 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
       await putStatus(g.id, status);
       toast({ text: status === null ? 'Статус сброшен' : 'Статус изменён', action: { label: 'Отменить', run: () => void revert(g) } });
       if (status === 'completed') announceCompleted(g); // идея 3
+      if (status === 'playing') announcePlaying(g);
       reload();
     } catch (e) {
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });

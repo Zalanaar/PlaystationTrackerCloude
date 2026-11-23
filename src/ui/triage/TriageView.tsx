@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointer
 import type { GameItem, GameStatusValue, StatusCounts } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
+import { announcePlaying } from '../guides/startPlaying';
 import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
@@ -107,6 +108,7 @@ export function TriageView() {
     const run = async () => {
       try {
         await putStatus(game.id, status);
+        if (status === 'playing') announcePlaying(game);
       } catch (e) {
         onFail();
         toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });

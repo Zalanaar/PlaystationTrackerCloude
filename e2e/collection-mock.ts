@@ -608,14 +608,21 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   }));
   // F2-B: PUT гайда; «Не тот гайд» прячет совпадение, своя ссылка приоритетнее
   const guideOut = (id: number) => { const x = m.guides[id]; return { match: x.dismissed ? null : x.match, override: x.override, dismissed: x.dismissed }; };
-  await page.route(/\/api\/games\/\d+\/guide$/, (route) => mutate(route, (b) => {
+  await page.route(/\/api\/games\/\d+\/guide$/, (route) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/guide/)?.[1]);
-    if (!m.games.some((x) => x.id === id)) return NOT_FOUND;
-    const x = (m.guides[id] ??= { match: null, override: null, dismissed: false });
-    if ('override' in b) x.override = typeof b.override === 'string' && b.override ? b.override : null;
-    if (typeof b.dismissed === 'boolean') x.dismissed = b.dismissed;
-    return { gameId: id, guide: guideOut(id) };
-  }));
+    if (route.request().method() === 'GET') {
+      if (!m.games.some((x) => x.id === id)) return json(route, { code: 'not_found', message: 'x' }, 404);
+      const x = m.guides[id] ?? { match: null, override: null, dismissed: false };
+      return json(route, { guide: { match: x.dismissed ? null : x.match, override: x.override, dismissed: x.dismissed } });
+    }
+    return mutate(route, (b) => {
+      if (!m.games.some((x) => x.id === id)) return NOT_FOUND;
+      const x = (m.guides[id] ??= { match: null, override: null, dismissed: false });
+      if ('override' in b) x.override = typeof b.override === 'string' && b.override ? b.override : null;
+      if (typeof b.dismissed === 'boolean') x.dismissed = b.dismissed;
+      return { gameId: id, guide: guideOut(id) };
+    });
+  });
   // F1.1: PUT отзыва; ключа нет = поле без изменений, оба null = отзыв удалён
   await page.route(/\/api\/games\/\d+\/review$/, (route) => mutate(route, (b) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/review/)?.[1]);

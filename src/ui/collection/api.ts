@@ -135,6 +135,7 @@ export const putReview = (id: number, body: { rating?: number | null; note?: str
 
 /** F2-B: своя ссылка на гайд (null — убрать) и/или «Не тот гайд»; ответ — id главной карточки и итоговый гайд. */
 export type GuideResponse = { gameId: number; guide: GameGuide };
+export const fetchGameGuide = (id: number, signal?: AbortSignal) => call<{ guide: GameGuide }>(`/api/games/${id}/guide`, { signal }).then((r) => r.guide);
 export const putGuide = (id: number, body: { override?: string | null; dismissed?: boolean }) =>
   call<GuideResponse>(`/api/games/${id}/guide`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) });
 

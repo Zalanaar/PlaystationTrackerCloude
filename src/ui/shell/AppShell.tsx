@@ -26,6 +26,7 @@ import { SyncIndicator } from './SyncIndicator';
 import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
 import { AddMenu } from './AddMenu';
 import { AfterCompleteHost } from '../complete/AfterCompleteHost';
+import { StartPlayingHost } from '../guides/StartPlayingHost';
 import { useAppBadge } from '../pwa/appBadge';
 import { useOfflineNav } from './offlineNav';
 import { PullToRefresh } from './PullToRefresh';
@@ -97,6 +98,7 @@ export function AppHeader() {
     <>
       <PullToRefresh />
       <AfterCompleteHost />
+      <StartPlayingHost />
       <header className="ps-header">
         <div className="ps-header__in ps-container">
           <Link href="/" className="ps-logo" data-section={title ? '' : undefined}>PS TRACKER</Link>
