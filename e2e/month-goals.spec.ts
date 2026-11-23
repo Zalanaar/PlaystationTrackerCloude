@@ -69,7 +69,7 @@ test.describe('Цели месяца на главной', () => {
     const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId('month-goals-input-trophies')).toHaveCount(0);
-    await expect(dialog.getByText('Играю')).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-picks').getByText('Играю', { exact: true })).toBeVisible();
     await expect(dialog.getByTestId('month-goals-game-9')).toBeVisible();
     await dialog.getByTestId('month-goals-game-3').click();
     await dialog.getByTestId('month-goals-hours-hint').click();
