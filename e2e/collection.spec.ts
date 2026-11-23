@@ -34,8 +34,10 @@ test.describe('коллекция (desktop)', () => {
     await expect(page.locator('.ps-statline')).toHaveText(/10\s+игр\s*·\s*\d+\s*ч\s*·\s*1\s+платина/);
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Horizon Forbidden West');
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('28 ч 17 м');
-    // блоки в порядке: хроника, бэклог, отложено, не разобрано
-    await expect(coll(page).locator('h2')).toHaveText([/^2026/, /^2025/, /^2024/, /^Бэклог/, /^Отложено/, /^Не разобрано/, /^Игры с других платформ/]);
+    // блоки в порядке: хроника, строка-ссылка в бэклог, не разобрано
+    await expect(coll(page).locator('h2')).toHaveText([/^2026/, /^2025/, /^2024/, /^Не разобрано/, /^Игры с других платформ/]);
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Бэклог 1 · Отложено 1/);
+    await expect(page.getByTestId('home-backlog-row')).toHaveAttribute('href', '/backlog');
     await expect(tab(page, /^Все/)).toContainText('10');
     await expect(tab(page, /Пройдено/)).toContainText('3');
     await expect(tab(page, /Брошено/)).toContainText('2');
@@ -64,19 +66,19 @@ test.describe('коллекция (desktop)', () => {
     await expect(coll(page).locator('#y2025 .ps-card__title')).toHaveText(['Bloodborne', 'The Witcher 3: Wild Hunt']);
   });
 
-  test('якоря «Перейти»: год раскрывается, блоки Бэклог и Не разобрано', async ({ page, context, baseURL }) => {
+  test('якоря «Перейти»: год раскрывается, блок Не разобрано', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     const nav = page.getByRole('navigation', { name: 'Годы и блоки' });
-    await expect(nav.getByRole('link')).toHaveText(['2026', '2025', '2024', 'Бэклог', 'Не разобрано']);
+    await expect(nav.getByRole('link')).toHaveText(['2026', '2025', '2024', 'Не разобрано']);
     await nav.getByRole('link', { name: '2024' }).click();
     await expect(coll(page).locator('#y2024 .ps-year__btn')).toHaveAttribute('aria-expanded', 'true');
     await expect(coll(page).locator('#y2024 .ps-card__title')).toHaveText(['Ведьмак 3: Дикая Охота']);
   });
 
-  test('превью «Не разобрано» ведёт в Разбор, «Все →» в бэклог', async ({ page, context, baseURL }) => {
+  test('превью «Не разобрано» ведёт в Разбор, строка бэклога — на вкладку «Бэклог»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(coll(page).getByRole('link', { name: 'Разобрать по одной' })).toHaveAttribute('href', '/triage');
-    await expect(coll(page).locator('#backlog').getByRole('link', { name: /Все/ })).toHaveAttribute('href', '/backlog');
+    await expect(page.getByTestId('home-backlog-row')).toHaveAttribute('href', '/backlog');
   });
 
   test('статус-чипы фильтруют, URL отражает фильтр, "Все" сбрасывает', async ({ page, context, baseURL }) => {
@@ -548,18 +550,19 @@ for (const width of [390, 440]) {
       await expect(page.getByTestId('sheet-select')).toHaveCount(0);
     });
 
-    test('F12: ряд «Перейти» на телефоне — одна строка, блоки первыми, «Бэклог» ведёт к блоку', async ({ page, context, baseURL }) => {
+    test('F12: ряд «Перейти» на телефоне — одна строка, блоки первыми; строка ведёт в Бэклог', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       const nav = page.getByRole('navigation', { name: 'Годы и блоки' });
-      await expect(nav.getByRole('link', { name: 'Бэклог' })).toBeVisible();
+      await expect(nav.getByRole('link', { name: 'Не разобрано' })).toBeVisible();
       await expect(nav.getByRole('link', { name: 'Другие платформы' })).toBeVisible();
       const order = await nav.evaluate((n) => [...n.querySelectorAll('a')].filter((a) => a.offsetParent).sort((x, y) => x.getBoundingClientRect().left - y.getBoundingClientRect().left).map((a) => a.textContent));
       expect(order.slice(-3)).toEqual(['2026', '2025', '2024']);
-      expect(order.indexOf('Бэклог')).toBeLessThan(order.indexOf('2026'));
+      expect(order.indexOf('Не разобрано')).toBeLessThan(order.indexOf('2026'));
       expect(await nav.evaluate((n) => n.getBoundingClientRect().height)).toBeLessThanOrEqual(56);   // одна строка
       expect(await noOverflow(page)).toBeLessThanOrEqual(0);
-      await nav.getByRole('link', { name: 'Бэклог' }).click();
-      await expect(page.locator('#backlog')).toBeInViewport();
+      const row = page.getByTestId('home-backlog-row');
+      await expect(row).toHaveText(/Бэклог 1 · Отложено 1/);
+      await expect(row).toHaveAttribute('href', '/backlog');
     });
 
     const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

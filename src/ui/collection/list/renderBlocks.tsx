@@ -14,6 +14,7 @@ import { SERVICE_ROWS, SERVICE_ROWS_STEP } from './pool';
 import { renderChronicle } from './renderChronicle';
 import { moreBtn, renderGames, renderPreview } from './renderGames';
 import type { RenderCtx } from './renderCtx';
+import { isHomeBacklogRow } from '../BacklogLinkRow';
 
 /** Блок «Игры-сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
 export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
@@ -78,6 +79,7 @@ export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
 
 export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
   const { view, cols, filters, counts, byBlock, forgotten, checkCount, setFilters, shownCount, rawLoaded } = c;
+  if (isHomeBacklogRow(filters) && (b === 'backlog' || b === 'service' || b === 'shelved')) return null;
   const list = byBlock[b] ?? [];
   if (b === 'playing') {
     // hero «Играю» сверху; здесь те же игры обычными карточками, до годов (Фаза 22, 1.2) — только если hero показал не все (П9: без повтора).

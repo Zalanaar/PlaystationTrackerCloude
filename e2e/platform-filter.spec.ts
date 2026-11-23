@@ -90,7 +90,8 @@ test.describe('F4: фильтр платформы', () => {
 
     if (isMobile(page)) await page.getByTestId('platform-chip').click();
     else await pickCollection(page, 'Все');
-    await expect(blk.locator('.ps-block__cnt').first()).toHaveText('5');
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Бэклог 5/);
+    await expect(page.getByRole('region', { name: 'Бэклог' })).toHaveCount(0);
     expect((await context.cookies()).find((c) => c.name === 'ps-platform')).toBeUndefined();
   });
 });

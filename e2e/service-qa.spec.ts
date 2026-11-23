@@ -44,32 +44,24 @@ test('BUG-E2: Коллекция на 360px без горизонтальног�
 
 test.describe('QA: блок «Игры-сервисы» на узких экранах', () => {
   for (const w of WIDTHS) {
-    test(`${w}px: 120 сервисов с длинными названиями, нет горизонтального скролла, раскрытие/сворачивание`, async ({ page, context, baseURL }) => {
+    test(`${w}px: 120 сервисов с длинными названиями, нет горизонтального скролла, без горизонтального скролла блока`, async ({ page, context, baseURL }) => {
       await page.setViewportSize({ width: w, height: 800 });
       await login(context, baseURL!);
       await mockApi(page, [...seed(), ...longTitles(serviceGames(120))]);
-      await page.goto('/');
+      await page.goto('/?status=service');
       const block = page.locator('#service');
       await expect(block).toBeVisible();
       await expect(block.locator('.ps-block__cnt')).toHaveText('120');
       // Документ целиком на 320/360 шире экрана из-за панели фильтров (BUG-E2, не блок сервисов): проверяем сам блок.
       expect(await blockOverflow(page, '#service')).toBe(0);
       if (w >= 390) expect(await overflow(page)).toBeLessThanOrEqual(0);
-      const toggle = block.getByTestId('service-toggle');
-      await expect(toggle).toBeVisible();
-      const box = await toggle.boundingBox();
-      expect(box!.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(w);
-      expect(box!.height).toBeGreaterThanOrEqual(40);
-      await toggle.click();
-      await expect(toggle).toHaveText('Свернуть');
-      expect(await blockOverflow(page, '#service')).toBe(0);
+      await expect(block.getByTestId('service-toggle')).toHaveCount(0);
       for (const t of THEMES) {
         await theme(page, t);
         await block.scrollIntoViewIfNeeded();
+        expect(await blockOverflow(page, '#service')).toBe(0);
         if (SHOTS) await block.screenshot({ path: `${SHOTS}/svc-${w}-${t}.png` });
       }
-      await toggle.click();
     });
   }
 
@@ -77,7 +69,7 @@ test.describe('QA: блок «Игры-сервисы» на узких экра
     await page.setViewportSize({ width: 320, height: 700 });
     await login(context, baseURL!);
     await mockApi(page, [...seed(), ...longTitles(serviceGames(30))]);
-    await page.goto('/');
+    await page.goto('/?status=service');
     await setView(page, 'Список');
     const block = page.locator('#service');
     await expect(block).toBeVisible();

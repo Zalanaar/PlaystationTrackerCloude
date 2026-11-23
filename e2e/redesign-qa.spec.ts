@@ -196,7 +196,7 @@ test.describe('кадры мобильной хроники', () => {
       await page.screenshot({ path: `${SHOTS}/crop${w}-chron2.png` });
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${SHOTS}/crop${w}-top.png` });
-      await page.evaluate(() => document.querySelector('#backlog')!.scrollIntoView());
+      await page.evaluate(() => document.querySelector('[data-testid="home-backlog-row"]')!.scrollIntoView());
       await page.waitForTimeout(600);
       await page.screenshot({ path: `${SHOTS}/crop${w}-backlog.png` });
       await setView(page, 'Плотно');

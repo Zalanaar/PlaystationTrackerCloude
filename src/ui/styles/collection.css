@@ -269,3 +269,23 @@
 .ps-gsearch__txt { display: grid; min-width: 0; }
 .ps-gsearch__txt b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-gsearch__txt small { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+
+/* Строка-ссылка вместо блоков Бэклог / Отложено / Сервисы на главной (ревизия 23.11). */
+.ps-backlog-row { margin: var(--sp-5) 0 0; }
+.ps-backlog-row__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-body);
+}
+.ps-backlog-row__link:hover { background: var(--surface-3); }
+.ps-backlog-row__link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

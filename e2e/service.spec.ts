@@ -21,7 +21,6 @@ const visibleCards = (page: Page) => block(page).locator('article.ps-card:visibl
 const tab = (page: Page, name: RegExp) => page.getByRole('group', { name: 'Статус' }).getByRole('button', { name });
 const toggle = (page: Page) => block(page).getByTestId('service-toggle');
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-const gridCols = (page: Page) => block(page).locator('.ps-grid').first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
 
 test.describe('блок «Игры-сервисы»', () => {
   test('нет игр-сервисов: блок, якорь и счётчик-ссылка скрыты; пустой чип «Сервис» тоже скрыт (Пакет 6, п. 5)', async ({ page, context, baseURL }) => {
@@ -32,49 +31,38 @@ test.describe('блок «Игры-сервисы»', () => {
     await expect(tab(page, /Сервис/)).toHaveCount(0);
   });
 
-  test('порядок блоков, счётчик, один ряд и «Показать ещё N» / «Свернуть»', async ({ page, context, baseURL }) => {
+  test('на главной сервисы в строке-ссылке, не отдельным блоком; в фильтре «Сервис» — сетка', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
-    await expect(block(page)).toBeVisible();
-    // «Сейчас» (Фаза 22) идёт первым; Игры-сервисы после Бэклога, до Отложено
-    await expect(coll(page).locator('section.ps-block > .ps-block__head h2')).toHaveText(['Бэклог', 'Игры-сервисы', 'Отложено', 'Не разобрано', 'Игры с других платформ']);
-    await expect(block(page).locator('.ps-block__cnt')).toHaveText('9');
-    await expect(block(page).locator('.ps-block__head svg')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Игры-сервисы' })).toHaveCount(0);
+    await expect(block(page)).toHaveCount(0);
+    const row = page.getByTestId('home-backlog-row');
+    await expect(row).toHaveText(/Бэклог 1 · Отложено 1 · Сервисы 9/);
+    await expect(row).toHaveAttribute('href', '/backlog');
     await expect(tab(page, /Сервис/)).toContainText('9');
-    const cols = await gridCols(page);
-    expect([6, 5, 4, 2]).toContain(cols);
-    // игры-сервисы не попали в хронику и бэклог
     await expect(coll(page).locator('#y2026')).not.toContainText('Сервис 1');
-    await expect(coll(page).locator('#backlog')).not.toContainText('Сервис 1');
-    // свёрнуто: один ряд
-    await expect(visibleCards(page)).toHaveCount(cols);
-    await expect(toggle(page)).toHaveText(`Показать ещё ${9 - cols}`);
-    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
-    // порядок по последнему запуску (новые первыми)
-    await expect(visibleCards(page).first().locator('.ps-card__title')).toHaveText('Сервис 1');
-    // раскрыть
-    await toggle(page).click();
-    await expect(toggle(page)).toHaveText('Свернуть');
-    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
-    await expect(visibleCards(page)).toHaveCount(9);
-    await toggle(page).click();
-    await expect(visibleCards(page)).toHaveCount(cols);
-    await expect(toggle(page)).toHaveText(`Показать ещё ${9 - cols}`);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
+
+    await tab(page, /Сервис/).click();
+    await expect(block(page)).toBeVisible();
+    await expect(block(page).locator('.ps-block__cnt')).toHaveText('9');
+    await expect(visibleCards(page)).toHaveCount(9);
+    await expect(visibleCards(page).first().locator('.ps-card__title')).toHaveText('Сервис 1');
+    await expect(toggle(page)).toHaveCount(0);
   });
 
-  test('игр не больше ряда: кнопки нет', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(2)]);
+  test('фильтр «Сервис»: две игры без кнопки «Показать ещё»', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?status=service', [...seed(), ...serviceGames(2)]);
     await expect(block(page)).toBeVisible();
     await expect(visibleCards(page)).toHaveCount(2);
     await expect(toggle(page)).toHaveCount(0);
   });
 
-  test('якорь «Сервисы» ведёт к блоку; на карточке ромб с подписью «Игра-сервис»', async ({ page, context, baseURL }) => {
+  test('строка ведёт в Бэклог; в фильтре «Сервис» на карточке ромб с подписью «Игра-сервис»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(3)]);
-    const nav = page.getByRole('navigation', { name: 'Годы и блоки' });
-    // F12: ряд «Перейти» есть и на телефоне
-    await nav.getByRole('link', { name: 'Сервисы' }).click();
-    await expect(block(page)).toBeInViewport();
+    await expect(page.getByRole('navigation', { name: 'Годы и блоки' }).getByRole('link', { name: 'Сервисы' })).toHaveCount(0);
+    await expect(page.getByTestId('home-backlog-row')).toHaveAttribute('href', '/backlog');
+    await tab(page, /Сервис/).click();
+    await expect(block(page)).toBeVisible();
     await expect(visibleCards(page).first().locator('.ps-card__glyph')).toHaveAttribute('title', 'Игра-сервис');
     await expect(visibleCards(page).first().locator('.ps-card__date')).toHaveCount(0);
   });
@@ -91,25 +79,24 @@ test.describe('блок «Игры-сервисы»', () => {
     await expect(block(page)).toHaveCount(0);
   });
 
-  test('режим «Список»: пять строк и «Показать ещё» по 10', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!, '/?view=list', [...seed(), ...serviceGames(20)]);
-    await expect(block(page).locator('.ps-row')).toHaveCount(5);
-    await expect(toggle(page)).toHaveText('Показать ещё 15');
-    await toggle(page).click();
-    await expect(block(page).locator('.ps-row')).toHaveCount(15);
-    await expect(toggle(page)).toHaveText('Показать ещё 5');
-    await toggle(page).click();
+  test('режим «Список» и фильтр «Сервис»: все строки сразу, без «Показать ещё»', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?view=list&status=service', [...seed(), ...serviceGames(20)]);
     await expect(block(page).locator('.ps-row')).toHaveCount(20);
-    await expect(toggle(page)).toHaveText('Свернуть');
+    await expect(toggle(page)).toHaveCount(0);
   });
 
-  test('3 темы: блок помещается по ширине', async ({ page, context, baseURL }) => {
+  test('3 темы: строка на главной и блок в фильтре помещаются по ширине', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
-    for (const t of ['night', 'graphite', 'ps5'] as const) {
-      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
-      expect(await overflow(page), t).toBeLessThanOrEqual(0);
+    for (const th of ['night', 'graphite', 'ps5'] as const) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, th);
+      expect(await overflow(page), th).toBeLessThanOrEqual(0);
+    }
+    await tab(page, /Сервис/).click();
+    for (const th of ['night', 'graphite', 'ps5'] as const) {
+      await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, th);
+      expect(await overflow(page), th).toBeLessThanOrEqual(0);
       const c = await block(page).locator('.ps-block__head svg').evaluate((el) => getComputedStyle(el).color);
-      expect(c, t).toBe('rgb(120, 180, 255)');
+      expect(c, th).toBe('rgb(120, 180, 255)');
     }
   });
 });
@@ -128,6 +115,9 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'service' } });
     await expect(tab(page, /Сервис/)).toContainText('1');
     await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
+    await expect(block(page)).toHaveCount(0);
+    await tab(page, /Сервис/).click();
     await expect(block(page)).toBeVisible();
     await expect(visibleCards(page)).toHaveCount(1);
     await expect(visibleCards(page).first()).toContainText('Stray');
@@ -140,8 +130,10 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     await expect(coll(page).locator('#y2026')).toContainText('God of War');
     await coll(page).getByRole('button', { name: 'Статус: God of War' }).click();
     await page.getByRole('menuitemradio', { name: 'Сервис' }).click();
-    await expect(block(page)).toContainText('God of War');
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
     await expect(coll(page).locator('#y2026')).not.toContainText('God of War');
+    await tab(page, /Сервис/).click();
+    await expect(block(page)).toContainText('God of War');
   });
 });
 

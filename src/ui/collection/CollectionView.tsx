@@ -35,6 +35,7 @@ import { useOpenGame } from './list/useOpenGame';
 import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { useDataRefresh } from '../shell/refresh';
+import { BacklogLinkRow, isHomeBacklogRow } from './BacklogLinkRow';
 import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
@@ -241,6 +242,13 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     });
   }
   const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
+  const homeBacklogRow = chronicleMode && isHomeBacklogRow(filters);
+  const homeBacklogCounts = {
+    backlog: summary?.counts.backlog ?? counts.backlog,
+    shelved: summary?.counts.shelved ?? counts.shelved,
+    service: summary?.counts.service ?? counts.service,
+  };
+
   const run = sync.status?.run;
   const syncing = !!sync.status?.running;
   // Айдентика тем, шаг 5: без «Играю» — карточка последней игры хроники (видна только в ps5), её обложка и для --page-art
@@ -257,8 +265,8 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
       {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «К платине» и «Другие платформы» только там: на компьютере они и так на виду */}
       {nearShown && <a href="#near-platinum" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'near-platinum')}>К платине</a>}
-      {(byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
-      {(byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
+      {!isHomeBacklogRow(filters) && (byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
+      {!isHomeBacklogRow(filters) && (byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
       {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
       {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
     </nav>
@@ -374,13 +382,14 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
               : !summaryFailed && !isMobile && <span className={mobileMq === null ? 'ps-only-d' : undefined}><NearPlatinumSkeleton /></span>)}
             {blocks.map((b) => (
               <Fragment key={b}>
-                {failedBlocks.includes(b) && (
+                {!(homeBacklogRow && (b === 'backlog' || b === 'service' || b === 'shelved')) && failedBlocks.includes(b) && (
                   <p className="ps-inline-error ps-block-error" role="alert">
                     <Icon name="circle-alert" size={18} />
                     <span>Не удалось загрузить блок «{BLOCK_TITLES[b]}».</span>
                     <button type="button" className="ps-link" onClick={() => void loadAll(filtersRef.current, 0)}>Повторить</button>
                   </p>
                 )}
+                {b === 'backlog' && homeBacklogRow && <BacklogLinkRow counts={homeBacklogCounts} />}
                 {renderBlock(renderCtx, b)}
                 {/* D-P1: на телефоне «Ближе к платине» после хроники, первый экран отдаётся обложкам */}
                 {b === nearAfter && mobileMq !== false && nearShown && (summary
