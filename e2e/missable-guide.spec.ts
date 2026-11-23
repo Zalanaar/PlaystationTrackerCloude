@@ -61,7 +61,7 @@ test('«Играю» → «Не пропусти» со ссылками на г
   await expect(sheet).toHaveCount(0);
 });
 
-test('своя ссылка важнее совпадения; без гайда и при ошибке лист не показывается', async ({ page, context, baseURL }) => {
+test('своя ссылка важнее совпадения', async ({ page, context, baseURL }) => {
   const m = await open(page, context, baseURL as string);
   m.guides[6] = { match: GUIDE.match, override: 'https://example.com/my-guide', dismissed: false };
   await startPlaying(page, 'Stray');
@@ -70,16 +70,22 @@ test('своя ссылка важнее совпадения; без гайда
   await expect(sheet.getByTestId('missable-link-guide')).toHaveCount(0);
   await sheet.getByTestId('missable-later').click();
   await expect(sheet).toHaveCount(0);
+});
 
+test('без гайда лист не показывается', async ({ page, context, baseURL }) => {
+  const m = await open(page, context, baseURL as string);
   m.guides[8] = { match: null, override: null, dismissed: false };
   const empty = page.waitForResponse((r) => /\/api\/games\/8\/guide$/.test(r.url()) && r.request().method() === 'GET');
   await startPlaying(page, 'Tetris Effect');
   expect((await empty).ok()).toBeTruthy();
   await expect(page.getByRole('dialog', { name: 'Не пропусти' })).toHaveCount(0);
+});
 
-  await mockGuide(page, 10, 'fail');
-  const failed = page.waitForResponse((r) => /\/api\/games\/10\/guide$/.test(r.url()) && r.request().method() === 'GET');
-  await startPlaying(page, 'Bloodborne');
+test('ошибка загрузки гайда — лист не показывается', async ({ page, context, baseURL }) => {
+  await open(page, context, baseURL as string);
+  await mockGuide(page, 5, 'fail');
+  const failed = page.waitForResponse((r) => /\/api\/games\/5\/guide$/.test(r.url()) && r.request().method() === 'GET');
+  await startPlaying(page, 'Hades');
   expect((await failed).status()).toBe(503);
   await expect(page.getByRole('dialog', { name: 'Не пропусти' })).toHaveCount(0);
 });
