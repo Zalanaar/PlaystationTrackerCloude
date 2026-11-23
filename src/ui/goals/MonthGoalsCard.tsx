@@ -6,7 +6,7 @@ import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
-import type { MonthGoalsView } from '@/server/goals/month-goals';
+import type { MonthGoalsView } from '@/shared/month-goals';
 import { fetchMonthGoals, saveMonthGoalsApi } from './api';
 import { barPercent, fieldHint, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, monthTitle, parseField, progressLine, type GoalFields, type GoalKey } from './model';
 

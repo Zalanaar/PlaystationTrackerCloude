@@ -1,7 +1,6 @@
 // Подписи и разбор формы целей месяца.
 import { formatNumber, monthName, plural } from '../format';
-import type { GoalFields, GoalKey, GoalProgress } from '@/server/goals/month-goals';
-import { GOAL_LIMITS } from '@/server/goals/month-goals';
+import { GOAL_LIMITS, type GoalFields, type GoalKey, type GoalProgress } from '@/shared/month-goals';
 
 export { GOAL_LIMITS };
 export type { GoalFields, GoalKey, GoalProgress };

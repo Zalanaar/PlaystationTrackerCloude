@@ -1,5 +1,5 @@
 // Клиент API целей месяца на главной.
-import type { MonthGoalsView } from '@/server/goals/month-goals';
+import type { MonthGoalsView } from '@/shared/month-goals';
 import { call } from '../data/http';
 
 export const fetchMonthGoals = (signal?: AbortSignal) => call<MonthGoalsView>('/api/me/goals', { signal });
