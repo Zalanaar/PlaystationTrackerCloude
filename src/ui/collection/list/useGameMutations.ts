@@ -7,7 +7,7 @@ import { useToast } from '../../primitives/Toast';
 import { STATUS_META } from '../../tokens';
 import { announceCompleted } from '../../complete/afterComplete';
 import { announcePlaying } from '../../guides/startPlaying';
-import { errorText, patchStatusDate, postBulk, putHidden, putStatus } from '../api';
+import { errorText, isQueued, patchStatusDate, postBulk, putHidden, putStatus } from '../api';
 import { applyStatusLocally, adjustCounts, removeFromCounts } from '../filters';
 import { mapLimit } from '../limit';
 import { gamesWord, HIDE_PARALLEL, oldDate, UNDO_TTL_MS, type DateRestore, type OpenCtx, type Pool } from './pool';
@@ -72,6 +72,12 @@ export function useGameMutations({ poolRef, setPool, setOpen, refresh, selected,
       if (!silent && status === 'playing') announcePlaying(r.game);
       refresh();
     } catch (e) {
+      if (isQueued(e)) {
+        toast({ text: errorText(e) });
+        if (!silent && status === 'completed') announceCompleted(prev);
+        if (!silent && status === 'playing') announcePlaying(prev);
+        return;
+      }
       replaceGames([prev]);
       shiftCounts(status, prev.status);
       toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });

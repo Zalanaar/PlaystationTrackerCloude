@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import type { StatsGenreGame, StatsResponse } from '@/server/stats/types';
-import { ApiError, errorText, fetchStats, patchStatusDate, putStatus } from '../collection/api';
+import { ApiError, errorText, isQueued, fetchStats, patchStatusDate, putStatus } from '../collection/api';
 import { type GameActions } from '../collection/GameCard';
 import { useOpenGameFromPage } from '../collection/useGameLink';
 import { EmptyState } from '../EmptyState';
@@ -128,7 +128,7 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
       if (status === 'playing') announcePlaying(g);
       reload();
     } catch (e) {
-      toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
+      toast({ kind: isQueued(e) ? undefined : 'error', text: isQueued(e) ? errorText(e) : `Не удалось сменить статус. ${errorText(e)}` });
     }
   }, [reload, revert, toast]);
   const openGameLink = useOpenGameFromPage();

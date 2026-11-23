@@ -19,7 +19,7 @@ import { ApiError, cachedGet, call } from '../data/http';
 import { gamesBatchUrl } from './batchUrl';
 
 // call/ApiError живут в общем слое ../data/http; реэкспорт для модулей API экранов
-export { ApiError, call, invalidateApiCache } from '../data/http';
+export { ApiError, call, invalidateApiCache, isQueued } from '../data/http';
 
 export function errorText(e: unknown): string {
   if (e instanceof ApiError) {
@@ -28,6 +28,7 @@ export function errorText(e: unknown): string {
     if (e.code === 'status_conflict') return 'Дату можно менять только у пройденной или брошенной игры.';
     if (e.status === 400) return 'Сервер отклонил запрос.';
     if (e.status === 401) return 'Сессия истекла. Войди заново.';
+    if (e.code === 'queued') return 'Сохраним, когда появится сеть.';
   }
   return 'Нет связи с сервером.';
 }

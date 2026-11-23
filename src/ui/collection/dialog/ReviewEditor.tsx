@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { GameItem, GameReview } from '@/server/collection/types';
 import { NOTE_MAX, noteLength, RATING_MAX, RATING_MIN } from '@/shared/review';
-import { ApiError, errorText, putReview } from '../api';
+import { ApiError, errorText, isQueued, putReview } from '../api';
 
 /** Пауза ввода заметки перед сохранением (F1). Оценка сохраняется сразу; blur и закрытие окна сохраняют без ожидания. */
 export const NOTE_DEBOUNCE_MS = 800;
@@ -63,6 +63,12 @@ export function ReviewEditor({ game, review, onChanged, save, withNote = true }:
       }
       if (alive.current) setPhase({ kind: 'saved' });
     } catch (e) {
+      if (isQueued(e)) {
+        saved.current = withNote ? { rating: w.rating, note: w.note } : { rating: w.rating, note: saved.current.note };
+        if (alive.current) setPhase({ kind: 'saved' });
+        inflight.current = false;
+        return;
+      }
       if (alive.current) setPhase({ kind: 'error', text: e instanceof ApiError && e.status === 400 ? 'Сервер не принял оценку или заметку.' : `Не сохранено. ${errorText(e)}` });
       inflight.current = false;
       return;

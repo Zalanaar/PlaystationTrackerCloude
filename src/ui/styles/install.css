@@ -76,6 +76,8 @@
 .ps-offline-bar > svg { flex: none; color: var(--warning); }
 .ps-offline-bar[data-mode="back"] { background: color-mix(in srgb, var(--success) 16%, var(--surface)); }
 .ps-offline-bar[data-mode="back"] > svg { color: var(--success); }
+.ps-offline-bar[data-mode="pending"] { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.ps-offline-bar[data-mode="pending"] > svg { color: var(--accent); }
 
 /* ---------- Страница /offline ---------- */
 .ps-offline {

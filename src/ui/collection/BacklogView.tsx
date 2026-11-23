@@ -14,7 +14,7 @@ import { formatNumber } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { useToast } from '../primitives/Toast';
 import { STATUS_META } from '../tokens';
-import { ApiError, errorText, fetchBacklogAge, fetchGameDetails, fetchGames, putStatus } from './api';
+import { ApiError, errorText, isQueued, fetchBacklogAge, fetchGameDetails, fetchGames, putStatus } from './api';
 import type { BacklogAgeResponse } from '@/server/collection/backlog-age';
 import { AGE_HINT, ageMap, ageSummary } from './backlogAge';
 import { cleanupText } from '../cleanup/model';
@@ -333,6 +333,12 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
       if (status === 'completed') announceCompleted(game); // идея 3
       if (status === 'playing') announcePlaying(game);
     } catch (e) {
+      if (isQueued(e)) {
+        toast({ text: errorText(e) });
+        if (status === 'completed') announceCompleted(game);
+        if (status === 'playing') announcePlaying(game);
+        return;
+      }
       itemsRef.current = beforeB;
       serviceRef.current = beforeS;
       shelvedRef.current = beforeH;

@@ -1,5 +1,6 @@
 // Общий HTTP-слой клиента (Фаза 47): конверт `{ ok, data | error }`, 401 -> /login, короткий кэш GET с дедупликацией.
 // Только типы и fetch: без кода БД. Модули API экранов (collection, roadmap, inbox, ...) строятся поверх `call`/`cachedGet`.
+import { enqueue, isQueueable } from '../offline/changeQueue';
 import { registerCacheReset } from '../profiles/scope';
 
 export class ApiError extends Error {
@@ -15,9 +16,23 @@ export async function call<T>(url: string, init?: RequestInit): Promise<T> {
   invalidateApiCache();
   try {
     return await request<T>(url, init);
+  } catch (e) {
+    if (
+      typeof navigator !== 'undefined' && !navigator.onLine
+      && isQueueable(method, url)
+      && e instanceof ApiError && e.code === 'network'
+    ) {
+      enqueue({ method, url, body: typeof init?.body === 'string' ? init.body : null });
+      throw new ApiError(0, 'queued', 'queued');
+    }
+    throw e;
   } finally {
     invalidateApiCache();
   }
+}
+
+export function isQueued(e: unknown): boolean {
+  return e instanceof ApiError && e.code === 'queued';
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
