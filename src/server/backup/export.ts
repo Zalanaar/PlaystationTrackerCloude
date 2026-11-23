@@ -34,7 +34,8 @@ export async function buildBackup(db: AnyDb, userId: UserId, now: Date = new Dat
       ? db.select({ gameId: gamePrices.gameId, price: gamePrices.price }).from(gamePrices).where(eq(gamePrices.userId, userId))
       : Promise.resolve([] as { gameId: number; price: number }[]),
     db.select({ gameId: gameDiaryEntries.gameId, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt })
-      .from(gameDiaryEntries).where(eq(gameDiaryEntries.userId, userId)),
+      .from(gameDiaryEntries).where(eq(gameDiaryEntries.userId, userId))
+      .catch((): { gameId: number; body: string; createdAt: Date }[] => []),
   ]);
   const tagsBy = new Map<number, string[]>();
   for (const l of tagLinks) tagsBy.set(l.gameId, [...(tagsBy.get(l.gameId) ?? []), l.name]);

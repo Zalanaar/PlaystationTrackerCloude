@@ -23,11 +23,17 @@ async function ownGame(db: AnyDb, userId: UserId, gameId: number): Promise<boole
 
 export async function listDiary(db: AnyDb, userId: UserId, gameId: number): Promise<DiaryEntry[]> {
   if (!(await ownGame(db, userId, gameId))) throw new NotFoundError();
-  const rows = await db
-    .select({ id: gameDiaryEntries.id, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt })
-    .from(gameDiaryEntries)
-    .where(and(eq(gameDiaryEntries.userId, userId), eq(gameDiaryEntries.gameId, gameId)))
-    .orderBy(asc(gameDiaryEntries.createdAt), asc(gameDiaryEntries.id));
+  let rows: { id: number; body: string; createdAt: Date }[];
+  try {
+    rows = await db
+      .select({ id: gameDiaryEntries.id, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt })
+      .from(gameDiaryEntries)
+      .where(and(eq(gameDiaryEntries.userId, userId), eq(gameDiaryEntries.gameId, gameId)))
+      .orderBy(asc(gameDiaryEntries.createdAt), asc(gameDiaryEntries.id));
+  } catch {
+    // схема ещё без 0046 (окно между выкладкой кода и миграцией)
+    return [];
+  }
   if (rows.length > 0) return rows.map(toEntry);
   const [rev] = await db
     .select({ note: gameReviews.note, updatedAt: gameReviews.updatedAt })
@@ -35,11 +41,15 @@ export async function listDiary(db: AnyDb, userId: UserId, gameId: number): Prom
     .where(and(eq(gameReviews.userId, userId), eq(gameReviews.gameId, gameId)))
     .limit(1);
   if (!rev?.note) return [];
-  const [ins] = await db
-    .insert(gameDiaryEntries)
-    .values({ userId, gameId, body: rev.note, createdAt: rev.updatedAt })
-    .returning({ id: gameDiaryEntries.id, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt });
-  return ins ? [toEntry(ins)] : [];
+  try {
+    const [ins] = await db
+      .insert(gameDiaryEntries)
+      .values({ userId, gameId, body: rev.note, createdAt: rev.updatedAt })
+      .returning({ id: gameDiaryEntries.id, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt });
+    return ins ? [toEntry(ins)] : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addDiaryEntry(db: AnyDb, userId: UserId, gameId: number, body: string): Promise<DiaryEntry[]> {
@@ -85,7 +95,8 @@ export async function listDiaryInRange(db: AnyDb, userId: UserId, fromUtc: Date,
       sql`${games.hiddenAt} is null`,
     ))
     .orderBy(desc(gameDiaryEntries.createdAt), desc(gameDiaryEntries.id))
-    .limit(limit);
+    .limit(limit)
+    .catch((): { gameId: number; title: string; body: string; createdAt: Date }[] => []);
   return rows.map((r) => ({ gameId: r.gameId, title: r.title, body: r.body, createdAt: r.createdAt.toISOString() }));
 }
 
@@ -96,7 +107,8 @@ export async function listDiaryByGameIds(db: AnyDb, userId: UserId, gameIds: num
     .select({ id: gameDiaryEntries.id, gameId: gameDiaryEntries.gameId, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt })
     .from(gameDiaryEntries)
     .where(and(eq(gameDiaryEntries.userId, userId), inArray(gameDiaryEntries.gameId, gameIds)))
-    .orderBy(asc(gameDiaryEntries.createdAt), asc(gameDiaryEntries.id));
+    .orderBy(asc(gameDiaryEntries.createdAt), asc(gameDiaryEntries.id))
+    .catch((): { id: number; gameId: number; body: string; createdAt: Date }[] => []);
   for (const r of rows) {
     const list = out.get(r.gameId) ?? [];
     list.push(toEntry(r));
