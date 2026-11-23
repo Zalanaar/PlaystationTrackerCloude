@@ -114,8 +114,8 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     await expect(page.getByText('Статус изменён: Сервис')).toBeVisible();
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'service' } });
     await expect(tab(page, /Сервис/)).toContainText('1');
-    await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
     await tab(page, /^Все/).click();
+    await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
     await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
     await expect(block(page)).toHaveCount(0);
     await tab(page, /Сервис/).click();
