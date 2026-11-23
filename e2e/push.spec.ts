@@ -1,4 +1,4 @@
-// П14.2: «Уведомления на этом устройстве» на панели синка. API и Push API браузера эмулируются: включение (разрешение → подписка → POST),
+// П14.2: «Уведомления на этом устройстве» в «Настройках». API и Push API браузера эмулируются: включение (разрешение → подписка → POST),
 // проверка, выключение, «не настроено», iPhone вне PWA, запрет; 360/390 px без скролла, кнопки 44, axe во всех темах.
 import { createRequire } from 'node:module';
 import { settle } from './settle';
@@ -52,8 +52,7 @@ async function open(page: Page, baseURL: string, cfg: Cfg = {}) {
       Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
     }
   }, cfg);
-  await page.goto('/stats');
-  await page.getByRole('button', { name: /Открыть синк/ }).click();
+  await page.goto('/settings');
   const panel = page.getByTestId('push-panel');
   await panel.waitFor();
   return { panel, calls, bodies };

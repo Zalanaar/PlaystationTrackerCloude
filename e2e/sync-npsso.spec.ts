@@ -88,8 +88,9 @@ test.describe('Фаза 24: NPSSO с сайта', () => {
   test('P1-4: токен в порядке — один заголовок, «Синк сейчас» первым, NPSSO под раскрытием', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, { expired: false });
     const dlg = page.getByRole('dialog', { name: 'Синхронизация с PSN' });
-    // P1-4: заголовок один — у sheet, у панели синка своего нет. Ждём ленивый чанк панели уведомлений, чтобы счёт заголовков был стабильным.
-    await expect(dlg.getByTestId('push-panel')).toBeVisible();
+    // P1-4: заголовок один — у sheet, у панели синка своего нет. Уведомления — только в «Настройках».
+    await expect(dlg.getByTestId('sync-panel')).toBeVisible();
+    await expect(dlg.getByTestId('push-panel')).toHaveCount(0);
     await expect(dlg.getByRole('heading', { level: 2 })).toHaveText(['Синхронизация с PSN']);
     await expect(dlg.getByTestId('sync-panel').getByRole('heading')).toHaveCount(0);
     await expect(dlg.getByTestId('sync-panel').getByRole('button').first()).toHaveText('Синк сейчас');

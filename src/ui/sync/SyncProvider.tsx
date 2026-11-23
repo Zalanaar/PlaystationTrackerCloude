@@ -10,7 +10,6 @@ import { maybeAutoSync } from './autoSync';
 
 // Панель синка открывается по клику: отдельный чанк (Фаза 47)
 const SyncPanel = dynamic(() => import('./SyncPanel').then((m) => m.SyncPanel), { ssr: false });
-const PushPanel = dynamic(() => import('../push/PushPanel').then((m) => m.PushPanel), { ssr: false });
 
 const POLL_MS = 3000;
 
@@ -139,7 +138,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       <Sheet open={panelOpen} onClose={() => setPanelOpen(false)} title="Синхронизация с PSN" wide>
         <div className="flex flex-col gap-4">
           <SyncPanel />
-          <PushPanel />
         </div>
       </Sheet>
     </Ctx.Provider>
