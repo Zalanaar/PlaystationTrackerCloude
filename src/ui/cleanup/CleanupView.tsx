@@ -2,12 +2,13 @@
 // Идея 5: «Чистка бэклога». По одной игре: «Оставить», «Отложить», «Бросить» (свайп вправо — оставить, влево — отложить),
 // «Вернуть» отменяет последнее решение с прежней датой. В конце — итог «−N ч из бэклога».
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type HTMLAttributes, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import type { GameItem } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
 import { errorText, fetchBacklogAge, fetchGames, putStatus } from '../collection/api';
 import { ageText } from '../collection/backlogAge';
 import { Cover, LARGE_W } from '../collection/Cover';
+import { COVER_PRELOAD_AHEAD, useCoverPreload } from '../collection/coverPreload';
 import { formatHoursApprox, formatPlayTime } from '../format';
 import { useToast } from '../primitives/Toast';
 import { requestDataRefresh } from '../shell/refresh';
@@ -36,6 +37,7 @@ export function CleanupView({ chrome }: { chrome?: ReactNode } = {}) {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [busy, setBusy] = useState(false);
   const [dx, setDx] = useState(0);
+  const [exiting, setExiting] = useState<{ item: CleanupItem; dir: CleanupChoice } | null>(null);
   const drag = useRef<{ x: number; id: number } | null>(null);
   const headRef = useRef<HTMLHeadingElement>(null);
 
@@ -48,25 +50,34 @@ export function CleanupView({ chrome }: { chrome?: ReactNode } = {}) {
 
   const queue = load.kind === 'ok' ? load.queue : [];
   const cur = queue[pos] ?? null;
+  const next = queue[pos + 1] ?? null;
   const finished = load.kind === 'ok' && pos >= queue.length;
+  useCoverPreload(queue.slice(pos + 1, pos + 1 + COVER_PRELOAD_AHEAD).map((i) => i.game.coverUrl), LARGE_W);
 
   useEffect(() => { if (finished && decisions.length) requestDataRefresh('change'); }, [finished, decisions.length]);
 
   async function decide(choice: CleanupChoice) {
     if (!cur || busy) return;
-    setDx(0);
+    const item = cur;
     if (choice !== 'keep') {
       setBusy(true);
       try {
-        await putStatus(cur.game.id, choice, { expectedStatus: 'backlog' });
+        await putStatus(item.game.id, choice, { expectedStatus: 'backlog' });
       } catch (e) {
         setBusy(false);
+        setDx(0);
         toast({ kind: 'error', text: `Не удалось сменить статус. ${errorText(e)}` });
         return;
       }
       setBusy(false);
     }
-    setDecisions((d) => [...d, { gameId: cur.game.id, choice, hours: freedHours(cur.game) }]);
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced) {
+      setExiting({ item, dir: choice });
+      window.setTimeout(() => setExiting((e) => (e && e.item.game.id === item.game.id ? null : e)), 280);
+    }
+    setDx(0);
+    setDecisions((d) => [...d, { gameId: item.game.id, choice, hours: freedHours(item.game) }]);
     setPos((p) => p + 1);
     headRef.current?.focus();
   }
@@ -144,21 +155,18 @@ export function CleanupView({ chrome }: { chrome?: ReactNode } = {}) {
       {cur && (
         <>
           <p className="ps-clean__count num" aria-live="polite" data-testid="cleanup-progress">{pos + 1} из {queue.length}</p>
-          <article
-            className="ps-clean__card" data-testid="cleanup-card" aria-label={cur.game.title}
-            style={dx ? { transform: `translateX(${dx}px) rotate(${dx / 30}deg)` } : undefined}
-            data-dir={dx >= 40 ? 'keep' : dx <= -40 ? 'shelved' : undefined}
-            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; setDx(0); }}
-          >
-            <Cover url={cur.game.coverUrl} title={cur.game.title} className="ps-clean__cover" w={LARGE_W} priority />
-            <div className="ps-clean__info">
-              <h2 className="ps-clean__title">{cur.game.title}</h2>
-              <p className="ps-clean__meta">
-                В бэклоге {ageText(cur.days)} · {cur.game.playSeconds > 0 ? `наиграно ${formatPlayTime(cur.game.playSeconds)}` : 'не запускалась'}
-                {freedHours(cur.game) > 0 && <> · прохождение ≈ {formatHoursApprox(freedHours(cur.game))}</>}
-              </p>
-            </div>
-          </article>
+          <div className="ps-clean__stack">
+            {next && <CleanupCard key={next.game.id} item={next} />}
+            <CleanupCard
+              key={cur.game.id}
+              item={cur}
+              front
+              dx={dx}
+              onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
+              onPointerCancel={() => { drag.current = null; setDx(0); }}
+            />
+            {exiting && <CleanupCard key={`x${exiting.item.game.id}`} item={exiting.item} ghost={exiting.dir} />}
+          </div>
           <div className="ps-clean__acts" role="group" aria-label="Решение по игре">
             <button type="button" className="ps-btn" disabled={busy} onClick={() => void decide('keep')} data-testid="cleanup-keep">{LABEL.keep}</button>
             <button type="button" className="ps-btn" disabled={busy} onClick={() => void decide('shelved')} data-testid="cleanup-shelve">{LABEL.shelved}</button>
@@ -183,5 +191,34 @@ export function CleanupView({ chrome }: { chrome?: ReactNode } = {}) {
         </div>
       )}
     </div>
+  );
+}
+
+
+function CleanupCard({ item, front, ghost, dx = 0, ...handlers }: {
+  item: CleanupItem; front?: boolean; ghost?: CleanupChoice; dx?: number;
+} & Pick<HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'>) {
+  const g = item.game;
+  const cls = `ps-clean__card${front ? '' : ghost ? ' ps-clean__ghost' : ' ps-clean__card--next'}`;
+  return (
+    <article
+      className={cls}
+      data-testid={front ? 'cleanup-card' : undefined}
+      data-game-id={g.id}
+      aria-hidden={front ? undefined : true}
+      aria-label={front ? g.title : undefined}
+      style={front && dx ? { transform: `translate3d(${dx}px, 0, 0) rotate(${dx / 30}deg)`, transition: 'none', willChange: 'transform' } : undefined}
+      data-dir={ghost ?? (front && dx >= 40 ? 'keep' : front && dx <= -40 ? 'shelved' : undefined)}
+      {...(front ? handlers : {})}
+    >
+      <Cover key={g.id} url={g.coverUrl} title={g.title} className="ps-clean__cover" w={LARGE_W} priority={!ghost} />
+      <div className="ps-clean__info">
+        <h2 className="ps-clean__title">{g.title}</h2>
+        <p className="ps-clean__meta">
+          В бэклоге {ageText(item.days)} · {g.playSeconds > 0 ? `наиграно ${formatPlayTime(g.playSeconds)}` : 'не запускалась'}
+          {freedHours(g) > 0 && <> · прохождение ≈ {formatHoursApprox(freedHours(g))}</>}
+        </p>
+      </div>
+    </article>
   );
 }

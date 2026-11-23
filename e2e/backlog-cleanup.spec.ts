@@ -13,9 +13,9 @@ const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
 function games(): G[] {
   return [
     ...seed(),
-    bl(30, 'Old Long', { hltbHours: 100, hltbChecked: true }),
-    bl(31, 'Old Short', { hltbHours: 20, hltbChecked: true, playSeconds: 1200, playCount: 1 }),
-    bl(32, 'Old Unknown'),
+    bl(30, 'Old Long', { hltbHours: 100, hltbChecked: true, coverUrl: 'https://image.api.playstation.com/cdn/30.png' }),
+    bl(31, 'Old Short', { hltbHours: 20, hltbChecked: true, playSeconds: 1200, playCount: 1, coverUrl: 'https://image.api.playstation.com/cdn/31.png' }),
+    bl(32, 'Old Unknown', { coverUrl: 'https://image.api.playstation.com/cdn/32.png' }),
   ];
 }
 
@@ -46,6 +46,12 @@ test('Бэклог → «Чистка»: отложить, бросить, ос�
 
   const card = page.getByTestId('cleanup-card');
   await expect(card).toHaveAttribute('aria-label', 'Old Long'); // дольше всех ждёт — первой
+  await expect(card).toHaveAttribute('data-game-id', '30');
+  await expect(card.locator('img')).toHaveAttribute('src', 'https://image.api.playstation.com/cdn/30.png?w=360');
+  // следующие обложки — тот же URL, что у карточки (LARGE_W), уже в preload
+  await expect(page.locator('link[data-cover-preload]')).toHaveCount(2);
+  await expect(page.locator('link[data-cover-preload][href="https://image.api.playstation.com/cdn/31.png?w=360"]')).toHaveCount(1);
+  await expect(page.locator('link[data-cover-preload][href="https://image.api.playstation.com/cdn/32.png?w=360"]')).toHaveCount(1);
   await expect(page.getByTestId('cleanup-progress')).toHaveText('1 из 3');
   await expect(card).toContainText('В бэклоге 4 г.');
   await expect(card).toContainText('не запускалась');
@@ -60,6 +66,8 @@ test('Бэклог → «Чистка»: отложить, бросить, ос�
 
   await page.getByTestId('cleanup-shelve').click();
   await expect(card).toHaveAttribute('aria-label', 'Old Short');
+  await expect(card).toHaveAttribute('data-game-id', '31');
+  await expect(card.locator('img')).toHaveAttribute('src', 'https://image.api.playstation.com/cdn/31.png?w=360');
   expect(m.games.find((g) => g.id === 30)?.status).toBe('shelved');
   await expect(page.getByTestId('cleanup-sofar')).toHaveText('−100 ч из бэклога');
 

@@ -8,6 +8,7 @@ import { EmptyState } from '../EmptyState';
 import { ApiError, errorText, fetchGames, putStatus } from '../collection/api';
 import { announcePlaying } from '../guides/startPlaying';
 import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
+import { COVER_PRELOAD_AHEAD, CoverPreload } from '../collection/coverPreload';
 import { formatDayMonth, formatPlayTime, launchesText } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { LoaderOverlay } from '../loader/LoaderOverlay';
@@ -314,6 +315,7 @@ export function TriageView() {
         <Link href="/" className="ps-btn ps-btn--ghost ps-tri__exit">Выйти <kbd>Esc</kbd></Link>
       </div>
       {modeSeg()}
+      <CoverPreload urls={state.queue.slice(1, 1 + COVER_PRELOAD_AHEAD).map((g) => g.coverUrl)} w={LARGE_W} />
       {wide ? (
         <Desktop now={now} game={head} queue={state.queue.slice(1, 6)} order={order} onOrder={setOrder} onAct={act} onSkip={doSkip} onUndo={doUndo} canUndo={state.history.length > 0} exiting={exiting} />
       ) : (
@@ -442,18 +444,23 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
     else if (t) onAct(t);
   };
   const cand = drag ? swipeTarget(drag.dx, drag.dy, drag.w, SWIPE_STAMP) : null;
-  const style = drag ? { transform: `translate(${drag.dx}px, ${drag.dy}px) rotate(${drag.dx / 20}deg)`, transition: 'none' } : undefined;
+  const style = drag ? { transform: `translate3d(${drag.dx}px, ${drag.dy}px, 0) rotate(${drag.dx / 20}deg)`, transition: 'none', willChange: 'transform' } : undefined;
   return (
     <div className="ps-tri__m">
       <div className="ps-stack3">
         <div className="ps-stack3__under" />
         <div className="ps-stack3__under ps-stack3__under--2" />
         {next && <span className="ps-sr">Дальше: {next.title}</span>}
+        {next && (
+          <div key={next.id} className="ps-stack3__top ps-stack3__next" aria-hidden="true">
+            <Cover key={next.id} url={next.coverUrl} title={next.title} className="ps-stack3__img" w={LARGE_W} priority />
+          </div>
+        )}
         <div
           key={game.id} className="ps-stack3__top" style={style} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { start.current = null; setDrag(null); }}
-          aria-label={game.title}
+          aria-label={game.title} data-game-id={game.id}
         >
-          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} />
+          <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} priority />
           {isForgotten(game, now) && <span className="ps-stack3__fg"><Icon name="clock" size={12} />Забытая</span>}
           <div className="ps-stack3__cap">
             <h2>{game.title}</h2>
@@ -464,7 +471,7 @@ function Mobile({ now, game, next, onAct, onSkip, onUndo, canUndo, exiting }: Co
           )}
           {cand === 'skip' && <span className="ps-stamp" data-status="none"><StatusGlyph status="none" size={16} />Пропустить</span>}
         </div>
-        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
+        {exiting && <div key={`x${exiting.game.id}`} className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover key={exiting.game.id} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
       </div>
       <p className="ps-tri__edges" aria-hidden="true">
         <span><StatusGlyph status="dropped" size={12} />влево</span>

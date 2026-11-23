@@ -35,6 +35,7 @@ export function Cover({ url, title, className, priority, w = PSN_W.card }: {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- внешние обложки PSN, оптимизация next/image не нужна
     <img
+      key={url}
       src={psnImageUrl(url, w)} alt="" decoding="async" loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : undefined} referrerPolicy="no-referrer"
       className={`ps-cover ps-cover-img ${className ?? ''}`} onError={() => setFailed(url)}
     />

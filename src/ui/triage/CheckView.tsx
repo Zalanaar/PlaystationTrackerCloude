@@ -6,6 +6,7 @@ import type { GameItem, GameStatusValue } from '@/server/collection/types';
 import { STATUS_HINT_RULES } from '@/shared/status-hints';
 import { EmptyState } from '../EmptyState';
 import { Cover, THUMB_W, LARGE_W } from '../collection/Cover';
+import { COVER_PRELOAD_AHEAD, CoverPreload } from '../collection/coverPreload';
 import { formatPlayTime, launchesText, formatDayMonth } from '../format';
 import { Icon, StatusGlyph } from '../icons';
 import { StatusMenu } from '../status';
@@ -130,8 +131,8 @@ export function CheckBody({ state, wide, a, hasUnsorted, onToUnsorted }: {
   const pos = Math.min(state.history.length + 1, state.total);
   const live = <p className="ps-sr" aria-live="polite">{KNOWN_RULES.includes(head.rule) ? hintAnnounce(pos, state.total, head) : head.game.title}</p>;
   return wide
-    ? <>{live}<CheckDesktop h={head} queue={state.queue.slice(1, 6)} a={act} canUndo={state.history.length > 0} exiting={exiting} /></>
-    : <>{live}<CheckMobile h={head} next={state.queue[1]?.game} a={act} canUndo={state.history.length > 0} exiting={exiting} /></>;
+    ? <>{live}<CoverPreload urls={state.queue.slice(1, 1 + COVER_PRELOAD_AHEAD).map((q) => q.game.coverUrl)} w={LARGE_W} /><CheckDesktop h={head} queue={state.queue.slice(1, 6)} a={act} canUndo={state.history.length > 0} exiting={exiting} /></>
+    : <>{live}<CoverPreload urls={state.queue.slice(1, 1 + COVER_PRELOAD_AHEAD).map((q) => q.game.coverUrl)} w={LARGE_W} /><CheckMobile h={head} next={state.queue[1]?.game} a={act} canUndo={state.history.length > 0} exiting={exiting} /></>;
 }
 
 function CheckDesktop({ h, queue, a, canUndo, exiting }: { h: HintItem; queue: HintItem[]; a: Actions; canUndo: boolean; exiting: Exiting }) {
@@ -218,18 +219,23 @@ function CheckMobile({ h, next, a, canUndo, exiting }: { h: HintItem; next?: Gam
     else if (t === 'keep') a.keep();
   };
   const cand: CheckSwipe | null = drag ? checkSwipe(drag.dx, 0, drag.w, 0.12) : null;
-  const style = drag ? { transform: `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`, transition: 'none' } : undefined;
+  const style = drag ? { transform: `translate3d(${drag.dx}px, 0, 0) rotate(${drag.dx / 20}deg)`, transition: 'none', willChange: 'transform' } : undefined;
   return (
     <div className="ps-tri__m">
       <div className="ps-stack3">
         <div className="ps-stack3__under" />
         <div className="ps-stack3__under ps-stack3__under--2" />
         {next && <span className="ps-sr">Дальше: {next.title}</span>}
+        {next && (
+          <div key={next.id} className="ps-stack3__top ps-stack3__next" aria-hidden="true">
+            <Cover key={next.id} url={next.coverUrl} title={next.title} className="ps-stack3__img" w={LARGE_W} priority />
+          </div>
+        )}
         <div
           key={game.id} className="ps-stack3__top" style={style} onPointerDown={down} onPointerMove={move} onPointerUp={up}
-          onPointerCancel={() => { start.current = null; setDrag(null); }} aria-label={game.title}
+          onPointerCancel={() => { start.current = null; setDrag(null); }} aria-label={game.title} data-game-id={game.id}
         >
-          <Cover url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} />
+          <Cover key={game.id} url={game.coverUrl} title={game.title} className="ps-stack3__img" w={LARGE_W} priority />
           <span className="ps-stack3__fg"><StatusGlyph status={target} size={12} />{hintQuestion(h.rule)}</span>
           <div className="ps-stack3__cap">
             <h2>{game.title}</h2>
@@ -238,7 +244,7 @@ function CheckMobile({ h, next, a, canUndo, exiting }: { h: HintItem; next?: Gam
           {cand === 'accept' && <span className="ps-stamp" data-status={target}><StatusGlyph status={target} size={16} />Принять</span>}
           {cand === 'keep' && <span className="ps-stamp" data-status="none"><StatusGlyph status="none" size={16} />Оставить</span>}
         </div>
-        {exiting && <div className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
+        {exiting && <div key={`x${exiting.game.id}`} className="ps-stack3__top ps-tri__ghost" data-dir={exiting.dir} aria-hidden="true"><Cover key={exiting.game.id} url={exiting.game.coverUrl} title={exiting.game.title} className="ps-stack3__img" w={LARGE_W} /></div>}
       </div>
       <Block h={h} />
       <div className="ps-tri__row2 ps-sg__row">

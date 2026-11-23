@@ -21,11 +21,11 @@
 .ps-tri__ghost[data-dir="dropped"] { animation-name: ps-tri-left; }
 .ps-tri__ghost[data-dir="backlog"] { animation-name: ps-tri-up; }
 .ps-tri__ghost[data-dir="skip"] { animation-name: ps-tri-down; }
-@keyframes ps-tri-out { to { opacity: 0; transform: translateX(48px) rotate(4deg); } }
-@keyframes ps-tri-right { to { opacity: 0; transform: translateX(120%) rotate(12deg); } }
-@keyframes ps-tri-left { to { opacity: 0; transform: translateX(-120%) rotate(-12deg); } }
-@keyframes ps-tri-up { to { opacity: 0; transform: translateY(-120%); } }
-@keyframes ps-tri-down { to { opacity: 0; transform: translateY(120%); } }
+@keyframes ps-tri-out { to { opacity: 0; transform: translate3d(48px, 0, 0) rotate(4deg); } }
+@keyframes ps-tri-right { to { opacity: 0; transform: translate3d(120%, 0, 0) rotate(12deg); } }
+@keyframes ps-tri-left { to { opacity: 0; transform: translate3d(-120%, 0, 0) rotate(-12deg); } }
+@keyframes ps-tri-up { to { opacity: 0; transform: translate3d(0, -120%, 0); } }
+@keyframes ps-tri-down { to { opacity: 0; transform: translate3d(0, 120%, 0); } }
 .ps-tri__title { margin: var(--sp-2) 0 0; font: 700 30px/36px var(--font-display); letter-spacing: -.02em; overflow-wrap: anywhere; }
 .ps-tri__facts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: var(--sp-3) 0 28px; color: var(--text-2); }
 .ps-tri__facts b { color: var(--text); font-weight: 600; }
@@ -58,10 +58,12 @@
 /* мобильный разбор */
 .ps-tri__m { padding-top: var(--sp-3); }
 .ps-stack3 { position: relative; aspect-ratio: var(--cover-ratio); margin: 14px var(--sp-2) 20px; }
-.ps-stack3__under { position: absolute; inset: 0; border-radius: var(--r-lg); background: var(--surface-2); transform: translateY(10px) scale(.94); opacity: .7; }
-.ps-stack3__under--2 { transform: translateY(20px) scale(.88); opacity: .4; }
-.ps-stack3__top { position: absolute; inset: 0; border-radius: var(--r-lg); overflow: hidden; background: var(--surface-3); box-shadow: var(--shadow-pop); touch-action: none; user-select: none; cursor: grab; transition: transform var(--dur-base) var(--ease-out); }
-.ps-stack3 .ps-stack3__img { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; pointer-events: none; -webkit-user-drag: none; }
+.ps-stack3__under { position: absolute; inset: 0; z-index: 0; border-radius: var(--r-lg); background: var(--surface-2); transform: translate3d(0, 10px, 0) scale(.94); opacity: .7; }
+.ps-stack3__under--2 { transform: translate3d(0, 20px, 0) scale(.88); opacity: .4; }
+.ps-stack3__top { position: absolute; inset: 0; z-index: 2; border-radius: var(--r-lg); overflow: hidden; background: var(--surface-3); box-shadow: var(--shadow-pop); touch-action: none; user-select: none; cursor: grab; transform: translateZ(0); -webkit-backface-visibility: hidden; backface-visibility: hidden; transition: transform var(--dur-base) var(--ease-out); }
+.ps-stack3__next { z-index: 1; box-shadow: none; cursor: default; pointer-events: none; }
+.ps-stack3 .ps-tri__ghost { z-index: 3; }
+.ps-stack3 .ps-stack3__img { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; pointer-events: none; -webkit-user-drag: none; background: var(--surface-3); }
 .ps-stack3__cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 56px 14px 12px; background: var(--cover-scrim); color: var(--scrim-text); text-shadow: var(--cover-shadow-text); }
 .ps-stack3__cap h2 { margin: 0; font: 700 17px/22px var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .ps-stack3__cap span { font-size: var(--fs-small); }
@@ -163,11 +165,15 @@
 /* Идея 5: «Чистка бэклога» */
 .ps-clean { display: grid; gap: var(--sp-3); max-width: 560px; padding-block: var(--sp-4) var(--sp-6); }
 .ps-clean__lead, .ps-clean__hint, .ps-clean__count { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
-.ps-clean__card { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); touch-action: pan-y; user-select: none; transition: transform .18s ease, border-color .18s ease; }
+.ps-clean__stack { position: relative; }
+.ps-clean__card { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); align-items: center; padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); touch-action: pan-y; user-select: none; transform: translateZ(0); -webkit-backface-visibility: hidden; backface-visibility: hidden; transition: transform .2s var(--ease-out), opacity .2s var(--ease-out); }
 .ps-clean__card--ph { height: 160px; }
+.ps-clean__card--next { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; }
+.ps-clean__ghost { position: absolute; inset: 0; z-index: 2; pointer-events: none; animation: ps-tri-left .28s var(--ease-out) forwards; }
+.ps-clean__ghost[data-dir='keep'] { animation-name: ps-tri-right; }
 .ps-clean__card[data-dir='keep'] { border-color: var(--accent); }
 .ps-clean__card[data-dir='shelved'] { border-color: var(--st-shelved); }
-.ps-clean__cover { width: 96px; aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; }
+.ps-clean__cover { width: 96px; aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; background: var(--surface-3); }
 .ps-clean__info { display: grid; gap: var(--sp-1); min-width: 0; }
 .ps-clean__title { margin: 0; font-size: var(--fs-h3); line-height: var(--lh-h3); overflow-wrap: anywhere; }
 .ps-clean__meta { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
@@ -178,4 +184,4 @@
 .ps-clean__done p { margin: 0; color: var(--text-2); }
 .ps-clean__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
 .ps-clean__sofar { font-weight: 600; }
-@media (prefers-reduced-motion: reduce) { .ps-clean__card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .ps-clean__card { transition: none; } .ps-clean__ghost { animation: none; } }
