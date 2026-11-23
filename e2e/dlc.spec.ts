@@ -3,9 +3,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, trophyList } from './collection-mock';
 import { signedSession } from './session';
 
-const THEMES = ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5'] as const;
-const setTheme = (page: Page, t: string) =>
-  page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
 const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
 const FORECAST = {
@@ -19,8 +16,6 @@ const withGroups = () => trophyList().map((t, i) => ({ ...t, groupId: i === 2 ? 
 
 async function setup(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, forecast: Record<string, unknown>) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
-  // на мобильном «Ближе к платине» по умолчанию свёрнут: здесь проверяем содержимое карточек
-  await context.addInitScript(() => localStorage.setItem('ps-near-open', '1'));
   const m = await mockApi(page, seed());
   m.forecasts[3] = forecast;
   m.nearPlatinum = [{ id: 3, forecast }, { id: 4, forecast: { ...forecast, dlc: null } }];
@@ -77,27 +72,12 @@ test.describe('Фаза 36: DLC', () => {
     await expect(page.locator('.ps-trophy__dlc')).toHaveCount(0);
   });
 
-  test('«Ближе всего к платине»: строка DLC только у карточки с dlc, «≈» нет; 320 и 412, 7 тем', async ({ page, context, baseURL }) => {
+  test('на главной блока «Ближе к платине» нет — список остаётся в «Трофеях»', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!, FORECAST);
     await page.goto('/');
-    const items = page.locator('#near-platinum .ps-near');
-    await expect(items).toHaveCount(2);
-    await expect(items.first()).toContainText(DLC_LINE);
-    await expect(items.first()).not.toContainText('≈');
-    await expect(items.first()).toHaveAttribute('aria-label', /DLC: 5 из 12, платине не мешают$/);
-    await expect(items.nth(1)).not.toContainText('DLC');
-    for (const w of [320, 412]) {
-      await page.setViewportSize({ width: w, height: 800 });
-      await noOverflow(page);
-      const box = await items.first().boundingBox();
-      expect(box!.height).toBeGreaterThanOrEqual(112);
-      expect(await items.first().locator('.ps-near__dlc').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-    }
-    for (const t of THEMES) {
-      await setTheme(page, t);
-      const c = await items.first().locator('.ps-near__dlc').evaluate((el) => getComputedStyle(el).color);
-      expect(c).not.toBe('rgba(0, 0, 0, 0)');
-    }
+    await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+    await expect(page.locator('#near-platinum')).toHaveCount(0);
+    await noOverflow(page);
   });
 
   test('пакет 7, п. 1: «Прогресс по дополнениям» в «Обзоре» — база и каждое DLC, незакрытые подсвечены; строка ведёт к разделу трофеев', async ({ page, context, baseURL }) => {

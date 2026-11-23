@@ -3,7 +3,6 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
-import { enterSelect } from './view';
 
 const SHOTS = process.env.SHOTS_DIR;
 const nowMsk = new Date(Date.now() + 3 * 3600_000);
@@ -270,94 +269,15 @@ const forecast = (o: Record<string, unknown> = {}) => ({
   avgEarnedRate: 12.4, minEarnedRate: 1.2, ratesKnown: 5, platinumEarnedRate: 4.3, approximate: true, dlc: null, ...o,
 });
 
-test.describe('«Ближе всего к платине» (Коллекция)', () => {
-  // на мобильном блок по умолчанию свёрнут (отдельный тест ниже): в остальных тестах развёрнут
-  test.beforeEach(async ({ context }, info) => {
-    if (!info.title.includes('свёрнут')) await context.addInitScript(() => localStorage.setItem('ps-near-open', '1'));
-  });
-
-  test('блок после «Играю»: прогресс, остаток по грейдам, редкость, клик открывает окно', async ({ page, context, baseURL }) => {
+test.describe('«Ближе к платине» убрано с главной', () => {
+  test('на Коллекции блока нет, даже если сводка отдаёт nearPlatinum', async ({ page, context, baseURL }) => {
     const mock = await setup(page, context, baseURL!);
-    mock.nearPlatinum = [{ id: 3, forecast: forecast() }, { id: 4, forecast: forecast({ progress: 70, avgEarnedRate: null, remaining: { gold: 0, silver: 2, bronze: 3, total: 5 }, approximate: false }) }];
+    mock.nearPlatinum = [{ id: 3, forecast: forecast() }, { id: 4, forecast: forecast({ progress: 70 }) }];
     await page.goto('/');
-    const block = page.locator('#near-platinum');
-    await expect(block.getByRole('heading', { name: 'Ближе всего к платине' })).toBeVisible();
-    const items = block.locator('.ps-near');
-    await expect(items).toHaveCount(2);
-    await expect(items.first()).toContainText('≈');
-    await expect(items.first()).toContainText('91%');
-    await expect(items.first()).toContainText('Осталось 5');
-    await expect(items.first()).toContainText('ср. редкость 12,4%');
-    await expect(items.first()).toHaveAttribute('aria-label', 'Horizon Forbidden West. Прогресс к платине примерно 91%, осталось 5 трофеев');
-    await expect(items.nth(1)).toContainText('редкость неизвестна');
-    await expect(items.nth(1)).not.toContainText('≈');
-    await expect(items.nth(1).locator('.ps-near__g')).toHaveCount(2); // нулевые грейды не выводятся
-    // десктоп: выше блока «Хроника»; мобильный (D-P1, пакет 2): сразу после первого блока, чтобы обложки были в первом экране
-    const nearY = (await block.boundingBox())!.y;
-    const chronY = (await page.locator('.ps-chron').first().boundingBox())!.y;
-    if (page.viewportSize()!.width < 768) expect(nearY).toBeGreaterThan(chronY);
-    else expect(nearY).toBeLessThan(chronY);
-    await items.first().click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-  });
-
-  test('скрывается при поиске, статусе, «Платине», сортировке и в режиме выбора; пусто и старый ответ без блока', async ({ page, context, baseURL }) => {
-    const mock = await setup(page, context, baseURL!);
-    mock.nearPlatinum = [{ id: 3, forecast: forecast() }];
-    await page.goto('/');
-    await expect(page.locator('#near-platinum')).toBeVisible();
-    await page.goto('/?q=god');
-    await expect(page.locator('.ps-results')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
     await expect(page.locator('#near-platinum')).toHaveCount(0);
-    await page.goto('/?status=playing');
-    await expect(page.locator('#near-platinum')).toHaveCount(0);
-    await page.goto('/?sort=hours');
-    await expect(page.locator('.ps-results')).toBeVisible();
-    await expect(page.locator('#near-platinum')).toHaveCount(0);
-    await page.goto('/');
-    await expect(page.locator('#near-platinum')).toBeVisible();
-    await enterSelect(page);
-    await expect(page.locator('#near-platinum')).toHaveCount(0);
-
-    mock.nearPlatinum = [];
-    await page.goto('/');
-    await expect(page.locator('.ps-chron').first()).toBeVisible();
-    await expect(page.locator('#near-platinum')).toHaveCount(0);
-    mock.legacySummary = true;
-    await page.reload();
-    await expect(page.locator('.ps-chron').first()).toBeVisible();
-    await expect(page.locator('#near-platinum')).toHaveCount(0);
-  });
-
-  test('мобильный: по умолчанию свёрнут до шапки, «Показать» разворачивает и запоминается', async ({ page, context, baseURL }, info) => {
-    test.skip(info.project.name !== 'mobile', 'мобильный сценарий');
-    const mock = await setup(page, context, baseURL!);
-    mock.nearPlatinum = [3, 4].map((id) => ({ id, forecast: forecast() }));
-    await page.goto('/');
-    const block = page.locator('#near-platinum');
-    await expect(block.getByRole('heading', { name: 'Ближе всего к платине' })).toBeVisible();
-    await expect(block.locator('.ps-near')).toHaveCount(0);
-    const tgl = block.getByRole('button', { name: 'Показать' });
-    await expect(tgl).toHaveAttribute('aria-expanded', 'false');
-    expect((await tgl.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
-    await tgl.click();
-    await expect(block.locator('.ps-near')).toHaveCount(2);
-    await expect(block.getByRole('button', { name: 'Свернуть' })).toHaveAttribute('aria-expanded', 'true');
-    await page.reload();
-    await expect(block.locator('.ps-near')).toHaveCount(2);
-  });
-
-  test('мобильный: горизонтальный трек со snap, элемент 264, страница не ширится', async ({ page, context, baseURL }, info) => {
-    test.skip(info.project.name !== 'mobile', 'мобильный сценарий');
-    const mock = await setup(page, context, baseURL!);
-    mock.nearPlatinum = [3, 4, 6, 7, 8].map((id) => ({ id, forecast: forecast() }));
-    await page.goto('/');
-    const list = page.locator('.ps-near__list');
-    await expect(list).toBeVisible();
-    expect(await list.evaluate((el) => getComputedStyle(el).scrollSnapType)).toContain('x');
-    expect(await list.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-    expect(Math.round((await page.locator('.ps-near').first().boundingBox())!.width)).toBe(264);
-    await noOverflow(page);
+    await expect(page.getByRole('heading', { name: 'Ближе всего к платине' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'К платине' })).toHaveCount(0);
   });
 });
 
@@ -530,11 +450,10 @@ test.describe('Скриншоты фазы (SHOTS_DIR)', () => {
       await page.locator('.ps-act').screenshot({ path: `${SHOTS}/${tag}-${t}-activity.png` });
     }
     await page.goto('/');
-    await expect(page.locator('#near-platinum')).toBeVisible();
+    await expect(page.locator('#unsorted')).toBeVisible();
     for (const t of THEMES) {
       await setTheme(page, t);
       await page.waitForTimeout(150);
-      await page.locator('#near-platinum').screenshot({ path: `${SHOTS}/${tag}-${t}-near.png` });
       await page.locator('#unsorted .ps-block__head').screenshot({ path: `${SHOTS}/${tag}-${t}-unsorted-head.png` });
     }
     await page.goto('/triage?forgotten=1');

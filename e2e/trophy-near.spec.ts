@@ -1,5 +1,5 @@
-// Пакет 6, п. 9: «Почти платина» на /trophies — полный список (больше 5), переход из блока «Ближе всего к платине» на Коллекции
-// (сам блок остаётся с 5 играми), переключатель «Лента / Почти платина» помнит раздел в URL, строка открывает окно игры на «Трофеях».
+// «Почти платина» на /trophies — полный список; на главной блока «Ближе к платине» больше нет (ревизия 23.11).
+// Переключатель «Лента / Почти платина» помнит раздел в URL, строка открывает окно игры на «Трофеях».
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
@@ -33,19 +33,14 @@ async function setup(page: Page, context: BrowserContext, baseURL: string, o: { 
   return { m, calls, items };
 }
 
-test('блок на Коллекции остаётся (5 игр), «Все» ведёт в полный список', async ({ page, context, baseURL }) => {
-  await context.addInitScript(() => localStorage.setItem('ps-near-open', '1'));
+test('на главной блока «Ближе к платине» нет; полный список — в «Трофеях»', async ({ page, context, baseURL }) => {
   const { m, items } = await setup(page, context, baseURL!);
   m.nearPlatinum = [{ id: 3, forecast: items[0].forecast }, { id: 4, forecast: items[1].forecast }];
   await page.goto('/');
-  const block = page.locator('#near-platinum');
-  await expect(block.locator('.ps-near')).toHaveCount(2);
-  const all = block.getByTestId('near-all');
-  await expect(all).toHaveAttribute('href', '/trophies?view=near');
-  const box = (await all.boundingBox())!;
-  expect(box.height).toBeGreaterThanOrEqual(44);
-  await all.click();
-  await expect(page).toHaveURL(/\/trophies\?view=near$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+  await expect(page.locator('#near-platinum')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Ближе всего к платине' })).toHaveCount(0);
+  await page.goto('/trophies?view=near');
   await expect(page.getByTestId('tnear-row')).toHaveCount(items.length);
   await expect(page.getByTestId('tnear-summary')).toHaveText(`${items.length} игр с прогрессом к платине`);
 });

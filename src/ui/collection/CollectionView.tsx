@@ -36,7 +36,6 @@ import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { useDataRefresh } from '../shell/refresh';
 import { BacklogLinkRow, isHomeBacklogRow } from './BacklogLinkRow';
-import { NearPlatinum, NearPlatinumSkeleton } from './NearPlatinum';
 import { PlayingHero } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
 import { MonthGoalsCard } from '../goals/MonthGoalsCard';
@@ -52,7 +51,6 @@ import { useInbox } from '../inbox/useInbox';
 import { mskDay } from '../inbox/model';
 import { expectHero, heroHintCookie } from '@/shared/hero-hint';
 import { formatLayoutHint, layoutHintCookie, type LayoutHint } from '@/shared/layout-hint';
-import { useNearOpen } from './nearOpen';
 import { useHeaderAction } from '../shell/headerActions';
 import { platformCookie, type PlatformKey } from '@/shared/platform-filter';
 import { useToast } from '../primitives/Toast';
@@ -121,7 +119,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   const now = useNow(60_000, initial?.now ?? 0);
   const sync = useSync();
   const width = useViewportWidth(layout?.width);
-  const nearOpen = useNearOpen(layout?.near);
   // null на сервере и при гидрации: там рисуем адаптивные скелеты, а не десктопную вёрстку (на телефоне она сдвигала страницу)
   const mobileMq = useIsMobileOrUnknown();
   const isMobile = mobileMq === true;
@@ -133,12 +130,12 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   useTourCardAnchors(rootRef, selectMode);
   useFocusRescue(rootRef);
   const data = useCollectionData(filters, filtersKey, () => setSelected(new Set()), initial);
-  const { summary, summaryFailed, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
+  const { summary, pool, loading, error, filtersRef, poolRef, loadAll, loadMore, refresh } = data;
   // raw = всё загруженное с сервера (для подгрузки и счётчиков «осталось»)
   const raw = useMemo(() => pool?.items ?? [], [pool]);
 
   const game = useOpenGame(raw, initial?.linkGame ?? null);
-  const { setOpen, setLinked, link, openId, ctx, openGame, openGameCard } = game;
+  const { setOpen, setLinked, link, openId, ctx, openGame } = game;
   const dialogEver = useEverTrue(openId !== null || openGame !== null);
   const m = useGameMutations({
     poolRef, setPool: data.setPool, setOpen, refresh, selected, setSelected, setSelectMode, linkIdRef: game.linkIdRef, closeLinkRef: game.closeLinkRef,
@@ -189,7 +186,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   const L = useCollectionLists({ filters, pool, raw, summary, now, view, width, selectMode, error });
   const {
     chronicleMode, counts, flat, blocks, byBlock, played, playedMode, density, cols, shownCount, shownGames, failedBlocks,
-    empty, hiddenView, noData, hiddenEmpty, playing, near, nearShown, years, showAnchors,
+    empty, hiddenView, noData, hiddenEmpty, playing, years, showAnchors,
   } = L;
   const summaryPlaying = summary ? summary.counts.playing : null;
   const heroExpected = expectHero(summaryPlaying, heroHint);
@@ -198,7 +195,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     if (summaryPlaying === null || (summaryPlaying > 0) === heroHint) return;
     document.cookie = heroHintCookie(summaryPlaying > 0);
   }, [summaryPlaying, heroHint]);
-  // Раскладка для следующего серверного рендера (item 4): вид, «Ближе к платине», ширина. Пишем только после гидрации и при изменении.
+  // Раскладка для следующего серверного рендера (item 4): вид, ширина. Пишем только после гидрации и при изменении.
   // только чистая хроника: без поиска, статуса и платины (спека A.1)
   const inbox = useInbox(
     chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum,
@@ -207,16 +204,16 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   // пока полоса показывает чип «Проверить статусы», старый check-chip не рендерим (спека A.2)
   const rawCheckCount = useCheckCount() ?? 0;
   const checkCount = inbox.showsCheck ? 0 : rawCheckCount;
-  // Раскладка для следующего серверного рендера (item 4): вид, «Ближе к платине», ширина, «скрыто сегодня». Пишем только после гидрации и при изменении.
+  // Раскладка для следующего серверного рендера: вид, ширина, «скрыто сегодня». Пишем только после гидрации и при изменении.
   const layoutSent = useRef<string | null>(layout ? formatLayoutHint({ view: layout.view ?? '', near: layout.near ?? false, width: layout.width ?? 0, day: layout.day }) : null);
   const inboxHidden = inbox.hidden;
   useEffect(() => {
     if (mobileMq === null) return;
-    const v = formatLayoutHint({ view: stored ?? '', near: nearOpen, width, day: inboxHidden ? mskDay(Date.now()) : null });
+    const v = formatLayoutHint({ view: stored ?? '', near: false, width, day: inboxHidden ? mskDay(Date.now()) : null });
     if (v === layoutSent.current) return;
     layoutSent.current = v;
     document.cookie = layoutHintCookie(v);
-  }, [mobileMq, stored, nearOpen, width, inboxHidden]);
+  }, [mobileMq, stored, width, inboxHidden]);
   // Пакет 5: только чистая хроника (без поиска, статуса, платины, платформы и «Скрытых»)
   const otherShown = chronicleMode && !!pool && filters.status === 'all' && !filters.q.trim() && !filters.platinum && !filters.platform && !hiddenView;
   const loadingRef = useRef(loading);
@@ -263,8 +260,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     <nav className={`ps-anchors ps-anchors--${where}`} aria-label="Годы и блоки">
       <span>Перейти:</span>
       {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
-      {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «К платине» и «Другие платформы» только там: на компьютере они и так на виду */}
-      {nearShown && <a href="#near-platinum" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'near-platinum')}>К платине</a>}
+      {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «Другие платформы» только там: на компьютере они и так на виду */}
       {!isHomeBacklogRow(filters) && (byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
       {!isHomeBacklogRow(filters) && (byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
       {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
@@ -289,9 +285,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     L.expandPlayed(key);
     setTimeout(() => scrollToId(key === 'never' ? 'never' : `y${key}`), 30);
   }
-
-  // блок, после которого на телефоне идёт «Ближе к платине»: хроника, иначе последний
-  const nearAfter = blocks.includes('chronicle') ? 'chronicle' : blocks[blocks.length - 1];
 
   const barProps = {
     filters, view, counts: pool ? counts : null, platformCounts: summary?.platformCounts ?? null, platinumCount: platinumChipCount(summary ? summary.totals.platinumEarned : null, filters, pool), empty, onChange: setFilters, onView: setView,
@@ -375,11 +368,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
           </EmptyState>
         ) : chronicleMode ? (
           <div className="ps-blocks">
-            {nearShown && (summary
-              ? (mobileMq === null
-                ? <span className="ps-only-d"><NearPlatinum items={near} onOpen={openGameCard} /></span>
-                : !isMobile && <NearPlatinum items={near} onOpen={openGameCard} />)
-              : !summaryFailed && !isMobile && <span className={mobileMq === null ? 'ps-only-d' : undefined}><NearPlatinumSkeleton /></span>)}
             {blocks.map((b) => (
               <Fragment key={b}>
                 {!(homeBacklogRow && (b === 'backlog' || b === 'service' || b === 'shelved')) && failedBlocks.includes(b) && (
@@ -391,10 +379,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
                 )}
                 {b === 'backlog' && homeBacklogRow && <BacklogLinkRow counts={homeBacklogCounts} />}
                 {renderBlock(renderCtx, b)}
-                {/* D-P1: на телефоне «Ближе к платине» после хроники, первый экран отдаётся обложкам */}
-                {b === nearAfter && mobileMq !== false && nearShown && (summary
-                  ? <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinum items={near} onOpen={openGameCard} collapsible serverOpen={layout?.near} /></span>
-                  : !summaryFailed && <span className={mobileMq === null ? 'ps-only-m' : undefined}><NearPlatinumSkeleton collapsible /></span>)}
               </Fragment>
             ))}
             {otherShown && <OtherPlatformsBlock onAdd={openAddOther} />}
