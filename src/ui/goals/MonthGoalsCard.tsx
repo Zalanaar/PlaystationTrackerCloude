@@ -2,6 +2,7 @@
 
 // Цели месяца на главной: выбранные игры (из «Играю» и Плана) и часы; подсказка среднего; без цели по трофеям.
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import Link from '@/ui/IntentLink';
 import { GOAL_PICK_MAX, hasGoals as hasGoalFields, type GoalGame, type MonthGoalsView, type ParsedGoals } from '@/shared/month-goals';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { Cover } from '../collection/Cover';
@@ -9,7 +10,7 @@ import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
 import { fetchMonthGoals, saveMonthGoalsApi } from './api';
-import { barPercent, fieldHint, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine } from './model';
+import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine, yearGoalBridgeLabel } from './model';
 
 export function MonthGoalsCard() {
   const hid = useId();
@@ -142,6 +143,11 @@ export function MonthGoalsCard() {
             <button type="button" className="ps-btn ps-btn--primary" onClick={openEditor} data-testid="month-goals-set">Задать цель</button>
           </div>
         )}
+        {data.yearGoal && (
+          <Link href="/roadmap#rm-goal" className="ps-mgoals__year" data-testid="month-goals-year">
+            {yearGoalBridgeLabel(data.yearGoal)}
+          </Link>
+        )}
       </section>
       {editorEver && (
         <Sheet open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy}>
@@ -150,6 +156,9 @@ export function MonthGoalsCard() {
 
             <fieldset className="ps-mgoals-form__row" data-testid="month-goals-picks">
               <legend className="ps-mgoals-form__lbl">Игры пройти</legend>
+              {data.yearGoal?.gamesHint != null && (
+                <p className="ps-mgoals-form__h" data-testid="month-goals-games-hint">{gamesHintLabel(data.yearGoal.gamesHint)}</p>
+              )}
               {selected.length > 0 && (
                 <ul className="ps-mgoals-pick">
                   {selected.map((g) => (

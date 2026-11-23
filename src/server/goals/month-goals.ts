@@ -9,14 +9,27 @@ import { gameVisible, snapshotGameVisible, trophySetCounted } from '@/server/col
 import { groupSnapshots, secondsByGame, secondsToHours } from '@/server/stats/hours';
 import { resolvePeriod } from '@/server/stats/period';
 import {
-  currentMonth, hasGoals, GOAL_PICK_MAX,
-  type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type ParsedGoals,
+  currentMonth, hasGoals, yearGamesHint, GOAL_PICK_MAX,
+  type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type MonthYearGoal, type ParsedGoals,
 } from '@/shared/month-goals';
+import { getGoal } from '@/server/roadmap/db';
+import type { GoalView } from '@/server/roadmap/goal';
 
 export {
-  currentMonth, hasGoals, parseGoals, GOAL_LIMITS, GOAL_PICK_MAX,
-  type GoalFields, type GoalGame, type GoalKey, type GoalProgress, type MonthGoalsView, type ParsedGoals,
+  currentMonth, hasGoals, parseGoals, yearGoalBridgeLabel, yearGamesHint, GOAL_LIMITS, GOAL_PICK_MAX,
+  type GoalFields, type GoalGame, type GoalKey, type GoalProgress, type MonthGoalsView, type MonthYearGoal, type ParsedGoals,
 } from '@/shared/month-goals';
+
+function toMonthYearGoal(g: GoalView | null, nowYear: number): MonthYearGoal | null {
+  if (!g || g.year !== nowYear) return null;
+  return {
+    mode: g.mode,
+    year: g.year,
+    current: g.current,
+    count: g.count,
+    gamesHint: yearGamesHint(g.requiredPerMonth, g.remaining, g.year, nowYear, g.status === 'achieved'),
+  };
+}
 
 const { gameStatus, games, monthGoals, monthGoalGames, playtimeSnapshots: ps, trophies, roadmapOrder } = schema;
 
@@ -187,12 +200,13 @@ export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promi
     hours: row?.hours ?? null,
     trophies: row?.trophies ?? null,
   };
-  const [progress, candidates, hoursHint] = await Promise.all([
+  const [progress, candidates, hoursHint, year] = await Promise.all([
     monthGoalProgress(db, userId, now, picked.map((g) => g.id)),
     listCandidates(db, userId, picked.map((g) => g.id)),
     averageMonthlyHours(db, userId, now),
+    getGoal(db, userId, now),
   ]);
-  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint };
+  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint, yearGoal: toMonthYearGoal(year, cur.year) };
 }
 
 /** Сохранить цели текущего месяца. Все видимые цели пустые — удалить строку. trophies в строке сохраняем, если пришли; иначе не трогаем. */

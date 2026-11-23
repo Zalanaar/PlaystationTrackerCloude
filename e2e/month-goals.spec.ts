@@ -12,6 +12,7 @@ type Goals = {
   picked: GoalGame[];
   candidates: { playing: GoalGame[]; plan: GoalGame[] };
   hoursHint: number | null;
+  yearGoal: { mode: 'complete' | 'backlog_to'; year: number; current: number; count: number; gamesHint: number | null } | null;
 };
 
 const GTA: GoalGame = { id: 3, title: 'GTA', coverUrl: null, completed: false };
@@ -25,6 +26,7 @@ const EMPTY: Goals = {
   picked: [],
   candidates: { playing: [GTA], plan: [PLAN] },
   hoursHint: 15,
+  yearGoal: null,
 };
 
 async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
@@ -64,6 +66,7 @@ test.describe('Цели месяца на главной', () => {
     const { puts } = await open(page, baseURL!);
     const card = page.getByTestId('month-goals');
     await expect(card.getByRole('heading', { name: 'Цели на ноябрь' })).toBeVisible();
+    await expect(card.getByTestId('month-goals-year')).toHaveCount(0);
     await expect(card.getByText(/Выбери игры, которые хочешь пройти/i)).toBeVisible();
     await card.getByTestId('month-goals-set').click();
     const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
@@ -102,5 +105,19 @@ test.describe('Цели месяца на главной', () => {
     await expect(dialog).toHaveCount(0);
     expect(puts.at(-1)).toEqual({ games: null, hours: null, trophies: null, gameIds: [] });
     await expect(card.getByTestId('month-goals-set')).toBeVisible();
+  });
+
+  test('цель года: «Год: 7 из 12» ведёт в План, подсказка темпа в форме', async ({ page, baseURL }) => {
+    await open(page, baseURL!, {
+      ...EMPTY,
+      yearGoal: { mode: 'complete', year: 2026, current: 7, count: 12, gamesHint: 3 },
+    });
+    const card = page.getByTestId('month-goals');
+    const year = card.getByTestId('month-goals-year');
+    await expect(year).toHaveText('Год: 7 из 12');
+    await expect(year).toHaveAttribute('href', '/roadmap#rm-goal');
+    await card.getByTestId('month-goals-set').click();
+    const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
+    await expect(dialog.getByTestId('month-goals-games-hint')).toHaveText('По темпу года — 3 игры в месяц');
   });
 });

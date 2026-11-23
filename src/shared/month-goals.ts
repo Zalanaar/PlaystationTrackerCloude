@@ -23,7 +23,29 @@ export type MonthGoalsView = {
   picked: GoalGame[];
   candidates: { playing: GoalGame[]; plan: GoalGame[] };
   hoursHint: number | null;
+  /** Цель года текущего календарного года, если задана в Плане. */
+  yearGoal: MonthYearGoal | null;
 };
+
+export type MonthYearGoal = {
+  mode: 'complete' | 'backlog_to';
+  year: number;
+  current: number;
+  count: number;
+  /** Сколько игр в месяц нужно по темпу цели года (для подсказки в форме). */
+  gamesHint: number | null;
+};
+
+/** Строка-мост на карточке месяца: «Год: 7 из 12» или «Год: бэклог 24, цель 12». */
+export function yearGoalBridgeLabel(g: Pick<MonthYearGoal, 'mode' | 'current' | 'count'>): string {
+  return g.mode === 'complete' ? `Год: ${g.current} из ${g.count}` : `Год: бэклог ${g.current}, цель ${g.count}`;
+}
+
+/** Подсказка «игр в месяц» из requiredPerMonth цели года. */
+export function yearGamesHint(requiredPerMonth: number, remaining: number, year: number, nowYear: number, achieved: boolean): number | null {
+  if (year !== nowYear || achieved || remaining <= 0) return null;
+  return Math.min(GOAL_LIMITS.games.max, Math.max(1, Math.round(requiredPerMonth)));
+}
 
 const KEYS = ['games', 'hours', 'trophies'] as const satisfies readonly GoalKey[];
 

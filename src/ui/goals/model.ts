@@ -1,8 +1,9 @@
 // Подписи и разбор формы целей месяца.
+import { yearGoalBridgeLabel } from '@/shared/month-goals';
 import { formatNumber, monthName, plural } from '../format';
 import { GOAL_LIMITS, type GoalFields, type GoalKey, type GoalProgress } from '@/shared/month-goals';
 
-export { GOAL_LIMITS };
+export { GOAL_LIMITS, yearGoalBridgeLabel };
 export type { GoalFields, GoalKey, GoalProgress };
 
 export const GOAL_ORDER: readonly GoalKey[] = ['games', 'hours'];
@@ -46,4 +47,8 @@ export function fieldHint(key: GoalKey): string {
 
 export function hoursHintLabel(n: number): string {
   return `В среднем ${formatNumber(n)} ч в месяц`;
+}
+
+export function gamesHintLabel(n: number): string {
+  return `По темпу года — ${formatNumber(n)} ${plural(n, ['игра', 'игры', 'игр'])} в месяц`;
 }

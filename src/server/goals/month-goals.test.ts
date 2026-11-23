@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from '@/server/sync/test-helpers';
+import { putGoal, putSettings } from '@/server/roadmap/db';
 import { currentMonth, getMonthGoals, hasGoals, parseGoals, saveMonthGoals } from './month-goals';
 
 const NOW = new Date('2026-11-15T12:00:00Z'); // 15:00 МСК 15 ноября
@@ -56,7 +57,7 @@ describe('на PGlite', () => {
 
   it('пусто: целей нет, прогресс ноль', async () => {
     const v = await getMonthGoals(t.db, TEST_USER, NOW);
-    expect(v).toMatchObject({ month: '2026-11', hasGoals: false, goals: { games: null, hours: null, trophies: null }, progress: { games: 0, hours: 0, trophies: 0 } });
+    expect(v).toMatchObject({ month: '2026-11', hasGoals: false, goals: { games: null, hours: null, trophies: null }, progress: { games: 0, hours: 0, trophies: 0 }, yearGoal: null });
   });
 
   it('сохранение, правка и снятие; чужой профиль не видит', async () => {
@@ -145,5 +146,22 @@ describe('на PGlite', () => {
     const v = await getMonthGoals(t.db, TEST_USER, NOW);
     // сентябрь +10 ч, октябрь +20 ч (снимок 31.08 — база); среднее 15.
     expect(v.hoursHint).toBe(15);
+    expect(v.yearGoal).toBeNull();
+  });
+
+  it('цель года текущего года: «Год: X из Y» и подсказка темпа', async () => {
+    await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
+    await putGoal(t.db, TEST_USER, { mode: 'complete', count: 12 }, NOW);
+    const a = await game({ name: 'Done1' });
+    const b = await game({ name: 'Done2' });
+    // 7 пройденных в 2026 — как в ревизии «Год: 7 из 12»
+    const extra = [];
+    for (let i = 0; i < 5; i++) extra.push(await game({ name: `D${i}` }));
+    await t.db.insert(schema.gameStatus).values(
+      [a, b, ...extra].map((id) => ({ userId: TEST_USER, gameId: id, status: 'completed' as const, completedAt: MSK_NOV1 })),
+    );
+    const v = await getMonthGoals(t.db, TEST_USER, NOW);
+    expect(v.yearGoal).toMatchObject({ mode: 'complete', year: 2026, current: 7, count: 12 });
+    expect(v.yearGoal?.gamesHint).toBeGreaterThanOrEqual(1);
   });
 });

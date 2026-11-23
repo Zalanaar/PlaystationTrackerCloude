@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { barPercent, fieldHint, hoursHintLabel, monthTitle, parseField, progressLine } from './model';
+import { yearGamesHint } from '@/shared/month-goals';
+import { barPercent, fieldHint, gamesHintLabel, hoursHintLabel, monthTitle, parseField, progressLine, yearGoalBridgeLabel } from './model';
 
 describe('подписи целей месяца', () => {
   it('заголовок, строка прогресса, шкала, разбор поля', () => {
@@ -15,5 +16,15 @@ describe('подписи целей месяца', () => {
     expect(parseField('101', 'games')).toEqual({ ok: false });
     expect(fieldHint('hours')).toContain('744');
     expect(hoursHintLabel(42)).toBe('В среднем 42 ч в месяц');
+    expect(yearGoalBridgeLabel({ mode: 'complete', current: 7, count: 12 })).toBe('Год: 7 из 12');
+    expect(yearGoalBridgeLabel({ mode: 'backlog_to', current: 24, count: 12 })).toBe('Год: бэклог 24, цель 12');
+    expect(gamesHintLabel(1)).toBe('По темпу года — 1 игра в месяц');
+    expect(gamesHintLabel(3)).toBe('По темпу года — 3 игры в месяц');
+    expect(yearGamesHint(1.4, 5, 2026, 2026, false)).toBe(1);
+    expect(yearGamesHint(0.4, 5, 2026, 2026, false)).toBe(1);
+    expect(yearGamesHint(2.6, 5, 2026, 2026, false)).toBe(3);
+    expect(yearGamesHint(3, 5, 2026, 2026, true)).toBeNull();
+    expect(yearGamesHint(3, 5, 2027, 2026, false)).toBeNull();
+    expect(yearGamesHint(3, 0, 2026, 2026, false)).toBeNull();
   });
 });

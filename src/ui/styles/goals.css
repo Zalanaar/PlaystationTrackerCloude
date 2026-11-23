@@ -11,6 +11,8 @@
 .ps-mgoals__bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; }
 .ps-mgoals__row[data-done] .ps-mgoals__bar > i { background: var(--success, var(--accent)); }
 .ps-mgoals__empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.ps-mgoals__year { align-self: flex-start; min-height: var(--tap-min); display: inline-flex; align-items: center; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); text-decoration: none; }
+.ps-mgoals__year:hover, .ps-mgoals__year:focus-visible { color: var(--text); }
 .ps-mgoals__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-mgoals-form { display: flex; flex-direction: column; gap: var(--sp-3); }
 .ps-mgoals-form__lead { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
