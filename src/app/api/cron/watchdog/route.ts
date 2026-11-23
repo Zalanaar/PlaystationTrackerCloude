@@ -6,7 +6,6 @@ import { checkBearer } from '@/server/auth/password';
 import { fail } from '@/server/http';
 import { getOwnerUserId } from '@/server/auth/users';
 import { alertOwnerMissing, runSyncWatchdog, type WatchdogResult } from '@/server/notify/watchdog';
-import { runDigest, type DigestRunResult } from '@/server/digest/run';
 import { listSyncUsers } from '@/server/sync/users';
 import { purgeExpiredArchive } from '@/server/auth/profiles';
 import { findCatchupStart } from '@/server/sync/catchup';
@@ -77,8 +76,8 @@ export async function GET(req: Request) {
     users[i].backup = r;
   });
   const ownerBackup = results[0];
-  // Фаза 29 (F29.2): недельная сводка в воскресенье МСК и догоняющий запуск в понедельник; в остальные дни digest = null. Не бросает.
-  const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
+  // Сводка в Telegram отключена (решение 23.11): хук больше не вызывает runDigest. Поле digest остаётся в ответе (всегда null).
+  const digest = null;
   // П14.2: push «Релиз завтра» тем, кто включил уведомления (без ключей VAPID — ничего). Не бросает.
   const push = await runReleasePushes(db, new Date(), getPushEnv(), webPushSender).catch(() => null);
   // Напоминание об отложенной игре: раз в месяц, одна игра, только с включёнными уведомлениями. Не бросает.

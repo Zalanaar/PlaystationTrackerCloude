@@ -1,4 +1,4 @@
-// F7 (аудит UX): экран «Настройки» — тема, уведомления, Telegram, календарь релизов, копия данных; ссылка из меню «⋯» и профиля.
+// F7 (аудит UX): экран «Настройки» — тема, уведомления, календарь релизов, копия данных; ссылка из меню «⋯» и профиля.
 import { createRequire } from 'node:module';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { signedSession } from './session';
@@ -25,6 +25,7 @@ test('экран: тема, уведомления, календарь, копи
   await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
   await expect(page.getByTestId('push-panel')).toBeVisible();
+  await expect(page.getByTestId('tg-digest')).toHaveCount(0);
   await expect(page.getByTestId('settings-calendar')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Скачать копию' })).toHaveAttribute('href', '/api/backup');
   await expect(page.getByRole('button', { name: 'Восстановить из файла' })).toBeVisible();

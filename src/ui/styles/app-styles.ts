@@ -22,7 +22,6 @@ import './health.css';
 import './onboarding.css';
 import './tour.css';
 import './inbox.css';
-import './telegram.css';
 import './install.css';
 import './profiles.css';
 import './manual.css';

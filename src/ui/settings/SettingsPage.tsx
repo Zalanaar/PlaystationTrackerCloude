@@ -10,7 +10,6 @@ import { CalendarSubscribe } from '../roadmap/CalendarSubscribe';
 import { useEverTrue } from '../useEverTrue';
 
 const PushPanel = dynamic(() => import('../push/PushPanel').then((m) => m.PushPanel), { ssr: false });
-const TelegramDigestPanel = dynamic(() => import('../telegram/TelegramDigestPanel').then((m) => m.TelegramDigestPanel), { ssr: false });
 const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
 export function SettingsPage() {
@@ -30,7 +29,6 @@ export function SettingsPage() {
 
       <section className="ps-settings__sec ps-settings__sec--bare" aria-label="Уведомления">
         <PushPanel />
-        <TelegramDigestPanel />
       </section>
 
       <section className="ps-panel ps-settings__sec" aria-labelledby="set-cal-h" data-testid="settings-calendar">
