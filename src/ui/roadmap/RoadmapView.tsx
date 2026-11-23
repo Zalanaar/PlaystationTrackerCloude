@@ -9,7 +9,7 @@ import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
 import { applyOrder, hoursLabel, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
-import { ServicePanel, UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
+import { UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { GoalPanel } from './GoalPanel';
 import { flashElement } from './parts';
@@ -24,7 +24,7 @@ import { TimelinePanel } from './Timeline';
 
 const SAVE_DEBOUNCE_MS = 500;
 
-/** Экран «План»: настройки, прогресс, таймлайн, релизы, очередь бэклога, «Нужны часы», «Не успеваю». Ошибка блока не роняет страницу. */
+/** Экран «План»: настройки, цель, прогресс, таймлайн, релизы, очередь, «Требует внимания». Ошибка блока не роняет страницу. */
 export function RoadmapView() {
   const toast = useToast();
   // П9: «Релиз в План» из меню «+» шапки (здесь — событием, с другой страницы — `/roadmap?add=release`): открыть окно «Добавить игру в план»
@@ -365,6 +365,9 @@ export function RoadmapView() {
   }
 
   const year = data?.settings.year ?? new Date().getFullYear();
+  const attentionN = data
+    ? data.needHours.length + data.notFit.length + (data.unallocated ?? []).length
+    : 0;
   return (
     <div className="ps-rm-page">
       <div className="ps-pagehead">
@@ -377,6 +380,7 @@ export function RoadmapView() {
         <a className="ps-rm-jump__a" href="#rm-tl">Таймлайн</a>
         <a className="ps-rm-jump__a" href="#rm-releases">Релизы</a>
         <a className="ps-rm-jump__a" href="#rm-queue">Очередь</a>
+        {attentionN > 0 && <a className="ps-rm-jump__a" href="#rm-attention">Внимание</a>}
       </nav>
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
@@ -412,14 +416,17 @@ export function RoadmapView() {
         <section className="ps-rm-panel" id="rm-tl" data-area="tl" aria-label={`Таймлайн ${year}`}>
           {data ? <TimelinePanel data={data} recalculating={recalculating} extra={extra} /> : <><h2 className="ps-h2">Таймлайн {year}</h2><div className="ps-skeleton ps-rm-sk-tl" aria-hidden="true" /></>}
         </section>
-        <section className="ps-rm-panel" id="rm-upcoming" data-area="upc" aria-label="Предстоящие релизы">
-          <UpcomingPanel allPlanned={allPlanned} onAdd={addUpcoming} onRestore={restoreUpcoming} />
-        </section>
-        <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-label="Релизы">
-          <ReleasesPanel
-            planned={planned} error={plannedErr} data={data} today={today} year={year} onRetry={() => { setPlannedErr(false); void loadPlanned(); }}
-            openAdd={addRelease} onAdd={addPlanned} onPatch={patchGame} onRemove={removeGame} onUnallocate={(g) => void removeFromPlan({ gameId: null, plannedId: g.id, title: g.title })}
-          />
+        <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-labelledby="rm-releases-h">
+          <h2 className="ps-h2" id="rm-releases-h">Релизы</h2>
+          <div id="rm-upcoming" className="ps-rm-subsec" data-area="upc" aria-label="Предстоящие релизы">
+            <UpcomingPanel allPlanned={allPlanned} onAdd={addUpcoming} onRestore={restoreUpcoming} />
+          </div>
+          <div className="ps-rm-subsec" data-area="rel-list">
+            <ReleasesPanel
+              planned={planned} error={plannedErr} data={data} today={today} year={year} onRetry={() => { setPlannedErr(false); void loadPlanned(); }}
+              openAdd={addRelease} onAdd={addPlanned} onPatch={patchGame} onRemove={removeGame} onUnallocate={(g) => void removeFromPlan({ gameId: null, plannedId: g.id, title: g.title })}
+            />
+          </div>
         </section>
         <section className="ps-rm-panel" id="rm-queue" data-area="queue" aria-label="Очередь бэклога">
           <QueuePanel
@@ -428,24 +435,26 @@ export function RoadmapView() {
             onReorder={reorder} onRetry={() => { setError(false); void load(); }} onRetrySave={retrySave} onNeedHours={focusNeed} onRemove={(e) => void removeFromPlan(e)}
           />
         </section>
-        {data && data.needHours.length > 0 && (
-          <section className="ps-rm-panel" id="rm-need" data-area="need" aria-label="Нужны часы">
-            <NeedHoursPanel list={data.needHours} onSave={saveNeedHours} onRemove={(e) => void removeFromPlan(e)} />
-          </section>
-        )}
-        {data && data.notFit.length > 0 && (
-          <section className="ps-rm-panel" id="rm-over" data-area="over" aria-label="Не успеваю">
-            <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveTo={moveToPosition} locked={moving_} />
-          </section>
-        )}
-        {data && (data.unallocated ?? []).length > 0 && (
-          <section className="ps-rm-panel" id="rm-unallocated" data-area="unal" aria-label="Не распределено">
-            <UnallocatedPanel list={data.unallocated} onRestore={(e) => restoreToPlan(e)} onDelete={deleteUnallocated} />
-          </section>
-        )}
-        {data && (data.serviceGames ?? []).length > 0 && (
-          <section className="ps-rm-panel" id="rm-services" data-area="svc" aria-label="Игры-сервисы">
-            <ServicePanel list={data.serviceGames} />
+        {attentionN > 0 && data && (
+          <section className="ps-rm-panel" id="rm-attention" data-area="att" aria-labelledby="rm-attention-h">
+            <div className="ps-rm-head">
+              <h2 className="ps-h2 ps-h2--ic" id="rm-attention-h">Требует внимания <small className="num ps-rm-cnt">{attentionN}</small></h2>
+            </div>
+            {data.needHours.length > 0 && (
+              <div id="rm-need" className="ps-rm-subsec" data-area="need" aria-label="Нужны часы">
+                <NeedHoursPanel list={data.needHours} onSave={saveNeedHours} onRemove={(e) => void removeFromPlan(e)} />
+              </div>
+            )}
+            {data.notFit.length > 0 && (
+              <div id="rm-over" className="ps-rm-subsec" data-area="over" aria-label="Не успеваю">
+                <OverPanel list={data.notFit} yearEnd={data.range.to} onRemove={(e) => void removeFromPlan(e)} onMoveTo={moveToPosition} locked={moving_} />
+              </div>
+            )}
+            {(data.unallocated ?? []).length > 0 && (
+              <div id="rm-unallocated" className="ps-rm-subsec" data-area="unal" aria-label="Не распределено">
+                <UnallocatedPanel list={data.unallocated} onRestore={(e) => restoreToPlan(e)} onDelete={deleteUnallocated} />
+              </div>
+            )}
           </section>
         )}
       </div>

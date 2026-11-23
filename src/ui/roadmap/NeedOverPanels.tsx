@@ -49,7 +49,7 @@ export function NeedHoursPanel({ list, onSave, onRemove }: { list: readonly Road
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2 ps-h2--ic"><Icon name="clock" size={16} />Нужны часы <small className="num ps-rm-cnt">{list.length}</small></h2>
+        <h3 className="ps-h3 ps-h2--ic"><Icon name="clock" size={16} />Нужны часы <small className="num ps-rm-cnt">{list.length}</small></h3>
       </div>
       <p className="ps-rm-sub">Без часов игру нельзя поставить на таймлайн. Введи примерную длительность.</p>
       <ul className="ps-rm-need">{list.map((e) => <NeedRow key={e.key} e={e} onSave={onSave} onRemove={onRemove} />)}</ul>
@@ -66,7 +66,7 @@ export function OverPanel({ list, yearEnd, onRemove, onMoveTo, locked = false }:
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2 ps-h2--ic"><Icon name="alert" size={16} />Не успеваю <small className="num ps-rm-cnt">{list.length}</small></h2>
+        <h3 className="ps-h3 ps-h2--ic"><Icon name="alert" size={16} />Не успеваю <small className="num ps-rm-cnt">{list.length}</small></h3>
       </div>
       <p className="ps-rm-sub" data-testid="rm-over-hint">Не влезла по порядку очереди. Освободить время можно, убрав игры раньше неё или поставив её выше.</p>
       {total > 0 && <p className="ps-rm-over__sum">Не хватает <b className="num">{hoursLabel(total)}</b>, чтобы пройти всё до {dayText(yearEnd)}</p>}

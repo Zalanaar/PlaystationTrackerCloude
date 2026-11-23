@@ -23,7 +23,7 @@ export function UnallocatedPanel({
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2 ps-h2--ic"><Icon name="eye-off" size={16} />Не распределено <small className="num ps-rm-cnt">{list.length}</small></h2>
+        <h3 className="ps-h3 ps-h2--ic"><Icon name="eye-off" size={16} />Не распределено <small className="num ps-rm-cnt">{list.length}</small></h3>
       </div>
       <p className="ps-rm-sub">Эти игры убраны из плана и не занимают недели. Игра из бэклога после возврата встаёт в конец очереди.</p>
       <ul className="ps-rm-un" id="rm-un-list">
@@ -166,7 +166,7 @@ export function UpcomingPanel({
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2">Предстоящие релизы</h2>
+        <h3 className="ps-h3">Предстоящие релизы</h3>
       </div>
       <p className="ps-rm-sub">Игры для PlayStation, которые выходят в ближайший год. «В план» ставит игру на дату выхода (галка «Хочу пройти на релизе»), часы потом введи вручную.</p>
       <p className="ps-sr" aria-live="polite">{live}</p>

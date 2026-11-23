@@ -37,7 +37,7 @@ test.describe('QA 12b: новые блоки', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       const bad = await page.evaluate(() => {
         const out: string[] = [];
-        for (const sel of ['#rm-upcoming', '#rm-unallocated', '#rm-services', '#rm-over', '#rm-queue']) {
+        for (const sel of ['#rm-releases', '#rm-upcoming', '#rm-unallocated', '#rm-over', '#rm-queue']) {
           const p = document.querySelector<HTMLElement>(sel);
           if (!p) { out.push(`${sel} missing`); continue; }
           const pr = p.getBoundingClientRect();
@@ -55,7 +55,7 @@ test.describe('QA 12b: новые блоки', () => {
   test('XSS в названиях (каталог, релиз, игра, сервис): ничего не исполняется, текст виден как текст', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
-    expect(await page.locator('#rm-upcoming img[src="x"], #rm-services img[src="x"], #rm-queue img[src="x"]').count()).toBe(0);
+    expect(await page.locator('#rm-upcoming img[src="x"], #rm-releases img[src="x"], #rm-queue img[src="x"]').count()).toBe(0);
     await expect(page.getByTestId('rm-upcoming-row').first()).toContainText('<img src=x');
   });
 
@@ -100,7 +100,7 @@ test.describe('QA 12b: новые блоки', () => {
         const lum = (c: { r: number; g: number; b: number }) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
         const bgOf = (el: Element) => { let c = { r: 255, g: 255, b: 255 }; const chain: Element[] = []; for (let e: Element | null = el; e; e = e.parentElement) chain.unshift(e); for (const e of chain) { const p = parse(getComputedStyle(e).backgroundColor); if (p && p.a > 0) c = { r: c.r * (1 - p.a) + p.r * p.a, g: c.g * (1 - p.a) + p.g * p.a, b: c.b * (1 - p.a) + p.b * p.a }; } return c; };
         const out: string[] = [];
-        for (const sel of ['#rm-upcoming', '#rm-unallocated', '#rm-services']) {
+        for (const sel of ['#rm-upcoming', '#rm-unallocated', '#rm-releases']) {
           for (const el of document.querySelectorAll<HTMLElement>(`${sel} *`)) {
             const own = Array.from(el.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim());
             if (!own || el.closest('[aria-hidden=true]')) continue;

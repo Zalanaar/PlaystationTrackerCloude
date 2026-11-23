@@ -513,16 +513,13 @@ test.describe('План: предстоящие релизы', () => {
 });
 
 test.describe('План: игры-сервисы', () => {
-  test('таблица со справкой, без добавления в план; пустая скрыта', async ({ page, context, baseURL }) => {
+  test('в Плане блока сервисов нет, даже если они есть в ответе', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, baseState({
       serviceGames: [{ gameId: 7, title: 'Фортнайт', coverUrl: null, playedHours: 312.4 }, { gameId: 8, title: 'Дестини', coverUrl: null, playedHours: 80 }],
     }));
-    const t = page.getByTestId('rm-services');
-    await expect(t.locator('tbody tr')).toHaveCount(2);
-    await expect(t).toContainText('Фортнайт');
-    await expect(t).toContainText('312 ч');
-    await expect(page.getByRole('heading', { name: /Игры-сервисы: в план не берём/ })).toBeVisible();
-    await expect(page.locator('#rm-services').getByRole('button')).toHaveCount(0);
+    await expect(page.getByTestId('rm-services')).toHaveCount(0);
+    await expect(page.locator('#rm-services')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Игры-сервисы: в план не берём/ })).toHaveCount(0);
   });
   test('нет сервисов: блока нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);

@@ -109,7 +109,7 @@ export function ReleasesPanel({
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2">Релизы {planned && <small className="num ps-rm-cnt">{planned.length}</small>}</h2>
+        <h3 className="ps-h3">Релизы {planned && <small className="num ps-rm-cnt">{planned.length}</small>}</h3>
         {planned && planned.length > 0 && addBtn}
       </div>
       {error && !planned ? (
