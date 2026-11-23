@@ -44,10 +44,17 @@ describe('/api/me/push', () => {
     const r = await POST(req('POST', SUB));
     expect(r.status).toBe(200);
     expect((await r.json()).data).toEqual({ subscribed: true, devices: 1 });
-    const t1 = await TEST(req('POST'));
-    expect((await t1.json()).data).toEqual({ sent: 1, removed: 0 });
-    expect(sent).toEqual([SUB.endpoint]);
-    expect((await TEST(req('POST'))).status).toBe(429);
+    // ref лимита — UTC-минута (toISOString().slice(0, 16)); без фиксации даты тест краснеет на границе минуты.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-23T16:00:10Z'));
+    try {
+      const t1 = await TEST(req('POST'));
+      expect((await t1.json()).data).toEqual({ sent: 1, removed: 0 });
+      expect(sent).toEqual([SUB.endpoint]);
+      expect((await TEST(req('POST'))).status).toBe(429);
+    } finally {
+      vi.useRealTimers();
+    }
     expect((await (await DELETE(req('DELETE', { endpoint: SUB.endpoint }))).json()).data).toEqual({ subscribed: false, devices: 0 });
   });
 
