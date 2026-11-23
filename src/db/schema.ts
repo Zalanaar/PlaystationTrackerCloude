@@ -1076,3 +1076,12 @@ export const monthGoals = pgTable(
     check('month_goals_trophies_check', sql`${t.trophies} is null or (${t.trophies} >= 1 and ${t.trophies} <= 5000)`),
   ],
 );
+
+/** Настройки web-push на профиль. Нет строки = значения по умолчанию (напоминание об отложенной игре включено). */
+export const pushPrefs = pgTable('push_prefs', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+  shelvedReminder: boolean('shelved_reminder').notNull().default(true),
+  updatedAt: tz('updated_at').notNull().defaultNow(),
+});

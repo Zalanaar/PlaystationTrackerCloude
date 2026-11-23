@@ -21,3 +21,7 @@
   .ps-tg__code { font-size: 20px; }
 }
 .ps-tg__cap:empty { display: none; }
+.ps-tg__shelved { display: flex; width: 100%; align-items: flex-start; }
+.ps-tg__shelved .ps-check { margin-top: 2px; flex: none; }
+.ps-tg__shelved > span:last-child { min-width: 0; }
+@media (max-width: 767px) { .ps-tg__shelved { min-height: var(--tap-min); } }

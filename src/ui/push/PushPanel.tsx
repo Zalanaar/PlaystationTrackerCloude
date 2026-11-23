@@ -1,11 +1,12 @@
 'use client';
 
 // П14.2 «Уведомления на этом устройстве»: включаются только по кнопке (запрос разрешения — в обработчике нажатия, как требует Safari).
-// Сейчас приходят: «Релиз завтра» (вечером накануне, по играм плана и бэклога с датой). «Проверить» — тестовое уведомление.
+// Сейчас приходят: «Релиз завтра» (вечером накануне, по играм плана и бэклога с датой) и раз в месяц «Вернуться к …?» (src/server/push/shelved.ts). «Проверить» — тестовое уведомление.
 import { useCallback, useEffect, useState } from 'react';
+import { Icon } from '../icons';
 import { PUSH_TEXT, keyBytes, pushView, type PushEnvInfo } from './model';
 
-type Server = { configured: boolean; publicKey: string | null; devices: number };
+type Server = { configured: boolean; publicKey: string | null; devices: number; shelvedReminder?: boolean };
 const JSON_H = { 'Content-Type': 'application/json' };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -35,6 +36,7 @@ export function PushPanel() {
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [shelved, setShelved] = useState(true);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -45,7 +47,7 @@ export function PushPanel() {
       if (s.configured && e.supported) sub = (await (await registration())?.pushManager.getSubscription()) ?? null;
       // браузер подписан и разрешение есть — тихо сверяем с сервером (подписка могла устареть там)
       if (sub && e.permission === 'granted') await api('/api/me/push', { method: 'POST', headers: JSON_H, body: JSON.stringify(sub.toJSON()) }).catch(() => undefined);
-      setServer(s); setEnv(e); setSubscribed(!!sub && e.permission === 'granted');
+      setServer(s); setEnv(e); setSubscribed(!!sub && e.permission === 'granted'); setShelved(s.shelvedReminder !== false);
     } catch {
       setLoadError(true);
     }
@@ -98,12 +100,25 @@ export function PushPanel() {
     } finally { setBusy(false); }
   }
 
+
+  async function toggleShelved(on: boolean) {
+    const prev = shelved;
+    setShelved(on); setMsg('');
+    try {
+      const r = await api<{ shelvedReminder: boolean }>('/api/me/push', { method: 'PATCH', headers: JSON_H, body: JSON.stringify({ shelvedReminder: on }) });
+      setShelved(r.shelvedReminder);
+    } catch {
+      setShelved(prev);
+      setMsg('Не удалось сохранить настройку. Попробуй ещё раз.');
+    }
+  }
+
   const view = pushView({ server, loadError, env, subscribed });
 
   return (
     <section className="ps-panel ps-tg" aria-labelledby="push-title" aria-busy={view === 'loading' || undefined} data-testid="push-panel">
       <h3 id="push-title" className="ps-tg__title">Уведомления на этом устройстве</h3>
-      <p className="ps-tg__lead">Напомню вечером накануне релиза игры из плана или бэклога. Включаются только здесь и только для этого устройства.</p>
+      <p className="ps-tg__lead">Напомню вечером накануне релиза игры из плана или бэклога, а раз в месяц — об одной игре из «Отложено». Включаются только здесь и только для этого устройства.</p>
       {view === 'loading' ? (
         <div className="ps-tg__acts"><button type="button" className="ps-btn ps-btn--primary" disabled>Включить уведомления</button></div>
       ) : view === 'error' ? (
@@ -123,6 +138,13 @@ export function PushPanel() {
         </>
       ) : (
         <p className="ps-tg__cap" data-testid="push-note">{PUSH_TEXT[view]}</p>
+      )}
+      {view !== 'loading' && view !== 'error' && (
+        <label className="ps-pcheck ps-tg__shelved" data-testid="push-shelved">
+          <input type="checkbox" checked={shelved} disabled={busy} onChange={(e) => void toggleShelved(e.target.checked)} />
+          <span className="ps-check" data-checked={shelved || undefined} aria-hidden="true">{shelved && <Icon name="check" size={12} />}</span>
+          <span>Напоминать раз в месяц об игре из «Отложено»</span>
+        </label>
       )}
       <p className="ps-tg__cap" role="status" aria-live="polite" data-testid="push-msg">{msg}</p>
     </section>

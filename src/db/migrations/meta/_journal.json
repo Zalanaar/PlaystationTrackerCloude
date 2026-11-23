@@ -309,6 +309,13 @@
       "when": 1795103208732,
       "tag": "0043_month_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795440365710,
+      "tag": "0044_push_prefs",
+      "breakpoints": true
     }
   ]
 }

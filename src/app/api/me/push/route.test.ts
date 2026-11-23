@@ -15,7 +15,7 @@ vi.mock('@/server/push/push', async (orig) => ({
   webPushSender: async (s: { endpoint: string }) => { sent.push(s.endpoint); return 201; },
 }));
 
-import { DELETE, GET, POST } from './route';
+import { DELETE, GET, PATCH, POST } from './route';
 import { POST as TEST } from './test/route';
 
 const KEY = 'B'.repeat(87);
@@ -34,13 +34,13 @@ describe('/api/me/push', () => {
 
   it('без VAPID: configured=false, подписка 409', async () => {
     vi.stubEnv('VAPID_PUBLIC_KEY', '');
-    expect((await (await GET(req('GET'))).json()).data).toEqual({ configured: false, publicKey: null, devices: 0 });
+    expect((await (await GET(req('GET'))).json()).data).toEqual({ configured: false, publicKey: null, devices: 0, shelvedReminder: true });
     expect((await POST(req('POST', SUB))).status).toBe(409);
     expect((await TEST(req('POST'))).status).toBe(409);
   });
 
   it('подписка, тест (раз в минуту), отписка', async () => {
-    expect((await (await GET(req('GET'))).json()).data).toEqual({ configured: true, publicKey: KEY, devices: 0 });
+    expect((await (await GET(req('GET'))).json()).data).toEqual({ configured: true, publicKey: KEY, devices: 0, shelvedReminder: true });
     const r = await POST(req('POST', SUB));
     expect(r.status).toBe(200);
     expect((await r.json()).data).toEqual({ subscribed: true, devices: 1 });
@@ -49,6 +49,15 @@ describe('/api/me/push', () => {
     expect(sent).toEqual([SUB.endpoint]);
     expect((await TEST(req('POST'))).status).toBe(429);
     expect((await (await DELETE(req('DELETE', { endpoint: SUB.endpoint }))).json()).data).toEqual({ subscribed: false, devices: 0 });
+  });
+
+  it('переключатель напоминания об «Отложено»: по умолчанию вкл, PATCH выключает', async () => {
+    expect((await (await GET(req('GET'))).json()).data.shelvedReminder).toBe(true);
+    const r = await PATCH(req('PATCH', { shelvedReminder: false }));
+    expect(r.status).toBe(200);
+    expect((await r.json()).data).toEqual({ shelvedReminder: false });
+    expect((await (await GET(req('GET'))).json()).data.shelvedReminder).toBe(false);
+    expect((await PATCH(req('PATCH', { shelvedReminder: 'no' }))).status).toBe(400);
   });
 
   it('400: чужой адрес, кривые ключи, не JSON, чужой Origin; 503 без утечки', async () => {

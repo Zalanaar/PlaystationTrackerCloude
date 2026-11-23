@@ -12,6 +12,7 @@ import { purgeExpiredArchive } from '@/server/auth/profiles';
 import { findCatchupStart } from '@/server/sync/catchup';
 import { queueChain, queueGuideRefresh } from '@/server/sync/service';
 import { getPushEnv, runReleasePushes, webPushSender } from '@/server/push/push';
+import { runShelvedReminders } from '@/server/push/shelved';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,8 +81,10 @@ export async function GET(req: Request) {
   const digest: DigestRunResult | null = await runDigest(db).catch(() => null);
   // П14.2: push «Релиз завтра» тем, кто включил уведомления (без ключей VAPID — ничего). Не бросает.
   const push = await runReleasePushes(db, new Date(), getPushEnv(), webPushSender).catch(() => null);
+  // Напоминание об отложенной игре: раз в месяц, одна игра, только с включёнными уведомлениями. Не бросает.
+  const shelvedPush = await runShelvedReminders(db, new Date(), getPushEnv(), webPushSender).catch(() => null);
   return NextResponse.json(
-    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, push, archivePurged, catchupFrom } },
+    { ok: true, data: { sync: { isOverdue: sync.isOverdue, ageHours: sync.ageHours, alert: sync.alert }, users, backup: { result: ownerBackup }, digest, push, shelvedPush, archivePurged, catchupFrom } },
     { headers: NO_STORE },
   );
 }

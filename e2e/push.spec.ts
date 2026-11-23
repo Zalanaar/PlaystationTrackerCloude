@@ -27,7 +27,8 @@ async function open(page: Page, baseURL: string, cfg: Cfg = {}) {
     const m = r.request().method();
     calls.push(m);
     if (m !== 'GET') bodies.push(r.request().postDataJSON());
-    if (m === 'GET') return json(r, { ok: true, data: { configured: cfg.configured ?? true, publicKey: cfg.configured === false ? null : KEY, devices: cfg.subscribed ? 1 : 0 } });
+    if (m === 'GET') return json(r, { ok: true, data: { configured: cfg.configured ?? true, publicKey: cfg.configured === false ? null : KEY, devices: cfg.subscribed ? 1 : 0, shelvedReminder: true } });
+    if (m === 'PATCH') return json(r, { ok: true, data: r.request().postDataJSON() });
     return json(r, { ok: true, data: { subscribed: m === 'POST', devices: m === 'POST' ? 1 : 0 } });
   });
   // эмуляция Push API: регистрация SW с pushManager, Notification.permission / requestPermission, iPhone вне PWA
@@ -92,6 +93,17 @@ test('сервер без ключей: «пока не включены», кн
   const { panel } = await open(page, baseURL!, { configured: false });
   await expect(panel.getByTestId('push-note')).toHaveText('Уведомления пока не включены на сервере.');
   await expect(panel.getByTestId('push-enable')).toHaveCount(0);
+});
+
+test('переключатель напоминания об «Отложено»: по умолчанию включён, выключается PATCH', async ({ page, baseURL }) => {
+  const { panel, calls, bodies } = await open(page, baseURL!);
+  const box = panel.getByTestId('push-shelved');
+  await expect(box).toContainText('Отложено');
+  await expect(box.locator('input')).toBeChecked();
+  await box.click();
+  await expect(box.locator('input')).not.toBeChecked();
+  expect(calls).toContain('PATCH');
+  expect(bodies.some((b) => (b as { shelvedReminder?: boolean }).shelvedReminder === false)).toBe(true);
 });
 
 test('iPhone в Safari (не с экрана «Домой»): как установить', async ({ page, baseURL }) => {
