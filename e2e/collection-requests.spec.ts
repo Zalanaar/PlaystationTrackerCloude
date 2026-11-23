@@ -28,7 +28,11 @@ test('коллекция: сбой одного блока в batch показы
   m.failBlock = (u) => u.searchParams.get('status') === 'backlog';
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
-  await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toBeVisible();
+  // на чистой главной блок бэклога заменён строкой-ссылкой, ошибка блока не показывается
+  await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toHaveCount(0);
   await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Играю' })).toBeVisible();
+  await page.goto('/?status=backlog');
+  await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toBeVisible();
   expect(m.batchCalls.length).toBeGreaterThan(0);
 });

@@ -26,7 +26,7 @@ async function open(
     await page.getByRole('heading', { name: 'Бэклог', level: 1 }).waitFor();
     await page.locator('.ps-card:not(.ps-card--sk), .ps-blrow, .ps-empty').first().waitFor();
   } else {
-    await page.locator('.ps-card').first().waitFor();
+    await page.locator('.ps-card, .ps-hero, [data-testid="home-backlog-row"]').first().waitFor();
   }
   return { mock, manual };
 }

@@ -48,7 +48,7 @@ test.describe('два пользователя в одном браузере', 
     const m = await text(memberPage);
     expect(o).toContain('Horizon Forbidden West');
     expect(o).not.toContain('Только у участника');
-    expect(m).toContain('Только у участника');
+    expect(m).toContain('Участник: играю'); // бэклог «Только у участника» на чистой главной скрыт за строкой-ссылкой
     for (const t of OWNER_ONLY_TITLES) expect(m).not.toContain(t);
     expect(m).not.toContain('Hades');
 

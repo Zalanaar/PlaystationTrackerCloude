@@ -25,7 +25,7 @@ async function open(page: Page, baseURL: string, context: import('@playwright/te
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: tourStub }));
   const mock = await mockApi(page, games());
   await page.goto(url);
-  if (url !== '/backlog') { await page.locator('.ps-card').first().waitFor(); return mock; }
+  if (url !== '/backlog') { await page.locator('.ps-card, .ps-hero, [data-testid="home-backlog-row"]').first().waitFor(); return mock; }
   await page.getByRole('heading', { name: 'Бэклог', level: 1 }).waitFor();
   await page.locator('.ps-card:not(.ps-card--sk), .ps-blrow, .ps-empty').first().waitFor();
   return mock;
