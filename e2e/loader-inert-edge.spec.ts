@@ -42,7 +42,7 @@ test('поиск: медленная перезагрузка не отбира�
 
 test('смена статуса: refresh после мутации не делает корень inert, ввод в поиск работает', async ({ page, context, baseURL }) => {
   await setup(page, context, baseURL!, 0);
-  await page.goto('/');
+  await page.goto('/?status=backlog');
   await expect(page.locator('.ps-card').first()).toBeVisible();
   state.delay = 1500;
   await page.getByRole('button', { name: 'Открыть: Stray' }).first().click(); // диалог: работает и на mobile

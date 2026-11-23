@@ -46,7 +46,7 @@ test.describe('переключатель в шапке', () => {
 
     await expect(page.locator('.ps-pswitch-veil')).toHaveCount(0, { timeout: 10_000 });
     await expect(page.locator('html')).not.toHaveAttribute('data-psw', '');
-    await expect(page.locator('main')).toContainText('Только у второго');
+    await expect(page.locator('main')).toContainText('Второй играет');
     expect(await page.locator('main').innerText()).not.toContain('Horizon Forbidden West');
     await expect(page.locator('.ps-pswitch')).toContainText('Second_Nick');
     await expect(page.getByText('Профиль PSN: Second_Nick').first()).toBeVisible();
@@ -64,7 +64,7 @@ test.describe('переключатель в шапке', () => {
     await expect(page.locator('main')).toContainText('Horizon Forbidden West');
     await openChip(page, info);
     await page.getByRole('menuitemradio', { name: /Second_Nick/ }).click();
-    await expect(page.locator('main')).toContainText('Только у второго');
+    await expect(page.locator('main')).toContainText('Второй играет');
     await expect(page.locator('main h1')).toBeFocused();
   });
 
@@ -80,7 +80,7 @@ test.describe('переключатель в шапке', () => {
     s.switchFail = null;
     // «Повторить» именно в тосте смены профиля (у блока «Игры с других платформ» своя кнопка повтора загрузки)
     await page.locator('.ps-toast').getByRole('button', { name: 'Повторить' }).click();
-    await expect(page.locator('main')).toContainText('Только у второго');
+    await expect(page.locator('main')).toContainText('Второй играет');
   });
 
   test('localStorage: настройки вида лежат под ключом с id активного профиля, у второго профиля не наследуются', async ({ page, baseURL }, info) => {
@@ -90,7 +90,7 @@ test.describe('переключатель в шапке', () => {
     await page.evaluate(() => localStorage.setItem('ps-view:1', 'list'));
     await openChip(page, info);
     await page.getByRole('menuitemradio', { name: /Second_Nick/ }).click();
-    await expect(page.locator('main')).toContainText('Только у второго');
+    await expect(page.locator('main')).toContainText('Второй играет');
     const keys = await page.evaluate(() => ({ k: Object.keys(localStorage), v1: localStorage.getItem('ps-view:1'), v2: localStorage.getItem('ps-view:2') }));
     expect(keys.v1).toBe('list');
     expect(keys.v2).toBeNull();
@@ -271,7 +271,7 @@ test.describe('/profiles', () => {
   test('отвязка активного профиля: откроется основной, данные основного, завеса', async ({ page, baseURL }) => {
     const s = await setup(page, baseURL!, TWO(), { active: 2 });
     await page.goto('/');
-    await expect(page.locator('main')).toContainText('Только у второго');
+    await expect(page.locator('main')).toContainText('Второй играет');
     await page.goto('/profiles');
     await expect(page.locator('li[data-pid="2"]')).toHaveAttribute('aria-current', 'true');
     await page.getByRole('button', { name: 'Отвязать профиль Second_Nick' }).click();
@@ -286,7 +286,7 @@ test.describe('/profiles', () => {
     await expect(page.locator('.ps-pswitch')).toHaveCount(0);
     await page.goto('/');
     await expect(page.locator('main')).toContainText('Horizon Forbidden West');
-    expect(await page.locator('main').innerText()).not.toContain('Только у второго');
+    expect(await page.locator('main').innerText()).not.toContain('Второй играет');
   });
 
   test('сессия профиля умерла (401) при переключении: переход на вход', async ({ page, baseURL }, info) => {

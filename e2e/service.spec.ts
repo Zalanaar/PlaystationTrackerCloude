@@ -105,7 +105,7 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
   test.beforeEach(({}, info) => { test.skip(info.project.name !== 'desktop', 'десктопный сценарий'); });
 
   test('меню из 7 пунктов с подсказкой; Stray переезжает из бэклога в блок, счётчики меняются', async ({ page, context, baseURL }) => {
-    const mock = await open(page, context, baseURL!);
+    const mock = await open(page, context, baseURL!, '/?status=backlog');
     await coll(page).getByRole('button', { name: 'Статус: Stray' }).click();
     const items = page.getByRole('menuitemradio');
     await expect(items).toHaveText(['Играю', 'Пройдено', 'Бэклог', 'Брошено', 'Отложено', 'Сервис', 'Без статуса']);
@@ -115,6 +115,7 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'service' } });
     await expect(tab(page, /Сервис/)).toContainText('1');
     await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
+    await tab(page, /^Все/).click();
     await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
     await expect(block(page)).toHaveCount(0);
     await tab(page, /Сервис/).click();

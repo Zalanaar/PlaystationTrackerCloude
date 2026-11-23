@@ -64,6 +64,7 @@ test('«Играю» → «Не пропусти» со ссылками на г
 test('своя ссылка важнее совпадения', async ({ page, context, baseURL }) => {
   const m = await open(page, context, baseURL as string);
   m.guides[6] = { match: GUIDE.match, override: 'https://example.com/my-guide', dismissed: false };
+  await page.goto('/?status=backlog');
   await startPlaying(page, 'Stray');
   const sheet = page.getByRole('dialog', { name: 'Не пропусти' });
   await expect(sheet.getByTestId('missable-link-own')).toHaveAttribute('href', 'https://example.com/my-guide');

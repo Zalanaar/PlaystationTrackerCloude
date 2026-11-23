@@ -314,14 +314,15 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('смена статуса: меню на фигуре карточки, счётчики, toast, сохранение после reload', async ({ page, context, baseURL }) => {
-    const mock = await open(page, context, baseURL!);
+    const mock = await open(page, context, baseURL!, '/?status=backlog');
     await coll(page).getByRole('button', { name: 'Статус: Stray' }).click();
     await page.getByRole('menuitemradio', { name: 'Играю' }).click();
     await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
     expect(mock.mutations.at(-1)).toMatchObject({ method: 'PUT', body: { status: 'playing' } });
     await expect(tab(page, /Играю/)).toContainText('2');
     await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
-    // игра переехала в ленту «Играю»
+    // на чистой главной бэклог скрыт за строкой-ссылкой; лента «Играю» — после сброса фильтра
+    await tab(page, /^Все/).click();
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Stray');
     await page.reload();
     await expect(tab(page, /Играю/)).toContainText('2');
@@ -349,7 +350,7 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('сбой смены статуса откатывает оптимистичное изменение и счётчики', async ({ page, context, baseURL }) => {
-    const mock = await open(page, context, baseURL!);
+    const mock = await open(page, context, baseURL!, '/?status=backlog');
     mock.failNextMutation = 503;
     await coll(page).getByRole('button', { name: 'Статус: Stray' }).click();
     await page.getByRole('menuitemradio', { name: 'Играю' }).click();
@@ -360,7 +361,7 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('сетевой обрыв при смене статуса: откат, список не залипает', async ({ page, context, baseURL }) => {
-    const mock = await open(page, context, baseURL!);
+    const mock = await open(page, context, baseURL!, '/?status=backlog');
     mock.abortMutations = true;
     await coll(page).getByRole('button', { name: 'Статус: Stray' }).click();
     await page.getByRole('menuitemradio', { name: 'Играю' }).click();
@@ -426,7 +427,7 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('диалог игры: role=dialog, aria-modal, заголовок, Esc закрывает и возвращает фокус', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!);
+    await open(page, context, baseURL!, '/?status=backlog');
     const trigger = coll(page).getByRole('button', { name: 'Открыть: Stray' });
     await trigger.focus();
     await page.keyboard.press('Enter');
@@ -445,7 +446,7 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('Esc закрывает диалог, когда фокус на кнопке статуса (BUG-4)', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!);
+    await open(page, context, baseURL!, '/?status=backlog');
     await coll(page).getByRole('button', { name: 'Открыть: Stray' }).click();
     const dlg = page.getByRole('dialog', { name: 'Stray' });
     await dlg.getByRole('button', { name: 'Изменить статус' }).focus();
@@ -454,7 +455,7 @@ test.describe('коллекция (desktop)', () => {
   });
 
   test('меню статуса управляется с клавиатуры', async ({ page, context, baseURL }) => {
-    await open(page, context, baseURL!);
+    await open(page, context, baseURL!, '/?status=backlog');
     const trig = coll(page).getByRole('button', { name: 'Статус: Stray' });
     await trig.focus();
     await page.keyboard.press('Enter');
@@ -632,7 +633,7 @@ for (const width of [390, 440]) {
     });
 
     test('долгий тап по обложке открывает sheet статуса', async ({ page, context, baseURL }) => {
-      const mock = await open(page, context, baseURL!);
+      const mock = await open(page, context, baseURL!, '/?status=backlog');
       const hit = coll(page).getByRole('button', { name: 'Открыть: Stray' });
       await hit.scrollIntoViewIfNeeded();
       const b = (await hit.boundingBox())!;
@@ -648,7 +649,7 @@ for (const width of [390, 440]) {
     });
 
     test('тап по значку статуса на карточке открывает sheet статуса, зона ≥ 44', async ({ page, context, baseURL }) => {
-      const mock = await open(page, context, baseURL!);
+      const mock = await open(page, context, baseURL!, '/?status=backlog');
       const btn = coll(page).getByRole('button', { name: 'Статус: Stray' });
       await btn.scrollIntoViewIfNeeded();
       const z = await btn.evaluate((el) => { const r = el.getBoundingClientRect(); const a = getComputedStyle(el, '::after'); return { w: r.width - 2 * parseFloat(a.left), h: r.height - 2 * parseFloat(a.top) }; });
@@ -664,7 +665,7 @@ for (const width of [390, 440]) {
     });
 
     test('короткий тап открывает игру', async ({ page, context, baseURL }) => {
-      await open(page, context, baseURL!);
+      await open(page, context, baseURL!, '/?status=backlog');
       await coll(page).getByRole('button', { name: 'Открыть: Stray' }).tap();
       await expect(page.getByRole('dialog', { name: 'Stray' })).toBeVisible();
     });

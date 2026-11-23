@@ -7,7 +7,7 @@ import { signedSession } from './session';
 async function open(page: Page, context: BrowserContext, baseURL: string) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const m = await mockApi(page);
-  await page.goto('/');
+  await page.goto('/?status=backlog');
   await expect(page.getByRole('button', { name: 'Статус: Stray' })).toBeVisible();
   return m;
 }

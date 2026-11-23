@@ -73,10 +73,12 @@ test('План не загрузился: блока «Что дальше» н�
 
 test('пустой План: подсказка выбрать в бэклоге; другой статус листа не открывает', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL as string, []);
+  await page.goto('/?status=backlog');
   await coll(page).getByRole('button', { name: 'Статус: Stray' }).first().click();
   await page.getByRole('menuitemradio', { name: 'Брошено' }).click();
   await expect(page.getByText('Статус изменён: Брошено')).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.goto('/');
   await complete(page, 'Tetris Effect');
   const sheet = page.getByRole('dialog', { name: 'Пройдено: Tetris Effect' });
   await expect(sheet.getByTestId('after-complete-next')).toContainText('В Плане нет следующей игры');

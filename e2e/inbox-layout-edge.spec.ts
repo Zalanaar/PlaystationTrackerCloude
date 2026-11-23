@@ -160,7 +160,7 @@ test('QA-28-4b: после пустого визита пришли новые �
 test('QA-28-5: тост скрывает «Что нового» и карточка возвращается', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL!, null);
   await page.evaluate(() => localStorage.setItem('ps-wn-seen:1', '11'));
-  await page.reload();
+  await page.goto('/?status=backlog');
   const wn = page.getByTestId('whats-new');
   await wn.waitFor({ timeout: 8000 });
   const st = page.getByRole('button', { name: 'Статус: Stray' });
