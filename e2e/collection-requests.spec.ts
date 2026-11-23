@@ -32,7 +32,11 @@ test('коллекция: сбой одного блока в batch показы
   await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toHaveCount(0);
   await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Играю' })).toBeVisible();
-  await page.goto('/?status=backlog');
+  // ?status=backlog грузит только этот блок: при сбое будет общая ошибка, не «блок «Бэклог»».
+  // Поиск оставляет все блоки и прячет строку-ссылку — ошибка блока снова видна, «Играю» на месте.
+  await page.goto('/?q=Horizon');
   await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toBeVisible();
+  await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Играю' })).toBeVisible();
   expect(m.batchCalls.length).toBeGreaterThan(0);
 });
