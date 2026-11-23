@@ -3,10 +3,12 @@
 // «Начать» ставит следующей игре «Играю» одним касанием.
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import type { DiaryEntry } from '@/shared/diary';
 import type { GameReview } from '@/server/collection/types';
 import { errorText, fetchGameDetails, putStatus } from '../collection/api';
 import { Cover } from '../collection/Cover';
 import { ReviewEditor } from '../collection/dialog/ReviewEditor';
+import { DiaryEditor } from '../diary/DiaryEditor';
 import { formatHoursApprox } from '../format';
 import { Sheet } from '../primitives/Sheet';
 import { useToast } from '../primitives/Toast';
@@ -15,7 +17,7 @@ import { requestDataRefresh } from '../shell/refresh';
 import { announcePlaying } from '../guides/startPlaying';
 import { nextFromPlan, type CompletedGame, type NextUp } from './afterComplete';
 
-type Review = { kind: 'loading' } | { kind: 'ok'; review: GameReview | null } | { kind: 'error' };
+type Review = { kind: 'loading' } | { kind: 'ok'; review: GameReview | null; diary: DiaryEntry[] } | { kind: 'error' };
 
 export function AfterCompleteSheet({ game, onClose }: { game: CompletedGame; onClose: () => void }) {
   const toast = useToast();
@@ -28,7 +30,7 @@ export function AfterCompleteSheet({ game, onClose }: { game: CompletedGame; onC
   useEffect(() => {
     const ac = new AbortController();
     // текущая заметка нужна до правки: иначе сохранение оценки затёрло бы её пустой
-    fetchGameDetails(game.id, ac.signal).then((d) => setReview({ kind: 'ok', review: d.review ?? null }), () => { if (!ac.signal.aborted) setReview({ kind: 'error' }); });
+    fetchGameDetails(game.id, ac.signal).then((d) => setReview({ kind: 'ok', review: d.review ?? null, diary: d.diary ?? [] }), () => { if (!ac.signal.aborted) setReview({ kind: 'error' }); });
     fetchRoadmap(ac.signal).then((r) => setNext(nextFromPlan(r, game.id)), () => { if (!ac.signal.aborted) setNext('error'); });
     return () => ac.abort();
   }, [game.id]);
@@ -57,7 +59,8 @@ export function AfterCompleteSheet({ game, onClose }: { game: CompletedGame; onC
         {review.kind === 'error' && <p className="ps-done__lead" role="status">Оценку можно поставить в окне игры: сейчас не удалось её загрузить.</p>}
         {review.kind === 'ok' && (
           <div className="ps-done__review">
-            <ReviewEditor key={game.id} game={game} review={review.review} onChanged={() => setChanged(true)} />
+            <ReviewEditor key={game.id} game={game} review={review.review} onChanged={() => setChanged(true)} withNote={false} />
+            <DiaryEditor key={`diary-${game.id}`} gameId={game.id} entries={review.diary} onChanged={() => setChanged(true)} />
           </div>
         )}
 

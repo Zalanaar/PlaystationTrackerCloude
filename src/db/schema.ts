@@ -1117,3 +1117,18 @@ export const huntTrophies = pgTable('hunt_trophies', {
   foreignKey({ name: 'hunt_trophies_user_set_fk', columns: [t.userId, t.trophySetId], foreignColumns: [trophySets.userId, trophySets.id] }).onDelete('cascade'),
   foreignKey({ name: 'hunt_trophies_user_trophy_fk', columns: [t.userId, t.trophySetId, t.trophyId], foreignColumns: [trophies.userId, trophies.trophySetId, trophies.trophyId] }).onDelete('cascade'),
 ]);
+
+/** Дневник прохождения: датированные короткие заметки к игре (вместо одного поля на 500 символов). */
+export const gameDiaryEntries = pgTable('game_diary_entries', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userId: userIdCol(),
+  gameId: integer('game_id')
+    .notNull()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  body: text().notNull(),
+  createdAt: tz('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('game_diary_entries_user_game_created_idx').on(t.userId, t.gameId, t.createdAt),
+  foreignKey({ name: 'game_diary_entries_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+  check('game_diary_entries_body_check', sql`char_length(${t.body}) between 1 and 500`),
+]);

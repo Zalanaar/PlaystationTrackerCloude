@@ -6,11 +6,11 @@ import { GENRE_LABELS_RU } from '@/shared/genres';
 
 export const BACKUP_APP = 'ps-tracker-backup';
 /**
- * v2 (F1): у игры есть необязательное поле `review`. v3 (П13): необязательные `tags` (имена своих тегов) и `price` (цена покупки, ₽).
- * Файлы v1/v2 читаются как раньше.
+ * v2 (F1): у игры есть необязательное поле `review`. v3 (П13): необязательные `tags` и `price`.
+ * v4: необязательный `diary` — датированные заметки прохождения. Файлы v1–v3 читаются как раньше.
  */
-export const BACKUP_SCHEMA_VERSION = 3;
-export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3];
+export const BACKUP_SCHEMA_VERSION = 4;
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 4];
 export const MAX_GAMES = 5000;
 export const MAX_PLANNED = 2000;
 /** Предел тела запроса восстановления в символах (≈5 МБ). */
@@ -55,6 +55,11 @@ const gameSchema = z.object({
   tags: z.array(z.string().refine((n) => n.trim().length > 0 && [...n.trim()].length <= 32, 'tag')).max(20).optional(),
   /** v3 (П13.3): цена покупки, целые рубли 0..1 000 000. */
   price: z.number().int().min(0).max(1_000_000).nullable().optional(),
+  /** v4: датированные заметки дневника (1–500 символов, до 50). */
+  diary: z.array(z.object({
+    body: z.string().refine((n) => n.trim().length > 0 && [...n].length <= 500, 'diary'),
+    createdAt: iso,
+  })).max(50).optional(),
 });
 
 const plannedSchema = z

@@ -18,13 +18,15 @@ const normNote = (s: string) => {
 };
 
 /**
- * «Моя оценка» в окне игры (F1, контракт F1): 11 шагов 0–10 (0 — настоящая оценка, «Сбросить» = без оценки) и заметка ≤500.
+ * «Моя оценка» в окне игры (F1): 11 шагов 0–10 (0 — настоящая оценка, «Сбросить» = без оценки). Заметка ≤500 — если withNote.
  * Запросы идут по одному: новая правка ждёт ответа предыдущей и уходит с последними значениями (порядок на сервере = порядок правок).
  */
-export function ReviewEditor({ game, review, onChanged, save }: {
+export function ReviewEditor({ game, review, onChanged, save, withNote = true }: {
   game?: Pick<GameItem, 'id'>; review: GameReview | Saved | null; onChanged?: (g: GameItem) => void;
   /** Пакет 5: свой способ сохранения (запись «с другой платформы», PATCH /api/manual-games/{id}); иначе PUT отзыва игры */
   save?: (v: Saved, keepalive: boolean) => Promise<Saved>;
+  /** false — только оценка (заметки в дневнике). По умолчанию есть поле заметки (другие платформы). */
+  withNote?: boolean;
 }) {
   const hId = useId();
   const noteId = useId();
@@ -47,16 +49,16 @@ export function ReviewEditor({ game, review, onChanged, save }: {
     if (inflight.current) return;
     const w = want.current;
     const s = saved.current;
-    if (w.rating === s.rating && w.note === s.note) return;
-    if (w.note !== null && noteLength(w.note) > NOTE_MAX) return;
+    if (w.rating === s.rating && ( !withNote || w.note === s.note)) return;
+    if (withNote && w.note !== null && noteLength(w.note) > NOTE_MAX) return;
     inflight.current = true;
     if (alive.current) setPhase({ kind: 'saving' });
     try {
       if (save) {
         saved.current = await save({ rating: w.rating, note: w.note }, keepalive);
       } else if (game) {
-        const r = await putReview(game.id, { rating: w.rating, note: w.note }, keepalive ? { keepalive: true } : undefined);
-        saved.current = { rating: r.review?.rating ?? null, note: r.review?.note ?? null };
+        const r = await putReview(game.id, withNote ? { rating: w.rating, note: w.note } : { rating: w.rating }, keepalive ? { keepalive: true } : undefined);
+        saved.current = { rating: r.review?.rating ?? null, note: withNote ? (r.review?.note ?? null) : saved.current.note };
         changedCb.current?.(r.game);
       }
       if (alive.current) setPhase({ kind: 'saved' });
@@ -142,15 +144,19 @@ export function ReviewEditor({ game, review, onChanged, save }: {
           <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-gd__rvreset" onClick={() => pickRating(null)}>Сбросить оценку</button>
         )}
       </div>
+      {withNote && (
+        <>
       <label className="ps-gd__rvlbl" htmlFor={noteId}>Заметка</label>
       <textarea
         id={noteId} className="ps-input ps-gd__rvnote" rows={3} value={note} placeholder="Что запомнилось, за что оценка…"
         aria-describedby={cntId} aria-invalid={tooLong || undefined}
         onChange={(e) => editNote(e.target.value)} onBlur={() => flush()}
       />
+        </>
+      )}
       <div className="ps-gd__rvfoot">
         <span className="ps-gd__rvstate" role="status" data-kind={tooLong ? 'error' : phase.kind}>{status}</span>
-        <span id={cntId} className="ps-gd__rvcnt num" data-over={tooLong || undefined}>{len}/{NOTE_MAX}</span>
+        {withNote && <span id={cntId} className="ps-gd__rvcnt num" data-over={tooLong || undefined}>{len}/{NOTE_MAX}</span>}
       </div>
     </section>
   );

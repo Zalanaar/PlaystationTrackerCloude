@@ -5,6 +5,7 @@ import type { AnyDb } from '@/db/types';
 import type { UserId } from '@/server/auth/user-id';
 import { mergeDuplicateSnapshots } from '@/server/stats/duplicates';
 import type { EstimateInput } from '@/server/stats/hours';
+import { listDiary } from '@/server/diary/diary';
 import { buildGameHistory } from './history';
 import { platinumForecast, setAggsFromTrophies } from './platinum';
 import { getGamesByIds } from './query';
@@ -147,6 +148,7 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
     .orderBy(asc(trophyGroups.trophySetId), asc(trophyGroups.groupId))
     .catch((): GameTrophyGroup[] => []);
   const history = buildGameHistory({ ...historyInput, trophies: trophyList });
+  const diary = await listDiary(db, userId, id);
   return {
     game,
     firstPlayedAt: meta.firstPlayedAt ? meta.firstPlayedAt.toISOString() : null,
@@ -157,6 +159,7 @@ export async function getGameDetails(db: AnyDb, userId: UserId, id: number): Pro
     platinumForecast: platinumForecast(setAggsFromTrophies(trophyList)),
     history,
     review: meta.reviewUpdatedAt ? { rating: meta.reviewRating, note: meta.reviewNote, updatedAt: meta.reviewUpdatedAt.toISOString() } : null,
+    diary,
     guide,
   };
 }

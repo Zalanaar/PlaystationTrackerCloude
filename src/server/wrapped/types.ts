@@ -88,6 +88,10 @@ export type WrappedResponse = {
   emptyState: { syncStartedOn: string | null } | null;
   /** Пакет 3: игра года с наивысшей моей оценкой (среди игранных в году или пройденных в году). Нет в старых ответах и при scope = 'all'. */
   bestGame?: WrappedBestGame;
+  /** Заметки дневника за выбранный год; нет в старых ответах и при scope = 'all'. */
+  diary?: { hasData: boolean; items: WrappedDiaryNote[] };
 };
 
 export type WrappedBestGame = { hasData: boolean; rating: number | null; hours: number; estimated: boolean; game: GameItem | null };
+/** Заметки дневника за год (на финальном слайде «Итогов»). */
+export type WrappedDiaryNote = { gameId: number; title: string; body: string; createdAt: string };

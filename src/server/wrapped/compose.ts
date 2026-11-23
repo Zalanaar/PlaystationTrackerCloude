@@ -8,7 +8,7 @@ import { buildPlayPattern, type PatternCell } from '@/server/stats/play-pattern'
 import { aggregateTrophies, type EarnedTrophy } from '@/server/stats/trophies';
 import type { RareTrophy } from '@/server/stats/types';
 import { peakMonth, pickBestGame, pickPlatinums, splitFinished, topGamesBySeconds } from './calc';
-import type { WrappedPlatinum, WrappedResponse, WrappedSlideId } from './types';
+import type { WrappedDiaryNote, WrappedPlatinum, WrappedResponse, WrappedSlideId } from './types';
 
 export const WRAPPED_GENRES_TOP = 3;
 
@@ -35,6 +35,8 @@ export type WrappedInput = {
   patternCells?: readonly PatternCell[];
   /** Пакет 3: мои оценки (id карточки → 0..10), только оценённые; нет = слайда «Лучшая игра года» нет. */
   ratings?: ReadonlyMap<number, number>;
+  /** Заметки дневника за год (уже отфильтрованы). */
+  diaryNotes?: readonly WrappedDiaryNote[];
 };
 
 export function composeWrapped(i: WrappedInput): WrappedResponse {
@@ -112,5 +114,6 @@ export function composeWrapped(i: WrappedInput): WrappedResponse {
       : { hasData: false, seconds: 0, hours: 0, estimated: false, playCount: 0, game: null },
     emptyState: empty ? { syncStartedOn: i.firstSnapshotDate } : null,
     bestGame: empty ? { hasData: false, rating: null, hours: 0, estimated: false, game: null } : best,
+    diary: { hasData: !empty && (i.diaryNotes?.length ?? 0) > 0, items: empty ? [] : [...(i.diaryNotes ?? [])] },
   };
 }

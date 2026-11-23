@@ -215,6 +215,8 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const order = await import('@/app/api/roadmap/order/route');
     const hg = await import('@/app/api/me/hunts/game/route');
     const ht = await import('@/app/api/me/hunts/trophy/route');
+    const dy = await import('@/app/api/games/[id]/diary/route');
+    const dyOne = await import('@/app/api/games/[id]/diary/[entryId]/route');
 
     const r = [
       await dur.PATCH(await asB('/x', 'PATCH', { hours: 5 }), pid(aGame)),
@@ -231,6 +233,8 @@ describe('роуты с чужими id: B получает 404/пусто, да
       await order.PUT(await asB('/x', 'PUT', { gameIds: [aGame] })),
       await hg.PUT(await asB('/api/me/hunts/game', 'PUT', { gameId: aGame })),
       await ht.PUT(await asB('/api/me/hunts/trophy', 'PUT', { gameId: aGame, setId: 1, trophyId: 0, on: true })),
+      await dy.POST(await asB(`/api/games/${aGame}/diary`, 'POST', { body: 'чужая' }), pid(aGame)),
+      await dyOne.DELETE(await asB(`/api/games/${aGame}/diary/1`, 'DELETE'), { params: Promise.resolve({ id: String(aGame), entryId: '1' }) }),
     ];
     const codes = r.map((x) => x.status);
     // ни одна мутация чужой игры не должна пройти (2xx)
@@ -258,6 +262,9 @@ describe('роуты с чужими id: B получает 404/пусто, да
     expect(guideRes.status, await guideRes.text()).toBe(404);
 
     const hunts = await import('@/app/api/me/hunts/route');
+    const dy = await import('@/app/api/games/[id]/diary/route');
+    const diaryRes = await dy.GET(await asB(`/api/games/${aGame}/diary`, 'GET'), pid(aGame));
+    expect(diaryRes.status, await diaryRes.text()).toBe(404);
     const calls: [string, Promise<Response>][] = [
       ['hunts', hunts.GET(await asB('/api/me/hunts', 'GET'))],
       ['activity', act.GET(await asB('/api/stats/activity?year=2026', 'GET'))],

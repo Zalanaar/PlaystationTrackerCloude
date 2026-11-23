@@ -251,6 +251,9 @@ export type Mock = {
   /** задержка ответа /api/inbox, мс */
   inboxDelay: number;
   inboxCalls: number;
+  /** Дневник прохождения по id игры */
+  diary: Record<number, { id: number; body: string; createdAt: string }[]>;
+  diarySeq: number;
   /** «Охочусь сейчас» */
   hunts: { gameId: number | null; trophies: { gameId: number; setId: number; trophyId: number }[] };
   /** F2-B: гайд в деталях по id игры; нет записи = поля `guide` нет (старый сервер) */
@@ -301,6 +304,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
+    diary: {}, diarySeq: 1,
     hunts: { gameId: null, trophies: [] },
     guides: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, checklist: { show: false, endsAt: null, items: null }, checklistDismissCalls: 0, prices: {}, cost: { priced: 0, total: 0, hours: 0, perHour: null, best: [], worst: [], idle: { count: 0, total: 0 } }, nearPlatinum: [], legacySummary: false,
@@ -539,6 +543,13 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     return json(route, next?.data ?? { processed: 0, found: 0, notFound: 0, failed: 0, remaining: 0, done: true, stopReason: 'complete', warnings: [] });
   });
 
+  const diaryOut = (id: number, g?: G) => {
+    const game = g ?? m.games.find((x) => x.id === id);
+    if (!m.diary[id] && game?.note) {
+      m.diary[id] = [{ id: m.diarySeq++, body: game.note, createdAt: '2026-10-30T10:00:00.000Z' }];
+    }
+    return m.diary[id] ?? [];
+  };
   await page.route(/\/api\/games\/\d+(\?|$)/, async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     const id = Number(route.request().url().match(/games\/(\d+)/)?.[1]);
@@ -558,6 +569,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       trophyGroups: m.trophyGroups?.[id] ?? [],
       history: m.histories[id] ?? null,
       review: g.rating != null || g.note ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: '2026-10-30T10:00:00.000Z' } : null,
+      diary: diaryOut(id, g),
       ...(m.guides[id] ? { guide: guideOut(id) } : {}),
     });
   });
@@ -636,6 +648,31 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     const has = g.rating != null || !!g.note;
     return { game: item(g), review: has ? { rating: g.rating ?? null, note: g.note ?? null, updatedAt: new Date().toISOString() } : null };
   }));
+
+  await page.route(/\/api\/games\/\d+\/diary$/, (route) => {
+    const id = Number(route.request().url().match(/games\/(\d+)\/diary/)?.[1]);
+    const g = m.games.find((x) => x.id === id);
+    if (!g) return json(route, { code: 'not_found', message: 'x' }, 404);
+    if (route.request().method() === 'GET') return json(route, { entries: diaryOut(id, g) });
+    return mutate(route, (b) => {
+      const body = typeof b.body === 'string' ? b.body.replace(/\r\n?/g, '\n').trim() : '';
+      const list = (m.diary[id] ??= [...diaryOut(id, g)]);
+      list.push({ id: m.diarySeq++, body, createdAt: new Date().toISOString() });
+      return { entries: list };
+    });
+  });
+  await page.route(/\/api\/games\/\d+\/diary\/\d+$/, (route) => {
+    const mm = route.request().url().match(/games\/(\d+)\/diary\/(\d+)/);
+    const id = Number(mm?.[1]); const entryId = Number(mm?.[2]);
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    const list = (m.diary[id] ??= []);
+    const next = list.filter((x) => x.id !== entryId);
+    if (next.length === list.length) return json(route, { code: 'not_found', message: 'x' }, 404);
+    m.diary[id] = next;
+    m.mutations.push({ method: 'DELETE', url: route.request().url(), body: null });
+    return json(route, { entries: next });
+  });
+
   await page.route(/\/api\/games\/\d+\/hidden$/, (route) => mutate(route, (b) => {
     const id = Number(route.request().url().match(/games\/(\d+)\/hidden/)?.[1]);
     const g = m.games.find((x) => x.id === id) as G;

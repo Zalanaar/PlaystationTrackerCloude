@@ -8,9 +8,9 @@ import type { UserId } from '@/server/auth/user-id';
 import { snapshotAllStatuses } from '@/server/collection/mutations';
 import type { BackupFile, BackupPlanned } from './format';
 
-const { games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, gameTags, gameTagLinks, gamePrices } = schema;
+const { games, gameStatus, gameReviews, gameDiaryEntries, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, gameTags, gameTagLinks, gamePrices } = schema;
 
-export const SECTIONS = ['status', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings', 'review', 'tags', 'price'] as const;
+export const SECTIONS = ['status', 'duration', 'genres', 'hidden', 'roadmapOrder', 'roadmapExcluded', 'monthExclusions', 'plannedGames', 'roadmapSettings', 'review', 'tags', 'price', 'diary'] as const;
 export type Section = (typeof SECTIONS)[number];
 export type SectionCounts = { add: number; change: number; unchanged: number; skipped: number };
 export const CHANGES_LIMIT = 100;
@@ -36,7 +36,8 @@ type Op =
   | { t: 'settings'; year: number; hoursPerWeek: number }
   | { t: 'review'; gameId: number; rating: number | null; note: string | null }
   | { t: 'tag'; gameId: number; name: string }
-  | { t: 'price'; gameId: number; price: number };
+  | { t: 'price'; gameId: number; price: number }
+  | { t: 'diary'; gameId: number; body: string; createdAt: Date };
 
 type PlannedValues = Omit<typeof plannedGames.$inferInsert, 'userId'>;
 
@@ -65,8 +66,9 @@ export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): 
   // П13 (v3): таблицы тегов и цен читаем, только если в файле они есть (файлы v1/v2 работают и на старой схеме)
   const wantsTags = file.games.some((g) => (g.tags?.length ?? 0) > 0);
   const wantsPrices = file.games.some((g) => g.price !== undefined && g.price !== null);
+  const wantsDiary = file.games.some((g) => (g.diary?.length ?? 0) > 0);
   const none = <T,>(): Promise<T[]> => Promise.resolve([]);
-  const [gameRows, statuses, orders, excluded, months, planned, settings, reviews, tagRows, linkRows, priceRows] = await Promise.all([
+  const [gameRows, statuses, orders, excluded, months, planned, settings, reviews, tagRows, linkRows, priceRows, diaryRows] = await Promise.all([
     db.select({ id: games.id, titleId: games.titleId, duration: games.durationOverrideHours, genres: games.genresOverride, hiddenAt: games.hiddenAt, dup: games.duplicateOfGameId }).from(games).where(eq(games.userId, userId)),
     db.select().from(gameStatus).where(eq(gameStatus.userId, userId)),
     db.select().from(roadmapOrder).where(eq(roadmapOrder.userId, userId)),
@@ -78,6 +80,7 @@ export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): 
     wantsTags ? db.select({ id: gameTags.id, name: gameTags.name }).from(gameTags).where(eq(gameTags.userId, userId)) : none<{ id: number; name: string }>(),
     wantsTags ? db.select({ gameId: gameTagLinks.gameId, tagId: gameTagLinks.tagId }).from(gameTagLinks).where(eq(gameTagLinks.userId, userId)) : none<{ gameId: number; tagId: number }>(),
     wantsPrices ? db.select({ gameId: gamePrices.gameId, price: gamePrices.price }).from(gamePrices).where(eq(gamePrices.userId, userId)) : none<{ gameId: number; price: number }>(),
+    wantsDiary ? db.select({ gameId: gameDiaryEntries.gameId, body: gameDiaryEntries.body, createdAt: gameDiaryEntries.createdAt }).from(gameDiaryEntries).where(eq(gameDiaryEntries.userId, userId)) : none<{ gameId: number; body: string; createdAt: Date }>(),
   ]);
   // П13 (v3): теги по имени без учёта регистра; новые создаются в пределах лимитов (50 тегов, 20 у игры)
   const tagKey = (n: string) => normalizeTagName(n)?.toLowerCase() ?? '';
@@ -92,6 +95,8 @@ export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): 
   }
   const priceBy = new Map(priceRows.map((p) => [p.gameId, p.price]));
   const reviewBy = new Map(reviews.map((r) => [r.gameId, r]));
+  const diaryBy = new Map<number, { body: string; createdAt: Date }[]>();
+  for (const d of diaryRows) diaryBy.set(d.gameId, [...(diaryBy.get(d.gameId) ?? []), d]);
   const byTitle = new Map(gameRows.map((g) => [g.titleId, g]));
   const statusBy = new Map(statuses.map((s) => [s.gameId, s]));
   const orderBy = new Map(orders.map((o) => [o.gameId, o.position]));
@@ -205,6 +210,25 @@ export async function planRestore(db: AnyDb, userId: UserId, file: BackupFile): 
           ops.push({ t: 'review', gameId: target, rating, note: noteText });
           note('review', 'change', fg.titleId, name, fmt(cur.rating, cur.note), fmt(rating, noteText));
         } else sections.review.unchanged++;
+      }
+    }
+    // v4: заметки дневника только добавляются (совпадение body+дата = уже есть), ничего не удаляется
+    if (fg.diary && fg.diary.length) {
+      if (!g) skip('diary');
+      else {
+        const target = g.dup ?? g.id;
+        const cur = diaryBy.get(target) ?? [];
+        const have = new Set(cur.map((x) => `${x.createdAt.toISOString()}|${x.body}`));
+        let added = 0;
+        for (const e of fg.diary) {
+          const body = e.body.replace(/\r\n?/g, '\n').trim();
+          const at = new Date(e.createdAt);
+          if (have.has(`${at.toISOString()}|${body}`)) { sections.diary.unchanged++; continue; }
+          ops.push({ t: 'diary', gameId: target, body, createdAt: at });
+          have.add(`${at.toISOString()}|${body}`);
+          added++;
+        }
+        if (added) note('diary', cur.length ? 'change' : 'add', fg.titleId, name, cur.length ? `${cur.length}` : null, `${(cur.length + added)}`);
       }
     }
     // П13 (v3): свои теги — только добавляются (уже висящие не снимаются), на главной карточке
@@ -423,6 +447,9 @@ export async function applyRestore(db: AnyDb, userId: UserId, file: BackupFile, 
         case 'price':
           await tx.insert(gamePrices).values({ userId, gameId: op.gameId, price: op.price, updatedAt: now })
             .onConflictDoUpdate({ target: gamePrices.gameId, set: { price: op.price, updatedAt: now } });
+          break;
+        case 'diary':
+          await tx.insert(gameDiaryEntries).values({ userId, gameId: op.gameId, body: op.body, createdAt: op.createdAt });
           break;
         case 'settings':
           await tx

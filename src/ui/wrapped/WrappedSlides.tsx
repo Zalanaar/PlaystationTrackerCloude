@@ -268,12 +268,25 @@ export function SlideView({
       );
     }
     case 'playPattern': return <PlayPatternSlide data={data} rm={rm} />;
-    case 'final':
+    case 'final': {
+      const notes = data.diary?.hasData ? data.diary.items.slice(0, 5) : [];
       return (
         <div className="ps-story__center ps-story__final">
           <Rise n={0} rm={rm} className="ps-story__rise--card"><SummaryCard s={yearSummary(data)} /></Rise>
-          <Rise n={1} rm={rm}><h2 className="ps-story__title">{all ? 'Спасибо, что играешь' : `До встречи в ${year + 1}`}</h2></Rise>
-          <Rise n={2} rm={rm} className="ps-story__actions">
+          {notes.length > 0 && (
+            <Rise n={1} rm={rm}>
+              <ul className="ps-story__diary" data-testid="wrapped-diary">
+                {notes.map((n, i) => (
+                  <li key={`${n.gameId}-${n.createdAt}-${i}`}>
+                    <b>{n.title}</b>
+                    <span>{n.body}</span>
+                  </li>
+                ))}
+              </ul>
+            </Rise>
+          )}
+          <Rise n={notes.length ? 2 : 1} rm={rm}><h2 className="ps-story__title">{all ? 'Спасибо, что играешь' : `До встречи в ${year + 1}`}</h2></Rise>
+          <Rise n={notes.length ? 3 : 2} rm={rm} className="ps-story__actions">
             {!all && <ShareButton year={year} />}
             <button type="button" className="ps-btn ps-story__btn" onClick={onRestart}><Icon name="refresh" size={16} />Пересмотреть</button>
             <button type="button" className="ps-btn ps-story__btn ps-story__btn--solid" onClick={onClose}>Закрыть</button>
@@ -281,6 +294,7 @@ export function SlideView({
           <span className="ps-sr">{`Слайд ${index + 1} из ${count}`}</span>
         </div>
       );
+    }
     case 'empty': {
       const since = syncStartedText(data.emptyState?.syncStartedOn ?? null);
       return (

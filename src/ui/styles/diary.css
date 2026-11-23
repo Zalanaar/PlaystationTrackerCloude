@@ -1,0 +1,10 @@
+/* Дневник прохождения в окне игры и в истории. */
+.ps-diary__empty, .ps-diary__body { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-diary__body { color: var(--text); white-space: pre-wrap; }
+.ps-diary__list { list-style: none; margin: 0 0 var(--sp-3); padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ps-diary__item { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.ps-diary__tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ps-diary__date { color: var(--text-2); font-size: var(--fs-small); }
+.ps-diary__del { flex: none; min-width: var(--tap-min); min-height: var(--tap-min); border: 0; background: transparent; color: var(--text-2); border-radius: var(--r-sm); }
+.ps-diary-hist { margin-top: var(--sp-3); }
+.ps-diary-hist__h { margin: 0 0 var(--sp-2); font-size: var(--fs-small); font-weight: 650; }

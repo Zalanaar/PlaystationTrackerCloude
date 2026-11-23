@@ -82,6 +82,7 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       await client.exec(`DO $$ BEGIN IF to_regclass('public.month_goals') IS NOT NULL THEN TRUNCATE month_goals; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.push_prefs') IS NOT NULL THEN TRUNCATE push_prefs; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.hunt_games') IS NOT NULL THEN TRUNCATE hunt_games, hunt_trophies; END IF; END $$`);
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.game_diary_entries') IS NOT NULL THEN TRUNCATE game_diary_entries RESTART IDENTITY; END IF; END $$`);
     },
     close: () => client.close(),
   };

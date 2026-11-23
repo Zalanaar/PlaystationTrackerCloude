@@ -10,7 +10,7 @@ import { isDataError } from './errors';
 import { applyRestore, previewRestore } from './restore';
 import { BACKUP_KIND, isBackupDue, isSundayMsk, runWeeklyBackup } from './weekly';
 
-const { gameTags, gameTagLinks, gamePrices, games, gameStatus, gameReviews, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
+const { gameTags, gameTagLinks, gamePrices, games, gameStatus, gameReviews, gameDiaryEntries, roadmapOrder, roadmapExcluded, gameMonthExclusions, plannedGames, roadmapSettings, statusBackups, notifyLog } = schema;
 const NOW = new Date('2026-10-29T09:00:00Z'); // четверг
 const SUNDAY = new Date('2026-11-01T06:00:00Z');
 const ENV = { token: '123:SECRET-TOKEN', chatId: '42' };
@@ -115,6 +115,29 @@ describe('backup', () => {
     expect((await previewRestore(t.db, TEST_USER, p2.value)).sections.review).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
   });
 
+  it('v4: дневник выгружается и восстанавливается без удаления уже существующих заметок', async () => {
+    const id = await seed();
+    const at = new Date('2026-05-01T10:00:00Z');
+    await t.db.insert(gameDiaryEntries).values({ userId: 1, gameId: id('A'), body: 'Первая', createdAt: at });
+    const f = await buildBackup(t.db, TEST_USER, NOW);
+    expect(f.schemaVersion).toBe(4);
+    expect(f.games[0].diary).toEqual([{ body: 'Первая', createdAt: at.toISOString() }]);
+    expect(parseBackup(JSON.parse(JSON.stringify(f))).ok).toBe(true);
+
+    await t.db.insert(gameDiaryEntries).values({ userId: 1, gameId: id('A'), body: 'Уже была', createdAt: new Date('2026-06-01T10:00:00Z') });
+    const pre = await previewRestore(t.db, TEST_USER, f);
+    expect(pre.sections.diary).toEqual({ add: 0, change: 0, unchanged: 1, skipped: 0 });
+
+    await t.db.delete(gameDiaryEntries);
+    const pre2 = await previewRestore(t.db, TEST_USER, f);
+    expect(pre2.sections.diary).toEqual({ add: 1, change: 0, unchanged: 0, skipped: 0 });
+    await applyRestore(t.db, TEST_USER, f, NOW);
+    const rows = await t.db.select().from(gameDiaryEntries);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ gameId: id('A'), body: 'Первая' });
+    expect((await previewRestore(t.db, TEST_USER, f)).sections.diary).toEqual({ add: 0, change: 0, unchanged: 1, skipped: 0 });
+  });
+
   // --- П13 (v3): свои теги и цены — только в ручной выгрузке; восстановление добавляет теги и цены, не стирая
   it('v3: теги и цены в ручной выгрузке, не в еженедельной; восстановление и идемпотентность', async () => {
     const id = await seed();
@@ -191,7 +214,7 @@ describe('backup', () => {
     expect(parseBackup(null)).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup([])).toEqual({ ok: false, failure: { reason: 'invalid_format' } });
     expect(parseBackup({ ...clone(), app: 'other' })).toEqual({ ok: false, failure: { reason: 'invalid_format', path: 'app' } });
-    expect(parseBackup({ ...clone(), schemaVersion: 4 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 4 } });
+    expect(parseBackup({ ...clone(), schemaVersion: 5 })).toEqual({ ok: false, failure: { reason: 'unsupported_version', got: 5 } });
     expect(parseBackup({ ...clone(), schemaVersion: '1' })).toMatchObject({ ok: false, failure: { reason: 'invalid_format', path: 'schemaVersion' } });
     const bad = (mutate: (f: BackupFile) => void) => { const f = clone(); mutate(f); return parseBackup(f); };
     expect(bad((f) => { f.games[0].status!.value = 'wat' as never; }).ok).toBe(false);

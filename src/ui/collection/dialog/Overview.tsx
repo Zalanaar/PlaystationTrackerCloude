@@ -1,6 +1,7 @@
 'use client';
 
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
+import type { DiaryEntry } from '@/shared/diary';
 import type { GameDetailsResponse, GameItem } from '@/server/collection/types';
 import { formatDayMonth } from '../../format';
 import { Icon } from '../../icons';
@@ -11,6 +12,7 @@ import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
 import { DlcProgress } from './DlcProgress';
 import { dlcProgress } from '../trophies';
+import { DiaryEditor } from '../../diary/DiaryEditor';
 import { ReviewEditor } from './ReviewEditor';
 import { GameTags } from '../../tags/GameTags';
 import { GamePrice } from '../../prices/GamePrice';
@@ -32,6 +34,8 @@ export function Overview({
 } & DialogHandlers) {
   const hintId = useId();
   const hidden = !!game.hiddenAt;
+  const [editedDiary, setEditedDiary] = useState<{ gameId: number; entries: DiaryEntry[] } | null>(null);
+  const diary = editedDiary?.gameId === game.id ? editedDiary.entries : (details?.diary ?? []);
 
   const skeleton = <span className="ps-skeleton ps-gd__sk-val" aria-hidden="true" />;
   const forecast = details?.platinumForecast ?? null;
@@ -54,11 +58,14 @@ export function Overview({
 
       {/* F1: оценка и заметка (детали загружены: заметки в GameItem нет) */}
       {details ? (
-        <ReviewEditor key={`review-${game.id}`} game={game} review={details.review ?? null} onChanged={onGameChanged} />
+        <>
+        <ReviewEditor key={`review-${game.id}`} game={game} review={details.review ?? null} onChanged={onGameChanged} withNote={false} />
+        <DiaryEditor key={`diary-${game.id}`} gameId={game.id} entries={diary} onEntries={(entries) => setEditedDiary({ gameId: game.id, entries })} />
+        </>
       ) : loading && <div className="ps-skeleton ps-gd__sk-review" aria-hidden="true" />}
 
       {details ? (
-        <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} />
+        <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} diary={diary} />
       ) : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
       </div>
 

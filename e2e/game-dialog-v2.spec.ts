@@ -49,7 +49,7 @@ test.describe('Batch 1: окно игры v2', () => {
     await rv.getByRole('radio', { name: '8', exact: true }).check();
     await expect(d.getByTestId('review-value')).toHaveText('8/10');
     await expect(rv.getByRole('status')).toHaveText('Сохранено');
-    expect(reviewPuts(m).at(-1)!.body).toEqual({ rating: 8, note: null });
+    expect(reviewPuts(m).at(-1)!.body).toEqual({ rating: 8 });
     await rv.getByRole('radio', { name: '0', exact: true }).check();
     await expect(d.getByTestId('review-value')).toHaveText('0/10');
     await expect.poll(() => (reviewPuts(m).at(-1)!.body as { rating: number }).rating).toBe(0);
@@ -64,24 +64,24 @@ test.describe('Batch 1: окно игры v2', () => {
     await card.getByRole('button', { name: /^Открыть: God of War/ }).click();
     await d.getByRole('button', { name: 'Сбросить оценку' }).click();
     await expect(d.getByTestId('review-value')).toHaveText('без оценки');
-    await expect.poll(() => reviewPuts(m).at(-1)!.body).toEqual({ rating: null, note: null });
+    await expect.poll(() => reviewPuts(m).at(-1)!.body).toEqual({ rating: null });
   });
 
-  test('F1: заметка — пауза ввода, счётчик 500, длиннее не уходит; закрытие окна досылает несохранённое', async ({ page, context, baseURL }) => {
-    const m = await open(page, context, baseURL!, '/?game=6');
+  test('дневник: заметка добавляется, счётчик 500, длиннее не уходит; видно в истории', async ({ page, context, baseURL }) => {
+    await open(page, context, baseURL!, '/?game=6');
     const d = dlg(page, 'Stray');
-    const note = d.getByLabel('Заметка');
+    const diary = d.getByTestId('game-diary');
+    await expect(diary).toBeVisible();
+    const note = diary.getByLabel('Новая заметка');
     await note.fill('Кот и неон');
-    await expect(d.getByText('10/500')).toBeVisible();
-    await expect.poll(() => reviewPuts(m).at(-1)?.body).toEqual({ rating: null, note: 'Кот и неон' });
+    await expect(diary.getByText('10/500')).toBeVisible();
+    await diary.getByTestId('diary-add').click();
+    await expect(diary.getByTestId('diary-entry')).toContainText('Кот и неон');
+    await expect(d.getByTestId('history-diary')).toContainText('Кот и неон');
     await note.fill('x'.repeat(501));
     await expect(note).toHaveAttribute('aria-invalid', 'true');
-    await expect(d.getByRole('status').filter({ hasText: 'длиннее 500' })).toBeVisible();
-    await page.waitForTimeout(1000);
-    expect(reviewPuts(m)).toHaveLength(1);
-    await note.fill('Финал');
-    await d.getByRole('button', { name: 'Закрыть' }).click();
-    await expect.poll(() => reviewPuts(m).at(-1)?.body).toEqual({ rating: null, note: 'Финал' });
+    await expect(diary.getByTestId('diary-add')).toBeDisabled();
+    await expect(d.getByTestId('diary-entry')).toHaveCount(1);
   });
 
   test('F1: оценка и заметка из деталей, ★ в строке списка и сортировка «По оценке»', async ({ page, context, baseURL }, info) => {
@@ -89,7 +89,7 @@ test.describe('Batch 1: окно игры v2', () => {
     const m = await open(page, context, baseURL!, '/?game=3', games);
     const d = dlg(page, 'Horizon Forbidden West');
     await expect(d.getByTestId('review-value')).toHaveText('7/10');
-    await expect(d.getByLabel('Заметка')).toHaveValue('Красиво');
+    await expect(d.getByTestId('diary-entry')).toContainText('Красиво');
     await d.getByRole('button', { name: 'Закрыть' }).click();
     await expect(page).not.toHaveURL(/game=/); // закрытие меняет адрес; иначе goto ниже перебивается этим переходом (WebKit)
     if (info.project.name !== 'mobile') {

@@ -16,6 +16,7 @@ import { mskDateString, mskMidnightUtc, ymd } from '@/server/stats/period';
 import { getRareTrophies } from '@/server/stats/rare-query';
 import type { EarnedTrophy } from '@/server/stats/trophies';
 import { TOP_GAMES } from './calc';
+import { listDiaryInRange } from '@/server/diary/diary';
 import { composeWrapped } from './compose';
 import { getWrappedAll } from './all-query';
 import { getPlayPatternCells } from '@/server/stats/play-pattern-query';
@@ -145,5 +146,6 @@ export async function getWrapped(db: AnyDb, userId: UserId, yearOrAll: number | 
     rareTrophies: rare,
     patternCells,
     ratings,
+    diaryNotes: await listDiaryInRange(db, userId, fromUtc, toUtc),
   });
 }

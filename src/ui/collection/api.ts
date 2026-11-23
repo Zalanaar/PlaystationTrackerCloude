@@ -1,6 +1,7 @@
 // Клиент API коллекции (контракт docs/api-contract.md §9). Только типы из server, без кода БД.
 import { deviceTimeZone, MSK_TZ } from '@/shared/tz';
 import { HltbCallError } from './hltbError';
+import type { DiaryEntry } from '@/shared/diary';
 import type { HltbRunBody, HltbRunResponse } from './hltbRun';
 import type { ActivityResponse } from '@/server/stats/activity';
 import type { DayResponse, OnThisDayResponse } from '@/server/stats/day';
@@ -132,6 +133,11 @@ export const putMonthExclusion = (id: number, month: string, excluded: boolean) 
 export type ReviewResponse = { game: GameItem; review: GameReview | null };
 export const putReview = (id: number, body: { rating?: number | null; note?: string | null }, init?: Pick<RequestInit, 'keepalive'>) =>
   call<ReviewResponse>(`/api/games/${id}/review`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body), ...init });
+
+export const postDiary = (id: number, body: string) =>
+  call<{ entries: DiaryEntry[] }>(`/api/games/${id}/diary`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ body }) });
+export const deleteDiaryEntry = (id: number, entryId: number) =>
+  call<{ entries: DiaryEntry[] }>(`/api/games/${id}/diary/${entryId}`, { method: 'DELETE' });
 
 /** F2-B: своя ссылка на гайд (null — убрать) и/или «Не тот гайд»; ответ — id главной карточки и итоговый гайд. */
 export type GuideResponse = { gameId: number; guide: GameGuide };

@@ -1,4 +1,5 @@
 // Типы ответов раздела 9 docs/api-contract.md. Только типы: frontend импортирует через `import type`.
+import type { DiaryEntry } from '@/shared/diary';
 import type { GameHistory } from './history';
 import type { PlatformCounts } from '@/shared/platform-filter';
 export type { GameHistory, HistoryWeek } from './history';
@@ -224,6 +225,8 @@ export type GameDetailsResponse = {
   history?: GameHistory | null;
   /** F1 (9.9): оценка и заметка; null = нет. Необязательное в типе (фикстуры UI); сервер присылает всегда. */
   review?: GameReview | null;
+  /** Дневник прохождения: датированные заметки (включая перенесённую старую заметку отзыва). */
+  diary?: DiaryEntry[];
   /** F2-B: гайд из индекса и ручная ссылка. Необязательное в типе (фикстуры UI, старый сервер); сервер присылает всегда. */
   guide?: GameGuide;
   /** Пакет 5: названия групп трофеев (дополнения) по сетам игры; пусто — групп нет или не загружены. Необязательное в типе (фикстуры UI). */
