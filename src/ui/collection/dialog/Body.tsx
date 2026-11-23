@@ -160,7 +160,7 @@ export function Body({
           ? game && <Overview game={game} details={details} loading={state.kind === 'loading'} now={now} onStatus={onStatus} onDate={onDate} onHidden={onHidden} onGameChanged={onGameChanged} onNotDuplicate={onNotDuplicate} onOpenTrophies={(key) => { setFocusSec((f) => ({ key, n: (f?.n ?? 0) + 1 })); setTab('trophies'); }} />
           : tab === 'guides'
             ? game && <GuidesTab key={`${game.id}|${details ? 1 : 0}`} game={game} guide={details?.guide ?? null} />
-            : <TrophiesTab state={state} onRetry={retry} focus={focusSec} />}
+            : <TrophiesTab gameId={id} state={state} onRetry={retry} focus={focusSec} />}
       </div>
     </div>
   );

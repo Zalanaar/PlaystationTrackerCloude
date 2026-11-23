@@ -9,6 +9,7 @@ import { SkRoot } from '../skeletons';
 import { RareIcon, TypeBadge } from '../stats/RareTrophies';
 import { Icon } from '../icons';
 import { collapseRuns, runLine, runRarest, type FeedEntry, emptyText, FEED_PERIODS, feedUrl, gameLine, groupFeed, mergePages, EASY_HINT, NEAR_SORTS, NEAR_URL, nearPageUrl, nearSummary, RARE_CHIP, rarityTone, rateText, summaryParts, viewUrl, type NearSort, type TrophiesView } from './model';
+import { HuntBlock } from '../hunts/HuntBlock';
 import { NearList } from './NearList';
 import { LevelCard, LevelCardSkeleton } from './LevelCard';
 import type { LevelResponse } from '@/server/trophies/level-query';
@@ -228,6 +229,7 @@ export function TrophyFeedView({ initial, period: p0, rare: r0, view: v0 = 'feed
       </div>
       <LevelCard initial={levelInitial} />
       <ViewSwitch view={view} onView={switchView} />
+      <HuntBlock />
       {view === 'near' ? (
         <>
           <p className="ps-tf__sum" data-testid="tnear-summary" aria-live="polite">

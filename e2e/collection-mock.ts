@@ -251,6 +251,8 @@ export type Mock = {
   /** задержка ответа /api/inbox, мс */
   inboxDelay: number;
   inboxCalls: number;
+  /** «Охочусь сейчас» */
+  hunts: { gameId: number | null; trophies: { gameId: number; setId: number; trophyId: number }[] };
   /** F2-B: гайд в деталях по id игры; нет записи = поля `guide` нет (старый сервер) */
   guides: Record<number, { match: { title: string; url: string; wikiUrl: string | null } | null; override: string | null; dismissed: boolean }>;
 };
@@ -299,6 +301,7 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
   const m: Mock = {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
+    hunts: { gameId: null, trophies: [] },
     guides: {},
     activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, checklist: { show: false, endsAt: null, items: null }, checklistDismissCalls: 0, prices: {}, cost: { priced: 0, total: 0, hours: 0, perHour: null, best: [], worst: [], idle: { count: 0, total: 0 } }, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
@@ -686,6 +689,39 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
       setStatus(g, b.status as Status | null);
     }
     return { requested: ids.length, changed, games: ids.sort((a, c) => a - c).map((id) => item(m.games.find((x) => x.id === id) as G)) };
+  }));
+  const huntsOut = () => {
+    const g = m.hunts.gameId != null ? m.games.find((x) => x.id === m.hunts.gameId) : undefined;
+    const defined = g?.trophies?.defined ?? 0;
+    const earned = g?.trophies?.earned ?? 0;
+    const game = g && !g.trophies?.plat ? {
+      id: g.id, title: g.title, coverUrl: g.coverUrl ?? null, earned, defined,
+      remaining: Math.max(0, defined - earned), progress: defined > 0 ? Math.min(100, Math.floor((earned / defined) * 100)) : 0, platEarned: false,
+    } : null;
+    const trophies = m.hunts.trophies.flatMap((p) => {
+      const gg = m.games.find((x) => x.id === p.gameId);
+      const list = gg?.trophies ? (m.trophies[p.gameId] ?? trophyList()) : [];
+      const tr = list.find((x) => x.setId === p.setId && x.trophyId === p.trophyId);
+      if (!tr || tr.earned) return [];
+      return [{ gameId: p.gameId, setId: p.setId, trophyId: p.trophyId, gameTitle: gg?.title ?? '', coverUrl: gg?.coverUrl ?? null, name: tr.name, iconUrl: tr.iconUrl, type: tr.type, hidden: tr.hidden, earned: false }];
+    });
+    return { game, trophies };
+  };
+  await page.route(/\/api\/me\/hunts$/, (r) => json(r, huntsOut()));
+  await page.route(/\/api\/me\/hunts\/game$/, (route) => mutate(route, (b) => {
+    m.hunts.gameId = b.gameId === null ? null : Number(b.gameId);
+    return huntsOut();
+  }));
+  await page.route(/\/api\/me\/hunts\/trophy$/, (route) => mutate(route, (b) => {
+    const pin = { gameId: Number(b.gameId), setId: Number(b.setId), trophyId: Number(b.trophyId) };
+    if (b.on) {
+      if (!m.hunts.trophies.some((x) => x.setId === pin.setId && x.trophyId === pin.trophyId)) {
+m.hunts.trophies.push(pin);
+      }
+    } else {
+      m.hunts.trophies = m.hunts.trophies.filter((x) => !(x.setId === pin.setId && x.trophyId === pin.trophyId));
+    }
+    return huntsOut();
   }));
   return m;
 }

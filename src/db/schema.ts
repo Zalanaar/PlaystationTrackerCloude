@@ -1085,3 +1085,35 @@ export const pushPrefs = pgTable('push_prefs', {
   shelvedReminder: boolean('shelved_reminder').notNull().default(true),
   updatedAt: tz('updated_at').notNull().defaultNow(),
 });
+
+/** «Охочусь сейчас»: одна игра, за платиной которой идёт пользователь. */
+export const huntGames = pgTable('hunt_games', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references((): AnyPgColumn => allowedUsers.id, { onDelete: 'cascade' }),
+  gameId: integer('game_id')
+    .notNull()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  createdAt: tz('created_at').notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ name: 'hunt_games_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+]);
+
+/** Закреплённые трофеи охоты (лимит в приложении). */
+export const huntTrophies = pgTable('hunt_trophies', {
+  userId: userIdCol(),
+  gameId: integer('game_id')
+    .notNull()
+    .references(() => games.id, { onDelete: 'cascade' }),
+  trophySetId: integer('trophy_set_id')
+    .notNull()
+    .references(() => trophySets.id, { onDelete: 'cascade' }),
+  trophyId: integer('trophy_id').notNull(),
+  createdAt: tz('created_at').notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.userId, t.trophySetId, t.trophyId] }),
+  index('hunt_trophies_user_game_idx').on(t.userId, t.gameId),
+  foreignKey({ name: 'hunt_trophies_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
+  foreignKey({ name: 'hunt_trophies_user_set_fk', columns: [t.userId, t.trophySetId], foreignColumns: [trophySets.userId, trophySets.id] }).onDelete('cascade'),
+  foreignKey({ name: 'hunt_trophies_user_trophy_fk', columns: [t.userId, t.trophySetId, t.trophyId], foreignColumns: [trophies.userId, trophies.trophySetId, trophies.trophyId] }).onDelete('cascade'),
+]);

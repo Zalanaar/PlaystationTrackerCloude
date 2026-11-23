@@ -213,6 +213,8 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const dis = await import('@/app/api/recommend/dislike/route');
     const disOne = await import('@/app/api/recommend/dislike/[gameId]/route');
     const order = await import('@/app/api/roadmap/order/route');
+    const hg = await import('@/app/api/me/hunts/game/route');
+    const ht = await import('@/app/api/me/hunts/trophy/route');
 
     const r = [
       await dur.PATCH(await asB('/x', 'PATCH', { hours: 5 }), pid(aGame)),
@@ -227,6 +229,8 @@ describe('роуты с чужими id: B получает 404/пусто, да
       await dis.POST(await asB('/x', 'POST', { gameId: aGame })),
       await disOne.DELETE(await asB('/x', 'DELETE'), pgid(aGame)),
       await order.PUT(await asB('/x', 'PUT', { gameIds: [aGame] })),
+      await hg.PUT(await asB('/api/me/hunts/game', 'PUT', { gameId: aGame })),
+      await ht.PUT(await asB('/api/me/hunts/trophy', 'PUT', { gameId: aGame, setId: 1, trophyId: 0, on: true })),
     ];
     const codes = r.map((x) => x.status);
     // ни одна мутация чужой игры не должна пройти (2xx)
@@ -253,7 +257,9 @@ describe('роуты с чужими id: B получает 404/пусто, да
     const guideRes = await gd.GET(await asB(`/api/games/${aGame}/guide`, 'GET'), pid(aGame));
     expect(guideRes.status, await guideRes.text()).toBe(404);
 
+    const hunts = await import('@/app/api/me/hunts/route');
     const calls: [string, Promise<Response>][] = [
+      ['hunts', hunts.GET(await asB('/api/me/hunts', 'GET'))],
       ['activity', act.GET(await asB('/api/stats/activity?year=2026', 'GET'))],
       ['recommend', rec.GET(await asB('/api/recommend', 'GET'))],
       ['dislikes', dl.GET(await asB('/api/recommend/dislikes', 'GET'))],

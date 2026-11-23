@@ -30,4 +30,5 @@ import './manual-buy.css';
 import './manual-confirm.css';
 import './trophies.css';
 import './goals.css';
+import './hunts.css';
 import './app-tail.css'; // последним: каскад как до разделения (Tailwind после стилей экранов)

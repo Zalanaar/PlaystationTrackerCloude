@@ -1,0 +1,17 @@
+/* «Охочусь сейчас»: карточка на главной, блок на вкладке «Трофеи», метка в списке игры. */
+.ps-hunt { margin: 0 0 var(--sp-4); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-2, var(--bg)); }
+.ps-hunt__h { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-small); font-weight: 650; }
+.ps-hunt__h svg { flex: none; }
+.ps-hunt__game, .ps-hunt__t { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--tap-min); text-decoration: none; color: inherit; border-radius: var(--r-sm); }
+.ps-hunt__game:hover, .ps-hunt__t:hover { background: var(--bg-hover, transparent); }
+.ps-hunt__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ps-hunt__nm { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-hunt__meta { color: var(--text-2); font-size: var(--fs-small); }
+.ps-hunt__bar { display: block; height: 4px; border-radius: var(--r-pill); background: var(--border); overflow: hidden; margin-top: 4px; }
+.ps-hunt__bar > i { display: block; height: 100%; background: var(--accent); }
+.ps-hunt__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-hunt__ic { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex: none; background: var(--border); }
+.ps-hunt__unpin { flex: none; min-width: var(--tap-min); min-height: var(--tap-min); border: 0; background: transparent; color: var(--text-2); border-radius: var(--r-sm); }
+.ps-trophy__hunt { flex: none; min-width: var(--tap-min); min-height: var(--tap-min); border: 0; background: transparent; color: var(--text-2); border-radius: var(--r-sm); }
+.ps-trophy[data-hunt] .ps-trophy__hunt, .ps-trophy__hunt[data-on], .ps-hunt-plat[data-on] { color: var(--accent); }
+.ps-hunt-plat { margin-left: auto; }

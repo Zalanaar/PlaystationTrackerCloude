@@ -2,17 +2,23 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { GameTrophyItem } from '@/server/collection/types';
+import { errorText } from '../api';
 import { formatDayMonth } from '../../format';
+import { huntingGame, huntingTrophy } from '../../hunts/model';
+import { useHunts } from '../../hunts/useHunts';
 import { Icon, PlatinumIcon } from '../../icons';
+import { useToast } from '../../primitives/Toast';
 import {
   filterTrophies, formatRate, HIDDEN_DETAIL, HIDDEN_TITLE, isDlcTrophy, isMaskable, isMasked, REVEAL_HINT, rarityLabel, raritySegments, sortTrophies, TROPHY_FILTERS, TROPHY_PAGE, TROPHY_SORTS,
   TROPHY_TYPE_LABELS, trophyAria, trophyCounts, trophySections, trophyTitle, visibleTrophyCount, type TrophyFilter, type TrophySort,
 } from '../trophies';
 import type { DetailsState } from '../useGameDetails';
 
-export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; onRetry: () => void; focus?: { key: string; n: number } | null }) {
+export function TrophiesTab({ gameId, state, onRetry, focus }: { gameId: number; state: DetailsState; onRetry: () => void; focus?: { key: string; n: number } | null }) {
   const [filter, setFilter] = useState<TrophyFilter>('all');
   const [sort, setSort] = useState<TrophySort>('game');
+  const toast = useToast();
+  const { data: hunts, setGame, setTrophy } = useHunts();
   // Пакет 7, п. 1: переход из «Прогресса по дополнениям» — показываем весь список, чтобы раздел был отрисован
   const [shown, setShown] = useState(focus ? Number.MAX_SAFE_INTEGER : TROPHY_PAGE);
   const focusedN = useRef(0);
@@ -77,6 +83,11 @@ export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; on
   const count = visibleTrophyCount(rows.length, shown);
   const view = rows.slice(0, count);
   const countOf = (id: TrophyFilter) => counts[id];
+  const canPlat = list.some((x) => x.type === 'platinum' && !x.earned);
+  const huntingPlat = huntingGame(hunts, gameId);
+  const pinTrophy = (t: GameTrophyItem, on: boolean) => {
+    void setTrophy(gameId, t.setId, t.trophyId, on).catch((e) => toast({ kind: 'error', text: errorText(e) }));
+  };
   return (
     <>
       <div className="ps-gd__ctl">
@@ -94,6 +105,15 @@ export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; on
           </select>
           <Icon name="chevron-down" size={14} />
         </label>
+        {canPlat && (
+          <button
+            type="button" className="ps-btn ps-btn--ghost ps-btn--sm ps-hunt-plat" data-testid="hunt-plat"
+            data-on={huntingPlat || undefined} aria-pressed={huntingPlat}
+            onClick={() => { void setGame(huntingPlat ? null : gameId).catch((e) => toast({ kind: 'error', text: errorText(e) })); }}
+          >
+            {huntingPlat ? 'Не охотиться за платиной' : 'Охочусь за платиной'}
+          </button>
+        )}
       </div>
       {rows.length === 0 ? (
         <div className="ps-gd__state">
@@ -105,7 +125,7 @@ export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; on
         <>
           {(() => {
             const secs = trophySections(view, list, groups);
-            if (!hasDlc) return <ul className="ps-trophies">{view.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>;
+            if (!hasDlc) return <ul className="ps-trophies">{view.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} hunting={huntingTrophy(hunts, x.setId, x.trophyId)} onPin={(on) => pinTrophy(x, on)} />)}</ul>;
             return secs.map((sec, i) => (
               <section key={sec.key} className="ps-trophies-sec" aria-labelledby={`${secId}-${i}`} data-dlc={sec.dlc || undefined} data-testid="trophy-section"
                 data-sec-key={sec.key} data-state={sec.total > 0 && sec.earned >= sec.total ? 'done' : sec.earned > 0 ? 'open' : 'new'}
@@ -115,7 +135,7 @@ export function TrophiesTab({ state, onRetry, focus }: { state: DetailsState; on
                   <span className="ps-trophies-sec__n num" aria-label={`получено ${sec.earned} из ${sec.total}`}>{sec.earned}/{sec.total}</span>
                 </h3>
                 <span className="ps-trophies-sec__bar" aria-hidden="true"><i style={{ width: `${sec.total > 0 ? Math.floor((sec.earned / sec.total) * 100) : 0}%` }} /></span>
-                <ul className="ps-trophies">{sec.items.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} />)}</ul>
+                <ul className="ps-trophies">{sec.items.map((x) => <TrophyRow key={`${x.setId}:${x.trophyId}`} t={x} hunting={huntingTrophy(hunts, x.setId, x.trophyId)} onPin={(on) => pinTrophy(x, on)} />)}</ul>
               </section>
             ));
           })()}
@@ -169,7 +189,7 @@ function TrophyIcon({ t, masked }: { t: GameTrophyItem; masked: boolean }) {
   );
 }
 
-function TrophyRow({ t }: { t: GameTrophyItem }) {
+function TrophyRow({ t, hunting, onPin }: { t: GameTrophyItem; hunting: boolean; onPin: (on: boolean) => void }) {
   const [revealed, setRevealed] = useState(false);
   const detId = useId();
   const maskable = isMaskable(t);
@@ -185,7 +205,7 @@ function TrophyRow({ t }: { t: GameTrophyItem }) {
   const detText = masked ? (maskable ? REVEAL_HINT : HIDDEN_DETAIL) : (t.detail ?? '');
   return (
     <li
-      className="ps-trophy" data-type={t.type} data-dlc={isDlcTrophy(t) || undefined} data-earned={t.earned || undefined} data-masked={masked || undefined}
+      className="ps-trophy" data-type={t.type} data-dlc={isDlcTrophy(t) || undefined} data-earned={t.earned || undefined} data-masked={masked || undefined} data-hunt={hunting || undefined}
       aria-label={trophyAria(t, masked)}
     >
       <TrophyIcon t={t} masked={masked} />
@@ -203,6 +223,15 @@ function TrophyRow({ t }: { t: GameTrophyItem }) {
           <p className="ps-trophy__name">{name}</p>
           <p className="ps-trophy__det" title={t.detail ?? undefined} data-muted={masked || undefined}>{detText}</p>
         </div>
+      )}
+      {!t.earned && (
+        <button
+          type="button" className="ps-trophy__hunt" data-testid="hunt-pin" data-on={hunting || undefined}
+          aria-pressed={hunting} aria-label={hunting ? 'Убрать из охоты' : 'Охотиться за трофеем'}
+          onClick={() => onPin(!hunting)}
+        >
+          <Icon name="bookmark" size={16} />
+        </button>
       )}
       <div className="ps-trophy__meta">
         <RarityMeter rarity={t.rarity} rate={t.earnedRate} />
