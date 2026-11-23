@@ -13,6 +13,7 @@ async function open(page: Page, baseURL: string, path = '/settings') {
   const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
+  await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest: null } }));
   await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.route('**/api/me/telegram', (r) => json(r, { ok: true, data: { botConfigured: false, botUsername: null, role: 'owner', linked: false, linkedAt: null, deliversTo: 'none', lastSentAt: null, pendingCode: null } }));
   await page.route('**/api/me/push', (r) => json(r, { ok: true, data: r.request().method() === 'PATCH' ? r.request().postDataJSON() : { configured: false, publicKey: null, devices: 0, shelvedReminder: true } }));
@@ -29,6 +30,8 @@ test('экран: тема, уведомления, календарь, копи
   await expect(page.getByTestId('settings-calendar')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Скачать копию' })).toHaveAttribute('href', '/api/backup');
   await expect(page.getByRole('button', { name: 'Восстановить из файла' })).toBeVisible();
+  await expect(page.getByTestId('menu-reset-all')).toBeVisible();
+  await expect(page.getByTestId('settings-danger')).toBeVisible();
   await page.getByRole('radiogroup', { name: 'Тема' }).getByRole('radio', { name: 'Wave' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'ps3');
 });
@@ -66,15 +69,26 @@ for (const w of [360, 390]) {
   });
 }
 
-test('F6: меню по группам, сброс статусов — отдельно в самом низу', async ({ page, baseURL, isMobile }) => {
+test('меню без темы, копии и сброса: они в Настройках', async ({ page, baseURL, isMobile }) => {
   test.skip(!isMobile, 'лист «Меню» — телефон');
   await open(page, baseURL!, '/');
   await page.getByRole('button', { name: 'Меню', exact: true }).click();
   const sheet = page.getByRole('dialog', { name: 'Меню' });
   // F13: на Коллекции первая группа — «Коллекция» (Выбрать игры, Теги)
-  await expect(sheet.locator('.ps-menu-group')).toHaveText(['Коллекция', 'Разделы', 'Данные', 'Помощь', 'Администрирование', 'Выход', 'Опасная зона']);
+  await expect(sheet.locator('.ps-menu-group')).toHaveText(['Коллекция', 'Разделы', 'Помощь', 'Администрирование', 'Выход']);
+  await expect(sheet.getByRole('link', { name: 'Настройки' })).toBeVisible();
+  await expect(sheet.getByRole('radiogroup', { name: 'Тема' })).toHaveCount(0);
+  await expect(sheet.getByRole('link', { name: 'Скачать копию' })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Восстановить из файла' })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: /Сбросить все статусы/ })).toHaveCount(0);
+  await expect(sheet.getByTestId('sheet-danger')).toHaveCount(0);
   const items = sheet.locator('.ps-menu-item');
-  await expect(items.last()).toHaveText('Сбросить все статусы…');
-  await expect(sheet.getByTestId('sheet-danger').getByTestId('menu-reset-all')).toBeVisible();
+  await expect(items.last()).toHaveText('Выйти на всех устройствах');
+  await sheet.getByTestId('sheet-settings').click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Скачать копию' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Восстановить из файла' })).toBeVisible();
+  await expect(page.getByTestId('menu-reset-all')).toBeVisible();
 });
 

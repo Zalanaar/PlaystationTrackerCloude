@@ -1,6 +1,5 @@
 'use client';
 
-import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { usePathname, useRouter } from 'next/navigation';
@@ -21,7 +20,6 @@ import { invalidateApiCache } from '../data/http';
 import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
-import { StatusDialogs, StatusMenuItems, useStatusMenu } from '../backup/StatusMenu';
 import { SyncIndicator } from './SyncIndicator';
 import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
 import { AddMenu } from './AddMenu';
@@ -35,12 +33,12 @@ import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive, sectionTitle } from './nav';
 import { MARK_TAP, MEASURE_TAB, navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
-import { ThemePicker, ThemeSwatches } from './ThemePicker';
+import { ThemePicker } from './ThemePicker';
+import { useEverTrue } from '../useEverTrue';
 import { pendingBadge, useTriagePending } from './triagePending';
 import { installErrorReporter } from './errorReporter';
 
 const GlobalSearch = dynamic(() => import('./GlobalSearch').then((m) => m.GlobalSearch), { ssr: false });
-const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').then((m) => m.RestoreFileDialog), { ssr: false });
 
 function useLogout() {
   const router = useRouter();
@@ -71,9 +69,6 @@ export function AppHeader() {
   const { openPanel } = useSync();
   const { busy, logout, logoutAll } = useLogout();
   const [more, setMore] = useState(false);
-  const [restore, setRestore] = useState(false);
-  const restoreEver = useEverTrue(restore);
-  const statusMenu = useStatusMenu();
   const { profile } = useProfile();
   const { profiles, activeProfileId } = usePsnProfiles();
   const psnNick = profiles.length >= 2 ? (profiles.find((p) => p.id === activeProfileId)?.onlineId ?? null) : null;
@@ -153,7 +148,7 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
-                    {/* F6: группы — разделы, данные, помощь, администрирование, выход; сброс статусов — отдельно в самом низу */}
+                    {/* Тема, копия и сброс статусов — в «Настройках»; оценки и скрытые уйдут позже */}
                     <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
                     <Link href="/ratings" role="menuitem" className="ps-menu-item" data-testid="menu-ratings" onClick={close}>
                       <Icon name="sparkles" size={16} />
@@ -171,15 +166,6 @@ export function AppHeader() {
                       <Icon name="sliders" size={16} />
                       <span className="ps-menu-item__label">Настройки</span>
                     </Link>
-                    <a href="/api/backup" download role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={close}>
-                      <Icon name="download" size={16} />
-                      <span className="ps-menu-item__label">Скачать копию</span>
-                    </a>
-                    <button type="button" role="menuitem" className="ps-menu-item" onClick={() => { close(); setRestore(true); }}>
-                      <Icon name="upload" size={16} />
-                      <span className="ps-menu-item__label">Восстановить из файла</span>
-                    </button>
-                    <StatusMenuItems m={statusMenu} close={close} menu part="restore" />
                     <button type="button" role="menuitem" className="ps-menu-item ps-menu-item--sep" onClick={() => { close(); startTour(); }}>
                       <Icon name="circle-help" size={16} />
                       <span className="ps-menu-item__label">Как пользоваться</span>
@@ -208,7 +194,6 @@ export function AppHeader() {
                       <Icon name="logout" size={16} />
                       <span className="ps-menu-item__label">Выйти на всех устройствах</span>
                     </button>
-                    <div className="ps-menu-danger" role="none"><StatusMenuItems m={statusMenu} close={close} menu part="reset" /></div>
                   </>
                 )}
               </Popover>
@@ -232,9 +217,6 @@ export function AppHeader() {
               </span>
             </div>
           )}
-          <p className="ps-micro">Тема</p>
-          <ThemeSwatches />
-          {/* F6: группы вместо одного «Аккаунт»; сброс статусов — отдельная опасная зона внизу */}
           {collectionMenuOn(pathname) && (
             <>
               {/* F13: действия Коллекции вынесены из листа «Фильтры» в «⋯»; «Другая платформа» — в «+» */}
@@ -264,14 +246,6 @@ export function AppHeader() {
           <Link href="/settings" className="ps-menu-item" data-testid="sheet-settings" onClick={() => setMore(false)}>
             <Icon name="sliders" size={16} /><span className="ps-menu-item__label">Настройки</span>
           </Link>
-          <p className="ps-micro ps-menu-group">Данные</p>
-          <a href="/api/backup" download className="ps-menu-item" onClick={() => setMore(false)}>
-            <Icon name="download" size={16} /><span className="ps-menu-item__label">Скачать копию</span>
-          </a>
-          <button type="button" className="ps-menu-item" onClick={() => { setMore(false); setRestore(true); }}>
-            <Icon name="upload" size={16} /><span className="ps-menu-item__label">Восстановить из файла</span>
-          </button>
-          {more && <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} part="restore" />}
           <p className="ps-micro ps-menu-group">Помощь</p>
           <button type="button" className="ps-menu-item" onClick={() => { setMore(false); startTour(); }}>
             <Icon name="circle-help" size={16} /><span className="ps-menu-item__label">Как пользоваться</span>
@@ -302,16 +276,8 @@ export function AppHeader() {
           <button type="button" className="ps-menu-item" data-testid="sheet-logout-all" onClick={() => void logoutAll()} disabled={busy}>
             <Icon name="logout" size={16} /><span className="ps-menu-item__label">Выйти на всех устройствах</span>
           </button>
-          {more && (
-            <div className="ps-menu-danger" data-testid="sheet-danger">
-              <p className="ps-micro ps-menu-group">Опасная зона</p>
-              <StatusMenuItems m={statusMenu} close={() => setMore(false)} menu={false} part="reset" />
-            </div>
-          )}
         </div>
       </Sheet>
-      {restoreEver && <RestoreFileDialog open={restore} onClose={() => setRestore(false)} />}
-      <StatusDialogs m={statusMenu} />
     </>
   );
 }

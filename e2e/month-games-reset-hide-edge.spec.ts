@@ -15,11 +15,19 @@ const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]
 const card = (scope: ReturnType<Page['locator']>, page: Page, title: string) =>
   scope.locator('article.ps-card').filter({ has: page.locator('.ps-card__title', { hasText: new RegExp(`^${title}$`) }) });
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-/** Пункт меню профиля (Фаза 48, п. 12): десктоп = поповер аватара, мобильный = sheet «Меню». */
+/** Сброс всех статусов — в «Настройках». */
 async function menu(page: Page, mobile: boolean, item: RegExp) {
-  if (mobile) await page.getByRole('button', { name: 'Меню', exact: true }).click();
-  else await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-  await page.getByRole(mobile ? 'button' : 'menuitem', { name: item }).click();
+  if (new URL(page.url()).pathname !== '/settings') {
+    if (mobile) {
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      await page.getByTestId('sheet-settings').click();
+    } else {
+      await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
+      await page.getByTestId('menu-settings').click();
+    }
+    await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
+  }
+  await page.locator('.ps-settings').getByRole('button', { name: item }).click();
 }
 
 test.describe('QA Фаза 8: edge', () => {

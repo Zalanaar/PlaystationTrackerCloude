@@ -253,3 +253,5 @@ html[data-psw] .ps-main { visibility: hidden; }
 .ps-settings__note { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-settings__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ps-settings__acts .ps-btn { min-height: var(--tap-min); }
+.ps-settings__hint { display: block; font-weight: 400; color: var(--text-2); }
+.ps-settings__sec--danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }

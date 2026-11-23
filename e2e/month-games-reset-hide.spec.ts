@@ -25,13 +25,22 @@ const card = (page: Page, title: string) =>
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const isMobile = (name: string) => name === 'mobile';
 
-/** Пункт меню профиля (Фаза 48, п. 12: сброс и откат статусов переехали из «…»/«Фильтров»): десктоп = поповер аватара, мобильный = sheet «Меню». */
-const openProfileMenu = (page: Page, mobile: boolean) =>
-  mobile ? page.getByRole('button', { name: 'Меню', exact: true }).click() : page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
-const profileItem = (page: Page, mobile: boolean, item: RegExp) => page.getByRole(mobile ? 'button' : 'menuitem', { name: item });
+/** Сброс и откат статусов — в «Настройках» (из меню «⋯» / профиля). */
+async function goSettings(page: Page, mobile: boolean) {
+  if (new URL(page.url()).pathname === '/settings') return;
+  if (mobile) {
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    await page.getByTestId('sheet-settings').click();
+  } else {
+    await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
+    await page.getByTestId('menu-settings').click();
+  }
+  await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
+}
+const settingsAction = (page: Page, item: RegExp) => page.locator('.ps-settings').getByRole('button', { name: item });
 async function statusMenu(page: Page, mobile: boolean, item: RegExp) {
-  await openProfileMenu(page, mobile);
-  await profileItem(page, mobile, item).click();
+  await goSettings(page, mobile);
+  await settingsAction(page, item).click();
 }
 /** Пункт меню коллекции: десктоп = «…», мобильный = меню «⋯» шапки (F13: из листа «Фильтры» действия убраны). */
 async function collectionMenu(page: Page, mobile: boolean, item: RegExp) {
@@ -169,11 +178,10 @@ test.describe('Фаза 8: сброс статуса', () => {
     const mock = await openCollection(page, context, baseURL!);
     const mobile = isMobile(info.project.name);
     const before = mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
-    // копии нет: пункта в меню нет
-    await openProfileMenu(page, mobile);
-    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
-    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    // копии нет: пункта в Настройках нет
+    await goSettings(page, mobile);
+    await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
+    await expect(settingsAction(page, /Вернуть статусы из копии/)).toHaveCount(0);
     mock.backups.push({ id: 1, reason: 'reset_all', rows: before.filter((g) => g.status) as never });
     for (const g of mock.games) { g.status = null; g.completedAt = null; g.droppedAt = null; }
     await page.reload();
@@ -185,12 +193,11 @@ test.describe('Фаза 8: сброс статуса', () => {
     expect(mock.mutations.at(-1)?.body).toEqual({ backupId: 1 });
     await expect(page.getByRole('status').filter({ hasText: 'Статусы возвращены: 8 игр' })).toBeVisible();
     expect(mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }))).toEqual(before);
-    await openProfileMenu(page, mobile);
-    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
-    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toHaveCount(0);
+    await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
+    await expect(settingsAction(page, /Вернуть статусы из копии/)).toHaveCount(0);
   });
 
-  test('Фаза 48 (п. 12): в «…» и «Фильтрах» коллекции нет сброса и отката статусов; копия читается при открытии меню, не при загрузке', async ({ page, context, baseURL }, info) => {
+  test('в «…» и «Фильтрах» коллекции нет сброса и отката статусов; копия читается при открытии Настроек, не при загрузке', async ({ page, context, baseURL }, info) => {
     const mobile = isMobile(info.project.name);
     const backupCalls: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/api/games/status-backups')) backupCalls.push(r.url()); });
@@ -210,9 +217,9 @@ test.describe('Фаза 8: сброс статуса', () => {
     await expect(page.getByRole('menuitem', { name: /Сбросить все статусы|Вернуть статусы из копии/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     expect(backupCalls).toEqual([]);
-    await openProfileMenu(page, mobile);
-    await expect(profileItem(page, mobile, /Вернуть статусы из копии/)).toContainText('Копия от 27.10.2026');
-    await expect(profileItem(page, mobile, /Сбросить все статусы/)).toBeVisible();
+    await goSettings(page, mobile);
+    await expect(settingsAction(page, /Вернуть статусы из копии/)).toContainText('Копия от 27.10.2026');
+    await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
     expect(backupCalls.length).toBe(1);
   });
 

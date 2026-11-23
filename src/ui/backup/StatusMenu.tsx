@@ -1,7 +1,7 @@
 'use client';
 
-// Фаза 48 (п. 12): «Вернуть статусы из копии» и «Сбросить все статусы» в меню профиля (раньше в «…» и «Фильтрах» коллекции).
-// Действия касаются всей коллекции, а не текущих фильтров, поэтому стоят рядом с «Скачать копию» и «Восстановить из файла».
+// «Вернуть статусы из копии» и «Сбросить все статусы» живут в «Настройках» (раньше в меню «⋯»).
+// Действия касаются всей коллекции, а не текущих фильтров, поэтому рядом с копией файла.
 import { useEverTrue } from '../useEverTrue';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
@@ -18,7 +18,7 @@ const RestoreBackupDialog = dynamic(() => import('../collection/RestoreBackupDia
 export const STATUSES_CHANGED_EVENT = 'ps:statuses-changed';
 const notifyStatusesChanged = () => window.dispatchEvent(new Event(STATUSES_CHANGED_EVENT));
 
-/** Состояние пунктов и окон для шапки. */
+/** Состояние пунктов и окон подтверждения на экране «Настройки». */
 export function useStatusMenu() {
   const s = useStatusBackup(notifyStatusesChanged);
   const { setResetOpen } = s;
@@ -64,7 +64,7 @@ function RestoreItem({ backup, role, onClick }: { backup: BackupInfo; role: 'men
   );
 }
 
-/** Окна подтверждения: рендерятся один раз в шапке. */
+/** Окна подтверждения: рендерятся на экране «Настройки». */
 export function StatusDialogs({ m }: { m: Menu }) {
   // Пакет 6: чанки окон качаются при первом открытии, не при загрузке каждой страницы
   const restoreEver = useEverTrue(m.restoreOpen);

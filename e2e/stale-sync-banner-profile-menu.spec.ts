@@ -67,19 +67,25 @@ const PREVIEW = {
   changes: [{ section: 'status', kind: 'change', titleId: 'PPSA01234_00', name: 'Hades', from: 'backlog', to: 'completed' }],
   changesTruncated: false, missing: [{ titleId: 'CUSA99999_00', name: 'Old game' }], backupId: null,
 };
-/** Пункты меню профиля: на десктопе поповер (menuitem), на мобильном окно «Меню» (обычные ссылки и кнопки). */
-async function openProfileMenu(page: Page) {
+/** Копия разметки теперь в «Настройках»: меню «⋯» / профиль → Настройки. */
+async function openBackupActions(page: Page) {
   const mobile = (page.viewportSize()?.width ?? 1280) < 768;
-  if (mobile) await page.getByRole('button', { name: 'Меню', exact: true }).click();
-  else await page.getByRole('button', { name: 'Меню профиля' }).click();
+  if (mobile) {
+    await page.getByRole('button', { name: 'Меню', exact: true }).click();
+    await page.getByTestId('sheet-settings').click();
+  } else {
+    await page.getByRole('button', { name: 'Меню профиля' }).click();
+    await page.getByTestId('menu-settings').click();
+  }
+  await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
   return {
-    download: mobile ? page.getByRole('link', { name: 'Скачать копию' }) : page.getByRole('menuitem', { name: 'Скачать копию' }),
-    restore: mobile ? page.getByRole('button', { name: 'Восстановить из файла' }) : page.getByRole('menuitem', { name: 'Восстановить из файла' }),
+    download: page.getByRole('link', { name: 'Скачать копию' }),
+    restore: page.getByRole('button', { name: 'Восстановить из файла' }),
   };
 }
 const FILE = { app: 'ps-tracker-backup', schemaVersion: 1, createdAt: '2026-10-29T06:00:00.000Z', games: [], plannedGames: [], roadmapSettings: null };
 
-test.describe('Копия разметки в меню профиля', () => {
+test.describe('Копия разметки в Настройках', () => {
   test('скачать: ссылка на /api/backup; восстановить: файл, preview, подтверждение, apply', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!);
     const calls: string[] = [];
@@ -89,7 +95,7 @@ test.describe('Копия разметки в меню профиля', () => {
       return r.fulfill(ok(b.mode === 'apply' ? { ...PREVIEW, mode: 'apply', applied: true, backupId: 12 } : PREVIEW));
     });
     await page.goto('/');
-    const menu = await openProfileMenu(page);
+    const menu = await openBackupActions(page);
     await expect(menu.download).toHaveAttribute('href', '/api/backup');
     await menu.restore.click();
     const dlg = page.getByRole('dialog', { name: 'Восстановить из файла' });
@@ -110,7 +116,7 @@ test.describe('Копия разметки в меню профиля', () => {
     await setup(page, context, baseURL!);
     await page.route('**/api/backup/restore', (r) => r.fulfill(bad(400, 'invalid_request', { reason: 'unsupported_version', supported: [1], got: 2 })));
     await page.goto('/');
-    await (await openProfileMenu(page)).restore.click();
+    await (await openBackupActions(page)).restore.click();
     const dlg = page.getByRole('dialog', { name: 'Восстановить из файла' });
     await dlg.getByLabel('Файл копии').setInputFiles({ name: 'a.json', mimeType: 'application/json', buffer: Buffer.from('не json') });
     await expect(dlg.getByRole('alert')).toContainText('не JSON');
