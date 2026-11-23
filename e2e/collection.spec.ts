@@ -670,10 +670,11 @@ for (const width of [390, 440]) {
       await expect(page.getByRole('dialog', { name: 'Stray' })).toBeVisible();
     });
 
-    test('тема меняется из меню и сохраняется', async ({ page, context, baseURL }) => {
+    test('тема меняется в Настройках и сохраняется', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      // П9: ряд кружков (radiogroup) вместо списка
+      await page.getByTestId('sheet-settings').click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
       const row = page.getByRole('radiogroup', { name: 'Тема' });
       await expect(row.getByRole('radio')).toHaveCount(7);
       for (const n of ['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']) await expect(row.getByRole('radio', { name: n })).toBeVisible();
@@ -681,7 +682,7 @@ for (const width of [390, 440]) {
       await row.getByRole('radio', { name: 'Dark' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
       await expect(row.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
-      // меню остаётся открытым, стрелка вправо — следующая тема
+      // ряд в Настройках, стрелка вправо — следующая тема
       await page.keyboard.press('ArrowRight');
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'ps1');
       // ряд в одну строку и не выше 96 px вместе с подписью

@@ -104,12 +104,12 @@ test.describe('Фаза 48 (п. 15): ссылка «К содержимому»,
   });
 });
 
-test.describe('П9: меню телефона с рядом кружков тем', () => {
+test.describe('меню телефона', () => {
   test('axe без нарушений в открытом меню, во всех темах', async ({ page, context, baseURL, isMobile }) => {
     test.skip(!isMobile, 'меню телефона');
     await open(page, context, baseURL!, '/');
     await page.getByRole('button', { name: 'Меню', exact: true }).click();
-    await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Меню' })).toBeVisible();
     const bad: Record<string, string[]> = {};
     for (const t of THEMES) {
       await setTheme(page, t);
