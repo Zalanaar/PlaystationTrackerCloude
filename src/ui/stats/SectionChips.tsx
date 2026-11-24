@@ -9,9 +9,8 @@ const nowMs = () => Date.now();
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * D-P5: липкая полоса чипов разделов под шапкой. Полоса рендерится сразу (фиксированная высота, без сдвига страницы);
- * чипы — только для разделов, которые есть в DOM (меняется лишь ширина ряда). Тап прокручивает к разделу, при прокрутке
- * подсвечивается текущий. Без backdrop-filter: единичная полоса с непрозрачным фоном.
+ * D-P5: липкая капсула чипов разделов под шапкой (.ps-jumpcap). Чипы — только для разделов, которые есть в DOM
+ * (меняется лишь ширина ряда). Тап прокручивает к разделу, при прокрутке подсвечивается текущий.
  */
 export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | null> }) {
   const [present, setPresent] = useState<string[]>([]);
@@ -79,7 +78,7 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
   };
 
   return (
-    <nav className="ps-st-secs" aria-label="Разделы статистики" data-testid="stats-sections">
+    <nav className="ps-st-secs ps-jumpcap" aria-label="Разделы статистики" data-testid="stats-sections">
       <div className="ps-st-secs__in ps-chiprow" ref={(el) => { bar.current = el; fade(el); }}>
         {STATS_SECTIONS.filter((s) => present.includes(s.id)).map((s) => (
           <button key={s.id} type="button" className="ps-st-secs__chip" data-sec={s.id} aria-current={active === s.id ? 'true' : undefined} onClick={() => go(s.id)}>

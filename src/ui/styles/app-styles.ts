@@ -7,6 +7,7 @@ import './collection.css';
 import './collection-hero.css';
 import './collection-near.css';
 import './chronicle.css';
+import './jump-capsule.css';
 import './skeletons.css';
 import './game-dialog.css';
 import './game-dialog-extras.css';

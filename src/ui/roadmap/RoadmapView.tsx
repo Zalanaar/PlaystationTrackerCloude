@@ -8,6 +8,7 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
+import { RoadmapJump } from './RoadmapJump';
 import { applyOrder, hoursLabel, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
@@ -374,14 +375,7 @@ export function RoadmapView() {
         <h1 className="ps-h1 ps-h1--hdr">План</h1>
         <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника</p>
       </div>
-      {/* F5: на телефоне липкий ряд переходов к главным блокам длинной страницы */}
-      <nav className="ps-rm-jump" aria-label="Блоки плана" data-testid="rm-jump">
-        <a className="ps-rm-jump__a" href="#rm-goal">Цель</a>
-        <a className="ps-rm-jump__a" href="#rm-tl">Таймлайн</a>
-        <a className="ps-rm-jump__a" href="#rm-releases">Релизы</a>
-        <a className="ps-rm-jump__a" href="#rm-queue">Очередь</a>
-        {attentionN > 0 && <a className="ps-rm-jump__a" href="#rm-attention">Внимание</a>}
-      </nav>
+      <RoadmapJump attention={attentionN > 0} />
       <div className="ps-rm" aria-busy={!data || undefined}>
         <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
           <div className="ps-rm-set__head">

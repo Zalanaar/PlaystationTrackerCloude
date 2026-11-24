@@ -95,7 +95,7 @@ test.describe('Бэклог: липкая плашка', () => {
     expect(boxes[0].h).toBe(44);
   });
 
-  test('сплошной фон, без рамки у вкладок, тень только при data-stuck', async ({ page, context, baseURL }) => {
+  test('плавающая капсула: блюр, скругление, без рамки у вкладок, тень есть сразу', async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: 1280, height: 700 });
     await open(page, context, baseURL as string, games(24, 2));
     await expect(jump(page)).toHaveAttribute('data-stuck', 'false');
@@ -103,16 +103,25 @@ test.describe('Бэклог: липкая плашка', () => {
       const n = document.querySelector('[data-testid="bl-jump"]') as HTMLElement;
       const t = document.querySelector('.ps-bl-jump__tab') as HTMLElement;
       const c = getComputedStyle(n);
-      return { bg: c.backgroundColor, shadow: c.boxShadow, border: getComputedStyle(t).borderTopWidth, trayBorder: getComputedStyle(document.querySelector('.ps-bl-jump__tabs') as HTMLElement).borderTopWidth };
+      const f = c.backdropFilter || (c as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter || 'none';
+      return {
+        f, radius: c.borderRadius, shadow: c.boxShadow,
+        left: n.getBoundingClientRect().left,
+        right: innerWidth - n.getBoundingClientRect().right,
+        border: getComputedStyle(t).borderTopWidth,
+        trayBorder: getComputedStyle(document.querySelector('.ps-bl-jump__tabs') as HTMLElement).borderTopWidth,
+      };
     });
-    expect(st.bg).toMatch(/^rgb\(/); // t159u (2026-11-03): сплошной фон темы, без стекла
-    expect(await jump(page).evaluate((e) => getComputedStyle(e).backdropFilter || 'none')).toBe('none');
+    expect(st.f).toMatch(/blur\(/);
+    const rad = Math.max(...(st.radius.match(/[\d.]+/g) ?? ['0']).map(Number));
+    expect(rad).toBeGreaterThanOrEqual(20);
+    expect(st.left).toBeGreaterThanOrEqual(4);
+    expect(st.right).toBeGreaterThanOrEqual(4);
     expect(st.border).toBe('0px');
     expect(st.trayBorder).toBe('0px');
-    expect(st.shadow === 'none' || /0px 0px 0px/.test(st.shadow)).toBe(true);
+    expect(st.shadow === 'none' || /0px 0px 0px/.test(st.shadow)).toBe(false);
     await page.evaluate(() => window.scrollTo(0, 700));
     await expect(jump(page)).toHaveAttribute('data-stuck', 'true');
-    await expect.poll(() => jump(page).evaluate((e) => getComputedStyle(e).boxShadow)).not.toMatch(/^rgba?\(0, 0, 0, 0\) 0px 0px 0px/);
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(jump(page)).toHaveAttribute('data-stuck', 'false');
   });

@@ -1,4 +1,4 @@
-// Пакет 5 (t159u): липкие ряды под шапкой на мобильном и в PWA — сегменты Бэклога (.ps-bl-jump) и чипы месяцев Хроники (.ps-mchips).
+// Липкие капсулы быстрого перехода под шапкой — сегменты Бэклога и чипы месяцев Коллекции.
 // Mobile (Pixel 7) и WebKit iPhone; на десктопе тоже липкие. API эмулируется (e2e/collection-mock.ts).
 import { test, expect, type BrowserContext, type Page, type Locator } from '@playwright/test';
 import { mockApi, seed, type G } from './collection-mock';
@@ -23,18 +23,24 @@ async function login(page: Page, context: BrowserContext, baseURL: string, games
   return mockApi(page, games);
 }
 
-/** Ряд прилип к низу шапки, непрозрачен и сверху: в точке его центра — он сам, а не карточка под ним. */
+/** Капсула прилипла под шапкой с зазором: в точке её центра — она сама, не карточка под ней; блюр и скругление. */
 async function stuckUnderHeader(page: Page, row: Locator) {
   await expect.poll(async () => row.evaluate((el) => {
     const h = document.querySelector('.ps-header')!.getBoundingClientRect().bottom;
     const r = el.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 40), r.top + r.height / 2);
-    return Math.abs(r.top - h) <= 2 && !!hit && el.contains(hit);
+    const inset = r.top - h;
+    const side = Math.min(r.left, innerWidth - r.right);
+    return inset >= 4 && inset <= 24 && side >= 4 && !!hit && el.contains(hit);
   })).toBe(true);
-  // фон сплошной: альфа 1 (rgb(...) без альфы), без стекла
-  const bg = await row.evaluate((el) => ({ c: getComputedStyle(el).backgroundColor, f: getComputedStyle(el).backdropFilter || 'none' }));
-  expect(bg.c).toMatch(/^rgb\(/);
-  expect(bg.f).toBe('none');
+  const st = await row.evaluate((el) => {
+    const c = getComputedStyle(el);
+    const f = c.backdropFilter || (c as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter || 'none';
+    return { f, radius: c.borderRadius };
+  });
+  expect(st.f).toMatch(/blur\(/);
+  const rad = Math.max(...(st.radius.match(/[\d.]+/g) ?? ['0']).map(Number));
+  expect(rad).toBeGreaterThanOrEqual(20);
 }
 
 test.describe('липкие ряды', () => {

@@ -1,0 +1,59 @@
+/* Единая плавающая капсула быстрого перехода: месяцы Коллекции, блоки Плана, разделы Статистики, сегменты Бэклога. */
+.ps-jumpcap {
+  position: sticky;
+  top: calc(var(--sticky-top) + var(--jumpcap-inset));
+  z-index: var(--z-sticky);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--jumpcap-inset));
+  margin-inline: var(--jumpcap-inset);
+  margin-block: var(--jumpcap-inset) var(--sp-3);
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: var(--border-w) solid color-mix(in srgb, var(--border-strong, var(--border)) 65%, transparent);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, calc(var(--shadow-alpha, .2) + .08));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.ps-jumpcap::-webkit-scrollbar { display: none; }
+.ps-jumpcap__in {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.ps-jumpcap__in::-webkit-scrollbar { display: none; }
+
+.ps-jumpcap [aria-current="true"],
+.ps-jumpcap [aria-current="location"],
+.ps-jumpcap [aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.ps-jumpcap [aria-current="true"] small,
+.ps-jumpcap [aria-current="true"] b,
+.ps-jumpcap [aria-current="location"] b,
+.ps-jumpcap [aria-pressed="true"] small {
+  color: inherit;
+  opacity: .8;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .ps-jumpcap {
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

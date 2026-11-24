@@ -6,10 +6,9 @@ import { useChipRow } from '../primitives/useChipRow';
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Граница «под полосой»: шапка + полоса + отступ (как scroll-margin-top якорей). */
+/** Граница «под капсулой»: низ плавающей полосы + отступ (как scroll-margin-top якорей). */
 function limitPx(nav: HTMLElement): number {
-  const header = document.querySelector<HTMLElement>('.ps-header')?.offsetHeight ?? 56;
-  return header + nav.offsetHeight + 12;
+  return nav.getBoundingClientRect().bottom + 12;
 }
 
 /** Прокрутка к первой карточке месяца и фокус на неё (docs/design-system.md §8.2). */
@@ -68,7 +67,7 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
   }, [cur]);
 
   return (
-    <nav ref={(el) => { nav.current = el; fade(el); }} className="ps-mchips ps-chiprow" aria-label={`Месяцы ${year}`}>
+    <nav ref={(el) => { nav.current = el; fade(el); }} className="ps-mchips ps-chiprow ps-jumpcap" aria-label={`Месяцы ${year}`}>
       {chips.map((c) => (
         <button
           key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}

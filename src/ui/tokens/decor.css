@@ -144,7 +144,7 @@
 /* Айдентика тем, шаг 6 (Wave): волна поднята в зону под шапкой (за профилем, фильтрами и годом), чтобы читалась на первом экране;
    там фон ещё близок к --xmb-a, поэтому полоса и линии по .03 (вместе не больше .06: --text-3 >= 4.5 во всех 12 месяцах, contrast.test).
    Свечение текущего чипа месяца (как выделенный пункт меню) и лёгкое — у года. Новой навигации нет. */
-[data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"]:not(:focus-visible) { box-shadow: 0 0 16px rgba(255, 255, 255, .35); color: var(--text); }
+[data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"]:not(:focus-visible) { box-shadow: 0 0 16px rgba(255, 255, 255, .35); }
 [data-theme="ps3"] .ps-year__y { text-shadow: 0 0 18px rgba(255, 255, 255, .28); }
 @keyframes ps3-wave { to { transform: translate3d(-50%, 0, 0); } }
 /* t199u: волна на мобильном была не видна (.03 за вторичным текстом). Заметная волна — в шапке, она видна на каждом экране и при прокрутке:

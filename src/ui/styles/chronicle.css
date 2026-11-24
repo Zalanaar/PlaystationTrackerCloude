@@ -43,14 +43,9 @@
 .ps-mchips { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-2); height: var(--mchips-h); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
 .ps-mchips::-webkit-scrollbar { display: none; }
 .ps-chron > .ps-mchips {
-  position: sticky; top: var(--sticky-top); z-index: var(--z-sticky); margin-top: var(--sp-2); margin-bottom: var(--sp-3);
-  padding-inline: var(--sp-2); border-radius: var(--r-lg);
-  width: fit-content; max-width: 100%;   /* полоса кончается по последнему чипу; если месяцев много — скролл внутри */
-  background: var(--bg);   /* t159u: сплошной фон темы, карточки под полосой не просвечивают */
-}
-@media (max-width: 767px) {
-  /* мобильный/PWA: полоса на всю ширину под шапкой, как чипы разделов Статистики (.ps-st-secs) */
-  .ps-chron > .ps-mchips { width: auto; border-radius: 0; box-shadow: 0 0 0 100vmax var(--bg); clip-path: inset(0 -100vmax); }
+  /* хром — .ps-jumpcap: плавающая капсула, не сплошная полоса */
+  height: auto;
+  min-height: var(--mchip-h);
 }
 .ps-mchips--static { position: static; margin-bottom: var(--sp-3); }
 .ps-mchips button.ps-mchip {
@@ -63,7 +58,8 @@
 .ps-mchips button.ps-mchip small { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 500; color: var(--text-3); }
 .ps-mchips button.ps-mchip:hover { background: var(--surface-2); color: var(--text); }
 .ps-mchips button.ps-mchip:focus-visible { box-shadow: var(--shadow-focus); }
-.ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); }
+.ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ps-mchips button.ps-mchip[aria-current="true"] small, .ps-mchips button.ps-mchip[aria-pressed="true"] small { color: inherit; opacity: .8; }
 .ps-mchips--sk { margin-top: var(--sp-2); margin-bottom: var(--sp-3); overflow: hidden; }
 .ps-mchip-sk { flex: none; width: 56px; height: var(--mchip-h); border-radius: var(--r-chip); }
 .ps-chron__body { padding-top: var(--sp-4); }
