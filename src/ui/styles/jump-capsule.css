@@ -105,3 +105,16 @@
     backdrop-filter: none;
   }
 }
+
+/* Текущий чип: счётчик (small.num) должен сам нести непрозрачный accent,
+   иначе проверка контраста (и глаз) сравнивает accent-ink с --bg/--surface:
+   в PS3 это ~1.67, в PS5 ~1.73 (декор ставит opacity .65 и не рисует фон на small). */
+.ps-mchips button.ps-mchip[aria-current="true"] small,
+.ps-mchips button.ps-mchip[aria-pressed="true"] small,
+[data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small,
+[data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"] small {
+  color: var(--accent-ink);
+  opacity: 1;
+  background-color: var(--accent);
+  background-image: none;
+}
