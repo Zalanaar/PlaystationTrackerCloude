@@ -81,5 +81,5 @@ test('пустой План: подсказка выбрать в бэклоге
   await page.goto('/');
   await complete(page, 'Tetris Effect');
   const sheet = page.getByRole('dialog', { name: 'Пройдено: Tetris Effect' });
-  await expect(sheet.getByTestId('after-complete-next')).toContainText('В Плане нет следующей игры');
+  await expect(sheet.getByTestId('after-complete-next')).toContainText('В целях месяца и Плане нет следующей игры');
 });

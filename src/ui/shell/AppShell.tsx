@@ -120,7 +120,7 @@ export function AppHeader() {
                 type="button" className={localSearch ? 'ps-iconbtn ps-mobile-only' : 'ps-iconbtn'} data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру"
                 aria-haspopup={localSearch ? undefined : 'dialog'}
                 aria-expanded={localSearch ? localSearchOpen : gsearch}
-                onPointerDown={(e) => { if (localSearch) e.preventDefault(); }}
+                onPointerDown={(e) => { if (localSearch && localSearchOpen) e.preventDefault(); }}
                 onClick={() => (localSearch ? emitHeaderAction('search') : setGsearch(true))}
               >
                 <Icon name="search" size={22} />

@@ -149,7 +149,7 @@ test.describe('плавающая капсула быстрого переход
 
       await openStats(page, context, baseURL!);
       const stats = page.getByTestId('stats-sections');
-      await expect(stats.getByRole('button', { name: 'Часы' })).toBeVisible();
+      await expect(stats.getByRole('button', { name: 'Время' })).toBeVisible();
       await page.evaluate(() => window.scrollBy(0, 200));
       await assertCapsule(stats);
 
@@ -197,7 +197,7 @@ test.describe('плавающая капсула быстрого переход
     await assertEndsInside(page.getByTestId('rm-jump').first());
 
     await openStats(page, context, baseURL!);
-    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Часы' })).toBeVisible();
+    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Время' })).toBeVisible();
     await assertEndsInside(page.getByTestId('stats-sections'));
 
     await login(page, context, baseURL as string, backlog());

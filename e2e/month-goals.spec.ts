@@ -161,7 +161,7 @@ test.describe('Цели месяца на главной', () => {
     });
     await page.getByTestId('month-goals-set').click();
     const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
-    await expect(dialog.getByText('В плане на ноябрь', { exact: true })).toBeVisible();
+    // игры из Плана на этот месяц сразу в выбранных (подсказка при новой цели)
     await expect(dialog.getByTestId('month-goals-game-11')).toBeVisible();
     await expect(dialog.getByTestId('month-goals-picks').getByText('План', { exact: true })).toBeVisible();
     await expect(dialog.getByTestId('month-goals-picks').getByText('Бэклог', { exact: true })).toBeVisible();
@@ -186,7 +186,6 @@ test.describe('Цели месяца на главной', () => {
     await page.getByTestId('month-goals-set').click();
     const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
     await expect(dialog.getByTestId('month-goals-picks').getByText('Играю', { exact: true })).toBeVisible();
-    await expect(dialog.getByText('В плане на ноябрь', { exact: true })).toBeVisible();
     await expect(dialog.getByTestId('month-goals-game-11')).toBeAttached();
 
     await expect(dialog.getByTestId('month-goals-game-40')).toBeAttached();

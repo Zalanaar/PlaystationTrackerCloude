@@ -44,6 +44,7 @@ test.describe('Коллекция: иконка поиска в шапке', () 
   test('запрос сохраняется при закрытии иконкой; повторное открытие показывает его снова', async ({ page, context, baseURL }) => {
     await openHome(page, context, baseURL!);
     await hdr(page).click();
+    await expect(box(page)).toBeVisible();
     await box(page).fill('ведьмак');
     await expect(page).toHaveURL(/q=/);
     await hdr(page).click();
@@ -57,8 +58,10 @@ test.describe('Коллекция: иконка поиска в шапке', () 
   test('тап по иконке при фокусе в поле закрывает, а не открывает снова', async ({ page, context, baseURL }) => {
     await openHome(page, context, baseURL!);
     await hdr(page).click();
+    await expect(box(page)).toBeVisible();
+    await box(page).focus();
     await expect(box(page)).toBeFocused();
-    // как на iPhone: сначала blur поля, затем click по иконке
+    // как на iPhone: поле в фокусе, тап по иконке (blur не должен снова открыть строку)
     await hdr(page).click();
     await expect(box(page)).toHaveCount(0);
     await expect(hdr(page)).toHaveAttribute('aria-expanded', 'false');

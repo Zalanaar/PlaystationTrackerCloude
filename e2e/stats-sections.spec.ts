@@ -10,11 +10,11 @@ test('чипы разделов: только существующие, тап �
   await expect(page.getByRole('heading', { name: 'Часы по месяцам' })).toBeVisible();
   const chips = bar.locator('a, button');
   // «Оценки» монтируются сразу, остальные чипы — после MutationObserver+rAF, когда пришли данные периода
-  await expect(bar.getByRole('button', { name: 'Часы' })).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Время' })).toBeVisible();
   const labels = await chips.allInnerTexts();
-  expect(labels.slice(0, 2)).toEqual(['Часы', 'Жанры']);
+  expect(labels.slice(0, 2)).toEqual(['Время', 'Игры']);
   expect(labels).toContain('Трофеи');
-  await expect(bar.locator('[aria-current="true"]')).toHaveText('Часы');
+  await expect(bar.locator('[aria-current="true"]')).toHaveText('Время');
   const y0 = (await bar.boundingBox())!.y;
 
   await bar.getByText('Трофеи', { exact: true }).click();
@@ -34,7 +34,7 @@ test('чипы разделов: только существующие, тап �
   // ручная прокрутка вверх возвращает подсветку на первый раздел
   await page.waitForTimeout(800);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(bar.locator('[aria-current="true"]')).toHaveText('Часы');
+  await expect(bar.locator('[aria-current="true"]')).toHaveText('Время');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 

@@ -231,10 +231,10 @@ function WrappedLink({ sel, where }: { sel: Selection; where: 'head' | 'switch' 
 
 function StatsGroup({ id, title, children }: { id: string; title?: string; children: React.ReactNode }) {
   return (
-    <section className="ps-st-group" data-st-group={id} aria-label={title}>
-      {title ? <h2 className="ps-st-group__h">{title}</h2> : null}
+    <div className="ps-st-group" data-st-group={id} role="group" aria-label={title}>
+      {title ? <p className="ps-st-group__h">{title}</p> : null}
       {children}
-    </section>
+    </div>
   );
 }
 

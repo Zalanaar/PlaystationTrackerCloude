@@ -58,7 +58,7 @@ test('пройдено без оценки: «Оценить» открывае�
     await page.goto('/');
     await page.locator('nav.ps-tabbar').getByRole('link', { name: /Статистика/ }).click();
     await expect(page).toHaveURL(/\/stats/);
-    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Часы' })).toBeVisible();
+    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Время' })).toBeVisible();
     await page.getByTestId('stats-sections').locator('[data-sec="ratings"]').click();
     await expect(page.getByTestId('ratings')).toBeVisible();
   }
