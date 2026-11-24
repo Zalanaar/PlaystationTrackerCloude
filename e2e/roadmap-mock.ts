@@ -30,6 +30,8 @@ export type RmState = {
   goalPutFail?: { status: number; code: string } | null;
   goalCalls?: { method: string; body: unknown }[];
   catalog: { status: number; reason?: string; candidates?: unknown[] } | null;
+  /** Задержка ответа поиска каталога (мс), для e2e скелета «Ищу…». */
+  catalogDelayMs?: number;
   calls: { roadmap: number; settings: unknown[]; orders: number[][]; posts: Record<string, unknown>[]; patches: { id: number; body: Record<string, unknown> }[]; deletes: number[]; durations: { id: number; hours: number | null }[]; catalog: string[]; catalogPs: (string | null)[]; exclusions: { method: string; gameId: number }[]; upcoming: number[] };
 };
 
@@ -275,7 +277,8 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
       const rec = s.planned.find((p) => p.externalId === c.externalId);
       return { ...c, planned: Boolean(rec), unallocated: rec?.status === 'cancelled', plannedId: rec?.id ?? null };
     });
-    return ok(r, { candidates: list, page: page_, hasMore: page_ < s.upcoming.pages.length });
+    const total = s.upcoming.pages.reduce((n, pg) => n + pg.length, 0);
+    return ok(r, { candidates: list, page: page_, hasMore: page_ < s.upcoming.pages.length, total, updated: [] });
   });
   await page.route(/\/api\/roadmap\/order$/, async (r) => {
     const ids = (r.request().postDataJSON() as { gameIds: number[] }).gameIds;
@@ -286,6 +289,7 @@ export async function mockRoadmap(page: Page, s: RmState): Promise<RmState> {
   });
   await page.route(/\/api\/roadmap\/catalog\/search/, async (r) => {
     s.calls.catalog.push(new URL(r.request().url()).searchParams.get('q') ?? '');
+    if (s.catalogDelayMs) await new Promise((res) => setTimeout(res, s.catalogDelayMs));
     const c = s.catalog;
     if (c && c.status !== 200) return fail(r, c.status, 'catalog_unavailable', { reason: c.reason ?? 'network' });
     const only = new URL(r.request().url()).searchParams.get('playstation');

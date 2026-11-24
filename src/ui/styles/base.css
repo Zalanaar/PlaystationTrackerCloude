@@ -113,9 +113,12 @@ a.ps-btn { text-decoration: none; }
 .ps-sheet-wrap { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; }
 .ps-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .6); }
 .ps-sheet {
-  position: relative; width: min(480px, calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 2 * var(--sp-6)); overflow: auto;
+  position: relative; display: flex; flex-direction: column; width: min(480px, calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 2 * var(--sp-6)); overflow: hidden;
   background: var(--surface); color: var(--text); border: var(--border-w) solid var(--border-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: var(--sp-4);
 }
+.ps-sheet__head { flex: none; }
+.ps-sheet__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.ps-sheet__foot { flex: none; padding-top: var(--sp-3); background: var(--surface); }
 .ps-sheet[data-wide="true"] { width: min(720px, calc(100vw - 2 * var(--gutter))); }
 .ps-sheet__handle { display: none; }
 .ps-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
@@ -164,7 +167,8 @@ a.ps-btn { text-decoration: none; }
 @media (max-width: 767px) {
   .ps-desktop-only { display: none; }
   .ps-mobile-only { display: inline-grid; }
-  .ps-main { padding-block: var(--sp-5) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-5)); }
+  /* запас под кнопку «Наверх» (tap-min над таббаром), чтобы FAB не закрывала карандаши/корзину нижних карточек */
+  .ps-main { padding-block: var(--sp-5) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--tap-min) + var(--sp-5)); }
   .ps-header__in { gap: var(--sp-3); }
   .ps-nav { display: none; }
   .ps-sync-text { display: none; }
@@ -217,7 +221,13 @@ a.ps-btn { text-decoration: none; }
 @media (max-width: 767px) {
 
   .ps-sheet-wrap { place-items: end center; padding-bottom: var(--sheet-kb, 0px); }
-  .ps-sheet, .ps-sheet[data-wide="true"] { width: 100%; max-height: calc(85dvh - var(--sheet-kb, 0px)); border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+  .ps-sheet, .ps-sheet[data-wide="true"] {
+    width: 100%;
+    /* высота по visible visualViewport: клавиатура уже учтена в --vv-height и padding шита */
+    max-height: min(92dvh, calc(var(--vv-height, 100dvh) - var(--sp-4)));
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom));
+  }
   .ps-sheet__handle { display: block; width: 36px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); margin: 0 auto var(--sp-2); }
   .ps-menu-item--tall { min-height: 48px; }
   .ps-menu-item { min-height: 48px; }
@@ -316,6 +326,7 @@ html { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; background: var(-
   .ps-tabbar, .ps-header { -webkit-user-select: none; user-select: none; }
   .ps-tab, .ps-nav-item, .ps-header a, .ps-tabbar a { -webkit-touch-callout: none; }
 }
+html[data-scroll-lock], html[data-scroll-lock] body { overscroll-behavior: none; }
 html[data-standalone], html[data-standalone] body { overscroll-behavior-y: none; }
 html[data-standalone] .ps-tabbar, html[data-standalone] .ps-header { -webkit-user-select: none; user-select: none; }
 html[data-standalone] .ps-tab, html[data-standalone] .ps-nav-item, html[data-standalone] .ps-header a, html[data-standalone] .ps-tabbar a { -webkit-touch-callout: none; }

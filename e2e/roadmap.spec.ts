@@ -180,6 +180,7 @@ test.describe('План: релизы', () => {
     await page.getByRole('button', { name: 'Добавить игру' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg.getByRole('button', { name: 'Добавить в план' })).toBeDisabled();
+    await dlg.getByTestId('rm-manual-open').click();
     await expect(dlg.getByLabel('Хочу пройти на релизе')).toBeDisabled();
     await dlg.getByLabel('Название').fill('Игра');
     await dlg.getByLabel('Обложка').fill('http://example.com/a.jpg');

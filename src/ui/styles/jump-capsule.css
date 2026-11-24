@@ -62,7 +62,7 @@
   background-color: var(--surface);
   background-image: none;
 }
-.ps-mchips.ps-jumpcap button.ps-mchip small {
+.ps-mchips.ps-jumpcap button.ps-mchip:not([aria-current]):not([aria-pressed]) small {
   color: var(--text-2);
 }
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"],
@@ -87,7 +87,7 @@
   background-image: none;
   border-color: var(--accent);
   color: var(--accent-ink);
-  font-weight: 600;
+  /* вес шрифта не меняем: иначе активный чип шире и ряд «прыгает» */
 }
 .ps-jumpcap [aria-current="true"] small,
 .ps-jumpcap [aria-current="true"] b,
@@ -106,9 +106,12 @@
   }
 }
 
-/* Текущий чип: счётчик (small.num) должен сам нести непрозрачный accent,
-   иначе проверка контраста (и глаз) сравнивает accent-ink с --bg/--surface:
-   в PS3 это ~1.67, в PS5 ~1.73 (декор ставит opacity .65 и не рисует фон на small). */
+/* Счётчик текущего чипа: цвет accent-ink, непрозрачный фон accent, opacity 1.
+   Раньше .ps-mchips.ps-jumpcap button.ps-mchip small { color: text-2 } перебивал
+   менее специфичное правило — text-2 на accent даёт cr 1.27 (PS1) / 1.40 (Graphite) /
+   1.67 (PS3) / 1.73 (PS5), themes-visual падал. */
+.ps-mchips.ps-jumpcap button.ps-chip.ps-mchip[aria-current="true"] small,
+.ps-mchips.ps-jumpcap button.ps-chip.ps-mchip[aria-pressed="true"] small,
 .ps-mchips button.ps-mchip[aria-current="true"] small,
 .ps-mchips button.ps-mchip[aria-pressed="true"] small,
 [data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small,

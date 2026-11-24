@@ -101,7 +101,7 @@ describe('getUpcoming (RAWG, предстоящие релизы)', () => {
     ],
   };
 
-  it('строит запрос: диапазон по МСК, ordering, платформы PlayStation, page_size, page; пропускает tba; порядок RAWG', async () => {
+  it('строит запрос: диапазон по МСК, ordering, платформы PlayStation, page_size, page; пропускает tba', async () => {
     const f = mock(async () => json(page1));
     const r = await getUpcoming(2, { apiKey: KEY, fetch: f, now: NOW, cache: new Map() });
     const u = f.mock.calls[0][0] as URL;
@@ -114,7 +114,23 @@ describe('getUpcoming (RAWG, предстоящие релизы)', () => {
     expect(r.page).toBe(2);
     expect(r.hasMore).toBe(true);
     expect(r.total).toBe(3);
-    expect(r.candidates.map((c) => c.externalId)).toEqual(['10', '12']); // без tba, без пересортировки PS-первыми
+    expect(r.candidates.map((c) => c.externalId)).toEqual(['10', '12']); // без tba, по дате
+  });
+
+  it('отбрасывает дату вне окна и сортирует по возрастанию, даже если RAWG прислал иначе', async () => {
+    const body = {
+      next: null,
+      results: [
+        { id: 3, name: 'FF7', released: '2027-04-08' },
+        { id: 1, name: 'Titan Quest 2', released: '2027-01-12' },
+        { id: 9, name: 'Cronos', released: '2028-12-03' },
+        { id: 2, name: 'Until Dawn 2', released: '2027-01-28' },
+        { id: 8, name: 'Past', released: '2026-10-01' },
+      ],
+    };
+    const r = await getUpcoming(1, { apiKey: KEY, fetch: mock(async () => json(body)), now: NOW, cache: new Map() });
+    expect(r.candidates.map((c) => c.externalId)).toEqual(['1', '2', '3']);
+    expect(r.candidates.map((c) => c.releaseDate)).toEqual(['2027-01-12', '2027-01-28', '2027-04-08']);
   });
 
   it('hasMore: next null = false; нет поля next = по заполненности страницы', async () => {

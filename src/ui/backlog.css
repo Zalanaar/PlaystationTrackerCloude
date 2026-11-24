@@ -102,7 +102,7 @@
 .ps-bl-jump__tab:hover { background: var(--surface-2); color: var(--text); }
 .ps-bl-jump__tab:hover b { color: var(--text); }
 .ps-bl-jump__tab:active { background: var(--surface-3); color: var(--text); }
-.ps-bl-jump__tab[aria-current="location"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ps-bl-jump__tab[aria-current="location"] { background: var(--accent); color: var(--accent-ink); }
 .ps-bl-jump__tab[aria-current="location"] b { color: inherit; }
 .ps-bl-jump__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }   /* внутрь: лоток не обрезает кольцо */
 @media (max-width: 767px) {

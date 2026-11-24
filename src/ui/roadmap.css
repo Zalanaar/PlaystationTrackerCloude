@@ -212,7 +212,12 @@ button.ps-rm-state { cursor: pointer; }
 .ps-rm-search { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-2); }
 .ps-rm-search__f { flex: 1 1 200px; max-width: none; }
 .ps-rm-pschip { flex: none; }
-.ps-rm-cands { list-style: none; margin: 0; padding: 0; max-height: 288px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.ps-rm-search-well { min-height: 0; transition: min-height var(--dur-base) var(--ease-ui); }
+.ps-rm-search-well[data-busy], .ps-rm-search-well[data-filled] { min-height: 208px; }
+.ps-rm-search-status { margin: var(--sp-2) 0 var(--sp-2); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
+.ps-rm-empty-search { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.ps-rm-manual-link { margin: 0; }
+.ps-rm-cands { list-style: none; margin: 0; padding: 0; max-height: 288px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px; }
 .ps-rm-cand { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); width: 100%; min-height: 64px; padding: 5px var(--sp-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .ps-rm-cand:hover { border-color: var(--border-strong); }
 .ps-rm-cand[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
@@ -303,7 +308,7 @@ button.ps-rm-state { cursor: pointer; }
 }
 
 /* ---------- Предстоящие релизы, Не распределено, Игры-сервисы ---------- */
-.ps-rm-upc { list-style: none; margin: 0; padding: 0; max-height: 440px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.ps-rm-upc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ps-rm-upc__item { flex: 0 0 auto; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 64px; padding: 5px var(--sp-2); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
 .ps-rm-upc__item[data-state="planned"] { border-color: var(--border-strong); }
 .ps-rm-upc__act { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
@@ -426,3 +431,7 @@ button.ps-rm-over__row { cursor: pointer; }
 .ps-rm-ics small { font: 400 var(--fs-micro)/16px var(--font-body); color: var(--text-2); }
 
 /* Подписка на календарь релизов (П13+) */
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-rm-search-well { transition: none; }
+}

@@ -214,7 +214,7 @@
   }
 }
 [data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-[data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small { color: inherit; opacity: .65; }
+[data-theme="ps5"] .ps-mchips .ps-chip[aria-current="true"] small { color: var(--accent-ink); opacity: 1; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 [data-theme="ps5"] .ps-chip[aria-pressed="true"]:not(.ps-filterchip--plat) small { color: inherit; opacity: .65; }
 /* счётчик активного чипа (--text-3 на белой заливке = 3:1): цвет текста чипа (Фаза 48, п. 13) */

@@ -205,4 +205,62 @@ test.describe('плавающая капсула быстрого переход
     await expect(page.getByTestId('bl-jump').getByRole('button').first()).toBeVisible();
     await assertEndsInside(page.getByTestId('bl-jump'));
   });
+
+  test('ширина чипов не меняется при смене активного (разделы Статистики и месяцы Коллекции)', async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStats(page, context, baseURL!);
+    const secs = page.getByTestId('stats-sections');
+    await expect(secs.getByRole('button', { name: 'Время' })).toBeVisible();
+    const widthsOf = (root: string, sel: string) => page.evaluate(({ root, sel }) => {
+      const box = document.querySelector(root);
+      if (!box) return [];
+      return [...box.querySelectorAll<HTMLElement>(sel)].map((el) => ({ t: (el.textContent ?? '').trim(), w: Math.round(el.getBoundingClientRect().width * 10) / 10 }));
+    }, { root, sel });
+    const beforeSecs = await widthsOf('[data-testid="stats-sections"]', '.ps-st-secs__chip');
+    expect(beforeSecs.length).toBeGreaterThanOrEqual(3);
+    await secs.getByRole('button', { name: 'Трофеи' }).click();
+    await expect(secs.getByRole('button', { name: 'Трофеи' })).toHaveAttribute('aria-current', 'true');
+    expect(await widthsOf('[data-testid="stats-sections"]', '.ps-st-secs__chip')).toEqual(beforeSecs);
+
+    await login(page, context, baseURL as string, chronicle());
+    await page.goto('/');
+    const months = page.getByRole('navigation', { name: 'Месяцы 2026' });
+    await expect(months.getByRole('button').first()).toBeVisible();
+    const beforeM = await widthsOf('nav.ps-mchips', 'button.ps-mchip');
+    expect(beforeM.length).toBeGreaterThanOrEqual(2);
+    await months.getByRole('button').nth(2).click();
+    await expect(months.getByRole('button').nth(2)).toHaveAttribute('aria-current', 'true');
+    expect(await widthsOf('nav.ps-mchips', 'button.ps-mchip')).toEqual(beforeM);
+  });
+
+  test('горизонтальный жест по ряду месяцев не вызывает программный scrollTo', async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, context, baseURL as string, chronicle());
+    await page.goto('/');
+    const months = page.getByRole('navigation', { name: 'Месяцы 2026' });
+    await expect(months.getByRole('button').first()).toBeVisible();
+    const box = months.locator('.ps-jumpcap__in');
+    const installed = await box.evaluate((el) => {
+      const log: unknown[] = [];
+      const orig = el.scrollTo.bind(el);
+      Object.assign(el, { scrollTo: (...args: unknown[]) => { log.push(args); return orig(...(args as Parameters<typeof orig>)); } });
+      (window as unknown as { __chipScrollTo: unknown[] }).__chipScrollTo = log;
+      return el.scrollWidth > el.clientWidth + 8;
+    });
+    expect(installed).toBe(true);
+    // палец на полосе + инерция (scroll) + смена активного месяца прокруткой страницы
+    await box.dispatchEvent('pointerdown', { bubbles: true });
+    await page.evaluate(() => {
+      const el = document.querySelector('.ps-mchips .ps-jumpcap__in') as HTMLElement | null;
+      if (el) {
+        el.scrollLeft = Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + 80);
+        el.dispatchEvent(new Event('scroll'));
+      }
+      const anchors = [...document.querySelectorAll<HTMLElement>('[id^="m20"]')];
+      anchors[Math.max(0, anchors.length - 2)]?.scrollIntoView({ block: 'start' });
+    });
+    await page.waitForTimeout(250);
+    const calls = await page.evaluate(() => (window as unknown as { __chipScrollTo: unknown[] }).__chipScrollTo.length);
+    expect(calls, 'во время жеста ряд не должен крутиться программно').toBe(0);
+  });
 });

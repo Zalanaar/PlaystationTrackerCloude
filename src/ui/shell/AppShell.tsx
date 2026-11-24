@@ -315,12 +315,6 @@ function isUnmodifiedClick(e: { button: number; metaKey: boolean; ctrlKey: boole
   return !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 }
 
-/** Тот же путь, что href вкладки (без query): /roadmap не считается «Бэклог». */
-function isCurrentTabPage(pathname: string, tab: { href: string }): boolean {
-  const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  return p === tab.href;
-}
-
 function scrollPageTop() {
   const behavior: ScrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
   window.scrollTo({ top: 0, behavior });
@@ -377,8 +371,8 @@ export function TabBar() {
 
   const offlineNav = useOfflineNav();
   const onTab = (e: MouseEvent<HTMLAnchorElement>, to: number) => {
-    // повторное касание текущей вкладки на этой же странице — плавно вверх, без перехода
-    if (to === active && isCurrentTabPage(pathname, NAV_TABS[to]) && isUnmodifiedClick(e)) {
+    // повторное касание уже активной вкладки (включая подмаршруты «Что дальше»: /roadmap, /recommend) — плавно вверх, без смены подвкладки
+    if (to === active && isUnmodifiedClick(e)) {
       e.preventDefault();
       scrollPageTop();
       writeScroll(session(), NAV_TABS[to].id, 0);

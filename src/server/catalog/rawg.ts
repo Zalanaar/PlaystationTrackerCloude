@@ -2,8 +2,8 @@
 // Формат ответа по документации rawg.io/apidocs (GET /api/games?search=): { results: [{ id, name, released, tba, background_image, platforms: [{ platform: { name, slug } }] }] }.
 // Вживую без ключа не проверялось: разбор оборонительный, неожиданная форма = bad_response, а не пустая выдача.
 import { z } from 'zod';
-import { dayNum, dayStr } from '@/server/roadmap/dates';
 import { mskDateString } from '@/server/stats/period';
+import { inUpcomingWindow, sortUpcomingByDate, upcomingWindowEnd, UPCOMING_WINDOW_DAYS } from '@/shared/upcoming-catalog';
 
 export type CatalogCandidate = {
   externalSource: 'rawg';
@@ -148,7 +148,7 @@ export async function searchCatalog(query: string, deps: CatalogDeps): Promise<C
 
 // --- предстоящие релизы (контракт 17.13)
 export const RAWG_UPCOMING_PAGE_SIZE = 20;
-export const RAWG_UPCOMING_DAYS = 365;
+export const RAWG_UPCOMING_DAYS = UPCOMING_WINDOW_DAYS;
 export const RAWG_UPCOMING_TTL_MS = 60 * 60 * 1000;
 
 export type UpcomingPage = { candidates: CatalogCandidate[]; page: number; hasMore: boolean; total: number | null };
@@ -164,7 +164,7 @@ export async function getUpcoming(page: number, deps: UpcomingDeps): Promise<Upc
   if (!deps.apiKey) throw new CatalogError('no_key');
   const now = deps.now ?? new Date();
   const from = mskDateString(now);
-  const to = dayStr(dayNum(from) + RAWG_UPCOMING_DAYS);
+  const to = upcomingWindowEnd(from, RAWG_UPCOMING_DAYS);
   const cache = deps.cache ?? processCache;
   const cacheKey = `${from}|${to}|${page}`;
   const hit = cache.get(cacheKey);
@@ -184,7 +184,9 @@ export async function getUpcoming(page: number, deps: UpcomingDeps): Promise<Upc
   const hasMore = env.success && env.data.next !== undefined ? env.data.next !== null && env.data.next !== '' : rawCount >= RAWG_UPCOMING_PAGE_SIZE;
   const countRaw = (body as { count?: unknown }).count;
   const total = typeof countRaw === 'number' && Number.isFinite(countRaw) && countRaw >= 0 ? Math.floor(countRaw) : null;
-  const value: UpcomingPage = { candidates: all.filter((c) => c.releaseDate !== null), page, hasMore, total };
+  // RAWG dates/ordering иногда отдаёт игры вне окна и не по дате — режем и сортируем сами.
+  const candidates = sortUpcomingByDate(all.filter((c) => inUpcomingWindow(c.releaseDate, from, to)));
+  const value: UpcomingPage = { candidates, page, hasMore, total };
   // Подчищаем протухшее, чтобы Map не рос.
   for (const [k, v] of cache) if (now.getTime() - v.at >= (deps.ttlMs ?? RAWG_UPCOMING_TTL_MS)) cache.delete(k);
   cache.set(cacheKey, { at: now.getTime(), value });

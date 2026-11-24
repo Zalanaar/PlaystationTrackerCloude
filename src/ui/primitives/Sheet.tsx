@@ -4,12 +4,21 @@ import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons';
 import { keyboardHeight } from '../keyboard';
+import { lockBodyScroll } from './scrollLock';
+
+function isYScrollable(el: HTMLElement): boolean {
+  const s = getComputedStyle(el);
+  return (s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+}
 
 /** Модальное окно: на десктопе по центру, на мобильном bottom sheet. Портал в body (шапка с blur ломает fixed). */
 export function Sheet({
-  open, onClose, title, children, wide, className, role = 'dialog', describedBy, initialFocus, busy,
+  open, onClose, title, children, footer, wide, className, role = 'dialog', describedBy, initialFocus, busy,
 }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; className?: string;
+  open: boolean; onClose: () => void; title: string; children: ReactNode;
+  /** Липкая полоса действий под прокруткой («Добавить в план», «Отмена»), всегда видна над клавиатурой. */
+  footer?: ReactNode;
+  wide?: boolean; className?: string;
   /** alertdialog для подтверждений (Фаза 43) */
   role?: 'dialog' | 'alertdialog';
   describedBy?: string;
@@ -19,17 +28,17 @@ export function Sheet({
   busy?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const unlock = lockBodyScroll();
     const target = initialFocus ? ref.current?.querySelector<HTMLElement>(initialFocus) : null;
     (target ?? ref.current)?.focus();
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlock();
       prev?.focus?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- селектор фокуса нужен только в момент открытия
@@ -39,24 +48,63 @@ export function Sheet({
     if (!open) return;
     const wrap = ref.current?.parentElement;
     const vv = window.visualViewport;
+    const intoView = () => {
+      const el = document.activeElement;
+      if (!(el instanceof HTMLElement) || !wrap?.contains(el)) return;
+      if (el === ref.current) return;
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    };
     const upd = () => {
       const kb = keyboardHeight(window.innerHeight, vv ?? null);
+      const vh = vv?.height ?? window.innerHeight;
       wrap?.style.setProperty('--sheet-kb', `${kb}px`);
-      const el = document.activeElement;
-      if (kb > 0 && el instanceof HTMLElement && wrap?.contains(el)) el.scrollIntoView({ block: 'nearest' });
+      wrap?.style.setProperty('--vv-height', `${Math.round(vh)}px`);
+      if (kb > 0) intoView();
     };
     upd();
     window.addEventListener('resize', upd);
     vv?.addEventListener('resize', upd);
     vv?.addEventListener('scroll', upd);
+    wrap?.addEventListener('focusin', intoView);
     return () => {
       window.removeEventListener('resize', upd);
       vv?.removeEventListener('resize', upd);
       vv?.removeEventListener('scroll', upd);
+      wrap?.removeEventListener('focusin', intoView);
       wrap?.style.removeProperty('--sheet-kb');
+      wrap?.style.removeProperty('--vv-height');
     };
   }, [open]);
 
+  // iOS: если жест начался вне прокручиваемой области шита (или у её края), не отдаём его странице под шитом.
+  useEffect(() => {
+    if (!open) return;
+    const wrap = ref.current?.parentElement;
+    if (!wrap) return;
+    let startY = 0;
+    const onStart = (e: TouchEvent) => { if (e.touches.length === 1) startY = e.touches[0].clientY; };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      let el: HTMLElement | null = e.target instanceof HTMLElement ? e.target : null;
+      const dy = e.touches[0].clientY - startY;
+      while (el && el !== wrap) {
+        if (isYScrollable(el)) {
+          const atTop = el.scrollTop <= 0 && dy > 0;
+          const atBot = el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && dy < 0;
+          if (atTop || atBot) e.preventDefault();
+          return;
+        }
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    };
+    wrap.addEventListener('touchstart', onStart, { passive: true });
+    wrap.addEventListener('touchmove', onMove, { passive: false });
+    return () => {
+      wrap.removeEventListener('touchstart', onStart);
+      wrap.removeEventListener('touchmove', onMove);
+    };
+  }, [open]);
 
   // Фокус мог упасть на body: сфокусированная кнопка внутри исчезла (например, «Повторить» сменилась сообщением),
   // а onKeyDown панели ловит только события изнутри. Тогда Esc ловим на документе, но только верхней модалкой.
@@ -112,7 +160,8 @@ export function Sheet({
             <Icon name="x" size={18} />
           </button>
         </div>
-        <div className="ps-sheet__body">{children}</div>
+        <div className="ps-sheet__body" ref={bodyRef}>{children}</div>
+        {footer != null && <div className="ps-sheet__foot">{footer}</div>}
       </div>
     </div>,
     document.body,

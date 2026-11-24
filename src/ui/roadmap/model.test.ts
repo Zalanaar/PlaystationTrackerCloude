@@ -1,7 +1,7 @@
 import { describe, expect, it, it as it_ } from 'vitest';
 import type { Conflict, PlanItem, RoadmapResponse } from '@/server/roadmap/types';
 import {
-  applyOrder, appendUnique, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, insertHint, orderWithAtPosition, removedToast, placedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
+  applyOrder, appendUnique, applyPlannedReleaseDates, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, insertHint, orderWithAtPosition, removedToast, placedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
   periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, catalogFail, platformsText, filterCandidates, paceView,
 } from './model';
 
@@ -235,8 +235,21 @@ describe('предстоящие релизы', () => {
   it('тело POST: галка на релизе по умолчанию, часы пустые', () => {
     expect(upcomingBody(c('9'))).toEqual({ title: 'T9', releaseDate: '2026-12-01', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '9' });
   });
-  it('страницы дописываются без повторов', () => {
+  it('страницы дописываются без повторов и сортируются по дате', () => {
     expect(appendUnique([c('1'), c('2')], [c('2'), c('3')]).map((x) => x.externalId)).toEqual(['1', '2', '3']);
+    const out = appendUnique(
+      [c('b', { externalId: 'b', releaseDate: '2027-05-20' }), c('a', { externalId: 'a', releaseDate: '2027-04-08' })],
+      [c('c', { externalId: 'c', releaseDate: '2027-01-12' })],
+    );
+    expect(out.map((x) => x.externalId)).toEqual(['c', 'a', 'b']);
+  });
+  it('подставляет новые даты каталога в список плана', () => {
+    const g = (id: number, date: string) => ({ id, title: `G${id}`, releaseDate: date, coverUrl: null, wantAtRelease: true, hoursManual: 10, externalSource: 'rawg' as const, externalId: String(id), status: 'planned' as const, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
+    const next = applyPlannedReleaseDates([g(7, '2027-02-16'), g(8, '2027-03-01')], [{ id: 7, releaseDate: '2027-05-20' }]);
+    expect(next.map((x) => ({ id: x.id, releaseDate: x.releaseDate }))).toEqual([
+      { id: 8, releaseDate: '2027-03-01' },
+      { id: 7, releaseDate: '2027-05-20' },
+    ]);
   });
 });
 

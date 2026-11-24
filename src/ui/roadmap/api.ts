@@ -32,7 +32,7 @@ export const postExclusion = (gameId: number) =>
   call<{ excluded: boolean; gameId: number }>('/api/roadmap/exclusions', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ gameId }) });
 export const deleteExclusion = (gameId: number) => call<{ excluded: boolean; gameId: number }>(`/api/roadmap/exclusions/${gameId}`, { method: 'DELETE' });
 export const fetchUpcoming = (page: number, signal?: AbortSignal) =>
-  call<{ candidates: UpcomingCandidate[]; page: number; hasMore: boolean; total: number | null }>(`/api/roadmap/catalog/upcoming?page=${page}`, { signal });
+  call<{ candidates: UpcomingCandidate[]; page: number; hasMore: boolean; total: number | null; updated?: { id: number; releaseDate: string }[] }>(`/api/roadmap/catalog/upcoming?page=${page}`, { signal });
 
 export { ApiError };
 

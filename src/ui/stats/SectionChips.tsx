@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { currentSection, STATS_SECTIONS } from './sections';
 import { useChipRow } from '../primitives/useChipRow';
+import { attachChipRowScrollGuard, type ChipRowScrollGuard } from '../primitives/chipRowScroll';
 
 /** Время для блокировки подсветки (только в обработчиках, не в рендере). */
 const nowMs = () => Date.now();
@@ -17,7 +18,15 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
   const [active, setActive] = useState<string | null>(null);
   const bar = useRef<HTMLDivElement>(null);
   const fade = useChipRow<HTMLDivElement>(false); // П9: тень у края; к выбранному докручивает своя логика ниже
+  const guard = useRef<ChipRowScrollGuard | null>(null);
   const lock = useRef(0);
+  const setBar = useCallback((el: HTMLDivElement | null) => {
+    bar.current = el;
+    fade(el);
+    guard.current?.disconnect();
+    guard.current = el ? attachChipRowScrollGuard(el) : null;
+  }, [fade]);
+
 
   const find = useCallback((id: string): HTMLElement | null => {
     const s = STATS_SECTIONS.find((x) => x.id === id);
@@ -60,13 +69,16 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); if (raf) cancelAnimationFrame(raf); };
   }, [present, find]);
 
-  // текущий чип виден в ряду (горизонтальная прокрутка только самой полосы, страница не двигается)
+  // текущий чип виден в ряду: один scrollTo и только если нет жеста/инерции по полосе
   useEffect(() => {
     const b = bar.current;
+    const g = guard.current;
     const chip = active ? b?.querySelector<HTMLElement>(`[data-sec="${active}"]`) : null;
-    if (!b || !chip) return;
+    if (!b || !chip || !g) return;
     const l = chip.offsetLeft - b.offsetLeft;
-    if (l < b.scrollLeft || l + chip.offsetWidth > b.scrollLeft + b.clientWidth) b.scrollTo({ left: Math.max(0, l - 16), behavior: reducedMotion() ? 'auto' : 'smooth' });
+    if (l < b.scrollLeft || l + chip.offsetWidth > b.scrollLeft + b.clientWidth) {
+      g.scrollToIfQuiet(Math.max(0, l - 16), reducedMotion() ? 'auto' : 'smooth');
+    }
   }, [active]);
 
   const go = (id: string) => {
@@ -79,7 +91,7 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
 
   return (
     <nav className="ps-st-secs ps-jumpcap" aria-label="Разделы статистики" data-testid="stats-sections">
-      <div className="ps-st-secs__in ps-jumpcap__in ps-chiprow" ref={(el) => { bar.current = el; fade(el); }}>
+      <div className="ps-st-secs__in ps-jumpcap__in ps-chiprow" ref={setBar}>
         {STATS_SECTIONS.filter((s) => present.includes(s.id)).map((s) => (
           <button key={s.id} type="button" className="ps-st-secs__chip" data-sec={s.id} aria-current={active === s.id ? 'true' : undefined} onClick={() => go(s.id)}>
             {s.label}

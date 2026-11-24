@@ -4,6 +4,7 @@ import type {
   Conflict, NotFitEntry, PlanItem, PlanSegment, PlannedGameDto, Progress, QueueState, RoadmapEntry, RoadmapResponse,
 } from '@/server/roadmap/types';
 import { plural, formatHoursApprox } from '../format';
+import { sortUpcomingByDate } from '@/shared/upcoming-catalog';
 
 // ---------- Числа и даты ----------
 export const BUDGET_MIN = 0.5;
@@ -528,10 +529,20 @@ export function upcomingBody(c: Pick<UpcomingCandidate, 'title' | 'releaseDate' 
   return { title: c.title.slice(0, 120), releaseDate: c.releaseDate, coverUrl: c.coverUrl, wantAtRelease: c.releaseDate !== null, hoursManual: null, externalSource: 'rawg', externalId: c.externalId };
 }
 
-/** Дописать страницу без повторов (порядок сохраняется). */
+/** Дописать страницу без повторов и выстроить общий список по дате выхода. */
 export function appendUnique(list: readonly UpcomingCandidate[], more: readonly UpcomingCandidate[]): UpcomingCandidate[] {
   const seen = new Set(list.map((c) => c.externalId));
-  return [...list, ...more.filter((c) => !seen.has(c.externalId))];
+  return sortUpcomingByDate([...list, ...more.filter((c) => !seen.has(c.externalId))]);
+}
+
+/** Подставить свежие даты каталога в локальный список «Релизы» / очередь. */
+export function applyPlannedReleaseDates(
+  list: readonly PlannedGameDto[],
+  updates: readonly { id: number; releaseDate: string }[],
+): PlannedGameDto[] {
+  if (updates.length === 0) return [...list];
+  const m = new Map(updates.map((u) => [u.id, u.releaseDate]));
+  return sortPlanned(list.map((g) => (m.has(g.id) ? { ...g, releaseDate: m.get(g.id)! } : g)));
 }
 
 // ---------- Единое расписание (очередь = игры бэклога + релизы по датам) ----------

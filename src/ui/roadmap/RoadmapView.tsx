@@ -8,8 +8,9 @@ import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
 import '../roadmap.css';
 import { deleteExclusion, deletePlanned, fetchPlanned, fetchRoadmap, mutationError, patchPlanned, postExclusion, postPlanned, putOrder, putSettings } from './api';
+import { invalidateApiCache } from '../data/http';
 import { RoadmapJump } from './RoadmapJump';
-import { applyOrder, hoursLabel, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
+import { applyOrder, applyPlannedReleaseDates, hoursLabel, buildQueueRows, buildSchedule, mergeVisibleOrder, orderGameIds, orderWithAtPosition, placedToast, recreateBody, removedToast, sortPlanned, upcomingBody, type PlannedBody, type UpcomingCandidate } from './model';
 import { UnallocatedPanel, UpcomingPanel } from './ExtraPanels';
 import { NeedHoursPanel, OverPanel } from './NeedOverPanels';
 import { GoalPanel } from './GoalPanel';
@@ -114,9 +115,22 @@ export function RoadmapView() {
   useDataRefresh(() => void refresh()); // П9: возврат в приложение, «потяни, чтобы обновить»
 
   useEffect(() => {
-    const t = setTimeout(() => { void load(); void loadPlanned(); }, 0);
+    // Сначала план (подтягивает даты каталога), затем список «Релизы», чтобы карточки не остались со старой датой.
+    const t = setTimeout(() => { void load().finally(() => void loadPlanned()); }, 0);
     return () => clearTimeout(t);
   }, [load, loadPlanned]);
+
+  const applyDateUpdates = useCallback((rows: { id: number; releaseDate: string }[]) => {
+    if (!rows.length) return;
+    setAllPlanned((list) => {
+      if (!list) return list;
+      const next = applyPlannedReleaseDates(list, rows);
+      plannedRef.current = next;
+      return next;
+    });
+    invalidateApiCache();
+    void load();
+  }, [load]);
   useEffect(() => () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -413,7 +427,7 @@ export function RoadmapView() {
         <section className="ps-rm-panel" id="rm-releases" data-area="rel" aria-labelledby="rm-releases-h">
           <h2 className="ps-h2" id="rm-releases-h">Релизы</h2>
           <div id="rm-upcoming" className="ps-rm-subsec" data-area="upc" aria-label="Предстоящие релизы">
-            <UpcomingPanel allPlanned={allPlanned} onAdd={addUpcoming} onRestore={restoreUpcoming} />
+            <UpcomingPanel allPlanned={allPlanned} onAdd={addUpcoming} onRestore={restoreUpcoming} onDatesUpdated={applyDateUpdates} />
           </div>
           <div className="ps-rm-subsec" data-area="rel-list">
             <ReleasesPanel

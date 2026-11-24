@@ -5,6 +5,7 @@ import type { PlannedGameDto, RoadmapEntry, ServiceGame } from '@/server/roadmap
 import { Icon } from '../icons';
 import { ApiError, fetchUpcoming } from './api';
 import { appendUnique, candidateMeta, catalogFail, dayYearText, hoursLabel, upcomingState, type CatalogFailKind, type UpcomingCandidate } from './model';
+import { sortUpcomingByDate } from '@/shared/upcoming-catalog';
 import { Attribution } from './ReleasesPanel';
 import { Spinner, Thumb, useCollapsedList } from './parts';
 
@@ -97,10 +98,12 @@ type Load = { state: 'loading' } | { state: 'ok' } | { state: 'fail'; kind: Cata
  * Состояние строки сверяется с актуальными списками релизов и «Не распределено».
  */
 export function UpcomingPanel({
-  allPlanned, onAdd, onRestore,
+  allPlanned, onAdd, onRestore, onDatesUpdated,
 }: {
   allPlanned: PlannedGameDto[] | null;
   onAdd: (c: UpcomingCandidate) => Promise<PlannedGameDto>; onRestore: (plannedId: number) => Promise<void>;
+  /** Свежие даты «на релизе», которые сервер уже записал, — обновить «Релизы» и очередь без перезагрузки вкладки. */
+  onDatesUpdated?: (rows: { id: number; releaseDate: string }[]) => void;
 }) {
   const [items, setItems] = useState<UpcomingCandidate[]>([]);
   const [page, setPage] = useState(0);
@@ -112,17 +115,20 @@ export function UpcomingPanel({
   const [rowErr, setRowErr] = useState<Record<string, string>>({});
   const [live, setLive] = useState('');
   const reqRef = useRef(0);
+  const onDatesRef = useRef(onDatesUpdated);
+  onDatesRef.current = onDatesUpdated;
 
   const fetchPage = useCallback(async (n: number) => {
     const my = ++reqRef.current;
     try {
       const r = await fetchUpcoming(n);
       if (my !== reqRef.current) return;
-      setItems((l) => (n === 1 ? r.candidates : appendUnique(l, r.candidates)));
+      setItems((l) => (n === 1 ? sortUpcomingByDate(r.candidates) : appendUnique(l, r.candidates)));
       setPage(r.page);
       setHasMore(r.hasMore);
       if (typeof r.total === 'number') setTotal(r.total);
       setLoad({ state: 'ok' });
+      if (r.updated?.length) onDatesRef.current?.(r.updated);
     } catch (e) {
       if (my !== reqRef.current) return;
       setLoad({ state: 'fail', ...catalogFail(e instanceof ApiError ? e.reason : undefined) });
@@ -133,6 +139,26 @@ export function UpcomingPanel({
     const t = setTimeout(() => void fetchPage(1), 0);
     return () => clearTimeout(t);
   }, [fetchPage]);
+
+  const moreLock = useRef(false);
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  const loadMore = useCallback(() => {
+    if (moreLock.current || more || !hasMore) return;
+    moreLock.current = true;
+    setMore(true);
+    setLoad({ state: 'ok' });
+    void fetchPage(page + 1).finally(() => { moreLock.current = false; setMore(false); });
+  }, [fetchPage, hasMore, more, page]);
+
+  useEffect(() => {
+    const el = moreBtn.current;
+    if (!el || !hasMore || more || load.state === 'fail' || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMore();
+    }, { root: null, rootMargin: '240px 0px', threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, more, load.state, loadMore]);
 
 
   async function add(c: UpcomingCandidate) {
@@ -222,8 +248,9 @@ export function UpcomingPanel({
           {(hasMore || load.state === 'fail') && (
             <div className="ps-rm-upc__more">
               <button
+                ref={moreBtn}
                 type="button" className="ps-btn" disabled={more}
-                onClick={() => { setMore(true); setLoad({ state: 'ok' }); void fetchPage(page + 1).finally(() => setMore(false)); }}
+                onClick={() => loadMore()}
               >{more ? 'Загрузка…' : 'Показать ещё'}</button>
             </div>
           )}

@@ -28,15 +28,19 @@ export async function GET(req: Request) {
   }
   try {
     const db = getDb();
-    // Свежие даты с этой страницы — сразу в план (окно «на релизе» едет за каталогом).
-    await applyCatalogReleaseDates(db, a.user.id, page.candidates).catch(() => []);
-    if (page.page === 1 && apiKey) {
-      await refreshPlannedReleaseDates(db, a.user.id, {
-        fetchGame: (id) => getCatalogGame(id, { apiKey, reserve: rawgReserve(a.user.id) }),
-        skipIds: new Set(page.candidates.map((c) => c.externalId)),
-      }).catch(() => []);
-    }
-    return ok({ candidates: await markPlanned(db, a.user.id, await filterOwned(db, a.user.id, page.candidates).catch(() => page.candidates)), page: page.page, hasMore: page.hasMore, total: page.total });
+    // Свежие даты с этой страницы — сразу в план (окно «на релизе» и карточки «Релизы»/очереди едут за каталогом).
+    const applied = await applyCatalogReleaseDates(db, a.user.id, page.candidates).catch(() => []);
+    const more = page.page === 1 && apiKey
+      ? await refreshPlannedReleaseDates(db, a.user.id, {
+          fetchGame: (id) => getCatalogGame(id, { apiKey, reserve: rawgReserve(a.user.id) }),
+          skipIds: new Set(page.candidates.map((c) => c.externalId)),
+        }).catch(() => [])
+      : [];
+    const updated = [...applied, ...more].map((c) => ({ id: c.id, releaseDate: c.to }));
+    return ok({
+      candidates: await markPlanned(db, a.user.id, await filterOwned(db, a.user.id, page.candidates).catch(() => page.candidates)),
+      page: page.page, hasMore: page.hasMore, total: page.total, updated,
+    });
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }

@@ -140,7 +140,7 @@
   background: transparent; color: var(--text); font: 500 var(--fs-small)/1 var(--font-body); white-space: nowrap; cursor: pointer;
 }
 .ps-st-secs__chip:hover { background: var(--surface-2); }
-.ps-st-secs__chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ps-st-secs__chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .ps-st-secs__chip:focus-visible { box-shadow: var(--shadow-focus); outline: none; }
 .ps-stats-page .ps-panel, .ps-stats-page .ps-st-played, .ps-stats-page .ps-ratings { scroll-margin-top: calc(var(--sticky-top) + var(--jumpcap-inset) + var(--mchips-h) + var(--sp-3)); }
 .ps-st-feedlink { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-1); color: var(--accent); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); text-decoration: none; }

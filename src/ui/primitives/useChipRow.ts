@@ -2,6 +2,7 @@
 // П9: ряд чипов с горизонтальной прокруткой. Мягкая тень (маска) у края, за которым есть ещё чипы, и прокрутка к выбранному чипу.
 // Без состояния React: атрибуты data-edge-l / data-edge-r ставятся прямо на элемент (без перерисовок при прокрутке).
 import { useCallback, useRef } from 'react';
+import { attachChipRowScrollGuard } from './chipRowScroll';
 
 const SELECTED = '[aria-pressed="true"], [aria-current="true"], [aria-current="page"]';
 
@@ -30,12 +31,16 @@ export function useChipRow<T extends HTMLElement>(follow = true): (el: T | null)
       el.toggleAttribute('data-edge-r', e.r);
     };
     const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const guard = follow ? attachChipRowScrollGuard(el) : null;
     const show = (smooth: boolean, target?: HTMLElement) => {
       const chip = target ?? el.querySelector<HTMLElement>(SELECTED);
       if (!chip || el.scrollWidth <= el.clientWidth) return;
       const left = chip.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
       const to = scrollToShow(left, chip.offsetWidth, el.scrollLeft, el.clientWidth);
-      if (to !== null) el.scrollTo({ left: to, behavior: smooth && !reduced() ? 'smooth' : 'auto' });
+      if (to === null) return;
+      const behavior: ScrollBehavior = smooth && !reduced() ? 'smooth' : 'auto';
+      if (guard) guard.scrollToIfQuiet(to, behavior);
+      else el.scrollTo({ left: to, behavior });
     };
     edges();
     if (follow) show(false);
@@ -50,6 +55,6 @@ export function useChipRow<T extends HTMLElement>(follow = true): (el: T | null)
       if (on) show(true, on.target as HTMLElement);
     });
     mo.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-current'] });
-    cleanup.current = () => { el.removeEventListener('scroll', edges); ro.disconnect(); mo.disconnect(); };
+    cleanup.current = () => { el.removeEventListener('scroll', edges); ro.disconnect(); mo.disconnect(); guard?.disconnect(); };
   }, [follow]);
 }

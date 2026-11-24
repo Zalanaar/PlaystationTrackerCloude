@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { currentMonthIndex, type MonthChip } from './monthChips';
 import { useChipRow } from '../primitives/useChipRow';
+import { attachChipRowScrollGuard, type ChipRowScrollGuard } from '../primitives/chipRowScroll';
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -26,7 +27,15 @@ export function jumpToAnchor(id: string): void {
 export function MonthChips({ year, chips, onPick }: { year: number; chips: MonthChip[]; onPick?: (c: MonthChip) => void }) {
   const nav = useRef<HTMLElement>(null);
   const fade = useChipRow<HTMLElement>(false); // П9: тень у края; к текущему месяцу докручивает своя логика
+  const guard = useRef<ChipRowScrollGuard | null>(null);
   const [cur, setCur] = useState<string>(chips[0]?.key ?? '');
+  const setStrip = useCallback((el: HTMLElement | null) => {
+    nav.current = el;
+    fade(el);
+    guard.current?.disconnect();
+    guard.current = el ? attachChipRowScrollGuard(el) : null;
+  }, [fade]);
+
   const idsKey = chips.map((c) => c.anchorId).join('|');
 
   const update = useCallback(() => {
@@ -55,20 +64,23 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
     };
   }, [update]);
 
-  // активный чип остаётся в видимой части полосы (прокручиваем саму полосу, не страницу)
+  // активный чип в видимой части полосы: один scrollTo и только если нет жеста/инерции
   useEffect(() => {
     const strip = nav.current;
+    const g = guard.current;
     const chip = strip?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (!strip || !chip) return;
+    if (!strip || !chip || !g) return;
     const sr = strip.getBoundingClientRect();
     const cr = chip.getBoundingClientRect();
-    if (cr.left < sr.left) strip.scrollTo({ left: Math.max(0, strip.scrollLeft + (cr.left - sr.left) - 8), behavior: reduced() ? 'auto' : 'smooth' });
-    else if (cr.right > sr.right) strip.scrollTo({ left: strip.scrollLeft + (cr.right - sr.right) + 8, behavior: reduced() ? 'auto' : 'smooth' });
+    let to: number | null = null;
+    if (cr.left < sr.left) to = Math.max(0, strip.scrollLeft + (cr.left - sr.left) - 8);
+    else if (cr.right > sr.right) to = strip.scrollLeft + (cr.right - sr.right) + 8;
+    if (to !== null) g.scrollToIfQuiet(to, reduced() ? 'auto' : 'smooth');
   }, [cur]);
 
   return (
     <nav className="ps-mchips ps-jumpcap" aria-label={`Месяцы ${year}`}>
-      <div ref={(el) => { nav.current = el; fade(el); }} className="ps-jumpcap__in ps-chiprow">
+      <div ref={setStrip} className="ps-jumpcap__in ps-chiprow">
       {chips.map((c) => (
         <button
           key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}
