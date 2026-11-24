@@ -4,14 +4,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* После Tailwind (слои): счётчик текущего чипа месяца — accent-ink на непрозрачном accent.
-   text-2 на accent даёт контраст < 2 в PS1/Graphite/PS3/PS5 (themes-visual). */
-.ps-mchips.ps-jumpcap button.ps-chip.ps-mchip[aria-current="true"] small,
-.ps-mchips.ps-jumpcap button.ps-chip.ps-mchip[aria-pressed="true"] small {
+/* После Tailwind: счётчик текущего чипа месяца во ВСЕХ темах (Night без data-theme).
+   Источник цвета — ещё и inline на <small>; это правило — страховка каскада.
+   Без transition: getComputedStyle не застаёт полупрозрачный/промежуточный фон и не уходит к --bg. */
+.ps-mchips button.ps-chip.ps-mchip[aria-current="true"] > small.num,
+.ps-mchips button.ps-chip.ps-mchip[aria-pressed="true"] > small.num {
   color: var(--accent-ink);
-  opacity: 1;
   background-color: var(--accent);
   background-image: none;
+  opacity: 1;
+  transition: none;
+}
+.ps-mchips button.ps-chip.ps-mchip[aria-current="true"],
+.ps-mchips button.ps-chip.ps-mchip[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  background-image: none;
+  transition: box-shadow var(--dur-fast) var(--ease-ui);
 }
 
 /* PS3: свечение текущего чипа месяца — после Tailwind, чтобы WebKit не терял box-shadow. */

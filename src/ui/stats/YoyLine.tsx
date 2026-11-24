@@ -33,18 +33,24 @@ export function YoyLine({ data, sel, today }: { data: StatsResponse; sel: Select
 
   if (!show) return null;
   const p = prev && prev.key === key ? prev : null;
-  if (!p) return <p className="ps-yoy" data-testid="yoy" aria-busy="true"><span className="ps-yoy__sk ps-skeleton" aria-hidden="true" /></p>;
-  const y = p.data ? buildYoy(data, p.data, sel, today) : null;
-  if (!y) return <p className="ps-yoy" data-testid="yoy">{p.data ? `За ${py} год сравнить не с чем.` : `Сравнение с ${py} годом не загрузилось.`}</p>;
-  return (
-    <p className="ps-yoy" data-testid="yoy">
-      <span className="ps-yoy__t">{y.title}:</span>
-      {y.items.map((it) => (
-        <span key={it.key} className="ps-yoy__i" data-trend={it.delta > 0 ? 'up' : it.delta < 0 ? 'down' : 'same'} title={`${val(it, it.cur)} против ${val(it, it.prev)}`}>
-          {it.label} <b className="num">{signed(it.delta, (n) => val(it, n))}</b>
-        </span>
-      ))}
-      {y.note && <span className="ps-yoy__n">({y.note})</span>}
-    </p>
-  );
+  let body;
+  if (!p) {
+    body = <p className="ps-yoy" data-testid="yoy" aria-busy="true"><span className="ps-yoy__sk ps-skeleton" aria-hidden="true" /></p>;
+  } else {
+    const y = p.data ? buildYoy(data, p.data, sel, today) : null;
+    body = !y
+      ? <p className="ps-yoy" data-testid="yoy">{p.data ? `За ${py} год сравнить не с чем.` : `Сравнение с ${py} годом не загрузилось.`}</p>
+      : (
+        <p className="ps-yoy" data-testid="yoy">
+          <span className="ps-yoy__t">{y.title}:</span>
+          {y.items.map((it) => (
+            <span key={it.key} className="ps-yoy__i" data-trend={it.delta > 0 ? 'up' : it.delta < 0 ? 'down' : 'same'} title={`${val(it, it.cur)} против ${val(it, it.prev)}`}>
+              {it.label} <b className="num">{signed(it.delta, (n) => val(it, n))}</b>
+            </span>
+          ))}
+          {y.note && <span className="ps-yoy__n">({y.note})</span>}
+        </p>
+      );
+  }
+  return <div className="ps-yoy-slot">{body}</div>;
 }

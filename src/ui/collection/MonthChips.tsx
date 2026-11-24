@@ -20,6 +20,14 @@ export function jumpToAnchor(id: string): void {
   el.focus({ preventScroll: true });
 }
 
+/** Counter of the current chip: inline color, not theme cascade, so contrast e2e sees opaque accent in every theme including Night (no data-theme). */
+export const CURRENT_CHIP_COUNT_STYLE = {
+  color: 'var(--accent-ink)',
+  backgroundColor: 'var(--accent)',
+  opacity: 1,
+  transition: 'none',
+} as const;
+
 /**
  * Полоса чипов месяцев раскрытого года Хроники. Sticky под шапкой (CSS), текущий месяц `aria-current="true"`
  * по положению первых карточек месяцев (scroll + rAF), чип прокручивается в видимую часть полосы.
@@ -86,7 +94,7 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
           key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}
           onClick={() => { setCur(c.key); onPick?.(c); jumpToAnchor(c.anchorId); }}
         >
-          {c.label}{' '}<small className="num">{c.count}</small>
+          {c.label}{' '}<small className="num" style={cur === c.key ? CURRENT_CHIP_COUNT_STYLE : undefined}>{c.count}</small>
         </button>
       ))}
       </div>

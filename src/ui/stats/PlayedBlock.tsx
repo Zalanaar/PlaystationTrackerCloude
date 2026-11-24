@@ -8,6 +8,7 @@ import { ApiError, errorText, putMonthExclusion } from '../collection/api';
 import { GameCard, type GameActions } from '../collection/GameCard';
 import { GameGrid, GameGridItem } from '../collection/GameGrid';
 import { MONTH_CHIP_LABELS } from '../collection/monthChips';
+import { CURRENT_CHIP_COUNT_STYLE } from '../collection/MonthChips';
 import { monthName } from '../format';
 import { Icon } from '../icons';
 import { useToast } from '../primitives/Toast';
@@ -97,7 +98,7 @@ export function PlayedBlock({
               key={g.month} type="button" className="ps-chip ps-mchip" aria-pressed={g.month === chosen}
               aria-label={`${MONTH_CHIP_LABELS[g.monthNumber - 1]} ${g.items.length} — ${monthName(g.monthNumber)}: ${g.items.length} ${g.items.length === 1 ? 'игра' : 'игр'}`} onClick={() => pick(g.month)}
             >
-              {MONTH_CHIP_LABELS[g.monthNumber - 1]}{' '}<small className="num">{g.items.length}</small>
+              {MONTH_CHIP_LABELS[g.monthNumber - 1]}{' '}<small className="num" style={g.month === chosen ? CURRENT_CHIP_COUNT_STYLE : undefined}>{g.items.length}</small>
             </button>
           ))}
         </div>

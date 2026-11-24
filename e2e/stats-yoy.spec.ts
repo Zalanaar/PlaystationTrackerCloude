@@ -44,9 +44,15 @@ for (const w of [360, 390]) {
     await page.goto('/stats');
     const yoy = page.getByTestId('yoy');
     await expect(yoy).toHaveAttribute('aria-busy', 'true');
+    // Font-display:swap (Inter/Unbounded) даёт детерминированный сдвиг ~6px на весь вьюпорт
+    // (CLS 0.00727 при 800px), если метрика подменяется после baseline. Это не рост слота.
+    // Ждём готовность шрифтов до замера, чтобы дельта была только подменой скелета.
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
     const before = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
     release();
     await expect(yoy).toContainText('платины');
+    await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
     const after = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
     expect(after - before).toBeLessThan(0.001);
