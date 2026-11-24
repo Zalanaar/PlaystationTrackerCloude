@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OfflineGame, OfflineSnapshot } from '@/shared/offline-snapshot';
-import { asOfLabel, backlogView, filterCounts, filterGames, hoursText, tabFromPath, trophiesText } from './offline-view';
+import { asOfLabel, backlogView, filterCounts, filterGames, hoursText, planRangeText, planSummary, tabFromPath, trophiesText } from './offline-view';
 import { needsRefresh } from './offline-data';
 
 const g = (id: number, o: Partial<OfflineGame> = {}): OfflineGame => ({
@@ -16,17 +16,18 @@ describe('офлайн-просмотр (пакет 7, п. 2)', () => {
   it('вкладка по адресу', () => {
     expect(tabFromPath('/')).toBe('collection');
     expect(tabFromPath('/backlog')).toBe('backlog');
-    expect(tabFromPath('/roadmap')).toBe('backlog');
+    expect(tabFromPath('/roadmap')).toBe('plan');
+    expect(tabFromPath('/roadmap/2026')).toBe('plan');
     expect(tabFromPath('/stats')).toBe('stats');
     expect(tabFromPath('/trophies')).toBe('collection');
   });
-  it('«Данные на …» в поясе устройства, другой год с годом', () => {
+  it('«Данные от …» в поясе устройства, другой год с годом', () => {
     const now = Date.parse('2026-11-16T10:00:00Z');
-    expect(asOfLabel('2026-11-16T07:52:00.000Z', now, 'Europe/Vilnius')).toBe('Данные на 16 нояб., 09:52');
-    expect(asOfLabel('2026-11-16T07:52:00.000Z', now, 'Europe/Moscow')).toBe('Данные на 16 нояб., 10:52');
-    expect(asOfLabel('2025-12-31T22:30:00.000Z', now, 'Europe/Vilnius')).toBe('Данные на 1 янв., 00:30');
-    expect(asOfLabel('2025-05-03T10:00:00.000Z', now, 'UTC')).toBe('Данные на 3 мая 2025, 10:00');
-    expect(asOfLabel('мусор', now)).toBe('Данные на неизвестную дату');
+    expect(asOfLabel('2026-11-16T07:52:00.000Z', now, 'Europe/Vilnius')).toBe('Данные от 16 нояб., 09:52');
+    expect(asOfLabel('2026-11-16T07:52:00.000Z', now, 'Europe/Moscow')).toBe('Данные от 16 нояб., 10:52');
+    expect(asOfLabel('2025-12-31T22:30:00.000Z', now, 'Europe/Vilnius')).toBe('Данные от 1 янв., 00:30');
+    expect(asOfLabel('2025-05-03T10:00:00.000Z', now, 'UTC')).toBe('Данные от 3 мая 2025, 10:00');
+    expect(asOfLabel('мусор', now)).toBe('Данные от неизвестной даты');
   });
   it('часы и трофеи', () => {
     expect(hoursText(7.25)).toBe('7 ч 15 м');
@@ -49,6 +50,15 @@ describe('офлайн-просмотр (пакет 7, п. 2)', () => {
     expect(v.items.map((x) => x.id)).toEqual([3, 2, 1]);
     expect(v.knownHours).toBe(12.5);
     expect(v.unknown).toBe(1);
+  });
+  it('подписи плана: период и сводка', () => {
+    expect(planRangeText('2026-11-16', '2026-11-30')).toBe('16 нояб. – 30 нояб.');
+    expect(planRangeText('2026-11-16', '2026-11-16')).toBe('16 нояб.');
+    expect(planSummary({ year: 2026, status: 'no_budget', hoursPerWeek: null, capacityHours: 0, plannedHours: 0, items: [], notFit: 0 })).toBe('Игр в плане нет · бюджет не задан');
+    expect(planSummary({
+      year: 2026, status: 'ok', hoursPerWeek: 10, capacityHours: 520, plannedHours: 20, notFit: 0,
+      items: [{ title: 'GTA VI', coverUrl: null, start: '2026-12-05', end: '2026-12-18', hours: 20, kind: 'release' }],
+    })).toBe('1 игра · 20 ч из 520 ч');
   });
   it('обновление копии: нет копии, другой профиль, старше 10 минут', () => {
     const now = Date.parse('2026-11-16T08:00:00Z');

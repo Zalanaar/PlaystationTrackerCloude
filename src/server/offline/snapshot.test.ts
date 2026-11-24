@@ -5,6 +5,7 @@ import { schema } from '@/db';
 import { asUserId } from '@/server/auth/user-id';
 import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from '@/server/sync/test-helpers';
 import { isOfflineSnapshot, OFFLINE_SNAPSHOT_VERSION } from '@/shared/offline-snapshot';
+import { putSettings } from '@/server/roadmap/db';
 import { buildOfflineSnapshot } from './snapshot';
 
 const { allowedUsers, games, gameStatus } = schema;
@@ -47,6 +48,7 @@ describe('buildOfflineSnapshot (PGlite)', () => {
     expect(s.totals.games).toBe(3);
     expect(s.stats.year).toBe(2026);
     expect(s.stats.hoursByMonth).toHaveLength(12);
+    expect(s.plan).toMatchObject({ year: 2026, status: 'no_budget', items: [] });
     // в копии нет служебных полей: только то, что показывает экран
     expect(Object.keys(s.games[0]).sort()).toEqual(['completedAt', 'coverUrl', 'durationHours', 'hours', 'id', 'lastPlayedAt', 'platform', 'status', 'title', 'trophies']);
   });
@@ -58,5 +60,18 @@ describe('buildOfflineSnapshot (PGlite)', () => {
     expect(s.profileId).toBe(TEST_USER_2);
     expect(s.games.map((g) => g.id)).toEqual([mine]);
     expect(s.backlog).toEqual([mine]);
+  });
+
+  it('в копии есть компактный план года', async () => {
+    const now = new Date('2026-11-16T09:00:00Z');
+    const uid = asUserId(TEST_USER);
+    await putSettings(t.db, uid, { year: 2026, hoursPerWeek: 10 });
+    await t.db.insert(schema.plannedGames).values({
+      userId: TEST_USER, title: 'GTA VI', releaseDate: '2026-12-05', status: 'planned', wantAtRelease: true, hoursManual: 20,
+    });
+    const s = await buildOfflineSnapshot(t.db, uid, now);
+    expect(s.plan).toMatchObject({ year: 2026, status: 'ok', hoursPerWeek: 10 });
+    expect(s.plan!.items.some((i) => i.title === 'GTA VI' && i.kind === 'release')).toBe(true);
+    expect(s.plan!.items[0]).toEqual(expect.objectContaining({ title: 'GTA VI', start: expect.any(String), end: expect.any(String) }));
   });
 });

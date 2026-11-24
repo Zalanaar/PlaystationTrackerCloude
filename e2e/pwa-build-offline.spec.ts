@@ -9,7 +9,7 @@ const game = (id: number, title: string, o: Record<string, unknown> = {}) => ({
   id, title, coverUrl: null, platform: 'PS5', status: null, hours: 0, lastPlayedAt: null, completedAt: null, trophies: null, durationHours: null, ...o,
 });
 const snapshot = (profileId: number, generatedAt: string) => ({
-  v: 1, generatedAt, profileId, onlineId: profileId === 1 ? 'Zalanaar' : 'Friend',
+  v: 2, generatedAt, profileId, onlineId: profileId === 1 ? 'Zalanaar' : 'Friend',
   totals: { games: 4, hours: 321.5, trophiesEarned: 777, platinumEarned: 12 },
   counts: { playing: 1, completed: 1, dropped: 0, backlog: 2, shelved: 0 },
   games: [
@@ -20,6 +20,7 @@ const snapshot = (profileId: number, generatedAt: string) => ({
   ],
   backlog: [4, 3],
   stats: { year: 2026, completed: 5, dropped: 1, hours: 210, platinum: 3, hoursByMonth: [10, 20, 0, 5, null, null, 30, 40, 50, 25, 30, 0], topByHours: [{ title: 'Elden Ring', hours: 80 }] },
+  plan: { year: 2026, status: 'ok', hoursPerWeek: 10, capacityHours: 520, plannedHours: 20, notFit: 0, items: [{ title: 'GTA VI', coverUrl: null, start: '2026-12-05', end: '2026-12-18', hours: 20, kind: 'release' }] },
 });
 
 async function setup(ctx: BrowserContext, active: { id: number }) {
@@ -45,7 +46,7 @@ const stored = (page: Page) => page.evaluate(async (key) => {
   return hit ? ((await hit.json()) as { profileId: number }).profileId : null;
 }, KEY).catch(() => null);
 
-test('копия пишется под SW; без сети /backlog показывает её только для просмотра с «Данные на …»; вход без сессии её стирает', async ({ page, context }) => {
+test('копия пишется под SW; без сети /backlog показывает её только для просмотра с «Данные от …»; вход без сессии её стирает', async ({ page, context }) => {
   const active = { id: 1 };
   await setup(context, active);
   await page.goto('/stats');
@@ -69,12 +70,20 @@ test('копия пишется под SW; без сети /backlog показы
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
   await expect(view).toContainText('Сохранённая копия, только просмотр');
   await expect(view).toContainText('Zalanaar');
-  await expect(page.getByTestId('offline-asof')).toHaveText(/^Данные на \d{1,2} [а-я]+\.?, \d{2}:\d{2}$/);
+  await expect(page.getByTestId('offline-asof')).toHaveText(/^Данные от \d{1,2} [а-я]+\.?, \d{2}:\d{2}$/);
   // открыт «Бэклог» (адрес /backlog), порядок сохранённый, правок нет
   await expect(page.getByRole('tab', { name: 'Что дальше' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('offline-backlog-sum')).toHaveText('2 в бэклоге · ≈ 35 ч · без длительности: 1');
   await expect(page.getByTestId('offline-game').locator('.ps-offline__gname')).toHaveText(['Ghost of Yotei', 'Bloodborne']);
+  await page.goto('/roadmap').catch(() => {});
+  await expect(page.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
   await expect(view.locator('select, input, [role="menu"]')).toHaveCount(0);
+  // «План» с /roadmap
+  await page.getByRole('tab', { name: 'План' }).click();
+  await expect(page.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('offline-plan-sum')).toHaveText('1 игра · 20 ч из 520 ч');
+  await expect(page.getByTestId('offline-plan-item')).toContainText('GTA VI');
+  await expect(page.getByTestId('offline-plan-item')).toContainText('На релизе');
   // «Коллекция»: фильтр по статусу
   await page.getByRole('tab', { name: 'Коллекция' }).click();
   await expect(page.getByTestId('offline-game')).toHaveCount(4);

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import type { OfflineGame, OfflineSnapshot } from '@/shared/offline-snapshot';
+import type { OfflineGame, OfflinePlan, OfflineSnapshot } from '@/shared/offline-snapshot';
 import { readOfflineSnapshot } from './offline-data';
 import {
-  asOfLabel, backlogView, COLLECTION_FILTERS, filterCounts, filterGames, hoursText, approxText, MONTHS_SHORT_NOM, OFFLINE_TABS, tabFromPath, trophiesText,
+  asOfLabel, backlogView, COLLECTION_FILTERS, filterCounts, filterGames, hoursText, approxText, MONTHS_SHORT_NOM, OFFLINE_TABS, PLAN_KIND_LABEL, planRangeText, planSummary, tabFromPath, trophiesText,
   type CollectionFilter, type OfflineTab,
 } from './offline-view';
 
@@ -12,8 +12,8 @@ const PAGE = 60;
 const STATUS_LABEL: Record<string, string> = { playing: 'Играю', completed: 'Пройдено', backlog: 'Бэклог', dropped: 'Брошено', shelved: 'Отложено', service: 'Сервис' };
 
 /**
- * Пакет 7, п. 2: экран /offline. Есть сохранённая копия активного профиля — показываем коллекцию, бэклог и статистику года
- * только для просмотра, с пометкой «Данные на …». Копии нет (или Cache Storage недоступен) — прежняя заглушка `stub`.
+ * Пакет 7, п. 2 + критика п.6: экран /offline. Есть сохранённая копия активного профиля — показываем коллекцию, бэклог, план и статистику года
+ * только для просмотра, с пометкой «Данные от …». Копии нет (или Cache Storage недоступен) — прежняя заглушка `stub`.
  */
 export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: ReactNode }) {
   const [snap, setSnap] = useState<OfflineSnapshot | null | undefined>(undefined);
@@ -23,7 +23,7 @@ export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: R
     let alive = true;
     void readOfflineSnapshot().then((s) => {
       if (!alive) return;
-      // вкладка — по адресу, который открывали без сети; «сейчас» — для года в пометке «Данные на …»
+      // вкладка — по адресу, который открывали без сети; «сейчас» — для года в пометке «Данные от …»
       setTab(tabFromPath(window.location.pathname));
       setNow(Date.now());
       setSnap(s);
@@ -41,7 +41,7 @@ export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: R
           <p className="ps-offline__sub">
             Сохранённая копия, только просмотр{snap.onlineId ? <> · <span className="ps-offline__who">{snap.onlineId}</span></> : null}
           </p>
-          <p className="ps-offline__asof" data-testid="offline-asof">{asOfLabel(snap.generatedAt, now)}</p>
+          <p className="ps-offline__asof" data-testid="offline-asof" role="status">{asOfLabel(snap.generatedAt, now)}</p>
         </div>
         <div className="ps-offline__headact">{retry}</div>
       </header>
@@ -51,7 +51,7 @@ export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: R
         ))}
       </div>
       <div role="tabpanel" className="ps-offline__panel" aria-label={OFFLINE_TABS.find((t) => t.id === tab)?.label}>
-        {tab === 'collection' ? <CollectionPanel s={snap} /> : tab === 'backlog' ? <BacklogPanel s={snap} /> : <StatsPanel s={snap} />}
+        {tab === 'collection' ? <CollectionPanel s={snap} /> : tab === 'backlog' ? <BacklogPanel s={snap} /> : tab === 'plan' ? <PlanPanel plan={snap.plan} /> : <StatsPanel s={snap} />}
       </div>
     </main>
   );
@@ -157,6 +157,44 @@ function StatsPanel({ s }: { s: OfflineSnapshot }) {
           </ol>
         </>
       )}
+    </>
+  );
+}
+
+function PlanPanel({ plan }: { plan: OfflinePlan | undefined }) {
+  const [shown, setShown] = useState(PAGE);
+  if (!plan || plan.items.length === 0) {
+    return (
+      <>
+        {plan ? <p className="ps-offline__sum" data-testid="offline-plan-sum">{planSummary(plan)}</p> : null}
+        <p className="ps-offline__empty">В сохранённой копии плана нет.</p>
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="ps-offline__sum" data-testid="offline-plan-sum">
+        {planSummary(plan)}{plan.notFit > 0 ? ` · не влезли: ${plan.notFit}` : ''}
+      </p>
+      <ul className="ps-offline__list">
+        {plan.items.slice(0, shown).map((g, i) => {
+          const range = planRangeText(g.start, g.end);
+          const extra = [PLAN_KIND_LABEL[g.kind], range, g.hours != null ? hoursText(g.hours) : null].filter(Boolean).join(' · ');
+          return (
+            <li key={`${g.title}-${g.start}-${i}`} className="ps-offline__game" data-testid="offline-plan-item">
+              {g.coverUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- обложка с CDN; без сети может не загрузиться
+                <img className="ps-offline__cover" src={g.coverUrl} alt="" width={40} height={40} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+              ) : <span className="ps-offline__cover ps-offline__cover--empty" aria-hidden="true">{g.title.slice(0, 1)}</span>}
+              <span className="ps-offline__gtx">
+                <span className="ps-offline__gname">{g.title}</span>
+                <span className="ps-offline__gmeta">{extra}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <More shown={shown} total={plan.items.length} onMore={() => setShown((n) => n + PAGE)} />
     </>
   );
 }

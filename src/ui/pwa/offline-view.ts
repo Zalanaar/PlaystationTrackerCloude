@@ -1,28 +1,67 @@
 // Пакет 7, п. 2: чистые функции экрана офлайн-просмотра (/offline с сохранённой копией).
-import type { OfflineGame, OfflineSnapshot, OfflineStatus } from '@/shared/offline-snapshot';
+import type { OfflineGame, OfflinePlan, OfflinePlanKind, OfflineSnapshot, OfflineStatus } from '@/shared/offline-snapshot';
 import { formatHours, formatHoursApprox } from '../format';
 
-export type OfflineTab = 'collection' | 'backlog' | 'stats';
+export type OfflineTab = 'collection' | 'backlog' | 'plan' | 'stats';
 export const OFFLINE_TABS: { id: OfflineTab; label: string }[] = [
   { id: 'collection', label: 'Коллекция' },
   { id: 'backlog', label: 'Что дальше' },
+  { id: 'plan', label: 'План' },
   { id: 'stats', label: 'Статистика' },
 ];
 
 /** Вкладка по адресу, который открывали без сети (SW отдаёт /offline на любой закрытый адрес, URL остаётся прежним). */
 export function tabFromPath(pathname: string): OfflineTab {
-  if (pathname === '/backlog' || pathname.startsWith('/backlog/') || pathname === '/roadmap') return 'backlog';
+  if (pathname === '/roadmap' || pathname.startsWith('/roadmap/')) return 'plan';
+  if (pathname === '/backlog' || pathname.startsWith('/backlog/')) return 'backlog';
   if (pathname === '/stats' || pathname.startsWith('/stats/') || pathname === '/wrapped') return 'stats';
   return 'collection';
+}
+
+export const PLAN_KIND_LABEL: Record<OfflinePlanKind, string> = {
+  release: 'На релизе',
+  backlog: 'Из бэклога',
+  planned: 'В плане',
+};
+
+/** «16 нояб. – 30 нояб.»; один день — без повтора. */
+export function planRangeText(start: string, end: string): string {
+  const fmt = (iso: string): string | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return null;
+    const day = Number(m[3]);
+    const month = Number(m[2]);
+    if (!day || month < 1 || month > 12) return null;
+    return `${day} ${MONTHS[month - 1]}`;
+  };
+  const a = fmt(start);
+  const b = fmt(end);
+  if (!a && !b) return '';
+  if (a && b && a !== b) return `${a} – ${b}`;
+  return a || b || '';
+}
+
+function gamesWord(n: number): string {
+  const d = n % 10;
+  const t = n % 100;
+  if (d === 1 && t !== 11) return `${n} игра`;
+  if (d >= 2 && d <= 4 && (t < 12 || t > 14)) return `${n} игры`;
+  return `${n} игр`;
+}
+
+export function planSummary(p: OfflinePlan): string {
+  const games = p.items.length === 0 ? 'Игр в плане нет' : gamesWord(p.items.length);
+  if (p.status !== 'ok') return `${games} · бюджет не задан`;
+  return `${games} · ${hoursText(p.plannedHours)} из ${hoursText(p.capacityHours)}`;
 }
 
 const MONTHS = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
 export const MONTHS_SHORT_NOM = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
 
-/** «Данные на 16 нояб., 09:52» в поясе устройства (без «МСК»); другой год — с годом. */
+/** «Данные от 16 нояб., 09:52» в поясе устройства (без «МСК»); другой год — с годом. */
 export function asOfLabel(iso: string, nowMs: number, timeZone?: string): string {
   const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return 'Данные на неизвестную дату';
+  if (!Number.isFinite(t)) return 'Данные от неизвестной даты';
   const parts = (ms: number) => {
     const f = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const o: Record<string, string> = {};
@@ -31,7 +70,7 @@ export function asOfLabel(iso: string, nowMs: number, timeZone?: string): string
   };
   const p = parts(t);
   const sameYear = p.year === parts(nowMs).year;
-  return `Данные на ${Number(p.day)} ${MONTHS[Number(p.month) - 1]}${sameYear ? '' : ` ${p.year}`}, ${p.hour}:${p.minute}`;
+  return `Данные от ${Number(p.day)} ${MONTHS[Number(p.month) - 1]}${sameYear ? '' : ` ${p.year}`}, ${p.hour}:${p.minute}`;
 }
 
 /** F28: наиграно — «12 ч 30 м», от 100 ч «128 ч», «0 ч». */

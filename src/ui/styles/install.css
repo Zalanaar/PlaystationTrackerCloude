@@ -101,8 +101,9 @@
 .ps-offline__sub { margin: var(--sp-1) 0 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-offline__who { color: var(--text); font-weight: 600; }
 .ps-offline__asof { display: inline-flex; margin: var(--sp-2) 0 0; padding: 2px 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--warning) 16%, var(--surface)); color: var(--text); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; }
-.ps-offline__tabs { position: sticky; top: 0; z-index: 2; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin: var(--sp-4) 0 var(--sp-3); background: var(--bg, var(--surface)); border-bottom: var(--border-w) solid var(--border); }
-.ps-offline__tab { min-height: var(--tap-min); padding: 0 var(--sp-2); background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-2); font: 600 var(--fs-body)/var(--lh-body) var(--font-body); cursor: pointer; }
+.ps-offline__tabs { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; margin: var(--sp-4) 0 var(--sp-3); background: var(--bg, var(--surface)); border-bottom: var(--border-w) solid var(--border); scrollbar-width: none; }
+.ps-offline__tabs::-webkit-scrollbar { display: none; }
+.ps-offline__tab { flex: 1 0 auto; white-space: nowrap; min-height: var(--tap-min); padding: 0 var(--sp-3); background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-2); font: 600 var(--fs-body)/var(--lh-body) var(--font-body); cursor: pointer; }
 .ps-offline__tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .ps-offline__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .ps-offline__chip { min-height: var(--tap-min); padding: 0 var(--sp-3); border-radius: var(--r-pill); border: var(--border-w) solid var(--border); background: var(--surface-2); color: var(--text); font: 500 var(--fs-small)/var(--lh-small) var(--font-body); cursor: pointer; }
