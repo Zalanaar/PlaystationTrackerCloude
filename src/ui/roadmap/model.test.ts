@@ -2,7 +2,7 @@ import { describe, expect, it, it as it_ } from 'vitest';
 import type { Conflict, PlanItem, RoadmapResponse } from '@/server/roadmap/types';
 import {
   applyOrder, appendUnique, applyPlannedReleaseDates, dayIndex, daySpan, spanPct, monthSpans, backlogKeys, backlogPositions, buildSchedule, dropOrder, mergeVisibleOrder, upcomingBody, upcomingState, visibleQueue, insertHint, orderWithAtPosition, removedToast, placedToast, budgetHint, buildQueueRows, conflictText, dropTarget, hoursLabel, layoutBars, moveBy, moveTo, orderGameIds, parseBudget, parseRowHours,
-  periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, catalogFail, platformsText, filterCandidates, paceView,
+  periodText, progressView, rangeText, toPlannedBody, validateRelease, emptyValues, catalogFail, formatCatalogAsOf, platformsText, filterCandidates, paceView,
 } from './model';
 
 const e = (key: string, o: Record<string, unknown> = {}) => ({
@@ -173,6 +173,7 @@ describe('форма релиза и каталог', () => {
     expect(catalogFail('timeout').kind).toBe('unavailable');
     expect(platformsText(['PC', 'PlayStation 5', 'PlayStation 4'])).toBe('PS5, PS4');
     expect(filterCandidates([{ playstation: true }, { playstation: false }], true)).toHaveLength(1);
+    expect(formatCatalogAsOf('2026-11-24T12:40:00.000Z')).toBe('24 нояб., 15:40');
   });
 });
 

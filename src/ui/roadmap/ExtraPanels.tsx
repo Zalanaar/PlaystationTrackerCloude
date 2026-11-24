@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlannedGameDto, RoadmapEntry, ServiceGame } from '@/server/roadmap/types';
 import { Icon } from '../icons';
 import { ApiError, fetchUpcoming } from './api';
-import { appendUnique, candidateMeta, catalogFail, dayYearText, hoursLabel, upcomingState, type CatalogFailKind, type UpcomingCandidate } from './model';
+import { appendUnique, candidateMeta, catalogFail, dayYearText, formatCatalogAsOf, hoursLabel, upcomingState, type CatalogFailKind, type UpcomingCandidate } from './model';
 import { sortUpcomingByDate } from '@/shared/upcoming-catalog';
 import { Attribution } from './ReleasesPanel';
 import { Spinner, Thumb, useCollapsedList } from './parts';
@@ -109,6 +109,7 @@ export function UpcomingPanel({
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState<number | null>(null);
+  const [asOf, setAsOf] = useState<{ at: string; stale: boolean } | null>(null);
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export function UpcomingPanel({
       setHasMore(r.hasMore);
       if (typeof r.total === 'number') setTotal(r.total);
       setLoad({ state: 'ok' });
+      if (r.asOf) setAsOf({ at: r.asOf, stale: !!r.stale });
       if (r.updated?.length) onDatesRef.current?.(r.updated);
     } catch (e) {
       if (my !== reqRef.current) return;
@@ -204,6 +206,9 @@ export function UpcomingPanel({
       <p className="ps-rm-sub">Игры для PlayStation 5 и 4, которые выходят в ближайший год. «В план» ставит игру на дату выхода (галка «Хочу пройти на релизе»), часы потом введи вручную.</p>
       {load.state === 'ok' && total !== null && items.length > 0 && (
         <p className="ps-rm-muted" data-testid="rm-upcoming-total">В каталоге {total}. На экране {items.length}{hasMore ? ', есть ещё — «Показать ещё»' : ''}.</p>
+      )}
+      {load.state === 'ok' && asOf?.stale && asOf.at && formatCatalogAsOf(asOf.at) && (
+        <p className="ps-rm-muted" data-testid="rm-upcoming-asof">Данные от {formatCatalogAsOf(asOf.at)}</p>
       )}
       <p className="ps-sr" aria-live="polite">{live}</p>
       {load.state === 'loading' ? (

@@ -458,6 +458,20 @@ export function candidateMeta(c: Pick<CatalogCandidateView, 'releaseDate' | 'pla
 }
 
 export type CatalogFailKind = 'not_configured' | 'rate_limited' | 'unavailable';
+
+/** «24 нояб., 15:40» по Москве — подпись «данные от …» для просроченного кэша каталога. */
+export function formatCatalogAsOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
+
 export function catalogFail(reason: string | undefined): { kind: CatalogFailKind; text: string } {
   if (reason === 'no_key') return { kind: 'not_configured', text: 'Поиск по каталогу не настроен. Заполни форму вручную.' };
   if (reason === 'rate_limited') return { kind: 'rate_limited', text: 'Лимит запросов к каталогу исчерпан. Попробуй позже или заполни форму вручную.' };

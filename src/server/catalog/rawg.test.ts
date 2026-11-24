@@ -141,16 +141,16 @@ describe('getUpcoming (RAWG, предстоящие релизы)', () => {
     expect((await getUpcoming(3, { apiKey: KEY, fetch: mock(async () => json({ results: [] })), now: NOW, cache: c })).hasMore).toBe(false);
   });
 
-  it('кэш 1 час: повтор не ходит в сеть, страницы раздельно, через час и новый день заново', async () => {
+  it('кэш 12 ч: повтор не ходит в сеть, страницы раздельно, через 12 ч и новый день заново', async () => {
     const f = mock(async () => json(page1));
     const cache: UpcomingCache = new Map();
     const at = (ms: number) => new Date(NOW.getTime() + ms);
     await getUpcoming(1, { apiKey: KEY, fetch: f, now: NOW, cache });
-    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(59 * 60_000), cache });
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(11 * 3600_000), cache });
     expect(f).toHaveBeenCalledTimes(1);
-    await getUpcoming(2, { apiKey: KEY, fetch: f, now: at(59 * 60_000), cache });
+    await getUpcoming(2, { apiKey: KEY, fetch: f, now: at(11 * 3600_000), cache });
     expect(f).toHaveBeenCalledTimes(2);
-    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(60 * 60_000), cache });
+    await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(12 * 3600_000), cache });
     expect(f).toHaveBeenCalledTimes(3);
     await getUpcoming(1, { apiKey: KEY, fetch: f, now: at(26 * 3600_000), cache });
     expect(f).toHaveBeenCalledTimes(4);

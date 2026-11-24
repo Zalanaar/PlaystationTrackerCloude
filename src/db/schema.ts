@@ -1189,3 +1189,19 @@ export const plannerRollAcks = pgTable(
     check('planner_roll_acks_period_check', sql`char_length(${t.period}) between 1 and 16`),
   ],
 );
+
+/** Общий кэш ответов RAWG (релизы, поиск, карточка игры). Без user_id: страница одна на всех. TTL в коде 12 ч, просроченное оставляем для выдачи при 429. */
+export const catalogCache = pgTable(
+  'catalog_cache',
+  {
+    cacheKey: text('cache_key').primaryKey(),
+    kind: text().notNull(),
+    payload: jsonb().notNull(),
+    fetchedAt: tz('fetched_at').notNull(),
+  },
+  (t) => [
+    index('catalog_cache_fetched_idx').on(t.fetchedAt),
+    check('catalog_cache_key_check', sql`char_length(${t.cacheKey}) between 1 and 256`),
+    check('catalog_cache_kind_check', sql`${t.kind} in ('upcoming', 'search', 'game', 'meta')`),
+  ],
+);

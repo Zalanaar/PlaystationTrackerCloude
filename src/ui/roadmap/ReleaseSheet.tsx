@@ -5,7 +5,7 @@ import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { ApiError, mutationError, searchCatalog } from './api';
 import {
-  candidateMeta, catalogFail, emptyValues, isRealDate, outsideYear, toPlannedBody, validateRelease, valuesFromPlanned,
+  candidateMeta, catalogFail, emptyValues, formatCatalogAsOf, isRealDate, outsideYear, toPlannedBody, validateRelease, valuesFromPlanned,
   type CatalogCandidateView, type CatalogFailKind, type PlannedBody, type ReleaseValues,
 } from './model';
 import { FieldError, Spinner, Thumb } from './parts';
@@ -14,7 +14,7 @@ import type { PlannedGameDto } from '@/server/roadmap/types';
 type Search =
   | { state: 'idle' }
   | { state: 'loading' }
-  | { state: 'ok'; list: CatalogCandidateView[] }
+  | { state: 'ok'; list: CatalogCandidateView[]; asOf?: string; stale?: boolean }
   | { state: 'fail'; kind: CatalogFailKind; text: string };
 
 function CoverPreview({ url }: { url: string }) {
@@ -73,7 +73,7 @@ export function ReleaseSheet({
     const t = setTimeout(() => {
       setSearch((s) => (s.state === 'loading' ? s : { state: 'loading' }));
       searchCatalog(text, onlyPs, ctl.signal)
-        .then((r) => { if (!ctl.signal.aborted) setSearch({ state: 'ok', list: r.candidates }); })
+        .then((r) => { if (!ctl.signal.aborted) setSearch({ state: 'ok', list: r.candidates, asOf: r.asOf, stale: r.stale }); })
         .catch((e: unknown) => {
           if (ctl.signal.aborted) return;
           const f = catalogFail(e instanceof ApiError ? e.reason : undefined);
@@ -267,6 +267,9 @@ export function ReleaseSheet({
               </div>
             ) : (
               <>
+                {search.state === 'ok' && search.stale && search.asOf && formatCatalogAsOf(search.asOf) && (
+                  <p className="ps-rm-muted" data-testid="rm-catalog-asof">Данные от {formatCatalogAsOf(search.asOf)}</p>
+                )}
                 <p className="ps-sr" aria-live="polite">Найдено: {results.length}</p>
                 <ul className="ps-rm-cands" aria-label="Результаты поиска в каталоге">
                   {results.map((c) => (

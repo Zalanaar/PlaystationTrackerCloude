@@ -149,11 +149,11 @@ export async function searchCatalog(query: string, deps: CatalogDeps): Promise<C
 // --- предстоящие релизы (контракт 17.13)
 export const RAWG_UPCOMING_PAGE_SIZE = 20;
 export const RAWG_UPCOMING_DAYS = UPCOMING_WINDOW_DAYS;
-export const RAWG_UPCOMING_TTL_MS = 60 * 60 * 1000;
+export const RAWG_UPCOMING_TTL_MS = 12 * 60 * 60 * 1000;
 
 export type UpcomingPage = { candidates: CatalogCandidate[]; page: number; hasMore: boolean; total: number | null };
 export type UpcomingCache = Map<string, { at: number; value: UpcomingPage }>;
-/** Кэш процесса: ключ = диапазон дат + страница (ключ API не входит). */
+/** L1 кэш процесса (TTL 12 ч). Долгоживущий общий кэш — catalog_cache в БД (cachedUpcoming). */
 const processCache: UpcomingCache = new Map();
 
 export type UpcomingDeps = CatalogDeps & { now?: Date; cache?: UpcomingCache; ttlMs?: number };

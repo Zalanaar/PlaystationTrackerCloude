@@ -344,6 +344,13 @@
       "when": 1795526821764,
       "tag": "0048_planner_rollover",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1795545624791,
+      "tag": "0049_catalog_cache",
+      "breakpoints": true
     }
   ]
 }

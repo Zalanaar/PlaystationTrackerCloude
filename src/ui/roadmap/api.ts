@@ -26,13 +26,13 @@ export const putOrder = (gameIds: number[]) =>
   call<{ order: number[] }>('/api/roadmap/order', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ gameIds }) });
 /** onlyPlayStation: фильтр на сервере (параметр playstation=1, контракт 17.9). */
 export const searchCatalog = (q: string, onlyPlayStation: boolean, signal?: AbortSignal) =>
-  call<{ candidates: CatalogCandidateView[] }>(`/api/roadmap/catalog/search?q=${encodeURIComponent(q)}${onlyPlayStation ? '&playstation=1' : ''}`, { signal });
+  call<{ candidates: CatalogCandidateView[]; asOf?: string; stale?: boolean }>(`/api/roadmap/catalog/search?q=${encodeURIComponent(q)}${onlyPlayStation ? '&playstation=1' : ''}`, { signal });
 
 export const postExclusion = (gameId: number) =>
   call<{ excluded: boolean; gameId: number }>('/api/roadmap/exclusions', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ gameId }) });
 export const deleteExclusion = (gameId: number) => call<{ excluded: boolean; gameId: number }>(`/api/roadmap/exclusions/${gameId}`, { method: 'DELETE' });
 export const fetchUpcoming = (page: number, signal?: AbortSignal) =>
-  call<{ candidates: UpcomingCandidate[]; page: number; hasMore: boolean; total: number | null; updated?: { id: number; releaseDate: string }[] }>(`/api/roadmap/catalog/upcoming?page=${page}`, { signal });
+  call<{ candidates: UpcomingCandidate[]; page: number; hasMore: boolean; total: number | null; updated?: { id: number; releaseDate: string }[]; asOf?: string; stale?: boolean }>(`/api/roadmap/catalog/upcoming?page=${page}`, { signal });
 
 export { ApiError };
 

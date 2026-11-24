@@ -8,6 +8,7 @@ import { buildCheck, recheckPending } from '@/server/auth/psn-access';
 import { getOwnerUserId } from '@/server/auth/users';
 import { launchSync, queueChain, type LaunchResult } from '@/server/sync/service';
 import { listSyncUsers } from '@/server/sync/users';
+import { runDailyPlannedDateRefresh } from '@/server/roadmap/daily-release-refresh';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,6 +65,14 @@ export async function GET(req: Request) {
   // wait только вместе с queue
   if (wait !== undefined && (queueAfter === undefined || !Number.isInteger(wait) || wait < 1 || wait > QUEUE_MAX_WAITS)) {
     return fail(400, 'invalid_request', 'Некорректный запрос.');
+  }
+  // Первый слот суток: подтянуть даты «на релизе» из кэша/RAWG. Без нового cron на Vercel.
+  if (continueRunId === undefined && queueAfter === undefined) {
+    after(() => {
+      void runDailyPlannedDateRefresh().catch(() => {
+        console.error('cron: обновление дат релизов из каталога не удалось');
+      });
+    });
   }
   try {
     // продолжение звена: пользователь берётся из строки sync_runs (не из запроса); blocked не продолжает (launchSync)

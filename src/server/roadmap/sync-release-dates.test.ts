@@ -4,7 +4,8 @@ import { asUserId } from '@/server/auth/user-id';
 import { createTestDb, type TestDb, TEST_USER } from '@/server/sync/test-helpers';
 import { createPlanned, getRoadmap, listPlanned, putSettings, updatePlanned } from './db';
 import type { PlannedCreate } from './validation';
-import { applyCatalogReleaseDates, refreshPlannedReleaseDates } from './sync-release-dates';
+import { applyCatalogReleaseDates, refreshDuePlannedReleaseDates, refreshPlannedReleaseDates } from './sync-release-dates';
+import { memoryCatalogCache } from '@/server/catalog/cache';
 
 const planned = (o: Partial<PlannedCreate> = {}): PlannedCreate => ({
   title: 'Новинка', releaseDate: null, coverUrl: null, wantAtRelease: false, hoursManual: null, externalSource: null, externalId: null, ...o,
@@ -98,10 +99,51 @@ describe('даты релиза в плане подтягиваются из к
     expect(called).toEqual([]);
     expect(again).toEqual([]);
     const afterTtl = await refreshPlannedReleaseDates(t.db, TEST_USER, {
-      fetchGame, cache, now: 1_000 + 60 * 60_000,
+      fetchGame, cache, now: 1_000 + 24 * 60 * 60_000,
     });
     expect(called.sort()).toEqual(['21', '22']);
     expect(afterTtl).toEqual([{ id: a.id, externalId: '21', from: '2027-02-16', to: '2027-05-01' }]);
     expect((await listPlanned(t.db, TEST_USER, 'planned')).find((r) => r.id === a.id)?.releaseDate).toBe('2027-05-01');
+  });
+
+  it('refresh не ходит за уже вышедшими играми', async () => {
+    await createPlanned(t.db, TEST_USER, planned({
+      title: 'Прошла', releaseDate: '2020-01-01', wantAtRelease: true, hoursManual: 10,
+      externalSource: 'rawg', externalId: '30',
+    }));
+    const called: string[] = [];
+    await refreshPlannedReleaseDates(t.db, TEST_USER, {
+      fetchGame: async (id) => { called.push(id); return { externalId: id, releaseDate: '2027-09-01' }; },
+      cache: new Map(), now: Date.parse('2026-11-24T12:00:00Z'),
+    });
+    expect(called).toEqual([]);
+  });
+
+  it('суточное обновление: одна пачка на всех, повтор в тот же день без сети, кэш игры не расходует лимит', async () => {
+    await createPlanned(t.db, TEST_USER, planned({
+      title: 'A', releaseDate: '2027-02-16', wantAtRelease: true, hoursManual: 10,
+      externalSource: 'rawg', externalId: '41',
+    }));
+    const [u2] = await t.db.insert(schema.allowedUsers).values({ email: 'u3@example.com', role: 'member', status: 'active' }).returning({ id: schema.allowedUsers.id });
+    await createPlanned(t.db, asUserId(u2.id), planned({
+      title: 'A у другого', releaseDate: '2027-02-16', wantAtRelease: true, hoursManual: 10,
+      externalSource: 'rawg', externalId: '41',
+    }));
+    const called: string[] = [];
+    const store = memoryCatalogCache();
+    const now = new Date('2026-11-24T12:00:00Z');
+    const first = await refreshDuePlannedReleaseDates(t.db, {
+      fetchGame: async (id) => { called.push(id); return { externalId: id, releaseDate: '2027-06-01' }; },
+      store, now,
+    });
+    expect(called).toEqual(['41']);
+    expect(first).toMatchObject({ fetched: 1, updated: 2, skipped: false });
+    called.length = 0;
+    const again = await refreshDuePlannedReleaseDates(t.db, {
+      fetchGame: async (id) => { called.push(id); return { externalId: id, releaseDate: '2027-07-01' }; },
+      store, now: new Date(now.getTime() + 60_000),
+    });
+    expect(called).toEqual([]);
+    expect(again.skipped).toBe(true);
   });
 });

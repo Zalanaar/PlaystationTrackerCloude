@@ -1,5 +1,6 @@
 import { getDb } from '@/db';
 import { CatalogError, searchCatalog } from '@/server/catalog/rawg';
+import { asOfIso, cachedSearch, dbCatalogCache } from '@/server/catalog/cache';
 import { withFallback } from '@/server/catalog/fallback';
 import { catalogFallback } from '@/server/catalog/sources';
 import { getRawgKey } from '@/server/env';
@@ -12,7 +13,7 @@ import { requireUser } from '@/server/auth/require-user';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Поиск релиза в RAWG (при сбое — запасной каталог). Ошибка каталога не роняет экран: 503 catalog_unavailable, ручной ввод остаётся. Контракт 17.9.
+// Поиск релиза в RAWG (при сбое — запасной каталог). Кэш запроса 12 ч; при 429 — последние данные + asOf. Контракт 17.9, t278u.
 export async function GET(req: Request) {
   const a = await requireUser(req);
   if (!a.ok) return a.response;
@@ -20,25 +21,40 @@ export async function GET(req: Request) {
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   const ps = parseCatalogPlaystation(new URL(req.url).searchParams);
   if (!ps.ok) return fail(400, 'invalid_request', ps.message);
+  const db = (() => { try { return getDb(); } catch { return null; } })();
   let candidates;
+  let asOf: string | undefined;
+  let stale = false;
   try {
-    // RAWG главный; если не ответил — запасной каталог (Пакет 7)
-    const fb = catalogFallback();
-    const alt = ps.value ? fb.playstation : fb.any;
-    const r = await withFallback(
-      () => searchCatalog(p.value, { apiKey: getRawgKey(), playstationOnly: ps.value, reserve: rawgReserve(a.user.id) }),
-      alt ? () => alt(p.value, 10) : null,
-      { breaker: fb.breaker },
-    );
-    candidates = r.candidates;
+    if (db) {
+      const cached = await cachedSearch(p.value, {
+        apiKey: getRawgKey(), playstationOnly: ps.value, reserve: rawgReserve(a.user.id), store: dbCatalogCache(db),
+      });
+      candidates = cached.value;
+      asOf = asOfIso(cached.fetchedAt);
+      stale = cached.stale;
+    } else {
+      candidates = await searchCatalog(p.value, { apiKey: getRawgKey(), playstationOnly: ps.value, reserve: rawgReserve(a.user.id) });
+    }
   } catch (e) {
-    const reason = e instanceof CatalogError ? e.reason : 'network';
-    return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введи данные вручную.', { reason });
+    try {
+      const fb = catalogFallback();
+      const alt = ps.value ? fb.playstation : fb.any;
+      const r = await withFallback(
+        () => Promise.reject(e instanceof CatalogError ? e : new CatalogError('network')),
+        alt ? () => alt(p.value, 10) : null,
+        { breaker: fb.breaker },
+      );
+      candidates = r.candidates;
+    } catch (err) {
+      const reason = err instanceof CatalogError ? err.reason : (e instanceof CatalogError ? e.reason : 'network');
+      return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введи данные вручную.', { reason });
+    }
   }
+  const body = { candidates, ...(asOf ? { asOf, stale } : {}) };
   try {
-    return ok({ candidates: await filterOwned(getDb(), a.user.id, candidates) });
+    return ok({ ...body, candidates: await filterOwned(db ?? getDb(), a.user.id, candidates) });
   } catch {
-    // БД недоступна: поиск важнее фильтра, отдаём как есть (ручной ввод и План от отметок не зависят)
-    return ok({ candidates });
+    return ok(body);
   }
 }
