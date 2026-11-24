@@ -1,9 +1,9 @@
 // Подписи и разбор формы целей месяца.
-import { yearGoalBridgeLabel } from '@/shared/month-goals';
+import { recapSummary, yearGoalBridgeLabel, yearRolloverSummary } from '@/shared/month-goals';
 import { formatNumber, monthName, plural } from '../format';
 import { GOAL_LIMITS, type GoalFields, type GoalKey, type GoalProgress } from '@/shared/month-goals';
 
-export { GOAL_LIMITS, yearGoalBridgeLabel };
+export { GOAL_LIMITS, recapSummary, yearGoalBridgeLabel, yearRolloverSummary };
 export type { GoalFields, GoalKey, GoalProgress };
 
 export const GOAL_ORDER: readonly GoalKey[] = ['games', 'hours'];

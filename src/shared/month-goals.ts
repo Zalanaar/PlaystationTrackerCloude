@@ -26,6 +26,10 @@ export type MonthGoalsView = {
   hoursHint: number | null;
   /** Цель года текущего календарного года, если задана в Плане. */
   yearGoal: MonthYearGoal | null;
+  /** Итоги прошлого месяца в первые ~3 дня нового (пока не закрыты). */
+  recap: MonthRecap | null;
+  /** Предложение перенести цель года после автоперехода 1 января. */
+  yearRollover: YearGoalRollover | null;
 };
 
 export type MonthYearGoal = {
@@ -36,6 +40,30 @@ export type MonthYearGoal = {
   /** Сколько игр в месяц нужно по темпу цели года (для подсказки в форме). */
   gamesHint: number | null;
 };
+
+/** Итоги прошлого месяца на главной в начале нового. */
+export type MonthRecap = {
+  month: string;
+  year: number;
+  monthNum: number;
+  goals: GoalFields;
+  progress: GoalProgress;
+  picked: GoalGame[];
+  unfinished: GoalGame[];
+  canCarry: boolean;
+};
+
+/** Предложение перенести цель года на новый год (старый год сохранён в архиве). */
+export type YearGoalRollover = {
+  fromYear: number;
+  toYear: number;
+  mode: 'complete' | 'backlog_to';
+  count: number;
+  current: number;
+};
+
+export type RollKind = 'month' | 'year';
+export type RollAction = 'carry' | 'dismiss';
 
 /** Строка-мост на карточке месяца: «Год: 7 из 12» или «Год: бэклог 24, цель 12». */
 export function yearGoalBridgeLabel(g: Pick<MonthYearGoal, 'mode' | 'current' | 'count'>): string {
@@ -55,6 +83,68 @@ export function currentMonth(now: Date): { month: string; year: number; monthNum
   const year = s.getUTCFullYear();
   const monthNum = s.getUTCMonth() + 1;
   return { month: `${year}-${String(monthNum).padStart(2, '0')}`, year, monthNum };
+}
+
+export function monthParts(month: string): { month: string; year: number; monthNum: number } {
+  const year = Number(month.slice(0, 4));
+  const monthNum = Number(month.slice(5, 7));
+  return { month, year, monthNum };
+}
+
+/** Предыдущий календарный месяц 'YYYY-MM'. */
+export function prevMonth(month: string): string {
+  const { year, monthNum } = monthParts(month);
+  if (monthNum === 1) return `${year - 1}-12`;
+  return `${year}-${String(monthNum - 1).padStart(2, '0')}`;
+}
+
+/** Якорь внутри месяца (15-е 12:00 МСК) — чтобы посчитать прогресс именно за этот месяц. */
+export function monthAnchor(month: string): Date {
+  const { year, monthNum } = monthParts(month);
+  return new Date(Date.UTC(year, monthNum - 1, 15, 9, 0, 0));
+}
+
+/** Первые `days` календарных дней месяца по МСК (для карточки итогов). */
+export function inRecapWindow(now: Date, days = 3): boolean {
+  const s = new Date(now.getTime() + 3 * 3600_000);
+  return s.getUTCDate() <= days;
+}
+
+const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+function recapPlural(n: number, forms: readonly [string, string, string]): string {
+  const abs = Math.abs(n) % 100;
+  const d = abs % 10;
+  if (abs > 10 && abs < 20) return forms[2];
+  if (d > 1 && d < 5) return forms[1];
+  if (d === 1) return forms[0];
+  return forms[2];
+}
+
+/** «Ноябрь: 2 из 3 игр, 34 из 40 ч». */
+export function recapSummary(r: Pick<MonthRecap, 'monthNum' | 'goals' | 'progress'>): string {
+  const parts: string[] = [];
+  if (r.goals.games != null) parts.push(`${r.progress.games} из ${r.goals.games} ${recapPlural(r.goals.games, ['игры', 'игр', 'игр'])}`);
+  if (r.goals.hours != null) parts.push(`${Math.round(r.progress.hours)} из ${r.goals.hours} ч`);
+  const name = MONTHS_NOM[r.monthNum - 1] ?? r.monthNum;
+  return parts.length ? `${name}: ${parts.join(', ')}` : `${name}`;
+}
+
+/** «Цель 2026: 10 из 12 игр. Перенести на 2027?» */
+export function yearRolloverSummary(r: YearGoalRollover): string {
+  const result = r.mode === 'complete'
+    ? `${r.current} из ${r.count} ${recapPlural(r.count, ['игры', 'игр', 'игр'])}`
+    : `бэклог ${r.current}, цель ${r.count}`;
+  return `Цель ${r.fromYear}: ${result}. Перенести на ${r.toYear}?`;
+}
+
+export function parseRoll(input: unknown): { ok: true; value: { kind: RollKind; action: RollAction } } | { ok: false } {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return { ok: false };
+  const o = input as Record<string, unknown>;
+  if (Object.keys(o).some((k) => k !== 'kind' && k !== 'action')) return { ok: false };
+  if (o.kind !== 'month' && o.kind !== 'year') return { ok: false };
+  if (o.action !== 'carry' && o.action !== 'dismiss') return { ok: false };
+  return { ok: true, value: { kind: o.kind, action: o.action } };
 }
 
 /** Видимые цели: игры (число или выбранные) и часы. Колонка трофеев в БД больше не используется в UI. */

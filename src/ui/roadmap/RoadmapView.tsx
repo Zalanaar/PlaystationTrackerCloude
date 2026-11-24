@@ -126,7 +126,7 @@ export function RoadmapView() {
   const setGoal = useCallback((goal: RoadmapResponse['goal']) => {
     const cur = dataRef.current;
     if (!cur) return;
-    const next = { ...cur, goal };
+    const next = { ...cur, goal, yearRollover: goal ? null : cur.yearRollover };
     dataRef.current = next;
     setData(next);
   }, []);
@@ -401,7 +401,7 @@ export function RoadmapView() {
         </section>
         <section className="ps-rm-panel" id="rm-goal" data-area="goal" data-tour="roadmap-goal" aria-labelledby="rm-goal-h" aria-busy={!data || undefined}>
           {data ? (
-            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} onChanged={setGoal} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })); }} />
+            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} yearRollover={data.yearRollover} onChanged={setGoal} onRolled={() => { void load(); }} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })); }} />
           ) : <><h2 className="ps-h2" id="rm-goal-h">Цель года</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">

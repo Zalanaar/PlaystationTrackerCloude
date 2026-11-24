@@ -13,6 +13,13 @@ type Goals = {
   candidates: { playing: GoalGame[]; planMonth: GoalGame[]; plan: GoalGame[]; backlog: GoalGame[] };
   hoursHint: number | null;
   yearGoal: { mode: 'complete' | 'backlog_to'; year: number; current: number; count: number; gamesHint: number | null } | null;
+  recap: {
+    month: string; year: number; monthNum: number;
+    goals: { games: number | null; hours: number | null; trophies: number | null };
+    progress: { games: number; hours: number; trophies: number };
+    picked: GoalGame[]; unfinished: GoalGame[]; canCarry: boolean;
+  } | null;
+  yearRollover: { fromYear: number; toYear: number; mode: 'complete' | 'backlog_to'; count: number; current: number } | null;
 };
 
 const GTA: GoalGame = { id: 3, title: 'GTA', coverUrl: null, completed: false };
@@ -27,6 +34,8 @@ const EMPTY: Goals = {
   candidates: { playing: [GTA], planMonth: [], plan: [PLAN], backlog: [] },
   hoursHint: 15,
   yearGoal: null,
+  recap: null,
+  yearRollover: null,
 };
 
 async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
@@ -56,6 +65,26 @@ async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
       current.goals.trophies = b.trophies ?? null;
       current.hasGoals = current.goals.games != null || current.goals.hours != null || current.picked.length > 0;
       current.progress = { ...current.progress, games: current.picked.filter((g) => g.completed).length };
+    }
+    await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: current }) });
+  });
+  await page.route(/\/api\/me\/goals\/roll/, async (r) => {
+    const b = r.request().postDataJSON() as { kind: 'month' | 'year'; action: 'carry' | 'dismiss' };
+    if (b.kind === 'month' && current.recap) {
+      if (b.action === 'carry' && current.recap.canCarry) {
+        const add = current.recap.unfinished.filter((g) => !current.picked.some((p) => p.id === g.id));
+        current.picked = [...current.picked, ...add];
+        current.goals.games = current.picked.length ? current.picked.length : current.goals.games;
+        current.hasGoals = current.goals.games != null || current.goals.hours != null || current.picked.length > 0;
+      }
+      current.recap = null;
+    }
+    if (b.kind === 'year' && current.yearRollover) {
+      if (b.action === 'carry') {
+        const y = current.yearRollover;
+        current.yearGoal = { mode: y.mode, year: y.toYear, current: 0, count: y.count, gamesHint: null };
+      }
+      current.yearRollover = null;
     }
     await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: current }) });
   });
@@ -218,5 +247,50 @@ test.describe('Цели месяца на главной', () => {
       return hits;
     });
     expect(peek, JSON.stringify(peek)).toEqual([]);
+  });
+});
+
+const DONE: GoalGame = { id: 1, title: 'DoneNov', coverUrl: null, completed: true };
+const OPEN_A: GoalGame = { id: 2, title: 'OpenA', coverUrl: null, completed: false };
+const OPEN_B: GoalGame = { id: 4, title: 'OpenB', coverUrl: null, completed: false };
+
+test.describe('Итоги месяца и переход года (мок дат 1 дек / 1 янв)', () => {
+  test('1 декабря: карточка ноября и перенос незакрытых', async ({ page, baseURL }) => {
+    const initial: Goals = {
+      ...EMPTY,
+      month: '2026-12', year: 2026, monthNum: 12,
+      recap: {
+        month: '2026-11', year: 2026, monthNum: 11,
+        goals: { games: 3, hours: 40, trophies: null },
+        progress: { games: 2, hours: 34, trophies: 0 },
+        picked: [DONE, OPEN_A, OPEN_B],
+        unfinished: [OPEN_A, OPEN_B],
+        canCarry: true,
+      },
+    };
+    await open(page, baseURL!, initial);
+    const recap = page.getByTestId('month-goals-recap');
+    await expect(recap).toBeVisible();
+    await expect(recap.getByTestId('month-goals-recap-summary')).toHaveText('Ноябрь: 2 из 3 игр, 34 из 40 ч');
+    await recap.getByTestId('month-goals-recap-carry').click();
+    await expect(recap).toHaveCount(0);
+    const card = page.getByTestId('month-goals');
+    await expect(card.getByTestId('month-goals-picked')).toContainText('OpenA');
+    await expect(card.getByTestId('month-goals-picked')).toContainText('OpenB');
+  });
+
+  test('1 января: предложение перенести цель года', async ({ page, baseURL }) => {
+    const initial: Goals = {
+      ...EMPTY,
+      month: '2027-01', year: 2027, monthNum: 1,
+      yearRollover: { fromYear: 2026, toYear: 2027, mode: 'complete', count: 12, current: 10 },
+    };
+    await open(page, baseURL!, initial);
+    const roll = page.getByTestId('year-goal-roll');
+    await expect(roll).toBeVisible();
+    await expect(roll.getByTestId('year-goal-roll-summary')).toHaveText('Цель 2026: 10 из 12 игр. Перенести на 2027?');
+    await roll.getByTestId('year-goal-carry').click();
+    await expect(roll).toHaveCount(0);
+    await expect(page.getByTestId('month-goals-year')).toContainText('Год: 0 из 12');
   });
 });

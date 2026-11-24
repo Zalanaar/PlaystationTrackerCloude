@@ -6,6 +6,8 @@ import { Icon } from '../icons';
 import { Popover } from '../primitives/Popover';
 import { useToast } from '../primitives/Toast';
 import { useIsMobile } from '../primitives/hooks';
+import { yearRolloverSummary, type YearGoalRollover } from '@/shared/month-goals';
+import { rollPlannerApi } from '../goals/api';
 import { deleteGoal, putGoal } from './api';
 import {
   GOAL_MAX, GOAL_MIN, goalAsOfText, goalBarLabel, goalBarPercent, goalFormHint, goalForecastText, goalMetrics, goalPaceText, goalRangeText, goalRequiredText,
@@ -159,8 +161,8 @@ function GoalCard({ goal, onEdit, onRemove }: { goal: GoalView; onEdit: () => vo
 
 /** Блок «Цель года» (`#rm-goal`): пустое состояние, форма, карточка цели, удаление с отменой. Данные цели приходят с `GET /api/roadmap`. */
 export function GoalPanel({
-  goal, year, today, onChanged, onSettings,
-}: { goal: GoalView | null; year: number; today: string; onChanged: (g: GoalView | null) => void; onSettings: () => void }) {
+  goal, year, today, yearRollover, onChanged, onSettings, onRolled,
+}: { goal: GoalView | null; year: number; today: string; yearRollover?: YearGoalRollover | null; onChanged: (g: GoalView | null) => void; onSettings: () => void; onRolled?: () => void }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -249,9 +251,30 @@ export function GoalPanel({
       </div>
     );
   }
+  async function rollYear(action: 'carry' | 'dismiss') {
+    setBusy(true);
+    try {
+      await rollPlannerApi('year', action);
+      onRolled?.();
+    } catch {
+      toast({ kind: 'error', text: 'Не удалось сохранить. Повтори' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <h2 className="ps-h2" id="rm-goal-h">Цель года</h2>
+      {yearRollover && (
+        <div className="ps-rm-yearroll" data-testid="year-goal-roll">
+          <p data-testid="year-goal-roll-summary">{yearRolloverSummary(yearRollover)}</p>
+          <div className="ps-mgoals__actions">
+            <button type="button" className="ps-btn ps-btn--primary" disabled={busy} onClick={() => void rollYear('carry')} data-testid="year-goal-carry">Перенести цель</button>
+            <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void rollYear('dismiss')} data-testid="year-goal-dismiss">Не переносить</button>
+          </div>
+        </div>
+      )}
       {body}
     </>
   );

@@ -41,3 +41,6 @@
   .ps-rm-attr a { position: relative; }
   .ps-rm-attr a::after { content: ''; position: absolute; inset: -14px -8px; }
 }
+
+.ps-rm-yearroll { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3); background: var(--surface-2); border: var(--border-w) solid var(--border); border-radius: var(--r-md); }
+.ps-rm-yearroll p { margin: 0; color: var(--text); font-size: var(--fs-small); line-height: var(--lh-small); }

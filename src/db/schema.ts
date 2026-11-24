@@ -1067,6 +1067,8 @@ export const monthGoals = pgTable(
     hours: smallint(),
     trophies: smallint(),
     updatedAt: tz('updated_at').notNull().defaultNow(),
+    /** Пользователь закрыл или перенёс итоги этого месяца в начале следующего. */
+    recapAckedAt: tz('recap_acked_at'),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.month] }),
@@ -1151,3 +1153,39 @@ export const gameDiaryEntries = pgTable('game_diary_entries', {
   foreignKey({ name: 'game_diary_entries_user_game_fk', columns: [t.userId, t.gameId], foreignColumns: [games.userId, games.id] }).onDelete('cascade'),
   check('game_diary_entries_body_check', sql`char_length(${t.body}) between 1 and 500`),
 ]);
+
+/** Архив цели года после автоперехода 1 января. Старый год не затираем. */
+export const roadmapYearGoals = pgTable(
+  'roadmap_year_goals',
+  {
+    userId: userIdCol(),
+    year: smallint().notNull(),
+    mode: text().notNull(),
+    count: smallint().notNull(),
+    archivedAt: tz('archived_at').notNull().defaultNow(),
+    carryState: text('carry_state').notNull().default('pending'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.year] }),
+    check('roadmap_year_goals_year_check', sql`${t.year} >= 2000 and ${t.year} <= 2100`),
+    check('roadmap_year_goals_mode_check', sql`${t.mode} in ('complete', 'backlog_to')`),
+    check('roadmap_year_goals_count_check', sql`${t.count} >= 0 and ${t.count} <= 1000`),
+    check('roadmap_year_goals_carry_check', sql`${t.carryState} in ('pending', 'carried', 'dismissed')`),
+  ],
+);
+
+/** Отметки автопереходов (year_switch на YYYY), чтобы не переключать план повторно. */
+export const plannerRollAcks = pgTable(
+  'planner_roll_acks',
+  {
+    userId: userIdCol(),
+    kind: text().notNull(),
+    period: text().notNull(),
+    ackedAt: tz('acked_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.kind, t.period] }),
+    check('planner_roll_acks_kind_check', sql`${t.kind} in ('year_switch')`),
+    check('planner_roll_acks_period_check', sql`char_length(${t.period}) between 1 and 16`),
+  ],
+);

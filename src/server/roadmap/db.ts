@@ -13,13 +13,14 @@ import { groupSnapshots, type Snapshot } from '@/server/stats/hours';
 import { mskDate, mskDateString, mskMidnightUtc } from '@/server/stats/period';
 import { dayNum, dayStr, yearBounds } from './dates';
 import { computeGoal, type GoalMode, type GoalView } from './goal';
+import type { RollAction, YearGoalRollover } from '@/shared/month-goals';
 import { buildPlan, isValidBudget, round1 } from './plan';
 import { computeProgress } from './progress';
 import { computeBacklogPace, PACE_DAYS, withBudget, type BacklogPace } from './pace';
 import type { PlannedGameDto, PlannedGameStatus, RoadmapEntry, RoadmapResponse, ServiceGame, SettingsView } from './types';
 import type { PlannedCreate, PlannedPatch } from './validation';
 
-const { games, gameStatus, playtimeSnapshots: ps, plannedGames, roadmapExcluded, roadmapOrder, roadmapSettings } = schema;
+const { games, gameStatus, playtimeSnapshots: ps, plannedGames, roadmapExcluded, roadmapOrder, roadmapSettings, roadmapYearGoals, plannerRollAcks } = schema;
 
 export const SERVICE_GAMES_LIMIT = 50;
 
@@ -57,9 +58,79 @@ export class OrderRejectedError extends Error {
 export class NotBacklogError extends Error {}
 
 export async function getSettings(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<SettingsView> {
+  await ensurePlannerYear(db, userId, now);
   const [row] = await db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
   if (!row) return { year: mskDate(now).year, hoursPerWeek: null, configured: false };
   return { year: row.year, hoursPerWeek: row.hoursPerWeek, configured: true };
+}
+
+/** 1 января: если план ещё на прошлом годе и автопереход в этот год не делали — переключаем год, архивируем цель. */
+export async function ensurePlannerYear(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<void> {
+  const current = mskDate(now).year;
+  const [row] = await db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
+  if (!row || row.year >= current) return;
+  try {
+    const [ack] = await db
+      .select({ period: plannerRollAcks.period })
+      .from(plannerRollAcks)
+      .where(and(eq(plannerRollAcks.userId, userId), eq(plannerRollAcks.kind, 'year_switch'), eq(plannerRollAcks.period, String(current))))
+      .limit(1);
+    if (ack) return;
+    if (isGoalMode(row.goalMode) && row.goalCount !== null) {
+      await db
+        .insert(roadmapYearGoals)
+        .values({ userId, year: row.year, mode: row.goalMode, count: row.goalCount, archivedAt: now, carryState: 'pending' })
+        .onConflictDoNothing();
+    }
+    await db
+      .insert(plannerRollAcks)
+      .values({ userId, kind: 'year_switch', period: String(current), ackedAt: now })
+      .onConflictDoNothing();
+    await db
+      .update(roadmapSettings)
+      .set({ year: current, goalMode: null, goalCount: null, updatedAt: now })
+      .where(eq(roadmapSettings.userId, userId));
+  } catch {
+    // окно между выкладкой кода и миграцией 0048
+  }
+}
+
+/** Предложение перенести архивную цель прошлого года, пока его не закрыли. */
+export async function getYearRolloverOffer(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<YearGoalRollover | null> {
+  await ensurePlannerYear(db, userId, now);
+  const toYear = mskDate(now).year;
+  try {
+    const [row] = await db
+      .select()
+      .from(roadmapYearGoals)
+      .where(and(eq(roadmapYearGoals.userId, userId), eq(roadmapYearGoals.year, toYear - 1), eq(roadmapYearGoals.carryState, 'pending')))
+      .limit(1);
+    if (!row) return null;
+    const facts = await goalFacts(db, userId, row.year);
+    const current = row.mode === 'complete' ? facts.completedInYear : facts.backlogNow;
+    return { fromYear: row.year, toYear, mode: row.mode as YearGoalRollover['mode'], count: row.count, current };
+  } catch {
+    return null;
+  }
+}
+
+/** Перенести архивную цель на текущий год или отказаться. Идемпотентно. */
+export async function applyYearGoalRoll(db: AnyDb, userId: UserId, now: Date, action: RollAction): Promise<GoalView | null> {
+  const offer = await getYearRolloverOffer(db, userId, now);
+  if (!offer) return getGoal(db, userId, now);
+  if (action === 'carry') {
+    const goal = await putGoal(db, userId, { mode: offer.mode, count: offer.count }, now);
+    await db
+      .update(roadmapYearGoals)
+      .set({ carryState: 'carried' })
+      .where(and(eq(roadmapYearGoals.userId, userId), eq(roadmapYearGoals.year, offer.fromYear)));
+    return goal;
+  }
+  await db
+    .update(roadmapYearGoals)
+    .set({ carryState: 'dismissed' })
+    .where(and(eq(roadmapYearGoals.userId, userId), eq(roadmapYearGoals.year, offer.fromYear), eq(roadmapYearGoals.carryState, 'pending')));
+  return getGoal(db, userId, now);
 }
 
 export async function putSettings(db: AnyDb, userId: UserId, v: { year: number; hoursPerWeek: number }): Promise<SettingsView> {
@@ -96,6 +167,7 @@ async function goalFacts(db: AnyDb, userId: UserId, year: number): Promise<{ com
 
 /** 17.3a: цель года и прогноз. null = цели нет (или настроек ещё нет). */
 export async function getGoal(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<GoalView | null> {
+  await ensurePlannerYear(db, userId, now);
   const [row] = await db.select({ year: roadmapSettings.year, mode: roadmapSettings.goalMode, count: roadmapSettings.goalCount }).from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
   if (!row || !isGoalMode(row.mode) || row.count === null) return null;
   const facts = await goalFacts(db, userId, row.year);
@@ -110,6 +182,13 @@ export async function putGoal(db: AnyDb, userId: UserId, v: { mode: GoalMode; co
     .where(eq(roadmapSettings.userId, userId))
     .returning({ userId: roadmapSettings.userId });
   if (!rows.length) throw new SettingsRequiredError();
+  try {
+    const year = mskDate(now).year;
+    await db
+      .update(roadmapYearGoals)
+      .set({ carryState: 'dismissed' })
+      .where(and(eq(roadmapYearGoals.userId, userId), eq(roadmapYearGoals.year, year - 1), eq(roadmapYearGoals.carryState, 'pending')));
+  } catch { /* миграция 0048 ещё не применена, или цель уже закрыта */ }
   return (await getGoal(db, userId, now)) as GoalView;
 }
 
@@ -382,9 +461,9 @@ export async function getBacklogPace(db: AnyDb, userId: UserId, today: string): 
 /** GET /api/roadmap: план на лету (17.5). */
 export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<RoadmapResponse> {
   const today = mskDateString(now);
-  const [settings, backlog, planned, unallocated, serviceGames, goal, backlogTotal, pace] = await Promise.all([
+  const [settings, backlog, planned, unallocated, serviceGames, goal, backlogTotal, pace, yearRollover] = await Promise.all([
     getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId), getUnallocated(db, userId), getServiceGames(db, userId), getGoal(db, userId, now),
-    countBacklog(db, userId), getBacklogPace(db, userId, today),
+    countBacklog(db, userId), getBacklogPace(db, userId, today), getYearRolloverOffer(db, userId, now),
   ]);
   const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
   let progress = null;
@@ -396,7 +475,7 @@ export async function getRoadmap(db: AnyDb, userId: UserId, now: Date = new Date
     const planGameIds = new Set<number>(queue.flatMap((e) => (e.gameId === null ? [] : [e.gameId])));
     progress = computeProgress({ plan: progressPlan, today, firstSnapshotDate: first, by: groupSnapshots(snapshots), hoursPerWeek: settings.hoursPerWeek, planGameIds });
   }
-  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal, pace: withBudget(pace, isValidBudget(settings.hoursPerWeek) ? settings.hoursPerWeek : null) };
+  return { ...plan, settings, today, progress, goal, unallocated, serviceGames, backlogTotal, pace: withBudget(pace, isValidBudget(settings.hoursPerWeek) ? settings.hoursPerWeek : null), yearRollover };
 }
 
 export type PlannedMark = { planned: boolean; unallocated: boolean; plannedId: number | null };

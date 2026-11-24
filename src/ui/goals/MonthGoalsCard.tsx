@@ -3,14 +3,14 @@
 // Цели месяца на главной: выбранные игры («Играю», План на этот месяц, остальной План, Бэклог) и часы; без цели по трофеям.
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import Link from '@/ui/IntentLink';
-import { GOAL_PICK_MAX, hasGoals as hasGoalFields, type GoalGame, type MonthGoalsView, type ParsedGoals } from '@/shared/month-goals';
+import { GOAL_PICK_MAX, hasGoals as hasGoalFields, type GoalGame, type MonthGoalsView, type ParsedGoals, type RollAction, type RollKind } from '@/shared/month-goals';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { Cover } from '../collection/Cover';
 import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
-import { fetchMonthGoals, saveMonthGoalsApi } from './api';
-import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine, yearGoalBridgeLabel } from './model';
+import { fetchMonthGoals, rollPlannerApi, saveMonthGoalsApi } from './api';
+import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine, recapSummary, yearGoalBridgeLabel, yearRolloverSummary } from './model';
 
 /** В списке выбора по умолчанию столько строк; остальные — по «Показать ещё» / «Показать все». */
 const GOAL_LIST_PREVIEW = 10;
@@ -75,6 +75,15 @@ export function MonthGoalsCard() {
     } finally { setBusy(false); }
   }
 
+  async function roll(kind: RollKind, action: RollAction) {
+    setBusy(true); setError(null);
+    try {
+      setData(await rollPlannerApi(kind, action));
+    } catch {
+      setError('Не удалось сохранить. Попробуй ещё раз.');
+    } finally { setBusy(false); }
+  }
+
   function toggle(game: GoalGame) {
     setPicksTouched(true);
     setSelected((s) => {
@@ -116,6 +125,37 @@ export function MonthGoalsCard() {
 
   return (
     <>
+      {data.recap && (
+        <section className="ps-mgoals" data-testid="month-goals-recap">
+          <div className="ps-mgoals__head">
+            <h2 className="ps-mgoals__t">Итоги месяца</h2>
+          </div>
+          <p className="ps-mgoals__lead" data-testid="month-goals-recap-summary">{recapSummary(data.recap)}</p>
+          {data.recap.canCarry && (
+            <p className="ps-mgoals__lead">Можно перенести незакрытые игры в цели {monthTitle(data.monthNum)}.</p>
+          )}
+          {error && <p className="ps-mgoals-form__err">{error}</p>}
+          <div className="ps-mgoals__actions">
+            {data.recap.canCarry && (
+              <button type="button" className="ps-btn ps-btn--primary" disabled={busy} onClick={() => void roll('month', 'carry')} data-testid="month-goals-recap-carry">Перенести незакрытые</button>
+            )}
+            <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void roll('month', 'dismiss')} data-testid="month-goals-recap-dismiss">{data.recap.canCarry ? 'Закрыть' : 'Понятно'}</button>
+          </div>
+        </section>
+      )}
+      {data.yearRollover && (
+        <section className="ps-mgoals" data-testid="year-goal-roll">
+          <div className="ps-mgoals__head">
+            <h2 className="ps-mgoals__t">Новый год</h2>
+          </div>
+          <p className="ps-mgoals__lead" data-testid="year-goal-roll-summary">{yearRolloverSummary(data.yearRollover)}</p>
+          {error && !data.recap && <p className="ps-mgoals-form__err">{error}</p>}
+          <div className="ps-mgoals__actions">
+            <button type="button" className="ps-btn ps-btn--primary" disabled={busy} onClick={() => void roll('year', 'carry')} data-testid="year-goal-carry">Перенести цель</button>
+            <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => void roll('year', 'dismiss')} data-testid="year-goal-dismiss">Не переносить</button>
+          </div>
+        </section>
+      )}
       <section className="ps-mgoals" aria-labelledby={hid} data-testid="month-goals">
         <div className="ps-mgoals__head">
           <h2 id={hid} className="ps-mgoals__t">{title}</h2>

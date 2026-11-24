@@ -80,6 +80,8 @@ export async function createTestDb(opts: { migrations?: number } = {}): Promise<
       await client.exec(`DO $$ BEGIN IF to_regclass('public.push_subscriptions') IS NOT NULL THEN TRUNCATE push_subscriptions, push_log RESTART IDENTITY; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.showcase_shares') IS NOT NULL THEN TRUNCATE showcase_shares; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.month_goal_games') IS NOT NULL THEN TRUNCATE month_goal_games, month_goals; ELSIF to_regclass('public.month_goals') IS NOT NULL THEN TRUNCATE month_goals; END IF; END $$`);
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.planner_roll_acks') IS NOT NULL THEN TRUNCATE planner_roll_acks; END IF; END $$`);
+      await client.exec(`DO $$ BEGIN IF to_regclass('public.roadmap_year_goals') IS NOT NULL THEN TRUNCATE roadmap_year_goals; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.push_prefs') IS NOT NULL THEN TRUNCATE push_prefs; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.hunt_games') IS NOT NULL THEN TRUNCATE hunt_games, hunt_trophies; END IF; END $$`);
       await client.exec(`DO $$ BEGIN IF to_regclass('public.game_diary_entries') IS NOT NULL THEN TRUNCATE game_diary_entries RESTART IDENTITY; END IF; END $$`);

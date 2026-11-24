@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from '@/server/sync/test-helpers';
 import { putGoal, putSettings } from '@/server/roadmap/db';
-import { currentMonth, getMonthGoals, hasGoals, parseGoals, saveMonthGoals } from './month-goals';
+import { applyPlannerRoll, currentMonth, getMonthGoals, hasGoals, inRecapWindow, parseGoals, parseRoll, prevMonth, recapSummary, saveMonthGoals, yearRolloverSummary } from './month-goals';
 
 const NOW = new Date('2026-11-15T12:00:00Z'); // 15:00 МСК 15 ноября
 const MSK_NOV1 = new Date('2026-10-31T21:00:00Z'); // 00:00 МСК 1 ноября
@@ -32,6 +32,17 @@ describe('разбор и месяц', () => {
     expect(parseGoals({ gameIds: [] })).toEqual({ ok: true, value: { games: null, hours: null, trophies: null, gameIds: [] } });
     expect(parseGoals({ gameIds: [0] })).toEqual({ ok: false });
     expect(parseGoals({ gameIds: 1 })).toEqual({ ok: false });
+    expect(prevMonth('2026-12')).toBe('2026-11');
+    expect(prevMonth('2027-01')).toBe('2026-12');
+    expect(inRecapWindow(new Date('2026-11-30T21:00:00Z'))).toBe(true); // 1 дек 00:00 МСК
+    expect(inRecapWindow(new Date('2026-12-01T09:00:00Z'))).toBe(true);
+    expect(inRecapWindow(new Date('2026-12-03T20:59:00Z'))).toBe(true); // 3 дек 23:59 МСК
+    expect(inRecapWindow(new Date('2026-12-03T21:00:00Z'))).toBe(false); // 4 дек 00:00 МСК
+    expect(parseRoll({ kind: 'month', action: 'carry' })).toEqual({ ok: true, value: { kind: 'month', action: 'carry' } });
+    expect(parseRoll({ kind: 'year', action: 'dismiss' }).ok).toBe(true);
+    expect(parseRoll({ kind: 'month' }).ok).toBe(false);
+    expect(recapSummary({ monthNum: 11, goals: { games: 3, hours: 40, trophies: null }, progress: { games: 2, hours: 34, trophies: 0 } })).toBe('Ноябрь: 2 из 3 игр, 34 из 40 ч');
+    expect(yearRolloverSummary({ fromYear: 2026, toYear: 2027, mode: 'complete', count: 12, current: 10 })).toBe('Цель 2026: 10 из 12 игр. Перенести на 2027?');
   });
 });
 
@@ -195,6 +206,61 @@ describe('на PGlite', () => {
     expect(v.candidates.backlog.map((g) => g.title)).not.toContain('Long');
     const allPlan = [...v.candidates.planMonth, ...v.candidates.plan].map((g) => g.title);
     expect(allPlan).toEqual(expect.arrayContaining(['Long', 'NovemberGame', 'Later']));
+  });
+
+  const DEC1 = new Date('2026-11-30T21:00:00Z'); // 1 дек 00:00 МСК
+  const DEC4 = new Date('2026-12-03T21:00:00Z'); // 4 дек 00:00 МСК
+
+  it('1 декабря: итоги ноября, история сохраняется, перенос незакрытых', async () => {
+    const done = await game({ name: 'DoneNov' });
+    const openA = await game({ name: 'OpenA' });
+    const openB = await game({ name: 'OpenB' });
+    await t.db.insert(schema.gameStatus).values([
+      { userId: TEST_USER, gameId: done, status: 'completed', completedAt: NOW },
+      { userId: TEST_USER, gameId: openA, status: 'playing' },
+      { userId: TEST_USER, gameId: openB, status: 'backlog' },
+    ]);
+    await t.db.insert(schema.playtimeSnapshots).values([
+      { userId: TEST_USER, gameId: done, snapshotDate: '2026-10-31', playDurationSeconds: 3600 },
+      { userId: TEST_USER, gameId: done, snapshotDate: '2026-11-30', playDurationSeconds: 3600 + 34 * 3600 },
+      { userId: TEST_USER, gameId: done, snapshotDate: '2026-12-01', playDurationSeconds: 3600 + 40 * 3600 },
+    ]);
+    await saveMonthGoals(t.db, TEST_USER, NOW, { games: null, hours: 40, trophies: null, gameIds: [done, openA, openB] });
+
+    const v = await getMonthGoals(t.db, TEST_USER, DEC1);
+    expect(v.month).toBe('2026-12');
+    expect(v.hasGoals).toBe(false);
+    expect(v.recap).toMatchObject({
+      month: '2026-11', monthNum: 11, canCarry: true,
+      goals: { games: 3, hours: 40 },
+      progress: { games: 1, hours: 34 },
+    });
+    expect(v.recap?.unfinished.map((g) => g.title)).toEqual(['OpenA', 'OpenB']);
+    expect(recapSummary(v.recap!)).toBe('Ноябрь: 1 из 3 игр, 34 из 40 ч');
+    const hist = await t.db.select().from(schema.monthGoals).where(eq(schema.monthGoals.userId, TEST_USER));
+    expect(hist.map((r) => r.month).sort()).toEqual(['2026-11']);
+
+    const carried = await applyPlannerRoll(t.db, TEST_USER, DEC1, 'month', 'carry');
+    expect(carried.recap).toBeNull();
+    expect(carried.hasGoals).toBe(true);
+    expect(carried.picked.map((g) => g.title)).toEqual(['OpenA', 'OpenB']);
+    const after = await t.db.select().from(schema.monthGoals).where(eq(schema.monthGoals.userId, TEST_USER));
+    expect(after.map((r) => r.month).sort()).toEqual(['2026-11', '2026-12']);
+    expect(after.find((r) => r.month === '2026-11')?.recapAckedAt).toBeTruthy();
+    expect(after.find((r) => r.month === '2026-11')?.hours).toBe(40);
+  });
+
+  it('1 декабря: закрыть итоги без переноса; 4 декабря карточки нет, история на месте', async () => {
+    const openA = await game({ name: 'Stay' });
+    await t.db.insert(schema.gameStatus).values({ userId: TEST_USER, gameId: openA, status: 'playing' });
+    await saveMonthGoals(t.db, TEST_USER, NOW, { games: null, hours: 20, trophies: null, gameIds: [openA] });
+    const dismissed = await applyPlannerRoll(t.db, TEST_USER, DEC1, 'month', 'dismiss');
+    expect(dismissed.recap).toBeNull();
+    expect(dismissed.hasGoals).toBe(false);
+    const late = await getMonthGoals(t.db, TEST_USER, DEC4);
+    expect(late.recap).toBeNull();
+    const hist = await t.db.select().from(schema.monthGoals).where(eq(schema.monthGoals.userId, TEST_USER));
+    expect(hist.map((r) => r.month)).toEqual(['2026-11']);
   });
 
 });

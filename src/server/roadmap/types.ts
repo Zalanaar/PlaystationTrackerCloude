@@ -1,3 +1,5 @@
+import type { YearGoalRollover } from '@/shared/month-goals';
+
 // Типы роадмапа (контракт 17). Без рантайма, безопасно для `import type` из UI.
 export type EntryKind = 'release' | 'backlog' | 'planned';
 export type HoursSource = 'manual' | 'hltb' | null;
@@ -100,6 +102,8 @@ export type RoadmapResponse = Plan & {
   backlogTotal: number;
   /** Пакет 6, п. 11 + F4: прогноз бэклога по темпу последних 90 дней и по бюджету плана. Необязательное в типе (старые ответы и фикстуры src/ui). */
   pace?: BacklogPace;
+  /** Предложение перенести цель года после автоперехода 1 января. Необязательное (старые фикстуры). */
+  yearRollover?: YearGoalRollover | null;
 };
 
 export type PlannedGameStatus = 'planned' | 'done' | 'cancelled';

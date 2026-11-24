@@ -9,16 +9,16 @@ import { gameVisible, snapshotGameVisible, trophySetCounted } from '@/server/col
 import { groupSnapshots, secondsByGame, secondsToHours } from '@/server/stats/hours';
 import { resolvePeriod } from '@/server/stats/period';
 import {
-  currentMonth, hasGoals, yearGamesHint, GOAL_PICK_MAX,
-  type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type MonthYearGoal, type ParsedGoals,
+  currentMonth, hasGoals, inRecapWindow, monthAnchor, monthParts, prevMonth, yearGamesHint, GOAL_PICK_MAX,
+  type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type MonthRecap, type MonthYearGoal, type ParsedGoals, type RollAction,
 } from '@/shared/month-goals';
-import { getBacklogEntries, getGoal, getPlannedEntries, getSettings } from '@/server/roadmap/db';
+import { applyYearGoalRoll, ensurePlannerYear, getBacklogEntries, getGoal, getPlannedEntries, getSettings, getYearRolloverOffer } from '@/server/roadmap/db';
 import { buildPlan } from '@/server/roadmap/plan';
 import type { GoalView } from '@/server/roadmap/goal';
 
 export {
-  currentMonth, hasGoals, parseGoals, yearGoalBridgeLabel, yearGamesHint, GOAL_LIMITS, GOAL_PICK_MAX,
-  type GoalFields, type GoalGame, type GoalKey, type GoalProgress, type MonthGoalsView, type MonthYearGoal, type ParsedGoals,
+  currentMonth, hasGoals, inRecapWindow, monthAnchor, parseGoals, parseRoll, prevMonth, recapSummary, yearGoalBridgeLabel, yearGamesHint, yearRolloverSummary, GOAL_LIMITS, GOAL_PICK_MAX,
+  type GoalFields, type GoalGame, type GoalKey, type GoalProgress, type MonthGoalsView, type MonthRecap, type MonthYearGoal, type ParsedGoals, type RollAction, type YearGoalRollover,
 } from '@/shared/month-goals';
 
 function toMonthYearGoal(g: GoalView | null, nowYear: number): MonthYearGoal | null {
@@ -240,6 +240,7 @@ async function replacePicks(db: AnyDb, userId: UserId, month: string, gameIds: n
 }
 
 export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promise<MonthGoalsView> {
+  await ensurePlannerYear(db, userId, now);
   const cur = currentMonth(now);
   const [row] = await db.select().from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, cur.month))).limit(1);
   const picked = await listPicked(db, userId, cur.month);
@@ -254,7 +255,64 @@ export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promi
     averageMonthlyHours(db, userId, now),
     getGoal(db, userId, now),
   ]);
-  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint, yearGoal: toMonthYearGoal(year, cur.year) };
+  const [recap, yearRollover] = await Promise.all([
+    loadMonthRecap(db, userId, now),
+    getYearRolloverOffer(db, userId, now),
+  ]);
+  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint, yearGoal: toMonthYearGoal(year, cur.year), recap, yearRollover };
+}
+
+async function loadMonthRecap(db: AnyDb, userId: UserId, now: Date): Promise<MonthRecap | null> {
+  if (!inRecapWindow(now)) return null;
+  const prev = prevMonth(currentMonth(now).month);
+  const [row] = await db.select().from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, prev))).limit(1);
+  if (!row || row.recapAckedAt) return null;
+  const picked = await listPicked(db, userId, prev);
+  const goals: GoalFields = {
+    games: picked.length ? picked.length : (row.games ?? null),
+    hours: row.hours ?? null,
+    trophies: row.trophies ?? null,
+  };
+  if (!hasGoals(goals, picked.length)) return null;
+  const progress = await monthGoalProgress(db, userId, monthAnchor(prev), picked.map((g) => g.id));
+  const unfinished = picked.filter((g) => !g.completed);
+  const { year, monthNum } = monthParts(prev);
+  return { month: prev, year, monthNum, goals, progress, picked, unfinished, canCarry: unfinished.length > 0 };
+}
+
+async function ackMonthRecap(db: AnyDb, userId: UserId, month: string, now: Date): Promise<void> {
+  await db.update(monthGoals).set({ recapAckedAt: now }).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, month)));
+}
+
+/** Закрыть итоги прошлого месяца или перенести незакрытые игры в цели текущего. */
+export async function applyMonthRoll(db: AnyDb, userId: UserId, now: Date, action: RollAction): Promise<MonthGoalsView> {
+  const recap = await loadMonthRecap(db, userId, now);
+  if (!recap) return getMonthGoals(db, userId, now);
+  if (action === 'carry' && recap.unfinished.length) {
+    const cur = await getMonthGoals(db, userId, now);
+    const merged: number[] = [];
+    const seen = new Set<number>();
+    for (const g of [...cur.picked, ...recap.unfinished]) {
+      if (seen.has(g.id) || merged.length >= GOAL_PICK_MAX) continue;
+      seen.add(g.id);
+      merged.push(g.id);
+    }
+    await saveMonthGoals(db, userId, now, {
+      games: merged.length ? merged.length : cur.goals.games,
+      hours: cur.goals.hours,
+      trophies: cur.goals.trophies,
+      gameIds: merged,
+    });
+  }
+  await ackMonthRecap(db, userId, recap.month, now);
+  return getMonthGoals(db, userId, now);
+}
+
+/** Перенести или отклонить цель года после автоперехода. */
+export async function applyPlannerRoll(db: AnyDb, userId: UserId, now: Date, kind: 'month' | 'year', action: RollAction): Promise<MonthGoalsView> {
+  if (kind === 'year') await applyYearGoalRoll(db, userId, now, action);
+  else return applyMonthRoll(db, userId, now, action);
+  return getMonthGoals(db, userId, now);
 }
 
 /** Сохранить цели текущего месяца. Все видимые цели пустые — удалить строку. trophies в строке сохраняем, если пришли; иначе не трогаем. */
