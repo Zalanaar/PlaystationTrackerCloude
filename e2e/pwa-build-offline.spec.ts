@@ -46,13 +46,9 @@ const stored = (page: Page) => page.evaluate(async (key) => {
   return hit ? ((await hit.json()) as { profileId: number }).profileId : null;
 }, KEY).catch(() => null);
 
-/** Переход без сети: SW отдаёт /offline, Playwright.goto часто бросает; адрес и вкладка должны успеть смениться. */
-async function offlineGoto(page: Page, path: string) {
+/** Первый заход без сети на этот документ: SW отдаёт /offline, Playwright.goto часто бросает. Без location.replace — OfflineRetry на `online` уводит на «/». */
+async function firstOfflineLand(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  if (new URL(page.url()).pathname !== path) {
-    await page.evaluate((p) => { window.location.replace(p); }, path);
-  }
-  await expect.poll(() => new URL(page.url()).pathname, { timeout: 10_000 }).toBe(path);
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
 }
 
@@ -74,7 +70,7 @@ test('копия пишется под SW; без сети /backlog показы
   const api: string[] = [];
   page.on('request', (rq) => { if (new URL(rq.url()).pathname.startsWith('/api/')) api.push(rq.url()); });
   await context.setOffline(true);
-  await offlineGoto(page, '/backlog');
+  await firstOfflineLand(page, '/backlog');
   const view = page.getByTestId('offline-snapshot');
   await expect(view).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
@@ -86,23 +82,23 @@ test('копия пишется под SW; без сети /backlog показы
   await expect(page.getByTestId('offline-backlog-sum')).toHaveText('2 в бэклоге · ≈ 35 ч · без длительности: 1');
   await expect(page.getByTestId('offline-game').locator('.ps-offline__gname')).toHaveText(['Ghost of Yotei', 'Bloodborne']);
   await expect(view.locator('select, input, [role="menu"]')).toHaveCount(0);
-  // /roadmap без сети — вкладка «План» (первый документ после смены адреса, не клик)
-  await offlineGoto(page, '/roadmap');
+  // вкладки «План» и «Статистика» с той же копии (клик, без второго document-goto: он в CI ловит `online` и уводит на /)
+  await page.getByRole('tab', { name: 'План' }).click();
   await expect(page.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('offline-plan-sum')).toHaveText('1 игра · 20 ч из 520 ч');
   await expect(page.getByTestId('offline-plan-item')).toContainText('GTA VI');
   await expect(page.getByTestId('offline-plan-item')).toContainText('На релизе');
+  await page.getByRole('tab', { name: 'Статистика' }).click();
+  await expect(page.getByRole('tab', { name: 'Статистика' })).toHaveAttribute('aria-selected', 'true');
+  await expect(view).toContainText('2026 год');
+  await expect(view).toContainText('Elden Ring');
+  await expect(view).toContainText('321 ч');
   // «Коллекция»: фильтр по статусу
   await page.getByRole('tab', { name: 'Коллекция' }).click();
   await expect(page.getByTestId('offline-game')).toHaveCount(4);
   await page.getByRole('group', { name: 'Фильтр по статусу' }).getByRole('button', { name: /Пройдено/ }).click();
   await expect(page.getByTestId('offline-game')).toHaveCount(1);
   await expect(page.getByTestId('offline-game')).toContainText('42/42 · платина');
-  // «Статистика»
-  await page.getByRole('tab', { name: 'Статистика' }).click();
-  await expect(view).toContainText('2026 год');
-  await expect(view).toContainText('Elden Ring');
-  await expect(view).toContainText('321 ч');
   // тап-зоны вкладок ≥ 44, без горизонтального скролла
   for (const b of await page.getByRole('tab').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
@@ -114,10 +110,34 @@ test('копия пишется под SW; без сети /backlog показы
   await page.goto('/login');
   await expect.poll(() => stored(page), { timeout: 10_000 }).toBeNull();
   await context.setOffline(true);
-  await offlineGoto(page, '/stats');
+  await firstOfflineLand(page, '/stats');
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
   await expect(page.getByTestId('offline-snapshot')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('Zalanaar');
+});
+
+test('без сети первый заход на /roadmap и /stats открывает «План» и «Статистику» с «Данные от …»', async ({ page, context }) => {
+  const active = { id: 1 };
+  await setup(context, active);
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => stored(page), { timeout: 15_000 }).toBe(1);
+  await context.setOffline(true);
+
+  const road = await context.newPage();
+  await firstOfflineLand(road, '/roadmap');
+  await expect(road.getByTestId('offline-asof')).toHaveText(/^Данные от \d{1,2} [а-я]+\.?, \d{2}:\d{2}$/);
+  await expect(road.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
+  await expect(road.getByTestId('offline-plan-item')).toContainText('GTA VI');
+  await road.close();
+
+  const stats = await context.newPage();
+  await firstOfflineLand(stats, '/stats');
+  await expect(stats.getByTestId('offline-asof')).toHaveText(/^Данные от \d{1,2} [а-я]+\.?, \d{2}:\d{2}$/);
+  await expect(stats.getByRole('tab', { name: 'Статистика' })).toHaveAttribute('aria-selected', 'true');
+  await expect(stats.getByTestId('offline-snapshot')).toContainText('2026 год');
+  await stats.close();
 });
 
 test('смена профиля стирает копию прежнего; новая копия — только активного', async ({ page, context }) => {
