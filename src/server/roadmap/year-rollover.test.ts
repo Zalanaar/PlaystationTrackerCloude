@@ -84,4 +84,12 @@ describe('автопереход года 1 января', () => {
     await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 8 });
     expect(await getSettings(t.db, TEST_USER, JAN1)).toEqual({ year: 2026, hoursPerWeek: 8, configured: true });
   });
+
+  it('в июле прошлый год в настройках не переключается сам (можно смотреть план 2026)', async () => {
+    await seedGoal();
+    const jul = new Date('2027-07-01T09:00:00Z');
+    expect(await getSettings(t.db, TEST_USER, jul)).toMatchObject({ year: 2026, hoursPerWeek: 10 });
+    expect(await getGoal(t.db, TEST_USER, jul)).toMatchObject({ year: 2026, current: 10, count: 12 });
+    expect(await getYearRolloverOffer(t.db, TEST_USER, jul)).toBeNull();
+  });
 });

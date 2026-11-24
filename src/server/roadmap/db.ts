@@ -66,9 +66,12 @@ export async function getSettings(db: AnyDb, userId: UserId, now: Date = new Dat
 
 /** 1 января: если план ещё на прошлом годе и автопереход в этот год не делали — переключаем год, архивируем цель. */
 export async function ensurePlannerYear(db: AnyDb, userId: UserId, now: Date = new Date()): Promise<void> {
-  const current = mskDate(now).year;
+  const today = mskDate(now);
+  const current = today.year;
   const [row] = await db.select().from(roadmapSettings).where(eq(roadmapSettings.userId, userId));
   if (!row || row.year >= current) return;
+  // Только в январе: в остальное время год в настройках можно смотреть как прошлый (QA-32).
+  if (today.month !== 1) return;
   try {
     const [ack] = await db
       .select({ period: plannerRollAcks.period })
