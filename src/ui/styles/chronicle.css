@@ -19,7 +19,7 @@
 .ps-block-error { margin: 0; }
 .ps-year__hint, .ps-year__exp { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font: 400 var(--fs-small)/var(--lh-small) var(--font-body); }
 .ps-month { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 20px 0 10px; color: var(--text-2); font: 600 13px/16px var(--font-body); }
-.ps-month small { display: inline-flex; flex: none; gap: 10px; color: var(--text-3); font-weight: 400; font-size: var(--fs-small); white-space: nowrap; }
+.ps-month small { display: inline-flex; flex: none; gap: 10px; color: var(--text-2); font-weight: 400; font-size: var(--fs-small); white-space: nowrap; }
 .ps-month small > span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 .ps-block__note { margin: calc(-1 * var(--sp-2)) 0 var(--sp-4); color: var(--text-3); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-stamp { position: absolute; top: 18px; left: 16px; z-index: 3; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 var(--sp-3); border: 2px solid var(--st-x); border-radius: var(--r-sm); background: var(--on-cover-bg); color: var(--st-x); font: 700 13px var(--font-display); transform: rotate(-6deg); }
@@ -59,7 +59,7 @@
 .ps-mchips button.ps-mchip small { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 500; color: var(--text-3); }
 .ps-mchips button.ps-mchip:hover { background: var(--surface-2); color: var(--text); }
 .ps-mchips button.ps-mchip:focus-visible { box-shadow: var(--shadow-focus); }
-.ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--accent); background-color: var(--accent); background-image: none; border-color: var(--accent); color: var(--accent-ink); }
 .ps-mchips button.ps-mchip[aria-current="true"] small, .ps-mchips button.ps-mchip[aria-pressed="true"] small { color: inherit; }
 .ps-mchips--sk { margin-top: var(--sp-2); margin-bottom: var(--sp-3); overflow: hidden; }
 .ps-mchip-sk { flex: none; width: 56px; height: var(--mchip-h); border-radius: var(--r-chip); }

@@ -48,7 +48,9 @@
 }
 
 /* Чипы внутри капсулы — пилюли, как в Статистике (не --r-chip: 4px тем PS1/PS2/PS4).
-   Неактивный чип месяца: непрозрачный фон, чтобы счётчик (text-3) читался на капсуле с блюром. */
+   Неактивный чип месяца: непрозрачный фон, чтобы счётчик (text-2) читался на капсуле с блюром.
+   Текущий чип: фон и цвет задаём и на small — иначе проверка контраста (и глаз, если фон кнопки
+   не подхватился) сравнивает accent-ink с --bg: в PS1 это ~1.27, в Graphite ещё ниже. */
 .ps-jumpcap button.ps-mchip,
 .ps-jumpcap .ps-st-secs__chip,
 .ps-jumpcap .ps-rm-jump__a,
@@ -57,6 +59,8 @@
 }
 .ps-mchips.ps-jumpcap button.ps-mchip {
   background: var(--surface);
+  background-color: var(--surface);
+  background-image: none;
 }
 .ps-mchips.ps-jumpcap button.ps-mchip small {
   color: var(--text-2);
@@ -64,10 +68,14 @@
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"],
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-pressed="true"] {
   background: var(--accent);
+  background-color: var(--accent);
+  background-image: none;
+  color: var(--accent-ink);
 }
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"] small,
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-pressed="true"] small {
-  color: inherit;
+  color: var(--accent-ink);
+  background-color: var(--accent);
 }
 
 .ps-jumpcap [aria-current="true"],
