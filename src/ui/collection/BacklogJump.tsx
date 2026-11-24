@@ -104,7 +104,7 @@ export function BacklogJumpNav({ tabs, sentinelRef, stuck, activeTab, onJump }: 
     <>
       <div className="ps-bl-jump__sentinel" ref={sentinelRef} aria-hidden="true" />
       <nav className="ps-bl-jump ps-jumpcap" aria-label="Блоки страницы" data-testid="bl-jump" data-stuck={stuck ? 'true' : 'false'}>
-        <div className="ps-bl-jump__tabs">
+        <div className="ps-bl-jump__tabs ps-jumpcap__in">
           {tabs.map((t) => (
             <button key={t.id} type="button" className="ps-bl-jump__tab" aria-current={activeTab === t.id ? 'location' : undefined} onClick={() => onJump(t.id)}>
               {t.label} <b className="num">{formatNumber(t.n)}</b>

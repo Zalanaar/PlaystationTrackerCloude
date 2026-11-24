@@ -60,14 +60,15 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
     const strip = nav.current;
     const chip = strip?.querySelector<HTMLElement>('[aria-current="true"]');
     if (!strip || !chip) return;
-    const left = chip.offsetLeft;
-    const right = left + chip.offsetWidth;
-    if (left < strip.scrollLeft) strip.scrollTo({ left: left - 8, behavior: reduced() ? 'auto' : 'smooth' });
-    else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: right - strip.clientWidth + 8, behavior: reduced() ? 'auto' : 'smooth' });
+    const sr = strip.getBoundingClientRect();
+    const cr = chip.getBoundingClientRect();
+    if (cr.left < sr.left) strip.scrollTo({ left: strip.scrollLeft + (cr.left - sr.left) - 8, behavior: reduced() ? 'auto' : 'smooth' });
+    else if (cr.right > sr.right) strip.scrollTo({ left: strip.scrollLeft + (cr.right - sr.right) + 8, behavior: reduced() ? 'auto' : 'smooth' });
   }, [cur]);
 
   return (
-    <nav ref={(el) => { nav.current = el; fade(el); }} className="ps-mchips ps-chiprow ps-jumpcap" aria-label={`Месяцы ${year}`}>
+    <nav className="ps-mchips ps-jumpcap" aria-label={`Месяцы ${year}`}>
+      <div ref={(el) => { nav.current = el; fade(el); }} className="ps-jumpcap__in ps-chiprow">
       {chips.map((c) => (
         <button
           key={c.key} type="button" className="ps-chip ps-mchip" aria-current={cur === c.key ? 'true' : undefined} aria-label={`${c.label} ${c.count} — ${c.aria}`}
@@ -76,6 +77,7 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
           {c.label}{' '}<small className="num">{c.count}</small>
         </button>
       ))}
+      </div>
     </nav>
   );
 }

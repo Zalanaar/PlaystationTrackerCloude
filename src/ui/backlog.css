@@ -90,7 +90,7 @@
   display: flex; align-items: center;
   transition: box-shadow var(--dur-base) var(--ease-ui);
 }
-.ps-bl-jump__tabs { display: inline-flex; gap: 2px; padding: 0; background: transparent; border: 0; max-width: 100%; }
+.ps-bl-jump__tabs { display: inline-flex; gap: 2px; background: transparent; border: 0; max-width: 100%; }
 .ps-bl-jump__tab {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 32px; padding: 0 var(--sp-3); min-width: 0;
@@ -103,7 +103,7 @@
 .ps-bl-jump__tab:hover b { color: var(--text); }
 .ps-bl-jump__tab:active { background: var(--surface-3); color: var(--text); }
 .ps-bl-jump__tab[aria-current="location"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.ps-bl-jump__tab[aria-current="location"] b { color: inherit; opacity: .8; }
+.ps-bl-jump__tab[aria-current="location"] b { color: inherit; }
 .ps-bl-jump__tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }   /* внутрь: лоток не обрезает кольцо */
 @media (max-width: 767px) {
   .ps-bl-jump__tab { height: var(--tap-min); padding: 0 var(--sp-2); }

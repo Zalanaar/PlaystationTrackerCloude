@@ -79,7 +79,7 @@ export function SectionChips({ rootRef }: { rootRef: RefObject<HTMLElement | nul
 
   return (
     <nav className="ps-st-secs ps-jumpcap" aria-label="Разделы статистики" data-testid="stats-sections">
-      <div className="ps-st-secs__in ps-chiprow" ref={(el) => { bar.current = el; fade(el); }}>
+      <div className="ps-st-secs__in ps-jumpcap__in ps-chiprow" ref={(el) => { bar.current = el; fade(el); }}>
         {STATS_SECTIONS.filter((s) => present.includes(s.id)).map((s) => (
           <button key={s.id} type="button" className="ps-st-secs__chip" data-sec={s.id} aria-current={active === s.id ? 'true' : undefined} onClick={() => go(s.id)}>
             {s.label}

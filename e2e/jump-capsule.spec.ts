@@ -10,9 +10,14 @@ const done = (id: number, month: number, day: number): G => ({
   completedAt: new Date(Date.UTC(2026, month, day, 10)).toISOString(), droppedAt: null, playSeconds: 3600 * 5, playCount: 3, trophies: null,
 });
 const chronicle = (): G[] => [...seed(), ...Array.from({ length: 36 }, (_, i) => done(500 + i, 9 - Math.floor(i / 6), 20 - (i % 6)))];
-const backlog = (): G[] => Array.from({ length: 24 }, (_, i): G => ({
-  id: 700 + i, title: `Бэклог ${i + 1}`, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 600, playCount: 1, trophies: null,
-}));
+const backlog = (): G[] => [
+  ...Array.from({ length: 24 }, (_, i): G => ({
+    id: 700 + i, title: `Бэклог ${i + 1}`, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 600, playCount: 1, trophies: null,
+  })),
+  ...Array.from({ length: 3 }, (_, i): G => ({
+    id: 800 + i, title: `Сервис ${i + 1}`, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'service', completedAt: null, droppedAt: null, playSeconds: 600, playCount: 1, trophies: null,
+  })),
+];
 
 async function login(page: Page, context: BrowserContext, baseURL: string, games: G[]) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);

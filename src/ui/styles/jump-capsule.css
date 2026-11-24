@@ -10,24 +10,22 @@
   max-width: calc(100% - 2 * var(--jumpcap-inset));
   margin-inline: var(--jumpcap-inset);
   margin-block: var(--jumpcap-inset) var(--sp-3);
-  padding: 4px;
+  padding: 0;
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   backdrop-filter: blur(16px) saturate(160%);
   border: var(--border-w) solid color-mix(in srgb, var(--border-strong, var(--border)) 65%, transparent);
   box-shadow: 0 4px 18px rgba(0, 0, 0, calc(var(--shadow-alpha, .2) + .08));
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
+  overflow: visible;
 }
-.ps-jumpcap::-webkit-scrollbar { display: none; }
 .ps-jumpcap__in {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
   width: 100%;
+  padding: 6px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
@@ -47,7 +45,6 @@
 .ps-jumpcap [aria-current="location"] b,
 .ps-jumpcap [aria-pressed="true"] small {
   color: inherit;
-  opacity: .8;
 }
 
 @media (prefers-reduced-transparency: reduce) {

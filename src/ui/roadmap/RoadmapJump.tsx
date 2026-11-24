@@ -68,11 +68,13 @@ export function RoadmapJump({ attention }: { attention: boolean }) {
 
   return (
     <nav className="ps-rm-jump ps-jumpcap" aria-label="Блоки плана" data-testid="rm-jump">
-      {items.map((s) => (
-        <a key={s.id} className="ps-rm-jump__a" href={`#${s.id}`} aria-current={shown === s.id ? 'true' : undefined} onClick={(e) => go(s.id, e)}>
-          {s.label}
-        </a>
-      ))}
+      <div className="ps-jumpcap__in">
+        {items.map((s) => (
+          <a key={s.id} className="ps-rm-jump__a" href={`#${s.id}`} aria-current={shown === s.id ? 'true' : undefined} onClick={(e) => go(s.id, e)}>
+            {s.label}
+          </a>
+        ))}
+      </div>
     </nav>
   );
 }
