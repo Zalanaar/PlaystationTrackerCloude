@@ -66,7 +66,8 @@ test('пройдено без оценки: «Оценить» открывае�
   const un = page.getByTestId('ratings-unrated');
   await expect(un).toContainText('God of War');
   await un.getByRole('button', { name: 'Оценить' }).first().click();
-  await expect(page).toHaveURL(/\/stats\?sec=ratings/);
+  await expect(page).toHaveURL(/\/stats/);
+  await expect(page).not.toHaveURL(/[?&]game=/);
   const sheet = page.getByRole('dialog', { name: 'God of War' });
   await expect(sheet).toBeVisible();
   await expect(page.getByTestId('ratings-rate-sheet')).toBeVisible();
@@ -76,7 +77,8 @@ test('пройдено без оценки: «Оценить» открывае�
   await expect(sheet.getByText('Сохранено')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
-  await expect(page).toHaveURL(/\/stats\?sec=ratings/);
+  await expect(page).toHaveURL(/\/stats/);
+  await expect(page).not.toHaveURL(/[?&]game=/);
   await expect(page.getByTestId('ratings-unrated')).toHaveCount(0);
   await expect(page.getByTestId('ratings-summary')).toHaveText('Оценено 4 игры · средняя 6,8');
   if ((page.viewportSize()?.width ?? 1280) < 768) {

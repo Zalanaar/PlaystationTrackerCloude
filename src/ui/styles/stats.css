@@ -181,7 +181,8 @@
 .ps-ratings__list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .ps-ratings__note { margin: 0; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 
-.ps-ratings__game { min-width: 0; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.ps-ratings__game { position: relative; min-width: 0; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.ps-ratings__game::after { content: ""; position: absolute; inset: min(0px, calc((100% - var(--tap-min)) / 2 - 1px)) min(0px, calc((100% - var(--tap-min)) / 2 - 1px)); }
 .ps-ratings__game:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .ps-ratings-sheet__body { display: grid; gap: var(--sp-4); }
 .ps-ratings-sheet__head { display: flex; align-items: center; gap: var(--sp-3); }
