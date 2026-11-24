@@ -75,7 +75,7 @@ async function assertChipInside(row: Locator, chip: Locator) {
       [r.left + hr * k, r.bottom - hr * k],
       [r.right - hr * k, r.bottom - hr * k],
     ];
-    const inside = (x, y) => {
+    const inside = (x: number, y: number) => {
       const x0 = cr.left + radius;
       const x1 = cr.right - radius;
       const cy = (cr.top + cr.bottom) / 2;
