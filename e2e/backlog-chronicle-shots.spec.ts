@@ -3,6 +3,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, type G } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const SHOTS = process.env.SHOTS_DIR;
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'] as const;
@@ -32,7 +33,8 @@ async function open(page: Page, context: import('@playwright/test').BrowserConte
   await page.route('https://img.example/white.png', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: WHITE }));
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await page.goto(url);
-  await page.locator('.ps-card:not(.ps-card--sk), .ps-empty, .ps-queue').first().waitFor();
+  if (!url.startsWith('/backlog') && !url.startsWith('/roadmap')) await expandToday(page);
+  await page.locator('.ps-card:not(.ps-card--sk), .ps-empty, .ps-queue, .ps-hero').first().waitFor();
 }
 const hs = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 

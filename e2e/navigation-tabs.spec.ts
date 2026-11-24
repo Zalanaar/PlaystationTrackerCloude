@@ -4,6 +4,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
 import { baseState, mockRoadmap } from './roadmap-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const THIS_YEAR = new Date(Date.now() + 3 * 3600_000).getUTCFullYear();
 const ok = (data: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data }) });
@@ -75,6 +76,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     test.skip(info.project.name === 'mobile', 'шапка с вкладками только на десктопе');
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     const tabs = page.locator('header nav[aria-label="Разделы"] a');
     await expect(tabs).toHaveText(['Коллекция', 'Что дальше', 'Статистика', 'Трофеи']);
     await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'page');
@@ -100,6 +102,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     test.skip(info.project.name === 'mobile', 'меню профиля на десктопе');
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     await page.getByRole('button', { name: /Профиль|Меню профиля/ }).click();
     await expect(page.getByRole('menuitem', { name: 'Скрытые игры' })).toHaveCount(0);
     await expect(page.getByText('Разобрать игры')).toHaveCount(0);
@@ -114,6 +117,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     test.skip(info.project.name === 'desktop', 'меню телефона');
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     await expect(page.locator('nav.ps-tabbar a', { hasText: 'Разбор' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Меню', exact: true }).click();
     const item = page.getByTestId('more-menu-triage');
@@ -129,6 +133,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     for (const w of [768, 860, 905, 1023]) {
       await page.setViewportSize({ width: w, height: 800 });
       await page.goto('/');
+      await expandToday(page);
       const o = await page.evaluate(() => {
         const h = document.querySelector('.ps-header__in') as HTMLElement;
         return { inner: h.scrollWidth - h.clientWidth, doc: document.documentElement.scrollWidth - document.documentElement.clientWidth };
@@ -143,6 +148,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await setup(page, context, baseURL!);
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto('/');
+    await expandToday(page);
     const tabs = page.locator('nav.ps-tabbar a');
     await expect(tabs).toHaveText(['Коллекция', 'Что дальше', 'Статистика', 'Трофеи']);
     const boxes = await tabs.evaluateAll((els) => els.map((e) => ({ w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height, over: (e.querySelector('span:last-child') as HTMLElement).scrollWidth > e.clientWidth })));
@@ -213,6 +219,7 @@ test.describe('Длинные страницы (18.1)', () => {
   test('Хроника: год одной сеткой без заголовков месяцев, чипы скроллят к первой карточке месяца', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     await expect(page.getByRole('heading', { name: '2026', level: 2 })).toBeVisible();
     await expect(page.locator('.ps-chron .ps-month')).toHaveCount(0);
     const chips = page.getByRole('navigation', { name: 'Месяцы 2026' });
@@ -232,6 +239,7 @@ test.describe('Длинные страницы (18.1)', () => {
   test('год с одним месяцем и «Без даты» без чипов', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     await page.getByRole('button', { name: /^2024/ }).click();
     await expect(page.locator('#y2024-body')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Месяцы 2024' })).toHaveCount(0);
@@ -284,6 +292,7 @@ test.describe('Мобильный первый экран (18.2)', () => {
     const m = await setup(page, context, baseURL!);
     m.profile = { onlineId: 'ArtemPS', avatarUrl: null, level: 312, levelProgress: 47, tier: 5, trophies: { platinum: 38, gold: 100, silver: 200, bronze: 500, total: 838 } };
     await page.goto('/');
+    await expandToday(page);
     const h1 = page.getByRole('heading', { name: 'Коллекция', level: 1 });
     await expect(h1).toHaveCount(1);
     expect((await h1.boundingBox())?.width ?? 99).toBeLessThanOrEqual(1);
@@ -321,6 +330,7 @@ test.describe('Мобильный первый экран (18.2)', () => {
     test.skip(info.project.name !== 'mobile', 'мобильная раскладка');
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     const btn = page.getByRole('button', { name: /Фильтры и сортировка/ });
     await expect(btn.locator('.ps-notify-dot')).toHaveCount(0);
     await btn.click();
@@ -386,6 +396,7 @@ test.describe('Ссылка на игру /?game=<id> (18.6)', () => {
   test('клик по карточке ставит ?game=, «назад» закрывает окно', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!);
     await page.goto('/');
+    await expandToday(page);
     await page.getByRole('button', { name: /^Открыть: God of War/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page).toHaveURL(/[?&]game=4/);
@@ -435,6 +446,7 @@ test.describe('Скелеты без скачков, CLS <= 0.05 (18.4)', () => 
       await page.setViewportSize({ width: w, height: h });
       await trackCls(page);
       await page.goto('/');
+      await expandToday(page);
       await resetCls(page);
       await expect(page.locator('.ps-sk-hero2'), 'замер начат до подмены скелета данными').toBeVisible({ timeout: 1 });
       await expect(page.getByRole('heading', { name: '2026', level: 2 })).toBeVisible();
@@ -471,6 +483,7 @@ test.describe('Скелеты без скачков, CLS <= 0.05 (18.4)', () => 
     m.delayList = () => 2000;
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
+    await expandToday(page);
     await expect(page.locator('.ps-skeleton').first()).toBeVisible();
     // Скелет может быть заменён при гидратации (узел отсоединяется, getComputedStyle даёт ''), поэтому читаем стиль свежим запросом и ждём устойчивого значения.
     await expect.poll(() => page.evaluate(() => {

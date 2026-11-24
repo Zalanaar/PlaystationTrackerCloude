@@ -3,6 +3,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type G, type Mock, type MockProfile } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const SHOTS = process.env.SHOTS_DIR;
 const PROFILE: MockProfile = {
@@ -19,6 +20,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, o: Opt
   o.setup?.(mock);
   await page.goto(o.url ?? '/?sort=last_played');
   await expect(page.getByRole('heading', { level: 1, name: o.url?.startsWith('/backlog') ? 'Бэклог' : 'Коллекция' })).toBeVisible();
+  if (!(o.url ?? '').startsWith('/backlog')) await expandToday(page);
   return mock;
 }
 const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]');

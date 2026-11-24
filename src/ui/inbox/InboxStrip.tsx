@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from '@/ui/IntentLink'; // Пакет 6: без предзагрузки по экрану, по намерению
 import { useState } from 'react';
 import { Icon } from '../icons';
+import { useTodayBits } from '../collection/TodayBlock';
 import { useIsMobile } from '../primitives/hooks';
 import type { Chip } from './model';
 import type { InboxCtl } from './useInbox';
@@ -98,6 +99,8 @@ export function InboxStrip({ ctl }: { ctl: InboxCtl }) {
   // ✕ нажат здесь: убрать полосу целиком (сдвиг по действию пользователя допустим). Скрытие, узнанное позже из localStorage, держит место.
   const [userHid, setUserHid] = useState(false);
   const hide = () => { setUserHid(true); ctl.hide(); };
+  const hasChipsEarly = ctl.enabled && ctl.phase === 'ready' && ctl.chips.length > 0;
+  useTodayBits('inbox', { inbox: hasChipsEarly ? 'С прошлого визита' : undefined });
   const skeleton = ctl.enabled && ctl.phase === 'loading' && !ctl.hidden && !ctl.quiet;
   if (skeleton && !reserved) setReserved(true);
   if (!ctl.enabled) return null;

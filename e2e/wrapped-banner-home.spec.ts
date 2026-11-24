@@ -3,22 +3,25 @@ import { createRequire } from 'node:module';
 import { test, expect } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const THIS_YEAR = new Date(Date.now() + 3 * 3600_000).getUTCFullYear();
 
 test.beforeEach(async ({ page, context, baseURL }) => {
-  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }, { name: 'ps-today-open', value: '1', url: baseURL! }]);
   await mockApi(page);
 });
 
 test('30 ноября 23:50 МСК баннера нет, 1 декабря 00:10 МСК есть и «предварительно»', async ({ page }) => {
   await page.clock.setFixedTime(new Date(`${THIS_YEAR}-11-30T20:50:00Z`));
   await page.goto('/');
+  await expandToday(page);
   await expect(page.locator('.ps-card').first()).toBeVisible();
   await expect(page.getByTestId('wrapped-banner')).toHaveCount(0);
 
   await page.clock.setFixedTime(new Date(`${THIS_YEAR}-11-30T21:10:00Z`)); // по UTC ещё ноябрь
   await page.reload();
+  await expandToday(page);
   const banner = page.getByTestId('wrapped-banner');
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(`Итоги ${THIS_YEAR} готовы`);
@@ -35,6 +38,7 @@ test('30 ноября 23:50 МСК баннера нет, 1 декабря 00:10
 test('✕ скрывает баннер, пишет cookie для сервера; после перезагрузки его нет', async ({ page, context }) => {
   await page.clock.setFixedTime(new Date(`${THIS_YEAR}-12-15T09:00:00Z`));
   await page.goto('/');
+  await expandToday(page);
   const banner = page.getByTestId('wrapped-banner');
   await expect(banner).toBeVisible();
   await banner.getByRole('button', { name: 'Скрыть' }).click();
@@ -48,6 +52,7 @@ test('✕ скрывает баннер, пишет cookie для сервера
 test('январь: итоги прошлого года без «предварительно»', async ({ page }) => {
   await page.clock.setFixedTime(new Date(`${THIS_YEAR + 1}-01-10T09:00:00Z`));
   await page.goto('/');
+  await expandToday(page);
   const banner = page.getByTestId('wrapped-banner');
   await expect(banner).toContainText(`Итоги ${THIS_YEAR} готовы`);
   await expect(banner.locator('.ps-wbanner__pre')).toHaveCount(0);
@@ -64,6 +69,7 @@ test('сервер рисует баннер сам, когда сезон ид�
 test('контраст баннера с «предварительно» во всех темах (axe)', async ({ page }) => {
   await page.clock.setFixedTime(new Date(`${THIS_YEAR}-12-15T09:00:00Z`));
   await page.goto('/');
+  await expandToday(page);
   await expect(page.getByTestId('wrapped-banner')).toBeVisible();
   await page.evaluate(createRequire(import.meta.url)('axe-core').source);
   for (const t of ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite']) {

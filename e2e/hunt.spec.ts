@@ -2,9 +2,10 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
 import { mockApi, trophyList } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 async function openGame(page: Page, context: BrowserContext, baseURL: string) {
-  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }, { name: 'ps-today-open', value: '1', url: baseURL }]);
   const m = await mockApi(page);
   const list = trophyList();
   list[0] = { ...list[0], earned: false, earnedAt: null };
@@ -30,6 +31,7 @@ test('закрепить игру и трофей — видно на главн
 
   await dialog.getByRole('button', { name: 'Закрыть' }).first().click();
   await expect(dialog).toHaveCount(0);
+  await expandToday(page);
 
   const home = page.getByTestId('hunt-now');
   await expect(home).toBeVisible();

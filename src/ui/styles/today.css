@@ -1,0 +1,74 @@
+/* Сворачиваемый блок «Сегодня» на главной. Высота строки фиксирована — повод в той же линии, без CLS. */
+.ps-today { margin: 0 0 var(--sp-3); min-width: 0; }
+.ps-today__bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  margin: 0;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 var(--fs-small)/20px var(--font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.ps-today__bar:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-today__line {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ps-today__k { font-weight: 600; color: var(--text); flex: none; }
+.ps-today__sep { color: var(--text-3); flex: none; }
+.ps-today__reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-2);
+  overflow: hidden;
+}
+.ps-today__reason-t { overflow: hidden; text-overflow: ellipsis; }
+.ps-today__dot {
+  flex: none;
+  width: var(--dot-notify);
+  height: var(--dot-notify);
+  border-radius: 99px;
+  background: var(--accent);
+}
+.ps-today__chev { flex: none; color: var(--text-2); }
+.ps-today__panel { margin: var(--sp-2) 0 0; }
+.ps-today__panel[hidden] { display: none; }
+.ps-today[data-open] .ps-today__body {
+  animation: ps-today-in var(--dur-base) var(--ease-ui);
+}
+@keyframes ps-today-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-today[data-open] .ps-today__body { animation: none; }
+}
+/* Компактные карточки внутри раскрытого блока */
+.ps-today__body > * { margin-bottom: var(--sp-2); }
+.ps-today__body > *:last-child { margin-bottom: 0; }
+.ps-today__body .ps-hero { --hero-box-h: 240px; }
+@media (max-width: 767px) {
+  .ps-today__body .ps-hero { --hero-box-h: 220px; }
+}
+.ps-today__body .ps-mgoals,
+.ps-today__body .ps-week1,
+.ps-today__body .ps-hunt,
+.ps-today__body .ps-inbox,
+.ps-today__body .ps-wbanner { margin-bottom: 0; }

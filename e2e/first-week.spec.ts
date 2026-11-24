@@ -5,6 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockApi, type Mock } from './collection-mock';
 import { signedSession } from './session';
 import { isMobile } from './backlog-ui';
+import { expandToday } from './today';
 
 const axeSource: string = createRequire(import.meta.url)('axe-core').source;
 const THEMES = ['night', 'graphite', 'ps1', 'ps5'];
@@ -14,7 +15,7 @@ const SHOW = {
 };
 
 async function open(page: Page, baseURL: string, o: { body?: Record<string, unknown> | null; hint?: '1' | '0'; gate?: Promise<void> } = {}): Promise<Mock> {
-  const cookies = [{ name: 'pst_session', value: await signedSession(), url: baseURL }];
+  const cookies = [{ name: 'pst_session', value: await signedSession(), url: baseURL }, { name: 'ps-today-open', value: '1', url: baseURL }];
   if (o.hint) cookies.push({ name: 'ps-week1', value: o.hint, url: baseURL });
   await page.context().addCookies(cookies);
   const m = await mockApi(page);
@@ -24,6 +25,7 @@ async function open(page: Page, baseURL: string, o: { body?: Record<string, unkn
     await page.route(/\/api\/me\/checklist(\?|$)/, async (r) => { await gate; await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: m.checklist }) }); });
   }
   await page.goto('/');
+  await expandToday(page);
   return m;
 }
 const hintCookie = async (page: Page) => (await page.context().cookies()).find((c) => c.name === 'ps-week1')?.value;

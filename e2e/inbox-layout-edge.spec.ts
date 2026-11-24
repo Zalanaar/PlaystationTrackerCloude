@@ -3,6 +3,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
 import { shotsDir } from './shots';
+import { expandToday } from './today';
 
 const SHOTS = shotsDir('shots-28');
 
@@ -13,7 +14,7 @@ const FULL = {
 const THEMES = ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite'] as const;
 
 async function open(page: Page, context: BrowserContext, baseURL: string, inbox: Record<string, unknown> | null, delay = 0, fails = 0) {
-  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }, { name: 'ps-today-open', value: '1', url: baseURL }]);
   const mock = await mockApi(page, seed());
   mock.inbox = inbox;
   mock.inboxDelay = delay;
@@ -22,6 +23,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, inbox:
   await page.route('**/api/auth/me', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }) }));
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await page.goto('/');
+  await expandToday(page);
   return mock;
 }
 const setTheme = (page: Page, v: string) => page.evaluate((t) => { if (t === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }, v);

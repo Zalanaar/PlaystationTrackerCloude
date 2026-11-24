@@ -20,7 +20,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, noPlay
   await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
   await page.route('**/api/me/tour', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 1, shouldAutoStart: false } }) }));
   await page.goto('/');
-  await page.getByTestId('inbox-strip').waitFor();
+  await page.getByTestId('today-toggle').waitFor();
 }
 
 test('«Играю» пусто: первая строка обложек целиком выше 664 px', async ({ page, context, baseURL }) => {
@@ -32,10 +32,12 @@ test('«Играю» пусто: первая строка обложек цел
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
-test('есть «Играю»: hero начинается в первом экране', async ({ page, context, baseURL }) => {
+test('есть «Играю»: строка «Сегодня» в первом экране, hero скрыт до раскрытия', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL!, false);
-  const hero = page.getByRole('region', { name: 'Играю' });
-  await hero.waitFor();
-  const b = (await hero.boundingBox())!;
-  expect(b.y).toBeLessThan(SAFARI_VISIBLE - 40);
+  const bar = page.getByTestId('today-toggle');
+  await expect(bar).toBeVisible();
+  await expect(bar).toHaveAttribute('aria-expanded', 'false');
+  const b = (await bar.boundingBox())!;
+  expect(b.y + b.height).toBeLessThan(SAFARI_VISIBLE - 40);
+  await expect(page.getByRole('region', { name: 'Играю сейчас' })).toBeHidden();
 });

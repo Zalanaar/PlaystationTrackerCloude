@@ -5,6 +5,7 @@ import { cand, mgame, mockManual, type ManualMock, type MMatch } from './manual-
 import { isMobile } from './backlog-ui';
 import { signedSession } from './session';
 import { addBtn, clickAdd } from './header-actions';
+import { expandToday } from './today';
 
 const bl = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: '2026-09-01T10:00:00.000Z', status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -26,6 +27,7 @@ async function open(
     await page.getByRole('heading', { name: 'Бэклог', level: 1 }).waitFor();
     await page.locator('.ps-card:not(.ps-card--sk), .ps-blrow, .ps-empty').first().waitFor();
   } else {
+    await expandToday(page);
     await page.locator('.ps-card, .ps-hero, [data-testid="home-backlog-row"]').first().waitFor();
   }
   return { mock, manual };

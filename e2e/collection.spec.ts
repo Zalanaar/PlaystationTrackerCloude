@@ -3,6 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, type Mock } from './collection-mock';
 import { signedSession } from './session';
 import { searchBox } from './header-actions';
+import { expandToday } from './today';
 
 async function open(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, url = '/', games = seed()): Promise<Mock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
@@ -10,6 +11,7 @@ async function open(page: Page, context: import('@playwright/test').BrowserConte
   await page.goto(url);
   await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
   await expect(tab(page, /^Все/)).toContainText(/\d/);
+  await expandToday(page);
   return mock;
 }
 

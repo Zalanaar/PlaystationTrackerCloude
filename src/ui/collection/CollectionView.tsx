@@ -22,7 +22,7 @@ import { effectiveView, filtersToUrl, otherBlockFilters, parseFilters, resetFilt
 import type { GameActions } from './GameCard';
 import { BLOCK_TITLES, BULK_MAX, PAGE, scrollToId } from './list/pool';
 import type { RenderCtx } from './list/renderCtx';
-import { CheckChip, renderBlock } from './list/renderBlocks';
+import { renderBlock } from './list/renderBlocks';
 import { useCheckCount } from '../triage/useCheckCount';
 import { moreBtn, renderGames } from './list/renderGames';
 import { renderPlayed } from './list/renderChronicle';
@@ -40,6 +40,7 @@ import { PlayingHero } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
 import { MonthGoalsCard } from '../goals/MonthGoalsCard';
 import { HuntCard } from '../hunts/HuntCard';
+import { TodayBlock } from './TodayBlock';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
@@ -78,12 +79,14 @@ const AddOtherPlatformSheet = dynamic(() => import('../other-platforms/AddOtherP
  * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
  * platformDefault (F4): запомненная платформа из cookie; параметр URL главнее.
  */
-export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null, week1Hint }: {
+export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null, week1Hint, todayOpen = false }: {
   heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint; platformDefault?: PlatformKey | null;
   /** П13.4: cookie-подсказка «Первой недели» (место под карточку без сдвига) */
   week1Hint?: boolean;
   /** П8.4: баннер «Итоги года готовы», который нарисовал сервер (сезон и не закрыт), иначе null */
   wrappedSsr?: WrappedSeason | null;
+  /** Cookie ps-today-open: блок «Сегодня» раскрыт в первом HTML (без CLS). По умолчанию свёрнут. */
+  todayOpen?: boolean;
 } = {}) {
   const router = useRouter();
   const pathname = usePathname();
@@ -316,7 +319,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
           <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
-          {checkCount > 0 && !unsortedShown && <p className="ps-pagehead__check"><CheckChip n={checkCount} /></p>}
         </div>
         {!summary
           ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
@@ -330,14 +332,19 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         ? filters.q.trim() !== '' && <MobileSearchSkeleton />
         : isMobile && searchVisible && <MobileSearch {...barProps} autoFocus={searchOpen && filters.q === ''} onClose={closeSearch} />}
 
-      <InboxStrip ctl={inbox} />
-      <WrappedBanner ssr={wrappedSsr} compact />
-      {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
-      {chronicleMode && !hiddenView && <MonthGoalsCard />}
-      {chronicleMode && !hiddenView && <HuntCard />}
-
-      {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
-      {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}
+      <TodayBlock
+        openSsr={todayOpen}
+        playingCount={pool ? shownCount(counts.playing, playing) : null}
+        checkReason={checkCount > 0 && !unsortedShown ? `проверить ${checkCount}` : undefined}
+      >
+        <InboxStrip ctl={inbox} />
+        <WrappedBanner ssr={wrappedSsr} compact />
+        {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
+        {chronicleMode && !hiddenView && <MonthGoalsCard />}
+        {chronicleMode && !hiddenView && <HuntCard />}
+        {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
+        {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}
+      </TodayBlock>
 
       {mobileMq === null ? <FilterBarSkeleton /> : isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 

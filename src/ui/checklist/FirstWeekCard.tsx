@@ -11,6 +11,7 @@ import { readInstall } from '../pwa/install-store';
 import { ThemeSwatches } from '../shell/ThemePicker';
 import { useSync } from '../sync/SyncProvider';
 import { THEME_STORAGE_KEY } from '../tokens';
+import { useTodayBits } from '../collection/TodayBlock';
 import { dismissChecklistApi, fetchChecklist } from './api';
 import { checklistItems, daysLeft, progressText, type ClientFlags, type Item } from './model';
 
@@ -56,6 +57,8 @@ export function FirstWeekCard({ hint }: { hint: boolean | undefined }) {
     document.cookie = week1HintCookie(false);
     void dismissChecklistApi().catch(() => {});
   }, []);
+
+  useTodayBits('week1', { week1: !gone && data?.show && data.items ? 'Первая неделя' : undefined });
 
   if (gone || (data && (!data.show || !data.items))) return null;
   if (!data || !data.items || !flags) {

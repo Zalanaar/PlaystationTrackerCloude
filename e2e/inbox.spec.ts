@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const FULL = {
   newGames: 3, newGamesWindow: '24h', newUnsorted: 2, trophies: 14, platinums: 1, trophiesWindow: '24h',
@@ -11,7 +12,7 @@ const FULL = {
 type Opts = { inbox?: Record<string, unknown> | null; role?: 'owner' | 'member'; shouldAutoStart?: boolean; seen?: string | null; url?: string; fails?: number; delay?: number };
 
 async function open(page: Page, context: BrowserContext, baseURL: string, o: Opts = {}): Promise<Mock> {
-  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }, { name: 'ps-today-open', value: '1', url: baseURL }]);
   const mock = await mockApi(page, seed());
   mock.inbox = o.inbox ?? null;
   mock.inboxFails = o.fails ?? 0;
@@ -29,6 +30,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, o: Opt
   const seen = o.seen === undefined ? '14' : o.seen;
   if (seen !== null) await page.addInitScript(([k, v]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, v); }, ['ps-wn-seen:1', seen]);
   await page.goto(o.url ?? '/');
+  await expandToday(page);
   if (!(o.url ?? '/').startsWith('/triage')) await page.locator('.ps-card').first().waitFor();
   return mock;
 }
@@ -52,6 +54,7 @@ test.describe('Полоса «С прошлого визита»', () => {
     mock.inboxDelay = 1500;
     await page.addInitScript(() => localStorage.setItem('ps-wn-seen:1', '14'));
     await page.goto('/');
+    await expandToday(page);
     const sk = page.getByTestId('inbox-skeleton');
     await expect(sk).toHaveAttribute('aria-busy', 'true');
     await expect(sk).toHaveAttribute('aria-label', 'Загрузка сводки');

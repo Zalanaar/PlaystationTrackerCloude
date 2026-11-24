@@ -2,6 +2,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 type GoalGame = { id: number; title: string; coverUrl: string | null; completed: boolean };
 type Goals = {
@@ -41,7 +42,7 @@ const EMPTY: Goals = {
 async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
   const current: Goals = structuredClone(initial);
   const puts: unknown[] = [];
-  await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }, { name: 'ps-today-open', value: '1', url: baseURL }]);
   await mockApi(page);
   await page.route(/\/api\/me\/goals(\?|$)/, async (r) => {
     if (r.request().method() === 'PUT') {
@@ -89,6 +90,7 @@ async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
     await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: current }) });
   });
   await page.goto('/');
+  await expandToday(page);
   return { puts };
 }
 

@@ -14,6 +14,7 @@ import { parseGameParam } from '@/ui/collection/gameLink';
 import { PSN_W, psnImageUrl } from '@/ui/format';
 import { PLATFORM_COOKIE, parsePlatform, type PlatformKey } from '@/shared/platform-filter';
 import { WRAPPED_HIDDEN_COOKIE, ssrWrappedSeason, type WrappedSeason } from '@/shared/wrapped-season';
+import { TODAY_OPEN_COOKIE, parseTodayOpen } from '@/shared/today-open';
 
 /** P1-2: адрес только с окном игры (`?game=<id>`, можно `&tab=trophies`) — первый экран тот же, что у `/`, плюс сама игра. */
 function linkOnly(sp: Record<string, string | string[] | undefined>): { ok: boolean; id: number | null } {
@@ -40,6 +41,7 @@ export default async function CollectionPage({ searchParams }: Props) {
   const platform = parsePlatform(jar.get(PLATFORM_COOKIE)?.value);
   // П8.4: баннер «Итоги года готовы» сразу в HTML (МСК, cookie «закрыт»), чтобы он не появлялся после гидрации
   const wrappedSsr = ssrWrappedSeason(jar.get(WRAPPED_HIDDEN_COOKIE)?.value);
+  const todayOpen = parseTodayOpen(jar.get(TODAY_OPEN_COOKIE)?.value);
   const h = await headers();
   // без cookie-подсказки (первый визит) ширина по устройству: телефон рисуется в 2 колонки сразу, приоритет только у 2 обложек первого ряда
   const layout = withDeviceWidth(parseLayoutHint(jar.get(LAYOUT_HINT_COOKIE)?.value), h.get('sec-ch-ua-mobile'), h.get('user-agent'));
@@ -53,21 +55,21 @@ export default async function CollectionPage({ searchParams }: Props) {
   const ssr = link.ok && (mode === null || mode === 'navigate');
   const cookieHeader = ssr ? h.get('cookie') : null;
   return (
-    <Suspense fallback={<CollectionPageSkeleton hero={heroHint !== false} />}>
-      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} />
+    <Suspense fallback={<CollectionPageSkeleton hero={todayOpen && heroHint !== false} />}>
+      <CollectionWithData heroHint={heroHint} layout={layout} cookieHeader={cookieHeader} linkId={ssr ? link.id : null} platform={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} todayOpen={todayOpen} />
     </Suspense>
   );
 }
 
 /** Внутри Suspense: скелет страницы уходит в первом куске HTML, коллекция дописывается тем же ответом, как только готова БД. */
-async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform, wrappedSsr, week1Hint }: {
+async function CollectionWithData({ heroHint, layout, cookieHeader, linkId, platform, wrappedSsr, week1Hint, todayOpen }: {
   heroHint: boolean | undefined; week1Hint: boolean | undefined; layout: LayoutHint; cookieHeader: string | null; linkId: number | null; platform: PlatformKey | null;
-  wrappedSsr: WrappedSeason | null;
+  wrappedSsr: WrappedSeason | null; todayOpen: boolean;
 }) {
   const initial = cookieHeader ? await loadCollectionInitialSlim(cookieHeader, batchUrlFor(platform), linkId) : null;
   // P1-2 (LCP = арт шапки окна): браузер начинает качать его вместе с HTML, а не после запроса деталей с клиента
   const lg = initial?.linkGame;
   const art = lg ? (lg.bannerUrl ? psnImageUrl(lg.bannerUrl, PSN_W.banner) : lg.coverUrl ? psnImageUrl(lg.coverUrl, PSN_W.card) : null) : null;
   if (art) preload(art, { as: 'image', fetchPriority: 'high', referrerPolicy: 'no-referrer' });
-  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} />;
+  return <CollectionView heroHint={heroHint} initial={initial} layout={layout} platformDefault={platform} wrappedSsr={wrappedSsr} week1Hint={week1Hint} todayOpen={todayOpen} />;
 }

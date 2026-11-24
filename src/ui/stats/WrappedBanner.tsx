@@ -6,6 +6,7 @@ import { useNow } from '../primitives/hooks';
 import { hideSeason, seasonPreliminary } from '../wrapped/season';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import type { WrappedSeason } from '@/shared/wrapped-season';
+import { useTodayBits } from '../collection/TodayBlock';
 
 type Props = {
   /** Годы с данными (Статистика): баннер только для них. Пока список не пришёл (пустой) или его нет (главная), не проверяем. */
@@ -20,7 +21,9 @@ type Props = {
 export function WrappedBanner({ years, ssr = null, compact = false }: Props) {
   const year = useSeasonOffer(ssr?.year ?? null);
   const now = useNow();
-  if (year === null || (years && years.length > 0 && !years.includes(year))) return null;
+  const shown = year !== null && !(years && years.length > 0 && !years.includes(year));
+  useTodayBits('wrapped', { wrapped: shown && compact ? `Итоги ${year}` : undefined });
+  if (!shown) return null;
   // до гидрации времени нет: берём то, что посчитал сервер
   const preliminary = now ? seasonPreliminary(now) : (ssr?.preliminary ?? false);
   const pre = preliminary && <span className="ps-wbanner__pre">предварительно</span>;

@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, type G } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const g = (id: number, title: string, o: Partial<G> = {}): G => ({
   id, title, lastPlayedAt: null, status: 'backlog', completedAt: null, droppedAt: null, playSeconds: 0, playCount: 0, trophies: null, ...o,
@@ -12,7 +13,8 @@ async function open(page: Page, context: BrowserContext, baseURL: string, games:
   await mockApi(page, games);
   await page.goto(url);
   await page.getByRole('heading', { name: heading, level: 1 }).waitFor();
-  await page.locator('.ps-card:not(.ps-card--sk), .ps-empty').first().waitFor();
+  if (!url.startsWith('/backlog')) await expandToday(page);
+  await page.locator('.ps-card:not(.ps-card--sk), .ps-empty, .ps-hero').first().waitFor();
 }
 
 test.describe('Хроника: блок «Сейчас»', () => {

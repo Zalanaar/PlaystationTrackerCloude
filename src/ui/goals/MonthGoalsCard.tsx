@@ -10,6 +10,8 @@ import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
 import { fetchMonthGoals, rollPlannerApi, saveMonthGoalsApi } from './api';
+import { MONTH_CHIP_LABELS } from '../collection/monthChips';
+import { useTodayBits } from '../collection/TodayBlock';
 import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, planHoursHintLabel, progressLine, recapSummary, yearGoalBridgeLabel, yearRolloverSummary } from './model';
 
 /** В списке выбора по умолчанию столько строк; остальные — по «Показать ещё» / «Показать все». */
@@ -112,6 +114,17 @@ export function MonthGoalsCard() {
     }
     void save(body);
   }
+
+
+  const monthBit = data && data.goals.games != null
+    ? `${MONTH_CHIP_LABELS[data.monthNum - 1]} ${data.progress.games}/${data.goals.games}`
+    : data && data.goals.hours != null
+      ? `${MONTH_CHIP_LABELS[data.monthNum - 1]} ${data.progress.hours}/${data.goals.hours}`
+      : undefined;
+  useTodayBits('goals', {
+    month: monthBit,
+    recap: data?.recap ? `Как прошёл ${monthTitle(data.recap.monthNum)}` : undefined,
+  });
 
   if (gone || !data) return null;
 
