@@ -116,7 +116,7 @@ export function UpcomingPanel({
   const [live, setLive] = useState('');
   const reqRef = useRef(0);
   const onDatesRef = useRef(onDatesUpdated);
-  onDatesRef.current = onDatesUpdated;
+  useEffect(() => { onDatesRef.current = onDatesUpdated; }, [onDatesUpdated]);
 
   const fetchPage = useCallback(async (n: number) => {
     const my = ++reqRef.current;

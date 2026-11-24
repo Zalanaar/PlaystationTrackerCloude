@@ -68,11 +68,7 @@ export function ReleaseSheet({
 
   useEffect(() => {
     const text = q.trim();
-    if (edit) return;
-    if (text.length < 2) {
-      setSearch({ state: 'idle' });
-      return;
-    }
+    if (edit || text.length < 2) return;
     const ctl = new AbortController();
     const t = setTimeout(() => {
       setSearch((s) => (s.state === 'loading' ? s : { state: 'loading' }));
