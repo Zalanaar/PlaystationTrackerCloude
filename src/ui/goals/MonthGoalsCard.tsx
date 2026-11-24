@@ -133,7 +133,7 @@ export function MonthGoalsCard() {
       {data.recap && (
         <section className="ps-mgoals" data-testid="month-goals-recap">
           <div className="ps-mgoals__head">
-            <h2 className="ps-mgoals__t">Итоги месяца</h2>
+            <h2 className="ps-mgoals__t">Как прошёл {monthTitle(data.recap.monthNum)}</h2>
           </div>
           <p className="ps-mgoals__lead" data-testid="month-goals-recap-summary">{recapSummary(data.recap)}</p>
           {data.recap.canCarry && (

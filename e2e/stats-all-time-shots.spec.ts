@@ -159,7 +159,7 @@ for (const theme of THEMES) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setTheme(page, theme);
     await page.getByRole('button', { name: 'Смотреть итоги за всё время' }).click();
-    await expect(page.getByRole('dialog', { name: 'Итоги за всё время' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'За всё время' })).toBeVisible();
     for (let i = 0; i < 9; i++) {
       const id = await sid(page);
       expect(await overflow(page)).toBeLessThanOrEqual(0);

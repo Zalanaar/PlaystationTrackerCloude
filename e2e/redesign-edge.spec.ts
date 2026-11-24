@@ -60,7 +60,7 @@ test.describe('граничные случаи редизайна', () => {
     await expect(page.locator('.ps-cover--empty').first()).toContainText('Битая обложка');
   });
 
-  test('более 300 игр «Не разобрано»: вкладка показывает 300 и «Показать ещё», Разбор догружает очередь', async ({ page, context, baseURL }) => {
+  test('более 300 игр «Без статуса»: вкладка показывает 300 и «Показать ещё», Разбор догружает очередь', async ({ page, context, baseURL }) => {
     const games = Array.from({ length: 350 }, (_, i) => g(i + 1, { lastPlayedAt: new Date(Date.UTC(2026, 0, 1) + i * 86400000).toISOString() }));
     const mock = await open(page, context, baseURL!, '/?status=none', games);
     await expect(page.locator('article.ps-card').first()).toBeVisible();

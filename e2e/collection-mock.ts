@@ -81,7 +81,7 @@ export function seed(): G[] {
   ];
 }
 
-/** N игр-сервисов (id от 100) с убывающим последним запуском: для проверки блока «Игры-сервисы». */
+/** N игр-сервисов (id от 100) с убывающим последним запуском: для проверки блока «Сервисы». */
 export function serviceGames(n: number): G[] {
   return Array.from({ length: n }, (_, i) => ({
     id: 100 + i, title: `Сервис ${i + 1}`, lastPlayedAt: new Date(Date.UTC(2026, 9, 25 - i, 10)).toISOString(), status: 'service' as const,

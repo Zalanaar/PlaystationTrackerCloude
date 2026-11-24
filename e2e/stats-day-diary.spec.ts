@@ -1,6 +1,6 @@
 // П11.1 «Дневник дня»: тап по дню карты «Активность» открывает игры, трофеи и завершения дня; ‹ › — соседние игровые дни;
 // Enter с клавиатуры; закрытие; телефон 360/390 без горизонтального скролла; axe (контраст, имена) во всех темах.
-// П11.2 «В этот день»: прошлые годы под картой, тап по году открывает дневник этой даты; пусто — блока нет.
+// П11.2 «День <дата>»: прошлые годы под картой, тап по году открывает дневник этой даты; пусто — блока нет.
 import { createRequire } from 'node:module';
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi } from './collection-mock';
@@ -119,13 +119,13 @@ for (const w of [360, 390]) {
   });
 }
 
-test('«В этот день»: годы, тап открывает дневник даты; пусто — блока нет', async ({ page, baseURL }) => {
+test('«День …»: годы, тап открывает дневник даты; пусто — блока нет', async ({ page, baseURL }) => {
   const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
   const y = Number(today.slice(0, 4));
   const past = (n: number) => ({ ...dayFor(`${y - n}${today.slice(4)}`), prev: null, next: null });
   const { panel, calls } = await open(page, baseURL!, [past(1), past(3)]);
   const block = panel.getByTestId('on-this-day');
-  await expect(block.getByRole('heading', { name: 'В этот день' })).toBeVisible();
+  await expect(block.getByRole('heading', { name: /^День / })).toBeVisible();
   const rows = block.getByTestId('otd-row');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText(String(y - 1));
@@ -139,7 +139,7 @@ test('«В этот день»: годы, тап открывает дневни
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
-test('«В этот день»: нет прошлых лет — блока нет', async ({ page, baseURL }) => {
+test('«День …»: нет прошлых лет — блока нет', async ({ page, baseURL }) => {
   const { panel } = await open(page, baseURL!);
   await expect(panel.locator('.ps-heat')).toBeVisible();
   await expect(panel.getByTestId('on-this-day')).toHaveCount(0);

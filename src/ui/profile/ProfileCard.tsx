@@ -39,7 +39,7 @@ export function ProfileRow({ profile, totals = null }: { profile: PsnProfile | n
   if (!p) {
     if (!sub) return null;
     return (
-      <section className="ps-panel ps-profile ps-profile--row ps-profile--totals" aria-label="Итоги коллекции">
+      <section className="ps-panel ps-profile ps-profile--row ps-profile--totals" aria-label="Сводка коллекции">
         <p className="ps-profile__nick ps-num" data-testid="profile-row-totals">{sub}</p>
       </section>
     );

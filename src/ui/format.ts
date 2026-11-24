@@ -77,6 +77,14 @@ export function formatDateLong(iso: string | null | undefined): string | null {
   return `${p.d} ${MONTHS_GEN[p.m - 1]} ${p.y} г.`;
 }
 
+/** «День 5 октября» — заголовок блока на Статистике (без года: тот же календарный день в разные годы). */
+export function formatDayHeading(iso: string | null | undefined): string | null {
+  const t = parse(iso);
+  if (t === null) return null;
+  const p = mskParts(t);
+  return `День ${p.d} ${MONTHS_GEN[p.m - 1]}`;
+}
+
 /** «12 окт.» в текущем году, иначе «12.10.2025». */
 export function formatShortDate(iso: string | null | undefined, nowMs: number): string | null {
   const t = parse(iso);

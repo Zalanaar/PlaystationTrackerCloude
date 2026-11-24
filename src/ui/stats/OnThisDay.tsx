@@ -1,18 +1,19 @@
 'use client';
 
 import type { OnThisDayResponse } from '@/server/stats/day';
+import { formatDayHeading } from '../format';
 import { Icon } from '../icons';
 import { daySummary, onThisDayLine, yearsAgo } from './day';
 
 /**
- * П11.2 «В этот день»: сегодняшний день в прошлые годы (данные грузятся вместе с «Активностью»). Нет таких дней — блока нет.
+ * П11.2 «День <дата>»: сегодняшний день в прошлые годы (данные грузятся вместе с «Активностью»). Нет таких дней — блока нет.
  * Тап по году открывает «Дневник дня» на эту дату.
  */
 export function OnThisDay({ data, selected, onPick }: { data: OnThisDayResponse; selected: string | null; onPick: (date: string) => void }) {
   if (data.items.length === 0) return null;
   return (
     <section className="ps-otd" aria-labelledby="st-otd" data-testid="on-this-day">
-      <h4 className="ps-otd__t" id="st-otd"><Icon name="calendar" size={14} />В этот день</h4>
+      <h4 className="ps-otd__t" id="st-otd"><Icon name="calendar" size={14} />{formatDayHeading(data.today) ?? 'День'}</h4>
       <ul className="ps-otd__list">
         {data.items.map((d) => {
           const line = onThisDayLine(d);

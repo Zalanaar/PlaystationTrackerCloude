@@ -36,11 +36,11 @@ export function SyncIndicator() {
     status ? { running: status.running, lastSuccessAt: status.lastSuccessAt, failed, npsso: needsNewNpsso(status) } : null, now,
   );
   const age = status ? syncAge(status.lastSuccessAt, now) : null;
-  const text = tone === 'busy' ? 'Синк идёт…' : tone === 'unknown' ? 'Синк: нет данных' : age ? `Синк: ${age}` : 'Синк не запускался';
+  const text = tone === 'busy' ? 'Синк с PSN идёт…' : tone === 'unknown' ? 'Синк с PSN: нет данных' : age ? `Синк с PSN: ${age}` : 'Синк с PSN не запускался';
   // мобильная шапка (D2/P2-14, F8): значок ↻ цветом тона + короткое время «12 ч» (не путается с наигранными часами), полный текст в aria-label
   const mobileText = tone === 'bad' ? 'Ошибка' : tone === 'busy' ? 'Идёт…' : tone === 'unknown' ? '' : age ? shortAge(age) : 'Нет';
   return (
-    <button type="button" className="ps-btn ps-btn--sync" data-tour="sync" onClick={openPanel} aria-label={`${text}. Открыть синк`} title={text} data-tone={tone}>
+    <button type="button" className="ps-btn ps-btn--sync" data-tour="sync" onClick={openPanel} aria-label={`${text}. Открыть синк с PSN`} title={text} data-tone={tone}>
       <span className="ps-dot" data-tone={tone} aria-hidden="true" />
       <span className="ps-sync-ic" data-tone={tone} aria-hidden="true"><Icon name="refresh" size={14} /></span>
       <span className="ps-sync-text">{text}</span>

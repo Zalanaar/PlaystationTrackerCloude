@@ -163,7 +163,7 @@ export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreSt
   const monthGoalIds = ctx.monthGoalIds ?? [];
   const planOrderIds = ctx.planOrderIds ?? [];
   const gi = monthGoalIds.indexOf(c.id);
-  if (gi >= 0) push('plan_priority', 1, 'Цель этого месяца');
+  if (gi >= 0) push('plan_priority', 1, 'Цель на этот месяц');
   else {
     const pi = planOrderIds.indexOf(c.id);
     if (pi === 0) push('plan_priority', 0.7, 'Следующая в Плане');

@@ -8,7 +8,7 @@ const g = (id: number, status: GameItem['status'], lastPlayedAt: string | null =
 });
 
 describe('блоки коллекции', () => {
-  it('порядок: Играю, Хроника, Бэклог, Игры-сервисы, Отложено, Не разобрано', () => {
+  it('порядок: Играю, Хроника, Бэклог, Сервисы, Отложено, Без статуса', () => {
     expect(visibleBlocks('all')).toEqual(['playing', 'chronicle', 'backlog', 'service', 'shelved', 'unsorted']);
     expect(visibleBlocks('service')).toEqual(['service']);
     expect(visibleBlocks('completed')).toEqual(['chronicle']);

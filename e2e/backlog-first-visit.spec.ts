@@ -24,7 +24,7 @@ async function open(page: Page, baseURL: string, standalone: boolean) {
   await page.goto('/');
   await expect(page.locator('.ps-card').first()).toBeVisible();
 }
-const tapBacklog = (page: Page) => page.locator('nav.ps-tabbar').getByRole('link', { name: 'Бэклог' })
+const tapBacklog = (page: Page) => page.locator('nav.ps-tabbar').getByRole('link', { name: 'Что дальше' })
   .evaluate((el) => { (window as unknown as W).__tap = performance.now(); (el as HTMLElement).click(); });
 
 test('холодный первый вход: скелет, затем содержимое fade без сдвига', async ({ page, baseURL, isMobile }) => {

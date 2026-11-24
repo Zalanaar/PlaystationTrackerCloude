@@ -91,7 +91,7 @@ const REASON_TEXT: Record<SyncErrorReason, string> = {
   access_denied: 'PSN закрыл доступ к списку игр или трофеям.',
   rate_limited: 'PSN ограничил частоту запросов. Попробуй позже.',
   psn_unavailable: 'PSN сейчас недоступен. Попробуй позже.',
-  timeout: 'Синк не уложился во время и остановлен. Можно продолжить.',
+  timeout: 'Синк с PSN не уложился во время и остановлен. Можно продолжить.',
   internal: 'Внутренняя ошибка синка.',
   cancelled: 'Остановлено тобой. Загруженные данные сохранены.',
 };
@@ -120,9 +120,9 @@ export const CANCEL_CONFIRM_TEXT = 'Остановить синк? Загруж�
 /** Текст ошибки POST /api/sync/cancel и POST /api/sync {restart:true} (8.8). */
 export function stopErrorText(status: number, code: string | undefined, action: 'cancel' | 'restart'): string {
   if (status === 403 || code === 'forbidden') return 'Остановить чужой синк может только владелец.';
-  if (status === 409 && code === 'sync_in_progress') return 'Синк сейчас занят другим запуском. Попробуй ещё раз через минуту.';
+  if (status === 409 && code === 'sync_in_progress') return 'Синк с PSN занят другим запуском. Попробуй ещё раз через минуту.';
   if (status === 409 && code === 'psn_not_set') return 'PSN-аккаунт не подключён.';
-  if (code === 'config_error') return 'Синк не настроен на сервере.';
+  if (code === 'config_error') return 'Синк с PSN не настроен на сервере.';
   if (status === 503 || code === 'db_unavailable') return 'База данных недоступна. Попробуй позже.';
   if (status === 401) return 'Сессия истекла. Войди заново.';
   return action === 'cancel' ? 'Не удалось остановить синк.' : 'Не удалось перезапустить синк.';
@@ -187,9 +187,9 @@ export function runCountersText(run: SyncRun): string | null {
 }
 
 export function buttonLabel(s: Pick<SyncStatus, 'run' | 'running'>, busy: boolean): string {
-  if (busy || s.running) return 'Синк идёт…';
-  if (s.run?.status === 'partial') return 'Продолжить синк';
-  return 'Синк сейчас';
+  if (busy || s.running) return 'Синк с PSN идёт…';
+  if (s.run?.status === 'partial') return 'Продолжить синк с PSN';
+  return 'Синк с PSN';
 }
 
 /** «09.11.2026, 21:55» по часам устройства, без подписи пояса (Пакет 6, п. 3). */
@@ -224,8 +224,8 @@ export function formatMoscow(iso: string | null): string | null {
 
 /** Текст ошибки ответа POST /api/sync. */
 export function startErrorText(status: number, code: string | undefined): string {
-  if (status === 409 || code === 'sync_in_progress') return 'Синк уже идёт.';
-  if (code === 'config_error') return 'Синк не настроен на сервере.';
+  if (status === 409 || code === 'sync_in_progress') return 'Синк с PSN уже идёт.';
+  if (code === 'config_error') return 'Синк с PSN не настроен на сервере.';
   if (code === 'db_unavailable' || status === 503) return 'База данных недоступна.';
   if (status === 401) return 'Сессия истекла. Войди заново.';
   return 'Не удалось запустить синк.';

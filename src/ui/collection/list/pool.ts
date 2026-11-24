@@ -18,7 +18,7 @@ export type DateRestore = { kind: 'completed' | 'dropped'; iso: string };
 export type Pool = { items: GameItem[]; counts: StatusCounts; total: number; failed: BlockId[]; /** 14.4: забытых во всей коллекции */ forgotten?: number; /** порядок, с которым загружен пул: группы по годам не должны мигать до перезагрузки */ order: 'asc' | 'desc' };
 /** Контекст окна игры, открытого из приложения (флаг «Изменить дату», снимок); сам факт «открыто» живёт в адресе ?game= */
 export type OpenCtx = { id: number; edit: boolean; snapshot: GameItem };
-export const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Игры-сервисы', shelved: 'Отложено', unsorted: 'Не разобрано' };
+export const BLOCK_TITLES: Record<BlockId, string> = { playing: 'Играю', chronicle: 'Хроника', backlog: 'Бэклог', service: 'Сервисы', shelved: 'Отложено', unsorted: 'Без статуса' };
 
 export function oldDate(g: GameItem): DateRestore | undefined {
   if (g.status === 'completed' && g.completedAt) return { kind: 'completed', iso: g.completedAt };

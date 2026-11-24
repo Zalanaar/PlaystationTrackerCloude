@@ -240,7 +240,7 @@ test.describe('QA 18: План, Статистика, ширины', () => {
     test.skip(info.project.name !== 'mobile', 'tab bar');
     await setup(page, context, baseURL!);
     await page.goto('/recommend');
-    await expect(page.locator('nav.ps-tabbar a[aria-current="page"]')).toHaveText('Бэклог');
+    await expect(page.locator('nav.ps-tabbar a[aria-current="page"]')).toHaveText('Что дальше');
     await page.goto('/wrapped');
     await expect(page.locator('nav.ps-tabbar a[aria-current="page"]')).toHaveText('Статистика');
   });

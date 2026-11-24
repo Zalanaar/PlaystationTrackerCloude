@@ -30,9 +30,9 @@ describe('sync status mapping', () => {
     expect(needsNewNpsso({ psnAuth: 'auth_expired', run: run({ status: 'running' }) })).toBe(false);
   });
   it('название кнопки', () => {
-    expect(buttonLabel({ run: null, running: false }, false)).toBe('Синк сейчас');
-    expect(buttonLabel({ run: run({ status: 'partial' }), running: false }, false)).toBe('Продолжить синк');
-    expect(buttonLabel({ run: run(), running: true }, false)).toBe('Синк идёт…');
+    expect(buttonLabel({ run: null, running: false }, false)).toBe('Синк с PSN');
+    expect(buttonLabel({ run: run({ status: 'partial' }), running: false }, false)).toBe('Продолжить синк с PSN');
+    expect(buttonLabel({ run: run(), running: true }, false)).toBe('Синк с PSN идёт…');
   });
   it('время в Europe/Moscow', () => {
     expect(formatMoscow('2026-10-26T20:01:10.000Z')).toContain('23:01');
@@ -58,7 +58,7 @@ describe('sync status mapping', () => {
     expect(runCountersText(run({ counters: null }))).toBeNull();
   });
   it('409 = уже идёт', () => {
-    expect(startErrorText(409, 'sync_in_progress')).toBe('Синк уже идёт.');
+    expect(startErrorText(409, 'sync_in_progress')).toBe('Синк с PSN уже идёт.');
     expect(startErrorText(500, 'config_error')).toMatch(/не настроен/);
   });
 });

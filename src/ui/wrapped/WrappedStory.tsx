@@ -127,7 +127,7 @@ export function WrappedStory({ data, onClose }: { data: WrappedResponse; onClose
   return createPortal(
     <div className="ps-story" data-reduced={rm || undefined}>
       <div
-        ref={root} className="ps-story__stage" role="dialog" aria-modal="true" aria-label={isAll ? 'Итоги за всё время' : `Итоги ${data.year}`} tabIndex={-1}
+        ref={root} className="ps-story__stage" role="dialog" aria-modal="true" aria-label={isAll ? 'За всё время' : `Итоги ${data.year}`} tabIndex={-1}
         data-slide={slide} data-index={index} data-paused={held || (paused && auto) || undefined} data-auto={auto || undefined}
         style={{ '--slide-base': slideColor(slide) } as CSSProperties}
         onContextMenu={(e) => e.preventDefault()} onPointerDown={onDown} onPointerUp={(e) => finish(e, false)} onPointerCancel={(e) => finish(e, true)}

@@ -37,7 +37,7 @@ test.describe('Баннер «синк не запускался»', () => {
     m.syncStatus = { ...m.syncStatus, overdue: { isOverdue: true, ageHours: 53.2, thresholdHours: 30 } };
     await page.goto('/');
     const b = page.getByTestId('overdue-banner');
-    await expect(b).toContainText('Синк не запускался уже 53 ч (порог 30 ч)');
+    await expect(b).toContainText('Синк с PSN не запускался уже 53 ч (порог 30 ч)');
     await b.getByRole('button', { name: 'Скрыть сообщение' }).click();
     await expect(b).toHaveCount(0);
   });

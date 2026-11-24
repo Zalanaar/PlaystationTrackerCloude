@@ -98,7 +98,7 @@ test.describe('Статистика: «Всё время» (Фаза 25)', () =>
     await expect(page.getByTestId('all-range')).toHaveText(`${FIRST_Y} – ${CUR}`);
     await expect(page.locator('.ps-st-head')).toContainText('пройдено');
     await expect(page.locator('.ps-st-head')).toContainText('≈');
-    const link = page.getByRole('link', { name: 'Итоги: всё время' });
+    const link = page.getByRole('link', { name: 'За всё время' });
     await expect(link).toHaveAttribute('href', '/wrapped?year=all');
     await expect(page.locator('.ps-sr[aria-live="polite"]', { hasText: 'Период: всё время' })).toHaveCount(1);
     expect(await page.locator('body').innerText()).not.toMatch(/NaN|undefined|null|Invalid/);
@@ -343,7 +343,7 @@ test.describe('Итоги: «Всё время» (Фаза 26)', () => {
     await openWrapped(page, context, baseURL!, '/wrapped?year=all');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByRole('button', { name: 'Смотреть итоги за всё время' }).click();
-    const stage = page.getByRole('dialog', { name: 'Итоги за всё время' });
+    const stage = page.getByRole('dialog', { name: 'За всё время' });
     await expect(stage).toBeVisible();
     await expect(page.locator('.ps-story__seg')).toHaveCount(9);
     await expect(page.locator('.ps-story__brand')).toHaveText('PS TRACKER · ВСЁ ВРЕМЯ');

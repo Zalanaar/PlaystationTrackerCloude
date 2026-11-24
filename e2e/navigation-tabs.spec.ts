@@ -76,16 +76,16 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await setup(page, context, baseURL!);
     await page.goto('/');
     const tabs = page.locator('header nav[aria-label="Разделы"] a');
-    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
+    await expect(tabs).toHaveText(['Коллекция', 'Что дальше', 'Статистика', 'Трофеи']);
     await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'page');
     const cur = async (path: string, tab: string, sub?: string) => {
       await page.goto(path);
       await expect(page.locator('header nav[aria-label="Разделы"] a[aria-current="page"]')).toHaveText(tab);
       if (sub) await expect(page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]')).toHaveText(sub);
     };
-    await cur('/backlog', 'Бэклог', 'Список');
-    await cur('/roadmap', 'Бэклог', 'План');
-    await cur('/recommend', 'Бэклог', 'Подскажи');
+    await cur('/backlog', 'Что дальше', 'Бэклог');
+    await cur('/roadmap', 'Что дальше', 'План');
+    await cur('/recommend', 'Что дальше', 'Подскажи');
     await cur('/stats', 'Статистика');
     await cur('/wrapped', 'Статистика');
     await cur('/trophies', 'Трофеи');
@@ -144,7 +144,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto('/');
     const tabs = page.locator('nav.ps-tabbar a');
-    await expect(tabs).toHaveText(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
+    await expect(tabs).toHaveText(['Коллекция', 'Что дальше', 'Статистика', 'Трофеи']);
     const boxes = await tabs.evaluateAll((els) => els.map((e) => ({ w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height, over: (e.querySelector('span:last-child') as HTMLElement).scrollWidth > e.clientWidth })));
     for (const b of boxes) { expect(Math.abs(b.w - 90)).toBeLessThan(1); expect(b.h).toBeGreaterThanOrEqual(44); expect(b.over).toBe(false); }
     await page.goto('/roadmap');

@@ -1,4 +1,4 @@
-// QA правки 1 и 2: блок «Игры-сервисы» и оценочные столбцы на узких экранах (320/360/390) и в трёх темах. Снимки при SHOTS_DIR.
+// QA правки 1 и 2: блок «Сервисы» и оценочные столбцы на узких экранах (320/360/390) и в трёх темах. Снимки при SHOTS_DIR.
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, serviceGames, type G } from './collection-mock';
 import { signedSession } from './session';
@@ -42,7 +42,7 @@ test('BUG-E2: Коллекция на 360px без горизонтальног�
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
-test.describe('QA: блок «Игры-сервисы» на узких экранах', () => {
+test.describe('QA: блок «Сервисы» на узких экранах', () => {
   for (const w of WIDTHS) {
     test(`${w}px: 120 сервисов с длинными названиями, нет горизонтального скролла, без горизонтального скролла блока`, async ({ page, context, baseURL }) => {
       await page.setViewportSize({ width: w, height: 800 });

@@ -16,7 +16,7 @@ import { moreBtn, renderGames, renderPreview } from './renderGames';
 import type { RenderCtx } from './renderCtx';
 import { isHomeBacklogRow } from '../BacklogLinkRow';
 
-/** Блок «Игры-сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
+/** Блок «Сервисы» (§4.3.1): один ряд + «Показать ещё {N}» / «Свернуть». */
 export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
   const { view, density, cols, filters, actions, selectMode, selected, counts, serviceFull, serviceOpen, setServiceOpen, serviceRows, setServiceRows, rawLoaded } = c;
   const total = filters.platinum ? list.length : Math.max(counts.service, list.length);
@@ -69,7 +69,7 @@ export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
   }
   return (
     <section key="service" className="ps-block" id="service" aria-labelledby="h-service">
-      <BlockHead id="h-service" title="Игры-сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
+      <BlockHead id="h-service" title="Сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
       {body}
       {toggleBtn && <div className="ps-more ps-more--service">{toggleBtn}</div>}
       {(serviceFull || (!isList && serviceOpen)) && moreBtn(c, 'service', counts.service - rawLoaded('service'))}
@@ -96,7 +96,7 @@ export function renderBlock(c: RenderCtx, b: BlockId): ReactNode {
   const full = isFull(b, filters.status, filters.platinum);
   const total = shownCount(counts[b === 'backlog' ? 'backlog' : b === 'shelved' ? 'shelved' : 'none'], list);
   if (list.length === 0) return null;
-  const titles: Record<string, string> = { backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Не разобрано' };
+  const titles: Record<string, string> = { backlog: 'Бэклог', shelved: 'Отложено', unsorted: 'Без статуса' };
   const id = b === 'unsorted' ? 'unsorted' : b;
   return (
     <section key={b} className="ps-block" id={id} aria-labelledby={`h-${id}`}>

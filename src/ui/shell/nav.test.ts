@@ -37,7 +37,8 @@ describe('isSubnavActive', () => {
 describe('sectionTitle (F25)', () => {
   it('вкладки и экраны без вкладки', () => {
     expect(sectionTitle('/')).toBe('Коллекция');
-    expect(sectionTitle('/roadmap')).toBe('Бэклог');
+    expect(sectionTitle('/backlog')).toBe('Что дальше');
+    expect(sectionTitle('/roadmap')).toBe('Что дальше');
     expect(sectionTitle('/wrapped')).toBe('Статистика');
     expect(sectionTitle('/triage')).toBe('Разбор');
     expect(sectionTitle('/profiles')).toBe('Профили');

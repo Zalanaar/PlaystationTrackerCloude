@@ -71,7 +71,7 @@ test('копия пишется под SW; без сети /backlog показы
   await expect(view).toContainText('Zalanaar');
   await expect(page.getByTestId('offline-asof')).toHaveText(/^Данные на \d{1,2} [а-я]+\.?, \d{2}:\d{2}$/);
   // открыт «Бэклог» (адрес /backlog), порядок сохранённый, правок нет
-  await expect(page.getByRole('tab', { name: 'Бэклог' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Что дальше' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('offline-backlog-sum')).toHaveText('2 в бэклоге · ≈ 35 ч · без длительности: 1');
   await expect(page.getByTestId('offline-game').locator('.ps-offline__gname')).toHaveText(['Ghost of Yotei', 'Bloodborne']);
   await expect(view.locator('select, input, [role="menu"]')).toHaveCount(0);

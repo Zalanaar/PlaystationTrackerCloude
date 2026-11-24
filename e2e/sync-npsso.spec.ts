@@ -47,7 +47,7 @@ test.describe('Фаза 24: NPSSO с сайта', () => {
     await input.fill(SECRET);
     await page.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByTestId('npsso-result')).toContainText('Принято');
-    await expect(page.getByTestId('npsso-result').getByRole('button', { name: 'Синк сейчас' })).toBeVisible();
+    await expect(page.getByTestId('npsso-result').getByRole('button', { name: 'Синк с PSN' })).toBeVisible();
     expect(calls).toHaveLength(1);
     expect(calls[0].ct).toContain('application/json');
     expect(JSON.parse(calls[0].body)).toEqual({ npsso: SECRET });
@@ -85,7 +85,7 @@ test.describe('Фаза 24: NPSSO с сайта', () => {
     });
   }
 
-  test('P1-4: токен в порядке — один заголовок, «Синк сейчас» первым, NPSSO под раскрытием', async ({ page, context, baseURL }) => {
+  test('P1-4: токен в порядке — один заголовок, «Синк с PSN» первым, NPSSO под раскрытием', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string, { expired: false });
     const dlg = page.getByRole('dialog', { name: 'Синхронизация с PSN' });
     // P1-4: заголовок один — у sheet, у панели синка своего нет. Уведомления — только в «Настройках».
@@ -93,7 +93,7 @@ test.describe('Фаза 24: NPSSO с сайта', () => {
     await expect(dlg.getByTestId('push-panel')).toHaveCount(0);
     await expect(dlg.getByRole('heading', { level: 2 })).toHaveText(['Синхронизация с PSN']);
     await expect(dlg.getByTestId('sync-panel').getByRole('heading')).toHaveCount(0);
-    await expect(dlg.getByTestId('sync-panel').getByRole('button').first()).toHaveText('Синк сейчас');
+    await expect(dlg.getByTestId('sync-panel').getByRole('button').first()).toHaveText('Синк с PSN');
     await expect(page.getByLabel('Вставить NPSSO')).toHaveCount(0);
     const tg = page.getByTestId('npsso-toggle');
     await expect(tg).toHaveAttribute('aria-expanded', 'false');

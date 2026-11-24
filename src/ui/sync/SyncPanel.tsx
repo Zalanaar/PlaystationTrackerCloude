@@ -78,7 +78,7 @@ export function SyncPanel() {
   const last = formatLocalDateTime(status?.lastSuccessAt ?? null);
   const npsso = status ? needsNewNpsso(status) : false;
   const fraction = run && running ? progressFraction(run) : null;
-  const label = status ? buttonLabel(status, starting) : starting ? 'Синк идёт…' : 'Синк сейчас';
+  const label = status ? buttonLabel(status, starting) : starting ? 'Синк с PSN идёт…' : 'Синк с PSN';
   const failedReason = run && run.status !== 'running' && run.status !== 'success' ? run.errorReason : null;
   const cancelled = isCancelledRun(run);
   const confirmStop = running && run !== null && stopAskedFor === run.id;
@@ -98,7 +98,7 @@ export function SyncPanel() {
         >
           <p className="font-semibold">Нужен новый NPSSO</p>
           <p className="text-text-2">
-            Синк остановлен: токен доступа к PSN устарел.
+            Синк с PSN остановлен: токен доступа к PSN устарел.
             {last ? ` Данные не обновляются с ${last}.` : ''}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ export function SyncPanel() {
           {npssoMsg && <p className={npssoMsg.ok ? 'text-text' : 'text-danger'}>{npssoMsg.text}</p>}
           {npssoMsg?.ok && (
             <div>
-              <button type="button" className={btnGhost} onClick={() => void start()} disabled={starting || running}>Синк сейчас</button>
+              <button type="button" className={btnGhost} onClick={() => void start()} disabled={starting || running}>Синк с PSN</button>
             </div>
           )}
         </div>

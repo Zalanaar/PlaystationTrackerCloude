@@ -123,7 +123,7 @@ describe('свайп, клавиши, подписи', () => {
     expect(keyCommand('я', true)).toEqual({ type: 'undo' });
   });
   it('подписи и безопасные числа', () => {
-    expect(checkChipText(4)).toBe('Проверить статусы: 4');
+    expect(checkChipText(4)).toBe('Разбор: проверить 4');
     expect(checkCountOf(undefined)).toBe(0);
     expect(checkCountOf(-1)).toBe(0);
     expect(checkCountOf(3.9)).toBe(3);

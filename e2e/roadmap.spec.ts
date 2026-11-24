@@ -367,8 +367,8 @@ test.describe('План: вёрстка', () => {
   test('вкладка «План» в навигации активна', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string);
     const nav = isMobile ? page.locator('nav.ps-tabbar') : page.locator('header nav.ps-nav');
-    await expect(nav.getByRole('link')).toHaveCount(4); // Фаза 18: 4 вкладки, «План» в подвкладках группы «Бэклог»
-    await expect(nav.getByRole('link', { name: 'Бэклог' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('link')).toHaveCount(4); // Фаза 18: 4 вкладки, «План» в подвкладках группы «Что дальше»
+    await expect(nav.getByRole('link', { name: 'Что дальше' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('navigation', { name: 'Раздел бэклога' }).getByRole('link', { name: 'План' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -384,7 +384,7 @@ test.describe('План: вёрстка', () => {
       await expect(page.getByTestId('rm-queue-row').first()).toBeVisible();
       expect(await noHScroll(page)).toBe(true);
       const labels = await page.locator('nav.ps-tabbar .ps-tab > span:last-child').evaluateAll((els) => els.filter((e) => getComputedStyle(e).display !== 'none').map((e) => ({ t: e.textContent, ok: e.scrollWidth <= e.clientWidth + 1 })));
-      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Бэклог', 'Статистика', 'Трофеи']);
+      expect(labels.map((l) => l.t)).toEqual(['Коллекция', 'Что дальше', 'Статистика', 'Трофеи']);
       expect(labels.every((l) => l.ok)).toBe(true);
       await page.getByRole('button', { name: 'Добавить игру' }).click();
       expect(await noHScroll(page)).toBe(true);
@@ -526,7 +526,7 @@ test.describe('План: игры-сервисы', () => {
     }));
     await expect(page.getByTestId('rm-services')).toHaveCount(0);
     await expect(page.locator('#rm-services')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /Игры-сервисы: в план не берём/ })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Сервисы: в план не берём/ })).toHaveCount(0);
   });
   test('нет сервисов: блока нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);

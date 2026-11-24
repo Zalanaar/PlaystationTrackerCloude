@@ -129,7 +129,7 @@ function GoalCard({ goal, onEdit, onRemove }: { goal: GoalView; onEdit: () => vo
   return (
     <div data-testid="rm-goal-card" data-state={st.kind}>
       <div className="ps-rm-goal__head">
-        <h3 className="ps-rm-goal__title">Цель на {goal.year} год: <span>{goalTitle(goal)}</span></h3>
+        <h3 className="ps-rm-goal__title">Цель на {goal.year}: <span>{goalTitle(goal)}</span></h3>
         <div className="ps-rm-goal__act">{actions}</div>
       </div>
       <p className="ps-rm-status" data-state={st.kind} data-testid="rm-goal-status">
@@ -159,7 +159,7 @@ function GoalCard({ goal, onEdit, onRemove }: { goal: GoalView; onEdit: () => vo
   );
 }
 
-/** Блок «Цель года» (`#rm-goal`): пустое состояние, форма, карточка цели, удаление с отменой. Данные цели приходят с `GET /api/roadmap`. */
+/** Блок «Цель на {год}» (`#rm-goal`): пустое состояние, форма, карточка цели, удаление с отменой. Данные цели приходят с `GET /api/roadmap`. */
 export function GoalPanel({
   goal, year, today, yearRollover, onChanged, onSettings, onRolled,
 }: { goal: GoalView | null; year: number; today: string; yearRollover?: YearGoalRollover | null; onChanged: (g: GoalView | null) => void; onSettings: () => void; onRolled?: () => void }) {
@@ -265,7 +265,7 @@ export function GoalPanel({
 
   return (
     <>
-      <h2 className="ps-h2" id="rm-goal-h">Цель года</h2>
+      <h2 className="ps-h2" id="rm-goal-h">Цель на {year}</h2>
       {yearRollover && (
         <div className="ps-rm-yearroll" data-testid="year-goal-roll">
           <p data-testid="year-goal-roll-summary">{yearRolloverSummary(yearRollover)}</p>

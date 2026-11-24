@@ -121,7 +121,7 @@ export function buildChips(d: InboxResponse | null): Chip[] {
   if (pos(d.checkCount)) {
     out.push({
       id: 'check', testid: 'inbox-check', href: '/triage?mode=check', icon: 'check-circle', action: true,
-      desktop: [txt('Проверить статусы: '), num(d.checkCount)], mobile: [txt('Проверить статусы: '), num(d.checkCount)], aria: `Проверить статусы: ${d.checkCount}`,
+      desktop: [txt('Разбор: проверить '), num(d.checkCount)], mobile: [txt('Разбор: проверить '), num(d.checkCount)], aria: `Разбор: проверить ${d.checkCount}`,
     });
   }
   if (pos(d.forgottenCount)) {

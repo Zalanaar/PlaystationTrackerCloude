@@ -182,7 +182,7 @@ test.describe('заголовок раздела не повторяется н�
     expect(above).toBeLessThanOrEqual(1);
     // «Всё время»: та же раскладка
     await page.getByRole('button', { name: 'Всё время' }).click();
-    const all = page.getByRole('link', { name: 'Итоги: всё время' });
+    const all = page.getByRole('link', { name: 'За всё время' });
     await expect(all).toBeVisible();
     const a = await page.evaluate(() => ({
       r: document.querySelector('.ps-st-range')!.getBoundingClientRect(),

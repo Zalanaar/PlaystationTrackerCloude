@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cssUrl, psnImageUrl, smallCoverUrl, formatDayMonth, monthName, formatDate, formatDateLong, formatPlayTime, formatHours, formatHoursApprox, formatNumber, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
+import { cssUrl, psnImageUrl, smallCoverUrl, formatDayMonth, formatDayHeading, monthName, formatDate, formatDateLong, formatPlayTime, formatHours, formatHoursApprox, formatNumber, formatShortDate, isSyncStale, launchesText, plural, relativeAgo, syncAge } from './format';
 
 const NOW = Date.parse('2026-10-27T09:00:00Z');
 
@@ -17,6 +17,8 @@ describe('format', () => {
   it('даты по Москве', () => {
     expect(formatDate('2026-10-05T22:30:00Z')).toBe('06.10.2026');
     expect(formatDateLong('2026-10-05T18:42:11Z')).toBe('5 октября 2026 г.');
+    expect(formatDayHeading('2026-10-05T18:42:11Z')).toBe('День 5 октября');
+    expect(formatDayHeading('2026-11-24')).toBe('День 24 ноября');
     expect(formatDate(null)).toBeNull();
     expect(formatShortDate('2026-10-12T10:00:00Z', NOW)).toBe('12 окт.');
     expect(formatShortDate('2025-10-12T10:00:00Z', NOW)).toBe('12.10.2025');

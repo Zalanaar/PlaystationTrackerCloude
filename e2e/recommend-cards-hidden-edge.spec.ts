@@ -188,12 +188,12 @@ test.describe('QA 13b: гонки', () => {
 });
 
 test.describe('QA 13b: регрессии вкладок', () => {
-  test('шапка/tab bar: 4 пункта, «Бэклог» и «Подскажи» активны, переходы на другие вкладки и обратно', async ({ page, context, baseURL, isMobile }) => {
+  test('шапка/tab bar: 4 пункта, «Что дальше» и «Подскажи» активны, переходы на другие вкладки и обратно', async ({ page, context, baseURL, isMobile }) => {
     await open(page, context, baseURL as string, state(12));
     await expect(cards(page)).toHaveCount(9);
     const nav = isMobile ? page.locator('nav').last() : page.locator('header nav').first();
     await expect(nav.getByRole('link')).toHaveCount(4);
-    await expect(nav.getByRole('link', { name: 'Бэклог' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('link', { name: 'Что дальше' })).toHaveAttribute('aria-current', 'page');
     await nav.getByRole('link', { name: /Бэклог/ }).click();
     await expect(page).toHaveURL(/\/backlog/);
     await page.goBack();

@@ -24,7 +24,7 @@ export function forgottenSpan(lastPlayedAt: string | null, nowMs: number): strin
   return null;
 }
 
-/** Чип над меткой «Не разобрано»: «Забытая · не запускалась 5 мес.» */
+/** Чип над меткой «Без статуса»: «Забытая · не запускалась 5 мес.» */
 export function forgottenChipText(lastPlayedAt: string | null, nowMs: number): string {
   const span = forgottenSpan(lastPlayedAt, nowMs);
   return span ? `Забытая · не запускалась ${span}` : 'Забытая';
@@ -32,7 +32,7 @@ export function forgottenChipText(lastPlayedAt: string | null, nowMs: number): s
 
 export const FORGOTTEN_HINT = 'Начата, но давно не запускалась. Хороший кандидат на «Отложено» или «Брошено».';
 
-/** Чип в блоке «Не разобрано» на Коллекции. */
+/** Чип в блоке «Без статуса» на Коллекции. */
 export const forgottenCountText = (n: number) => `Забытых: ${n}`;
 /** Подпись сегментов Разбора: «Новые N» / «Забытые N». */
 export const triageSegments = (none: number, forgotten: number) => ({ all: `Новые ${none}`, forgotten: `Забытые ${forgotten}` });

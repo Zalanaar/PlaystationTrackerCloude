@@ -402,7 +402,7 @@ export function RoadmapView() {
         <section className="ps-rm-panel" id="rm-goal" data-area="goal" data-tour="roadmap-goal" aria-labelledby="rm-goal-h" aria-busy={!data || undefined}>
           {data ? (
             <GoalPanel goal={data.goal ?? null} year={year} today={data.today} yearRollover={data.yearRollover} onChanged={setGoal} onRolled={() => { void load(); }} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })); }} />
-          ) : <><h2 className="ps-h2" id="rm-goal-h">Цель года</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
+          ) : <><h2 className="ps-h2" id="rm-goal-h">Цель на {year}</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">
           {data ? <ProgressPanel data={data} /> : <><h2 className="ps-h2">Прогресс</h2><div className="ps-skeleton ps-rm-sk-block" aria-hidden="true" /></>}

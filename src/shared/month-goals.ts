@@ -133,12 +133,12 @@ export function recapSummary(r: Pick<MonthRecap, 'monthNum' | 'goals' | 'progres
   return parts.length ? `${name}: ${parts.join(', ')}` : `${name}`;
 }
 
-/** «Цель 2026: 10 из 12 игр. Перенести на 2027?» */
+/** «Цель на 2026: 10 из 12 игр. Перенести на 2027?» */
 export function yearRolloverSummary(r: YearGoalRollover): string {
   const result = r.mode === 'complete'
     ? `${r.current} из ${r.count} ${recapPlural(r.count, ['игры', 'игр', 'игр'])}`
     : `бэклог ${r.current}, цель ${r.count}`;
-  return `Цель ${r.fromYear}: ${result}. Перенести на ${r.toYear}?`;
+  return `Цель на ${r.fromYear}: ${result}. Перенести на ${r.toYear}?`;
 }
 
 export function parseRoll(input: unknown): { ok: true; value: { kind: RollKind; action: RollAction } } | { ok: false } {

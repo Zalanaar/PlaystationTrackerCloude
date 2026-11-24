@@ -253,7 +253,7 @@ const DONE: GoalGame = { id: 1, title: 'DoneNov', coverUrl: null, completed: tru
 const OPEN_A: GoalGame = { id: 2, title: 'OpenA', coverUrl: null, completed: false };
 const OPEN_B: GoalGame = { id: 4, title: 'OpenB', coverUrl: null, completed: false };
 
-test.describe('Итоги месяца и переход года (мок дат 1 дек / 1 янв)', () => {
+test.describe('Как прошёл месяц и переход года (мок дат 1 дек / 1 янв)', () => {
   test('1 декабря: карточка ноября и перенос незакрытых', async ({ page, baseURL }) => {
     const initial: Goals = {
       ...EMPTY,
@@ -270,6 +270,7 @@ test.describe('Итоги месяца и переход года (мок дат
     await open(page, baseURL!, initial);
     const recap = page.getByTestId('month-goals-recap');
     await expect(recap).toBeVisible();
+    await expect(recap.getByRole('heading', { name: 'Как прошёл ноябрь' })).toBeVisible();
     await expect(recap.getByTestId('month-goals-recap-summary')).toHaveText('Ноябрь: 2 из 3 игр, 34 из 40 ч');
     await recap.getByTestId('month-goals-recap-carry').click();
     await expect(recap).toHaveCount(0);
@@ -287,7 +288,7 @@ test.describe('Итоги месяца и переход года (мок дат
     await open(page, baseURL!, initial);
     const roll = page.getByTestId('year-goal-roll');
     await expect(roll).toBeVisible();
-    await expect(roll.getByTestId('year-goal-roll-summary')).toHaveText('Цель 2026: 10 из 12 игр. Перенести на 2027?');
+    await expect(roll.getByTestId('year-goal-roll-summary')).toHaveText('Цель на 2026: 10 из 12 игр. Перенести на 2027?');
     await roll.getByTestId('year-goal-carry').click();
     await expect(roll).toHaveCount(0);
     await expect(page.getByTestId('month-goals-year')).toContainText('Год: 0 из 12');

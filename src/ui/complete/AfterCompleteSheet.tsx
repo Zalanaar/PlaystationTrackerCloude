@@ -80,7 +80,7 @@ export function AfterCompleteSheet({ game, onClose }: { game: CompletedGame; onC
               <span className="ps-done__txt">
                 <b>{next.title}</b>
                 <small>{next.source === 'month_goal'
-                  ? (next.hours !== null && next.hours > 0 ? `Цель месяца · осталось ${formatHoursApprox(next.hours)}` : 'Цель месяца')
+                  ? (next.hours !== null && next.hours > 0 ? `Цель на месяц · осталось ${formatHoursApprox(next.hours)}` : 'Цель на месяц')
                   : (next.hours !== null && next.hours > 0 ? `Следующая в Плане · осталось ${formatHoursApprox(next.hours)}` : 'Следующая в Плане')}</small>
               </span>
               <button type="button" className="ps-btn ps-btn--primary" disabled={busy} onClick={() => void start(next)} data-testid="after-complete-start">Начать</button>

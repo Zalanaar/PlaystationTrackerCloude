@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// «Синк сейчас». Контракт 8.3.
+// «Синк с PSN». Контракт 8.3.
 export async function POST(req: Request) {
   const a = await requireUser(req);
   if (!a.ok) return a.response;
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     if (r.kind === 'psn_not_set') return fail(409, 'psn_not_set', 'Укажи ник PSN, чтобы запустить синк.');
     if (r.kind === 'psn_not_verified') return fail(409, 'psn_not_verified', 'Доступ к профилю PSN не подтверждён. Проверь ник и открой профиль.');
     if (r.kind === 'user_inactive') return fail(401, 'unauthorized', 'Требуется вход.');
-    if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Синк уже идёт.', { runId: r.runId });
+    if (r.kind === 'already_running') return fail(409, 'sync_in_progress', 'Синк с PSN уже идёт.', { runId: r.runId });
     if (r.kind === 'not_resumable') return fail(500, 'internal_error', 'Не удалось запустить синк.');
     const { run, resumed } = r;
     return NextResponse.json(

@@ -249,7 +249,7 @@ test.describe('Фаза 8: сброс статуса', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Статусы сброшены: 8 игр' })).toBeVisible();
     await page.getByRole('link', { name: 'Коллекция' }).locator('visible=true').click();
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /Не разобрано/ })).toContainText('10');
+    await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /Без статуса/ })).toContainText('10');
     await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
     await expect.poll(() => mock.mutations.at(-1)?.url ?? '').toMatch(/\/api\/games\/status-restore$/);
     expect(mock.mutations.at(-1)?.body).toEqual({ backupId: 1 });

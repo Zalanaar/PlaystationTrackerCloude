@@ -32,7 +32,7 @@ export const STATUS_META: Record<StatusKey, { label: string; icon: 'triangle' | 
   none:      { label: 'Без статуса', icon: 'dashed',  cssVar: '--st-none' }, // пункт меню «сбросить статус»
 };
 /** Подпись «без статуса» в чипе фильтра, блоке коллекции и Разборе. */
-export const UNSORTED_LABEL = 'Не разобрано';
+export const UNSORTED_LABEL = 'Без статуса';
 
 /** SVG-пути иконок статусов. viewBox 0 0 16 16, stroke currentColor, width 1.75, fill none, linecap/linejoin round. */
 export const STATUS_ICON_PATHS: Record<string, string> = {
@@ -59,17 +59,17 @@ export type CollectionBlock = (typeof COLLECTION_BLOCKS)[number];
 /**
  * Фаза 18 (docs/design-system.md §8): 4 вкладки. `match` = префиксы путей, на которых вкладка подсвечена; `href` ведёт на корень группы.
  * П9 (эксперимент, откатывается одним коммитом): четвёртая вкладка «Трофеи» вместо «Разбор». «Разбор» (/triage) — из чипов
- * «С прошлого визита», блока «Не разобрано» и пункта меню с числом игр без статуса.
+ * «С прошлого визита», блока «Без статуса» и пункта меню с числом игр без статуса.
  */
 export const NAV_TABS = [
   { id: 'collection', href: '/', label: 'Коллекция', icon: 'library', match: ['/'], exact: true },
-  { id: 'backlog', href: '/backlog', label: 'Бэклог', icon: 'bookmark', match: ['/backlog', '/roadmap', '/recommend'] },
+  { id: 'backlog', href: '/backlog', label: 'Что дальше', icon: 'bookmark', match: ['/backlog', '/roadmap', '/recommend'] },
   { id: 'stats', href: '/stats', label: 'Статистика', icon: 'bar-chart', match: ['/stats', '/wrapped'] },
   { id: 'trophies', href: '/trophies', label: 'Трофеи', icon: 'trophy', match: ['/trophies'] },
 ] as const;
-/** Подвкладки группы «Бэклог» (ссылки, не кнопки). */
+/** Подвкладки группы «Что дальше» (ссылки, не кнопки). */
 export const BACKLOG_SUBNAV = [
-  { href: '/backlog', label: 'Список' }, // F9: «Бэклог» уже в шапке и нижней вкладке
+  { href: '/backlog', label: 'Бэклог' },
   { href: '/roadmap', label: 'План' },
   { href: '/recommend', label: 'Подскажи' },
 ] as const;

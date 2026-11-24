@@ -42,7 +42,7 @@ describe('разбор и месяц', () => {
     expect(parseRoll({ kind: 'year', action: 'dismiss' }).ok).toBe(true);
     expect(parseRoll({ kind: 'month' }).ok).toBe(false);
     expect(recapSummary({ monthNum: 11, goals: { games: 3, hours: 40, trophies: null }, progress: { games: 2, hours: 34, trophies: 0 } })).toBe('Ноябрь: 2 из 3 игр, 34 из 40 ч');
-    expect(yearRolloverSummary({ fromYear: 2026, toYear: 2027, mode: 'complete', count: 12, current: 10 })).toBe('Цель 2026: 10 из 12 игр. Перенести на 2027?');
+    expect(yearRolloverSummary({ fromYear: 2026, toYear: 2027, mode: 'complete', count: 12, current: 10 })).toBe('Цель на 2026: 10 из 12 игр. Перенести на 2027?');
   });
 });
 

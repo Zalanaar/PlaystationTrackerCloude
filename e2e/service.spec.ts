@@ -1,4 +1,4 @@
-// Статус «Сервис» (игра-сервис): фильтр-чип, блок «Игры-сервисы», смена статуса, клавиша 6 в Разборе. API эмулируется (collection-mock.ts).
+// Статус «Сервис» (игра-сервис): фильтр-чип, блок «Сервисы», смена статуса, клавиша 6 в Разборе. API эмулируется (collection-mock.ts).
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, serviceGames, type G, type Mock } from './collection-mock';
 import { signedSession } from './session';
@@ -22,18 +22,18 @@ const tab = (page: Page, name: RegExp) => page.getByRole('group', { name: 'Ст�
 const toggle = (page: Page) => block(page).getByTestId('service-toggle');
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-test.describe('блок «Игры-сервисы»', () => {
+test.describe('блок «Сервисы»', () => {
   test('нет игр-сервисов: блок, якорь и счётчик-ссылка скрыты; пустой чип «Сервис» тоже скрыт (Пакет 6, п. 5)', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(block(page)).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Игры-сервисы' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Сервисы' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Сервисы' })).toHaveCount(0);
     await expect(tab(page, /Сервис/)).toHaveCount(0);
   });
 
   test('на главной сервисы в строке-ссылке, не отдельным блоком; в фильтре «Сервис» — сетка', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
-    await expect(page.getByRole('heading', { name: 'Игры-сервисы' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Сервисы' })).toHaveCount(0);
     await expect(block(page)).toHaveCount(0);
     const row = page.getByTestId('home-backlog-row');
     await expect(row).toHaveText(/Бэклог 1 · Отложено 1 · Сервисы 9/);

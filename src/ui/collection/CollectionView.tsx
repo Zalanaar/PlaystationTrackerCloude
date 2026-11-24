@@ -213,7 +213,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     chronicleMode && filters.status === 'all' && !filters.q.trim() && !filters.platinum,
     data.seeded && initial ? { data: initial.inbox, hidden: !!layout?.day && layout.day === mskDay(initial.now) } : undefined,
   );
-  // пока полоса показывает чип «Проверить статусы», старый check-chip не рендерим (спека A.2)
+  // пока полоса показывает чип «Разбор: проверить N», старый check-chip не рендерим (спека A.2)
   const rawCheckCount = useCheckCount() ?? 0;
   const checkCount = inbox.showsCheck ? 0 : rawCheckCount;
   // Раскладка для следующего серверного рендера: вид, ширина, «скрыто сегодня». Пишем только после гидрации и при изменении.
@@ -275,7 +275,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «Другие платформы» только там: на компьютере они и так на виду */}
       {!isHomeBacklogRow(filters) && (byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
       {!isHomeBacklogRow(filters) && (byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
-      {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Не разобрано</a>}
+      {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Без статуса</a>}
       {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
     </nav>
   );
@@ -370,7 +370,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
               <SyncProgress />
             ) : (
               <button type="button" className="ps-btn ps-btn--primary" onClick={() => void sync.start()} disabled={sync.starting || sync.loading}>
-                {sync.status ? buttonLabel(sync.status, sync.starting) : 'Синк сейчас'}
+                {sync.status ? buttonLabel(sync.status, sync.starting) : 'Синк с PSN'}
               </button>
             )}
           </EmptyState>

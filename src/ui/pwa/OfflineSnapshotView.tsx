@@ -60,7 +60,7 @@ export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: R
 function GameRow({ g, extra }: { g: OfflineGame; extra?: string | null }) {
   const [failed, setFailed] = useState(false);
   const tr = trophiesText(g.trophies);
-  const meta = [g.status ? STATUS_LABEL[g.status] : 'Не разобрано', g.platform, g.hours > 0 ? hoursText(g.hours) : null, tr, extra].filter(Boolean).join(' · ');
+  const meta = [g.status ? STATUS_LABEL[g.status] : 'Без статуса', g.platform, g.hours > 0 ? hoursText(g.hours) : null, tr, extra].filter(Boolean).join(' · ');
   return (
     <li className="ps-offline__game" data-testid="offline-game">
       {g.coverUrl && !failed ? (

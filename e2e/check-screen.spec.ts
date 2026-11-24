@@ -258,7 +258,7 @@ test.describe('Проверить (desktop)', () => {
   test('сегмент «Проверить» переключает режим и перезапускает очередь, чип в Коллекции ведёт сюда', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, HINTS, '/');
     const chip = page.getByTestId('check-chip').first();
-    await expect(chip).toHaveText('Проверить статусы: 3');
+    await expect(chip).toHaveText('Разбор: проверить 3');
     await chip.click();
     await expect(page).toHaveURL(/mode=check/);
     await expect(title(page, 'Stray')).toBeVisible();

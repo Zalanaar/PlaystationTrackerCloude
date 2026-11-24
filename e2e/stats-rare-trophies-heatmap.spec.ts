@@ -289,7 +289,7 @@ const forgottenGames = (): G[] => [
 ];
 
 test.describe('Забытые игры', () => {
-  test('Коллекция: чип «Забытых: N» в «Не разобрано» ведёт в Разбор', async ({ page, context, baseURL }) => {
+  test('Коллекция: чип «Забытых: N» в «Без статуса» ведёт в Разбор', async ({ page, context, baseURL }) => {
     await setup(page, context, baseURL!, { games: forgottenGames() });
     await page.goto('/');
     const chip = page.locator('#unsorted').getByRole('link', { name: /Забытых: 2/ });

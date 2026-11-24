@@ -64,14 +64,14 @@ export function UnallocatedPanel({
   );
 }
 
-/** Таблица «Игры-сервисы: в план не берём»: только справка, без добавления в план. Скрыта, если пусто. */
+/** Таблица «Сервисы: в план не берём»: только справка, без добавления в план. Скрыта, если пусто. */
 export function ServicePanel({ list }: { list: readonly ServiceGame[] }) {
   const { shown, toggle } = useCollapsedList(list.map((g) => ({ ...g, gameId: g.gameId as number | null })), 'rm-services', 'rm-svc-body');
   if (!list.length) return null;
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2">Игры-сервисы: в план не берём <small className="num ps-rm-cnt">{list.length}</small></h2>
+        <h2 className="ps-h2">Сервисы: в план не берём <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
       <p className="ps-rm-sub">Игры со статусом «Сервис» не попадают в очередь и не занимают недели плана. Здесь только справка: сколько часов в них уже сыграно.</p>
       <table className="ps-rm-svc" data-testid="rm-services" id="rm-svc-body">

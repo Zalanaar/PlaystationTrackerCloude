@@ -308,7 +308,7 @@ test.describe('/wrapped: истории', () => {
     await watch(page);
     await expect(page.locator('.ps-story__seg')).toHaveCount(1);
     await expect(page.getByRole('heading', { name: `В ${Y_EMPTY} данных нет` })).toBeVisible();
-    await expect(page.getByText(`Синк начался 04.03.${NOW_YEAR}`)).toBeVisible();
+    await expect(page.getByText(`Синк с PSN начался 04.03.${NOW_YEAR}`)).toBeVisible();
     await page.waitForTimeout(1000);
     await expect(page.getByRole('heading', { name: `В ${Y_EMPTY} данных нет` })).toBeVisible();
     await page.keyboard.press('ArrowRight');
@@ -317,7 +317,7 @@ test.describe('/wrapped: истории', () => {
     await expect(page.locator('.ps-story__stage')).toHaveCount(0);
   });
 
-  test('empty без даты синка: строки «Синк начался» нет', async ({ page, context, baseURL }) => {
+  test('empty без даты синка: строки «Синк с PSN начался» нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/blank-never');
     await page.route(/\/api\/wrapped/, (r) => {
       const d = { ...respond(Y_EMPTY), emptyState: { syncStartedOn: null } };
@@ -325,7 +325,7 @@ test.describe('/wrapped: истории', () => {
     });
     await page.goto(`/wrapped?year=${Y_EMPTY}`);
     await watch(page);
-    await expect(page.getByText('Синк начался')).toHaveCount(0);
+    await expect(page.getByText('Синк с PSN начался')).toHaveCount(0);
   });
 
   test('3 темы и размеры: слайд внутри экрана, нет горизонтального скролла', async ({ page, context, baseURL }, info) => {

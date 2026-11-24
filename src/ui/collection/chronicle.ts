@@ -122,7 +122,7 @@ export function gridCols(width: number, density: 'comfort' | 'dense'): number {
   return density === 'dense' ? row[1] : row[0];
 }
 
-/** Порядок «Играю/Бэклог/Отложено/Не разобрано»: последний запуск (новые первыми, пустые в конце), затем название. */
+/** Порядок «Играю/Бэклог/Отложено/Без статуса»: последний запуск (новые первыми, пустые в конце), затем название. */
 export function byLastPlayed(a: GameItem, b: GameItem): number {
   if (a.lastPlayedAt !== b.lastPlayedAt) {
     if (!a.lastPlayedAt) return 1;

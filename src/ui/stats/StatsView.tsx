@@ -217,14 +217,14 @@ function PeriodSwitch({
 }
 
 /**
- * Кнопка «Итоги». Две копии, CSS показывает одну (display: none убирает и из дерева доступности):
+ * Кнопка «Итоги {год}» или «За всё время». Две копии, CSS показывает одну (display: none убирает и из дерева доступности):
  * на десктопе — в шапке рядом с h1, на < 768 h1 скрыт и пустой ряд шапки не нужен, кнопка в ряду выбора года/месяца.
  */
 function WrappedLink({ sel, where }: { sel: Selection; where: 'head' | 'switch' }) {
   const all = sel.period === 'all';
   return (
     <Link href={all ? '/wrapped?year=all' : `/wrapped?year=${sel.year}`} className={`ps-btn ps-st-wrapped-btn ps-st-wrapped-btn--${where}`} data-tour="stats-wrapped">
-      <Icon name="sparkles" size={16} />{all ? 'Итоги: всё время' : <><span className="ps-st-wrapped-btn__t">Итоги</span><span className="ps-st-wrapped-btn__y">{` ${sel.year}`}</span></>}
+      <Icon name="sparkles" size={16} />{all ? 'За всё время' : <><span className="ps-st-wrapped-btn__t">Итоги</span><span className="ps-st-wrapped-btn__y">{` ${sel.year}`}</span></>}
     </Link>
   );
 }

@@ -50,7 +50,7 @@ export function SlideView({
           {(data.profile.onlineId || data.profile.avatarUrl) && (
             <Rise n={0} rm={rm}><Avatar url={data.profile.avatarUrl} name={data.profile.onlineId} size={96} className="ps-story__avatar" /></Rise>
           )}
-          <Rise n={1} rm={rm}><p className="ps-story__label">{all ? 'Итоги за всё время' : 'Итоги года'}</p></Rise>
+          <Rise n={1} rm={rm}><p className="ps-story__label">{all ? 'За всё время' : 'Итоги года'}</p></Rise>
           <Rise n={2} rm={rm}><h2 className="ps-story__title">{all ? 'Всё время в играх' : `Твой ${year} в играх`}</h2></Rise>
           {data.profile.onlineId && <Rise n={3} rm={rm}><p className="ps-story__nick">{data.profile.onlineId}</p></Rise>}
           {all && range && <Rise n={4} rm={rm}><p className="ps-story__small ps-num">{range}</p></Rise>}

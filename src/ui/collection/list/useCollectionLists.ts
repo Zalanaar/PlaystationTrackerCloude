@@ -15,12 +15,12 @@ type Args = {
 };
 
 /**
- * Производные списки коллекции: блоки, хроника по годам, «По последней игре», раскрытие групп, «Игры-сервисы».
+ * Производные списки коллекции: блоки, хроника по годам, «По последней игре», раскрытие групп, «Сервисы».
  * Чистое вычисление из пула и фильтров плюс локальное состояние раскрытия.
  */
 export function useCollectionLists({ filters, pool, raw, summary, now, view, width, selectMode, error }: Args) {
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
-  // блок «Игры-сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
+  // блок «Сервисы»: раскрыт ли, и сколько строк показано в режиме «Список»
   const [serviceOpen, setServiceOpen] = useState(false);
   const [serviceRows, setServiceRows] = useState(SERVICE_ROWS);
 
@@ -56,7 +56,7 @@ export function useCollectionLists({ filters, pool, raw, summary, now, view, wid
     ...chron.years.filter((y) => isOpen(y.year)).flatMap((y) => y.months.flatMap((m) => m.games)),
     ...(isOpen('undated') ? chron.undated : []),
   ];
-  // «Игры-сервисы»: вкладка «Сервис» раскрывает блок целиком, иначе один ряд (сетка) или несколько строк (список)
+  // «Сервисы»: вкладка «Сервис» раскрывает блок целиком, иначе один ряд (сетка) или несколько строк (список)
   const serviceAll = byBlock.service ?? [];
   const rawLoaded = (b: BlockId) => blockGames(raw, b, filters.status).length;
   /** С чипом «Платина» счётчики сервера не про выбранную выдачу: показываем число найденных игр */

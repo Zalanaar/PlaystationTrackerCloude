@@ -25,7 +25,7 @@ export type RenderCtx = {
   counts: StatusCounts;
   /** 14.4: забытых во всей коллекции */
   forgotten: number;
-  /** Фаза 27: сколько подсказок смены статуса (0 = чип «Проверить статусы» не показываем) */
+  /** Фаза 27: сколько подсказок смены статуса (0 = чип «Разбор: проверить N» не показываем) */
   checkCount: number;
   more: boolean;
   loadMore: (block: BlockId | null) => Promise<void>;

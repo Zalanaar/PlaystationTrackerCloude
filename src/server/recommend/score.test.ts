@@ -187,7 +187,7 @@ describe('оценки и приоритет Плана', () => {
     });
     const pri = (id: number) => r.items.find((i) => i.game.id === id)!.signals.find((s) => s.key === 'plan_priority');
     expect(pri(3)?.contribution).toBe(2.5);
-    expect(pri(3)?.label).toBe('Цель этого месяца');
+    expect(pri(3)?.label).toBe('Цель на этот месяц');
     expect(pri(1)?.label).toBe('Следующая в Плане');
     expect(r.items[0].game.id).toBe(3);
   });

@@ -193,7 +193,7 @@ export function initialOf(onlineId: string | null): string {
 /** «2026-03-04» -> «04.03.2026». */
 export function syncStartedText(day: string | null): string | null {
   const m = day ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(day) : null;
-  return m ? `Синк начался ${m[3]}.${m[2]}.${m[1]}` : null;
+  return m ? `Синк с PSN начался ${m[3]}.${m[2]}.${m[1]}` : null;
 }
 
 /** Плашка слайда «Часы». */

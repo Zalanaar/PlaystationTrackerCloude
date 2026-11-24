@@ -170,7 +170,7 @@ describe('форматирование', () => {
     expect(initialOf('')).toBe('?');
   });
   it('даты синка', () => {
-    expect(syncStartedText('2026-03-04')).toBe('Синк начался 04.03.2026');
+    expect(syncStartedText('2026-03-04')).toBe('Синк с PSN начался 04.03.2026');
     expect(syncStartedText(null)).toBeNull();
     expect(syncStartedText('bad')).toBeNull();
     expect(partialBadge('2026-03-04')).toContain('04.03.2026');

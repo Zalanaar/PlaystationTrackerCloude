@@ -68,7 +68,7 @@ export function SummaryCard({ s }: { s: YearSummary }) {
   const goty = s.gameOfYear;
   return (
     <section className="ps-sum" aria-label={s.scope === 'all' ? 'Сводка за всё время' : `Сводка ${s.year}`} data-testid="story-summary">
-      <p className="ps-sum__k">{s.scope === 'all' ? 'Всё время' : `Итоги ${s.year}`}{s.nick ? ` · ${s.nick}` : ''}</p>
+      <p className="ps-sum__k">{s.scope === 'all' ? 'За всё время' : `Итоги ${s.year}`}{s.nick ? ` · ${s.nick}` : ''}</p>
       <ul className="ps-sum__tiles">
         {tiles.map((t) => (
           <li key={t.key} data-key={t.key}><b className="ps-num" data-long={t.value.replace(/\s/g, '').length > 5 || undefined}>{t.value}</b><span>{t.label}</span></li>

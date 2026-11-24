@@ -376,7 +376,7 @@ function Desktop({ now, game, queue, order, onOrder, onAct, onSkip, onUndo, canU
       </div>
       <div className="ps-tri__center">
         {isForgotten(game, now) && <span className="ps-fchip"><Icon name="clock" size={12} />{forgottenChipText(game.lastPlayedAt, now)}</span>}
-        <p className="ps-micro">Не разобрано</p>
+        <p className="ps-micro">Без статуса</p>
         <h2 className="ps-tri__title" title={game.title}>{game.title}</h2>
         <Facts game={game} />
         {isForgotten(game, now) && <p className="ps-tri__fhint">{FORGOTTEN_HINT}</p>}

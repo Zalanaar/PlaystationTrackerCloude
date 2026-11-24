@@ -58,7 +58,7 @@ test.describe('Разбор (desktop)', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
   });
 
-  test('Esc выходит в коллекцию, вход из блока «Не разобрано»', async ({ page, context, baseURL }) => {
+  test('Esc выходит в коллекцию, вход из блока «Без статуса»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/triage');
     await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
     await page.keyboard.press('Escape');

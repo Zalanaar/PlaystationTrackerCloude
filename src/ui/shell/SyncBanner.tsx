@@ -20,10 +20,10 @@ export function SyncBanner() {
       <div className="ps-banner" data-tone="warning" role="status">
         <Icon name="clock" size={20} />
         <p className="ps-banner__text">
-          Синк не запускался уже {overdueAgeText(status.overdue)} (порог {status.overdue.thresholdHours} ч).{last ? ` Данные от ${last}.` : ''} Проверь расписание на сервере.
+          Синк с PSN не запускался уже {overdueAgeText(status.overdue)} (порог {status.overdue.thresholdHours} ч).{last ? ` Данные от ${last}.` : ''} Проверь расписание на сервере.
         </p>
         <div className="ps-banner__actions">
-          <button type="button" className="ps-btn" onClick={() => void start()} disabled={starting}>Синк сейчас</button>
+          <button type="button" className="ps-btn" onClick={() => void start()} disabled={starting}>Синк с PSN</button>
           <button type="button" className="ps-iconbtn" onClick={() => setOverdueHidden(true)} aria-label="Скрыть сообщение">
             <Icon name="x" size={16} />
           </button>
@@ -39,7 +39,7 @@ export function SyncBanner() {
         <div className="ps-banner" data-tone="danger" role="alert">
           <Icon name="key" size={20} />
           <p className="ps-banner__text">
-            Синк остановлен: токен доступа к PSN устарел.{last ? ` Данные не обновляются с ${last}.` : ''}
+            Синк с PSN остановлен: токен доступа к PSN устарел.{last ? ` Данные не обновляются с ${last}.` : ''}
           </p>
           <div className="ps-banner__actions">
             <button type="button" className="ps-btn" onClick={openPanel}>Как обновить</button>
@@ -54,7 +54,7 @@ export function SyncBanner() {
 
   const run = status.run;
   if (hidden || !run || (run.status !== 'failed' && run.status !== 'partial') || isCancelledRun(run)) return overdueBanner;
-  const why = run.status === 'failed' ? reasonText(run.errorReason) : 'Синк завершился частично.';
+  const why = run.status === 'failed' ? reasonText(run.errorReason) : 'Синк с PSN завершился частично.';
   return (
     <>
     <div className="ps-container">
