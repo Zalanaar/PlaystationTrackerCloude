@@ -23,7 +23,7 @@ function readFlags(pwaAvailable: boolean): ClientFlags {
 
 /**
  * П13.4: «Первая неделя» на главной — короткий чек-лист нового пользователя (7 дней от онбординга): синк, статусы, HLTB,
- * тема, установка на экран «Домой», Telegram. Пункты считаются по данным; «Скрыть» — насовсем, на всех устройствах.
+ * тема, установка на экран «Домой», цели месяца. Пункты считаются по данным; «Скрыть» — насовсем, на всех устройствах.
  * Высота постоянная (один ряд пунктов с прокруткой); место под карточку по cookie-подсказке `ps-week1` — без сдвига.
  */
 export function FirstWeekCard({ hint }: { hint: boolean | undefined }) {
@@ -70,6 +70,7 @@ export function FirstWeekCard({ hint }: { hint: boolean | undefined }) {
       case 'hltb': return <Link href="/backlog" className="ps-week1__item">{inner}</Link>;
       case 'theme': return <button type="button" className="ps-week1__item" aria-haspopup="dialog" onClick={() => setThemeOpen(true)}>{inner}</button>;
       case 'pwa': return <button type="button" className="ps-week1__item" aria-haspopup="dialog" onClick={() => install.open()}>{inner}</button>;
+      case 'monthGoals': return <a href="#month-goals" className="ps-week1__item">{inner}</a>;
       default: return <button type="button" className="ps-week1__item" aria-haspopup="dialog" onClick={() => sync.openPanel()}>{inner}</button>;
     }
   };

@@ -156,7 +156,7 @@ export function MonthGoalsCard() {
           </div>
         </section>
       )}
-      <section className="ps-mgoals" aria-labelledby={hid} data-testid="month-goals">
+      <section className="ps-mgoals" id="month-goals" aria-labelledby={hid} data-testid="month-goals">
         <div className="ps-mgoals__head">
           <h2 id={hid} className="ps-mgoals__t">{title}</h2>
           {data.hasGoals && (

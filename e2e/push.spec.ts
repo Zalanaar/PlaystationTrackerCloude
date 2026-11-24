@@ -20,7 +20,6 @@ async function open(page: Page, baseURL: string, cfg: Cfg = {}) {
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
   await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
-  await page.route('**/api/me/telegram', (r) => json(r, { ok: true, data: { botConfigured: false, botUsername: null, role: 'owner', linked: false, linkedAt: null, deliversTo: 'none', lastSentAt: null, pendingCode: null } }));
   let tests = 0;
   await page.route('**/api/me/push/test', (r) => { calls.push('test'); tests++; return tests > 1 ? json(r, { ok: false, error: { code: 'rate_limited', message: 'x' } }, 429) : json(r, { ok: true, data: { sent: 1, removed: 0 } }); });
   await page.route('**/api/me/push', (r) => {

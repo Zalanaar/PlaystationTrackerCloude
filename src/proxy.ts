@@ -41,9 +41,6 @@ async function route(req: NextRequest, nonce: string, csp: string): Promise<Next
   // Фаза 39: service worker и офлайн-заглушка публичны (без данных; SW регистрируется до проверки сессии, /offline отдаётся из кэша)
   if (pathname === '/sw.js' || pathname === '/offline') return next();
 
-  // Фаза 29 (F29.6): webhook бота Telegram без сессии, подлинность по секретному заголовку внутри роута
-  if (pathname === '/api/telegram/webhook') return next();
-
   // Подписка на календарь релизов: без сессии (приложение Календарь не шлёт cookie), доступ по личному ключу в адресе, проверка в роуте
   if (pathname.startsWith('/api/cal/')) return next();
 

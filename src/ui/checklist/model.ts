@@ -1,7 +1,7 @@
 // П13.4: пункты «Первой недели» из ответа API и клиентских признаков (тема, PWA). Без DOM.
 import type { ChecklistResponse } from '@/server/checklist/checklist';
 
-export type ItemId = 'sync' | 'statuses' | 'hltb' | 'theme' | 'pwa' | 'telegram';
+export type ItemId = 'sync' | 'statuses' | 'hltb' | 'theme' | 'pwa' | 'monthGoals';
 export type Item = { id: ItemId; label: string; done: boolean };
 export type ClientFlags = { themeChosen: boolean; pwaInstalled: boolean; pwaAvailable: boolean };
 
@@ -14,7 +14,7 @@ export function checklistItems(items: NonNullable<ChecklistResponse['items']>, c
     { id: 'hltb', label: 'Время прохождения (HLTB)', done: items.hltb },
     { id: 'theme', label: 'Выбери тему', done: c.themeChosen },
     { id: 'pwa', label: 'На экран «Домой»', done: c.pwaInstalled },
-    { id: 'telegram', label: 'Telegram-дайджест', done: items.telegram },
+    { id: 'monthGoals', label: items.monthGoals ? 'Цели месяца заданы' : 'Задай цели месяца', done: items.monthGoals },
   ];
   return list.filter((i) => i.id !== 'pwa' || c.pwaInstalled || c.pwaAvailable);
 }

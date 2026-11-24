@@ -1,8 +1,8 @@
-// Фаза 41 (41.4, 41.6): архивные и заблокированные профили не попадают в cron-обход, сводку, копии; чистка архива; Telegram только по основному.
+// Фаза 41 (41.4, 41.6): архивные и заблокированные профили не попадают в cron-обход, сводку, копии; чистка архива.
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb, type TestDb } from '@/server/sync/test-helpers';
-import { KIT_SECRET, kitRequest, sessionCookie } from '@/server/auth/profile-test-kit';
+import { KIT_SECRET } from '@/server/auth/profile-test-kit';
 import { patchUser } from '@/server/auth/users';
 import { listSyncUsers } from '@/server/sync/users';
 import { runDigest } from '@/server/digest/run';
@@ -84,24 +84,5 @@ describe('чистка архива (watchdog)', () => {
     const d = (await res.json()).data as { archivePurged: number; users: { userId: number }[] };
     expect(d.archivePurged).toBe(1);
     expect(d.users.map((u) => u.userId)).toEqual([1, 2, 3, 4]);
-  });
-});
-
-describe('Telegram привязан ко входу', () => {
-  it('при активном дополнительном профиле привязка, статус и код пишутся на основной; в ответе profile основного', async () => {
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', '123:abc');
-    vi.stubEnv('TELEGRAM_WEBHOOK_SECRET', 'w'.repeat(32));
-    const { GET } = await import('@/app/api/me/telegram/route');
-    const { POST: link } = await import('@/app/api/me/telegram/link/route');
-    const cookie = await sessionCookie(2, { pid: 4 });
-    const code = await link(kitRequest('/api/me/telegram/link', { method: 'POST', cookie }));
-    expect(code.status).toBe(200);
-    expect((await rows<{ user_id: number }>(`select user_id from telegram_link_codes`)).map((r) => r.user_id)).toEqual([2]);
-    const st = await (await GET(kitRequest('/api/me/telegram', { cookie }))).json();
-    expect(st.data).toMatchObject({ profile: { id: 2, onlineId: 'NickB' }, role: 'member' });
-    expect(st.data.pendingCode).not.toBeNull();
-    await pg().exec(`insert into telegram_chats (user_id, chat_id) values (2, 555)`);
-    expect((await (await GET(kitRequest('/api/me/telegram', { cookie: await sessionCookie(2) }))).json()).data.linked).toBe(true);
-    expect((await (await GET(kitRequest('/api/me/telegram', { cookie }))).json()).data.linked).toBe(true); // тот же статус из любого профиля входа
   });
 });

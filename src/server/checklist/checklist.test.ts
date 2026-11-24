@@ -1,5 +1,5 @@
 // П13.4: «Первая неделя» — 7 дней от онбординга (иначе от создания), «Скрыть» насовсем, пункты по данным
-// (синк, статусы до 5 или всех игр, HLTB, Telegram), скрытые игры не считаются.
+// (синк, статусы до 5 или всех игр, HLTB, цели месяца), скрытые игры не считаются.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { schema } from '@/db';
@@ -7,7 +7,7 @@ import { asUserId } from '@/server/auth/user-id';
 import { createTestDb, TEST_USER, type TestDb } from '@/server/sync/test-helpers';
 import { dismissChecklist, getChecklist, WEEK_MS } from './checklist';
 
-const { allowedUsers, games, gameStatus, syncRuns, telegramChats } = schema;
+const { allowedUsers, games, gameStatus, syncRuns, monthGoals } = schema;
 const START = new Date('2026-11-10T09:00:00Z');
 const U = asUserId(TEST_USER);
 
@@ -37,7 +37,7 @@ describe('«Первая неделя» (PGlite)', () => {
     const r = await getChecklist(t.db, U, new Date(START.getTime() + 3600_000));
     expect(r.show).toBe(true);
     expect(r.endsAt).toBe(new Date(START.getTime() + WEEK_MS).toISOString());
-    expect(r.items).toEqual({ sync: false, statuses: { count: 0, goal: 2, done: false }, hltb: false, telegram: false });
+    expect(r.items).toEqual({ sync: false, statuses: { count: 0, goal: 2, done: false }, hltb: false, monthGoals: false });
   });
 
   it('пункты по данным; скрытые игры в статусах не считаются; HLTB-синк не синк', async () => {
@@ -48,9 +48,9 @@ describe('«Первая неделя» (PGlite)', () => {
     let r = await getChecklist(t.db, U, START);
     expect(r.items?.sync).toBe(false);
     await t.db.insert(syncRuns).values({ userId: TEST_USER, kind: 'manual', status: 'partial', snapshotDate: '2026-11-10' });
-    await t.db.insert(telegramChats).values({ userId: TEST_USER, chatId: '12345' });
+    await t.db.insert(monthGoals).values({ userId: TEST_USER, month: '2026-11', games: 2, hours: 10, trophies: null, updatedAt: START });
     r = await getChecklist(t.db, U, START);
-    expect(r.items).toEqual({ sync: true, statuses: { count: 5, goal: 5, done: true }, hltb: true, telegram: true });
+    expect(r.items).toEqual({ sync: true, statuses: { count: 5, goal: 5, done: true }, hltb: true, monthGoals: true });
   });
 
   it('после недели и после «Скрыть» — не показывать', async () => {

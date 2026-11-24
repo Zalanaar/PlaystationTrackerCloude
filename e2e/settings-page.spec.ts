@@ -15,7 +15,6 @@ async function open(page: Page, baseURL: string, path = '/settings') {
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
   await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest: null } }));
   await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
-  await page.route('**/api/me/telegram', (r) => json(r, { ok: true, data: { botConfigured: false, botUsername: null, role: 'owner', linked: false, linkedAt: null, deliversTo: 'none', lastSentAt: null, pendingCode: null } }));
   await page.route('**/api/me/push', (r) => json(r, { ok: true, data: r.request().method() === 'PATCH' ? r.request().postDataJSON() : { configured: false, publicKey: null, devices: 0, shelvedReminder: true } }));
   await page.route('**/api/roadmap/calendar', (r) => json(r, { ok: true, data: { active: false, createdAt: null } }));
   await page.goto(path);

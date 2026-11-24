@@ -10,7 +10,7 @@ const axeSource: string = createRequire(import.meta.url)('axe-core').source;
 const THEMES = ['night', 'graphite', 'ps1', 'ps5'];
 const SHOW = {
   show: true, endsAt: new Date(Date.now() + 5 * 86_400_000 - 3600_000).toISOString(),
-  items: { sync: true, statuses: { count: 2, goal: 5, done: false }, hltb: false, telegram: false },
+  items: { sync: true, statuses: { count: 2, goal: 5, done: false }, hltb: false, monthGoals: false },
 };
 
 async function open(page: Page, baseURL: string, o: { body?: Record<string, unknown> | null; hint?: '1' | '0'; gate?: Promise<void> } = {}): Promise<Mock> {
