@@ -27,7 +27,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, list =
   await expect(page.getByTestId('ratings')).toBeVisible();
 }
 
-test('сводка, распределение, часы, жанры; без оценки — ссылка в окно игры', async ({ page, context, baseURL }) => {
+test('сводка, распределение, часы, жанры; без оценки блок скрыт', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL as string);
   await expect(page.getByTestId('ratings-summary')).toHaveText('Оценено 4 игры · средняя 6,8');
   const dist = page.getByTestId('ratings-dist').getByRole('listitem');
@@ -48,15 +48,44 @@ test('сводка, распределение, часы, жанры; без о�
   expect(v).toEqual([]);
 });
 
-test('пройдено без оценки: «Оценить» открывает окно игры', async ({ page, context, baseURL }) => {
+test('пройдено без оценки: «Оценить» открывает лист на Статистике, оценка остаётся здесь', async ({ page, context, baseURL }) => {
   const list = games();
   (list.find((g) => g.id === 4) as G).rating = null;
   await open(page, context, baseURL as string, list);
+
+  // как в жизни: Коллекция → таб «Статистика» → «Оценки» (вкладка не должна залипать на Статистике после оценки)
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page.goto('/');
+    await page.locator('nav.ps-tabbar').getByRole('link', { name: /Статистика/ }).click();
+    await expect(page).toHaveURL(/\/stats/);
+    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Часы' })).toBeVisible();
+    await page.getByTestId('stats-sections').locator('[data-sec="ratings"]').click();
+    await expect(page.getByTestId('ratings')).toBeVisible();
+  }
+
   const un = page.getByTestId('ratings-unrated');
   await expect(un).toContainText('God of War');
-  await un.getByRole('link', { name: 'Оценить' }).first().click();
-  await expect(page).toHaveURL(/\/\?game=4$/);
-  await expect(page.getByRole('dialog', { name: 'God of War' })).toBeVisible();
+  await un.getByRole('button', { name: 'Оценить' }).first().click();
+  await expect(page).toHaveURL(/\/stats\?sec=ratings/);
+  const sheet = page.getByRole('dialog', { name: 'God of War' });
+  await expect(sheet).toBeVisible();
+  await expect(page.getByTestId('ratings-rate-sheet')).toBeVisible();
+  await expect(page.getByTestId('game-review')).toBeVisible();
+  await sheet.getByRole('radio', { name: '8' }).click();
+  await expect(sheet.getByTestId('review-value')).toContainText('8');
+  await expect(sheet.getByText('Сохранено')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(page).toHaveURL(/\/stats\?sec=ratings/);
+  await expect(page.getByTestId('ratings-unrated')).toHaveCount(0);
+  await expect(page.getByTestId('ratings-summary')).toHaveText('Оценено 4 игры · средняя 6,8');
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    const tabs = page.locator('nav.ps-tabbar');
+    await expect(tabs.getByRole('link', { name: /Статистика/ })).toHaveAttribute('aria-current', 'page');
+    await expect(tabs.getByRole('link', { name: /Коллекция/ })).not.toHaveAttribute('aria-current');
+  } else {
+    await expect(page.locator('header nav[aria-label="Разделы"]').getByRole('link', { name: /Статистика/ })).toHaveAttribute('aria-current', 'page');
+  }
 });
 
 test('нет оценок: пустое состояние; в меню пункта нет, чип «Оценки» в Статистике', async ({ page, context, baseURL }) => {

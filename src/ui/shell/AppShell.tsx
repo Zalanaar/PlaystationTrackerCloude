@@ -311,8 +311,10 @@ export function TabBar() {
   const offer = useSeasonOffer();
   const router = useRouter();
   const active = NAV_TABS.findIndex((n) => isTabActive(pathname, n));
-  // П16.2: вкладка подсвечивается сразу по касанию (до смены маршрута); действует, пока адрес прежний
+  // П16.2: вкладка подсвечивается сразу по касанию (до смены маршрута); действует, пока адрес прежний.
+  // Сбрасываем при уходе с этого адреса: иначе «/?game=» (pathname снова «/») снова подсвечивал вкладку Статистики.
   const [optimistic, setOptimistic] = useState<{ path: string; to: number } | null>(null);
+  if (optimistic && optimistic.path !== pathname) setOptimistic(null);
   const shown = optimistic && optimistic.path === pathname ? optimistic.to : active;
   const pending = useRef<{ tab: string; y: number; resolve: () => void } | null>(null);
 

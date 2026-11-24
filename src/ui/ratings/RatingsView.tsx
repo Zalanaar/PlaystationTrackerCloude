@@ -1,10 +1,15 @@
 'use client';
 // «Оценки» — раздел Статистики. Данные — вся коллекция из /api/games (страницами по 300), считается на клиенте.
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GameItem } from '@/server/collection/types';
+import type { DiaryEntry } from '@/shared/diary';
+import type { GameReview } from '@/server/collection/types';
 import { EmptyState } from '../EmptyState';
-import { fetchGames } from '../collection/api';
+import { fetchGameDetails, fetchGames } from '../collection/api';
+import { Cover } from '../collection/Cover';
+import { ReviewEditor } from '../collection/dialog/ReviewEditor';
+import { DiaryEditor } from '../diary/DiaryEditor';
+import { Sheet } from '../primitives/Sheet';
 import { formatNumber, plural } from '../format';
 import { average, avgText, bandHoursText, completedUnrated, distribution, hoursByBand, isRated, topGenres, type Rated } from './model';
 
@@ -28,6 +33,27 @@ export function RatingsView() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const fetchAll = useCallback(() => loadAll().then((games) => setLoad({ kind: 'ok', games }), () => setLoad({ kind: 'error' })), []);
   useEffect(() => { void fetchAll(); }, [fetchAll]);
+  const [pick, setPick] = useState<GameItem | null>(null);
+  const [details, setDetails] = useState<{ review: GameReview | null; diary: DiaryEntry[] } | 'loading' | 'error'>('loading');
+
+  function openRate(g: GameItem) {
+    setDetails('loading');
+    setPick(g);
+  }
+
+  useEffect(() => {
+    if (!pick) return;
+    const ac = new AbortController();
+    fetchGameDetails(pick.id, ac.signal).then(
+      (d) => { if (!ac.signal.aborted) setDetails({ review: d.review ?? null, diary: d.diary ?? [] }); },
+      () => { if (!ac.signal.aborted) setDetails('error'); },
+    );
+    return () => ac.abort();
+  }, [pick]);
+
+  function applyRated(g: GameItem) {
+    setLoad((s) => s.kind === 'ok' ? { kind: 'ok', games: s.games.map((x) => x.id === g.id ? { ...x, ...g } : x) } : s);
+  }
 
   const games = useMemo(() => (load.kind === 'ok' ? load.games : []), [load]);
   const rated = useMemo(() => games.filter(isRated) as Rated[], [games]);
@@ -102,11 +128,33 @@ export function RatingsView() {
           <h2 id="rt-unrated">Пройдено без оценки · {formatNumber(unrated.length)}</h2>
           <ul className="ps-ratings__list" data-testid="ratings-unrated">
             {unrated.slice(0, UNRATED_SHOWN).map((g) => (
-              <li key={g.id}><span>{g.title}</span><Link href={`/?game=${g.id}`} className="ps-btn ps-btn--ghost">Оценить</Link></li>
+              <li key={g.id}>
+                <button type="button" className="ps-ratings__game" onClick={() => openRate(g)}>{g.title}</button>
+                <button type="button" className="ps-btn ps-btn--ghost" data-testid={`ratings-rate-${g.id}`} onClick={() => openRate(g)}>Оценить</button>
+              </li>
             ))}
           </ul>
           {unrated.length > UNRATED_SHOWN && <p className="ps-ratings__note">Ещё {formatNumber(unrated.length - UNRATED_SHOWN)} — в Коллекции, фильтр «Пройдено».</p>}
         </section>
+      )}
+
+      {pick && (
+        <Sheet open onClose={() => setPick(null)} title={pick.title} className="ps-ratings-sheet">
+          <div className="ps-ratings-sheet__body" data-testid="ratings-rate-sheet">
+            <div className="ps-ratings-sheet__head">
+              <Cover url={pick.coverUrl} title={pick.title} className="ps-ratings-sheet__cover" w={48} />
+              <p className="ps-ratings-sheet__name">{pick.title}</p>
+            </div>
+            {details === 'loading' && <div className="ps-ratings__ph" aria-busy="true" aria-label="Загружаю оценку" />}
+            {details === 'error' && <p className="ps-ratings__note" role="status">Не удалось загрузить оценку. Попробуй ещё раз.</p>}
+            {details !== 'loading' && details !== 'error' && (
+              <>
+                <ReviewEditor key={pick.id} game={pick} review={details.review} onChanged={applyRated} withNote={false} />
+                <DiaryEditor key={`diary-${pick.id}`} gameId={pick.id} entries={details.diary} onChanged={() => {}} />
+              </>
+            )}
+          </div>
+        </Sheet>
       )}
     </section>
   );
