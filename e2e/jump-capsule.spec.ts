@@ -100,16 +100,38 @@ async function assertChipInside(row: Locator, chip: Locator) {
   expect(info.outside, JSON.stringify(info)).toEqual([]);
 }
 
+async function settleEnd(inner: Locator, side: 'start' | 'end') {
+  await inner.evaluate((el, s) => {
+    el.scrollTo({ left: s === 'start' ? 0 : el.scrollWidth, behavior: 'instant' });
+  }, side);
+}
+
 async function assertEndsInside(row: Locator) {
   const chips = row.locator('button, a[href^="#"]');
   const n = await chips.count();
   expect(n).toBeGreaterThanOrEqual(2);
   const inner = row.locator('.ps-jumpcap__in');
-  await chips.first().click();
-  await inner.evaluate((el) => { el.scrollLeft = 0; });
+  await chips.first().click({ force: true });
+  await expect.poll(async () => {
+    await settleEnd(inner, 'start');
+    const pad = await chips.first().evaluate((el) => {
+      const cap = el.closest('.ps-jumpcap');
+      if (!cap) return -999;
+      return el.getBoundingClientRect().left - cap.getBoundingClientRect().left;
+    });
+    return pad;
+  }, { timeout: 3000 }).toBeGreaterThanOrEqual(3);
   await assertChipInside(row, chips.first());
-  await chips.last().click();
-  await inner.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  await chips.last().click({ force: true });
+  await expect.poll(async () => {
+    await settleEnd(inner, 'end');
+    const pad = await chips.last().evaluate((el) => {
+      const cap = el.closest('.ps-jumpcap');
+      if (!cap) return -999;
+      return cap.getBoundingClientRect().right - el.getBoundingClientRect().right;
+    });
+    return pad;
+  }, { timeout: 3000 }).toBeGreaterThanOrEqual(3);
   await assertChipInside(row, chips.last());
 }
 
