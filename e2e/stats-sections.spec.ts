@@ -9,7 +9,8 @@ test('чипы разделов: только существующие, тап �
   const bar = page.getByTestId('stats-sections');
   await expect(page.getByRole('heading', { name: 'Часы по месяцам' })).toBeVisible();
   const chips = bar.locator('a, button');
-  await expect(chips.first()).toBeVisible();
+  // «Оценки» монтируются сразу, остальные чипы — после MutationObserver+rAF, когда пришли данные периода
+  await expect(bar.getByRole('button', { name: 'Часы' })).toBeVisible();
   const labels = await chips.allInnerTexts();
   expect(labels.slice(0, 2)).toEqual(['Часы', 'Жанры']);
   expect(labels).toContain('Трофеи');
