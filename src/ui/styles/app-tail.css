@@ -20,11 +20,12 @@
   color: var(--accent-ink);
   background-color: var(--accent);
   background-image: none;
-  transition: box-shadow var(--dur-fast) var(--ease-ui);
+  transition: none;
 }
 
 /* PS3: свечение текущего чипа месяца — после Tailwind, чтобы WebKit не терял box-shadow. */
 [data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"],
 [data-theme="ps3"] .ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"] {
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+  transition: none;
 }
