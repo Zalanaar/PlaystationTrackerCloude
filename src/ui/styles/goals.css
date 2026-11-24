@@ -32,8 +32,24 @@
 .ps-mgoals__picked { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .ps-mgoals__picked li { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-mgoals__picked li[data-done] { color: var(--text); text-decoration: line-through; }
-.ps-mgoals-form { padding-bottom: var(--sp-1); }
-.ps-mgoals-form__btns { position: sticky; bottom: 0; z-index: 1; margin-top: var(--sp-2); padding: var(--sp-2) 0 0; background: var(--surface); }
+.ps-mgoals-form { flex: 1 1 auto; min-height: 0; gap: 0; padding-bottom: 0; }
+.ps-mgoals-form__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: var(--sp-3); padding-bottom: var(--sp-2); }
+.ps-mgoals-form__btns {
+  position: static; flex-shrink: 0; z-index: 1;
+  margin: 0 calc(-1 * var(--sp-4));
+  padding: 12px var(--sp-4) max(14px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: var(--border-w) solid var(--border);
+}
+.ps-mgoals-more { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 4px; }
+.ps-sheet.ps-mgoals-sheet { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.ps-mgoals-sheet .ps-sheet__handle,
+.ps-mgoals-sheet .ps-sheet__head { flex-shrink: 0; }
+.ps-mgoals-sheet .ps-sheet__body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+@media (max-width: 767px) {
+  .ps-sheet.ps-mgoals-sheet,
+  .ps-sheet.ps-mgoals-sheet[data-wide="true"] { padding-bottom: 0; }
+}
 .ps-mgoals-pickblock { display: flex; flex-direction: column; gap: 4px; }
 .ps-mgoals-pick { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ps-mgoals-pick__btn { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap-min); padding: 4px var(--sp-2); border: var(--border-w) solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }

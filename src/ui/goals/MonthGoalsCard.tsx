@@ -12,6 +12,9 @@ import { useEverTrue } from '../useEverTrue';
 import { fetchMonthGoals, saveMonthGoalsApi } from './api';
 import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine, yearGoalBridgeLabel } from './model';
 
+/** В списке выбора по умолчанию столько строк; остальные — по «Показать ещё» / «Показать все». */
+const GOAL_LIST_PREVIEW = 10;
+
 export function MonthGoalsCard() {
   const hid = useId();
   const [data, setData] = useState<MonthGoalsView | null>(null);
@@ -158,8 +161,9 @@ export function MonthGoalsCard() {
         )}
       </section>
       {editorEver && (
-        <Sheet open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy}>
+        <Sheet className="ps-mgoals-sheet" open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy}>
           <form className="ps-mgoals-form" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
+            <div className="ps-mgoals-form__body">
             <p className="ps-mgoals-form__lead">Игры — из «Играю», из Плана на этот месяц и из Бэклога. Часы можно не задавать.</p>
 
             <fieldset className="ps-mgoals-form__row" data-testid="month-goals-picks">
@@ -183,7 +187,7 @@ export function MonthGoalsCard() {
                 <PickBlock id={`${hid}-plan-month`} title={`В плане на ${monthTitle(data.monthNum)}`} games={planMonth} atLimit={atLimit} busy={busy} onToggle={toggle} />
               )}
               {plan.length > 0 && (
-                <PickBlock id={`${hid}-plan`} title="План" games={plan} atLimit={atLimit} busy={busy} onToggle={toggle} />
+                <PickBlock id={`${hid}-plan`} title="План" games={plan} atLimit={atLimit} busy={busy} onToggle={toggle} cap testid="plan" />
               )}
               {backlogAll.length > 0 && (
                 <div className="ps-mgoals-pickblock">
@@ -196,11 +200,15 @@ export function MonthGoalsCard() {
                     />
                   )}
                   {backlog.length > 0 ? (
-                    <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-backlog`}>
-                      {backlog.map((g) => (
-                        <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
-                      ))}
-                    </ul>
+                    <CappedPickList
+                      labelledBy={`${hid}-backlog`}
+                      games={backlog}
+                      cap={!q}
+                      testid="backlog"
+                      atLimit={atLimit}
+                      busy={busy}
+                      onToggle={toggle}
+                    />
                   ) : (
                     <p className="ps-mgoals-form__h">Ничего не нашлось.</p>
                   )}
@@ -233,7 +241,8 @@ export function MonthGoalsCard() {
             </div>
 
             {error && <p className="ps-mgoals-form__err" role="alert">{error}</p>}
-            <div className="ps-mgoals-form__btns">
+            </div>
+            <div className="ps-mgoals-form__btns" data-testid="month-goals-footer">
               <button type="submit" className="ps-btn ps-btn--primary" disabled={busy} aria-busy={busy || undefined}>Сохранить</button>
               <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={() => setOpen(false)}>Отмена</button>
               {data.hasGoals && (
@@ -249,18 +258,62 @@ export function MonthGoalsCard() {
   );
 }
 
-function PickBlock({ id, title, games, atLimit, busy, onToggle }: {
+function PickBlock({ id, title, games, atLimit, busy, onToggle, cap = false, testid }: {
   id: string; title: string; games: GoalGame[]; atLimit: boolean; busy: boolean; onToggle: (g: GoalGame) => void;
+  cap?: boolean; testid?: string;
 }) {
   return (
     <div className="ps-mgoals-pickblock">
       <p className="ps-mgoals-form__h" id={id}>{title}</p>
-      <ul className="ps-mgoals-pick" aria-labelledby={id}>
-        {games.map((g) => (
+      <CappedPickList labelledBy={id} games={games} cap={cap} testid={testid} atLimit={atLimit} busy={busy} onToggle={onToggle} />
+    </div>
+  );
+}
+
+function CappedPickList({ labelledBy, games, cap, testid, atLimit, busy, onToggle }: {
+  labelledBy: string; games: GoalGame[]; cap: boolean; testid?: string;
+  atLimit: boolean; busy: boolean; onToggle: (g: GoalGame) => void;
+}) {
+  const [limit, setLimit] = useState(GOAL_LIST_PREVIEW);
+  const shouldCap = cap && games.length > GOAL_LIST_PREVIEW;
+  const shown = shouldCap ? Math.min(Math.max(limit, GOAL_LIST_PREVIEW), games.length) : games.length;
+  const visible = games.slice(0, shown);
+  const rest = games.length - visible.length;
+  return (
+    <>
+      <ul className="ps-mgoals-pick" aria-labelledby={labelledBy}>
+        {visible.map((g) => (
           <li key={g.id}><PickRow game={g} checked={false} onToggle={() => onToggle(g)} disabled={busy || atLimit} /></li>
         ))}
       </ul>
-    </div>
+      {shouldCap && rest > 0 && (
+        <div className="ps-mgoals-more">
+          <button
+            type="button" className="ps-btn ps-btn--ghost" disabled={busy}
+            data-testid={testid ? `month-goals-more-${testid}` : undefined}
+            onClick={() => setLimit((n) => n + GOAL_LIST_PREVIEW)}
+          >
+            Показать ещё {Math.min(GOAL_LIST_PREVIEW, rest)}
+          </button>
+          <button
+            type="button" className="ps-btn ps-btn--ghost" disabled={busy}
+            data-testid={testid ? `month-goals-all-${testid}` : undefined}
+            onClick={() => setLimit(games.length)}
+          >
+            Показать все ({games.length})
+          </button>
+        </div>
+      )}
+      {shouldCap && rest === 0 && (
+        <button
+          type="button" className="ps-btn ps-btn--ghost" disabled={busy}
+          data-testid={testid ? `month-goals-collapse-${testid}` : undefined}
+          onClick={() => setLimit(GOAL_LIST_PREVIEW)}
+        >
+          Свернуть
+        </button>
+      )}
+    </>
   );
 }
 

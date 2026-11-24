@@ -145,4 +145,78 @@ test.describe('Цели месяца на главной', () => {
     await dialog.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByTestId('month-goals-picked')).toContainText('Back 3');
   });
+
+  test('бэклог и план: 10 строк, раскрытие, поиск по всему списку; футер не перекрывает игры', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const backlog = Array.from({ length: 15 }, (_, i) => ({ id: 20 + i, title: `Back ${i + 1}`, coverUrl: null, completed: false }));
+    const plan = Array.from({ length: 12 }, (_, i) => ({ id: 40 + i, title: `Plan ${i + 1}`, coverUrl: null, completed: false }));
+    await open(page, baseURL!, {
+      ...EMPTY,
+      candidates: { playing: [GTA], planMonth: [{ id: 11, title: 'Nov Game', coverUrl: null, completed: false }], plan, backlog },
+    });
+    await page.getByTestId('month-goals-set').click();
+    const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
+    await expect(dialog.getByTestId('month-goals-picks').getByText('Играю', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('В плане на ноябрь', { exact: true })).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-game-11')).toBeAttached();
+
+    await expect(dialog.getByTestId('month-goals-game-40')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-game-49')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-game-50')).toHaveCount(0);
+    await expect(dialog.getByTestId('month-goals-more-plan')).toHaveText(/Показать ещё 2/);
+    await expect(dialog.getByTestId('month-goals-all-plan')).toHaveText('Показать все (12)');
+
+    await expect(dialog.getByTestId('month-goals-game-20')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-game-29')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-game-30')).toHaveCount(0);
+    await expect(dialog.getByTestId('month-goals-more-backlog')).toHaveText(/Показать ещё 5/);
+    await expect(dialog.getByTestId('month-goals-all-backlog')).toHaveText('Показать все (15)');
+
+    const search = dialog.getByTestId('month-goals-search');
+    await search.fill('Back 15');
+    await expect(dialog.getByTestId('month-goals-game-34')).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-game-20')).toHaveCount(0);
+    await expect(dialog.getByTestId('month-goals-more-backlog')).toHaveCount(0);
+
+    await search.fill('');
+    await expect(dialog.getByTestId('month-goals-game-30')).toHaveCount(0);
+    await dialog.getByTestId('month-goals-all-backlog').click();
+    await expect(dialog.getByTestId('month-goals-game-34')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-collapse-backlog')).toBeVisible();
+    await dialog.getByTestId('month-goals-collapse-backlog').click();
+    await expect(dialog.getByTestId('month-goals-game-34')).toHaveCount(0);
+
+    await dialog.getByTestId('month-goals-more-backlog').click();
+    await expect(dialog.getByTestId('month-goals-game-34')).toBeAttached();
+    await expect(dialog.getByTestId('month-goals-collapse-backlog')).toBeVisible();
+
+    const body = dialog.locator('.ps-mgoals-form__body');
+    const footer = dialog.getByTestId('month-goals-footer');
+    await expect(footer.getByRole('button', { name: 'Сохранить' })).toBeVisible();
+    await expect(footer.getByRole('button', { name: 'Отмена' })).toBeVisible();
+    await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+
+    const peek = await dialog.evaluate((root) => {
+      const bodyEl = root.querySelector('.ps-mgoals-form__body');
+      const foot = root.querySelector('[data-testid="month-goals-footer"]');
+      if (!bodyEl || !foot) return [{ error: 'no body/footer' }];
+      const br = bodyEl.getBoundingClientRect();
+      const fr = foot.getBoundingClientRect();
+      const hits = [];
+      for (const row of root.querySelectorAll('.ps-mgoals-pick__btn')) {
+        const r = row.getBoundingClientRect();
+        const top = Math.max(r.top, br.top);
+        const bottom = Math.min(r.bottom, br.bottom);
+        if (bottom <= top + 0.5) continue;
+        if (bottom > fr.top + 1 && top < fr.bottom - 1) {
+          hits.push({ title: (row.textContent || '').trim(), bottom, footTop: fr.top });
+        }
+      }
+      if (fr.top < br.bottom - 1 && fr.bottom <= br.bottom) {
+        hits.push({ title: 'FOOTER_INSIDE_BODY', bottom: fr.bottom, footTop: fr.top });
+      }
+      return hits;
+    });
+    expect(peek, JSON.stringify(peek)).toEqual([]);
+  });
 });
