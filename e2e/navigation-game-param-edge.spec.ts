@@ -211,7 +211,7 @@ test.describe('QA 18b: PS5 подвкладки, зона нажатия', () =>
         await page.addInitScript(() => localStorage.setItem('ps-theme', 'ps5'));
         await page.setViewportSize({ width: w, height: 800 });
         await page.goto(path);
-        const nav = page.locator('nav[aria-label="Раздел бэклога"]');
+        const nav = page.locator('nav[aria-label="Что дальше"]');
         await expect(nav.locator('a')).toHaveCount(3);
         await page.waitForTimeout(300);
         const cells = await nav.locator('a').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height, l: r.left, r: r.right, cur: e.getAttribute('aria-current') === 'page' }; }));

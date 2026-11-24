@@ -113,7 +113,7 @@ test.describe('Подскажи: нормальный ответ', () => {
     await expect(first.getByText('Тебе заходит экшен, и Хейдес уйдёт около 22 часов.')).toBeVisible();
     await expect(first.getByText('шаблон', { exact: true })).toHaveCount(0); // Фаза 48 (п. 15): метка «шаблон» скрыта
     // вкладка активна, без △ и ✕ на экране
-    await expect(page.locator('nav[aria-label="Раздел бэклога"] a[href="/recommend"][aria-current="page"]')).toBeAttached();
+    await expect(page.locator('nav[aria-label="Что дальше"] a[href="/recommend"][aria-current="page"]')).toBeAttached();
     const text = await page.locator('main, body').first().innerText();
     expect(text).not.toMatch(/[△✕]/);
     expect(await noHScroll(page)).toBe(true);
@@ -436,14 +436,14 @@ test.describe('Подскажи: адаптив', () => {
   }
 
   for (const w of [360, 320]) {
-    test(`tab bar ${w}px: 4 вкладки помещаются, «Бэклог» активна, «Подскажи» в подвкладках`, async ({ page, context, baseURL }) => {
+    test(`tab bar ${w}px: 4 вкладки помещаются, «Что дальше» активна, «Подскажи» в подвкладках`, async ({ page, context, baseURL }) => {
       await page.setViewportSize({ width: w, height: 740 });
       await open(page, context, baseURL as string);
       const bar = page.locator('nav.ps-tabbar');
       await expect(bar.locator('a')).toHaveCount(4);
-      await expect(bar.locator('a[aria-current="page"]')).toContainText('Бэклог');
+      await expect(bar.locator('a[aria-current="page"]')).toContainText('Что дальше');
       // при смене экрана подвкладки на миг бывают дважды (уходящий и новый экран) — ждём, пока останется одна
-      const cur = page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]');
+      const cur = page.locator('nav[aria-label="Что дальше"] a[aria-current="page"]');
       await expect(cur).toHaveCount(1);
       await expect(cur).toHaveText('Подскажи');
       const over = await bar.locator('a').evaluateAll((els) => els.map((e) => {

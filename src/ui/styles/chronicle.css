@@ -60,7 +60,11 @@
 .ps-mchips button.ps-mchip:hover { background: var(--surface-2); color: var(--text); }
 .ps-mchips button.ps-mchip:focus-visible { box-shadow: var(--shadow-focus); }
 .ps-mchips button.ps-mchip[aria-current="true"], .ps-mchips button.ps-mchip[aria-pressed="true"] { background: var(--accent); background-color: var(--accent); background-image: none; border-color: var(--accent); color: var(--accent-ink); }
-.ps-mchips button.ps-mchip[aria-current="true"] small, .ps-mchips button.ps-mchip[aria-pressed="true"] small { color: inherit; }
+.ps-mchips button.ps-mchip[aria-current="true"] small, .ps-mchips button.ps-mchip[aria-pressed="true"] small {
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  background-image: none;
+}
 .ps-mchips--sk { margin-top: var(--sp-2); margin-bottom: var(--sp-3); overflow: hidden; }
 .ps-mchip-sk { flex: none; width: 56px; height: var(--mchip-h); border-radius: var(--r-chip); }
 .ps-chron__body { padding-top: var(--sp-4); }

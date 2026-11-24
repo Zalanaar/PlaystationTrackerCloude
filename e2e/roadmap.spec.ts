@@ -369,7 +369,7 @@ test.describe('План: вёрстка', () => {
     const nav = isMobile ? page.locator('nav.ps-tabbar') : page.locator('header nav.ps-nav');
     await expect(nav.getByRole('link')).toHaveCount(4); // Фаза 18: 4 вкладки, «План» в подвкладках группы «Что дальше»
     await expect(nav.getByRole('link', { name: 'Что дальше' })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('navigation', { name: 'Раздел бэклога' }).getByRole('link', { name: 'План' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Что дальше' }).getByRole('link', { name: 'План' })).toHaveAttribute('aria-current', 'page');
   });
 
   for (const width of [360, 320]) {

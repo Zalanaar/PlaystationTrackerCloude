@@ -5,7 +5,7 @@ import { formatHours, formatHoursApprox } from '../format';
 export type OfflineTab = 'collection' | 'backlog' | 'stats';
 export const OFFLINE_TABS: { id: OfflineTab; label: string }[] = [
   { id: 'collection', label: 'Коллекция' },
-  { id: 'backlog', label: 'Бэклог' },
+  { id: 'backlog', label: 'Что дальше' },
   { id: 'stats', label: 'Статистика' },
 ];
 

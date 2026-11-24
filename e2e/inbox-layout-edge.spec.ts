@@ -90,7 +90,7 @@ test('QA-28-3: возврат на Коллекцию из другой вкла
   const mock = await open(page, context, baseURL!, FULL);
   await page.getByTestId('inbox-strip').waitFor();
   // P2-15: ссылка через навигацию «Разделы» (а не первая «Бэклог» на странице: на узком экране это «Перейти: Бэклог» в полосе)
-  await navLink(page, 'Бэклог').press('Enter');
+  await navLink(page, 'Что дальше').press('Enter');
   await page.waitForURL(/\/backlog/);
   mock.inboxDelay = 1500;
   const callsBefore = mock.inboxCalls;

@@ -194,7 +194,7 @@ test.describe('QA 13b: регрессии вкладок', () => {
     const nav = isMobile ? page.locator('nav').last() : page.locator('header nav').first();
     await expect(nav.getByRole('link')).toHaveCount(4);
     await expect(nav.getByRole('link', { name: 'Что дальше' })).toHaveAttribute('aria-current', 'page');
-    await nav.getByRole('link', { name: /Бэклог/ }).click();
+    await nav.getByRole('link', { name: 'Что дальше' }).click();
     await expect(page).toHaveURL(/\/backlog/);
     await page.goBack();
     await expect(page).toHaveURL(/\/recommend/);

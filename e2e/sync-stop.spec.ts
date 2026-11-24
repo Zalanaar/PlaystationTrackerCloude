@@ -50,7 +50,7 @@ test.describe('Фаза 32.1: остановка синка', () => {
     await expect(dlg.getByRole('button', { name: 'Отмена' })).toBeFocused();
     await dlg.getByRole('button', { name: 'Остановить' }).click();
     await expect(page.getByTestId('sync-cancelled')).toContainText('Остановлено тобой');
-    await expect(page.getByRole('button', { name: 'Синк с PSN' })).toBeEnabled();
+    await expect(page.getByTestId('sync-now')).toBeEnabled();
     await expect(page.getByTestId('run-status')).toHaveText(/^остановлен, /);
     expect(posts).toEqual(['cancel {}']);
     await page.keyboard.press('Escape');
@@ -95,7 +95,7 @@ test.describe('Фаза 32.1: остановка синка', () => {
     st.running = false; // между опросом и кликом запуск закончился сам
     await confirmStop(page);
     await expect(page.getByText(/Не удалось остановить/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Синк с PSN' })).toBeEnabled();
+    await expect(page.getByTestId('sync-now')).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Остановить' })).toHaveCount(0);
   });
 

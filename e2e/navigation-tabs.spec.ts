@@ -81,7 +81,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     const cur = async (path: string, tab: string, sub?: string) => {
       await page.goto(path);
       await expect(page.locator('header nav[aria-label="Разделы"] a[aria-current="page"]')).toHaveText(tab);
-      if (sub) await expect(page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]')).toHaveText(sub);
+      if (sub) await expect(page.locator('nav[aria-label="Что дальше"] a[aria-current="page"]')).toHaveText(sub);
     };
     await cur('/backlog', 'Что дальше', 'Бэклог');
     await cur('/roadmap', 'Что дальше', 'План');
@@ -93,7 +93,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     await page.goto('/triage');
     await expect(page.getByRole('heading', { level: 1, name: 'Разбор' })).toBeAttached();
     await expect(page.locator('header nav[aria-label="Разделы"] a[aria-current="page"]')).toHaveCount(0);
-    await expect(page.locator('nav[aria-label="Раздел бэклога"]')).toHaveCount(0);
+    await expect(page.locator('nav[aria-label="Что дальше"]')).toHaveCount(0);
   });
 
   test('меню профиля без «Разобрать игры»; П9: пункт «Разбор» с числом игр без статуса открывает /triage', async ({ page, context, baseURL }, info) => {
@@ -149,7 +149,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     for (const b of boxes) { expect(Math.abs(b.w - 90)).toBeLessThan(1); expect(b.h).toBeGreaterThanOrEqual(44); expect(b.over).toBe(false); }
     await page.goto('/roadmap');
     await expect(tabs.nth(1)).toHaveAttribute('aria-current', 'page');
-    const sub = page.locator('nav[aria-label="Раздел бэклога"] a');
+    const sub = page.locator('nav[aria-label="Что дальше"] a');
     const sb = await sub.evaluateAll((els) => els.map((e) => ({ w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height })));
     expect(sb).toHaveLength(3);
     for (const b of sb) { expect(b.h).toBe(44); expect(Math.abs(b.w - (360 - 32) / 3)).toBeLessThan(2); }
@@ -159,7 +159,7 @@ test.describe('Навигация: 4 вкладки и подвкладки (18.
     const m = await setup(page, context, baseURL!);
     m.delayList = () => 1500;
     await page.goto('/backlog');
-    await expect(page.locator('nav[aria-label="Раздел бэклога"] a')).toHaveCount(3);
+    await expect(page.locator('nav[aria-label="Что дальше"] a')).toHaveCount(3);
   });
 });
 

@@ -40,7 +40,7 @@ test('телефон: View Transition по вкладкам — шапка и п
   await open(page, baseURL!);
   expect((await anim(page)).enter).toBe(false);
   test.skip(!(await page.evaluate(() => typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function')), 'нет View Transitions API');
-  await go(page, 'Бэклог');
+  await go(page, 'Что дальше');
   await expect(page).toHaveURL(/\/backlog/);
   await expect.poll(() => vt(page).then((v) => v.length)).toBe(1);
   expect((await vt(page))[0]).toEqual({ dir: 'fwd', header: 'ps-header', tabbar: 'ps-tabbar', main: 'ps-main' });
@@ -76,7 +76,7 @@ test('телефон без View Transitions API: fade без transform, пер�
   test.skip(!isMobile, 'телефон');
   await open(page, baseURL!, { noApi: true });
   expect((await anim(page)).enter).toBe(false);
-  await go(page, 'Бэклог');
+  await go(page, 'Что дальше');
   await expect(page).toHaveURL(/\/backlog/);
   await expect(page.locator('.ps-route[data-enter]')).toBeAttached();
   const a = await anim(page);
@@ -91,7 +91,7 @@ test('prefers-reduced-motion: без View Transition и без fade', async ({ p
   test.skip(!isMobile, 'телефон');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page, baseURL!);
-  await go(page, 'Бэклог');
+  await go(page, 'Что дальше');
   await expect(page).toHaveURL(/\/backlog/);
   await expect(page.locator('.ps-route[data-enter]')).toBeAttached();
   expect((await anim(page)).name).toBe('none');
@@ -113,7 +113,7 @@ test('П16.2: касание вкладки — подсветка в том ж�
   await open(page, baseURL!);
   test.skip(!(await page.evaluate(() => typeof (document as Document & { startViewTransition?: unknown }).startViewTransition === 'function')), 'нет View Transitions API');
   // прогрев: первый заход на вкладку в dev-сервере включает компиляцию маршрута (WebKit в CI — до ~1,2 с); меряем повторное касание
-  await go(page, 'Бэклог');
+  await go(page, 'Что дальше');
   await expect(page).toHaveURL(/\/backlog/);
   await expect(page.getByTestId('bl-main-head')).toBeVisible();
   await go(page, 'Коллекция');
@@ -124,7 +124,7 @@ test('П16.2: касание вкладки — подсветка в том ж�
     await page.waitForTimeout(400);
     await page.evaluate(() => { performance.clearMarks(); performance.clearMeasures(); });
     // aria-current новой вкладки выставлен синхронно в обработчике касания (до смены адреса и до снимка перехода)
-    const current = await tab(page, 'Бэклог').evaluate((el) => { (el as HTMLElement).click(); return el.getAttribute('aria-current'); });
+    const current = await tab(page, 'Что дальше').evaluate((el) => { (el as HTMLElement).click(); return el.getAttribute('aria-current'); });
     expect(current).toBe('page');
     await expect(page).toHaveURL(/\/backlog/);
     await expect.poll(() => page.evaluate(() => performance.getEntriesByName('ps-tab-delay')[0]?.duration ?? null)).not.toBeNull();
@@ -143,6 +143,6 @@ test('П16.2: касание вкладки — подсветка в том ж�
   // было ~830 мс (снимок держался до предела 800 мс); теперь ожидание ≤150 мс — прод-сборка 23–34 мс, dev-сервер медленнее
   // WebKit на dev-сервере в CI медленный (626–900 мс при 23–34 мс в прод-сборке): проверяем, что снимок не висит секундами
   expect(delay).toBeLessThan(browserName === 'webkit' ? 1200 : 400);
-  await expect(tab(page, 'Бэклог')).toHaveAttribute('aria-current', 'page');
+  await expect(tab(page, 'Что дальше')).toHaveAttribute('aria-current', 'page');
   await expect(tab(page, 'Коллекция')).not.toHaveAttribute('aria-current', /.*/);
 });

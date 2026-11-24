@@ -76,12 +76,15 @@
 .ps-mchips.ps-jumpcap button.ps-mchip[aria-pressed="true"] small {
   color: var(--accent-ink);
   background-color: var(--accent);
+  background-image: none;
 }
 
 .ps-jumpcap [aria-current="true"],
 .ps-jumpcap [aria-current="location"],
 .ps-jumpcap [aria-pressed="true"] {
   background: var(--accent);
+  background-color: var(--accent);
+  background-image: none;
   border-color: var(--accent);
   color: var(--accent-ink);
   font-weight: 600;
@@ -90,7 +93,9 @@
 .ps-jumpcap [aria-current="true"] b,
 .ps-jumpcap [aria-current="location"] b,
 .ps-jumpcap [aria-pressed="true"] small {
-  color: inherit;
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  background-image: none;
 }
 
 @media (prefers-reduced-transparency: reduce) {

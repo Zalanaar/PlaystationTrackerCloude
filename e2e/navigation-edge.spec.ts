@@ -32,7 +32,7 @@ test.describe('QA 18: темы x ширины на Коллекции и Пла�
           await page.waitForTimeout(300);
           expect(await overflow(page), `${theme} ${w} ${path} гор. прокрутка`).toBeLessThanOrEqual(0);
           if (path === '/roadmap') {
-            const a = page.locator('nav[aria-label="Раздел бэклога"] a[aria-current="page"]');
+            const a = page.locator('nav[aria-label="Что дальше"] a[aria-current="page"]');
             await expect(a).toHaveText('План');
             const box = await a.boundingBox();
             expect(box, `${theme} ${w} подвкладка`).toBeTruthy();
