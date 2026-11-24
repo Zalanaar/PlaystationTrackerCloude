@@ -53,11 +53,11 @@ async function assertCapsule(row: Locator) {
 
 
 /** Активный чип целиком внутри скруглённой капсулы (не вылезает за край пилюли). */
-async function assertChipInside(row: Locator, chip: Locator) {
+async function measureChip(chip: Locator) {
   await expect(chip).toBeVisible();
-  const info = await chip.evaluate((el) => {
+  return chip.evaluate((el) => {
     const cap = el.closest('.ps-jumpcap');
-    if (!cap) return { error: 'no capsule' };
+    if (!cap) return { padL: -999, padR: -999, padT: -999, padB: -999, outside: ['no capsule'] };
     const cr = cap.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     const radius = cr.height / 2;
@@ -91,19 +91,22 @@ async function assertChipInside(row: Locator, chip: Locator) {
       padB: cr.bottom - r.bottom,
       outside,
     };
-  });
-  expect(info, JSON.stringify(info)).not.toHaveProperty('error');
-  expect(info.padL, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
-  expect(info.padR, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
-  expect(info.padT, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
-  expect(info.padB, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
-  expect(info.outside, JSON.stringify(info)).toEqual([]);
+  }) as Promise<{ padL: number; padR: number; padT: number; padB: number; outside: unknown[] }>;
 }
 
 async function settleEnd(inner: Locator, side: 'start' | 'end') {
   await inner.evaluate((el, s) => {
     el.scrollTo({ left: s === 'start' ? 0 : el.scrollWidth, behavior: 'instant' });
   }, side);
+}
+
+function chipInsideOk(info: { padL: number; padR: number; padT: number; padB: number; outside: unknown[] }): boolean {
+  return info.padL >= 3 && info.padR >= 3 && info.padT >= 3 && info.padB >= 3 && info.outside.length === 0;
+}
+
+async function measureAfterSettle(inner: Locator, chip: Locator, side: 'start' | 'end') {
+  await settleEnd(inner, side);
+  return measureChip(chip);
 }
 
 async function assertEndsInside(row: Locator) {
@@ -113,26 +116,14 @@ async function assertEndsInside(row: Locator) {
   const inner = row.locator('.ps-jumpcap__in');
   await chips.first().click({ force: true });
   await expect.poll(async () => {
-    await settleEnd(inner, 'start');
-    const pad = await chips.first().evaluate((el) => {
-      const cap = el.closest('.ps-jumpcap');
-      if (!cap) return -999;
-      return el.getBoundingClientRect().left - cap.getBoundingClientRect().left;
-    });
-    return pad;
-  }, { timeout: 3000 }).toBeGreaterThanOrEqual(3);
-  await assertChipInside(row, chips.first());
+    const info = await measureAfterSettle(inner, chips.first(), 'start');
+    return chipInsideOk(info) ? 'ok' : JSON.stringify(info);
+  }, { timeout: 3000 }).toBe('ok');
   await chips.last().click({ force: true });
   await expect.poll(async () => {
-    await settleEnd(inner, 'end');
-    const pad = await chips.last().evaluate((el) => {
-      const cap = el.closest('.ps-jumpcap');
-      if (!cap) return -999;
-      return cap.getBoundingClientRect().right - el.getBoundingClientRect().right;
-    });
-    return pad;
-  }, { timeout: 3000 }).toBeGreaterThanOrEqual(3);
-  await assertChipInside(row, chips.last());
+    const info = await measureAfterSettle(inner, chips.last(), 'end');
+    return chipInsideOk(info) ? 'ok' : JSON.stringify(info);
+  }, { timeout: 3000 }).toBe('ok');
 }
 
 test.describe('плавающая капсула быстрого перехода', () => {
