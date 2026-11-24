@@ -115,6 +115,8 @@ describe('на PGlite', () => {
     const empty = await getMonthGoals(t.db, TEST_USER, NOW);
     expect(empty.candidates.playing.map((g) => g.title)).toEqual(['GTA']);
     expect(empty.candidates.plan.map((g) => g.title)).toEqual(['PlanA']);
+    expect(empty.candidates.planMonth).toEqual([]);
+    expect(empty.candidates.backlog).toEqual([]);
     expect(empty.candidates.playing[0].id).toBe(playing);
 
     const saved = await saveMonthGoals(t.db, TEST_USER, NOW, { games: null, hours: null, trophies: null, gameIds: [playing, planned] });
@@ -164,4 +166,35 @@ describe('на PGlite', () => {
     expect(v.yearGoal).toMatchObject({ mode: 'complete', year: 2026, current: 7, count: 12 });
     expect(v.yearGoal?.gamesHint).toBeGreaterThanOrEqual(1);
   });
+
+  it('кандидаты: «В плане на месяц», остальной План и Бэклог', async () => {
+    await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
+    const long = await game({ name: 'Long' });
+    const nov = await game({ name: 'NovemberGame' });
+    const rest = await game({ name: 'Later' });
+    const loose = await game({ name: 'LooseBacklog' });
+    await t.db.update(schema.games).set({ durationOverrideHours: 430 }).where(eq(schema.games.id, long));
+    await t.db.update(schema.games).set({ durationOverrideHours: 20 }).where(eq(schema.games.id, nov));
+    await t.db.update(schema.games).set({ durationOverrideHours: 10 }).where(eq(schema.games.id, rest));
+    await t.db.insert(schema.gameStatus).values([
+      { userId: TEST_USER, gameId: long, status: 'backlog' },
+      { userId: TEST_USER, gameId: nov, status: 'backlog' },
+      { userId: TEST_USER, gameId: rest, status: 'backlog' },
+      { userId: TEST_USER, gameId: loose, status: 'backlog' },
+    ]);
+    await t.db.insert(schema.roadmapOrder).values([
+      { userId: TEST_USER, gameId: long, position: 0, updatedAt: NOW },
+      { userId: TEST_USER, gameId: nov, position: 1, updatedAt: NOW },
+      { userId: TEST_USER, gameId: rest, position: 2, updatedAt: NOW },
+    ]);
+    const v = await getMonthGoals(t.db, TEST_USER, NOW);
+    expect(v.candidates.planMonth.map((g) => g.title)).toContain('NovemberGame');
+    expect(v.candidates.planMonth.map((g) => g.title)).not.toContain('LooseBacklog');
+    expect(v.candidates.backlog.map((g) => g.title)).toEqual(['LooseBacklog']);
+    // «Long» уходит в начало года или в «План»/месяц, но не в свободный бэклог
+    expect(v.candidates.backlog.map((g) => g.title)).not.toContain('Long');
+    const allPlan = [...v.candidates.planMonth, ...v.candidates.plan].map((g) => g.title);
+    expect(allPlan).toEqual(expect.arrayContaining(['Long', 'NovemberGame', 'Later']));
+  });
+
 });

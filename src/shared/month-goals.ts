@@ -21,7 +21,8 @@ export type MonthGoalsView = {
   progress: GoalProgress;
   hasGoals: boolean;
   picked: GoalGame[];
-  candidates: { playing: GoalGame[]; plan: GoalGame[] };
+  /** Выбор игр: «Играю», «В плане на месяц» (План ставит на этот месяц), остальной План, «Бэклог». */
+  candidates: { playing: GoalGame[]; planMonth: GoalGame[]; plan: GoalGame[]; backlog: GoalGame[] };
   hoursHint: number | null;
   /** Цель года текущего календарного года, если задана в Плане. */
   yearGoal: MonthYearGoal | null;

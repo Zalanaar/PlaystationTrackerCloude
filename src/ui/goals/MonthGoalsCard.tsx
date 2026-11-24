@@ -1,6 +1,6 @@
 'use client';
 
-// Цели месяца на главной: выбранные игры (из «Играю» и Плана) и часы; подсказка среднего; без цели по трофеям.
+// Цели месяца на главной: выбранные игры («Играю», План на этот месяц, остальной План, Бэклог) и часы; без цели по трофеям.
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import Link from '@/ui/IntentLink';
 import { GOAL_PICK_MAX, hasGoals as hasGoalFields, type GoalGame, type MonthGoalsView, type ParsedGoals } from '@/shared/month-goals';
@@ -20,6 +20,7 @@ export function MonthGoalsCard() {
   const [hours, setHours] = useState('');
   const [selected, setSelected] = useState<GoalGame[]>([]);
   const [picksTouched, setPicksTouched] = useState(false);
+  const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editorEver = useEverTrue(open);
@@ -46,7 +47,7 @@ export function MonthGoalsCard() {
   const catalog = useMemo(() => {
     const m = new Map<number, GoalGame>();
     if (!data) return m;
-    for (const g of [...data.picked, ...data.candidates.playing, ...data.candidates.plan]) m.set(g.id, g);
+    for (const g of [...data.picked, ...data.candidates.playing, ...data.candidates.planMonth, ...data.candidates.plan, ...data.candidates.backlog]) m.set(g.id, g);
     return m;
   }, [data]);
 
@@ -54,6 +55,7 @@ export function MonthGoalsCard() {
     if (!data) return;
     setSelected(data.picked);
     setPicksTouched(false);
+    setQuery('');
     setHours(data.goals.hours == null ? '' : String(data.goals.hours));
     setError(null);
     setOpen(true);
@@ -100,8 +102,14 @@ export function MonthGoalsCard() {
   const rows = GOAL_ORDER.filter((k) => data.goals[k] != null);
   const selectedIds = new Set(selected.map((g) => g.id));
   const playing = data.candidates.playing.filter((g) => !selectedIds.has(g.id));
+  const planMonth = data.candidates.planMonth.filter((g) => !selectedIds.has(g.id));
   const plan = data.candidates.plan.filter((g) => !selectedIds.has(g.id));
+  const backlogAll = data.candidates.backlog.filter((g) => !selectedIds.has(g.id));
+  const q = query.trim().toLowerCase();
+  const backlog = q ? backlogAll.filter((g) => g.title.toLowerCase().includes(q)) : backlogAll;
   const atLimit = selected.length >= GOAL_PICK_MAX;
+  const hasCatalog = playing.length + planMonth.length + plan.length + backlogAll.length > 0;
+  const showSearch = backlogAll.length >= 8;
 
   return (
     <>
@@ -152,7 +160,7 @@ export function MonthGoalsCard() {
       {editorEver && (
         <Sheet open={open} onClose={() => !busy && setOpen(false)} title={title} busy={busy}>
           <form className="ps-mgoals-form" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
-            <p className="ps-mgoals-form__lead">Игры — из «Играю» (сначала) и из Плана. Часы можно не задавать.</p>
+            <p className="ps-mgoals-form__lead">Игры — из «Играю», из Плана на этот месяц и из Бэклога. Часы можно не задавать.</p>
 
             <fieldset className="ps-mgoals-form__row" data-testid="month-goals-picks">
               <legend className="ps-mgoals-form__lbl">Игры пройти</legend>
@@ -169,27 +177,37 @@ export function MonthGoalsCard() {
                 </ul>
               )}
               {playing.length > 0 && (
-                <div className="ps-mgoals-pickblock">
-                  <p className="ps-mgoals-form__h" id={`${hid}-playing`}>Играю</p>
-                  <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-playing`}>
-                    {playing.map((g) => (
-                      <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
-                    ))}
-                  </ul>
-                </div>
+                <PickBlock id={`${hid}-playing`} title="Играю" games={playing} atLimit={atLimit} busy={busy} onToggle={toggle} />
+              )}
+              {planMonth.length > 0 && (
+                <PickBlock id={`${hid}-plan-month`} title={`В плане на ${monthTitle(data.monthNum)}`} games={planMonth} atLimit={atLimit} busy={busy} onToggle={toggle} />
               )}
               {plan.length > 0 && (
+                <PickBlock id={`${hid}-plan`} title="План" games={plan} atLimit={atLimit} busy={busy} onToggle={toggle} />
+              )}
+              {backlogAll.length > 0 && (
                 <div className="ps-mgoals-pickblock">
-                  <p className="ps-mgoals-form__h" id={`${hid}-plan`}>План</p>
-                  <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-plan`}>
-                    {plan.map((g) => (
-                      <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
-                    ))}
-                  </ul>
+                  <p className="ps-mgoals-form__h" id={`${hid}-backlog`}>Бэклог</p>
+                  {showSearch && (
+                    <input
+                      className="ps-input ps-mgoals-form__search" type="search" value={query} disabled={busy}
+                      placeholder="Найти в бэклоге" aria-label="Найти в бэклоге" data-testid="month-goals-search"
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  )}
+                  {backlog.length > 0 ? (
+                    <ul className="ps-mgoals-pick" aria-labelledby={`${hid}-backlog`}>
+                      {backlog.map((g) => (
+                        <li key={g.id}><PickRow game={g} checked={false} onToggle={() => toggle(g)} disabled={busy || atLimit} /></li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="ps-mgoals-form__h">Ничего не нашлось.</p>
+                  )}
                 </div>
               )}
-              {selected.length === 0 && playing.length === 0 && plan.length === 0 && (
-                <p className="ps-mgoals-form__h">Нет игр в «Играю» и в Плане — добавь их туда, чтобы выбрать.</p>
+              {selected.length === 0 && !hasCatalog && (
+                <p className="ps-mgoals-form__h">Нет игр в «Играю», Плане и Бэклоге — добавь их туда, чтобы выбрать.</p>
               )}
               {atLimit && <p className="ps-mgoals-form__h">Можно выбрать до {GOAL_PICK_MAX} игр.</p>}
             </fieldset>
@@ -228,6 +246,21 @@ export function MonthGoalsCard() {
         </Sheet>
       )}
     </>
+  );
+}
+
+function PickBlock({ id, title, games, atLimit, busy, onToggle }: {
+  id: string; title: string; games: GoalGame[]; atLimit: boolean; busy: boolean; onToggle: (g: GoalGame) => void;
+}) {
+  return (
+    <div className="ps-mgoals-pickblock">
+      <p className="ps-mgoals-form__h" id={id}>{title}</p>
+      <ul className="ps-mgoals-pick" aria-labelledby={id}>
+        {games.map((g) => (
+          <li key={g.id}><PickRow game={g} checked={false} onToggle={() => onToggle(g)} disabled={busy || atLimit} /></li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

@@ -12,7 +12,8 @@ import {
   currentMonth, hasGoals, yearGamesHint, GOAL_PICK_MAX,
   type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type MonthYearGoal, type ParsedGoals,
 } from '@/shared/month-goals';
-import { getGoal } from '@/server/roadmap/db';
+import { getBacklogEntries, getGoal, getPlannedEntries, getSettings } from '@/server/roadmap/db';
+import { buildPlan } from '@/server/roadmap/plan';
 import type { GoalView } from '@/server/roadmap/goal';
 
 export {
@@ -142,34 +143,81 @@ async function listPicked(db: AnyDb, userId: UserId, month: string): Promise<Goa
   }
 }
 
-async function listCandidates(db: AnyDb, userId: UserId, pickedIds: number[]): Promise<{ playing: GoalGame[]; plan: GoalGame[] }> {
-  const empty = { playing: [] as GoalGame[], plan: [] as GoalGame[] };
-  const notPicked = pickedIds.length ? notInArray(games.id, pickedIds) : undefined;
-  const notFinished = or(isNull(gameStatus.status), and(ne(gameStatus.status, 'completed'), ne(gameStatus.status, 'dropped'), ne(gameStatus.status, 'service')));
+/** Сколько игр бэклога отдаём в выбор (поиск по названию — на клиенте). */
+export const GOAL_BACKLOG_MAX = 300;
+
+type Candidates = MonthGoalsView['candidates'];
+
+/** id игр бэклога, которые План ставит на этот месяц (в порядке начала). Ошибка или нет бюджета — пусто. */
+async function planMonthIds(db: AnyDb, userId: UserId, now: Date, month: string): Promise<number[]> {
   try {
+    const [settings, backlog, planned] = await Promise.all([getSettings(db, userId, now), getBacklogEntries(db, userId), getPlannedEntries(db, userId)]);
+    const plan = buildPlan({ year: settings.year, hoursPerWeek: settings.hoursPerWeek, backlog, planned });
+    const from = `${month}-01`;
+    const to = `${month}-31`;
+    const seen = new Set<number>();
+    const out: number[] = [];
+    for (const it of [...plan.items].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))) {
+      if (it.gameId === null || it.start > to || it.end < from || seen.has(it.gameId)) continue;
+      seen.add(it.gameId);
+      out.push(it.gameId);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function listCandidates(db: AnyDb, userId: UserId, pickedIds: number[], now: Date, month: string): Promise<Candidates> {
+  const empty: Candidates = { playing: [], planMonth: [], plan: [], backlog: [] };
+  const notFinished = or(isNull(gameStatus.status), and(ne(gameStatus.status, 'completed'), ne(gameStatus.status, 'dropped'), ne(gameStatus.status, 'service')));
+  const cols = { id: games.id, title: games.name, coverUrl: games.imageUrl, status: gameStatus.status };
+  try {
+    const notPicked = pickedIds.length ? notInArray(games.id, pickedIds) : undefined;
     const playing = await db
-      .select({ id: games.id, title: games.name, coverUrl: games.imageUrl, status: gameStatus.status, last: games.lastPlayedAt })
+      .select({ ...cols, last: games.lastPlayedAt })
       .from(games)
       .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
       .where(and(visibleGame(userId), eq(gameStatus.status, 'playing'), notPicked))
       .orderBy(sql`${games.lastPlayedAt} desc nulls last`, desc(games.id))
       .limit(GOAL_PICK_MAX);
-    const playingIds = playing.map((r) => r.id);
-    const exclude = [...pickedIds, ...playingIds];
+    const exclude = new Set<number>([...pickedIds, ...playing.map((r) => r.id)]);
+
+    // «В плане на месяц»: игры бэклога, которые План ставит на текущий месяц
+    const monthIds = (await planMonthIds(db, userId, now, month)).filter((id) => !exclude.has(id));
+    let planMonth: GoalGame[] = [];
+    if (monthIds.length) {
+      const rows = await db
+        .select(cols)
+        .from(games)
+        .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+        .where(and(visibleGame(userId), notFinished, inArray(games.id, monthIds)));
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      planMonth = monthIds.flatMap((id) => { const r = byId.get(id); return r ? [toGoalGame(r)] : []; }).slice(0, GOAL_PICK_MAX);
+    }
+    for (const g of planMonth) exclude.add(g.id);
+
+    const ex = [...exclude];
     const plan = await db
-      .select({ id: games.id, title: games.name, coverUrl: games.imageUrl, status: gameStatus.status, position: roadmapOrder.position })
+      .select({ ...cols, position: roadmapOrder.position })
       .from(roadmapOrder)
       .innerJoin(games, and(eq(games.id, roadmapOrder.gameId), eq(games.userId, userId)))
       .leftJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
-      .where(and(
-        eq(roadmapOrder.userId, userId),
-        visibleGame(userId),
-        notFinished,
-        exclude.length ? notInArray(games.id, exclude) : undefined,
-      ))
+      .where(and(eq(roadmapOrder.userId, userId), visibleGame(userId), notFinished, ex.length ? notInArray(games.id, ex) : undefined))
       .orderBy(asc(roadmapOrder.position), asc(games.id))
       .limit(GOAL_PICK_MAX);
-    return { playing: playing.map(toGoalGame), plan: plan.map(toGoalGame) };
+    for (const r of plan) exclude.add(r.id);
+
+    const ex2 = [...exclude];
+    const backlog = await db
+      .select(cols)
+      .from(games)
+      .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+      .where(and(visibleGame(userId), eq(gameStatus.status, 'backlog'), ex2.length ? notInArray(games.id, ex2) : undefined))
+      .orderBy(asc(games.name), asc(games.id))
+      .limit(GOAL_BACKLOG_MAX);
+
+    return { playing: playing.map(toGoalGame), planMonth, plan: plan.map(toGoalGame), backlog: backlog.map(toGoalGame) };
   } catch {
     return empty;
   }
@@ -202,7 +250,7 @@ export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promi
   };
   const [progress, candidates, hoursHint, year] = await Promise.all([
     monthGoalProgress(db, userId, now, picked.map((g) => g.id)),
-    listCandidates(db, userId, picked.map((g) => g.id)),
+    listCandidates(db, userId, picked.map((g) => g.id), now, cur.month),
     averageMonthlyHours(db, userId, now),
     getGoal(db, userId, now),
   ]);

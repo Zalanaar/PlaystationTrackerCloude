@@ -10,7 +10,7 @@ type Goals = {
   progress: { games: number; hours: number; trophies: number };
   hasGoals: boolean;
   picked: GoalGame[];
-  candidates: { playing: GoalGame[]; plan: GoalGame[] };
+  candidates: { playing: GoalGame[]; planMonth: GoalGame[]; plan: GoalGame[]; backlog: GoalGame[] };
   hoursHint: number | null;
   yearGoal: { mode: 'complete' | 'backlog_to'; year: number; current: number; count: number; gamesHint: number | null } | null;
 };
@@ -24,7 +24,7 @@ const EMPTY: Goals = {
   progress: { games: 0, hours: 5, trophies: 12 },
   hasGoals: false,
   picked: [],
-  candidates: { playing: [GTA], plan: [PLAN] },
+  candidates: { playing: [GTA], planMonth: [], plan: [PLAN], backlog: [] },
   hoursHint: 15,
   yearGoal: null,
 };
@@ -38,13 +38,15 @@ async function open(page: Page, baseURL: string, initial: Goals = EMPTY) {
     if (r.request().method() === 'PUT') {
       const b = r.request().postDataJSON() as Goals['goals'] & { gameIds?: number[] };
       puts.push(b);
-      const catalog = [...current.picked, ...current.candidates.playing, ...current.candidates.plan];
+      const catalog = [...current.picked, ...current.candidates.playing, ...current.candidates.planMonth, ...current.candidates.plan, ...current.candidates.backlog];
       if (b.gameIds) {
         const order = new Map(b.gameIds.map((id, i) => [id, i]));
         current.picked = catalog.filter((g) => order.has(g.id)).sort((a, b2) => (order.get(a.id) ?? 0) - (order.get(b2.id) ?? 0));
         current.candidates = {
           playing: current.candidates.playing.filter((g) => !order.has(g.id)),
+          planMonth: current.candidates.planMonth.filter((g) => !order.has(g.id)),
           plan: current.candidates.plan.filter((g) => !order.has(g.id)),
+          backlog: current.candidates.backlog.filter((g) => !order.has(g.id)),
         };
         current.goals.games = b.gameIds.length ? b.gameIds.length : null;
       } else {
@@ -91,7 +93,7 @@ test.describe('Цели месяца на главной', () => {
       ...EMPTY,
       goals: { games: 1, hours: 20, trophies: null },
       picked: [{ ...GTA, completed: true }],
-      candidates: { playing: [], plan: [PLAN] },
+      candidates: { playing: [], planMonth: [], plan: [PLAN], backlog: [] },
       progress: { games: 1, hours: 5, trophies: 12 },
       hasGoals: true,
     };
@@ -119,5 +121,28 @@ test.describe('Цели месяца на главной', () => {
     await card.getByTestId('month-goals-set').click();
     const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
     await expect(dialog.getByTestId('month-goals-games-hint')).toHaveText('По темпу года — 3 игры в месяц');
+  });
+
+  test('в листе есть «В плане на ноябрь», «План», «Бэклог» и поиск по бэклогу', async ({ page, baseURL }) => {
+    const nov: GoalGame = { id: 11, title: 'Nov Game', coverUrl: null, completed: false };
+    const backlog = Array.from({ length: 8 }, (_, i) => ({ id: 20 + i, title: `Back ${i + 1}`, coverUrl: null, completed: false }));
+    await open(page, baseURL!, {
+      ...EMPTY,
+      candidates: { playing: [GTA], planMonth: [nov], plan: [PLAN], backlog },
+    });
+    await page.getByTestId('month-goals-set').click();
+    const dialog = page.getByRole('dialog', { name: 'Цели на ноябрь' });
+    await expect(dialog.getByText('В плане на ноябрь', { exact: true })).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-game-11')).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-picks').getByText('План', { exact: true })).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-picks').getByText('Бэклог', { exact: true })).toBeVisible();
+    const search = dialog.getByTestId('month-goals-search');
+    await expect(search).toBeVisible();
+    await search.fill('Back 3');
+    await expect(dialog.getByTestId('month-goals-game-22')).toBeVisible();
+    await expect(dialog.getByTestId('month-goals-game-20')).toHaveCount(0);
+    await dialog.getByTestId('month-goals-game-22').click();
+    await dialog.getByRole('button', { name: 'Сохранить' }).click();
+    await expect(page.getByTestId('month-goals-picked')).toContainText('Back 3');
   });
 });
