@@ -25,7 +25,7 @@ describe('GET /api/offline/snapshot', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('cache-control')).toBe('no-store');
     const d = (await r.json()).data;
-    expect(d).toMatchObject({ v: 1, profileId: 1, games: [], backlog: [] });
+    expect(d).toMatchObject({ v: 2, profileId: 1, games: [], backlog: [], plan: { year: expect.any(Number), status: 'no_budget', items: [] } });
   });
   it('БД недоступна: 503', async () => {
     broken = true;
