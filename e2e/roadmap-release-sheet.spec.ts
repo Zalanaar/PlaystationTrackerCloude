@@ -40,6 +40,8 @@ test.describe('шит «Добавить игру в план»', () => {
   });
 
   test('после очистки поиска шит сам скроллится, страница под ним заблокирована', async ({ page, context, baseURL, isMobile }) => {
+    const vp = page.viewportSize() ?? { width: 390, height: 844 };
+    await page.setViewportSize({ width: vp.width, height: 500 });
     const dlg = await openSheet(page, context, baseURL as string, { catalog: { status: 200, candidates: [] } });
     await expect(page.locator('body')).toHaveAttribute('data-scroll-lock', '1');
     expect(await page.evaluate(() => getComputedStyle(document.body).position)).toBe('fixed');

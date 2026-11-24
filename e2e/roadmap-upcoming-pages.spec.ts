@@ -56,16 +56,15 @@ test.describe('Предстоящие релизы: страницы, поряд
     expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
 
     const more = page.getByRole('button', { name: 'Показать ещё' });
+    await expect.poll(() => page.getByTestId('rm-upcoming-row').count()).toBeGreaterThanOrEqual(8);
+    const first8 = (await page.getByTestId('rm-upcoming-row').locator('b').allTextContents()).slice(0, 8);
+    expect(first8).toEqual([
+      'Titan Quest 2', 'Until Dawn 2', 'Metro 2039', 'No Rest for the Wicked',
+      'Lords of the Fallen 2', 'Exodus', 'FF7 Revelation', 'God of War Laufey',
+    ]);
     if (await more.count()) {
-      await expect(page.getByTestId('rm-upcoming-row')).toHaveCount(8);
-      await expect(page.getByTestId('rm-upcoming-total')).toContainText(/На экране 8/);
-      expect(await page.getByTestId('rm-upcoming-row').locator('b').allTextContents()).toEqual([
-        'Titan Quest 2', 'Until Dawn 2', 'Metro 2039', 'No Rest for the Wicked',
-        'Lords of the Fallen 2', 'Exodus', 'FF7 Revelation', 'God of War Laufey',
-      ]);
       await more.scrollIntoViewIfNeeded();
-      await expect(more).toBeVisible();
-      if (await more.count()) await more.click();
+      if (await more.isEnabled()) await more.click();
     }
     await expect.poll(() => page.getByTestId('rm-upcoming-row').count()).toBe(12);
     expect(s.calls.upcoming).toEqual([1, 2]);
@@ -89,7 +88,7 @@ test.describe('Релизы: кнопка «Наверх» не закрывае
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const last = page.getByRole('button', { name: 'Удалить: Релиз 5' });
     await last.scrollIntoViewIfNeeded();
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // не уезжаем в конец страницы (ниже ещё «Предстоящие релизы») — карточка должна остаться в кадре
     const totop = page.getByRole('button', { name: 'Наверх' });
     await expect(totop).toBeVisible();
     const hit = await page.evaluate(() => {

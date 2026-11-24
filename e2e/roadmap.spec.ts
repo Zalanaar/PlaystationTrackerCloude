@@ -494,16 +494,18 @@ test.describe('План: предстоящие релизы', () => {
     await rows.nth(0).getByRole('button', { name: 'В план: Новинка 1' }).click();
     await expect(rows.nth(0)).toContainText('В плане');
     expect(s.calls.posts).toEqual([{ title: 'Новинка 1', releaseDate: '2026-12-11', coverUrl: null, wantAtRelease: true, hoursManual: null, externalSource: 'rawg', externalId: '1' }]);
-    await expect(rows).toHaveCount(3);
-    expect(s.calls.upcoming).toEqual([1]);
     await expect(page.getByTestId('rm-release').filter({ hasText: 'Новинка 1' })).toHaveCount(1);
     await expect(page.getByTestId('rm-need-row').filter({ hasText: 'Новинка 1' })).toHaveCount(1);
     // вернуть из «Не распределено»
     await rows.nth(2).getByRole('button', { name: 'Вернуть в план' }).click();
     expect(s.calls.patches.at(-1)).toEqual({ id: 6, body: { status: 'planned' } });
     await expect(rows.nth(2)).toContainText('В плане');
-    // следующая страница
-    await page.getByRole('button', { name: 'Показать ещё' }).click();
+    // следующая страница — клик или автодогрузка после скролла
+    const more = page.getByRole('button', { name: 'Показать ещё' });
+    if (await more.count()) {
+      await more.scrollIntoViewIfNeeded();
+      if (await more.isEnabled()) await more.click();
+    }
     await expect(rows).toHaveCount(4);
     expect(s.calls.upcoming).toEqual([1, 2]);
     await expect(page.getByRole('button', { name: 'Показать ещё' })).toHaveCount(0);

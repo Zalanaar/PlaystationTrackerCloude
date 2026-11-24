@@ -13,3 +13,9 @@
   background-color: var(--accent);
   background-image: none;
 }
+
+/* PS3: свечение текущего чипа месяца — после Tailwind, чтобы WebKit не терял box-shadow. */
+[data-theme="ps3"] .ps-mchips .ps-mchip[aria-current="true"],
+[data-theme="ps3"] .ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"] {
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+}

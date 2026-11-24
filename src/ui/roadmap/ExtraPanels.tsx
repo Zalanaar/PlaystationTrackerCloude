@@ -153,8 +153,13 @@ export function UpcomingPanel({
   useEffect(() => {
     const el = moreBtn.current;
     if (!el || !hasMore || more || load.state === 'fail' || typeof IntersectionObserver === 'undefined') return;
+    // первый кадр, если кнопка уже в зоне, не грузим: иначе короткая первая страница
+    // уезжает в автодогрузку до жеста. Догрузка — по скроллу (после «ушёл и вернулся») или по клику.
+    let primed = false;
     const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) loadMore();
+      const on = entries.some((e) => e.isIntersecting);
+      if (!primed) { primed = true; if (on) return; }
+      if (on) loadMore();
     }, { root: null, rootMargin: '240px 0px', threshold: 0 });
     io.observe(el);
     return () => io.disconnect();

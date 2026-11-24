@@ -71,7 +71,7 @@
 .ps-yoy__n { color: var(--text-3); }
 .ps-yoy__sk { display: inline-block; width: min(320px, 80%); height: 14px; border-radius: var(--r-sm); }
 /* К ноябрю строка «К янв–ноя 2025: … (ноя 2025 — месяц целиком)» на 360px занимает 3–4 строки; 40px (2 строки) давало CLS. */
-@media (max-width: 767px) { .ps-yoy { min-height: 80px; align-content: flex-start; } }
+@media (max-width: 767px) { .ps-yoy { min-height: 120px; align-content: flex-start; overflow: hidden; } }
 @media (prefers-reduced-motion: reduce) { .ps-yoy .ps-skeleton { animation: none; } }
 /* П11.2 «В этот день» */
 .ps-otd { margin-top: var(--sp-3); }

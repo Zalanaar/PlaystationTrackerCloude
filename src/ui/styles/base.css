@@ -168,7 +168,7 @@ a.ps-btn { text-decoration: none; }
   .ps-desktop-only { display: none; }
   .ps-mobile-only { display: inline-grid; }
   /* запас под кнопку «Наверх» (tap-min над таббаром), чтобы FAB не закрывала карандаши/корзину нижних карточек */
-  .ps-main { padding-block: var(--sp-5) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--tap-min) + var(--sp-5)); }
+  .ps-main { padding-block: var(--sp-5) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--tap-min) + var(--sp-5) + var(--sp-3)); }
   .ps-header__in { gap: var(--sp-3); }
   .ps-nav { display: none; }
   .ps-sync-text { display: none; }
