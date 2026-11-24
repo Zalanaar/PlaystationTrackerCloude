@@ -68,11 +68,15 @@ export async function GET(req: Request) {
   }
   // Первый слот суток: подтянуть даты «на релизе» из кэша/RAWG. Без нового cron на Vercel.
   if (continueRunId === undefined && queueAfter === undefined) {
-    after(() => {
-      void runDailyPlannedDateRefresh().catch(() => {
-        console.error('cron: обновление дат релизов из каталога не удалось');
+    try {
+      after(() => {
+        void runDailyPlannedDateRefresh().catch(() => {
+          console.error('cron: обновление дат релизов из каталога не удалось');
+        });
       });
-    });
+    } catch {
+      // юнит-тесты без request scope Next — побочную работу (и БД) не запускаем
+    }
   }
   try {
     // продолжение звена: пользователь берётся из строки sync_runs (не из запроса); blocked не продолжает (launchSync)

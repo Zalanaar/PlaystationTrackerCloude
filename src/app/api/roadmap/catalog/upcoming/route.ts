@@ -1,6 +1,6 @@
 import { getDb } from '@/db';
-import { CatalogError } from '@/server/catalog/rawg';
-import { asOfIso, cachedUpcoming, dbCatalogCache } from '@/server/catalog/cache';
+import { asOfIso, cachedUpcoming, dbCatalogCache, type CachedResult } from '@/server/catalog/cache';
+import { CatalogError, getUpcoming, type UpcomingPage } from '@/server/catalog/rawg';
 import { getRawgKey } from '@/server/env';
 import { fail, ok } from '@/server/http';
 import { filterOwned } from '@/server/owned/marks';
@@ -20,17 +20,23 @@ export async function GET(req: Request) {
   const p = parseUpcomingPage(new URL(req.url).searchParams);
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   const apiKey = getRawgKey();
-  let cached;
+  const deps = { apiKey, reserve: rawgReserve(a.user.id) };
+  let cached: CachedResult<UpcomingPage>;
   try {
-    const db = getDb();
-    cached = await cachedUpcoming(p.value, { apiKey, reserve: rawgReserve(a.user.id), store: dbCatalogCache(db) });
+    try {
+      cached = await cachedUpcoming(p.value, { ...deps, store: dbCatalogCache(getDb()) });
+    } catch (e) {
+      if (e instanceof CatalogError) throw e;
+      // нет БД / сбой кэша: живой запрос, чтобы сохранить причину (no_key и т.д.)
+      const value = await getUpcoming(p.value, { ...deps, cache: new Map() });
+      cached = { value, fetchedAt: Date.now(), stale: false, rawgCalls: 1 };
+    }
   } catch (e) {
     const reason = e instanceof CatalogError ? e.reason : 'network';
     return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введи данные вручную.', { reason });
   }
   try {
     const db = getDb();
-    // Свежие даты с этой (закэшированной) страницы — в план без дополнительных запросов к RAWG.
     const applied = await applyCatalogReleaseDates(db, a.user.id, cached.value.candidates).catch(() => []);
     const updated = applied.map((c) => ({ id: c.id, releaseDate: c.to }));
     return ok({

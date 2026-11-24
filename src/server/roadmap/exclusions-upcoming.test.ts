@@ -106,7 +106,7 @@ describe('QA: каталог предстоящих', () => {
     return typeof r === 'number' ? new Response('boom', { status: r }) : new Response(r, { status: 200 });
   }) as typeof fetch;
 
-  it('кэш не кэширует ошибки; успех кэшируется на час; ключ только в URL запроса', async () => {
+  it('кэш не кэширует ошибки; успех кэшируется на 12 ч; ключ только в URL запроса', async () => {
     const calls: string[] = [];
     const cache: UpcomingCache = new Map();
     const deps = { apiKey: 'SECRETKEY', cache, fetch: mk([500, body(3), body(3)], calls), now: NOW };
@@ -117,7 +117,7 @@ describe('QA: каталог предстоящих', () => {
     await getUpcoming(1, deps);
     expect(calls).toHaveLength(2);
     expect(JSON.stringify(ok)).not.toContain('SECRETKEY');
-    await getUpcoming(1, { ...deps, now: new Date(NOW.getTime() + 3_700_000) });
+    await getUpcoming(1, { ...deps, now: new Date(NOW.getTime() + 12 * 3600_000 + 1000) });
     expect(calls).toHaveLength(3);
   });
 

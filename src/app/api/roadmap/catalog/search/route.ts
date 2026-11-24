@@ -21,20 +21,20 @@ export async function GET(req: Request) {
   if (!p.ok) return fail(400, 'invalid_request', p.message);
   const ps = parseCatalogPlaystation(new URL(req.url).searchParams);
   if (!ps.ok) return fail(400, 'invalid_request', ps.message);
-  const db = (() => { try { return getDb(); } catch { return null; } })();
+  const apiKey = getRawgKey();
+  const deps = { apiKey, playstationOnly: ps.value, reserve: rawgReserve(a.user.id) };
   let candidates;
   let asOf: string | undefined;
   let stale = false;
   try {
-    if (db) {
-      const cached = await cachedSearch(p.value, {
-        apiKey: getRawgKey(), playstationOnly: ps.value, reserve: rawgReserve(a.user.id), store: dbCatalogCache(db),
-      });
+    try {
+      const cached = await cachedSearch(p.value, { ...deps, store: dbCatalogCache(getDb()) });
       candidates = cached.value;
       asOf = asOfIso(cached.fetchedAt);
       stale = cached.stale;
-    } else {
-      candidates = await searchCatalog(p.value, { apiKey: getRawgKey(), playstationOnly: ps.value, reserve: rawgReserve(a.user.id) });
+    } catch (e) {
+      if (e instanceof CatalogError) throw e;
+      candidates = await searchCatalog(p.value, deps);
     }
   } catch (e) {
     try {
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
   }
   const body = { candidates, ...(asOf ? { asOf, stale } : {}) };
   try {
-    return ok({ ...body, candidates: await filterOwned(db ?? getDb(), a.user.id, candidates) });
+    return ok({ ...body, candidates: await filterOwned(getDb(), a.user.id, candidates) });
   } catch {
     return ok(body);
   }
