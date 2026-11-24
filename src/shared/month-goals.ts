@@ -24,6 +24,9 @@ export type MonthGoalsView = {
   /** Выбор игр: «Играю», «В плане на месяц» (План ставит на этот месяц), остальной План, «Бэклог». */
   candidates: { playing: GoalGame[]; planMonth: GoalGame[]; plan: GoalGame[]; backlog: GoalGame[] };
   hoursHint: number | null;
+  /** Часы из «часов в неделю» Плана на дни текущего месяца; null, если бюджет не задан. */
+  planHoursHint: number | null;
+  hoursPerWeek: number | null;
   /** Цель года текущего календарного года, если задана в Плане. */
   yearGoal: MonthYearGoal | null;
   /** Итоги прошлого месяца в первые ~3 дня нового (пока не закрыты). */

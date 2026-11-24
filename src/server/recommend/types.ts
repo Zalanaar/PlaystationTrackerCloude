@@ -4,7 +4,7 @@ import type { GenreKey } from '@/shared/genres';
 export const TIME_WISHES = ['any', 'short', 'medium', 'long'] as const;
 export type TimeWish = (typeof TIME_WISHES)[number];
 
-export type SignalKey = 'genre_affinity' | 'duration_fit' | 'platinum_close' | 'waiting' | 'dropped_genre_penalty';
+export type SignalKey = 'genre_affinity' | 'duration_fit' | 'platinum_close' | 'waiting' | 'dropped_genre_penalty' | 'plan_priority';
 
 /** Игра истории (completed / playing / dropped) для вкуса по жанрам. */
 export type HistoryGame = {
@@ -12,6 +12,8 @@ export type HistoryGame = {
   status: 'playing' | 'completed' | 'dropped';
   genres: readonly GenreKey[];
   playSeconds: number;
+  /** Оценка 0–10, если поставлена. */
+  rating?: number | null;
 };
 
 /** Трофейный набор игры: суммы по привязанным наборам без трофеев DLC (Фаза 36). */
@@ -62,6 +64,10 @@ export type ScoreInput = {
   now: Date;
   /** Сколько лучших вернуть (по умолчанию TOP_N). Шаг синка (20.5) просит весь бэклог. */
   limit?: number;
+  /** Незакрытые цели месяца (порядок выбора). */
+  monthGoalIds?: readonly number[];
+  /** Очередь Плана (gameId по порядку). */
+  planOrderIds?: readonly number[];
 };
 
 export type ScoreResult = { items: ScoredItem[]; candidates: number };

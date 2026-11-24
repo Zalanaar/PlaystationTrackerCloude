@@ -1,6 +1,6 @@
 // Кнопки мобильной шапки «Поиск» и «+» (D-P2). Шапка не знает о странице: она шлёт событие, страница его слушает.
 // Набор кнопок задаётся путём (статично, одинаково на сервере и клиенте), поэтому шапка не меняется после гидрации (CLS 0).
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 /** F13: 'select' и 'tags' — пункты «Выбрать игры» и «Теги» в меню «⋯» на Коллекции (телефон). */
 export type HeaderAction = 'search' | 'add' | 'add-other' | 'add-release' | 'select' | 'tags';
@@ -60,4 +60,23 @@ export function useHeaderAction(action: HeaderAction, handler: () => void): void
     window.addEventListener(HEADER_ACTION_EVENT, on);
     return () => window.removeEventListener(HEADER_ACTION_EVENT, on);
   }, [action]);
+}
+
+/** Открыта ли локальная строка поиска (Коллекция / Бэклог) — для aria-expanded кнопки шапки. */
+let headerSearchOpen = false;
+const headerSearchListeners = new Set<() => void>();
+
+export function setHeaderSearchOpen(open: boolean): void {
+  if (headerSearchOpen === open) return;
+  headerSearchOpen = open;
+  headerSearchListeners.forEach((fn) => fn());
+}
+
+function subscribeHeaderSearch(fn: () => void): () => void {
+  headerSearchListeners.add(fn);
+  return () => { headerSearchListeners.delete(fn); };
+}
+
+export function useHeaderSearchOpen(): boolean {
+  return useSyncExternalStore(subscribeHeaderSearch, () => headerSearchOpen, () => false);
 }

@@ -9,6 +9,7 @@ export const WEIGHTS: Readonly<Record<SignalKey, number>> = {
   platinum_close: 1.5,
   waiting: 1,
   dropped_genre_penalty: -2,
+  plan_priority: 2.5,
 };
 
 export const TOP_N = 9;
@@ -21,6 +22,8 @@ export const WAITING_SATURATION_DAYS = 365;
 /** Доля hoursNorm и доля пройдено/брошено в genre_affinity. */
 export const AFFINITY_HOURS_SHARE = 0.6;
 export const AFFINITY_FINISH_SHARE = 0.4;
+/** Добавка к вкусу по средней оценке жанра (0–10, 5 = нейтрально). Без оценок вклад 0. */
+export const AFFINITY_RATING_SHARE = 0.35;
 /** Штраф жанра: dropped > 50% решённых игр при >= 3 решённых. */
 export const PENALTY_MIN_GAMES = 3;
 export const PENALTY_DROPPED_SHARE = 0.5;
@@ -31,14 +34,14 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 /** Убирает шум float, чтобы сравнение и тай-брейк были устойчивы. */
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 
-export type GenreStat = { hours: number; completed: number; dropped: number; decidedGames: number; droppedGames: number };
+export type GenreStat = { hours: number; completed: number; dropped: number; decidedGames: number; droppedGames: number; ratingSum: number; ratingCount: number };
 
 /** Статистика жанров библиотеки: игра делится между жанрами по 1/N. */
 export function genreStats(history: readonly HistoryGame[]): Map<GenreKey, GenreStat> {
   const stats = new Map<GenreKey, GenreStat>();
   const get = (g: GenreKey): GenreStat => {
     let s = stats.get(g);
-    if (!s) stats.set(g, (s = { hours: 0, completed: 0, dropped: 0, decidedGames: 0, droppedGames: 0 }));
+    if (!s) stats.set(g, (s = { hours: 0, completed: 0, dropped: 0, decidedGames: 0, droppedGames: 0, ratingSum: 0, ratingCount: 0 }));
     return s;
   };
   for (const h of [...history].sort((a, b) => a.id - b.id)) {
@@ -51,6 +54,10 @@ export function genreStats(history: readonly HistoryGame[]): Map<GenreKey, Genre
       if (h.status === 'dropped') s.dropped += part;
       if (h.status === 'completed' || h.status === 'dropped') s.decidedGames += 1;
       if (h.status === 'dropped') s.droppedGames += 1;
+      if (typeof h.rating === 'number' && Number.isFinite(h.rating)) {
+        s.ratingSum += h.rating * part;
+        s.ratingCount += part;
+      }
     }
   }
   return stats;
@@ -62,7 +69,8 @@ export function affinityOf(s: GenreStat | undefined, maxHours: number): number {
   const finished = s.completed + s.dropped;
   const share = finished > 0 ? (s.completed - s.dropped) / finished : 0;
   const hoursNorm = maxHours > 0 ? s.hours / maxHours : 0;
-  return clamp(AFFINITY_HOURS_SHARE * hoursNorm + AFFINITY_FINISH_SHARE * share, -1, 1);
+  const ratingNorm = s.ratingCount > 0 ? clamp((s.ratingSum / s.ratingCount - 5) / 5, -1, 1) : 0;
+  return clamp(AFFINITY_HOURS_SHARE * hoursNorm + AFFINITY_FINISH_SHARE * share + AFFINITY_RATING_SHARE * ratingNorm, -1, 1);
 }
 
 export function penalized(s: GenreStat | undefined): boolean {
@@ -94,7 +102,7 @@ export function waitingValue(since: Date, now: Date): number {
 const ruLabel = (g: GenreKey) => GENRE_LABELS_RU[g];
 const waitingLabel = (days: number) => (days < 60 ? `В бэклоге ${Math.max(0, Math.floor(days))} дн.` : `В бэклоге ${Math.floor(days / 30)} мес.`);
 
-export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreStat>; maxHours: number; time: TimeWish; now: Date }): ScoredItem {
+export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreStat>; maxHours: number; time: TimeWish; now: Date; monthGoalIds?: readonly number[]; planOrderIds?: readonly number[] }): ScoredItem {
   const signals: Signal[] = [];
   const push = (key: SignalKey, value: number, label: string) => signals.push({ key, label, contribution: r6(WEIGHTS[key] * value) });
   const genres = c.genres.length ? c.genres : (['OTHER'] as GenreKey[]);
@@ -152,6 +160,17 @@ export function scoreCandidate(c: Candidate, ctx: { stats: Map<GenreKey, GenreSt
   const bad = genres.filter((g) => penalized(ctx.stats.get(g)));
   if (bad.length) push('dropped_genre_penalty', bad.length / genres.length, `Жанр «${ruLabel(bad[0])}» бросаешь чаще, чем проходишь`);
 
+  const monthGoalIds = ctx.monthGoalIds ?? [];
+  const planOrderIds = ctx.planOrderIds ?? [];
+  const gi = monthGoalIds.indexOf(c.id);
+  if (gi >= 0) push('plan_priority', 1, 'Цель этого месяца');
+  else {
+    const pi = planOrderIds.indexOf(c.id);
+    if (pi === 0) push('plan_priority', 0.7, 'Следующая в Плане');
+    else if (pi === 1 || pi === 2) push('plan_priority', 0.45, 'Высоко в Плане');
+    else if (pi >= 3) push('plan_priority', 0.15, 'В Плане');
+  }
+
   const total = r6(signals.reduce((a, s) => a + s.contribution, 0));
   // Нулевые вклады, кроме пометки «длительность неизвестна», не показываем; по убыванию |вклада|, при равенстве по ключу.
   const order = Object.keys(WEIGHTS);
@@ -172,7 +191,7 @@ export function scoreBacklog(input: ScoreInput): ScoreResult {
   const eligible = [...input.candidates].filter((c) => !input.dislikedIds.has(c.id)).sort((a, b) => a.id - b.id);
   const stats = genreStats(input.history);
   const maxHours = Math.max(0, ...[...stats.values()].map((s) => s.hours));
-  const scored = eligible.map((c) => scoreCandidate(c, { stats, maxHours, time: input.time, now: input.now }));
+  const scored = eligible.map((c) => scoreCandidate(c, { stats, maxHours, time: input.time, now: input.now, monthGoalIds: input.monthGoalIds, planOrderIds: input.planOrderIds }));
   scored.sort((a, b) => b.score - a.score || a.game.id - b.game.id);
   return { items: scored.slice(0, input.limit ?? TOP_N).map((s) => ({ ...s, score: r2(s.score) })), candidates: eligible.length };
 }

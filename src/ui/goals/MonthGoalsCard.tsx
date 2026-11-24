@@ -10,7 +10,7 @@ import { Icon } from '../icons';
 import { Sheet } from '../primitives/Sheet';
 import { useEverTrue } from '../useEverTrue';
 import { fetchMonthGoals, rollPlannerApi, saveMonthGoalsApi } from './api';
-import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, progressLine, recapSummary, yearGoalBridgeLabel, yearRolloverSummary } from './model';
+import { barPercent, fieldHint, gamesHintLabel, GOAL_LABEL, GOAL_LIMITS, GOAL_ORDER, hoursHintLabel, monthTitle, parseField, planHoursHintLabel, progressLine, recapSummary, yearGoalBridgeLabel, yearRolloverSummary } from './model';
 
 /** В списке выбора по умолчанию столько строк; остальные — по «Показать ещё» / «Показать все». */
 const GOAL_LIST_PREVIEW = 10;
@@ -56,10 +56,15 @@ export function MonthGoalsCard() {
 
   function openEditor() {
     if (!data) return;
-    setSelected(data.picked);
+    const fresh = !data.hasGoals;
+    setSelected(fresh ? data.candidates.planMonth : data.picked);
     setPicksTouched(false);
     setQuery('');
-    setHours(data.goals.hours == null ? '' : String(data.goals.hours));
+    setHours(
+      data.goals.hours != null ? String(data.goals.hours)
+        : fresh && data.planHoursHint != null ? String(data.planHoursHint)
+        : '',
+    );
     setError(null);
     setOpen(true);
   }
@@ -269,7 +274,16 @@ export function MonthGoalsCard() {
                 onChange={(e) => setHours(e.target.value)}
               />
               <p className="ps-mgoals-form__h" id={`${hid}-hours-h`}>{fieldHint('hours')}</p>
-              {data.hoursHint != null && (
+              {data.planHoursHint != null && (
+                <button
+                  type="button" className="ps-btn ps-btn--ghost ps-btn--sm" disabled={busy}
+                  data-testid="month-goals-plan-hours-hint"
+                  onClick={() => setHours(String(data.planHoursHint))}
+                >
+                  {planHoursHintLabel(data.planHoursHint, data.hoursPerWeek)}
+                </button>
+              )}
+              {data.hoursHint != null && data.hoursHint !== data.planHoursHint && (
                 <button
                   type="button" className="ps-btn ps-btn--ghost ps-btn--sm" disabled={busy}
                   data-testid="month-goals-hours-hint"

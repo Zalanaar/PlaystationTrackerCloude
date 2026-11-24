@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schema } from '@/db';
 import { createTestDb, TEST_USER, TEST_USER_2, type TestDb } from '@/server/sync/test-helpers';
-import { putGoal, putSettings } from '@/server/roadmap/db';
+import { getBacklogEntries, putGoal, putSettings } from '@/server/roadmap/db';
 import { applyPlannerRoll, currentMonth, getMonthGoals, hasGoals, inRecapWindow, parseGoals, parseRoll, prevMonth, recapSummary, saveMonthGoals, yearRolloverSummary } from './month-goals';
 
 const NOW = new Date('2026-11-15T12:00:00Z'); // 15:00 МСК 15 ноября
@@ -161,6 +161,29 @@ describe('на PGlite', () => {
     expect(v.hoursHint).toBe(15);
     expect(v.yearGoal).toBeNull();
   });
+
+  it('подсказка часов из «часов в неделю» Плана', async () => {
+    await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });
+    const v = await getMonthGoals(t.db, TEST_USER, NOW);
+    expect(v.hoursPerWeek).toBe(10);
+    expect(v.planHoursHint).toBe(43); // ноябрь 30 дней × 10 / 7
+  });
+
+  it('выбранная в цель месяца игра поднимается в очереди Плана', async () => {
+    const a = await game({ name: 'First' });
+    const b = await game({ name: 'Second' });
+    await t.db.insert(schema.gameStatus).values([
+      { userId: TEST_USER, gameId: a, status: 'backlog' },
+      { userId: TEST_USER, gameId: b, status: 'backlog' },
+    ]);
+    await t.db.insert(schema.roadmapOrder).values([
+      { userId: TEST_USER, gameId: a, position: 0, updatedAt: NOW },
+      { userId: TEST_USER, gameId: b, position: 1, updatedAt: NOW },
+    ]);
+    await saveMonthGoals(t.db, TEST_USER, NOW, { games: null, hours: null, trophies: null, gameIds: [b] });
+    expect((await getBacklogEntries(t.db, TEST_USER)).map((e) => e.gameId)).toEqual([b, a]);
+  });
+
 
   it('цель года текущего года: «Год: X из Y» и подсказка темпа', async () => {
     await putSettings(t.db, TEST_USER, { year: 2026, hoursPerWeek: 10 });

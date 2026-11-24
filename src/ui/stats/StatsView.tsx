@@ -24,10 +24,10 @@ import { Panel } from './Panel';
 import { DaysPanel } from './DaysPanel';
 import { ChartTable } from './ChartTable';
 import { hoursTable, trophiesTable } from './tableData';
+import { resolveStatsSec } from './sections';
 import { SectionChips } from './SectionChips';
 import { RatingsView } from '../ratings/RatingsView';
 import { AchievementsPanel } from './Achievements';
-import { CostPanel } from './Cost';
 import { FeedLink } from './FeedLink';
 import { AllHeader, FinishedByYearPanel, HoursByYearPanel, TrophiesByYearPanel } from './AllTime';
 import { yearRange } from './allTime';
@@ -83,11 +83,6 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
     return () => clearTimeout(t);
   }, [load, sel, key, withService]);
 
-  // /ratings и чип «Оценки»: /stats?sec=ratings прокручивает к разделу.
-  useLayoutEffect(() => {
-    if (params.get('sec') !== 'ratings') return;
-    document.getElementById('ratings')?.scrollIntoView({ block: 'start' });
-  }, [params]);
 
   // последний выбранный год: возврат с «Всё время» на «Год» (в памяти страницы)
   const lastYear = useRef<number | null>(null);
@@ -110,6 +105,14 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
   const data = fresh && 'data' in fresh ? fresh.data : stale;
   const failed = fresh && 'error' in fresh ? fresh.error : null;
   const loading = !fresh;
+
+  // /ratings и старые ?sec=: прокрутка к группе или конкретной панели, когда контент уже на месте.
+  useLayoutEffect(() => {
+    const t = resolveStatsSec(params.get('sec'));
+    if (!t) return;
+    const el = document.querySelector(t.selector) ?? document.querySelector(`[data-st-group="${t.group}"]`);
+    if (el) el.scrollIntoView({ block: 'start' });
+  }, [params, data]);
 
   // ---------- действия над карточками игр периода ----------
   const reload = useCallback(() => void load(sel, key, withService), [load, sel, key, withService]);
@@ -177,7 +180,9 @@ export function StatsView({ wrappedSsr = null }: { wrappedSsr?: WrappedSeason | 
           <Content data={data} sel={sel} years={years} onOpenYear={openYear} withService={withService} onWithService={setWithService} today={today} actions={actions} onOpenGame={openGame} onOpenStub={openStub} onOpenRare={openRare} onChanged={reload} />
         </div>
       )}
-      <RatingsView />
+      <StatsGroup id="ratings">
+        <RatingsView />
+      </StatsGroup>
     </div>
     </>
   );
@@ -224,6 +229,15 @@ function WrappedLink({ sel, where }: { sel: Selection; where: 'head' | 'switch' 
   );
 }
 
+function StatsGroup({ id, title, children }: { id: string; title?: string; children: React.ReactNode }) {
+  return (
+    <section className="ps-st-group" data-st-group={id} aria-label={title}>
+      {title ? <h2 className="ps-st-group__h">{title}</h2> : null}
+      {children}
+    </section>
+  );
+}
+
 function Content({
   data, sel, today, years, onOpenYear, actions, onOpenGame, onOpenStub, onOpenRare, onChanged, withService, onWithService,
 }: {
@@ -242,16 +256,19 @@ function Content({
           <EmptyState icon="bar-chart" title="Данных пока нет" text="Часы, трофеи и завершённые игры появятся после синка." />
         ) : (
           <>
-            <div className="ps-st-grid">
-              <HoursByYearPanel data={data} currentYear={today.year} wide={!data.genres.hasData} />
+            <StatsGroup id="time" title="Время">
+              <HoursByYearPanel data={data} currentYear={today.year} wide />
+              <PlayPatternPanel pattern={data.playPattern} periodKey="all" />
+            </StatsGroup>
+            <StatsGroup id="games" title="Игры">
               {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} sub="за всё время" />}
-            </div>
-            <FinishedByYearPanel data={data} onOpenYear={onOpenYear} />
-            <TopGames top={data.top} onOpen={onOpenGame} scope="all" />
-            <PlayPatternPanel pattern={data.playPattern} periodKey="all" />
-            <TrophiesByYearPanel data={data} currentYear={today.year} />
-            <AchievementsPanel />
-            <CostPanel />
+              <FinishedByYearPanel data={data} onOpenYear={onOpenYear} />
+              <TopGames top={data.top} onOpen={onOpenGame} scope="all" />
+            </StatsGroup>
+            <StatsGroup id="trophies" title="Трофеи">
+              <TrophiesByYearPanel data={data} currentYear={today.year} />
+              <AchievementsPanel />
+            </StatsGroup>
           </>
         )}
       </>
@@ -268,18 +285,26 @@ function Content({
         <EmptyState icon="bar-chart" title="За этот период ничего нет" text="Нет часов, трофеев и завершённых игр. Выбери другой период." />
       ) : (
         <>
-          <div className="ps-st-grid">
-            {sel.period === 'month' && sel.month
-              ? <DaysPanel year={sel.year} month={sel.month} wide={!data.genres.hasData} />
-              : <HoursPanel data={data} sel={sel} today={today} wide={!data.genres.hasData} />}
+          <StatsGroup id="time" title="Время">
+            <div className="ps-st-grid">
+              {sel.period === 'month' && sel.month
+                ? <DaysPanel year={sel.year} month={sel.month} wide />
+                : <HoursPanel data={data} sel={sel} today={today} wide />}
+            </div>
+            <PlayPatternPanel pattern={data.playPattern} periodKey={selectionKey(sel)} />
+          </StatsGroup>
+          <StatsGroup id="games" title="Игры">
             {data.genres.hasData && <GenresPanel data={data} onOpenGame={onOpenStub} />}
-          </div>
-          <TopGames top={data.top} onOpen={onOpenGame} />
-          <PlayPatternPanel pattern={data.playPattern} periodKey={selectionKey(sel)} />
-          <TrophiesPanel data={data} sel={sel} />
-          <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenRare} withService={withService} onWithService={onWithService} />
-          <ActivityPanel key={sel.year} defaultYear={sel.year} />
-          <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
+            <TopGames top={data.top} onOpen={onOpenGame} />
+            <PlayedBlock data={data} sel={sel} actions={actions} onChanged={onChanged} />
+          </StatsGroup>
+          <StatsGroup id="trophies" title="Трофеи">
+            <TrophiesPanel data={data} sel={sel} />
+            <RareTrophies data={data} periodLabel={periodLabel(sel)} onOpen={onOpenRare} withService={withService} onWithService={onWithService} />
+          </StatsGroup>
+          <StatsGroup id="activity">
+            <ActivityPanel key={sel.year} defaultYear={sel.year} />
+          </StatsGroup>
         </>
       )}
     </>

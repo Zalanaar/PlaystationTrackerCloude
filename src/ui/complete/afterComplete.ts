@@ -2,6 +2,7 @@
 // Экраны, где статус меняют карточкой или меню, сообщают событием; лист один на приложение (AppShell).
 import type { GameItem } from '@/server/collection/types';
 import type { RoadmapResponse } from '@/server/roadmap/types';
+import { firstNextGame, type NextGameGoal, type NextUp as SharedNextUp } from '@/shared/next-game';
 
 export const COMPLETED_EVENT = 'ps:completed';
 
@@ -16,10 +17,13 @@ export function announceCompleted(game: CompletedGame, doc: Pick<Document, 'quer
   return true;
 }
 
-export type NextUp = { gameId: number; title: string; coverUrl: string | null; hours: number | null };
+export type NextUp = SharedNextUp;
 
-/** Следующая игра бэклога по Плану (порядок расписания), не считая только что пройденной. */
-export function nextFromPlan(r: Pick<RoadmapResponse, 'items'> | null, doneId: number): NextUp | null {
-  const it = r?.items.find((x) => x.kind === 'backlog' && x.gameId !== null && x.gameId !== doneId);
-  return it && it.gameId !== null ? { gameId: it.gameId, title: it.title, coverUrl: it.coverUrl, hours: it.hours } : null;
+/** Следующая игра: незакрытые цели месяца, затем очередь Плана, не считая только что пройденной. */
+export function nextFromPlan(
+  r: Pick<RoadmapResponse, 'items'> | null,
+  doneId: number,
+  monthGoals: readonly NextGameGoal[] | null = null,
+): NextUp | null {
+  return firstNextGame(r?.items ?? null, monthGoals, doneId);
 }

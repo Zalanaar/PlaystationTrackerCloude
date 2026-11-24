@@ -33,7 +33,7 @@ import { fetchManual, markPurchased, removeManual, unmarkPurchased } from './man
 import { RemoveManualSheet } from './RemoveManualSheet';
 import { BacklogFilters } from './BacklogFilters';
 import { platformCookie, type PlatformCounts, type PlatformKey } from '@/shared/platform-filter';
-import { useHeaderAction } from '../shell/headerActions';
+import { setHeaderSearchOpen, useHeaderAction } from '../shell/headerActions';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
 import { BacklogCardActions, BacklogRow, type RowMenuItem } from './BacklogRow';
@@ -424,7 +424,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   }
   const manualHandlers: ManualHandlers = { bought: (g, f) => void bought(g, f), remove: (g) => setRemoving(g) };
   // D-P2: «Поиск» и «+» мобильной шапки
-  useHeaderAction('search', () => setSearchOpen(true));
+  useHeaderAction('search', () => setSearchOpen((v) => !v));
+  useEffect(() => { setHeaderSearchOpen(searchOpen); return () => setHeaderSearchOpen(false); }, [searchOpen]);
   useHeaderAction('add', () => openAdd());
   useDataRefresh(() => { void load(); void loadService(); void loadAge(); }); // П9: возврат в приложение, «потяни, чтобы обновить»
   // П9: «Не куплено (PS)» из меню «+» на другой странице ведёт сюда с `?add=store` — окно сразу, параметр убираем

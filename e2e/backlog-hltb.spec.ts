@@ -181,7 +181,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     const mock = await open(page, context, baseURL as string);
     mock.hltbRuns.push({ status: 409, code: 'sync_in_progress' });
     await startHltb(page);
-    await expect(page.getByTestId('hltb-result')).toHaveText('Подгрузка длительности уже идёт, повторите позже.');
+    await expect(page.getByTestId('hltb-result')).toHaveText('Подгрузка длительности уже идёт, повтори позже.');
     await expectHltbEnabled(page, true);
   });
 
@@ -199,7 +199,7 @@ test.describe('Бэклог: подгрузка длительности с HLTB
     const res = page.getByTestId('hltb-result');
     await expect(res).toContainText('Остановлено: HLTB несколько раз подряд вернул ошибку');
     await expect(res).toContainText('ошибок 3');
-    await expect(res).toContainText('повторите позже');
+    await expect(res).toContainText('повтори позже');
     await expect(res).toContainText('HLTB не ответил для 3 игр');
     expect(mock.hltbCalls).toHaveLength(1);
   });

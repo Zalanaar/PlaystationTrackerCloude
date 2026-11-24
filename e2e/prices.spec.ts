@@ -1,5 +1,4 @@
-// П13.3: цена покупки в окне игры (указать, неверный ввод, убрать, «сыграно меньше часа») и «Стоимость часа» во «Всё время»
-// (три цифры, выгодные/дорогие, «куплены и почти не тронуты», пусто, сбой). 360 px и axe. API эмулируется.
+// П13.3: цена покупки в окне игры (указать, неверный ввод, убрать, «сыграно меньше часа»). Раздел «Стоимость часа» в Статистике убран. 360 px и axe. API эмулируется.
 import { createRequire } from 'node:module';
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, type G, type Mock } from './collection-mock';
@@ -73,41 +72,19 @@ test.describe('П13.3: стоимость часа', () => {
     await expect(sec.getByTestId('gd-price-line')).toHaveText(new RegExp(`^Куплена за 2${S}000 ₽ · сыграно меньше часа$`));
   });
 
-  test('статистика «Всё время»: цифры, выгодные, без дела, чип раздела', async ({ page, baseURL }) => {
-    await open(page, baseURL!, '/stats?period=all', (m) => { m.cost = COST; });
-    const panel = page.locator('.ps-cost');
-    await expect(panel.getByRole('heading', { name: 'Стоимость часа' })).toBeVisible();
-    await expect(panel.getByText('Игр с ценой покупки: 3')).toBeVisible();
-    await expect(panel.getByTestId('cost-total')).toHaveText(new RegExp(`^9${S}000 ₽$`));
-    await expect(panel.getByTestId('cost-per-hour')).toHaveText('90 ₽/ч');
-    const best = panel.getByTestId('cost-best').getByRole('link');
-    await expect(best).toHaveCount(2);
-    await expect(best.first()).toHaveAttribute('href', '/?game=1');
-    await expect(best.nth(1)).toContainText('бесплатно');
-    await expect(panel.getByTestId('cost-worst')).toHaveCount(0);
-    await expect(panel.getByTestId('cost-idle')).toHaveText(new RegExp(`сыграно меньше часа: 1 игра на 5${S}000 ₽`));
-    await expect(page.getByTestId('stats-sections').locator('[data-sec="cost"]')).toHaveText('Стоимость часа');
-  });
-
-  test('пусто — подсказка; сбой — панели нет', async ({ page, baseURL }) => {
-    await open(page, baseURL!, '/stats?period=all');
-    await expect(page.locator('.ps-cost').getByText(/Укажи цену покупки в окне игры/)).toBeVisible();
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await open(page, baseURL!, '/stats?period=all', (m) => { m.cost = null; });
-    await expect(page.locator('.ps-ach')).toBeVisible();
+  test('статистика: раздела «Стоимость часа» нет, старый ?sec=cost не ломает страницу', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/stats?period=all&sec=cost', (m) => { m.cost = COST; });
+    await expect(page.getByRole('heading', { name: 'Статистика' })).toBeVisible();
     await expect(page.locator('.ps-cost')).toHaveCount(0);
+    await expect(page.getByTestId('stats-sections').locator('[data-sec="cost"]')).toHaveCount(0);
+    await expect(page.getByTestId('stats-sections').locator('[data-sec="time"]')).toHaveText('Время');
   });
 
   for (const w of [360, 390]) {
     test(`${w} px: без скролла, axe во всех темах`, async ({ page, baseURL }) => {
       test.skip(!isMobile(page), 'телефон');
       await page.setViewportSize({ width: w, height: 800 });
-      await open(page, baseURL!, '/stats?period=all', (m) => { m.cost = COST; m.prices = { 1: 4000 }; });
-      await expect(page.getByTestId('cost-best').getByRole('link')).toHaveCount(2);
-      await page.locator('.ps-cost').scrollIntoViewIfNeeded();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-      await axe(page, '.ps-cost');
-      await page.goto('/?game=1');
+      await open(page, baseURL!, '/?game=1', (m) => { m.prices = { 1: 4000 }; });
       const sec = page.getByRole('dialog', { name: 'Долгая Игра' }).getByTestId('gd-price');
       await expect(sec.getByTestId('gd-price-line')).toContainText('час стоит 100 ₽/ч');
       await sec.getByRole('button', { name: 'Изменить' }).click();

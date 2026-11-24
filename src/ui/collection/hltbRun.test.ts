@@ -72,9 +72,9 @@ describe('runHltbLoop', () => {
     const r = await runHltbLoop({ ...base, run: s.run });
     expect(r.end).toEqual({ kind: 'error', status: 409, code: 'sync_in_progress' });
     expect(r.totals.processed).toBe(4);
-    expect(hltbEndMessage(r).text).toContain('Подгрузка длительности уже идёт, повторите позже.');
+    expect(hltbEndMessage(r).text).toContain('Подгрузка длительности уже идёт, повтори позже.');
     const r2 = await runHltbLoop({ ...base, run: script(new HltbCallError(503, 'db_unavailable')).run });
-    expect(hltbEndMessage(r2)).toEqual({ tone: 'error', text: 'База данных недоступна, повторите позже.' });
+    expect(hltbEndMessage(r2)).toEqual({ tone: 'error', text: 'База данных недоступна, повтори позже.' });
   });
 
   it('сетевая ошибка', async () => {
@@ -92,7 +92,7 @@ describe('runHltbLoop', () => {
     const m = hltbEndMessage(r);
     expect(m.tone).toBe('warn');
     expect(m.text).toContain('Остановлено: HLTB несколько раз подряд вернул ошибку');
-    expect(m.text).toContain('Осталось 4, повторите позже');
+    expect(m.text).toContain('Осталось 4, повтори позже');
     for (const reason of ['empty', 'no_time'] as const) {
       const x = await runHltbLoop({ ...base, run: script(resp({ remaining: 2, done: true, stopReason: reason })).run });
       expect(x.end).toEqual({ kind: 'halted', reason });

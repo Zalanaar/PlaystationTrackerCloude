@@ -12,7 +12,8 @@ import {
   currentMonth, hasGoals, inRecapWindow, monthAnchor, monthParts, prevMonth, yearGamesHint, GOAL_PICK_MAX,
   type GoalFields, type GoalGame, type GoalProgress, type MonthGoalsView, type MonthRecap, type MonthYearGoal, type ParsedGoals, type RollAction,
 } from '@/shared/month-goals';
-import { applyYearGoalRoll, ensurePlannerYear, getBacklogEntries, getGoal, getPlannedEntries, getSettings, getYearRolloverOffer } from '@/server/roadmap/db';
+import { applyYearGoalRoll, ensurePlannerYear, getBacklogEntries, getGoal, getPlannedEntries, getSettings, getYearRolloverOffer, saveOrder } from '@/server/roadmap/db';
+import { planMonthHoursHint } from '@/shared/next-game';
 import { buildPlan } from '@/server/roadmap/plan';
 import type { GoalView } from '@/server/roadmap/goal';
 
@@ -252,17 +253,18 @@ export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promi
     hours: row?.hours ?? null,
     trophies: row?.trophies ?? null,
   };
-  const [progress, candidates, hoursHint, year] = await Promise.all([
+  const [progress, candidates, hoursHint, year, settings] = await Promise.all([
     monthGoalProgress(db, userId, now, picked.map((g) => g.id)),
     listCandidates(db, userId, picked.map((g) => g.id), now, cur.month),
     averageMonthlyHours(db, userId, now),
     getGoal(db, userId, now),
+    getSettings(db, userId, now),
   ]);
   const [recap, yearRollover] = await Promise.all([
     loadMonthRecap(db, userId, now),
     getYearRolloverOffer(db, userId, now),
   ]);
-  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint, yearGoal: toMonthYearGoal(year, cur.year), recap, yearRollover };
+  return { ...cur, goals, progress, hasGoals: hasGoals(goals, picked.length), picked, candidates, hoursHint, planHoursHint: planMonthHoursHint(settings.hoursPerWeek, cur.year, cur.monthNum), hoursPerWeek: settings.hoursPerWeek, yearGoal: toMonthYearGoal(year, cur.year), recap, yearRollover };
 }
 
 async function loadMonthRecap(db: AnyDb, userId: UserId, now: Date): Promise<MonthRecap | null> {
@@ -332,6 +334,19 @@ export async function applyPlannerRoll(db: AnyDb, userId: UserId, now: Date, kin
   return getMonthGoals(db, userId, now);
 }
 
+
+/** Игры цели месяца, которые есть в очереди Плана, поднимаются в её начало (порядок выбора сохраняется). */
+async function raiseMonthGoalsInPlan(db: AnyDb, userId: UserId, gameIds: readonly number[]): Promise<void> {
+  if (!gameIds.length) return;
+  const current = (await getBacklogEntries(db, userId)).flatMap((e) => (e.gameId !== null ? [e.gameId] : []));
+  const want = gameIds.filter((id) => current.includes(id));
+  if (!want.length) return;
+  const rest = current.filter((id) => !want.includes(id));
+  const next = [...want, ...rest];
+  if (next.every((id, i) => id === current[i])) return;
+  await saveOrder(db, userId, next);
+}
+
 /** Сохранить цели текущего месяца. Все видимые цели пустые — удалить строку. trophies в строке сохраняем, если пришли; иначе не трогаем. */
 export async function saveMonthGoals(db: AnyDb, userId: UserId, now: Date, goals: ParsedGoals): Promise<MonthGoalsView> {
   const { month } = currentMonth(now);
@@ -355,6 +370,7 @@ export async function saveMonthGoals(db: AnyDb, userId: UserId, now: Date, goals
       .onConflictDoUpdate({ target: [monthGoals.userId, monthGoals.month], set: { games: next.games, hours: next.hours, trophies: next.trophies, updatedAt: now } });
     if (ids) {
       try { await replacePicks(db, userId, month, ids); } catch { /* таблица 0047 ещё не применена */ }
+      try { await raiseMonthGoalsInPlan(db, userId, ids); } catch { /* очередь Плана недоступна — цели всё равно сохранены */ }
     }
   }
   return getMonthGoals(db, userId, now);

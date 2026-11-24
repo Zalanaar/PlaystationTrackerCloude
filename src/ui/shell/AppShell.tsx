@@ -21,7 +21,7 @@ import { useTour } from '../tour/TourProvider';
 import { useWhatsNew } from '../whatsnew/WhatsNew';
 import { PsnProfileSwitcher } from './PsnProfileSwitcher';
 import { SyncIndicator } from './SyncIndicator';
-import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn } from './headerActions';
+import { collectionMenuOn, emitHeaderAction, headerActionsFor, localSearchOn, useHeaderSearchOpen } from './headerActions';
 import { AddMenu } from './AddMenu';
 import { AfterCompleteHost } from '../complete/AfterCompleteHost';
 import { StartPlayingHost } from '../guides/StartPlayingHost';
@@ -83,6 +83,7 @@ export function AppHeader() {
   const title = sectionTitle(pathname);
   const hdr = headerActionsFor(pathname);
   const localSearch = localSearchOn(pathname);
+  const localSearchOpen = useHeaderSearchOpen();
   const [gsearch, setGsearch] = useState(false);
   const gsearchMounted = useEverTrue(gsearch);
   useAppBadge(); // идея 4: число «Разбора» на иконке PWA
@@ -117,7 +118,10 @@ export function AppHeader() {
             {hdr.search && (
               <button
                 type="button" className={localSearch ? 'ps-iconbtn ps-mobile-only' : 'ps-iconbtn'} data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру"
-                aria-haspopup={localSearch ? undefined : 'dialog'} onClick={() => (localSearch ? emitHeaderAction('search') : setGsearch(true))}
+                aria-haspopup={localSearch ? undefined : 'dialog'}
+                aria-expanded={localSearch ? localSearchOpen : gsearch}
+                onPointerDown={(e) => { if (localSearch) e.preventDefault(); }}
+                onClick={() => (localSearch ? emitHeaderAction('search') : setGsearch(true))}
               >
                 <Icon name="search" size={22} />
               </button>

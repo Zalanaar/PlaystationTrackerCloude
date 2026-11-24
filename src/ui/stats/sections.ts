@@ -1,21 +1,36 @@
-// D-P5: липкие чипы разделов Статистики. Чистая часть: список разделов и выбор текущего по позициям.
+// Липкие чипы разделов Статистики: 5 логических групп. Старые ?sec= остаются и ведут в нужную группу/панель.
 export type StatsSection = { id: string; label: string; selector: string };
 
-/** Порядок = порядок панелей на странице (период и «Всё время»); раздела нет в DOM — чипа нет. */
 export const STATS_SECTIONS: readonly StatsSection[] = [
-  { id: 'hours', label: 'Часы', selector: '[aria-labelledby="st-hours"], [aria-labelledby^="st-hy-"]' },
-  { id: 'genres', label: 'Жанры', selector: '[aria-labelledby="st-genres"]' },
-  { id: 'finished', label: 'Пройдено', selector: '[aria-labelledby^="st-fy-"]' },
-  { id: 'top', label: 'Топ-10', selector: '.ps-st-panel--top' },
-  { id: 'when', label: 'Когда', selector: '[aria-labelledby^="st-pp-"]' },
-  { id: 'trophies', label: 'Трофеи', selector: '[aria-labelledby="st-trophies"], [aria-labelledby^="st-ty-"]' },
-  { id: 'ach', label: 'Достижения', selector: '.ps-ach' },
-  { id: 'cost', label: 'Стоимость часа', selector: '.ps-cost' },
-  { id: 'rare', label: 'Редкие', selector: '.ps-rare' },
-  { id: 'activity', label: 'Активность', selector: '.ps-act' },
-  { id: 'played', label: 'Игры', selector: '#st-played-sec' },
-  { id: 'ratings', label: 'Оценки', selector: '[data-testid="ratings"]' },
+  { id: 'time', label: 'Время', selector: '[data-st-group="time"]' },
+  { id: 'games', label: 'Игры', selector: '[data-st-group="games"]' },
+  { id: 'trophies', label: 'Трофеи', selector: '[data-st-group="trophies"]' },
+  { id: 'ratings', label: 'Оценки', selector: '[data-st-group="ratings"]' },
+  { id: 'activity', label: 'Активность', selector: '[data-st-group="activity"]' },
 ];
+
+/** Прежние id чипов и ?sec=: группа для подсветки и селектор, куда скроллить (панель, если она есть). */
+export const STATS_SEC_ALIASES: Readonly<Record<string, { group: string; selector: string }>> = {
+  time: { group: 'time', selector: '[data-st-group="time"]' },
+  hours: { group: 'time', selector: '[aria-labelledby="st-hours"], [aria-labelledby^="st-hy-"]' },
+  when: { group: 'time', selector: '[aria-labelledby^="st-pp-"]' },
+  cost: { group: 'time', selector: '[data-st-group="time"]' },
+  games: { group: 'games', selector: '[data-st-group="games"]' },
+  genres: { group: 'games', selector: '[aria-labelledby="st-genres"]' },
+  finished: { group: 'games', selector: '[aria-labelledby^="st-fy-"]' },
+  top: { group: 'games', selector: '.ps-st-panel--top' },
+  played: { group: 'games', selector: '#st-played-sec' },
+  trophies: { group: 'trophies', selector: '[data-st-group="trophies"]' },
+  ach: { group: 'trophies', selector: '.ps-ach' },
+  rare: { group: 'trophies', selector: '.ps-rare' },
+  ratings: { group: 'ratings', selector: '[data-testid="ratings"]' },
+  activity: { group: 'activity', selector: '[data-st-group="activity"]' },
+};
+
+export function resolveStatsSec(raw: string | null | undefined): { group: string; selector: string } | null {
+  if (!raw) return null;
+  return STATS_SEC_ALIASES[raw] ?? null;
+}
 
 /**
  * Текущий раздел: последний, чей верх уже под линией (низ липкой полосы + запас). Выше первого — первый.

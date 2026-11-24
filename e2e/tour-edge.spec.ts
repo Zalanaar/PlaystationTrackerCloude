@@ -82,6 +82,9 @@ test.describe('QA 21: блокировка ввода', () => {
     await dialog(page).getByRole('button', { name: 'Далее' }).focus();
     await page.keyboard.press('Enter');
     await expect(count(page)).toHaveText('2 из 7');
+    // шаг 2 — «Разбор»: ждём готовую страницу и возвращаем фокус, иначе Space уйдёт в горячую клавишу пропуска
+    await expect(page.locator('[data-tour-page="triage"]')).toHaveAttribute('data-tour-ready', 'true');
+    await dialog(page).getByRole('button', { name: 'Далее' }).focus();
     await expect(dialog(page).getByRole('button', { name: 'Далее' })).toBeFocused();
     await page.keyboard.press('Space');
     await expect(count(page)).toHaveText('3 из 7');
@@ -110,9 +113,15 @@ test.describe('QA 21: темы, движение, forced colors', () => {
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     await startFromMenu(page);
-    await dialog(page).getByRole('button', { name: 'Далее' }).click();
+    // измеряем на шаге 1: переход на «Разбор» ненадолго снимает прожектор
+    await expect(page.locator('.ps-tour__spot')).toBeVisible();
     const css = await page.evaluate(() => {
-      const g = (s: string) => { const c = getComputedStyle(document.querySelector(s)!); return `${c.transitionDuration}|${c.animationName}`; };
+      const g = (s: string) => {
+        const el = document.querySelector(s);
+        if (!el) return 'missing';
+        const c = getComputedStyle(el);
+        return `${c.transitionDuration}|${c.animationName}`;
+      };
       return { spot: g('.ps-tour__spot'), pop: g('.ps-tour__pop'), bar: g('.ps-tour__bar > i') };
     });
     for (const v of Object.values(css)) expect(v).toMatch(/^(0s|0s, 0s|0s, 0s, 0s, 0s)\|none$/);

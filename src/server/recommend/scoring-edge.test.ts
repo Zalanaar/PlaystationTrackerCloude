@@ -77,7 +77,7 @@ describe('QA: формулы скоринга против 18.8 (посчита�
     expect(r.items[0].score).toBe(Math.round(r.items[0].score * 100) / 100);
   });
   it('веса: единый источник и ожидаемые значения контракта', () => {
-    expect(WEIGHTS).toEqual({ genre_affinity: 3, duration_fit: 2, platinum_close: 1.5, waiting: 1, dropped_genre_penalty: -2 });
+    expect(WEIGHTS).toEqual({ genre_affinity: 3, duration_fit: 2, platinum_close: 1.5, waiting: 1, dropped_genre_penalty: -2, plan_priority: 2.5 });
   });
 });
 

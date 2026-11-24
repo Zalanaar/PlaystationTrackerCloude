@@ -159,3 +159,36 @@ describe('Фаза 32 (D3): duration_fit работает по остатку ч
     expect(byId(1).game).toMatchObject({ hours: 6, totalHours: 30 });
   });
 });
+
+describe('оценки и приоритет Плана', () => {
+  it('высокая оценка жанра поднимает affinity, без оценок результат прежний', () => {
+    const c = [cand(1, { genres: ['ROLE_PLAYING_GAMES'] }), cand(2, { genres: ['RACING'] })];
+    // третий жанр с большим налётом, чтобы RPG/RACING не упирались в clamp = 1
+    const extra = hist(12, 'completed', ['PUZZLE'], 100);
+    const base = [hist(10, 'completed', ['ROLE_PLAYING_GAMES'], 10), hist(11, 'completed', ['RACING'], 10), extra];
+    const rated = [
+      { ...hist(10, 'completed', ['ROLE_PLAYING_GAMES'], 10), rating: 10 },
+      { ...hist(11, 'completed', ['RACING'], 10), rating: 2 },
+      extra,
+    ];
+    const a = run({ candidates: c, history: base });
+    const b = run({ candidates: c, history: rated });
+    const aff = (r: ReturnType<typeof run>, id: number) => r.items.find((i) => i.game.id === id)!.signals.find((s) => s.key === 'genre_affinity')!.contribution;
+    expect(aff(b, 1)).toBeGreaterThan(aff(a, 1));
+    expect(aff(b, 2)).toBeLessThan(aff(a, 2));
+    expect(run({ candidates: c, history: base }).items.map((i) => i.score)).toEqual(a.items.map((i) => i.score));
+  });
+
+  it('цель месяца и начало Плана дают plan_priority', () => {
+    const r = run({
+      candidates: [cand(1), cand(2), cand(3), cand(4)],
+      monthGoalIds: [3],
+      planOrderIds: [1, 2, 4],
+    });
+    const pri = (id: number) => r.items.find((i) => i.game.id === id)!.signals.find((s) => s.key === 'plan_priority');
+    expect(pri(3)?.contribution).toBe(2.5);
+    expect(pri(3)?.label).toBe('Цель этого месяца');
+    expect(pri(1)?.label).toBe('Следующая в Плане');
+    expect(r.items[0].game.id).toBe(3);
+  });
+});

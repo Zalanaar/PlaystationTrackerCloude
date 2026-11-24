@@ -279,7 +279,8 @@ export function TourOverlay(props: TourOverlayProps) {
       }
       e.stopPropagation();
       if (e.ctrlKey || e.altKey || e.metaKey) return;
-      const onButton = (e.target as HTMLElement | null)?.tagName === 'BUTTON';
+      const active = document.activeElement as HTMLElement | null;
+      const onButton = active?.tagName === 'BUTTON' && !!pop?.contains(active);
       if (e.key === 'Escape') { e.preventDefault(); cb.current.onSkip(); return; }
       if (e.key === 'ArrowRight') { e.preventDefault(); if (!cb.current.last) cb.current.onNext(); return; }
       if (e.key === 'ArrowLeft') { e.preventDefault(); if (!cb.current.first) cb.current.onPrev(); return; }

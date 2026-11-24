@@ -12,10 +12,12 @@ import { effectiveGenres } from '@/shared/genres';
 import { remainingHours } from '@/shared/remaining';
 import { DISLIKE_TTL_DAYS, DISLIKE_TTL_MS, dislikeExpiresAt } from '@/shared/recommend';
 import { stableHash, templateReason } from './phrase';
+import { getBacklogEntries } from '@/server/roadmap/db';
+import { getMonthGoals } from '@/server/goals/month-goals';
 import { scoreBacklog } from './score';
 import type { Candidate, DislikesResponse, HistoryGame, LlmMeta, Reason, RecommendResponse, ScoredItem, TimeWish } from './types';
 
-const { games, gameStatus, gameTrophySets, trophySets, trophies, recommendDislikes, recommendReasons } = schema;
+const { games, gameStatus, gameTrophySets, trophySets, trophies, recommendDislikes, recommendReasons, gameReviews } = schema;
 
 export class NotFoundError extends Error {}
 
@@ -84,11 +86,12 @@ export async function loadCandidates(db: AnyDb, userId: UserId): Promise<Candida
 /** История вкуса: видимые completed / playing / dropped. */
 export async function loadHistory(db: AnyDb, userId: UserId): Promise<HistoryGame[]> {
   const rows = await db
-    .select({ id: games.id, status: gameStatus.status, psn: games.psnGenres, override: games.genresOverride, seconds: effectiveSecondsSql })
+    .select({ id: games.id, status: gameStatus.status, psn: games.psnGenres, override: games.genresOverride, seconds: effectiveSecondsSql, rating: gameReviews.rating })
     .from(games)
     .innerJoin(gameStatus, and(eq(gameStatus.gameId, games.id), eq(gameStatus.userId, userId)))
+    .leftJoin(gameReviews, and(eq(gameReviews.gameId, games.id), eq(gameReviews.userId, userId)))
     .where(and(eq(games.userId, userId), inArray(gameStatus.status, ['completed', 'playing', 'dropped']), visibleGameRow()));
-  return rows.map((r) => ({ id: r.id, status: r.status as HistoryGame['status'], genres: effectiveGenres(r.psn, r.override), playSeconds: r.seconds }));
+  return rows.map((r) => ({ id: r.id, status: r.status as HistoryGame['status'], genres: effectiveGenres(r.psn, r.override), playSeconds: r.seconds, rating: r.rating }));
 }
 
 // --- кэш фраз (контракт 20.4): экран только читает, пишет шаг синка
@@ -137,9 +140,23 @@ export async function resolveReasons(db: AnyDb, userId: UserId, items: readonly 
 }
 
 /** GET /api/recommend (18.4). Ошибки БД пробрасываются (503 в роуте). */
+async function loadPlanPriority(db: AnyDb, userId: UserId, now: Date): Promise<{ monthGoalIds: number[]; planOrderIds: number[] }> {
+  try {
+    const [goals, queue] = await Promise.all([getMonthGoals(db, userId, now), getBacklogEntries(db, userId)]);
+    return {
+      monthGoalIds: goals.picked.filter((g) => !g.completed).map((g) => g.id),
+      planOrderIds: queue.flatMap((e) => (e.gameId !== null ? [e.gameId] : [])),
+    };
+  } catch {
+    return { monthGoalIds: [], planOrderIds: [] };
+  }
+}
+
 export async function getRecommendations(db: AnyDb, userId: UserId, time: TimeWish, now: Date = new Date(), deps: RecommendDeps = {}): Promise<RecommendResponse> {
-  const [candidates, history, dislikedIds, backlog] = await Promise.all([loadCandidates(db, userId), loadHistory(db, userId), getDislikedIds(db, userId, now), countBacklog(db, userId)]);
-  const scored = scoreBacklog({ candidates, history, dislikedIds, time, now });
+  const [candidates, history, dislikedIds, backlog, priority] = await Promise.all([
+    loadCandidates(db, userId), loadHistory(db, userId), getDislikedIds(db, userId, now), countBacklog(db, userId), loadPlanPriority(db, userId, now),
+  ]);
+  const scored = scoreBacklog({ candidates, history, dislikedIds, time, now, monthGoalIds: priority.monthGoalIds, planOrderIds: priority.planOrderIds });
   const { reasons, llm, pending } = await resolveReasons(db, userId, scored.items, deps);
   const items = scored.items.map((i) => ({ game: i.game, score: i.score, signals: i.signals, reason: reasons.get(i.game.id)! }));
   return { items, meta: { llm, candidates: scored.candidates, backlog, time, llmPending: pending } };

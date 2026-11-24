@@ -3,11 +3,17 @@ import { announceCompleted, COMPLETED_EVENT, nextFromPlan } from './afterComplet
 
 const entry = (o: Record<string, unknown>) => ({ key: 'x', kind: 'backlog', gameId: 1, plannedId: null, title: 'A', coverUrl: null, hours: 10, hoursSource: 'hltb', releaseDate: null, wantAtRelease: false, start: '', end: '', days: 1, ...o });
 
-describe('идея 3: «что дальше» из Плана', () => {
+describe('идея 3: «что дальше» из целей месяца и Плана', () => {
   it('первая игра бэклога по расписанию, кроме только что пройденной; релизы пропускает', () => {
     const r = { items: [entry({ kind: 'release', gameId: null, plannedId: 3, title: 'R' }), entry({ gameId: 7, title: 'Done' }), entry({ gameId: 8, title: 'Next', hours: 12.5 })] };
-    expect(nextFromPlan(r as never, 7)).toEqual({ gameId: 8, title: 'Next', coverUrl: null, hours: 12.5 });
+    expect(nextFromPlan(r as never, 7)).toEqual({ gameId: 8, title: 'Next', coverUrl: null, hours: 12.5, source: 'plan' });
     expect(nextFromPlan(r as never, 99)?.gameId).toBe(7);
+  });
+  it('незакрытая цель месяца выше очереди Плана', () => {
+    const r = { items: [entry({ gameId: 7, title: 'PlanFirst' }), entry({ gameId: 8, title: 'Goal', hours: 5 })] };
+    expect(nextFromPlan(r as never, 1, [{ id: 8, title: 'Goal', coverUrl: null, completed: false }])).toEqual(
+      { gameId: 8, title: 'Goal', coverUrl: null, hours: 5, source: 'month_goal' },
+    );
   });
   it('пусто или нет ответа — null', () => {
     expect(nextFromPlan({ items: [] } as never, 1)).toBeNull();

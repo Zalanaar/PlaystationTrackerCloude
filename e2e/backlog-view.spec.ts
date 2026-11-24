@@ -139,18 +139,3 @@ test.describe('Бэклог: мобильная панель', () => {
   });
 });
 
-test.describe('Тур: шаг «Бэклог»', () => {
-  test('подсвечивает список в любом виде, тур не ломается', async ({ page, context, baseURL }) => {
-    await open(page, baseURL!, context, '/');
-    if (isMobile(page)) { await page.getByRole('button', { name: 'Меню', exact: true }).click(); await page.getByRole('button', { name: 'Как пользоваться' }).click(); }
-    else { await page.locator('.ps-avatar').click(); await page.getByRole('menuitem', { name: 'Как пользоваться' }).click(); }
-    const dlg = page.getByRole('dialog').filter({ has: page.getByTestId('tour-count') });
-    for (let i = 1; i < 8; i++) await dlg.getByRole('button', { name: 'Далее' }).click();
-    await expect(page.getByTestId('tour-count')).toHaveText('8 из 14');
-    await expect(dlg).toContainText('Бэклог');
-    await expect(page.locator('[data-tour="backlog-list"]')).toHaveCount(1);
-    await expect(page.locator('.ps-tour__spot')).toBeVisible();
-    await dlg.getByRole('button', { name: 'Далее' }).click();
-    await expect(page.getByTestId('tour-count')).toHaveText('9 из 14');
-  });
-});

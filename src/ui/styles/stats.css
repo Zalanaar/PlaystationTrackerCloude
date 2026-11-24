@@ -188,3 +188,7 @@
 .ps-ratings-sheet__head { display: flex; align-items: center; gap: var(--sp-3); }
 .ps-ratings-sheet__cover { width: 48px; height: 64px; flex: none; border-radius: var(--r-cover, var(--r-sm)); }
 .ps-ratings-sheet__name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+/* Группы разделов (капсула: Время, Игры, Трофеи, Оценки, Активность) */
+.ps-st-group { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; scroll-margin-top: 72px; }
+.ps-st-group__h { margin: 0; font: var(--fw-h2) var(--fs-h2)/var(--lh-h2) var(--font-display); color: var(--text-2); }

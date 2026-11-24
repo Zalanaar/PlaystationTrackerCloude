@@ -52,3 +52,11 @@ export function hoursHintLabel(n: number): string {
 export function gamesHintLabel(n: number): string {
   return `По темпу года — ${formatNumber(n)} ${plural(n, ['игра', 'игры', 'игр'])} в месяц`;
 }
+
+export function planHoursHintLabel(hours: number, hoursPerWeek: number | null): string {
+  if (hoursPerWeek != null && hoursPerWeek > 0) {
+    const w = Number.isInteger(hoursPerWeek) ? String(hoursPerWeek) : String(hoursPerWeek).replace('.', ',');
+    return `По плану: ${formatNumber(hours)} ч (${w} ч в неделю)`;
+  }
+  return `По плану: ${formatNumber(hours)} ч`;
+}

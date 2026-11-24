@@ -48,7 +48,7 @@ test('плитки, сводка, состояния', async ({ page, baseURL })
   await expect(item('completed_10').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '70');
   await expect(item('hours_1000')).toContainText(/450 из 1.000 ч/);
   await expect(item('completed_1').getByRole('progressbar')).toHaveCount(0);
-  await expect(page.getByTestId('stats-sections').locator('[data-sec="ach"]')).toHaveText('Достижения');
+  await expect(page.getByTestId('stats-sections').locator('[data-sec="trophies"]')).toHaveText('Трофеи');
 });
 
 test('сбой запроса — панели нет', async ({ page, baseURL }) => {
