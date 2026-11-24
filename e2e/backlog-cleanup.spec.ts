@@ -19,8 +19,12 @@ function games(): G[] {
   ];
 }
 
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
 async function open(page: Page, context: BrowserContext, baseURL: string, url: string): Promise<Mock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
+  // иначе следующая карточка в стопке ловит 404 с CDN, Cover убирает <img>, и после свайпа src проверить нельзя
+  await page.route('https://image.api.playstation.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
   const m = await mockApi(page, games());
   m.backlogAge = {
     items: [

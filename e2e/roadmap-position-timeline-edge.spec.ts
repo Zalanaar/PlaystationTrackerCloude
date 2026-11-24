@@ -64,7 +64,7 @@ test.describe('QA: Поставить на позицию', () => {
     await page.route(/\/api\/roadmap\/order$/, (r) => r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code: 'invalid_request', message: 'x', details: { unknown: [2] } } }) }));
     await page.getByTestId('rm-to-pos').first().click();
     await expect(page.getByText(/Не удалось поставить на позицию/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Не успеваю', level: 2 })).toBeVisible();
+    await expect(page.locator('#rm-over').getByRole('heading', { name: 'Не успеваю' })).toBeVisible();
   });
 
   test('XSS в названиях подсказки и полос', async ({ page, context, baseURL, isMobile }) => {
