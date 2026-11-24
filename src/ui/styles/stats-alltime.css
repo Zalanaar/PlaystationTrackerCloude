@@ -132,7 +132,7 @@
 }
 
 /* D-P5: липкие чипы разделов. Хром — .ps-jumpcap (плавающая капсула). */
-.ps-st-secs { height: auto; min-height: 44px; }
+.ps-st-secs { box-sizing: border-box; height: calc(36px + 12px + 2 * var(--border-w)); min-height: 0; }
 .ps-st-secs__in { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; width: 100%; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 .ps-st-secs__in::-webkit-scrollbar { display: none; }
 .ps-st-secs__chip {
@@ -145,7 +145,7 @@
 .ps-stats-page .ps-panel, .ps-stats-page .ps-st-played, .ps-stats-page .ps-ratings { scroll-margin-top: calc(var(--sticky-top) + var(--jumpcap-inset) + var(--mchips-h) + var(--sp-3)); }
 .ps-st-feedlink { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--sp-1); color: var(--accent); font: 600 var(--fs-small)/var(--lh-small) var(--font-body); text-decoration: none; }
 .ps-st-feedlink:hover { text-decoration: underline; }
-.ps-sk-secs { display: block; height: calc(var(--mchips-h) + 8px + var(--jumpcap-inset)); margin: var(--jumpcap-inset) 0 var(--sp-3); }
+.ps-sk-secs { display: block; box-sizing: border-box; height: calc(36px + 12px + 2 * var(--border-w)); margin: var(--jumpcap-inset) var(--jumpcap-inset) var(--sp-3); border-radius: 999px; }
 
 /* Пакет 6, п. 2: зоны нажатия >= 44 без изменения вида (::after, проценты inset — от padding-box). */
 .ps-st-secs__chip, .ps-st-panel .ps-seg button, .ps-st-feedlink { position: relative; }
