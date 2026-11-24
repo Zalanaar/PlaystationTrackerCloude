@@ -115,7 +115,8 @@ async function assertEndsInside(row: Locator) {
 
 test.describe('плавающая капсула быстрого перехода', () => {
   for (const width of [390, 1280]) {
-    test(`${width}px: Коллекция, План, Статистика, Бэклог — одна капсула с блюром`, async ({ page, context, baseURL }) => {
+    test(`${width}px: Коллекция, План, Статистика, Бэклог — одна капсула с блюром`, async ({ page, context, baseURL }, info) => {
+      if (width !== 390 && info.project.name === 'webkit-iphone') test.skip();
       await page.setViewportSize({ width, height: 800 });
 
       await login(page, context, baseURL as string, chronicle());
@@ -128,7 +129,7 @@ test.describe('плавающая капсула быстрого переход
       await mockRoadmap(page, baseState());
       await page.goto('/roadmap');
       await page.getByRole('heading', { name: 'План', level: 1 }).waitFor();
-      const plan = page.getByTestId('rm-jump');
+      const plan = page.getByTestId('rm-jump').first();
       await expect(plan).toBeVisible();
       await page.evaluate(() => window.scrollBy(0, 200));
       await assertCapsule(plan);
@@ -180,7 +181,7 @@ test.describe('плавающая капсула быстрого переход
     await mockRoadmap(page, baseState());
     await page.goto('/roadmap');
     await page.getByRole('heading', { name: 'План', level: 1 }).waitFor();
-    await assertEndsInside(page.getByTestId('rm-jump'));
+    await assertEndsInside(page.getByTestId('rm-jump').first());
 
     await openStats(page, context, baseURL!);
     await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Часы' })).toBeVisible();

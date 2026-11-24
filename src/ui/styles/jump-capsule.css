@@ -18,7 +18,7 @@
   backdrop-filter: blur(16px) saturate(160%);
   border: var(--border-w) solid color-mix(in srgb, var(--border-strong, var(--border)) 65%, transparent);
   box-shadow: 0 4px 18px rgba(0, 0, 0, calc(var(--shadow-alpha, .2) + .08));
-  overflow: hidden;
+  overflow: visible;
 }
 .ps-jumpcap__in {
   display: flex;
