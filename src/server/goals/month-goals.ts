@@ -34,6 +34,9 @@ function toMonthYearGoal(g: GoalView | null, nowYear: number): MonthYearGoal | n
 
 const { gameStatus, games, monthGoals, monthGoalGames, playtimeSnapshots: ps, trophies, roadmapOrder } = schema;
 
+/** Без recap_acked_at: на проде до миграции 0048 SELECT * падает и главная получает 503. */
+const monthGoalFields = { games: monthGoals.games, hours: monthGoals.hours, trophies: monthGoals.trophies };
+
 const visibleGame = (userId: UserId) => and(eq(games.userId, userId), isNull(games.hiddenAt), isNull(games.duplicateOfGameId));
 
 function toGoalGame(r: { id: number; title: string; coverUrl: string | null; status: string | null }): GoalGame {
@@ -242,7 +245,7 @@ async function replacePicks(db: AnyDb, userId: UserId, month: string, gameIds: n
 export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promise<MonthGoalsView> {
   await ensurePlannerYear(db, userId, now);
   const cur = currentMonth(now);
-  const [row] = await db.select().from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, cur.month))).limit(1);
+  const [row] = await db.select(monthGoalFields).from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, cur.month))).limit(1);
   const picked = await listPicked(db, userId, cur.month);
   const goals: GoalFields = {
     games: picked.length ? picked.length : (row?.games ?? null),
@@ -265,7 +268,17 @@ export async function getMonthGoals(db: AnyDb, userId: UserId, now: Date): Promi
 async function loadMonthRecap(db: AnyDb, userId: UserId, now: Date): Promise<MonthRecap | null> {
   if (!inRecapWindow(now)) return null;
   const prev = prevMonth(currentMonth(now).month);
-  const [row] = await db.select().from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, prev))).limit(1);
+  let row: { games: number | null; hours: number | null; trophies: number | null; recapAckedAt: Date | null } | undefined;
+  try {
+    [row] = await db
+      .select({ ...monthGoalFields, recapAckedAt: monthGoals.recapAckedAt })
+      .from(monthGoals)
+      .where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, prev)))
+      .limit(1);
+  } catch {
+    // колонки/схемы 0048 на проде ещё нет — карточку итогов не показываем, цели месяца работают
+    return null;
+  }
   if (!row || row.recapAckedAt) return null;
   const picked = await listPicked(db, userId, prev);
   const goals: GoalFields = {
@@ -281,7 +294,11 @@ async function loadMonthRecap(db: AnyDb, userId: UserId, now: Date): Promise<Mon
 }
 
 async function ackMonthRecap(db: AnyDb, userId: UserId, month: string, now: Date): Promise<void> {
-  await db.update(monthGoals).set({ recapAckedAt: now }).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, month)));
+  try {
+    await db.update(monthGoals).set({ recapAckedAt: now }).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, month)));
+  } catch {
+    /* миграция 0048 ещё не применена */
+  }
 }
 
 /** Закрыть итоги прошлого месяца или перенести незакрытые игры в цели текущего. */
@@ -318,7 +335,7 @@ export async function applyPlannerRoll(db: AnyDb, userId: UserId, now: Date, kin
 /** Сохранить цели текущего месяца. Все видимые цели пустые — удалить строку. trophies в строке сохраняем, если пришли; иначе не трогаем. */
 export async function saveMonthGoals(db: AnyDb, userId: UserId, now: Date, goals: ParsedGoals): Promise<MonthGoalsView> {
   const { month } = currentMonth(now);
-  const [row] = await db.select().from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, month))).limit(1);
+  const [row] = await db.select(monthGoalFields).from(monthGoals).where(and(eq(monthGoals.userId, userId), eq(monthGoals.month, month))).limit(1);
   const trophiesVal = goals.trophies;
   const nextHours = goals.hours;
   let nextGames = goals.games;
