@@ -46,6 +46,16 @@ const stored = (page: Page) => page.evaluate(async (key) => {
   return hit ? ((await hit.json()) as { profileId: number }).profileId : null;
 }, KEY).catch(() => null);
 
+/** Переход без сети: SW отдаёт /offline, Playwright.goto часто бросает; адрес и вкладка должны успеть смениться. */
+async function offlineGoto(page: Page, path: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  if (new URL(page.url()).pathname !== path) {
+    await page.evaluate((p) => { window.location.replace(p); }, path);
+  }
+  await expect.poll(() => new URL(page.url()).pathname, { timeout: 10_000 }).toBe(path);
+  await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
+}
+
 test('копия пишется под SW; без сети /backlog показывает её только для просмотра с «Данные от …»; вход без сессии её стирает', async ({ page, context }) => {
   const active = { id: 1 };
   await setup(context, active);
@@ -64,7 +74,7 @@ test('копия пишется под SW; без сети /backlog показы
   const api: string[] = [];
   page.on('request', (rq) => { if (new URL(rq.url()).pathname.startsWith('/api/')) api.push(rq.url()); });
   await context.setOffline(true);
-  await page.goto('/backlog').catch(() => {});
+  await offlineGoto(page, '/backlog');
   const view = page.getByTestId('offline-snapshot');
   await expect(view).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
@@ -75,11 +85,9 @@ test('копия пишется под SW; без сети /backlog показы
   await expect(page.getByRole('tab', { name: 'Что дальше' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('offline-backlog-sum')).toHaveText('2 в бэклоге · ≈ 35 ч · без длительности: 1');
   await expect(page.getByTestId('offline-game').locator('.ps-offline__gname')).toHaveText(['Ghost of Yotei', 'Bloodborne']);
-  await page.goto('/roadmap').catch(() => {});
-  await expect(page.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
   await expect(view.locator('select, input, [role="menu"]')).toHaveCount(0);
-  // «План» с /roadmap
-  await page.getByRole('tab', { name: 'План' }).click();
+  // /roadmap без сети — вкладка «План» (первый документ после смены адреса, не клик)
+  await offlineGoto(page, '/roadmap');
   await expect(page.getByRole('tab', { name: 'План' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('offline-plan-sum')).toHaveText('1 игра · 20 ч из 520 ч');
   await expect(page.getByTestId('offline-plan-item')).toContainText('GTA VI');
@@ -106,7 +114,7 @@ test('копия пишется под SW; без сети /backlog показы
   await page.goto('/login');
   await expect.poll(() => stored(page), { timeout: 10_000 }).toBeNull();
   await context.setOffline(true);
-  await page.goto('/stats').catch(() => {});
+  await offlineGoto(page, '/stats');
   await expect(page.getByRole('heading', { name: 'Нет сети' })).toBeVisible();
   await expect(page.getByTestId('offline-snapshot')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('Zalanaar');

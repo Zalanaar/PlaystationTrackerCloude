@@ -21,14 +21,24 @@ export function OfflineSnapshotView({ stub, retry }: { stub: ReactNode; retry: R
   const [now, setNow] = useState(0);
   useEffect(() => {
     let alive = true;
+    const syncTab = () => {
+      const next = tabFromPath(window.location.pathname);
+      setTab((cur) => (cur === next ? cur : next));
+    };
     void readOfflineSnapshot().then((s) => {
       if (!alive) return;
       // вкладка — по адресу, который открывали без сети; «сейчас» — для года в пометке «Данные от …»
-      setTab(tabFromPath(window.location.pathname));
+      syncTab();
       setNow(Date.now());
       setSnap(s);
     });
-    return () => { alive = false; };
+    window.addEventListener('popstate', syncTab);
+    window.addEventListener('pageshow', syncTab);
+    return () => {
+      alive = false;
+      window.removeEventListener('popstate', syncTab);
+      window.removeEventListener('pageshow', syncTab);
+    };
   }, []);
 
   if (!snap) return <main className="ps-offline">{stub}{retry}<p className="ps-offline__logo ps-micro">PS TRACKER</p></main>;
