@@ -47,12 +47,27 @@
   pointer-events: none;
 }
 
-/* Чипы внутри капсулы — пилюли, как в Статистике (не --r-chip: 4px тем PS1/PS2/PS4). */
+/* Чипы внутри капсулы — пилюли, как в Статистике (не --r-chip: 4px тем PS1/PS2/PS4).
+   Неактивный чип месяца: непрозрачный фон, чтобы счётчик (text-3) читался на капсуле с блюром. */
 .ps-jumpcap button.ps-mchip,
 .ps-jumpcap .ps-st-secs__chip,
 .ps-jumpcap .ps-rm-jump__a,
 .ps-jumpcap .ps-bl-jump__tab {
   border-radius: 999px;
+}
+.ps-mchips.ps-jumpcap button.ps-mchip {
+  background: var(--surface);
+}
+.ps-mchips.ps-jumpcap button.ps-mchip small {
+  color: var(--text-2);
+}
+.ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"],
+.ps-mchips.ps-jumpcap button.ps-mchip[aria-pressed="true"] {
+  background: var(--accent);
+}
+.ps-mchips.ps-jumpcap button.ps-mchip[aria-current="true"] small,
+.ps-mchips.ps-jumpcap button.ps-mchip[aria-pressed="true"] small {
+  color: inherit;
 }
 
 .ps-jumpcap [aria-current="true"],

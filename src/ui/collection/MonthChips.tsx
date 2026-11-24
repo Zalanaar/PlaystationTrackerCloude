@@ -62,9 +62,8 @@ export function MonthChips({ year, chips, onPick }: { year: number; chips: Month
     if (!strip || !chip) return;
     const sr = strip.getBoundingClientRect();
     const cr = chip.getBoundingClientRect();
-    const pad = 8;
-    if (cr.left < sr.left + pad) strip.scrollTo({ left: Math.max(0, strip.scrollLeft + (cr.left - sr.left) - pad), behavior: reduced() ? 'auto' : 'smooth' });
-    else if (cr.right > sr.right - pad) strip.scrollTo({ left: strip.scrollLeft + (cr.right - sr.right) + pad, behavior: reduced() ? 'auto' : 'smooth' });
+    if (cr.left < sr.left) strip.scrollTo({ left: Math.max(0, strip.scrollLeft + (cr.left - sr.left) - 8), behavior: reduced() ? 'auto' : 'smooth' });
+    else if (cr.right > sr.right) strip.scrollTo({ left: strip.scrollLeft + (cr.right - sr.right) + 8, behavior: reduced() ? 'auto' : 'smooth' });
   }, [cur]);
 
   return (
