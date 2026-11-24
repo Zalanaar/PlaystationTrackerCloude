@@ -298,8 +298,8 @@ test.describe('Фаза 8: скрытие игр', () => {
     await openHidden(page, mobile);
     await expect(page).toHaveURL(/hidden=1/);
     await expect(coll(page).getByRole('heading', { name: 'Скрытые игры' })).toBeVisible();
-    // после открытия «Скрытых» могут ещё уйти запросы коллекции без hidden; важен сам запрос only, не «последний»
-    expect(mock.listCalls.some((u) => u.searchParams.get('hidden') === 'only')).toBe(true);
+    // запрос hidden=only может прийти сразу после отрисовки шапки раздела
+    await expect.poll(() => mock.listCalls.some((u) => u.searchParams.get('hidden') === 'only')).toBe(true);
     await expect(card(page, 'Tetris Effect')).toHaveCount(1);
     await expect(coll(page).locator('article.ps-card')).toHaveCount(1);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
