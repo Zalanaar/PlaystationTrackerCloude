@@ -2,6 +2,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 async function open(page: Page, context: BrowserContext, baseURL: string, url = '/', games = seed()) {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
@@ -9,6 +10,7 @@ async function open(page: Page, context: BrowserContext, baseURL: string, url = 
   await page.goto(url);
   await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Статус' }).getByRole('button', { name: /^Все/ })).toContainText(/\d/);
+  if (!url.startsWith('/backlog') && !url.startsWith('/stats')) await expandToday(page);
   return mock;
 }
 const coll = (page: Page) => page.locator('section[aria-labelledby="coll-title"]');

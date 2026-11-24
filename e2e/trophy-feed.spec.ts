@@ -3,6 +3,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const DAY = 86_400_000;
 const MSK = 3 * 3600_000;
@@ -66,6 +67,7 @@ test('чип «+N трофеев» ведёт в ленту: сводка, гр�
   await setup(page, context, baseURL!);
   const f = await mockFeed(page);
   await page.goto('/');
+  await expandToday(page);
   const chip = page.getByTestId('inbox-trophies');
   await expect(chip).toHaveAttribute('href', '/trophies?period=7d');
   await chip.click();

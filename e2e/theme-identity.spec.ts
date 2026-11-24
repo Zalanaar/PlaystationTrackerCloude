@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { mockApi, seed, type G } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 async function boot(page: Page, context: BrowserContext, baseURL: string, theme: string, path = '/', games: G[] = seed()) {
   await context.addCookies([
@@ -144,6 +145,7 @@ test.describe('ps5: карточка «Недавно в коллекции» и
 
   test('без «Играю»: карточка последней игры хроники, открывает окно игры; в других темах скрыта; с «Играю» её нет', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps5', '/', noPlaying());
+    await expandToday(page);
     const hero = page.getByRole('region', { name: 'Недавно в коллекции' });
     await expect(hero).toBeVisible();
     const first = (await page.locator('.ps-card .ps-card__title').first().textContent())!.trim();
@@ -162,12 +164,14 @@ test.describe('ps5: карточка «Недавно в коллекции» и
 
   test('с «Играю» карточки нет', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps5');
+    await expandToday(page);
     await expect(page.getByRole('region', { name: 'Играю сейчас' })).toBeVisible();
     await expect(page.getByTestId('recent-hero')).toHaveCount(0);
   });
 
   test('нажатие: scale .97 только transform; при reduced-motion без масштаба', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps5', '/', noPlaying());
+    await expandToday(page);
     const card = page.getByTestId('recent-hero').getByRole('button');
     const box = (await card.boundingBox())!;
     const scaleOf = () => card.evaluate((el) => getComputedStyle(el).transform);
@@ -179,6 +183,7 @@ test.describe('ps5: карточка «Недавно в коллекции» и
     await page.keyboard.press('Escape');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
+    await expandToday(page);
     const card2 = page.getByTestId('recent-hero').getByRole('button');
     const b2 = (await card2.boundingBox())!;
     await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2);

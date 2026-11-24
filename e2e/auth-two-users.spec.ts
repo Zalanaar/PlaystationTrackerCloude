@@ -4,6 +4,7 @@
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { mockApi, seed } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 const ok = (r: Route, data: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ ok: true, data }) });
 const fail = (r: Route, status: number, code: string) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ ok: false, error: { code, message: 'x' } }) });
@@ -43,6 +44,8 @@ test.describe('два пользователя в одном браузере', 
     const text = async (p: Page) => p.locator('main').innerText();
     await expect(ownerPage.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
     await expect(memberPage.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+    await expandToday(ownerPage);
+    await expandToday(memberPage);
     await expect(memberPage.getByRole('region', { name: 'Играю' })).toContainText('Участник: играю');
     const o = await text(ownerPage);
     const m = await text(memberPage);

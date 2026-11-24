@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { mockApi } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 test('коллекция: каждый запрос данных на загрузке один раз', async ({ page, context, baseURL }) => {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
@@ -28,6 +29,7 @@ test('коллекция: сбой одного блока в batch показы
   m.failBlock = (u) => u.searchParams.get('status') === 'backlog';
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+  await expandToday(page);
   // на чистой главной блок бэклога заменён строкой-ссылкой, ошибка блока не показывается
   await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toHaveCount(0);
   await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
@@ -35,6 +37,7 @@ test('коллекция: сбой одного блока в batch показы
   // ?status=backlog грузит только этот блок: при сбое будет общая ошибка, не «блок «Бэклог»».
   // Поиск оставляет все блоки и прячет строку-ссылку — ошибка блока снова видна, «Играю» на месте.
   await page.goto('/?q=Horizon');
+  await expandToday(page);
   await expect(page.getByRole('alert').filter({ hasText: 'Не удалось загрузить блок «Бэклог»' })).toBeVisible();
   await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Играю' })).toBeVisible();

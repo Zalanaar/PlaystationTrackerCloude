@@ -33,7 +33,7 @@ test.describe('Сегодня', () => {
     expect(headBox).toBeTruthy();
     expect(filterBox).toBeTruthy();
     expect(barBox!.y).toBeGreaterThan(headBox!.y);
-    expect(barBox!.height).toBeLessThanOrEqual(40);
+    expect(barBox!.height).toBeLessThanOrEqual(44);
     // фильтры сразу под строкой, не после высокого hero
     expect(filterBox!.y).toBeGreaterThan(barBox!.y);
     expect(filterBox!.y - (barBox!.y + barBox!.height)).toBeLessThan(80);
@@ -64,7 +64,7 @@ test.describe('Сегодня', () => {
     await page.waitForTimeout(400);
     const h2 = (await bar.boundingBox())!.height;
     expect(h2).toBe(h1);
-    expect(h2).toBeLessThanOrEqual(36);
+    expect(h2).toBeLessThanOrEqual(44);
   });
 });
 

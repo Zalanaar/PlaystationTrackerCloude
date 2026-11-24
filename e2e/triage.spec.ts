@@ -2,6 +2,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockApi, seed, type Mock } from './collection-mock';
 import { signedSession } from './session';
+import { expandToday } from './today';
 
 async function open(page: Page, context: import('@playwright/test').BrowserContext, baseURL: string, url: string, games = seed()): Promise<Mock> {
   await context.addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
@@ -142,6 +143,9 @@ test.describe('Бэклог (/backlog)', () => {
     await expect(page.getByText('Статус изменён: Играю')).toBeVisible();
     // в коллекции игра теперь в ленте «Играю»
     await page.getByRole('link', { name: 'К коллекции' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
+    await expect(page.getByTestId('today-toggle')).toBeVisible();
+    await expandToday(page);
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Stray');
   });
 
