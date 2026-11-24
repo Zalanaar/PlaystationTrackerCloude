@@ -501,11 +501,11 @@ test.describe('План: предстоящие релизы', () => {
     expect(s.calls.patches.at(-1)).toEqual({ id: 6, body: { status: 'planned' } });
     await expect(rows.nth(2)).toContainText('В плане');
     // следующая страница — клик или автодогрузка после скролла
-    const more = page.getByRole('button', { name: 'Показать ещё' });
-    if (await more.count()) {
-      await more.scrollIntoViewIfNeeded();
-      if (await more.isEnabled()) await more.click();
-    }
+    await page.evaluate(() => {
+      const btn = document.querySelector('.ps-rm-upc__more button') as HTMLButtonElement | null;
+      btn?.scrollIntoView({ block: 'nearest' });
+      if (btn && !btn.disabled) btn.click();
+    });
     await expect(rows).toHaveCount(4);
     expect(s.calls.upcoming).toEqual([1, 2]);
     await expect(page.getByRole('button', { name: 'Показать ещё' })).toHaveCount(0);

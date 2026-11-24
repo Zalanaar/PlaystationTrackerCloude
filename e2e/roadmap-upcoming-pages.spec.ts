@@ -55,17 +55,18 @@ test.describe('Предстоящие релизы: страницы, поряд
     expect(box.maxHeight).toBe('none');
     expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
 
-    const more = page.getByRole('button', { name: 'Показать ещё' });
     await expect.poll(() => page.getByTestId('rm-upcoming-row').count()).toBeGreaterThanOrEqual(8);
     const first8 = (await page.getByTestId('rm-upcoming-row').locator('b').allTextContents()).slice(0, 8);
     expect(first8).toEqual([
       'Titan Quest 2', 'Until Dawn 2', 'Metro 2039', 'No Rest for the Wicked',
       'Lords of the Fallen 2', 'Exodus', 'FF7 Revelation', 'God of War Laufey',
     ]);
-    if (await more.count()) {
-      await more.scrollIntoViewIfNeeded();
-      if (await more.isEnabled()) await more.click();
-    }
+    // нативный click: Playwright actionability ловит detach, когда IO догружает страницу и кнопку перерисовывают
+    await page.evaluate(() => {
+      const btn = document.querySelector('.ps-rm-upc__more button') as HTMLButtonElement | null;
+      btn?.scrollIntoView({ block: 'nearest' });
+      if (btn && !btn.disabled) btn.click();
+    });
     await expect.poll(() => page.getByTestId('rm-upcoming-row').count()).toBe(12);
     expect(s.calls.upcoming).toEqual([1, 2]);
     expect(await page.getByTestId('rm-upcoming-row').locator('b').allTextContents()).toEqual([

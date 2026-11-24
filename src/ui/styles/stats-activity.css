@@ -70,8 +70,8 @@
 .ps-yoy__i b { color: var(--text); font-weight: 600; }
 .ps-yoy__n { color: var(--text-3); }
 .ps-yoy__sk { display: inline-block; width: min(320px, 80%); height: 14px; border-radius: var(--r-sm); }
-/* К ноябрю строка «К янв–ноя 2025: … (ноя 2025 — месяц целиком)» на 360px занимает 3–4 строки; 40px (2 строки) давало CLS. */
-@media (max-width: 767px) { .ps-yoy { min-height: 120px; align-content: flex-start; overflow: hidden; } }
+/* На узком экране пункты nowrap + gap дают до ~6–7 рядов (6×20 + 5×2 = 130). min-height не ограничивает рост — нужен фиксированный height, иначе CLS. */
+@media (max-width: 767px) { .ps-yoy { height: 160px; min-height: 160px; max-height: 160px; align-content: flex-start; overflow: hidden; } }
 @media (prefers-reduced-motion: reduce) { .ps-yoy .ps-skeleton { animation: none; } }
 /* П11.2 «В этот день» */
 .ps-otd { margin-top: var(--sp-3); }
