@@ -670,6 +670,20 @@ for (const width of [390, 440]) {
       await expect(page.getByRole('dialog', { name: 'Stray' })).toBeVisible();
     });
 
+    test('тема меняется в меню «⋯» и сохраняется', async ({ page, context, baseURL }) => {
+      await open(page, context, baseURL!);
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      const row = page.getByRole('dialog', { name: 'Меню' }).getByRole('radiogroup', { name: 'Тема' });
+      await expect(row.getByRole('radio')).toHaveCount(7);
+      await expect(row.getByRole('radio', { name: 'Night' })).toHaveAttribute('aria-checked', 'true');
+      await row.getByRole('radio', { name: 'Dark' }).click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
+      await expect(row.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+      await page.keyboard.press('Escape');
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
+    });
+
     test('тема меняется в Настройках и сохраняется', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: 'Меню', exact: true }).click();

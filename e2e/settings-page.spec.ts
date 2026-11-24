@@ -69,7 +69,7 @@ for (const w of [360, 390]) {
   });
 }
 
-test('меню без темы, копии и сброса: они в Настройках', async ({ page, baseURL, isMobile }) => {
+test('меню с темой; копия и сброс — в Настройках', async ({ page, baseURL, isMobile }) => {
   test.skip(!isMobile, 'лист «Меню» — телефон');
   await open(page, baseURL!, '/');
   await page.getByRole('button', { name: 'Меню', exact: true }).click();
@@ -77,7 +77,7 @@ test('меню без темы, копии и сброса: они в Настр
   // F13: на Коллекции первая группа — «Коллекция» (Выбрать игры, Теги)
   await expect(sheet.locator('.ps-menu-group')).toHaveText(['Коллекция', 'Разделы', 'Помощь', 'Администрирование', 'Выход']);
   await expect(sheet.getByRole('link', { name: 'Настройки' })).toBeVisible();
-  await expect(sheet.getByRole('radiogroup', { name: 'Тема' })).toHaveCount(0);
+  await expect(sheet.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
   await expect(sheet.getByRole('link', { name: 'Скачать копию' })).toHaveCount(0);
   await expect(sheet.getByRole('button', { name: 'Восстановить из файла' })).toHaveCount(0);
   await expect(sheet.getByRole('button', { name: /Сбросить все статусы/ })).toHaveCount(0);

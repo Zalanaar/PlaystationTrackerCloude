@@ -33,7 +33,7 @@ import { NAV_TABS } from '../tokens';
 import { useSeasonOffer } from '../wrapped/useSeason';
 import { isTabActive, sectionTitle } from './nav';
 import { MARK_TAP, MEASURE_TAB, navDir, readScroll, runTabTransition, shouldIntercept, writeScroll } from './tabTransition';
-import { ThemePicker } from './ThemePicker';
+import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { useEverTrue } from '../useEverTrue';
 import { pendingBadge, useTriagePending } from './triagePending';
 import { installErrorReporter } from './errorReporter';
@@ -148,7 +148,7 @@ export function AppHeader() {
                         </span>
                       </div>
                     )}
-                    {/* Тема, копия и сброс статусов — в «Настройках»; скрытые игры — в фильтрах Коллекции */}
+                    {/* Копия и сброс статусов — в «Настройках»; скрытые игры — в фильтрах Коллекции; тема — и в шапке, и в «⋯» */}
                     <TriageMenuItem active role="menuitem" testid="menu-triage" onClick={close} />
                     <Link href="/profiles" role="menuitem" className="ps-menu-item" onClick={close}>
                       <Icon name="users" size={16} />
@@ -209,6 +209,8 @@ export function AppHeader() {
               </span>
             </div>
           )}
+          <p className="ps-micro">Тема</p>
+          <ThemeSwatches />
           {collectionMenuOn(pathname) && (
             <>
               {/* F13: действия Коллекции вынесены из листа «Фильтры» в «⋯»; «Другая платформа» — в «+» */}
