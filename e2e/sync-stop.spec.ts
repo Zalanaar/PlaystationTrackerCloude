@@ -49,7 +49,7 @@ test.describe('Фаза 32.1: остановка синка', () => {
     await expect(dlg).toContainText('Остановить синк? Загруженные данные сохранятся');
     await expect(dlg.getByRole('button', { name: 'Отмена' })).toBeFocused();
     await dlg.getByRole('button', { name: 'Остановить' }).click();
-    await expect(page.getByTestId('sync-cancelled')).toContainText('Остановлено вами');
+    await expect(page.getByTestId('sync-cancelled')).toContainText('Остановлено тобой');
     await expect(page.getByRole('button', { name: 'Синк сейчас' })).toBeEnabled();
     await expect(page.getByTestId('run-status')).toHaveText(/^остановлен, /);
     expect(posts).toEqual(['cancel {}']);

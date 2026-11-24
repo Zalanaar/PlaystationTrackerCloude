@@ -59,7 +59,7 @@ test.describe('/login', () => {
   });
 
   for (const [code, text] of [
-    ['access_denied', 'Не удалось войти. Если вы ждёте доступ, обратитесь к владельцу'],
+    ['access_denied', 'Не удалось войти. Если ты ждёшь доступ, обратись к владельцу'],
     ['oauth_failed', 'Вход через Google не удался'],
     ['rate_limited', 'Слишком много попыток'],
   ] as const) {

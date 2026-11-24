@@ -3,7 +3,7 @@ import { accessErrorText, confirmMatches, isEmailLike, loginErrorText, rowAction
 
 describe('loginErrorText', () => {
   it('известные коды', () => {
-    expect(loginErrorText('access_denied')).toContain('обратитесь к владельцу');
+    expect(loginErrorText('access_denied')).toContain('обратись к владельцу');
     expect(loginErrorText('oauth_failed')).toBeTruthy();
     expect(loginErrorText('rate_limited')).toBeTruthy();
   });

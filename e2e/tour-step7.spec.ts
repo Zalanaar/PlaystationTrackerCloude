@@ -19,16 +19,16 @@ const count = (page: Page) => page.getByTestId('tour-count');
 const dialog = (page: Page) => page.getByRole('dialog').filter({ has: page.getByTestId('tour-count') });
 
 for (const s of SIZES) {
-  test(`шаг 7 при ${s.w}x${s.h}: нет пересечения кольца и поповера, кнопки «Далее» доступны`, async ({ page, context, baseURL }) => {
+  test(`шаг Разбор при ${s.w}x${s.h}: нет пересечения кольца и поповера, кнопки «Далее» доступны`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: s.w, height: s.h });
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     if (s.w < 768) { await page.getByRole('button', { name: 'Меню', exact: true }).click(); await page.getByRole('button', { name: 'Как пользоваться' }).click(); }
     else { await page.locator('.ps-avatar').click(); await page.getByRole('menuitem', { name: 'Как пользоваться' }).click(); }
     // TourOverlay грузится лениво (next/dynamic): первый показ в dev-сервере под нагрузкой компилируется дольше 5 с (флейк e2e-92)
-    await expect(count(page)).toHaveText('1 из 14', { timeout: 15_000 });
-    for (let i = 1; i < 7; i++) await dialog(page).getByRole('button', { name: 'Далее' }).click();
-    await expect(count(page)).toHaveText('7 из 14');
+    await expect(count(page)).toHaveText('1 из 7', { timeout: 15_000 });
+    for (let i = 1; i < 2; i++) await dialog(page).getByRole('button', { name: 'Далее' }).click();
+    await expect(count(page)).toHaveText('2 из 7');
     // «loading» = якорь шага ещё ищется (под нагрузкой дольше 1.5 с): меряем только устоявшийся режим, а не фиксированную паузу
     await expect(page.locator('.ps-tour')).not.toHaveAttribute('data-mode', 'loading', { timeout: 10_000 });
     for (const wait of [300, 1500]) {

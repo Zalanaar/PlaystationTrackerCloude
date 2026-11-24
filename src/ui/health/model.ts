@@ -143,9 +143,9 @@ export const errorReasonLabel = (r: string | null | undefined) => (r ? (ERR_REAS
 export function healthErrorText(status: number, code: string): string {
   if (status === 403 || code === 'forbidden') return 'Доступно только владельцу.';
   if (status === 401) return 'Сессия истекла. Войдите заново.';
-  if (status === 503 || code === 'db_unavailable') return 'База данных недоступна. Попробуйте позже.';
+  if (status === 503 || code === 'db_unavailable') return 'База данных недоступна. Попробуй позже.';
   if (status === 0 || code === 'network') return 'Нет связи с сервером.';
-  return 'Не удалось загрузить сводку. Попробуйте ещё раз.';
+  return 'Не удалось загрузить сводку. Попробуй ещё раз.';
 }
 
 export const profileTitle = (u: { label: string | null; psnOnlineId: string | null; email: string | null; id: number }) =>

@@ -644,7 +644,7 @@ export function paceView(p: NonNullable<RoadmapResponse['pace']> | undefined): P
     ? ` ${p.unknownGames === p.games ? 'У игр' : `У ${p.unknownGames} ${plural(p.unknownGames, ['игры', 'игр', 'игр'])}`} нет длительности — ${p.unknownGames === 1 ? 'она не учтена' : 'они не учтены'}.`
     : '';
   if (p.status === 'empty') return { kind: 'info', title: 'Бэклог пуст', note: null };
-  if (p.status === 'no_hours') return { kind: 'info', title: 'Прогноза нет: у игр бэклога нет длительности', note: 'Укажите часы в бэклоге — и здесь появится дата.' };
+  if (p.status === 'no_hours') return { kind: 'info', title: 'Прогноза нет: у игр бэклога нет длительности', note: 'Укажи часы в бэклоге — и появится дата.' };
   // F4: вариант по бюджету плана — показываем всегда, когда он есть; по факту — только при 30+ днях истории
   const budget = p.budgetCloseDate && p.budgetHoursPerWeek
     ? `По бюджету плана (${hoursLabel(p.budgetHoursPerWeek)} в неделю) — ${whenText(p.budgetCloseDate, p.budgetWeeks)}.`

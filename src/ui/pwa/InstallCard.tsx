@@ -35,9 +35,9 @@ export default function Card({ platform, busy, onInstall, onDismiss }: { platfor
       {ios ? (
         <>
           <ol className="ps-install__steps">
-            <li><span className="ps-install__n">1</span><Icon name="share" size={20} /><span>Нажмите «Поделиться» в панели Safari</span></li>
-            <li><span className="ps-install__n">2</span><Icon name="plus-square" size={20} /><span>Выберите «На экран «Домой»»</span></li>
-            <li><span className="ps-install__n">3</span><Icon name="check" size={20} /><span>Нажмите «Добавить»</span></li>
+            <li><span className="ps-install__n">1</span><Icon name="share" size={20} /><span>Нажми «Поделиться» в панели Safari</span></li>
+            <li><span className="ps-install__n">2</span><Icon name="plus-square" size={20} /><span>Выбери «На экран «Домой»»</span></li>
+            <li><span className="ps-install__n">3</span><Icon name="check" size={20} /><span>Нажми «Добавить»</span></li>
           </ol>
           <div className="ps-install__foot">
             <button type="button" className="ps-btn ps-btn--ghost ps-install__btn" onClick={onDismiss}>Понятно</button>

@@ -75,14 +75,14 @@ describe('тексты', () => {
     expect(addErrorText({ status: 429, code: 'weird' }, 'x').text).toContain('Слишком часто');
   });
   it('psn_id_taken не раскрывает владельца', () => {
-    expect(addErrorText({ status: 409, code: 'psn_id_taken' }, 'x').text).toContain('у вас или у другого пользователя');
+    expect(addErrorText({ status: 409, code: 'psn_id_taken' }, 'x').text).toContain('у тебя или у другого пользователя');
   });
   it('возврат из архива', () => {
     expect(restoreErrorText({ status: 409, code: 'profile_limit' })).toContain('3 из 3');
     expect(restoreErrorText({ status: 500, code: 'x' })).toBe('Не удалось вернуть профиль. Повтори.');
   });
   it('отвязка', () => {
-    expect(unlinkErrorText({ status: 400, code: 'confirm_mismatch' }, 'Foo', false)).toMatchObject({ field: true, text: 'Ник не совпал. Введите «Foo» точно.' });
+    expect(unlinkErrorText({ status: 400, code: 'confirm_mismatch' }, 'Foo', false)).toMatchObject({ field: true, text: 'Ник не совпал. Введи «Foo» точно.' });
     expect(unlinkErrorText({ status: 404, code: 'not_found' }, 'Foo', false).close).toBe(true);
     expect(unlinkErrorText({ status: 409, code: 'primary_protected' }, 'Foo', false).reload).toBe(true);
     expect(unlinkErrorText({ status: 500, code: 'x' }, 'Foo', true).text).toBe('Не удалось удалить профиль. Повтори.');

@@ -79,13 +79,13 @@ export async function POST(req: Request) {
       case 'taken':
         return fail(409, 'psn_id_taken', 'Этот профиль PSN уже подключён.');
       case 'rate_limited':
-        return fail(429, 'rate_limited', 'Подождите немного и повторите.', { retryAfterSec: r.retryAfterSec }, { 'Retry-After': String(r.retryAfterSec) });
+        return fail(429, 'rate_limited', 'Подожди немного и повтори.', { retryAfterSec: r.retryAfterSec }, { 'Retry-After': String(r.retryAfterSec) });
       case 'not_found':
-        return fail(422, 'psn_not_found', 'Профиль PSN с таким ником не найден. Проверьте ник.');
+        return fail(422, 'psn_not_found', 'Профиль PSN с таким ником не найден. Проверь ник.');
       case 'private':
-        return fail(422, 'psn_private', 'Профиль PSN закрыт. Откройте в настройках приватности игры и трофеи для всех и повторите.');
+        return fail(422, 'psn_private', 'Профиль PSN закрыт. Открой в настройках приватности игры и трофеи для всех и повтори.');
       case 'unavailable':
-        return fail(503, 'psn_unavailable', 'PSN сейчас недоступен. Попробуйте позже.');
+        return fail(503, 'psn_unavailable', 'PSN сейчас недоступен. Попробуй позже.');
     }
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');

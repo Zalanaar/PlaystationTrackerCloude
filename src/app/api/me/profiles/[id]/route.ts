@@ -38,7 +38,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
       case 'primary_protected':
         return fail(409, 'primary_protected', 'Основной профиль отвязать нельзя.');
       case 'sync_in_progress':
-        return fail(409, 'sync_in_progress', 'У профиля идёт синк. Подождите завершения.');
+        return fail(409, 'sync_in_progress', 'У профиля идёт синк. Подожди завершения.');
       case 'confirm_mismatch':
         return fail(400, 'confirm_mismatch', 'Ник не совпадает.');
       default: {

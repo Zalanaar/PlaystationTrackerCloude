@@ -235,7 +235,7 @@ test.describe('подсказка «Установить»', () => {
     await page.goto('/stats');
     await expect(page.getByTestId('install-prompt')).toHaveCount(0);
     await expect(page.getByTestId('install-prompt')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Нажмите «Поделиться»')).toBeVisible();
+    await expect(page.getByText('Нажми «Поделиться»')).toBeVisible();
     const box = await page.getByTestId('install-prompt').boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(360);

@@ -54,7 +54,7 @@ export function ShowcaseView({ token }: { token: string }) {
     return (
       <main className="ps-sc" data-testid="showcase-off">
         <h1 className="ps-sc__h1">{s.kind === 'closed' ? 'Витрина закрыта' : 'Витрина временно недоступна'}</h1>
-        <p className="ps-sc__lead">{s.kind === 'closed' ? 'Ссылка устарела или владелец закрыл витрину.' : 'Попробуйте открыть ссылку позже.'}</p>
+        <p className="ps-sc__lead">{s.kind === 'closed' ? 'Ссылка устарела или владелец закрыл витрину.' : 'Попробуй открыть ссылку позже.'}</p>
       </main>
     );
   }

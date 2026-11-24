@@ -177,7 +177,7 @@ export function AccessView() {
         {del && (
           <form className="ps-stack" onSubmit={(e) => { e.preventDefault(); void onDelete(); }}>
             <p className="ps-sheet__sub">
-              Участник {del.email} и вся его коллекция будут удалены безвозвратно. Для подтверждения введите его email.
+              Участник {del.email} и вся его коллекция будут удалены безвозвратно. Для подтверждения введи его email.
             </p>
             <input
               type="email" autoComplete="off" className="ps-input" aria-label="Email для подтверждения" placeholder={del.email}

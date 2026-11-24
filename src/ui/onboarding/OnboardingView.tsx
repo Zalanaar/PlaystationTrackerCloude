@@ -85,7 +85,7 @@ export function OnboardingView({ recheck = false }: { recheck?: boolean }) {
     }
     if (seq !== checkSeq.current) return;
     if (res.kind === 'invalid') {
-      setNickError('Ник не подошёл. Проверьте написание.');
+      setNickError('Ник не подошёл. Проверь написание.');
       setStep(1);
       setCheck(null);
       return;
@@ -174,7 +174,7 @@ export function OnboardingView({ recheck = false }: { recheck?: boolean }) {
         <div className="ps-ob__wrap">
           <div className="ps-ob__head">
             <h1 className="ps-ob__h1">Подключим PlayStation</h1>
-            <p className="ps-ob__lead">Укажите ник, проверим доступ к профилю и загрузим вашу коллекцию игр.</p>
+            <p className="ps-ob__lead">Укажи ник, проверим доступ к профилю и загрузим твою коллекцию игр.</p>
           </div>
           <Stepper step={cur} />
           {loadState === 'loading' && (
@@ -188,7 +188,7 @@ export function OnboardingView({ recheck = false }: { recheck?: boolean }) {
                 <Icon name="circle-alert" size={24} />
                 <div className="ps-ob__rbody">
                   <p className="ps-ob__rtitle">Не удалось связаться с сайтом</p>
-                  <p className="ps-ob__rtext">Попробуйте ещё раз.</p>
+                  <p className="ps-ob__rtext">Попробуй ещё раз.</p>
                 </div>
               </div>
               <div className="ps-ob__acts"><button type="button" className="ps-btn ps-btn--primary" onClick={() => void load()}>Повторить</button></div>
@@ -196,7 +196,7 @@ export function OnboardingView({ recheck = false }: { recheck?: boolean }) {
           )}
           {loadState === 'ready' && step === 1 && (
             <section className="ps-panel ps-ob__panel" key="s1" aria-labelledby="ob-h2">
-              <h2 id="ob-h2" className="ps-ob__h2" tabIndex={-1} ref={h2}>Ваш ник в PlayStation Network</h2>
+              <h2 id="ob-h2" className="ps-ob__h2" tabIndex={-1} ref={h2}>Твой ник в PlayStation Network</h2>
               <form className="ps-ob__field" onSubmit={submitNick} noValidate style={{ gap: 'var(--sp-4)' }}>
                 <div className="ps-ob__field">
                   <label htmlFor="ob-nick" className="ps-ob__label">Ник PSN</label>

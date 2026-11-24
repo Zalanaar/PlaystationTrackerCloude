@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     candidates = r.candidates;
   } catch (e) {
     const reason = e instanceof CatalogError ? e.reason : 'network';
-    return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введите данные вручную.', { reason });
+    return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введи данные вручную.', { reason });
   }
   try {
     return ok({ candidates: await filterOwned(getDb(), a.user.id, candidates) });

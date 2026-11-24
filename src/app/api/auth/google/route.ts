@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   try {
     const limit = await peekLoginLimit(hashIp(clientIp(req), secret), 'google');
     if (limit.limited) {
-      return fail(429, 'rate_limited', 'Слишком много попыток. Попробуйте позже.', { retryAfterSeconds: limit.retryAfterSeconds }, { 'Retry-After': String(limit.retryAfterSeconds) });
+      return fail(429, 'rate_limited', 'Слишком много попыток. Попробуй позже.', { retryAfterSeconds: limit.retryAfterSeconds }, { 'Retry-After': String(limit.retryAfterSeconds) });
     }
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');

@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       return fail(
         429,
         'rate_limited',
-        'Слишком много попыток. Попробуйте позже.',
+        'Слишком много попыток. Попробуй позже.',
         { retryAfterSeconds: reservation.retryAfterSeconds },
         { 'Retry-After': String(reservation.retryAfterSeconds) },
       );
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       const t = await getTokenInfo(db, now);
       return ok({ accepted: true, refreshExpiresAt: r.refreshExpiresAt ? r.refreshExpiresAt.toISOString() : null, token: t?.info ?? null });
     } catch (e) {
-      if (e instanceof PsnError) return fail(503, 'psn_unavailable', 'PSN сейчас недоступен или ограничивает запросы. Попробуйте позже.');
+      if (e instanceof PsnError) return fail(503, 'psn_unavailable', 'PSN сейчас недоступен или ограничивает запросы. Попробуй позже.');
       throw e;
     }
   } catch {

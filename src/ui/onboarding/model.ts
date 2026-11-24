@@ -6,7 +6,7 @@ export const NICK_RE = /^[A-Za-z][A-Za-z0-9_-]{2,15}$/;
 /** Текст ошибки ника по design-system §9.3; null = ник корректен. Вход нужно сначала обрезать (trim). */
 export function validateNick(raw: string): string | null {
   const v = raw.trim();
-  if (v === '') return 'Введите ник PSN';
+  if (v === '') return 'Введи ник PSN';
   if (v.length < 3 || v.length > 16) return 'Ник должен быть от 3 до 16 символов';
   if (!/^[A-Za-z]/.test(v)) return 'Ник должен начинаться с латинской буквы';
   if (!NICK_RE.test(v)) return 'Допустимы латинские буквы, цифры, «-» и «_»';

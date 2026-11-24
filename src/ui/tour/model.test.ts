@@ -9,8 +9,8 @@ const step = (id: string) => TOUR_STEPS.find((s) => s.id === id)!;
 
 describe('выбор шага и варианта', () => {
   it('возобновление по id из sessionStorage', () => {
-    expect(parseResume('triage')).toBe(6);
-    expect(parseResume('nav')).toBe(0);
+    expect(parseResume('triage')).toBe(1);
+    expect(parseResume('sync')).toBe(0);
     expect(parseResume('нет такого')).toBeNull();
     expect(parseResume(null)).toBeNull();
     expect(stepIndexById('')).toBeNull();
@@ -18,28 +18,28 @@ describe('выбор шага и варианта', () => {
 
   it('границы навигации', () => {
     expect(prevIndex(0)).toBe(0);
-    expect(nextIndex(13)).toBe(13);
+    expect(nextIndex(6)).toBe(6);
     expect(nextIndex(2)).toBe(3);
     expect(isFirst(0)).toBe(true);
-    expect(isLast(13)).toBe(true);
-    expect(isLast(12)).toBe(false);
+    expect(isLast(6)).toBe(true);
+    expect(isLast(5)).toBe(false);
   });
 
   it('вариант десктоп/моб.: якорь, текст, заметка', () => {
-    const d = variantFor(step('status'), false);
-    const m = variantFor(step('status'), true);
+    const d = variantFor(step('playing'), false);
+    const m = variantFor(step('playing'), true);
     expect(d.targetId).toBe('card-status');
     expect(m.targetId).toBe('game-card');
-    expect(m.text).toMatch(/Удерживайте/);
+    expect(m.text).toMatch(/Удерживай/);
     expect(m.note).toBe(d.note); // заметка не задана для моб.: как у десктопа
-    expect(variantFor(step('window'), true).targetId).toBeNull();
+    expect(variantFor(step('rating'), true).targetId).toBeNull();
   });
 
   it('кандидаты якоря: свой, затем запасной другого варианта, без дублей', () => {
     expect(anchorCandidates(step('triage'), false)).toEqual(['triage-actions', 'triage-buttons']);
     expect(anchorCandidates(step('triage'), true)).toEqual(['triage-buttons', 'triage-actions']);
-    expect(anchorCandidates(step('nav'), true)).toEqual(['nav']);
-    expect(anchorCandidates(step('window'), false)).toEqual([]);
+    expect(anchorCandidates(step('sync'), true)).toEqual(['menu-more', 'sync']);
+    expect(anchorCandidates(step('rating'), false)).toEqual([]);
   });
 
   it('текст под запасной якорь берётся из другого варианта', () => {
@@ -57,7 +57,7 @@ describe('выбор шага и варианта', () => {
   });
 
   it('live-текст шага', () => {
-    expect(announce(2, 'Смена статуса', 'Текст')).toBe('Шаг 3 из 14. Смена статуса. Текст');
+    expect(announce(2, 'Играю', 'Текст')).toBe('Шаг 3 из 7. Играю. Текст');
   });
 });
 

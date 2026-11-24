@@ -20,7 +20,7 @@ export function SyncBanner() {
       <div className="ps-banner" data-tone="warning" role="status">
         <Icon name="clock" size={20} />
         <p className="ps-banner__text">
-          Синк не запускался уже {overdueAgeText(status.overdue)} (порог {status.overdue.thresholdHours} ч).{last ? ` Данные от ${last}.` : ''} Проверьте расписание на сервере.
+          Синк не запускался уже {overdueAgeText(status.overdue)} (порог {status.overdue.thresholdHours} ч).{last ? ` Данные от ${last}.` : ''} Проверь расписание на сервере.
         </p>
         <div className="ps-banner__actions">
           <button type="button" className="ps-btn" onClick={() => void start()} disabled={starting}>Синк сейчас</button>

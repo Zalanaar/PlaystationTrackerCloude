@@ -35,7 +35,7 @@ export function ServiceWorkerRegister() {
       <div className="ps-install__head">
         <div className="ps-install__tx">
           <h2 className="ps-install__title">Доступна новая версия</h2>
-          <p className="ps-install__text">Обновите, когда будет удобно</p>
+          <p className="ps-install__text">Обнови, когда будет удобно</p>
         </div>
       </div>
       <div className="ps-install__foot">

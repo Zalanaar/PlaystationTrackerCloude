@@ -145,12 +145,12 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
   if (!began) {
     body = (
       <>
-        <p className="ps-ob__rtext">Доступ подтверждён. Загрузим игры, часы и трофеи с вашего профиля.</p>
+        <p className="ps-ob__rtext">Доступ подтверждён. Загрузим игры, часы и трофеи с твоего профиля.</p>
         <div className="ps-ob__acts"><button type="button" className="ps-btn ps-btn--primary" onClick={() => setBegan(true)}>Начать загрузку</button></div>
       </>
     );
   } else if (startError && v.kind !== 'running') {
-    body = <FailBlock title="Не удалось запустить загрузку." text="Попробуйте ещё раз." onRetry={retry} onBack={() => onBackRef.current(2)} />;
+    body = <FailBlock title="Не удалось запустить загрузку." text="Попробуй ещё раз." onRetry={retry} onBack={() => onBackRef.current(2)} />;
   } else if (!status) {
     body = loadFail ? (
       <div className="ps-ob__result" data-tone="warning" role="status"><Icon name="cloud-off" size={24} /><div className="ps-ob__rbody"><p className="ps-ob__rtitle">Не удалось обновить состояние загрузки</p><p className="ps-ob__rtext">Пробуем ещё раз…</p></div></div>
@@ -176,7 +176,7 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
       <>
         <div className="ps-ob__result" data-tone="warning" role="status" data-testid="ob-empty">
           <Icon name="gamepad" size={24} />
-          <div className="ps-ob__rbody"><p className="ps-ob__rtitle">Игр не нашли</p><p className="ps-ob__rtext">Возможно, в профиле скрыт список игр. Проверьте приватность и повторите.</p></div>
+          <div className="ps-ob__rbody"><p className="ps-ob__rtitle">Игр не нашли</p><p className="ps-ob__rtext">Возможно, в профиле скрыт список игр. Проверь приватность и повтори.</p></div>
         </div>
         <div className="ps-ob__acts">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => onBackRef.current(2)}>Проверить доступ</button>
@@ -189,7 +189,7 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
       <div className="ps-ob__done" data-testid="ob-done" role="status">
         <Icon name="check-circle" size={32} />
         <h2 className="ps-ob__h2">Готово</h2>
-        <p className="ps-ob__rtext">{seen !== null ? `Загружено игр: ${seen}. ` : ''}Осталось разобрать, что вы уже прошли, а что бросили.</p>
+        <p className="ps-ob__rtext">{seen !== null ? `Загружено игр: ${seen}. ` : ''}Осталось разобрать, что ты уже прошёл, а что бросил.</p>
         <div className="ps-ob__acts">
           <button type="button" className="ps-btn ps-btn--primary" onClick={() => { document.cookie = week1HintCookie(true); queueTourStart(); router.push('/'); }}>Начать тур</button>
           <button type="button" className="ps-btn ps-btn--ghost" onClick={() => { document.cookie = week1HintCookie(true); skipTourSilently(); router.push('/triage'); }}>Пропустить, открыть Разбор</button>
@@ -202,7 +202,7 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
     const done = progress?.done ?? null;
     body = (
       <>
-        {queued && !status.running && <p className="ps-ob__rtext" role="status" data-testid="ob-queued">Сейчас идёт загрузка у другого пользователя, ваша начнётся следом.</p>}
+        {queued && !status.running && <p className="ps-ob__rtext" role="status" data-testid="ob-queued">Сейчас идёт загрузка у другого пользователя, твоя начнётся следом.</p>}
         <div>
           <div className="ps-ob__prog" data-testid="ob-progress-text">
             <span>{progress ? `Шаг ${progress.step} из ${progress.steps}: ${label}` : label}</span>
@@ -219,7 +219,7 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
         {v.kind === 'running' && v.partial && <p className="ps-ob__hint">Продолжаем загрузку…</p>}
         {stalled && v.kind === 'running' && (
           <>
-            <p className="ps-ob__rtext" role="status" data-testid="ob-stalled">Загрузка остановилась. Нажмите, чтобы продолжить: загруженное сохранится.</p>
+            <p className="ps-ob__rtext" role="status" data-testid="ob-stalled">Загрузка остановилась. Нажми, чтобы продолжить: загруженное сохранится.</p>
             <div className="ps-ob__acts"><button type="button" className="ps-btn ps-btn--primary" onClick={retry}>Продолжить загрузку</button></div>
           </>
         )}
@@ -231,7 +231,7 @@ export function SyncStep({ initial, recheck, h2, onBack }: { initial: PsnState; 
 
   return (
     <section className="ps-panel ps-ob__panel" aria-labelledby={v.kind === 'success' && onboarded && seen !== 0 ? undefined : 'ob-h2'} aria-busy={began && !status}>
-      {!(v.kind === 'success' && onboarded && seen !== 0 && began) && <h2 id="ob-h2" className="ps-ob__h2" tabIndex={-1} ref={h2}>Загружаем вашу коллекцию</h2>}
+      {!(v.kind === 'success' && onboarded && seen !== 0 && began) && <h2 id="ob-h2" className="ps-ob__h2" tabIndex={-1} ref={h2}>Загружаем твою коллекцию</h2>}
       {body}
     </section>
   );

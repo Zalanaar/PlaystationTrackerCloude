@@ -3,9 +3,9 @@
 /** Тексты ?error= на /login. Неизвестный код не показывается. */
 export function loginErrorText(code: string | null | undefined): string | null {
   switch (code) {
-    case 'access_denied': return 'Не удалось войти. Если вы ждёте доступ, обратитесь к владельцу.';
-    case 'oauth_failed': return 'Вход через Google не удался. Попробуйте ещё раз.';
-    case 'rate_limited': return 'Слишком много попыток входа. Подождите немного и попробуйте снова.';
+    case 'access_denied': return 'Не удалось войти. Если ты ждёшь доступ, обратись к владельцу.';
+    case 'oauth_failed': return 'Вход через Google не удался. Попробуй ещё раз.';
+    case 'rate_limited': return 'Слишком много попыток входа. Подожди немного и попробуй снова.';
     default: return null;
   }
 }
@@ -19,17 +19,17 @@ export function accessErrorText(status: number, code: string): string {
     case 'owner_protected': return 'Владельца нельзя заблокировать или удалить.';
     case 'not_blocked': return 'Удалить можно только заблокированного или приглашённого участника.';
     case 'confirm_mismatch': return 'Email для подтверждения не совпадает.';
-    case 'invalid_request': return 'Проверьте email: он указан неверно.';
+    case 'invalid_request': return 'Проверь email: он указан неверно.';
     case 'forbidden': return 'Доступно только владельцу.';
-    case 'not_found': return 'Участник не найден. Обновите список.';
-    case 'rate_limited': return 'Слишком много запросов. Подождите немного.';
+    case 'not_found': return 'Участник не найден. Обнови список.';
+    case 'rate_limited': return 'Слишком много запросов. Подожди немного.';
   }
   if (status === 401) return 'Сессия истекла. Войдите заново.';
   if (status === 403) return 'Доступно только владельцу.';
-  if (status === 404) return 'Участник не найден. Обновите список.';
+  if (status === 404) return 'Участник не найден. Обнови список.';
   if (status === 503 || code === 'db_unavailable') return 'База данных недоступна.';
   if (status === 0) return 'Нет связи с сервером.';
-  return 'Не удалось выполнить действие. Попробуйте ещё раз.';
+  return 'Не удалось выполнить действие. Попробуй ещё раз.';
 }
 
 export const ROLE_LABEL: Record<string, string> = { owner: 'Владелец', member: 'Участник' };

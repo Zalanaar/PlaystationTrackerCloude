@@ -86,7 +86,7 @@ function UnlinkForm({
         </>
       )}
       <div className="ps-padd__field">
-        <label htmlFor={`${id}-in`} className="ps-padd__label">Введите ник профиля, чтобы подтвердить: <strong>{target.onlineId}</strong></label>
+        <label htmlFor={`${id}-in`} className="ps-padd__label">Введи ник профиля, чтобы подтвердить: <strong>{target.onlineId}</strong></label>
         <input
           id={`${id}-in`} ref={input} className="ps-input" type="text" value={typed} autoComplete="off" autoCapitalize="off" spellCheck={false}
           disabled={busy} aria-invalid={fieldErr ? true : undefined} aria-describedby={fieldErr ? `${id}-err` : `${id}-hint`}
@@ -106,7 +106,7 @@ function UnlinkForm({
         </button>
         <button type="button" className="ps-btn ps-btn--ghost" disabled={busy} onClick={onClose}>Отмена</button>
       </div>
-      <p id={`${id}-hint`} className="ps-padd__hint">{match ? ' ' : 'Введите ник, чтобы включить кнопку'}</p>
+      <p id={`${id}-hint`} className="ps-padd__hint">{match ? ' ' : 'Введи ник, чтобы включить кнопку'}</p>
     </form>
   );
 }

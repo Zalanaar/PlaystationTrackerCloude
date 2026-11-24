@@ -66,7 +66,7 @@ test.describe('онбординг: шаг 1', () => {
     await expect(field).toHaveAttribute('maxlength', '16');
 
     await page.getByRole('button', { name: 'Продолжить' }).click();
-    await expect(page.getByTestId('ob-nick-error')).toHaveText('Введите ник PSN');
+    await expect(page.getByTestId('ob-nick-error')).toHaveText('Введи ник PSN');
     await expect(field).toHaveAttribute('aria-invalid', 'true');
     await expect(field).toBeFocused();
 
@@ -212,7 +212,7 @@ test.describe('онбординг: шаг 3', () => {
       psn: ready, postResult: { status: 409, code: 'sync_in_progress' },
       statusQueue: [{ running: false, run: null, lastSuccessAt: null, psnAuth: 'unknown', psnAuthExpiresAt: null, totals: null }],
     });
-    await expect(page.getByTestId('ob-queued')).toContainText('ваша начнётся следом');
+    await expect(page.getByTestId('ob-queued')).toContainText('твоя начнётся следом');
     await expect(page.locator('.ps-ob__bar[data-indeterminate]')).toBeVisible();
   });
 

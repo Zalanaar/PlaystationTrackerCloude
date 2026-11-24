@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     page = await getUpcoming(p.value, { apiKey: getRawgKey(), reserve: rawgReserve(a.user.id) });
   } catch (e) {
     const reason = e instanceof CatalogError ? e.reason : 'network';
-    return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введите данные вручную.', { reason });
+    return fail(503, 'catalog_unavailable', 'Каталог игр недоступен. Введи данные вручную.', { reason });
   }
   try {
     return ok({ candidates: await markPlanned(getDb(), a.user.id, await filterOwned(getDb(), a.user.id, page.candidates).catch(() => page.candidates)), page: page.page, hasMore: page.hasMore });

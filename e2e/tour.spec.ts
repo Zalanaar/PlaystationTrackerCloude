@@ -57,7 +57,7 @@ async function startFromMenu(page: Page) {
     await page.locator('.ps-avatar').click();
     await page.getByRole('menuitem', { name: 'Как пользоваться' }).click();
   }
-  await expect(count(page)).toHaveText('1 из 14');
+  await expect(count(page)).toHaveText('1 из 7');
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -85,12 +85,12 @@ async function settled(page: Page, anchor: string | null) {
   }, { timeout: 5000, intervals: [150] }).toBe(true);
 }
 
-const ANCHORS_DESKTOP = ['nav', 'game-card', 'card-status', 'search', 'filters', null, 'triage-actions', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'sync', 'theme', null];
-const ANCHORS_MOBILE = ['nav', 'game-card', 'game-card', 'search-hdr', 'filters-btn', null, 'triage-buttons', 'backlog-list', 'backlog-subnav', 'stats-period', 'stats-wrapped', 'menu-more', 'menu-more', null];
-const PATHS = ['/', '/', '/', '/', '/', '/', '/triage', '/backlog', '/backlog', '/stats', '/stats'];
+const ANCHORS_DESKTOP = ['sync', 'triage-actions', 'card-status', 'card-status', null, 'stats-wrapped', null];
+const ANCHORS_MOBILE = ['menu-more', 'triage-buttons', 'game-card', 'game-card', null, 'stats-wrapped', null];
+const PATHS = ['/', '/triage', '/', '/', '/', '/stats'];
 
 test.describe('тур: полный проход', () => {
-  test('14 шагов вперёд и назад, прожектор на нужном элементе, готово ставит done', async ({ page, context, baseURL }) => {
+  test('7 шагов вперёд и назад, прожектор на нужном элементе, готово ставит done', async ({ page, context, baseURL }) => {
     test.setTimeout(120_000);
     const t = await open(page, context, baseURL!);
     const anchors = isMobile(page) ? ANCHORS_MOBILE : ANCHORS_DESKTOP;
@@ -99,10 +99,10 @@ test.describe('тур: полный проход', () => {
     await expect(back(page)).toHaveCount(0); // на шаге 1 «Назад» нет
     expect(t.puts).toHaveLength(0); // запуск из меню статус не меняет
 
-    for (let i = 0; i < 14; i++) {
-      await expect(count(page)).toHaveText(`${i + 1} из 14`);
+    for (let i = 0; i < 7; i++) {
+      await expect(count(page)).toHaveText(`${i + 1} из 7`);
       const a = anchors[i];
-      if (i < 13) await expect(next(page)).toBeEnabled();
+      if (i < 6) await expect(next(page)).toBeEnabled();
       await expect(page.locator('.ps-tour__bar > i')).toHaveCSS('width', /./);
       if (a === null) {
         await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'center');
@@ -128,8 +128,8 @@ test.describe('тур: полный проход', () => {
           expect(overlap, `поповер перекрывает кольцо ${a}`).toBe(false);
         }
       }
-      if (i < 11) expect(new URL(page.url()).pathname).toBe(PATHS[i]);
-      if (i < 13) { await next(page).click(); }
+      if (i < 6) expect(new URL(page.url()).pathname).toBe(PATHS[i]);
+      if (i < 6) { await next(page).click(); }
     }
 
     // последний шаг: кнопки, нет «Пропустить» и «Далее»
@@ -139,17 +139,17 @@ test.describe('тур: полный проход', () => {
     await expect(dialog(page).getByRole('button', { name: 'Открыть Разбор' })).toBeVisible();
 
     // назад по всем шагам, включая смену страниц
-    for (let i = 13; i > 0; i--) {
+    for (let i = 6; i > 0; i--) {
       await back(page).click();
-      await expect(count(page)).toHaveText(`${i} из 14`);
-      if (i - 1 < 11) await expect.poll(() => new URL(page.url()).pathname).toBe(PATHS[i - 1]);
+      await expect(count(page)).toHaveText(`${i} из 7`);
+      if (i - 1 < 6) await expect.poll(() => new URL(page.url()).pathname).toBe(PATHS[i - 1]);
     }
     await expect(back(page)).toHaveCount(0);
 
-    for (let i = 0; i < 13; i++) await next(page).click();
+    for (let i = 0; i < 6; i++) await next(page).click();
     await dialog(page).getByRole('button', { name: 'Готово' }).click();
     await expect(page.locator('.ps-tour')).toHaveCount(0);
-    expect(t.puts).toEqual([{ done: true, version: 1 }]);
+    expect(t.puts).toEqual([{ done: true, version: 2 }]);
     // фон снова доступен, фокус на заголовке страницы
     await expect(page.locator('main.ps-main')).not.toHaveAttribute('inert', /.*/);
     await expect(page.locator('h1').first()).toBeFocused();
@@ -158,32 +158,32 @@ test.describe('тур: полный проход', () => {
   test('«Открыть Разбор» на последнем шаге закрывает тур и ведёт на /triage', async ({ page, context, baseURL }) => {
     const t = await open(page, context, baseURL!);
     await startFromMenu(page);
-    for (let i = 0; i < 13; i++) await next(page).click();
-    await expect(count(page)).toHaveText('14 из 14');
+    for (let i = 0; i < 6; i++) await next(page).click();
+    await expect(count(page)).toHaveText('7 из 7');
     await dialog(page).getByRole('button', { name: 'Открыть Разбор' }).click();
     await page.waitForURL('**/triage');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
-    expect(t.puts).toEqual([{ done: true, version: 1 }]);
+    expect(t.puts).toEqual([{ done: true, version: 2 }]);
   });
 });
 
 test.describe('тур: состояния', () => {
-  test('пустой аккаунт: шаги 2, 3, 7, 8 показывают заметку, тур проходится до конца', async ({ page, context, baseURL }) => {
+  test('пустой аккаунт: шаги Разбор, Играю и Пройдено показывают заметку, тур проходится до конца', async ({ page, context, baseURL }) => {
     test.setTimeout(120_000);
     await open(page, context, baseURL!, { games: [] });
     await startFromMenu(page);
     const noteSteps = new Map<number, RegExp>([
-      [2, /Игр пока нет/], [3, /Когда в Коллекции появятся игры/], [7, /Всё разобрано/], [8, /Бэклог пуст/],
+      [2, /Всё разобрано/], [3, /Игр пока нет/], [4, /Когда в Коллекции появятся игры/],
     ]);
-    for (let i = 1; i <= 14; i++) {
-      await expect(count(page)).toHaveText(`${i} из 14`);
+    for (let i = 1; i <= 7; i++) {
+      await expect(count(page)).toHaveText(`${i} из 7`);
       const re = noteSteps.get(i);
       if (re) {
         await expect(page.getByTestId('tour-note')).toHaveText(re, { timeout: 6000 });
         await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'center');
         await expect(next(page)).not.toHaveAttribute('aria-disabled', 'true');
       }
-      if (i < 14) await next(page).click();
+      if (i < 7) await next(page).click();
     }
     await dialog(page).getByRole('button', { name: 'Готово' }).click();
     await expect(page.locator('.ps-tour')).toHaveCount(0);
@@ -193,18 +193,18 @@ test.describe('тур: состояния', () => {
     const t = await open(page, context, baseURL!);
     await startFromMenu(page);
     await next(page).click();
-    await expect(count(page)).toHaveText('2 из 14');
+    await expect(count(page)).toHaveText('2 из 7');
     // «/» не ставит курсор в поиск, пока тур открыт
     await page.keyboard.press('/');
     await expect(page.locator('input[type=search]:focus')).toHaveCount(0);
     await page.keyboard.press('ArrowRight');
-    await expect(count(page)).toHaveText('3 из 14');
+    await expect(count(page)).toHaveText('3 из 7');
     await page.keyboard.press('ArrowLeft');
-    await expect(count(page)).toHaveText('2 из 14');
+    await expect(count(page)).toHaveText('2 из 7');
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
     expect(new URL(page.url()).pathname).toBe('/');
-    expect(t.puts).toEqual([{ done: true, version: 1 }]);
+    expect(t.puts).toEqual([{ done: true, version: 2 }]);
     await expect(page.locator('h1').first()).toBeFocused();
   });
 
@@ -214,8 +214,8 @@ test.describe('тур: состояния', () => {
     await page.goto('/triage');
     await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
     await startFromMenu(page);
-    for (let i = 0; i < 6; i++) await next(page).click();
-    await expect(count(page)).toHaveText('7 из 14');
+    await next(page).click();
+    await expect(count(page)).toHaveText('2 из 7');
     await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot');
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
@@ -227,7 +227,7 @@ test.describe('тур: состояния', () => {
     const t = await open(page, context, baseURL!);
     await startFromMenu(page);
     await next(page).click();
-    await expect(count(page)).toHaveText('2 из 14');
+    await expect(count(page)).toHaveText('2 из 7');
     const inDialog = () => page.evaluate(() => !!document.activeElement?.closest('.ps-tour__pop'));
     for (let i = 0; i < 7; i++) { await page.keyboard.press('Tab'); expect(await inDialog()).toBe(true); }
     for (let i = 0; i < 7; i++) { await page.keyboard.press('Shift+Tab'); expect(await inDialog()).toBe(true); }
@@ -246,7 +246,7 @@ test.describe('тур: состояния', () => {
     await expect(page.locator('main.ps-main')).toHaveAttribute('inert', '');
     await expect(page.locator('header.ps-header')).toHaveAttribute('inert', '');
     await next(page).click();
-    await expect(page.locator('.ps-tour [role="status"]')).toHaveText(/^Шаг 2 из 14\. Карточка игры\./);
+    await expect(page.locator('.ps-tour [role="status"]')).toHaveText(/^Шаг 2 из 7\. Разбор\./);
   });
 
   test('повтор из меню после завершения запускает тур снова', async ({ page, context, baseURL }) => {
@@ -255,15 +255,15 @@ test.describe('тур: состояния', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
     await startFromMenu(page);
-    await expect(count(page)).toHaveText('1 из 14');
+    await expect(count(page)).toHaveText('1 из 7');
     expect(t.puts.length).toBeGreaterThan(0);
   });
 
   test('кнопка «назад» браузера во время тура закрывает его', async ({ page, context, baseURL }) => {
     const t = await open(page, context, baseURL!);
     await startFromMenu(page);
-    for (let i = 0; i < 6; i++) await next(page).click(); // шаг 7: /triage
-    await expect(count(page)).toHaveText('7 из 14');
+    await next(page).click(); // шаг 2: /triage
+    await expect(count(page)).toHaveText('2 из 7');
     await page.waitForURL('**/triage');
     await page.goBack();
     await expect(page.locator('.ps-tour')).toHaveCount(0);
@@ -273,11 +273,11 @@ test.describe('тур: состояния', () => {
   test('перезагрузка во время тура возобновляет текущий шаг', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await startFromMenu(page);
-    for (let i = 0; i < 3; i++) await next(page).click();
-    await expect(count(page)).toHaveText('4 из 14');
+    for (let i = 0; i < 2; i++) await next(page).click();
+    await expect(count(page)).toHaveText('3 из 7');
     await page.reload();
-    await expect(count(page)).toHaveText('4 из 14');
-    await expect(dialog(page).getByRole('heading', { name: 'Поиск' })).toBeVisible();
+    await expect(count(page)).toHaveText('3 из 7');
+    await expect(dialog(page).getByRole('heading', { name: 'Играю' })).toBeVisible();
   });
 
   test('медленная страница: «Открываем раздел», Далее неактивна, затем подсветка без перезапуска', async ({ page, context, baseURL }) => {
@@ -291,24 +291,24 @@ test.describe('тур: состояния', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
     await startFromMenu(page);
-    for (let i = 0; i < 6; i++) await next(page).click();
-    await expect(count(page)).toHaveText('7 из 14');
+    await next(page).click();
+    await expect(count(page)).toHaveText('2 из 7');
     await expect(page.getByTestId('tour-loading')).toHaveText('Открываем раздел «Разбор»…');
     await expect(next(page)).toHaveAttribute('aria-disabled', 'true');
     await expect(back(page)).toBeEnabled();
     await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot', { timeout: 6000 });
-    await expect(count(page)).toHaveText('7 из 14');
+    await expect(count(page)).toHaveText('2 из 7');
   });
 });
 
 test.describe('тур: автозапуск и ошибки API', () => {
   test('автозапуск при shouldAutoStart, один раз за сессию, после пропуска не повторяется', async ({ page, context, baseURL }) => {
     const t = await open(page, context, baseURL!, { tour: { shouldAutoStart: true } });
-    await expect(count(page)).toHaveText('1 из 14', { timeout: 8000 });
+    await expect(count(page)).toHaveText('1 из 7', { timeout: 8000 });
     expect(t.gets).toBeGreaterThan(0);
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
-    expect(t.puts).toEqual([{ done: true, version: 1 }]);
+    expect(t.puts).toEqual([{ done: true, version: 2 }]);
     await page.reload();
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
     await page.waitForTimeout(1800);
@@ -349,13 +349,13 @@ test.describe('тур: автозапуск и ошибки API', () => {
 
   test('ошибка PUT не ломает UI: тур закрывается, запасной флаг не даёт автозапуску повториться', async ({ page, context, baseURL }) => {
     const t = await open(page, context, baseURL!, { tour: { shouldAutoStart: true, putStatus: 500 } });
-    await expect(count(page)).toHaveText('1 из 14', { timeout: 8000 });
+    await expect(count(page)).toHaveText('1 из 7', { timeout: 8000 });
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
     await expect.poll(() => t.puts.length).toBe(1);
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
     // флаг пишется после ответа 500 на PUT, а t.puts растёт уже при перехвате запроса: ждём, а не читаем сразу
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('ps-tour-seen'))).toBe('1');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('ps-tour-seen'))).toBe('2');
     // новая сессия (sessionStorage очищен), сервер всё ещё просит автозапуск: локальный флаг останавливает
     await page.evaluate(() => sessionStorage.clear());
     await page.reload();
@@ -367,21 +367,17 @@ test.describe('тур: автозапуск и ошибки API', () => {
 test.describe('тур: мобильный лист', () => {
   test.beforeEach(({ page }) => { test.skip(!isMobile(page), 'только мобильный'); });
 
-  test('лист над нижним меню, шаги 12–13 подсвечивают «⋯» и не открывают меню', async ({ page, context, baseURL }) => {
+  test('лист над нижним меню, шаг 1 подсвечивает «⋯» и не открывает меню', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await startFromMenu(page);
-    await settled(page, 'nav');
+    await settled(page, 'menu-more');
     const tab = await page.evaluate(() => document.querySelector('.ps-tabbar')!.getBoundingClientRect().top);
-    const pop = (await rects(page, 'nav')).pop;
+    const pop = (await rects(page, 'menu-more')).pop;
     expect(pop.y + pop.h).toBeLessThanOrEqual(tab + 1);
     expect(pop.x).toBe(0);
-    for (let i = 0; i < 11; i++) await next(page).click();
-    await expect(count(page)).toHaveText('12 из 14');
-    await settled(page, 'menu-more');
+    await expect(count(page)).toHaveText('1 из 7');
     await expect(page.getByRole('dialog', { name: 'Меню' })).toHaveCount(0);
     await expect(dialog(page)).toContainText('меню «⋯»');
-    await next(page).click();
-    await expect(count(page)).toHaveText('13 из 14');
     // кнопки листа не меньше 44 px
     const h = await next(page).evaluate((el) => el.getBoundingClientRect().height);
     expect(h).toBeGreaterThanOrEqual(44);
@@ -392,7 +388,7 @@ test.describe('тур: мобильный лист', () => {
     await startFromMenu(page);
     await next(page).click();
     await next(page).click();
-    await expect(dialog(page)).toContainText('Удерживайте карточку');
+    await expect(dialog(page)).toContainText('Удерживай карточку');
   });
 });
 
@@ -421,6 +417,6 @@ test.describe('тур: онбординг', () => {
     await expect(page.getByRole('button', { name: 'Пропустить, открыть Разбор' })).toBeVisible();
     await page.getByRole('button', { name: 'Начать тур' }).click();
     await page.waitForURL((u) => u.pathname === '/');
-    await expect(count(page)).toHaveText('1 из 14');
+    await expect(count(page)).toHaveText('1 из 7');
   });
 });

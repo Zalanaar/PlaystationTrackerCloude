@@ -116,7 +116,7 @@ describe('Фаза 32.1: остановка и перезапуск', () => {
     expect(isCancelledRun(c)).toBe(true);
     expect(isFailedRun(c)).toBe(false);
     expect(isFailedRun(run({ status: 'failed', errorReason: 'internal' }))).toBe(true);
-    expect(rt('cancelled')).toMatch(/Остановлено вами/);
+    expect(rt('cancelled')).toMatch(/Остановлено тобой/);
     expect(rt('cancelled', 'Остановлено владельцем.')).toMatch(/владельцем/);
     expect(runStatusLabel(c)).toBe('Остановлен');
     expect(runStatusLabel(run({ status: 'failed', errorReason: 'timeout' }))).toBe('Ошибка');

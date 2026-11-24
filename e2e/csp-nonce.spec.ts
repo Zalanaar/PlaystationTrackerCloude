@@ -82,7 +82,7 @@ test('тур запускается и проходит до конца под C
   const v = await watch(page);
   await page.goto('/');
   const count = page.getByTestId('tour-count');
-  await expect(count).toHaveText('1 из 14', { timeout: 10_000 });
+  await expect(count).toHaveText('1 из 7', { timeout: 10_000 });
   for (let i = 1; i < 14; i++) {
     await page.getByRole('dialog').filter({ has: count }).getByRole('button', { name: /Далее|Готово/ }).click();
     await page.waitForTimeout(250);

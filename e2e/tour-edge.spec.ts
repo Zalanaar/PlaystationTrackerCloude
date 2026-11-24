@@ -24,11 +24,11 @@ const dialog = (page: Page) => page.getByRole('dialog').filter({ has: page.getBy
 async function startFromMenu(page: Page) {
   if (isMobile(page)) { await page.getByRole('button', { name: 'Меню', exact: true }).click(); await page.getByRole('button', { name: 'Как пользоваться' }).click(); }
   else { await page.locator('.ps-avatar').click(); await page.getByRole('menuitem', { name: 'Как пользоваться' }).click(); }
-  await expect(count(page)).toHaveText('1 из 14');
+  await expect(count(page)).toHaveText('1 из 7');
 }
 async function goStep(page: Page, n: number) {
   for (let i = 1; i < n; i++) await dialog(page).getByRole('button', { name: 'Далее' }).click();
-  await expect(count(page)).toHaveText(`${n} из 14`);
+  await expect(count(page)).toHaveText(`${n} из 7`);
 }
 
 test.describe('QA 21: блокировка ввода', () => {
@@ -37,7 +37,7 @@ test.describe('QA 21: блокировка ввода', () => {
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     await startFromMenu(page);
-    await goStep(page, 2);
+    await goStep(page, 3);
     await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot');
     await page.waitForTimeout(600);
     const y0 = await page.evaluate(() => scrollY);
@@ -49,7 +49,7 @@ test.describe('QA 21: блокировка ввода', () => {
     await page.mouse.click(s!.x + s!.width / 2, s!.y + s!.height / 2); // клик по подсвеченной карточке
     await page.mouse.click(5, 5); // затемнение
     await page.waitForTimeout(300);
-    await expect(count(page)).toHaveText('2 из 14');
+    await expect(count(page)).toHaveText('3 из 7');
     expect(new URL(page.url()).search).toBe('');
     await expect(page.getByRole('dialog', { name: /Horizon|God of War|Witcher/ })).toHaveCount(0);
   });
@@ -59,13 +59,13 @@ test.describe('QA 21: блокировка ввода', () => {
     const calls = await open(page, context, baseURL!, '/triage');
     await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
     await startFromMenu(page);
-    await goStep(page, 7);
+    await goStep(page, 2);
     for (const k of ['1', '2', '3', '6', ' ']) await page.keyboard.press(k);
     await page.waitForTimeout(400);
     expect(calls.statusPuts).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);
-    // тур на шаге 7 сам переходит на /triage, Разбор монтируется заново и грузит очередь: под нагрузкой это дольше паузы выше,
+    // тур на шаге 2 сам переходит на /triage, Разбор монтируется заново и грузит очередь: под нагрузкой это дольше паузы выше,
     // и «1» приходилась на загрузку (очереди нет, клавиша законно ничего не делает). Ждём готовую очередь.
     await expect(page.locator('[data-tour-page="triage"]')).toHaveAttribute('data-tour-ready', 'true');
     await expect(page.getByRole('heading', { level: 2, name: 'Tetris Effect' })).toBeVisible();
@@ -81,10 +81,10 @@ test.describe('QA 21: блокировка ввода', () => {
     await page.keyboard.press('Tab'); // Пропустить -> ... -> Далее (на шаге 1 нет «Назад»)
     await dialog(page).getByRole('button', { name: 'Далее' }).focus();
     await page.keyboard.press('Enter');
-    await expect(count(page)).toHaveText('2 из 14');
+    await expect(count(page)).toHaveText('2 из 7');
     await expect(dialog(page).getByRole('button', { name: 'Далее' })).toBeFocused();
     await page.keyboard.press('Space');
-    await expect(count(page)).toHaveText('3 из 14');
+    await expect(count(page)).toHaveText('3 из 7');
   });
 });
 
@@ -132,14 +132,14 @@ test.describe('QA 21: темы, движение, forced colors', () => {
 });
 
 test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
-  test('планшет 768x1024: шаг 7 (Разбор) подсвечивает элемент, поповер не перекрывает кольцо', async ({ page, context, baseURL }) => {
+  test('планшет 768x1024: шаг 2 (Разбор) подсвечивает элемент, поповер не перекрывает кольцо', async ({ page, context, baseURL }) => {
     test.skip(isMobile(page), 'используется десктопный проект с viewport 768');
     // T-1 исправлен: якорь `triage-buttons` (ряд кнопок), поповер сверху.
     await page.setViewportSize({ width: 768, height: 1024 });
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     await startFromMenu(page);
-    await goStep(page, 7);
+    await goStep(page, 2);
     await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot', { timeout: 6000 });
     await page.waitForTimeout(700);
     const g = await page.evaluate(() => {
@@ -148,16 +148,16 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
     });
     const e = 1.5;
     expect(g.pop.x < g.spot.x + g.spot.w - e && g.pop.x + g.pop.w > g.spot.x + e && g.pop.y < g.spot.y + g.spot.h - e && g.pop.y + g.pop.h > g.spot.y + e).toBe(false);
-    console.log('ПЛАНШЕТ шаг 7 текст:', g.text);
+    console.log('ПЛАНШЕТ шаг 2 текст:', g.text);
   });
 
-  test('N-1: мобильный 360x640, шаг 7: кольцо вокруг кнопок статусов выше листа, не пересекается с ним', async ({ page, context, baseURL }) => {
+  test('N-1: мобильный 360x640, шаг 2 (Разбор): кольцо вокруг кнопок статусов выше листа, не пересекается с ним', async ({ page, context, baseURL }) => {
     test.skip(!isMobile(page), 'только мобильный');
     await page.setViewportSize({ width: 360, height: 640 });
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     await startFromMenu(page);
-    await goStep(page, 7);
+    await goStep(page, 2);
     await expect(page.locator('.ps-tour')).toHaveAttribute('data-mode', 'spot', { timeout: 6000 });
     await page.waitForTimeout(900);
     const g = await page.evaluate(() => {
@@ -168,13 +168,13 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
     expect(g.btns.bottom).toBeLessThanOrEqual(g.pop.top + 1.5);
   });
 
-  test('§10.4: низкий экран 360x520, шаг 7: кольцо не пересекает лист, иначе center без отверстия и без фразы про кнопки', async ({ page, context, baseURL }) => {
+  test('§10.4: низкий экран 360x520, шаг 2 (Разбор): кольцо не пересекает лист, иначе center без отверстия и без фразы про кнопки', async ({ page, context, baseURL }) => {
     test.skip(!isMobile(page), 'только мобильный');
     await page.setViewportSize({ width: 360, height: 520 });
     await open(page, context, baseURL!);
     await expect(page.locator('.ps-card').first()).toBeVisible();
     await startFromMenu(page);
-    await goStep(page, 7);
+    await goStep(page, 2);
     await page.waitForTimeout(1800);
     const mode = await page.locator('.ps-tour').getAttribute('data-mode');
     if (mode === 'spot') {
@@ -200,8 +200,8 @@ test.describe('QA 21: планшет, ландшафт, /wrapped', () => {
     const asMobile = await page.getByRole('button', { name: 'Как пользоваться' }).isVisible().catch(() => false);
     test.skip(!asMobile, 'при 640 px ширина >= 640 но < 768: меню «⋯» должно быть; если нет, это баг раскладки');
     await page.getByRole('button', { name: 'Как пользоваться' }).click();
-    await expect(count(page)).toHaveText('1 из 14');
-    for (const step of [1, 2, 6, 14]) {
+    await expect(count(page)).toHaveText('1 из 7');
+    for (const step of [1, 2, 6, 7]) {
       if (step > 1) { while (!(await count(page).textContent())?.startsWith(`${step} `)) await dialog(page).getByRole('button', { name: 'Далее' }).click(); }
       const b = await page.evaluate(() => {
         const p = document.querySelector('.ps-tour__pop')!.getBoundingClientRect();
@@ -243,7 +243,7 @@ test.describe('QA 21: автозапуск и меню', () => {
       ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: { version: 1, completedVersion: 0, shouldAutoStart: true } }) })
       : r.fulfill({ status: 500, contentType: 'application/json', body: stats503 }));
     await page.goto('/');
-    await expect(count(page)).toHaveText('1 из 14', { timeout: 8000 });
+    await expect(count(page)).toHaveText('1 из 7', { timeout: 8000 });
     expect(await page.evaluate(() => sessionStorage.getItem('ps-tour-shown'))).toBe('1');
     await page.keyboard.press('Escape');
     await expect(page.locator('.ps-tour')).toHaveCount(0);

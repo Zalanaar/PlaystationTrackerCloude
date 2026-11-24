@@ -19,5 +19,5 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   } catch {
     return fail(503, 'db_unavailable', 'База данных недоступна.');
   }
-  return fail(409, 'manual_status_locked', 'Статус игры «не куплено» не меняется: сначала нажмите «Купил».');
+  return fail(409, 'manual_status_locked', 'Статус игры «не куплено» не меняется: сначала нажми «Купил».');
 }

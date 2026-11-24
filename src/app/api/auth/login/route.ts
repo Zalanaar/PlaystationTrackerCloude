@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       return fail(
         429,
         'rate_limited',
-        'Слишком много попыток. Попробуйте позже.',
+        'Слишком много попыток. Попробуй позже.',
         { retryAfterSeconds: reservation.retryAfterSeconds },
         { 'Retry-After': String(reservation.retryAfterSeconds) },
       );

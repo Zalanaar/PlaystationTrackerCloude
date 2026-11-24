@@ -7,7 +7,7 @@ import { signedSession } from './session';
 const SHOTS = process.env.SHOTS_DIR;
 const THEMES = ['night', 'ps1', 'ps5'] as const;
 const VPS = [{ w: 360, h: 640 }, { w: 768, h: 1024 }, { w: 1440, h: 900 }];
-const STEPS = [1, 2, 3, 5, 7, 8, 9, 10, 12, 14];
+const STEPS = [1, 2, 3, 5, 6, 7];
 const WHITE = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 const setTheme = (page: Page, t: string) =>
@@ -32,8 +32,8 @@ for (const theme of THEMES)
       if (mobile) { await page.getByRole('button', { name: 'Меню', exact: true }).click(); await page.getByRole('button', { name: 'Как пользоваться' }).click(); }
       else { await page.locator('.ps-avatar').click(); await page.getByRole('menuitem', { name: 'Как пользоваться' }).click(); }
       const problems: string[] = [];
-      for (let i = 1; i <= 14; i++) {
-        await expect(page.getByTestId('tour-count')).toHaveText(`${i} из 14`);
+      for (let i = 1; i <= 7; i++) {
+        await expect(page.getByTestId('tour-count')).toHaveText(`${i} из 7`);
         await expect(page.locator('.ps-tour')).not.toHaveAttribute('data-mode', 'loading', { timeout: 10_000 });
         await expect(page.locator('[data-tour-page][data-tour-ready="true"]')).toHaveCount(1, { timeout: 10_000 }).catch(() => {});
         await page.waitForTimeout(500);
@@ -61,7 +61,7 @@ for (const theme of THEMES)
           if (g.pop.x < g.spot.x + g.spot.w - e && g.pop.x + g.pop.w > g.spot.x + e && g.pop.y < g.spot.y + g.spot.h - e && g.pop.y + g.pop.h > g.spot.y + e) problems.push(`${tag}: поповер перекрывает кольцо`);
         }
         if (STEPS.includes(i)) await page.screenshot({ path: `${SHOTS}/${theme}-${vp.w}-s${String(i).padStart(2, '0')}.png` });
-        if (i < 14) await page.getByRole('dialog').filter({ has: page.getByTestId('tour-count') }).getByRole('button', { name: 'Далее' }).click();
+        if (i < 7) await page.getByRole('dialog').filter({ has: page.getByTestId('tour-count') }).getByRole('button', { name: 'Далее' }).click();
       }
       console.log(`PROBLEMS ${theme}/${vp.w}: ${problems.length ? '\n' + problems.join('\n') : 'нет'}`);
     });

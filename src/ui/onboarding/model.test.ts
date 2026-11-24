@@ -6,8 +6,8 @@ import {
 
 describe('validateNick', () => {
   it('тексты ошибок по спеке', () => {
-    expect(validateNick('')).toBe('Введите ник PSN');
-    expect(validateNick('   ')).toBe('Введите ник PSN');
+    expect(validateNick('')).toBe('Введи ник PSN');
+    expect(validateNick('   ')).toBe('Введи ник PSN');
     expect(validateNick('ab')).toBe('Ник должен быть от 3 до 16 символов');
     expect(validateNick('a'.repeat(17))).toBe('Ник должен быть от 3 до 16 символов');
     expect(validateNick('1abc')).toBe('Ник должен начинаться с латинской буквы');

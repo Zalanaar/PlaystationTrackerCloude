@@ -93,7 +93,7 @@ const REASON_TEXT: Record<SyncErrorReason, string> = {
   psn_unavailable: 'PSN сейчас недоступен. Попробуй позже.',
   timeout: 'Синк не уложился во время и остановлен. Можно продолжить.',
   internal: 'Внутренняя ошибка синка.',
-  cancelled: 'Остановлено вами. Загруженные данные сохранены.',
+  cancelled: 'Остановлено тобой. Загруженные данные сохранены.',
 };
 
 export function reasonText(reason: SyncErrorReason | null | undefined, message?: string | null): string {

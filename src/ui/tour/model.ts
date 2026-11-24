@@ -155,7 +155,7 @@ export function scrollDelta(rect: { top: number; bottom: number }, area: { top: 
 
 export { keyboardHeight } from '../keyboard';
 
-/** Текст live-региона: «Шаг 3 из 14. Карточка игры. Текст» */
+/** Текст live-региона: «Шаг 3 из 7. Играю. Текст» */
 export function announce(index: number, title: string, text: string): string {
   return `Шаг ${index + 1} из ${TOUR_TOTAL}. ${title}. ${text}`;
 }

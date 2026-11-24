@@ -59,10 +59,10 @@ export function profileMeta(gamesCount: number, lastSyncAt: string | null): stri
 export function accessStatusText(status: string): string | null {
   switch (status) {
     case 'ok': return null;
-    case 'not_found': return 'Профиль не найден. Проверьте, нет ли опечатки в нике PSN.';
-    case 'private': return 'Профиль закрыт. Откройте игры и трофеи в настройках приватности PlayStation.';
-    case 'friend_required': return 'Профиль виден только друзьям. Добавьте в друзья технический аккаунт сервиса, детали у владельца сайта.';
-    case 'unavailable': return 'PlayStation сейчас не отвечает. Это не ошибка в нике. Попробуйте через минуту.';
+    case 'not_found': return 'Профиль не найден. Проверь, нет ли опечатки в нике PSN.';
+    case 'private': return 'Профиль закрыт. Открой игры и трофеи в настройках приватности PlayStation.';
+    case 'friend_required': return 'Профиль виден только друзьям. Добавь в друзья технический аккаунт сервиса, детали у владельца сайта.';
+    case 'unavailable': return 'PlayStation сейчас не отвечает. Это не ошибка в нике. Попробуй через минуту.';
     case 'unchecked': return 'Доступ к профилю ещё не проверен.';
     default: return 'Доступ к профилю не подтверждён.';
   }
@@ -78,9 +78,9 @@ export function addErrorText(e: ApiFail, nick: string): { text: string; field?: 
     case 'invalid_request': return { text: 'Проверь ник: так он записать нельзя.', field: true };
     case 'profile_limit': return { text: 'Достигнут лимит: 3 профиля PSN на один вход. Отвяжи ненужный и повтори.', toList: true };
     case 'user_limit': return { text: 'Достигнут общий лимит пользователей сайта. Обратись к владельцу.' };
-    case 'psn_id_taken': return { text: 'Этот профиль PSN уже подключён (у вас или у другого пользователя). Один аккаунт PSN можно подключить только один раз.' };
+    case 'psn_id_taken': return { text: 'Этот профиль PSN уже подключён (у тебя или у другого пользователя). Один аккаунт PSN можно подключить только один раз.' };
     case 'psn_not_found': return { text: `Профиль «${nick}» не найден в PSN. Проверь написание ника.` };
-    case 'psn_private': return { text: `Профиль «${nick}» закрыт. Откройте игры и трофеи для всех в настройках приватности PSN и повторите.` };
+    case 'psn_private': return { text: `Профиль «${nick}» закрыт. Открой игры и трофеи для всех в настройках приватности PSN и повтори.` };
     case 'rate_limited': return { text: retryText(e.retryAfterSec) };
     case 'psn_unavailable': return { text: 'PSN сейчас недоступен. Повтори чуть позже.', retry: true };
     case 'network': return { text: 'Нет связи. Проверь интернет и повтори.' };
@@ -96,7 +96,7 @@ export function restoreErrorText(e: ApiFail): string {
     case 'profile_limit': return 'Нет свободного места: 3 из 3. Сначала отвяжи другой профиль.';
     case 'psn_id_taken': return 'Этот аккаунт PSN уже подключён к другому профилю. Вернуть нельзя.';
     case 'rate_limited': return retryText(e.retryAfterSec);
-    case 'psn_private': return 'Профиль закрыт. Откройте игры и трофеи для всех в настройках приватности PSN и повторите.';
+    case 'psn_private': return 'Профиль закрыт. Открой игры и трофеи для всех в настройках приватности PSN и повтори.';
     case 'psn_not_found': return 'Профиль не найден в PSN. Проверь написание ника.';
     case 'psn_unavailable': return 'PSN сейчас недоступен. Повтори чуть позже.';
     default: return e.status === 429 ? retryText(e.retryAfterSec) : 'Не удалось вернуть профиль. Повтори.';
@@ -108,7 +108,7 @@ export type UnlinkFail = { text: string; field?: boolean; close?: boolean; reloa
 /** Ошибки отвязки и «Удалить сразу» (§17.5). */
 export function unlinkErrorText(e: ApiFail, nick: string, purge: boolean): UnlinkFail {
   switch (e.code) {
-    case 'confirm_mismatch': return { text: `Ник не совпал. Введите «${nick}» точно.`, field: true };
+    case 'confirm_mismatch': return { text: `Ник не совпал. Введи «${nick}» точно.`, field: true };
     case 'primary_protected': return { text: 'Основной профиль отвязать нельзя.', reload: true };
     case 'sync_in_progress': return { text: 'Сейчас идёт синк этого профиля. Подожди минуту и повтори.' };
     case 'not_found': return { text: 'Этот профиль уже отвязан или удалён.', close: true, reload: true };
