@@ -151,7 +151,7 @@ export const RAWG_UPCOMING_PAGE_SIZE = 20;
 export const RAWG_UPCOMING_DAYS = 365;
 export const RAWG_UPCOMING_TTL_MS = 60 * 60 * 1000;
 
-export type UpcomingPage = { candidates: CatalogCandidate[]; page: number; hasMore: boolean };
+export type UpcomingPage = { candidates: CatalogCandidate[]; page: number; hasMore: boolean; total: number | null };
 export type UpcomingCache = Map<string, { at: number; value: UpcomingPage }>;
 /** Кэш процесса: ключ = диапазон дат + страница (ключ API не входит). */
 const processCache: UpcomingCache = new Map();
@@ -182,11 +182,31 @@ export async function getUpcoming(page: number, deps: UpcomingDeps): Promise<Upc
   const env = pageEnvelope.safeParse(body);
   const rawCount = (body as { results: unknown[] }).results.length;
   const hasMore = env.success && env.data.next !== undefined ? env.data.next !== null && env.data.next !== '' : rawCount >= RAWG_UPCOMING_PAGE_SIZE;
-  const value: UpcomingPage = { candidates: all.filter((c) => c.releaseDate !== null), page, hasMore };
+  const countRaw = (body as { count?: unknown }).count;
+  const total = typeof countRaw === 'number' && Number.isFinite(countRaw) && countRaw >= 0 ? Math.floor(countRaw) : null;
+  const value: UpcomingPage = { candidates: all.filter((c) => c.releaseDate !== null), page, hasMore, total };
   // Подчищаем протухшее, чтобы Map не рос.
   for (const [k, v] of cache) if (now.getTime() - v.at >= (deps.ttlMs ?? RAWG_UPCOMING_TTL_MS)) cache.delete(k);
   cache.set(cacheKey, { at: now.getTime(), value });
   return value;
+}
+
+
+/** Одна игра по id RAWG (GET /api/games/{id}). Нужна, чтобы обновить дату релиза в плане, даже если игры нет на текущей странице новинок. Нет записи / 404 = null. */
+export async function getCatalogGame(id: string, deps: CatalogDeps): Promise<CatalogCandidate | null> {
+  if (!deps.apiKey) throw new CatalogError('no_key');
+  const ext = id.trim();
+  if (!/^\d{1,12}$/.test(ext)) return null;
+  const url = new URL(`${RAWG_BASE}/${ext}`);
+  url.searchParams.set('key', deps.apiKey);
+  try {
+    const body = await requestJson(url, deps);
+    const parsed = parseResults({ results: [body] });
+    return parsed[0] ?? null;
+  } catch (e) {
+    if (e instanceof CatalogError && e.reason === 'http_error') return null;
+    throw e;
+  }
 }
 
 // --- «У тебя нет» (Фаза 30, контракт «Фаза 30»): каталог лучших PS5/PS4 игр по жанру или общий

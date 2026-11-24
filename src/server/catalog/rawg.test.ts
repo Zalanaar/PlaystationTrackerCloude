@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CatalogError, getUpcoming, mapResults, searchCatalog, type UpcomingCache } from './rawg';
+import { CatalogError, getCatalogGame, getUpcoming, mapResults, searchCatalog, type UpcomingCache } from './rawg';
 
 const KEY = 'SECRET_KEY_123';
 const json = (body: unknown, init?: ResponseInit) => new Response(JSON.stringify(body), { status: 200, ...init });
@@ -113,6 +113,7 @@ describe('getUpcoming (RAWG, предстоящие релизы)', () => {
     expect(u.searchParams.get('key')).toBe(KEY);
     expect(r.page).toBe(2);
     expect(r.hasMore).toBe(true);
+    expect(r.total).toBe(3);
     expect(r.candidates.map((c) => c.externalId)).toEqual(['10', '12']); // без tba, без пересортировки PS-первыми
   });
 
@@ -150,5 +151,31 @@ describe('getUpcoming (RAWG, предстоящие релизы)', () => {
     const f = mock(async () => json(page1));
     expect(await reason(getUpcoming(1, { apiKey: null, fetch: f, now: NOW, cache }))).toBe('no_key');
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe('getCatalogGame', () => {
+  it('GET /api/games/{id}: разбирает одну игру, tba = без даты', async () => {
+    const f = mock(async () => json({
+      id: 4248, name: 'God of War Laufey', released: '2027-05-20', tba: false,
+      background_image: 'https://media.rawg.io/g.jpg',
+      platforms: [{ platform: { name: 'PlayStation 5', slug: 'playstation5' } }],
+    }));
+    const r = await getCatalogGame('4248', { apiKey: KEY, fetch: f });
+    const url = f.mock.calls[0][0] as URL;
+    expect(url.origin + url.pathname).toBe('https://api.rawg.io/api/games/4248');
+    expect(url.searchParams.get('key')).toBe(KEY);
+    expect(r).toMatchObject({ externalSource: 'rawg', externalId: '4248', title: 'God of War Laufey', releaseDate: '2027-05-20', playstation: true });
+    const tba = await getCatalogGame('1', { apiKey: KEY, fetch: mock(async () => json({ id: 1, name: 'Soon', released: null, tba: true, platforms: [] })) });
+    expect(tba).toMatchObject({ externalId: '1', releaseDate: null });
+  });
+
+  it('битый id, 404 и нет ключа: без сети / null; ключ в ошибке не светится', async () => {
+    const f = mock(async () => json({ id: 1, name: 'X' }));
+    expect(await getCatalogGame('not-an-id', { apiKey: KEY, fetch: f })).toBeNull();
+    expect(f).not.toHaveBeenCalled();
+    expect(await reason(getCatalogGame('1', { apiKey: null, fetch: f }))).toBe('no_key');
+    expect(await getCatalogGame('1', { apiKey: KEY, fetch: mock(async () => new Response('no', { status: 404 })) })).toBeNull();
+    expect(await reason(getCatalogGame('1', { apiKey: KEY, fetch: mock(async () => { throw new TypeError(`fail ?key=${KEY}`); }) }))).toBe('network');
   });
 });

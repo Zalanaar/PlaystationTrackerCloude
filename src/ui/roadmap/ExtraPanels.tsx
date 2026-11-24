@@ -105,6 +105,7 @@ export function UpcomingPanel({
   const [items, setItems] = useState<UpcomingCandidate[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export function UpcomingPanel({
       setItems((l) => (n === 1 ? r.candidates : appendUnique(l, r.candidates)));
       setPage(r.page);
       setHasMore(r.hasMore);
+      if (typeof r.total === 'number') setTotal(r.total);
       setLoad({ state: 'ok' });
     } catch (e) {
       if (my !== reqRef.current) return;
@@ -168,7 +170,10 @@ export function UpcomingPanel({
       <div className="ps-rm-head">
         <h3 className="ps-h3">Предстоящие релизы</h3>
       </div>
-      <p className="ps-rm-sub">Игры для PlayStation, которые выходят в ближайший год. «В план» ставит игру на дату выхода (галка «Хочу пройти на релизе»), часы потом введи вручную.</p>
+      <p className="ps-rm-sub">Игры для PlayStation 5 и 4, которые выходят в ближайший год. «В план» ставит игру на дату выхода (галка «Хочу пройти на релизе»), часы потом введи вручную.</p>
+      {load.state === 'ok' && total !== null && items.length > 0 && (
+        <p className="ps-rm-muted" data-testid="rm-upcoming-total">В каталоге {total}. На экране {items.length}{hasMore ? ', есть ещё — «Показать ещё»' : ''}.</p>
+      )}
       <p className="ps-sr" aria-live="polite">{live}</p>
       {load.state === 'loading' ? (
         <div aria-busy="true" aria-hidden="true">{[0, 1, 2].map((i) => <div key={i} className="ps-skeleton ps-rm-cand--sk" />)}</div>
