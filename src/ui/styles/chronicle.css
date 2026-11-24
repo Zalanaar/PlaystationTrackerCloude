@@ -41,7 +41,7 @@
 }
 /* ---------- Чипы месяцев ---------- */
 .ps-mchips { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-2); height: var(--mchips-h); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-.ps-mchips.ps-jumpcap { height: auto; overflow: visible; }
+.ps-mchips.ps-jumpcap { height: auto; overflow: hidden; }
 .ps-mchips::-webkit-scrollbar { display: none; }
 .ps-chron > .ps-mchips {
   /* хром — .ps-jumpcap: плавающая капсула, не сплошная полоса */

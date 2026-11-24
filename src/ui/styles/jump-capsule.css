@@ -1,4 +1,5 @@
-/* Единая плавающая капсула быстрого перехода: месяцы Коллекции, блоки Плана, разделы Статистики, сегменты Бэклога. */
+/* Единая плавающая капсула быстрого перехода: месяцы Коллекции, блоки Плана, разделы Статистики, сегменты Бэклога.
+   Как в Статистике: оболочка — полная пилюля (999px), overflow: hidden, внутренний отступ, чипы тоже пилюли. */
 .ps-jumpcap {
   position: sticky;
   top: calc(var(--sticky-top) + var(--jumpcap-inset));
@@ -17,7 +18,7 @@
   backdrop-filter: blur(16px) saturate(160%);
   border: var(--border-w) solid color-mix(in srgb, var(--border-strong, var(--border)) 65%, transparent);
   box-shadow: 0 4px 18px rgba(0, 0, 0, calc(var(--shadow-alpha, .2) + .08));
-  overflow: visible;
+  overflow: hidden;
 }
 .ps-jumpcap__in {
   display: flex;
@@ -25,12 +26,34 @@
   gap: var(--sp-1);
   min-width: 0;
   width: 100%;
-  padding: 6px;
+  box-sizing: border-box;
+  padding-block: var(--jumpcap-pad);
+  padding-inline: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+  scroll-padding-inline: var(--jumpcap-pad);
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
 }
 .ps-jumpcap__in::-webkit-scrollbar { display: none; }
+/* Горизонтальные распорки: в WebKit padding-inline у flex-скроллера не держит первый/последний чип. */
+.ps-jumpcap__in::before,
+.ps-jumpcap__in::after {
+  content: "";
+  flex: 0 0 var(--jumpcap-pad);
+  align-self: stretch;
+  pointer-events: none;
+}
+
+/* Чипы внутри капсулы — пилюли, как в Статистике (не --r-chip: 4px тем PS1/PS2/PS4). */
+.ps-jumpcap button.ps-mchip,
+.ps-jumpcap .ps-st-secs__chip,
+.ps-jumpcap .ps-rm-jump__a,
+.ps-jumpcap .ps-bl-jump__tab {
+  border-radius: 999px;
+}
 
 .ps-jumpcap [aria-current="true"],
 .ps-jumpcap [aria-current="location"],

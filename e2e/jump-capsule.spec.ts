@@ -51,6 +51,68 @@ async function assertCapsule(row: Locator) {
   expect(bg).not.toBe('transparent');
 }
 
+
+/** Активный чип целиком внутри скруглённой капсулы (не вылезает за край пилюли). */
+async function assertChipInside(row: Locator, chip: Locator) {
+  await expect(chip).toBeVisible();
+  const info = await chip.evaluate((el) => {
+    const cap = el.closest('.ps-jumpcap');
+    if (!cap) return { error: 'no capsule' };
+    const cr = cap.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const radius = cr.height / 2;
+    const midY = (r.top + r.bottom) / 2;
+    const midX = (r.left + r.right) / 2;
+    const k = 1 - Math.SQRT1_2;
+    const hr = r.height / 2;
+    const points = [
+      [r.left, midY],
+      [r.right, midY],
+      [midX, r.top],
+      [midX, r.bottom],
+      [r.left + hr * k, r.top + hr * k],
+      [r.right - hr * k, r.top + hr * k],
+      [r.left + hr * k, r.bottom - hr * k],
+      [r.right - hr * k, r.bottom - hr * k],
+    ];
+    const inside = (x, y) => {
+      const x0 = cr.left + radius;
+      const x1 = cr.right - radius;
+      const cy = (cr.top + cr.bottom) / 2;
+      if (x >= x0 && x <= x1) return y >= cr.top - 0.5 && y <= cr.bottom + 0.5;
+      const cx = x < x0 ? x0 : x1;
+      return (x - cx) ** 2 + (y - cy) ** 2 <= (radius + 0.75) ** 2;
+    };
+    const outside = points.filter(([x, y]) => !inside(x, y)).map(([x, y]) => ({ x, y }));
+    return {
+      padL: r.left - cr.left,
+      padR: cr.right - r.right,
+      padT: r.top - cr.top,
+      padB: cr.bottom - r.bottom,
+      outside,
+    };
+  });
+  expect(info, JSON.stringify(info)).not.toHaveProperty('error');
+  expect(info.padL, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
+  expect(info.padR, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
+  expect(info.padT, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
+  expect(info.padB, JSON.stringify(info)).toBeGreaterThanOrEqual(3);
+  expect(info.outside, JSON.stringify(info)).toEqual([]);
+}
+
+async function assertEndsInside(row: Locator) {
+  const chips = row.locator('button, a[href^="#"]');
+  const n = await chips.count();
+  expect(n).toBeGreaterThanOrEqual(2);
+  const inner = row.locator('.ps-jumpcap__in');
+  await chips.first().click();
+  await inner.evaluate((el) => { el.scrollLeft = 0; });
+  await assertChipInside(row, chips.first());
+  await chips.last().click();
+  await inner.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  await assertChipInside(row, chips.last());
+}
+
 test.describe('плавающая капсула быстрого перехода', () => {
   for (const width of [390, 1280]) {
     test(`${width}px: Коллекция, План, Статистика, Бэклог — одна капсула с блюром`, async ({ page, context, baseURL }) => {
@@ -99,5 +161,34 @@ test.describe('плавающая капсула быстрого переход
       }, theme);
       await assertCapsule(months);
     }
+  });
+
+  test('первый и последний чип не вылезают из пилюли — все темы, 390px', async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, context, baseURL as string, chronicle());
+    await page.goto('/');
+    const months = page.getByRole('navigation', { name: 'Месяцы 2026' });
+    await expect(months.getByRole('button').first()).toBeVisible();
+    for (const theme of ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5']) {
+      await page.evaluate((v) => {
+        if (v === 'night') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', v);
+      }, theme);
+      await assertEndsInside(months);
+    }
+
+    await mockRoadmap(page, baseState());
+    await page.goto('/roadmap');
+    await page.getByRole('heading', { name: 'План', level: 1 }).waitFor();
+    await assertEndsInside(page.getByTestId('rm-jump'));
+
+    await openStats(page, context, baseURL!);
+    await expect(page.getByTestId('stats-sections').getByRole('button', { name: 'Часы' })).toBeVisible();
+    await assertEndsInside(page.getByTestId('stats-sections'));
+
+    await login(page, context, baseURL as string, backlog());
+    await page.goto('/backlog');
+    await expect(page.getByTestId('bl-jump').getByRole('button').first()).toBeVisible();
+    await assertEndsInside(page.getByTestId('bl-jump'));
   });
 });
