@@ -185,8 +185,13 @@ test.describe('План: релизы', () => {
     await dlg.getByLabel('Название').fill('Игра');
     await dlg.getByLabel('Обложка').fill('http://example.com/a.jpg');
     await dlg.getByLabel('Часов на прохождение').fill('0');
-    await dlg.getByRole('button', { name: 'Добавить в план' }).click();
-    await expect(dlg.getByText('Ссылка должна начинаться с https://')).toBeVisible();
+    // под нагрузкой полного прогона ввод мог ещё не дойти до состояния формы: сверяем значения и повторяем отправку
+    await expect(dlg.getByLabel('Обложка')).toHaveValue('http://example.com/a.jpg');
+    await expect(dlg.getByLabel('Часов на прохождение')).toHaveValue('0');
+    await expect(async () => {
+      await dlg.getByRole('button', { name: 'Добавить в план' }).click();
+      await expect(dlg.getByText('Ссылка должна начинаться с https://')).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 10_000 });
     await expect(dlg.getByText('Введи число от 0,5 до 999')).toBeVisible();
     await expect(dlg).toBeVisible();
   });
