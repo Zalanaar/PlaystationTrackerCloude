@@ -253,13 +253,14 @@ export function FilterBar(p: BarProps) {
 
 /** Мобильный слот 1 (D-P1): поле поиска. Открывается кнопкой с лупой в шапке, видно, пока открыто или есть запрос. */
 /** П.6 (t281u): строка поиска на телефоне — всегда открыта, без «Отмена» и лупы в шапке. */
-export function MobileSearch(p: BarProps) {
-  const { filters, onChange } = p;
+export function MobileSearch(p: BarProps & { /** справа от поля в той же строке (t282u: «Разбор N»): появляясь, не сдвигает ленту */ trailing?: React.ReactNode }) {
+  const { filters, onChange, trailing } = p;
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
   return (
     <div className="ps-filters ps-filters--search">
       <div className="ps-filters__srow">
         <SearchBox value={filters.q} onCommit={commit} />
+        {trailing}
       </div>
     </div>
   );

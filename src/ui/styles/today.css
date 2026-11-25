@@ -97,3 +97,5 @@
 .ps-thints__t { color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-thints__q { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .ps-thints__all { display: flex; align-items: center; min-height: 44px; color: var(--accent-text, var(--accent)); font-size: var(--fs-small); text-decoration: none; border-top: var(--border-w) solid var(--border); }
+
+.ps-thints-sk { display: block; border-radius: var(--r-md); }

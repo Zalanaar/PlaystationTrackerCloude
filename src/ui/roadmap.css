@@ -375,6 +375,8 @@ button.ps-rm-over__row { cursor: pointer; }
 /* ---------- Доступность и движение ---------- */
 /* ---------- Цель года (Фаза 32, #rm-goal) ---------- */
 .ps-rm-sk-goal { height: 140px; }
+/* t281u П.5: на телефоне «Настройки» над целью больше не рисуются — скелет цели по высоте реальной карточки (CLS) */
+@media (max-width: 767px) { .ps-rm-sk-goal { height: 152px; } } /* середина: прошлый год ниже, текущий выше; год до ответа неизвестен */
 .ps-rm-goal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .ps-rm-goal__title { margin: 0; min-width: 0; font: 600 16px/24px var(--font-display); color: var(--text); overflow-wrap: anywhere; }
 .ps-rm-goal__title span { white-space: normal; }

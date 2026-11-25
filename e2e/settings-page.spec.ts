@@ -14,8 +14,9 @@ async function open(page: Page, baseURL: string, path = '/settings', latest: Rec
   const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
-  await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest } }));
   await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
+  // после общего **/api/games**: позже зарегистрированный маршрут срабатывает первым
+  await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest } }));
   await page.route('**/api/me/push', (r) => json(r, { ok: true, data: r.request().method() === 'PATCH' ? r.request().postDataJSON() : { configured: false, publicKey: null, devices: 0, shelvedReminder: true } }));
   await page.route('**/api/roadmap/calendar', (r) => json(r, { ok: true, data: { active: false, createdAt: null } }));
   await page.goto(path);

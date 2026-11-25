@@ -23,12 +23,14 @@ async function open(page: Page, context: BrowserContext, baseURL: string, noPlay
   await page.getByTestId('inbox-strip').waitFor();
 }
 
-test('«Играю» пусто: первая строка обложек целиком выше 664 px', async ({ page, context, baseURL }) => {
+// t281u: поиск всегда открыт (П.6) и «Недавно в коллекции» во всех темах (П.15) — строка обложек целиком в 664 px
+// больше не помещается; держим, что она начинается в первом экране (видна верхняя часть обложек).
+test('«Играю» пусто: первая строка обложек начинается в первом экране (664 px)', async ({ page, context, baseURL }) => {
   await open(page, context, baseURL!, true);
   const cover = page.locator('.ps-results .ps-card .ps-card__cover').first();
   await cover.waitFor();
   const b = (await cover.boundingBox())!;
-  expect(b.y + b.height).toBeLessThanOrEqual(SAFARI_VISIBLE);
+  expect(b.y).toBeLessThan(SAFARI_VISIBLE - 24);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 

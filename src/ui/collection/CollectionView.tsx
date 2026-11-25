@@ -239,6 +239,9 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
     });
   }
   const homeBacklogRow = chronicleMode && isHomeBacklogRow(filters);
+  // П.3 (t282u): «Разбор N» — если полоса «С прошлого визита» уже не зовёт «Разобрать N»; на телефоне справа от поиска (без сдвига)
+  const triage = chronicleMode && !hiddenView && !inbox.showsCheck && (summary?.counts.none ?? 0) > 0
+    ? <TodayTriageLink count={summary?.counts.none ?? 0} fresh={inbox.chips.some((c) => c.id === 'new')} /> : null;
   const homeBacklogCounts = {
     backlog: summary?.counts.backlog ?? counts.backlog,
     shelved: summary?.counts.shelved ?? counts.shelved,
@@ -303,9 +306,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
           <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
-          {chronicleMode && !hiddenView && (summary?.counts.none ?? 0) > 0 && (
-            <p className="ps-pagehead__check"><TodayTriageLink count={summary?.counts.none ?? 0} fresh={inbox.chips.some((c) => c.id === 'new')} /></p>
-          )}
+          {mobileMq !== null && !isMobile && triage && <p className="ps-pagehead__check">{triage}</p>}
         </div>
         {!summary
           ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
@@ -317,7 +318,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
 
       {mobileMq === null
         ? <MobileSearchSkeleton />
-        : isMobile && <MobileSearch {...barProps} />}
+        : isMobile && <MobileSearch {...barProps} trailing={triage} />}
 
       {/* t282u (П.2): прежняя главная без сворачивания — профиль в шапке, «Играю сейчас» крупно. От «Сегодня» остались
           «Разбор N» в шапке (П.3) и 1–2 подсказки статусов над карточками (П.10). */}

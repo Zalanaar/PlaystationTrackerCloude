@@ -117,7 +117,7 @@ export function PushPanel() {
 
   return (
     <section className="ps-panel ps-tg" aria-labelledby="push-title" aria-busy={view === 'loading' || undefined} data-testid="push-panel">
-      <h3 id="push-title" className="ps-tg__title">Уведомления на этом устройстве</h3>
+      <h2 id="push-title" className="ps-tg__title">Уведомления на этом устройстве</h2>
       <p className="ps-tg__lead">Напомню вечером накануне релиза игры из плана или бэклога, а раз в месяц — об одной игре из «Отложено». Включаются только здесь и только для этого устройства.</p>
       {view === 'loading' ? (
         <div className="ps-tg__acts"><button type="button" className="ps-btn ps-btn--primary" disabled>Включить уведомления</button></div>

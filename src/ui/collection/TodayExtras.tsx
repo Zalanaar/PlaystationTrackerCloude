@@ -38,7 +38,10 @@ export function TodayHints({ total, actions, max = 2 }: { total: number; actions
     fetchStatusHints().then((r) => { if (alive) setItems(r.items.slice(0, max)); }, () => { if (alive) setItems([]); });
     return () => { alive = false; };
   }, [total, max]);
-  if (total <= 0 || !items || items.length === 0) return null;
+  if (total <= 0) return null;
+  // t282u: подсказки теперь на виду над карточками — пока грузятся, место держит скелет (без сдвига ленты)
+  if (!items) { const rows = Math.min(total, max); return <div className="ps-skeleton ps-thints-sk" aria-hidden="true" style={{ height: rows * 61 + 10 + (total > rows ? 45 : 0) }} />; }
+  if (items.length === 0) return null;
   return (
     <section className="ps-thints" aria-label="Подсказки статусов" data-testid="today-hints">
       <ul className="ps-thints__list">

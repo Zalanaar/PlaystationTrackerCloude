@@ -81,7 +81,7 @@
   .ps-anchors > span:first-child { order: -2; }
   .ps-anchors__blk { order: -1; }
 }
-.ps-filters--search .ps-search__input { height: 40px; }
+.ps-filters--search .ps-search__input { height: 44px; } /* t281u П.6: поле всегда видно — полная зона нажатия 44 */
 @media (max-width: 767px) {
   .ps-statline { font-size: var(--fs-body); }
   .ps-pagehead--coll { padding-bottom: 0; }

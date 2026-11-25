@@ -72,7 +72,7 @@ test.describe('«Купил / Не купил» и корзина', () => {
     await rows.nth(1).getByTestId('add-buy-yes').click();
     await rows.nth(1).getByTestId('add-buy-no').click();
     await page.getByTestId('add-cart-submit').click();
-    await expect(rows.first().getByTestId('add-row-done')).toHaveText('Добавлено · Купил');
+    await expect(rows.first().getByTestId('add-row-done')).toHaveText('Добавлено · Куплено');
     await expect(rows.nth(1).getByTestId('add-row-done')).toHaveText('Добавлено · Не куплено');
     expect(manual.batchBodies[0].map((b) => [b.externalId, b.notPurchased])).toEqual([['3328', false], ['77', true]]);
     await expect(page.getByTestId('add-cart')).toHaveCount(0);
@@ -211,7 +211,7 @@ test.describe('Секция «Не куплено»', () => {
     expect(style.col).not.toBe(warning);
     await expect(sec.getByRole('heading', { level: 2, name: /Не куплено/ })).toBeVisible();
     // вкладка в липкой плашке
-    const tab = page.getByTestId('bl-jump').getByRole('button', { name: /Купить/ });
+    const tab = page.getByTestId('bl-jump').getByRole('button', { name: /Не куплено/ });
     await expect(tab).toContainText('14');
     await tab.click();
     await expect(page.locator('#h-bl-nb')).toBeFocused();
@@ -267,7 +267,7 @@ test.describe('Секция «Не куплено»', () => {
   test('без записей «не куплено» секции нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, { items: [] });
     await expect(page.getByTestId('bl-nb')).toHaveCount(0);
-    await expect(page.getByTestId('bl-jump').getByRole('button', { name: /Купить/ })).toHaveCount(0);
+    await expect(page.getByTestId('bl-jump').getByRole('button', { name: /Не куплено/ })).toHaveCount(0);
   });
 
   test('секция в режиме «Список» на мобильном: нет горизонтального скролла 320-412', async ({ page, context, baseURL }) => {

@@ -1,6 +1,6 @@
 /* Коллекция: «Недавно», PlayingHero, платина, «Игры месяца», свечение. Вынесено из collection.css (П15.4), порядок подключения — src/ui/styles/app-styles.ts. */
 /* ---------- «Недавно в коллекции» (айдентика тем, шаг 5): видимость по теме — в decor.css ---------- */
-.ps-recent { --recent-h: 200px; margin: 0; }
+.ps-recent { --recent-h: 140px; margin: 0; } /* t281u П.15: во всех темах; на телефоне ниже, чтобы обложки начинались в первом экране */
 .ps-recent__card {
   position: relative; isolation: isolate; display: block; width: 100%; height: var(--recent-h); padding: 0; overflow: hidden; text-align: left; cursor: pointer;
   border-radius: var(--r-lg); background: var(--surface-3); border: var(--border-w) solid var(--border); color: var(--scrim-text); font: inherit;
