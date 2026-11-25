@@ -154,8 +154,14 @@
 .ps-bs[data-variant="sheet"] .ps-bs__cap { top: 0; }
 
 @media (max-width: 767px) {
-  .ps-bs-row { display: none; }
-  .ps-bs-active { display: flex; }
+  /* П.6 (t281u): на телефоне поле на всю ширину, подсказки — под полем на всю ширину */
+  .ps-bs-row { margin: var(--sp-1) 0 var(--sp-2); }
+  .ps-bs { width: 100%; }
+  .ps-bs__pop { min-width: 0; right: 0; max-width: none; max-height: min(60dvh, 480px); }
+  .ps-bs-opt { min-height: 52px; }
+  .ps-bs__input { height: var(--tap-min); }
+  .ps-bs-opt__plus { width: var(--tap-min); height: var(--tap-min); }
+  .ps-bs__clear { width: var(--tap-min); }
 }
 
 /* ---------- Фаза 43.1: контраст, движение ---------- */

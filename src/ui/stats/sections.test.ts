@@ -14,7 +14,7 @@ describe('D-P5: текущий раздел', () => {
     expect(STATS_SECTIONS.map((s) => s.id)).toEqual(['time', 'games', 'trophies', 'ratings', 'activity']);
   });
   it('старые ?sec= ведут в группу', () => {
-    expect(resolveStatsSec('cost')?.group).toBe('time');
+    expect(resolveStatsSec('cost')).toBeNull();
     expect(resolveStatsSec('hours')?.group).toBe('time');
     expect(resolveStatsSec('ach')?.group).toBe('trophies');
     expect(resolveStatsSec('ratings')?.group).toBe('ratings');

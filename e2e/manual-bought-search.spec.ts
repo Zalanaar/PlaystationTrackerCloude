@@ -33,12 +33,8 @@ async function search(page: Page, q: string) {
   await page.getByTestId('add-input').fill(q);
   await page.getByTestId('add-submit').click();
 }
-/** Поле умного поиска: на десктопе строка страницы, на мобильном лист «Поиск». */
+/** Поле умного поиска: строка страницы на любой ширине (П.6 t281u). */
 async function openSearch(page: Page) {
-  if (isMobile(page)) {
-    await page.getByTestId('bs-open').click();
-    await expect(page.getByRole('dialog', { name: 'Поиск' })).toBeVisible();
-  }
   const input = page.getByTestId('bs-input');
   await input.focus();
   return input;
@@ -315,33 +311,24 @@ test.describe('Поиск по Бэклогу (?q=)', () => {
     await expect(page).not.toHaveURL(/q=/);
   });
 
-  test('мобильный: иконка в полосе, лист «Поиск», строка «Поиск: «…» Сбросить»; высота полосы не меняется', async ({ page, context, baseURL }) => {
-    test.skip(!isMobile(page), 'иконка только на мобильном');
+  test('мобильный: поле открыто, подсказки под полем на всю ширину; Enter применяет запрос', async ({ page, context, baseURL }) => {
+    test.skip(!isMobile(page), 'только телефон');
     await open(page, context, baseURL!, { items: [mgame(1, 'Альфа Новинка')] });
-    const barH = (await page.locator('.ps-bl-bar').boundingBox())!.height;
-    const icon = page.getByTestId('bs-open');
-    await expect(icon).toHaveAttribute('aria-haspopup', 'dialog');
-    await expect(icon).toHaveAttribute('aria-label', 'Поиск по бэклогу');
-    const ib = (await icon.boundingBox())!;
-    expect(ib.width).toBeGreaterThanOrEqual(39.5);
-    await expect(page.getByTestId('bs-active')).toHaveCount(0);
-    await icon.click();
-    const dlg = page.getByRole('dialog', { name: 'Поиск' });
-    await expect(dlg).toBeVisible();
-    await expect(page.getByTestId('bs-input')).toBeFocused();
-    const h = (await dlg.boundingBox())!.height;
-    expect(h).toBeGreaterThan(page.viewportSize()!.height * 0.85);
-    await page.getByTestId('bs-input').fill('альф');
-    await page.getByTestId('bs-input').press('Enter');
-    await expect(dlg).toHaveCount(0);
+    await expect(page.getByTestId('bs-open')).toHaveCount(0);
+    const input = page.getByTestId('bs-input');
+    await expect(input).toBeVisible();
+    await input.fill('альф');
+    const pop = page.getByTestId('bs-pop');
+    await expect(pop).toBeVisible();
+    const pb = (await pop.boundingBox())!;
+    expect(pb.x).toBeGreaterThanOrEqual(0);
+    expect(pb.x + pb.width).toBeLessThanOrEqual(page.viewportSize()!.width + 0.5);
+    expect(await noHScroll(page)).toBe(true);
+    await input.press('Enter');
     await expect(page).toHaveURL(/q=/);
-    await expect(page.getByTestId('bs-active')).toContainText('Поиск: «альф»');
-    await expect(icon).toHaveAttribute('data-active', 'true');
-    await expect(icon).toHaveAttribute('aria-label', 'Поиск по бэклогу, задан запрос');
-    expect((await page.locator('.ps-bl-bar').boundingBox())!.height).toBeCloseTo(barH, 0);
-    await page.getByTestId('bs-active').getByRole('button', { name: 'Сбросить' }).click();
+    await expect(input).toHaveValue('альф');
+    await page.getByTestId('bs-clear').click();
     await expect(page).not.toHaveURL(/q=/);
-    await expect(page.getByTestId('bs-active')).toHaveCount(0);
   });
 
   test('прямая ссылка ?q= применяется сразу', async ({ page, context, baseURL }) => {
@@ -415,7 +402,7 @@ test.describe('Умные подсказки', () => {
     await open(page, context, baseURL!, { candidates: many(8) });
     const input = await openSearch(page);
     await input.fill('hades');
-    await expect(store(page)).toHaveCount(isMobile(page) ? 8 : 5);
+    await expect(store(page)).toHaveCount(5);
   });
 
   test('клавиатура и ARIA: стрелки без зацикливания, aria-activedescendant, Enter добавляет «Не куплено», Esc и Tab', async ({ page, context, baseURL }) => {

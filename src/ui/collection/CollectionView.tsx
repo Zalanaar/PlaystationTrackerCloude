@@ -53,7 +53,7 @@ import { useInbox } from '../inbox/useInbox';
 import { mskDay } from '../inbox/model';
 import { expectHero, heroHintCookie } from '@/shared/hero-hint';
 import { formatLayoutHint, layoutHintCookie, type LayoutHint } from '@/shared/layout-hint';
-import { setHeaderSearchOpen, useHeaderAction } from '../shell/headerActions';
+import { useHeaderAction } from '../shell/headerActions';
 import { platformCookie, type PlatformKey } from '@/shared/platform-filter';
 import { useToast } from '../primitives/Toast';
 import type { OtherPlatformGame } from '../other-platforms/api';
@@ -95,21 +95,8 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
   // F4: запомненная платформа живёт и на клиенте: после «Все» cookie стёрт, а серверный prop ещё старый
   const [platDefault, setPlatDefault] = useState<PlatformKey | null>(platformDefault);
   const filters = useMemo(() => parseFilters(params, platDefault), [params, platDefault]);
-  // D-P1: на телефоне поле поиска открывает кнопка шапки. Повторное нажатие закрывает, как «Отмена».
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchDismissed, setSearchDismissed] = useState(false);
-  const searchVisible = searchOpen || (filters.q !== '' && !searchDismissed);
-  const closeSearch = useCallback(() => { setSearchOpen(false); setSearchDismissed(true); }, []);
-  const toggleSearch = useCallback(() => {
-    const visible = searchOpen || (filters.q !== '' && !searchDismissed);
-    if (visible) { setSearchOpen(false); setSearchDismissed(true); }
-    else { setSearchDismissed(false); setSearchOpen(true); }
-  }, [searchOpen, searchDismissed, filters.q]);
-  useHeaderAction('search', toggleSearch);
-  useEffect(() => {
-    setHeaderSearchOpen(searchVisible);
-    return () => setHeaderSearchOpen(false);
-  }, [searchVisible]);
+  // П.6 (t281u): поле поиска на телефоне открыто всегда, кнопки-лупы нет. Клавиша/действие «поиск» ставит фокус в поле.
+  useHeaderAction('search', () => { document.querySelector<HTMLInputElement>('.ps-filters--search input[type="search"]')?.focus(); });
   const [addOther, setAddOther] = useState(false);
   const openAddOther = useCallback(() => setAddOther(true), []);
   useHeaderAction('add-other', openAddOther);
@@ -330,8 +317,8 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       </div>
 
       {mobileMq === null
-        ? filters.q.trim() !== '' && <MobileSearchSkeleton />
-        : isMobile && searchVisible && <MobileSearch {...barProps} autoFocus={searchOpen && filters.q === ''} onClose={closeSearch} />}
+        ? <MobileSearchSkeleton />
+        : isMobile && <MobileSearch {...barProps} />}
 
       <TodayBlock
         openSsr={todayOpen}

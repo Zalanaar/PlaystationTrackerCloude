@@ -206,10 +206,20 @@ test.describe('заголовок раздела не повторяется н�
     expect(m.head.height).toBeLessThanOrEqual(m.tools.height + 8);
   });
 
-  test('План: подпись «Неделя с понедельника» остаётся', async ({ page, context, baseURL, isMobile }) => {
+  test('План: шапка одной строкой, «Неделя с понедельника» — в настройках', async ({ page, context, baseURL, isMobile }) => {
     await login(page, context, baseURL!);
     await mockRoadmap(page, baseState());
     await page.goto('/roadmap');
+    // П.5 (t281u): год · часы · «Изменить» в одну строку (не выше 48px)
+    const sum = page.getByTestId('rm-set-summary');
+    await expect(sum).toBeVisible();
+    const head = await page.locator('.ps-rm-page .ps-pagehead').boundingBox();
+    const btn = await page.getByRole('button', { name: 'Изменить' }).boundingBox();
+    const sb = await sum.boundingBox();
+    expect(head!.height).toBeLessThanOrEqual(48);
+    expect(Math.abs((btn!.y + btn!.height / 2) - (sb!.y + sb!.height / 2))).toBeLessThanOrEqual(4);
+    await expect(page.getByText('Неделя с понедельника', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Изменить' }).click();
     await expect(page.getByText('Неделя с понедельника', { exact: true })).toBeVisible();
     const h = await hidden(page, 'План');
     if (isMobile) expect(h).toBeLessThanOrEqual(1); else expect(h).toBeGreaterThan(10);

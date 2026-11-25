@@ -216,7 +216,7 @@ test.describe('План: релизы', () => {
     await open(page, context, baseURL as string, baseState({ plannedFail: 503 }));
     await expect(page.getByText('Не удалось загрузить релизы')).toBeVisible();
     await expect(page.getByTestId('rm-queue-row')).toHaveCount(4);
-    await expect(page.getByRole('heading', { name: 'Настройки плана' })).toBeVisible();
+    await expect(page.getByTestId('rm-set-summary')).toBeVisible();
   });
 });
 
@@ -226,7 +226,7 @@ test.describe('План: состояния', () => {
     await expect(page.getByRole('heading', { name: 'План на год' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Таймлайн 2026' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Составить план' }).click();
-    await expect(page.getByRole('heading', { name: 'Настройки плана' })).toBeVisible();
+    await expect(page.getByTestId('rm-set-summary')).toBeVisible();
     expect(s.calls.settings).toEqual([{ year: 2026, hoursPerWeek: 10 }]);
     await expect(page.getByText('План составлен')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Таймлайн 2026' })).toBeVisible();

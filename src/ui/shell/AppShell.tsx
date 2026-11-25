@@ -36,6 +36,7 @@ import { MARK_TAP, MEASURE_TAB, navDir, readScroll, runTabTransition, shouldInte
 import { ThemePicker, ThemeSwatches } from './ThemePicker';
 import { useEverTrue } from '../useEverTrue';
 import { pendingBadge, useTriagePending } from './triagePending';
+import { useTabHref } from './nextSub';
 import { installErrorReporter } from './errorReporter';
 
 const GlobalSearch = dynamic(() => import('./GlobalSearch').then((m) => m.GlobalSearch), { ssr: false });
@@ -81,6 +82,7 @@ export function AppHeader() {
   // D-P2: на мобильном вместо логотипа название раздела, рядом «Поиск» и «+» той страницы, где они есть
   // П9/F25: и у экранов без вкладки («Разбор», «Профили», «Доступ», «Здоровье», «Настройки») название в шапке телефона
   const title = sectionTitle(pathname);
+  const tabHref = useTabHref(pathname);
   const hdr = headerActionsFor(pathname);
   const localSearch = localSearchOn(pathname);
   const localSearchOpen = useHeaderSearchOpen();
@@ -101,10 +103,11 @@ export function AppHeader() {
           {title && <span className="ps-header__title" aria-hidden="true">{title}</span>}
           <nav className="ps-nav" aria-label="Разделы" data-tour="nav">
             {NAV_TABS.map((n) => {
+              const href = tabHref(n);
               const dot = n.id === 'stats' && offer !== null;
               return (
                 <Link
-                  key={n.href} href={n.href} className="ps-nav-item" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
+                  key={n.href} href={href} className="ps-nav-item" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
                   onClick={(e: MouseEvent<HTMLAnchorElement>) => { if (!isTabActive(pathname, n) && offlineNav()) e.preventDefault(); }}
                   aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
                 >
@@ -115,7 +118,7 @@ export function AppHeader() {
             })}
           </nav>
           <div className="ps-header__right">
-            {hdr.search && (
+            {hdr.search && !localSearch && (
               <button
                 type="button" className={localSearch ? 'ps-iconbtn ps-mobile-only' : 'ps-iconbtn'} data-testid="hdr-search" data-tour="search-hdr" aria-label="Найти игру"
                 aria-haspopup={localSearch ? undefined : 'dialog'}
@@ -330,6 +333,7 @@ export function TabBar() {
   const offer = useSeasonOffer();
   const router = useRouter();
   const active = NAV_TABS.findIndex((n) => isTabActive(pathname, n));
+  const tabHref = useTabHref(pathname);
   // П16.2: вкладка подсвечивается сразу по касанию (до смены маршрута); действует, пока адрес прежний.
   // Сбрасываем при уходе с этого адреса: иначе «/?game=» (pathname снова «/») снова подсвечивал вкладку Статистики.
   const [optimistic, setOptimistic] = useState<{ path: string; to: number } | null>(null);
@@ -390,7 +394,7 @@ export function TabBar() {
     let resolve: () => void = () => {};
     const ready = new Promise<void>((r) => { resolve = r; });
     pending.current = { tab: tab.id, y: readScroll(ss, tab.id), resolve };
-    runTabTransition(navDir(active, to), () => router.push(tab.href, { scroll: false }), () => ready);
+    runTabTransition(navDir(active, to), () => router.push(tabHref(tab), { scroll: false }), () => ready);
   };
   return (
     <nav className="ps-tabbar" aria-label="Разделы" data-tour="nav">
@@ -398,7 +402,7 @@ export function TabBar() {
         const dot = n.id === 'stats' && offer !== null;
         return (
           <Link
-            key={n.href} href={n.href} className="ps-tab" aria-current={i === shown ? 'page' : undefined}
+            key={n.href} href={tabHref(n)} className="ps-tab" aria-current={i === shown ? 'page' : undefined}
             onClick={(e: MouseEvent<HTMLAnchorElement>) => onTab(e, i)} onTouchStart={() => warmData(i)} onMouseEnter={() => warmData(i)}
             aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
           >

@@ -385,37 +385,37 @@ export function RoadmapView() {
     : 0;
   return (
     <div className="ps-rm-page">
-      <div className="ps-pagehead">
+      {/* П.5 (t281u): шапка Плана одной строкой — год и часы в неделю, «Изменить» раскрывает настройки */}
+      <div className="ps-pagehead ps-rm-head1">
         <h1 className="ps-h1 ps-h1--hdr">План</h1>
-        <p className="ps-rm-sub ps-rm-sub--head">Неделя с понедельника</p>
+        {data ? (
+          <p className="ps-rm-set__sum" data-testid="rm-set-summary">
+            <b className="num">{data.settings.year}</b> · {data.settings.hoursPerWeek != null ? `${hoursLabel(data.settings.hoursPerWeek)} в неделю` : 'часы не заданы'}
+          </p>
+        ) : <span className="ps-skeleton ps-rm-sk-set-sum" aria-hidden="true" />}
+        {data && (
+          <button
+            type="button" className="ps-link ps-rm-set__toggle" aria-expanded={setOpen} aria-controls="rm-set-body"
+            onClick={() => setSetOpen((v) => !v)}
+          >
+            {setOpen ? 'Свернуть' : 'Изменить'}
+          </button>
+        )}
       </div>
       <RoadmapJump attention={attentionN > 0} />
-      <div className="ps-rm" aria-busy={!data || undefined}>
-        <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
-          <div className="ps-rm-set__head">
-            <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
-            {data && (
-              <button
-                type="button" className="ps-link ps-rm-set__toggle" aria-expanded={setOpen} aria-controls="rm-set-body"
-                onClick={() => setSetOpen((v) => !v)}
-              >
-                {setOpen ? 'Свернуть' : 'Изменить'}
-              </button>
-            )}
-          </div>
-          {data ? (
-            setOpen ? (
-              <div id="rm-set-body"><SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /></div>
-            ) : (
-              <p className="ps-rm-set__sum" id="rm-set-body" data-testid="rm-set-summary">
-                <b className="num">{data.settings.year}</b> · {data.settings.hoursPerWeek != null ? `${hoursLabel(data.settings.hoursPerWeek)} в неделю` : 'часы не заданы'}
-              </p>
-            )
-          ) : <div className="ps-skeleton ps-rm-sk-set-sum" aria-hidden="true" />}
-        </section>
+      <div className="ps-rm" aria-busy={!data || undefined} data-set-open={(data && setOpen) || undefined}>
+        {data && setOpen && (
+          <section className="ps-rm-panel" data-area="set" aria-labelledby="rm-set-h">
+            <div className="ps-rm-set__head">
+              <h2 className="ps-h2" id="rm-set-h">Настройки плана</h2>
+            </div>
+            <p className="ps-rm-sub ps-rm-set__note">Неделя с понедельника</p>
+            <div id="rm-set-body"><SettingsPanel settings={data.settings} today={data.today} busy={applying} welcome={false} onApply={(y, h) => void apply(y, h)} /></div>
+          </section>
+        )}
         <section className="ps-rm-panel" id="rm-goal" data-area="goal" data-tour="roadmap-goal" aria-labelledby="rm-goal-h" aria-busy={!data || undefined}>
           {data ? (
-            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} yearRollover={data.yearRollover} onChanged={setGoal} onRolled={() => { void load(); }} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' })); }} />
+            <GoalPanel goal={data.goal ?? null} year={year} today={data.today} yearRollover={data.yearRollover} onChanged={setGoal} onRolled={() => { void load(); }} onSettings={() => { setSetOpen(true); requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('rm-set-h')?.scrollIntoView({ block: 'center' }))); }} />
           ) : <><h2 className="ps-h2" id="rm-goal-h">Цель на {year}</h2><div className="ps-skeleton ps-rm-sk-goal" aria-hidden="true" /></>}
         </section>
         <section className="ps-rm-panel" data-area="prog" aria-label="Прогресс">

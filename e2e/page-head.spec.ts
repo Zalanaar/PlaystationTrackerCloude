@@ -22,7 +22,7 @@ async function head(page: Page) {
 const PAGES: { path: string; ready: (p: Page) => Promise<void> }[] = [
   { path: '/', ready: (p) => p.locator('.ps-profile').first().waitFor() },
   { path: '/backlog', ready: (p) => p.getByTestId('bl-total').waitFor() },
-  { path: '/roadmap', ready: (p) => p.getByText('Неделя с понедельника', { exact: true }).waitFor() },
+  { path: '/roadmap', ready: (p) => p.getByTestId('rm-set-summary').waitFor() },
   { path: '/trophies', ready: (p) => p.locator('.ps-tf__sum').first().waitFor() },
   { path: '/wrapped', ready: (p) => p.locator('.ps-wrapped-lead').first().waitFor() },
 ];
@@ -60,7 +60,7 @@ test.describe('Пакет 6, п. 6: шапка страниц (мобильны�
     }));
     expect(m.display).toBe('contents');
     await page.goto('/roadmap');
-    await page.getByText('Неделя с понедельника', { exact: true }).waitFor();
+    await page.getByTestId('rm-set-summary').waitFor();
     const rm = await page.evaluate(() => ({
       sub: [...document.querySelectorAll('.ps-subnav')].find((e) => e.getBoundingClientRect().height > 0)!.getBoundingClientRect().bottom,
       head: document.querySelector('.ps-rm-page .ps-pagehead')!.getBoundingClientRect().top,

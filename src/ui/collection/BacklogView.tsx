@@ -33,7 +33,7 @@ import { fetchManual, markPurchased, removeManual, unmarkPurchased } from './man
 import { RemoveManualSheet } from './RemoveManualSheet';
 import { BacklogFilters } from './BacklogFilters';
 import { platformCookie, type PlatformCounts, type PlatformKey } from '@/shared/platform-filter';
-import { setHeaderSearchOpen, useHeaderAction } from '../shell/headerActions';
+import { useHeaderAction } from '../shell/headerActions';
 import { BacklogMobileBar, BacklogPageMenu, BacklogViewSeg } from './BacklogBar';
 import { RemainingMeter } from './RemainingMeter';
 import { BacklogCardActions, BacklogRow, type RowMenuItem } from './BacklogRow';
@@ -56,7 +56,6 @@ import { CardGridSkeleton } from '../skeletons';
 import { GameGrid, GameGridItem } from './GameGrid';
 import { BacklogJumpNav, scrollToBlock, useBacklogJump } from './BacklogJump';
 import { BacklogSideSection } from './BacklogSideSection';
-import { BacklogSearchSheet } from './BacklogSearchSheet';
 import { playLabel } from './playLabel';
 import { serviceLine } from './serviceLine';
 import { BACKLOG_DEFINITION, backlogManualParts } from '@/shared/backlog';
@@ -140,7 +139,6 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   const [addOpen, setAddOpen] = useState(false);
   // запрос, с которым открывается панель поиска («Все результаты в магазине PS», Enter при мягком пределе)
   const [addQuery, setAddQuery] = useState<string | undefined>(undefined);
-  const [searchOpen, setSearchOpen] = useState(false);
   // секция «Не куплено»: свёрнутость в localStorage, «Показать ещё» без запроса, вкладка не пропадает, если секция уже была в сессии
   const [nbOpen, setNbOpenState] = useState(readNbOpen);
   const [nbShowAll, setNbShowAll] = useState(false);
@@ -424,8 +422,8 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
   }
   const manualHandlers: ManualHandlers = { bought: (g, f) => void bought(g, f), remove: (g) => setRemoving(g) };
   // D-P2: «Поиск» и «+» мобильной шапки
-  useHeaderAction('search', () => setSearchOpen((v) => !v));
-  useEffect(() => { setHeaderSearchOpen(searchOpen); return () => setHeaderSearchOpen(false); }, [searchOpen]);
+  // П.6 (t281u): поле поиска открыто всегда (и на телефоне); действие «поиск» ставит в него фокус.
+  useHeaderAction('search', () => { document.querySelector<HTMLInputElement>('[data-testid="bs-input"]')?.focus(); });
   useHeaderAction('add', () => openAdd());
   useDataRefresh(() => { void load(); void loadService(); void loadAge(); }); // П9: возврат в приложение, «потяни, чтобы обновить»
   // П9: «Не куплено (PS)» из меню «+» на другой странице ведёт сюда с `?add=store` — окно сразу, параметр убираем
@@ -607,30 +605,22 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
           <BacklogPageMenu running={hltb.running} onHltb={(recheck) => void startHltb(recheck)} onAdd={() => openAdd()} />
         </div>
       </div>
-      {/* поле поиска на десктопе: строка между шапкой и фильтрами; CSS прячет её на < 768, чтобы первый кадр не прыгал */}
-      {!mobile && (
-        <div className="ps-bs-row">
-          <BacklogSearch
-            variant="inline" manual={manual} appliedQ={filters.q} onApply={(q) => setFilters({ q })} onPick={onSearchPick}
-            onAdded={(title) => addedToast([{ title, bought: false }])} onOpenStore={(q) => openAdd(q)}
-          />
-        </div>
-      )}
+      {/* П.6 (t281u): поле поиска — строка между шапкой и фильтрами на любой ширине, без лупы */}
+      <div className="ps-bs-row">
+        <BacklogSearch
+          variant="inline" manual={manual} appliedQ={filters.q} onApply={(q) => setFilters({ q })} onPick={onSearchPick}
+          onAdded={(title) => addedToast([{ title, bought: false }])} onOpenStore={(q) => openAdd(q)}
+        />
+      </div>
       {!(items || counts) && !error && <div className="ps-skeleton ps-sk-blfilters" aria-hidden="true" />}
       {(items || counts) && (mobile ? (
         <BacklogMobileBar
           filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} platformCounts={platformCounts} total={shownTotal} nbCount={nbCount} view={view} onView={setView}
-          onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} onSearch={() => setSearchOpen(true)}
+          onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))}
         />
       ) : (
         <BacklogFilters filters={filters} counts={counts} genreCounts={genreCounts} hltbCounts={hltbCounts} platformCounts={platformCounts} nbCount={nbCount} onChange={setFilters} onReset={() => setFilters(resetBacklogFilters(filters))} />
       ))}
-      {mobile && filters.q && (
-        <div className="ps-bs-active" data-testid="bs-active">
-          <span className="ps-bs-active__t">Поиск: «{filters.q}»</span>
-          <button type="button" className="ps-btn ps-btn--ghost ps-btn--sm" onClick={() => setFilters({ q: '' })}>Сбросить</button>
-        </div>
-      )}
       <HltbStatus runner={hltb} />
       {showJump && <BacklogJumpNav tabs={tabs} sentinelRef={sentinelRef} stuck={stuck} activeTab={activeTab} onJump={jumpTo} />}
       {ready && !filters.nb && (
@@ -737,12 +727,6 @@ export function BacklogView({ platformDefault = null }: { platformDefault?: Plat
             </div>
             </>
           )}
-        />
-      )}
-      {mobile && searchOpen && (
-        <BacklogSearchSheet
-          manual={manual} appliedQ={filters.q} onApply={(q) => setFilters({ q })} onPick={onSearchPick}
-          onAdded={(title) => addedToast([{ title, bought: false }])} onOpenStore={(q) => openAdd(q)} onClose={() => setSearchOpen(false)}
         />
       )}
       <RemoveManualSheet game={removing} onClose={() => setRemoving(null)} onConfirm={confirmRemove} />

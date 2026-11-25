@@ -435,3 +435,11 @@ button.ps-rm-over__row { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .ps-rm-search-well { transition: none; }
 }
+/* П.5 (t281u): шапка одной строкой; на телефоне h1 в шапке приложения, строка = год · часы · «Изменить» */
+.ps-rm-page .ps-pagehead.ps-rm-head1 { flex-wrap: nowrap; align-items: center; justify-content: flex-start; min-height: var(--tap-min); }
+.ps-rm-head1 .ps-rm-set__sum { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-rm-head1 .ps-rm-set__toggle { margin-left: auto; flex: none; min-height: var(--tap-min); }
+.ps-rm-set__note { margin: calc(-1 * var(--sp-1)) 0 var(--sp-3); }
+@media (min-width: 1024px) {
+  .ps-rm:not([data-set-open]) { grid-template-areas: "prog prog" "goal goal" "tl tl" "rel queue" "att queue"; }
+}

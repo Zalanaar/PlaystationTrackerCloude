@@ -294,3 +294,19 @@ button.ps-gd__dlcpr { cursor: pointer; }
 /* ---------- Окно игры по ссылке ---------- */
 .ps-gd__sk-title { display: block; width: 200px; max-width: 100%; height: 24px; }
 .ps-gd__missing-act { display: flex; gap: var(--sp-3); }
+
+/* П.7 (t281u): свёрнутые блоки «Обзора» — строка 44 px, раскрытие на месте */
+.ps-gd__fold { min-width: 0; border-top: var(--border-w) solid var(--border); }
+.ps-gd__foldbtn { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap-min); padding: 0; background: none; border: 0; color: var(--text); font: 600 var(--fs-body)/var(--lh-body) var(--font-body); text-align: left; cursor: pointer; }
+.ps-gd__foldbtn:disabled { cursor: default; }
+.ps-gd__foldbtn:focus-visible { outline: none; box-shadow: var(--shadow-focus); border-radius: var(--r-sm); }
+.ps-gd__foldh { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-size: var(--fs-small); color: var(--text-3); }
+.ps-gd__foldt { flex: none; }
+.ps-gd__foldbtn > svg { margin-left: auto; flex: none; color: var(--text-2); transition: transform .15s ease; }
+.ps-gd__fold[data-open] .ps-gd__foldbtn > svg { transform: rotate(180deg); }
+.ps-gd__foldbtn:disabled > svg { visibility: hidden; }
+.ps-gd__foldbody { display: grid; gap: var(--sp-3); padding-bottom: var(--sp-2); min-width: 0; }
+.ps-gd__sk-fold { height: var(--tap-min); border-radius: var(--r-sm); }
+@media (prefers-reduced-motion: reduce) { .ps-gd__foldbtn > svg { transition: none; } }
+/* заголовок «История игры» внутри свёрнутого блока повторял бы строку «История» — оставляем только для скринридеров */
+.ps-gd__foldbody > .ps-gd__hist > h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

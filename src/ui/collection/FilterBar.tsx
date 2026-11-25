@@ -252,16 +252,14 @@ export function FilterBar(p: BarProps) {
 }
 
 /** Мобильный слот 1 (D-P1): поле поиска. Открывается кнопкой с лупой в шапке, видно, пока открыто или есть запрос. */
-export function MobileSearch(p: BarProps & { autoFocus?: boolean; onClose: () => void }) {
-  const { filters, onChange, onClose } = p;
+/** П.6 (t281u): строка поиска на телефоне — всегда открыта, без «Отмена» и лупы в шапке. */
+export function MobileSearch(p: BarProps) {
+  const { filters, onChange } = p;
   const commit = useCallback((q: string) => onChange({ q }), [onChange]);
   return (
     <div className="ps-filters ps-filters--search">
       <div className="ps-filters__srow">
-        <SearchBox value={filters.q} onCommit={commit} autoFocus={p.autoFocus} onEscape={filters.q ? undefined : onClose} />
-        {!filters.q && (
-          <button type="button" className="ps-btn ps-btn--ghost ps-filters__sclose" onClick={onClose}>Отмена</button>
-        )}
+        <SearchBox value={filters.q} onCommit={commit} />
       </div>
     </div>
   );

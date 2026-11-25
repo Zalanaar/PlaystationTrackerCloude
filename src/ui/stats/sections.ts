@@ -14,7 +14,6 @@ export const STATS_SEC_ALIASES: Readonly<Record<string, { group: string; selecto
   time: { group: 'time', selector: '[data-st-group="time"]' },
   hours: { group: 'time', selector: '[aria-labelledby="st-hours"], [aria-labelledby^="st-hy-"]' },
   when: { group: 'time', selector: '[aria-labelledby^="st-pp-"]' },
-  cost: { group: 'time', selector: '[data-st-group="time"]' },
   games: { group: 'games', selector: '[data-st-group="games"]' },
   genres: { group: 'games', selector: '[aria-labelledby="st-genres"]' },
   finished: { group: 'games', selector: '[aria-labelledby^="st-fy-"]' },

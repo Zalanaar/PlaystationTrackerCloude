@@ -8,6 +8,7 @@ import { Icon } from '../../icons';
 import { DurationEditor } from '../DurationEditor';
 import { lastPlayedText } from '../details';
 import { History } from './History';
+import { historyView } from '../history';
 import { LinkedVersions } from './LinkedVersions';
 import { PlatinumPath } from './PlatinumPath';
 import { DlcProgress } from './DlcProgress';
@@ -15,8 +16,8 @@ import { dlcProgress } from '../trophies';
 import { DiaryEditor } from '../../diary/DiaryEditor';
 import { ReviewEditor } from './ReviewEditor';
 import { GameTags } from '../../tags/GameTags';
-import { GamePrice } from '../../prices/GamePrice';
 import type { DialogHandlers } from './types';
+import { Fold } from './Fold';
 
 function Kv({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -48,15 +49,7 @@ export function Overview({
   return (
     <>
       <div className="ps-gd__ovmain">
-      {/* D-P4: «Путь к платине» — первым блоком «Обзора» */}
-      {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
-        <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
-      )}
-
-      {/* Пакет 7, п. 1: прогресс по основной игре и каждому DLC, незакрытые дополнения — мини-бэклог */}
-      {dlc && <DlcProgress data={dlc} onOpen={onOpenTrophies} />}
-
-      {/* F1: оценка и заметка (детали загружены: заметки в GameItem нет) */}
+      {/* П.7 (t281u): сверху оценка и дневник (статус и часы — в шапке окна), затем прогресс; история свёрнута */}
       {details ? (
         <>
         <ReviewEditor key={`review-${game.id}`} game={game} review={details.review ?? null} onChanged={onGameChanged} withNote={false} />
@@ -64,12 +57,23 @@ export function Overview({
         </>
       ) : loading && <div className="ps-skeleton ps-gd__sk-review" aria-hidden="true" />}
 
-      {details ? (
-        <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} diary={diary} />
-      ) : loading && <div className="ps-skeleton ps-gd__sk-hist" aria-hidden="true" />}
+      {/* D-P4: «Путь к платине» */}
+      {forecast ? <PlatinumPath f={forecast} /> : forecastPending && (
+        <div className="ps-skeleton ps-gd__sk-fc" aria-hidden="true" />
+      )}
+
+      {/* Пакет 7, п. 1: прогресс по основной игре и каждому DLC, незакрытые дополнения — мини-бэклог */}
+      {dlc && <DlcProgress data={dlc} onOpen={onOpenTrophies} />}
+
+      {details ? (historyView(details.history) || diary.length > 0) && (
+        <Fold id="history" title="История" testId="gd-fold-history">
+          <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} diary={diary} />
+        </Fold>
+      ) : loading && <div className="ps-skeleton ps-gd__sk-fold" aria-hidden="true" />}
       </div>
 
       <div className="ps-gd__ovside">
+      <Fold id="more" title="Подробнее" hint="даты, теги, управление" testId="gd-fold-more" force={hidden}>
       <section className="ps-gd__sec" aria-labelledby="gd-s2">
         <h3 id="gd-s2">Даты</h3>
         <dl>
@@ -84,8 +88,6 @@ export function Overview({
 
       {/* П13.2: свои теги (только у видимой игры: на скрытую и дубль теги не вешаются) */}
       {onGameChanged && !hidden && <GameTags key={`tags-${game.id}`} gameId={game.id} />}
-      {/* П13.3: цена покупки и стоимость часа */}
-      {onGameChanged && !hidden && <GamePrice key={`price-${game.id}`} gameId={game.id} hours={game.hours} />}
 
       {onNotDuplicate && <LinkedVersions game={game} onSplit={onNotDuplicate} />}
 
@@ -114,6 +116,7 @@ export function Overview({
           {onHidden && !hidden && <p className="ps-detail__hint" id={hintId}>Игра не будет показываться нигде, синк её не вернёт.</p>}
         </section>
       )}
+      </Fold>
       </div>
     </>
   );

@@ -138,8 +138,8 @@ describe('backup', () => {
     expect((await previewRestore(t.db, TEST_USER, f)).sections.diary).toEqual({ add: 0, change: 0, unchanged: 1, skipped: 0 });
   });
 
-  // --- П13 (v3): свои теги и цены — только в ручной выгрузке; восстановление добавляет теги и цены, не стирая
-  it('v3: теги и цены в ручной выгрузке, не в еженедельной; восстановление и идемпотентность', async () => {
+  // --- П13 (v3): свои теги — только в ручной выгрузке; восстановление добавляет теги, не стирая. t281u П.19: цены не выгружаются и не восстанавливаются
+  it('v3: теги в ручной выгрузке, не в еженедельной; цен нет; восстановление и идемпотентность', async () => {
     const id = await seed();
     const [coop] = await t.db.insert(gameTags).values({ userId: 1, name: 'Кооп' }).returning();
     await t.db.insert(gameTagLinks).values({ userId: 1, tagId: coop.id, gameId: id('B') });
@@ -149,8 +149,9 @@ describe('backup', () => {
     expect(weekly.games.map((g) => g.titleId)).not.toContain('D');
     const f = await buildBackup(t.db, TEST_USER, NOW, { personal: true });
     const b = f.games.find((g) => g.titleId === 'B')!;
-    expect(b).toMatchObject({ tags: ['Кооп'], price: 1999 });
-    expect(f.games.find((g) => g.titleId === 'D')).toMatchObject({ tags: [], price: 0 });
+    expect(b).toMatchObject({ tags: ['Кооп'] });
+    expect(f.games.some((g) => 'price' in g)).toBe(false);
+    expect(f.games.map((g) => g.titleId)).not.toContain('D');
     const parsed = parseBackup(JSON.parse(JSON.stringify(f)));
     if (!parsed.ok) throw new Error('parse');
 
@@ -161,20 +162,19 @@ describe('backup', () => {
     await t.db.insert(gamePrices).values({ userId: 1, gameId: id('A'), price: 500 });
     const file = JSON.parse(JSON.stringify(parsed.value)) as BackupFile;
     file.games.find((g) => g.titleId === 'B')!.tags = ['Кооп', 'Перепройти'];
-    file.games.find((g) => g.titleId === 'A')!.price = null;
+    file.games.find((g) => g.titleId === 'B')!.price = 4999; // старый файл с ценой: поле игнорируется
     const pre = await previewRestore(t.db, TEST_USER, file);
     expect(pre.sections.tags).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
-    expect(pre.sections.price).toEqual({ add: 2, change: 0, unchanged: 0, skipped: 0 });
+    expect('price' in pre.sections).toBe(false);
     await applyRestore(t.db, TEST_USER, file, NOW);
     const tags = await t.db.select().from(gameTags);
     expect(tags.map((x) => x.name).sort()).toEqual(['Перепройти', 'кооп']);
     const links = await t.db.select().from(gameTagLinks);
     expect(links.filter((l) => l.gameId === id('B')).map((l) => l.tagId).sort()).toEqual([mine.id, tags.find((x) => x.name === 'Перепройти')!.id].sort());
     const prices = new Map((await t.db.select().from(gamePrices)).map((p) => [p.gameId, p.price]));
-    expect([prices.get(id('A')), prices.get(id('B')), prices.get(id('D'))]).toEqual([500, 1999, 0]);
+    expect([prices.get(id('A')), prices.get(id('B'))]).toEqual([500, undefined]);
     const again = await previewRestore(t.db, TEST_USER, file);
     expect(again.sections.tags).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
-    expect(again.sections.price).toEqual({ add: 0, change: 0, unchanged: 2, skipped: 0 });
     // битые поля v3
     const bad = (o: Record<string, unknown>) => { const x = JSON.parse(JSON.stringify(f)); Object.assign(x.games[0], o); return parseBackup(x).ok; };
     expect(bad({ price: -1 })).toBe(false);

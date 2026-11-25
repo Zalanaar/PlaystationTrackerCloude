@@ -220,9 +220,6 @@ export type Mock = {
   /** П13.2: свои теги и их привязка к играм (gameId -> tagIds) */
   tags: { id: number; name: string }[];
   gameTags: Record<number, number[]>;
-  /** П13.3: цены покупки (gameId -> ₽) и ответ GET /api/stats/cost (null — 503) */
-  prices: Record<number, number>;
-  cost: Record<string, unknown> | null;
   /** П13.4: ответ GET /api/me/checklist (по умолчанию не показывать); dismissCalls — сколько раз «Скрыть» */
   checklist: Record<string, unknown> | null;
   checklistDismissCalls: number;
@@ -301,13 +298,16 @@ export function activityFor(year: number, empty = false, firstDay?: string) {
 }
 
 export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
+  // П.7 (t281u): в окне игры «История» и «Подробнее» по умолчанию свёрнуты. Старые сценарии работают с раскрытыми блоками;
+  // проверка свёрнутости (game-dialog-folds.spec) ставит свой ключ после этого скрипта.
+  await page.addInitScript(() => { try { if (localStorage.getItem('ps-gd-folds') === null) localStorage.setItem('ps-gd-folds', '{"history":true,"more":true}'); } catch { /* about:blank */ } });
   const m: Mock = {
     games, listCalls: [], batchCalls: [], failBlock: () => false, mutations: [], delayList: () => 0, failNextMutation: null, abortMutations: false, listFails: false, backups: [],
     profile: null, trophies: {}, failDetails: null, detailsDelay: 0, detailCalls: [], forecasts: {}, histories: {},
     diary: {}, diarySeq: 1,
     hunts: { gameId: null, trophies: [] },
     guides: {},
-    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, checklist: { show: false, endsAt: null, items: null }, checklistDismissCalls: 0, prices: {}, cost: { priced: 0, total: 0, hours: 0, perHour: null, best: [], worst: [], idle: { count: 0, total: 0 } }, nearPlatinum: [], legacySummary: false,
+    activityCalls: [], activityFails: null, activityDelay: 0, activityEmpty: false, activityFirst: null, onThisDay: [], level: { level: null, progress: null, tier: null, points: null, toNext: null, gained: null, eta: null, approximate: false }, backlogAge: { items: [], summary: { count: 0, medianDays: null, overYear: 0, oldest: null } }, achievements: emptyAchievements(), tags: [], gameTags: {}, checklist: { show: false, endsAt: null, items: null }, checklistDismissCalls: 0, nearPlatinum: [], legacySummary: false,
     hltbCalls: [], hltbRuns: [], hltbDelay: 0, hltbApply: () => {},
     hints: [], hintsFail: null, dismissals: [], inbox: null, inboxFails: 0, inboxDelay: 0, inboxCalls: 0,
     syncStatus: { totals: null, running: false, run: null, lastSuccessAt: '2026-10-27T05:00:00.000Z', psnAuth: 'ok', psnAuthExpiresAt: null },
@@ -364,17 +364,6 @@ export async function mockApi(page: Page, games: G[] = seed()): Promise<Mock> {
     m.checklistDismissCalls += 1;
     m.checklist = { show: false, endsAt: null, items: null };
     return json(r, { dismissed: true });
-  });
-  // П13.3: цена покупки и сводка
-  await page.route(/\/api\/stats\/cost(\?|$)/, (r) => (m.cost ? json(r, m.cost) : json(r, { code: 'db_unavailable', message: 'x' }, 503)));
-  await page.route(/\/api\/games\/\d+\/price$/, async (r) => {
-    const id = Number(new URL(r.request().url()).pathname.split('/')[3]);
-    if (r.request().method() === 'PUT') {
-      const body = r.request().postDataJSON() as { price: number | null };
-      m.mutations.push({ method: 'PUT', url: r.request().url(), body });
-      if (body.price === null) delete m.prices[id]; else m.prices[id] = body.price;
-    }
-    return json(r, { price: m.prices[id] ?? null });
   });
   await page.route(/\/api\/games\/\d+\/tags$/, async (r) => {
     const id = Number(new URL(r.request().url()).pathname.split('/')[3]);

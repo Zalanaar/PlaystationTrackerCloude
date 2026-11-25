@@ -18,7 +18,6 @@ async function boot(page: Page, context: import('@playwright/test').BrowserConte
   await mockApi(page, [bl(1, 'Альфа Экшен'), bl(2, 'Браво Гонки')]);
 }
 const openField = async (page: Page) => {
-  if (await page.getByTestId('bs-open').isVisible().catch(() => false)) await page.getByTestId('bs-open').click();
   const input = page.getByTestId('bs-input');
   await input.focus();
   return input;
@@ -83,13 +82,11 @@ for (const theme of ['night', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'graphite']) {
     await page.screenshot({ path: `${SHOTS}/${theme}-list.png` });
     await page.getByTestId('bl-nb').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/${theme}-nb.png` });
-    await page.getByTestId('bs-open').click();
     await page.getByTestId('bs-input').fill('hades');
     await page.locator('[data-testid="bs-opt"][data-kind="store"]').first().waitFor();
     await page.screenshot({ path: `${SHOTS}/${theme}-suggest.png` });
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
-    await page.getByRole('dialog', { name: 'Поиск' }).waitFor({ state: 'hidden' });
+    await page.getByTestId('bs-pop').waitFor({ state: 'hidden' });
     await clickAdd(page);
     await page.getByTestId('add-input').fill('hades');
     await page.getByTestId('add-submit').click();
