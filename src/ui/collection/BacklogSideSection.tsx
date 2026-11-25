@@ -13,7 +13,7 @@ import type { BacklogView } from './backlog';
 type Kind = 'shelved' | 'service';
 const META: Record<Kind, { title: string; sub: string; label: string }> = {
   shelved: { title: 'Отложено', sub: 'Отложено на потом. В бэклог и план эти игры не входят.', label: 'Отложенные игры' },
-  service: { title: 'Сервис', sub: 'Сервисы не попадают в план прохождения.', label: 'Сервисы' },
+  service: { title: 'Сервис', sub: 'Не попадают в план прохождения.', label: 'Сервис' },
 };
 
 export function BacklogSideSection({ kind, items, total, open, onToggle, view, rows, actions, cardBody, more }: {

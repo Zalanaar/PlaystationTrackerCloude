@@ -295,3 +295,5 @@
 @media (prefers-contrast: more) {
   .ps-own-row, .ps-own-item, .ps-own .ps-input { border-width: 2px; }
 }
+/* t281u П.24: «Из бэклога» — главный режим; «У тебя нет» — второстепенный (тише, пока не выбран) */
+.ps-rec-modes #rec-tab-discover[aria-selected="false"] { font-weight: 400; color: var(--text-2); }

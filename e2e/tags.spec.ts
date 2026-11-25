@@ -53,9 +53,9 @@ async function openTagsFromFilters(page: Page) {
 
 async function openTagsSheet(page: Page) {
   if (isMobile(page)) {
-    // F13: «Теги» — в меню «⋯» шапки
-    await page.getByRole('button', { name: 'Меню', exact: true }).click();
-    await page.getByTestId('sheet-tags').click();
+    // t281u П.22: в «⋯» «Тегов» нет — лист открывается из «Фильтров»
+    await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
+    await page.getByRole('dialog', { name: 'Фильтры' }).getByTestId('filters-tags').click();
   } else {
     await page.getByRole('button', { name: 'Ещё: действия с коллекцией' }).click();
     await page.getByTestId('menu-tags').click();

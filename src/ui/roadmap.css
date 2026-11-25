@@ -443,3 +443,4 @@ button.ps-rm-over__row { cursor: pointer; }
 @media (min-width: 1024px) {
   .ps-rm:not([data-set-open]) { grid-template-areas: "prog prog" "goal goal" "tl tl" "rel queue" "att queue"; }
 }
+.ps-rm-head1 .ps-rm-sk-set-sum { display: inline-block; width: 140px; flex: none; }

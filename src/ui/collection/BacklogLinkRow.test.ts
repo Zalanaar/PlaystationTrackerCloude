@@ -4,10 +4,10 @@ import { backlogLinkLabel, isHomeBacklogRow } from './BacklogLinkRow';
 const home = { status: 'all' as const, q: '', platinum: false, platform: null, hidden: false, tag: null };
 
 describe('backlogLinkLabel', () => {
-  it('собирает только ненулевые счётчики в порядке Бэклог · Отложено · Сервисы', () => {
-    expect(backlogLinkLabel({ backlog: 34, shelved: 5, service: 4 })).toBe('Бэклог 34 · Отложено 5 · Сервисы 4');
+  it('собирает только ненулевые счётчики в порядке Бэклог · Отложено · Сервис', () => {
+    expect(backlogLinkLabel({ backlog: 34, shelved: 5, service: 4 })).toBe('Бэклог 34 · Отложено 5 · Сервис 4');
     expect(backlogLinkLabel({ backlog: 1, shelved: 1, service: 0 })).toBe('Бэклог 1 · Отложено 1');
-    expect(backlogLinkLabel({ backlog: 0, shelved: 0, service: 9 })).toBe('Сервисы 9');
+    expect(backlogLinkLabel({ backlog: 0, shelved: 0, service: 9 })).toBe('Сервис 9');
     expect(backlogLinkLabel({ backlog: 0, shelved: 0, service: 0 })).toBeNull();
   });
 });

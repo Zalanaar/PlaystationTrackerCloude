@@ -255,3 +255,6 @@ html[data-psw] .ps-main { visibility: hidden; }
 .ps-settings__acts .ps-btn { min-height: var(--tap-min); }
 .ps-settings__hint { display: block; font-weight: 400; color: var(--text-2); }
 .ps-settings__sec--danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+/* t281u П.20: выбор источника восстановления под кнопкой «Восстановить…» */
+.ps-settings__src { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
+.ps-settings__src .ps-btn { justify-content: flex-start; min-height: var(--tap-min); height: auto; padding-block: var(--sp-2); text-align: left; }

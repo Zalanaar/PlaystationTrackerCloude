@@ -471,10 +471,10 @@ test.describe('коллекция (desktop)', () => {
   test('тема: семь тем переключаются, выбор сохраняется после reload и переходов', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await expect(page.getByRole('menuitemradio')).toHaveText(['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']);
+    await expect(page.getByRole('menuitemradio')).toHaveText(['Ночь', 'Тёмная', 'Карта памяти', 'Хрустальные башни', 'Волна', 'Плитки', 'Активность']);
     await expect(page.getByRole('menu')).not.toContainText(/PS[1-5]|Graphite/); // айдентика тем, шаг 1: поколения в UI не называем
     await page.keyboard.press('Escape');
-    const attrs: Record<string, string | null> = { 'Memory Card': 'ps1', 'Crystal Towers': 'ps2', Wave: 'ps3', Tiles: 'ps4', Activity: 'ps5', Dark: 'graphite', Night: null };
+    const attrs: Record<string, string | null> = { 'Карта памяти': 'ps1', 'Хрустальные башни': 'ps2', 'Волна': 'ps3', 'Плитки': 'ps4', 'Активность': 'ps5', 'Тёмная': 'graphite', 'Ночь': null };
     for (const [label, attr] of Object.entries(attrs)) {
       await page.getByRole('button', { name: /^Тема:/ }).click();
       await page.getByRole('menuitemradio', { name: label }).click();
@@ -483,7 +483,7 @@ test.describe('коллекция (desktop)', () => {
       await expect(page.getByRole('button', { name: `Тема: ${label}` })).toBeVisible();
     }
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+    await page.getByRole('menuitemradio', { name: 'Тёмная' }).click();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
     await page.getByRole('navigation', { name: 'Разделы' }).first().getByRole('link', { name: 'Что дальше' }).click();
@@ -497,7 +497,7 @@ test.describe('коллекция (desktop)', () => {
     expect(await page.evaluate(() => localStorage.getItem('ps-theme'))).toBe('ps5');
     expect(await page.evaluate(() => document.cookie)).toContain('ps-theme=ps5');
     await page.getByRole('button', { name: /^Тема:/ }).click();
-    await page.getByRole('menuitemradio', { name: 'Wave' }).click();
+    await page.getByRole('menuitemradio', { name: 'Волна' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-xmb-month', /^(1|2|3|4|5|6|7|8|9|10|11|12)$/);
   });
 
@@ -505,7 +505,7 @@ test.describe('коллекция (desktop)', () => {
     await context.addInitScript(() => localStorage.setItem('ps-theme', 'wave'));
     await open(page, context, baseURL!);
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
-    await expect(page.getByRole('button', { name: 'Тема: Night' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Тема: Ночь' })).toBeVisible();
   });
 
   test('битые значения localStorage темы не ломают страницу', async ({ page, context, baseURL }) => {
@@ -529,7 +529,7 @@ for (const width of [390, 440]) {
     test.use({ viewport: { width, height: 844 } });
     test.beforeEach(({}, info) => { test.skip(info.project.name !== 'mobile', 'мобильный сценарий'); });
 
-    test('F13: лист «Фильтры» — только платформа, сортировка на всю ширину и вид; «Выбрать игры» и «Теги» из «⋯»', async ({ page, context, baseURL }) => {
+    test('F13: лист «Фильтры» — только платформа, сортировка на всю ширину и вид; «Выбрать игры» из «⋯», «Тегов» там нет', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: /^Фильтры и сортировка/ }).click();
       const dlg = page.getByRole('dialog', { name: 'Фильтры' });
@@ -539,11 +539,8 @@ for (const width of [390, 440]) {
       expect(sel!.width).toBeGreaterThanOrEqual(box - 2);
       await dlg.getByRole('button', { name: 'Готово' }).click();
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      await page.getByTestId('sheet-tags').click();
-      await expect(page.getByRole('dialog', { name: 'Теги' })).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(page.getByRole('dialog')).toHaveCount(0);
-      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      // t281u П.22: «Тегов» в «⋯» нет
+      await expect(page.getByTestId('sheet-tags')).toHaveCount(0);
       await page.getByTestId('sheet-select').click();
       await expect(page.getByRole('dialog', { name: 'Меню' })).toHaveCount(0);
       await expect(page.locator('.ps-selbar')).toBeVisible();
@@ -677,41 +674,43 @@ for (const width of [390, 440]) {
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
       const row = page.getByRole('dialog', { name: 'Меню' }).getByRole('radiogroup', { name: 'Тема' });
       await expect(row.getByRole('radio')).toHaveCount(7);
-      await expect(row.getByRole('radio', { name: 'Night' })).toHaveAttribute('aria-checked', 'true');
-      await row.getByRole('radio', { name: 'Dark' }).click();
+      await expect(row.getByRole('radio', { name: 'Ночь' })).toHaveAttribute('aria-checked', 'true');
+      await row.getByRole('radio', { name: 'Тёмная' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
-      await expect(row.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+      await expect(row.getByRole('radio', { name: 'Тёмная' })).toHaveAttribute('aria-checked', 'true');
       await page.keyboard.press('Escape');
       await page.reload();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
     });
 
-    test('тема меняется в Настройках и сохраняется', async ({ page, context, baseURL }) => {
+    test('ряд тем в «⋯»: стрелки, подпись, сохранение; в Настройках темы нет (t281u П.21)', async ({ page, context, baseURL }) => {
       await open(page, context, baseURL!);
       await page.getByRole('button', { name: 'Меню', exact: true }).click();
-      await page.getByTestId('sheet-settings').click();
-      await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
-      const row = page.getByRole('radiogroup', { name: 'Тема' });
+      const row = page.getByRole('dialog', { name: 'Меню' }).getByRole('radiogroup', { name: 'Тема' });
       await expect(row.getByRole('radio')).toHaveCount(7);
-      for (const n of ['Night', 'Dark', 'Memory Card', 'Crystal Towers', 'Wave', 'Tiles', 'Activity']) await expect(row.getByRole('radio', { name: n })).toBeVisible();
-      await expect(row.getByRole('radio', { name: 'Night' })).toHaveAttribute('aria-checked', 'true');
-      await row.getByRole('radio', { name: 'Dark' }).click();
+      for (const n of ['Ночь', 'Тёмная', 'Карта памяти', 'Хрустальные башни', 'Волна', 'Плитки', 'Активность']) await expect(row.getByRole('radio', { name: n })).toBeVisible();
+      await expect(row.getByRole('radio', { name: 'Ночь' })).toHaveAttribute('aria-checked', 'true');
+      await row.getByRole('radio', { name: 'Тёмная' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
-      await expect(row.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
-      // ряд в Настройках, стрелка вправо — следующая тема
+      await expect(row.getByRole('radio', { name: 'Тёмная' })).toHaveAttribute('aria-checked', 'true');
+      // стрелка вправо — следующая тема
       await page.keyboard.press('ArrowRight');
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'ps1');
       // ряд в одну строку и не выше 96 px вместе с подписью
       const box = (await page.locator('.ps-themerow').boundingBox())!;
       expect(box.height).toBeLessThanOrEqual(96);
       // F26: подпись показывает тему под курсором/фокусом, у выбранной — «· выбрана»
-      await row.getByRole('radio', { name: 'Crystal Towers' }).hover();
-      await expect(page.getByTestId('theme-caption')).toHaveText('Crystal Towers');
-      await row.getByRole('radio', { name: 'Memory Card' }).hover();
-      await expect(page.getByTestId('theme-caption')).toHaveText('Memory Card · выбрана');
-      await row.getByRole('radio', { name: 'Dark' }).click();
+      await row.getByRole('radio', { name: 'Хрустальные башни' }).hover();
+      await expect(page.getByTestId('theme-caption')).toHaveText('Хрустальные башни');
+      await row.getByRole('radio', { name: 'Карта памяти' }).hover();
+      await expect(page.getByTestId('theme-caption')).toHaveText('Карта памяти · выбрана');
+      await row.getByRole('radio', { name: 'Тёмная' }).click();
       await page.reload();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'graphite');
+      await page.getByRole('button', { name: 'Меню', exact: true }).click();
+      await page.getByTestId('sheet-settings').click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
+      await expect(page.getByRole('radiogroup', { name: 'Тема' })).toHaveCount(0);
     });
 
     test('поиск на мобильном, список без переполнения', async ({ page, context, baseURL }) => {

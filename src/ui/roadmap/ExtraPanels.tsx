@@ -72,7 +72,7 @@ export function ServicePanel({ list }: { list: readonly ServiceGame[] }) {
   return (
     <>
       <div className="ps-rm-head">
-        <h2 className="ps-h2">Сервисы: в план не берём <small className="num ps-rm-cnt">{list.length}</small></h2>
+        <h2 className="ps-h2">Сервис: в план не берём <small className="num ps-rm-cnt">{list.length}</small></h2>
       </div>
       <p className="ps-rm-sub">Игры со статусом «Сервис» не попадают в очередь и не занимают недели плана. Здесь только справка: сколько часов в них уже сыграно.</p>
       <table className="ps-rm-svc" data-testid="rm-services" id="rm-svc-body">

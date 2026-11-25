@@ -20,7 +20,7 @@ export function backlogLinkLabel(counts: { backlog: number; shelved: number; ser
   const parts: string[] = [];
   if (counts.backlog > 0) parts.push(`Бэклог ${formatNumber(counts.backlog)}`);
   if (counts.shelved > 0) parts.push(`Отложено ${formatNumber(counts.shelved)}`);
-  if (counts.service > 0) parts.push(`Сервисы ${formatNumber(counts.service)}`);
+  if (counts.service > 0) parts.push(`Сервис ${formatNumber(counts.service)}`);
   return parts.length ? parts.join(' · ') : null;
 }
 

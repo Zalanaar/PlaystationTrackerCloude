@@ -143,7 +143,7 @@ test.describe('Memory Card (ps1)', () => {
 test.describe('ps5: карточка «Недавно в коллекции» и нажатие', () => {
   const noPlaying = () => seed().filter((g) => g.status !== 'playing');
 
-  test('без «Играю»: карточка последней игры хроники, открывает окно игры; в других темах скрыта; с «Играю» её нет', async ({ page, context, baseURL }) => {
+  test('без «Играю»: карточка последней игры хроники, открывает окно игры; видна во всех темах (t281u П.15)', async ({ page, context, baseURL }) => {
     await boot(page, context, baseURL!, 'ps5', '/', noPlaying());
     await expandToday(page);
     const hero = page.getByRole('region', { name: 'Недавно в коллекции' });
@@ -155,7 +155,7 @@ test.describe('ps5: карточка «Недавно в коллекции» и
     expect(await cls(page)).toBe(0);
     for (const t of ['night', 'graphite', 'ps1', 'ps4']) {
       await page.evaluate((v) => { if (v === 'night') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); }, t);
-      await expect(page.getByTestId('recent-hero'), t).toBeHidden();
+      await expect(page.getByTestId('recent-hero'), t).toBeVisible();
     }
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'ps5'));
     await hero.getByRole('button').click();

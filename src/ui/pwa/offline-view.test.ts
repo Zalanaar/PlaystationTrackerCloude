@@ -16,6 +16,7 @@ describe('офлайн-просмотр (пакет 7, п. 2)', () => {
   it('вкладка по адресу', () => {
     expect(tabFromPath('/')).toBe('collection');
     expect(tabFromPath('/backlog')).toBe('backlog');
+    expect(tabFromPath('/recommend')).toBe('backlog');
     expect(tabFromPath('/roadmap')).toBe('plan');
     expect(tabFromPath('/roadmap/2026')).toBe('plan');
     expect(tabFromPath('/stats')).toBe('stats');

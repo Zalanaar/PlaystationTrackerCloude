@@ -4,7 +4,7 @@ import { mockApi, type G } from './collection-mock';
 import { cand, mgame, mockManual } from './manual-mock';
 import { signedSession } from './session';
 import { shotsDir } from './shots';
-import { addBtn, clickAdd } from './header-actions';
+import { clickAdd } from './header-actions';
 
 const SHOTS = shotsDir('shots-43-1');
 

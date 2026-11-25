@@ -108,7 +108,7 @@ export function AppHeader() {
               return (
                 <Link
                   key={n.href} href={href} className="ps-nav-item" aria-current={isTabActive(pathname, n) ? 'page' : undefined}
-                  onClick={(e: MouseEvent<HTMLAnchorElement>) => { if (!isTabActive(pathname, n) && offlineNav()) e.preventDefault(); }}
+                  onClick={(e: MouseEvent<HTMLAnchorElement>) => { if (!isTabActive(pathname, n) && offlineNav(href)) e.preventDefault(); }}
                   aria-label={dot ? `${n.label}, доступны Итоги года` : undefined}
                 >
                   {n.label}
@@ -225,9 +225,7 @@ export function AppHeader() {
               <button type="button" className="ps-menu-item" data-testid="sheet-select" onClick={() => { setMore(false); emitHeaderAction('select'); }}>
                 <Icon name="check-circle" size={16} /><span className="ps-menu-item__label">Выбрать игры</span>
               </button>
-              <button type="button" className="ps-menu-item" data-testid="sheet-tags" aria-haspopup="dialog" onClick={() => { setMore(false); emitHeaderAction('tags'); }}>
-                <Icon name="bookmark" size={16} /><span className="ps-menu-item__label">Теги</span>
-              </button>
+              {/* t281u П.22: «Теги» из «⋯» убраны — теги ставятся в окне игры, фильтр по тегу — в «Фильтрах» */}
             </>
           )}
           <p className="ps-micro ps-menu-group">Разделы</p>
@@ -384,7 +382,7 @@ export function TabBar() {
     }
     if (!shouldIntercept(e, active, to)) return;
     e.preventDefault();
-    if (offlineNav()) return;
+    if (offlineNav(tabHref(NAV_TABS[to]))) return;
     try { performance.clearMarks(MARK_TAP); performance.clearMeasures(MEASURE_TAB); performance.mark(MARK_TAP); } catch { /* метки необязательны */ }
     // подсветка новой вкладки — синхронно, до снимка View Transition: обратная связь в первом же кадре
     flushSync(() => setOptimistic({ path: pathname, to }));

@@ -1,4 +1,5 @@
-// F7 (аудит UX): экран «Настройки» — тема, уведомления, календарь релизов, копия данных; ссылка из меню «⋯» и профиля.
+// F7 (аудит UX): экран «Настройки» — уведомления, копия данных; ссылка из меню «⋯» и профиля.
+// t281u: темы только в «⋯» (П.21), календарь — в «План → Релизы» (П.8), одна кнопка «Восстановить…» (П.20).
 import { createRequire } from 'node:module';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { signedSession } from './session';
@@ -8,31 +9,44 @@ import { settle } from './settle';
 const axeSource: string = createRequire(import.meta.url)('axe-core').source;
 const THEMES = ['night', 'graphite', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5'];
 
-async function open(page: Page, baseURL: string, path = '/settings') {
+async function open(page: Page, baseURL: string, path = '/settings', latest: Record<string, unknown> | null = null) {
   await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL }]);
   const json = (r: Route, body: unknown, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/auth/me', (r) => json(r, { ok: true, data: { id: 1, email: 'a@example.com', displayName: null, role: 'owner', amr: 'password' } }));
   await page.route('**/api/sync/status', (r) => json(r, { ok: true, data: { totals: null, running: false, lastSuccessAt: null, psnAuthExpiresAt: null, psnAuth: 'ok', run: null, psnToken: null } }));
-  await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest: null } }));
+  await page.route('**/api/games/status-backups', (r) => json(r, { ok: true, data: { latest } }));
   await page.route('**/api/games**', (r) => json(r, emptyGamesBody(r.request().url())));
   await page.route('**/api/me/push', (r) => json(r, { ok: true, data: r.request().method() === 'PATCH' ? r.request().postDataJSON() : { configured: false, publicKey: null, devices: 0, shelvedReminder: true } }));
   await page.route('**/api/roadmap/calendar', (r) => json(r, { ok: true, data: { active: false, createdAt: null } }));
   await page.goto(path);
 }
 
-test('экран: тема, уведомления, календарь, копия данных; смена темы', async ({ page, baseURL }) => {
+test('экран: уведомления и копия данных; темы и календаря нет; одна «Восстановить…»', async ({ page, baseURL }) => {
   await open(page, baseURL!);
   await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Тема' })).toHaveCount(0);
   await expect(page.getByTestId('push-panel')).toBeVisible();
   await expect(page.getByTestId('tg-digest')).toHaveCount(0);
-  await expect(page.getByTestId('settings-calendar')).toBeVisible();
+  await expect(page.getByTestId('settings-calendar')).toHaveCount(0);
+  await expect(page.getByTestId('rm-cal')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Скачать копию' })).toHaveAttribute('href', '/api/backup');
-  await expect(page.getByRole('button', { name: 'Восстановить из файла' })).toBeVisible();
+  await expect(page.locator('.ps-settings').getByRole('button', { name: /Восстановить/ })).toHaveCount(1);
   await expect(page.getByTestId('menu-reset-all')).toBeVisible();
   await expect(page.getByTestId('settings-danger')).toBeVisible();
-  await page.getByRole('radiogroup', { name: 'Тема' }).getByRole('radio', { name: 'Wave' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ps3');
+  // без автокопии «Восстановить…» сразу открывает файл
+  await page.getByTestId('settings-restore').click();
+  await expect(page.getByRole('dialog', { name: 'Восстановить из файла' })).toBeVisible();
+});
+
+test('с автокопией «Восстановить…» предлагает источник: файл или статусы из автокопии', async ({ page, baseURL }) => {
+  await open(page, baseURL!, '/settings', { id: 3, reason: 'reset_all', createdAt: '2026-10-27T05:00:00.000Z', count: 4 });
+  const b = page.getByTestId('settings-restore');
+  await expect(b).toHaveAttribute('aria-expanded', 'false');
+  await b.click();
+  await expect(page.getByTestId('restore-src-file')).toBeVisible();
+  await expect(page.getByTestId('menu-restore-backup')).toContainText('Копия от 27.10.2026');
+  await page.getByTestId('restore-src-file').click();
+  await expect(page.getByRole('dialog', { name: 'Восстановить из файла' })).toBeVisible();
 });
 
 test('ссылка «Настройки» из меню', async ({ page, baseURL, isMobile }) => {
@@ -85,9 +99,9 @@ test('меню с темой; копия и сброс — в Настройка
   await expect(items.last()).toHaveText('Выйти на всех устройствах');
   await sheet.getByTestId('sheet-settings').click();
   await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Тема' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Скачать копию' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Восстановить из файла' })).toBeVisible();
+  await expect(page.getByTestId('settings-restore')).toBeVisible();
   await expect(page.getByTestId('menu-reset-all')).toBeVisible();
 });
 

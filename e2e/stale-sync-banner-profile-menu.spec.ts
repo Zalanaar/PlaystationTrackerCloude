@@ -80,7 +80,14 @@ async function openBackupActions(page: Page) {
   await expect(page.getByRole('heading', { level: 1, name: 'Настройки' })).toBeVisible();
   return {
     download: page.getByRole('link', { name: 'Скачать копию' }),
-    restore: page.getByRole('button', { name: 'Восстановить из файла' }),
+    // t281u П.20: одна кнопка «Восстановить…»; при автокопии — выбор «Из файла копии»
+    restore: {
+      click: async () => {
+        await page.getByTestId('settings-restore').click();
+        const src = page.getByTestId('restore-src-file');
+        if (await src.isVisible().catch(() => false)) await src.click();
+      },
+    },
   };
 }
 const FILE = { app: 'ps-tracker-backup', schemaVersion: 1, createdAt: '2026-10-29T06:00:00.000Z', games: [], plannedGames: [], roadmapSettings: null };

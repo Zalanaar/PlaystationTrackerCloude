@@ -228,10 +228,8 @@
 @media (min-width: 768px) {
   [data-theme="ps5"] .ps-hero__mini { backdrop-filter: blur(16px); }
 }
-/* Айдентика тем, шаг 5: карточка «Недавно в коллекции» (когда «Играю» пусто) только в ps5;
-   микроанимация нажатия: scale .97 за 120 мс, только transform, при reduced-motion выключена (блок в конце) */
-.ps-recent { display: none; }
-[data-theme="ps5"] .ps-recent { display: block; }
+/* Айдентика тем, шаг 5 → t281u П.15: карточка «Недавно в коллекции» (когда «Играю» пусто) во всех темах;
+   микроанимация нажатия только в ps5: scale .97 за 120 мс, только transform, при reduced-motion выключена (блок в конце) */
 [data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini, .ps-hero__main) { transition: transform 120ms var(--ease-out), box-shadow var(--dur-base) var(--ease-ui); }
 [data-theme="ps5"] .ps-card__cover { transition: transform 120ms var(--ease-out), box-shadow var(--dur-base) var(--ease-ui); }
 [data-theme="ps5"] :is(.ps-recent__card, .ps-hero__mini):active,

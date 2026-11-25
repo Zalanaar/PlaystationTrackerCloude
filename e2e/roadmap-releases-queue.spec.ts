@@ -206,12 +206,12 @@ test.describe('Бэклог: заголовки, переключатель, к�
     await openBacklog(page, context, baseURL as string, many());
     await expect(page.getByTestId('bl-main-count')).toHaveText('24');
     const jump = page.getByTestId('bl-jump');
-    await expect(jump.getByRole('button', { name: /Играть 24/ })).toBeVisible();
-    await expect(jump.getByRole('button', { name: /Сервисы 2/ })).toBeVisible();
-    await jump.getByRole('button', { name: /Сервисы 2/ }).click();
+    await expect(jump.getByRole('button', { name: /Куплено 24/ })).toBeVisible();
+    await expect(jump.getByRole('button', { name: /Сервис 2/ })).toBeVisible();
+    await jump.getByRole('button', { name: /Сервис 2/ }).click();
     await expect(page.locator('#h-bl-service')).toBeFocused();
     await expect.poll(() => page.locator('#h-bl-service').evaluate((el) => el.getBoundingClientRect().top)).toBeGreaterThan(55); // не под шапкой
-    await jump.getByRole('button', { name: /Играть 24/ }).click();
+    await jump.getByRole('button', { name: /Куплено 24/ }).click();
     await expect(page.locator('#h-bl-main')).toBeFocused();
     await expect.poll(() => page.locator('#h-bl-main').evaluate((el) => el.getBoundingClientRect().top)).toBeGreaterThan(55);
   });

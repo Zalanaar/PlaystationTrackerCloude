@@ -1,5 +1,6 @@
 // П13.1: «Достижения» в «Всё время» Статистики — 12 плиток, «Получено N из 12», дата и подпись у полученных, «7 из 10» и полоса у остальных;
 // чип раздела «Достижения»; сбой — панели нет; 360 px без скролла, скелет той же высоты, axe во всех темах. API эмулируется.
+// t281u П.23: панель свёрнута в строку, сетка — по «Показать».
 import { createRequire } from 'node:module';
 import { test, expect, type Page } from '@playwright/test';
 import { emptyAchievements, mockApi } from './collection-mock';
@@ -38,6 +39,10 @@ test('плитки, сводка, состояния', async ({ page, baseURL })
   const panel = page.locator('.ps-ach');
   await expect(panel.getByRole('heading', { name: 'Достижения' })).toBeVisible();
   await expect(panel.getByText('Получено 3 из 12')).toBeVisible();
+  await expect(panel.getByTestId('ach-item')).toHaveCount(0);
+  expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(110);
+  await panel.getByTestId('ach-toggle').click();
+  await expect(panel.getByTestId('ach-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(panel.getByTestId('ach-item')).toHaveCount(12);
   const item = (id: string) => panel.locator(`[data-ach="${id}"]`);
   await expect(item('completed_1')).toHaveAttribute('data-unlocked', 'true');
@@ -62,6 +67,7 @@ for (const w of [360, 390]) {
     test.skip(!isMobile, 'телефон');
     await page.setViewportSize({ width: w, height: 800 });
     await go(page, baseURL!, filled());
+    await page.getByTestId('ach-toggle').click();
     await expect(page.getByTestId('ach-item')).toHaveCount(12);
     await page.locator('.ps-ach').scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
@@ -90,6 +96,6 @@ test('без сдвига: скелет и данные одной высоты'
   await expect(panel).toHaveAttribute('aria-busy', 'true');
   const before = (await panel.boundingBox())!.height;
   release();
-  await expect(page.getByTestId('ach-item')).toHaveCount(12);
+  await expect(panel.getByText('Получено 3 из 12')).toBeVisible();
   expect(Math.abs((await panel.boundingBox())!.height - before)).toBeLessThanOrEqual(1);
 });

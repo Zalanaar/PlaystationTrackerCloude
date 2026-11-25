@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const HOME = () => `${window.location.origin}/`;
+// t281u П.9: офлайн-копия открывается и по адресу раздела (/backlog, /roadmap…) — со связью перезагружаем тот же раздел
+const HOME = () => (window.location.pathname === '/offline' ? `${window.location.origin}/` : window.location.href);
 
 type St = 'idle' | 'retrying' | 'still-offline';
 

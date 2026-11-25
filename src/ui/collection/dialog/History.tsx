@@ -1,13 +1,11 @@
-import type { DiaryEntry } from '@/shared/diary';
 import type { GameHistory } from '@/server/collection/types';
-import { DiaryHistory } from '../../diary/DiaryEditor';
 import { PlatinumIcon } from '../../icons';
 import { historyLine, historyView } from '../history';
 
-/** «История игры» на «Обзоре» (спека design-system 12): часы по неделям МСК, оценка штриховкой, отметки трофеев и заметки дневника. */
-export function History({ history, lastPlayedAt, now, diary = [] }: { history: GameHistory | null | undefined; lastPlayedAt: string | null; now: number; diary?: DiaryEntry[] }) {
+/** «История игры» на «Обзоре» (спека design-system 12): часы по неделям МСК, оценка штриховкой, отметки трофеев. t281u П.17: заметки дневника — только в блоке «Дневник». */
+export function History({ history, lastPlayedAt, now }: { history: GameHistory | null | undefined; lastPlayedAt: string | null; now: number }) {
   const v = historyView(history);
-  if (!v && !diary.length) return null;
+  if (!v) return null;
   const line = historyLine(history, lastPlayedAt, now);
   const lineHint = history?.hasHours ? 'По ежедневным снимкам: дни до первого синка неизвестны.' : null;
   return (
@@ -60,7 +58,6 @@ export function History({ history, lastPlayedAt, now, diary = [] }: { history: G
           )}
         </>
       )}
-      <DiaryHistory entries={diary} />
     </section>
   );
 }

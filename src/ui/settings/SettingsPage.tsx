@@ -1,11 +1,10 @@
 'use client';
 
-// F7 (аудит UX): экран «Настройки». Тема, копия, восстановление и сброс статусов — здесь, не в меню «⋯».
+// F7 (аудит UX): экран «Настройки». Копия, восстановление и сброс статусов — здесь, не в меню «⋯».
+// t281u: тема — только в «⋯» (П.21), подписка на календарь — в «План → Релизы» (П.8), одна кнопка «Восстановить…» с выбором источника (П.20).
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { Icon } from '../icons';
-import { ThemeSwatches } from '../shell/ThemePicker';
-import { CalendarSubscribe } from '../roadmap/CalendarSubscribe';
 import { StatusDialogs, useStatusMenu } from '../backup/StatusMenu';
 import { formatDate } from '../format';
 import { useEverTrue } from '../useEverTrue';
@@ -15,6 +14,7 @@ const RestoreFileDialog = dynamic(() => import('../backup/RestoreFileDialog').th
 
 export function SettingsPage() {
   const [restore, setRestore] = useState(false);
+  const [pick, setPick] = useState(false);
   const restoreEver = useEverTrue(restore);
   const status = useStatusMenu();
   const { loadBackup } = status;
@@ -23,22 +23,11 @@ export function SettingsPage() {
     <div className="ps-settings" data-tour-page="settings" data-tour-ready="true">
       <header className="ps-settings__head">
         <h1 className="ps-h1 ps-h1--hdr">Настройки</h1>
-        <p className="ps-settings__lead">Тема, уведомления, календарь релизов, копия данных и сброс статусов.</p>
+        <p className="ps-settings__lead">Уведомления, копия данных и сброс статусов. Тема — в меню «⋯», календарь релизов — в «План → Релизы».</p>
       </header>
-
-      <section className="ps-panel ps-settings__sec" aria-labelledby="set-theme-h">
-        <h2 className="ps-h3" id="set-theme-h">Тема</h2>
-        <ThemeSwatches />
-      </section>
 
       <section className="ps-settings__sec ps-settings__sec--bare" aria-label="Уведомления">
         <PushPanel />
-      </section>
-
-      <section className="ps-panel ps-settings__sec" aria-labelledby="set-cal-h" data-testid="settings-calendar">
-        <h2 className="ps-h3" id="set-cal-h">Календарь релизов</h2>
-        <p className="ps-settings__note">Релизы из «Плана» появятся в Календаре iPhone, Google или Outlook и будут обновляться сами.</p>
-        <CalendarSubscribe />
       </section>
 
       <section className="ps-panel ps-settings__sec" aria-labelledby="set-data-h">
@@ -46,17 +35,32 @@ export function SettingsPage() {
         <p className="ps-settings__note">Копия — файл со статусами, оценками, заметками и планом. Из него можно всё восстановить.</p>
         <div className="ps-settings__acts">
           <a href="/api/backup" download className="ps-btn ps-btn--ghost"><Icon name="download" size={16} />Скачать копию</a>
-          <button type="button" className="ps-btn ps-btn--ghost" onClick={() => setRestore(true)}><Icon name="upload" size={16} />Восстановить из файла</button>
-          {status.backup && (
-            <button type="button" className="ps-btn ps-btn--ghost" data-testid="menu-restore-backup" onClick={() => status.setRestoreOpen(true)}>
+          {/* П.20: одна кнопка; если есть автокопия статусов — сначала выбор источника */}
+          <button
+            type="button" className="ps-btn ps-btn--ghost" data-testid="settings-restore" aria-expanded={status.backup ? pick : undefined} aria-controls={status.backup ? 'set-restore-src' : undefined}
+            onClick={() => (status.backup ? setPick((v) => !v) : setRestore(true))}
+          >
+            <Icon name="upload" size={16} />Восстановить…
+          </button>
+        </div>
+        {status.backup && pick && (
+          <div className="ps-settings__src" id="set-restore-src" role="group" aria-label="Откуда восстановить">
+            <button type="button" className="ps-btn ps-btn--ghost" data-testid="restore-src-file" onClick={() => { setPick(false); setRestore(true); }}>
+              <Icon name="upload" size={16} />
+              <span>
+                Из файла копии
+                <small className="ps-settings__hint">Статусы, оценки, заметки, план</small>
+              </span>
+            </button>
+            <button type="button" className="ps-btn ps-btn--ghost" data-testid="menu-restore-backup" onClick={() => { setPick(false); status.setRestoreOpen(true); }}>
               <Icon name="undo" size={16} />
               <span>
-                Вернуть статусы из копии…
+                Статусы из автокопии
                 <small className="ps-settings__hint">Копия от {formatDate(status.backup.createdAt) ?? 'неизвестной даты'}</small>
               </span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       <section className="ps-panel ps-settings__sec ps-settings__sec--danger" aria-labelledby="set-danger-h" data-testid="settings-danger">

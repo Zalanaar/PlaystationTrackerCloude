@@ -22,14 +22,15 @@ const boxes = (page: Page, a: string, b: string) => page.evaluate(([sa, sb]) => 
 const settle = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations().map((x) => x.finished.catch(() => null))));
 const overflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-test('1280 px: оценка слева, «Даты» справа на одной высоте; без горизонтальной прокрутки', async ({ page, baseURL }, info) => {
+test('1280 px: оценка слева, «Подробнее» (с «Датами») справа на одной высоте; без горизонтальной прокрутки', async ({ page, baseURL }, info) => {
   test.skip(info.project.name !== 'desktop', 'раскладка десктопа');
   const d = await open(page, baseURL!, 1280, 800);
   await expect(d.getByRole('heading', { name: 'Даты' })).toBeVisible();
   await settle(page);
   const [review, dates] = await boxes(page, '[data-testid="game-review"]', '.ps-gd__ovside .ps-gd__sec');
   expect(dates.x).toBeGreaterThan(review.x + review.width - 1);
-  expect(Math.abs(dates.y - (await box(page, '.ps-gd__ovmain > *')).y)).toBeLessThan(4);
+  // t281u П.7: справа сверху строка «Подробнее», «Даты» — внутри неё
+  expect(Math.abs((await box(page, '.ps-gd__ovside > *')).y - (await box(page, '.ps-gd__ovmain > *')).y)).toBeLessThan(4);
   expect(review.width).toBeGreaterThan(dates.width);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });

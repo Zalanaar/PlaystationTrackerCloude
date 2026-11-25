@@ -12,11 +12,13 @@ const SLOTS = 12;
 /**
  * П13.1: «Достижения» в «Всё время». Сетка постоянная (12 плиток одной высоты) у скелета и данных — без сдвига.
  * Сбой запроса — панели нет (страница не ломается).
+ * t281u П.23: в группе «Трофеи» — одна строка «Достижения · Получено N из 12», сетка раскрывается по «Показать».
  */
 export function AchievementsPanel() {
   const id = useId();
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     const ac = new AbortController();
     fetchAchievements(ac.signal).then((r) => { if (!ac.signal.aborted) setData(r); }, () => { if (!ac.signal.aborted) setFailed(true); });
@@ -27,8 +29,17 @@ export function AchievementsPanel() {
     <Panel
       title="Достижения" labelId={`st-ach-${id}`} className="ps-ach" busy={!data}
       sub={data ? `Получено ${achSummary(data.unlocked, data.total)}` : 'Загрузка…'}
+      aside={(
+        <button
+          type="button" className="ps-link ps-ach__toggle" data-testid="ach-toggle" aria-expanded={open} aria-controls={`st-ach-g-${id}`}
+          disabled={!data} onClick={() => setOpen((v) => !v)}
+        >
+          {open ? 'Свернуть' : 'Показать'}
+        </button>
+      )}
     >
-      <ul className="ps-ach__grid" data-testid="ach-grid">
+      {open && (
+      <ul className="ps-ach__grid" id={`st-ach-g-${id}`} data-testid="ach-grid">
         {data
           ? data.items.map((a) => {
             const m = ACH_META[a.id];
@@ -51,6 +62,7 @@ export function AchievementsPanel() {
           })
           : Array.from({ length: SLOTS }, (_, i) => <li key={i} className="ps-ach__item ps-skeleton" aria-hidden="true" />)}
       </ul>
+      )}
     </Panel>
   );
 }

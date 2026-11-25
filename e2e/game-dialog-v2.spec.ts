@@ -77,7 +77,7 @@ test.describe('Batch 1: окно игры v2', () => {
     await expect(diary.getByText('10/500')).toBeVisible();
     await diary.getByTestId('diary-add').click();
     await expect(diary.getByTestId('diary-entry')).toContainText('Кот и неон');
-    await expect(d.getByTestId('history-diary')).toContainText('Кот и неон');
+    await expect(d.getByText('Кот и неон')).toHaveCount(1);
     await note.fill('x'.repeat(501));
     await expect(note).toHaveAttribute('aria-invalid', 'true');
     await expect(diary.getByTestId('diary-add')).toBeDisabled();

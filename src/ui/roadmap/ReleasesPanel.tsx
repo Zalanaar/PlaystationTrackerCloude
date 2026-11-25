@@ -134,7 +134,8 @@ export function ReleasesPanel({
           ))}
         </ul>
       )}
-      {planned && planned.length > 0 && <CalendarSubscribe />}
+      {/* t281u П.8: подписка на календарь живёт здесь (из Настроек убрана) — видна и при пустом списке */}
+      {planned && <CalendarSubscribe />}
       {planned && planned.some((g) => g.status === 'planned' && g.releaseDate !== null && g.releaseDate >= today) && (
         // П12.6: разовый файл .ics (снимок на сегодня; живая подписка — выше)
         <p className="ps-rm-ics">

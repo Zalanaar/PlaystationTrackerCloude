@@ -36,11 +36,10 @@ import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { useDataRefresh } from '../shell/refresh';
 import { BacklogLinkRow, isHomeBacklogRow } from './BacklogLinkRow';
-import { PlayingHero, PlayingStrip, PlayingStripSkeleton } from './PlayingHero';
+import { PlayingHero } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
 import { MonthGoalsCard } from '../goals/MonthGoalsCard';
 import { HuntCard } from '../hunts/HuntCard';
-import { TodayBlock } from './TodayBlock';
 import { TodayHints, TodayTriageLink } from './TodayExtras';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
@@ -80,14 +79,12 @@ const AddOtherPlatformSheet = dynamic(() => import('../other-platforms/AddOtherP
  * initial (item 4): сводка и блоки хроники из серверного рендера — первый экран сразу в HTML. layout: подсказка раскладки для того же рендера.
  * platformDefault (F4): запомненная платформа из cookie; параметр URL главнее.
  */
-export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null, week1Hint, todayOpen = false }: {
+export function CollectionView({ heroHint, initial, layout, platformDefault = null, wrappedSsr = null, week1Hint }: {
   heroHint?: boolean; initial?: CollectionInitial | null; layout?: LayoutHint; platformDefault?: PlatformKey | null;
   /** П13.4: cookie-подсказка «Первой недели» (место под карточку без сдвига) */
   week1Hint?: boolean;
   /** П8.4: баннер «Итоги года готовы», который нарисовал сервер (сезон и не закрыт), иначе null */
   wrappedSsr?: WrappedSeason | null;
-  /** Cookie ps-today-open: блок «Сегодня» раскрыт в первом HTML (без CLS). По умолчанию свёрнут. */
-  todayOpen?: boolean;
 } = {}) {
   const router = useRouter();
   const pathname = usePathname();
@@ -241,7 +238,6 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       action: { label: 'Показать', run: () => { setFilters(otherBlockFilters(filtersRef.current)); scrollWhenShown('other-platforms', () => loadingRef.current); } },
     });
   }
-  const unsortedShown = chronicleMode && blocks.includes('unsorted') && (byBlock.unsorted?.length ?? 0) > 0;
   const homeBacklogRow = chronicleMode && isHomeBacklogRow(filters);
   const homeBacklogCounts = {
     backlog: summary?.counts.backlog ?? counts.backlog,
@@ -265,7 +261,7 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
       {years.map((y) => <a key={y} href={`#y${y}`} onClick={(e) => jump(e, `y${y}`, y)}>{y}</a>)}
       {/* F12: на телефоне блоки идут первыми (CSS order), годы — следом; «Другие платформы» только там: на компьютере они и так на виду */}
       {!isHomeBacklogRow(filters) && (byBlock.backlog?.length ?? 0) > 0 && <a href="#backlog" className="ps-anchors__blk" onClick={(e) => jump(e, 'backlog')}>Бэклог</a>}
-      {!isHomeBacklogRow(filters) && (byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервисы</a>}
+      {!isHomeBacklogRow(filters) && (byBlock.service?.length ?? 0) > 0 && <a href="#service" className="ps-anchors__blk" onClick={(e) => jump(e, 'service')}>Сервис</a>}
       {(byBlock.unsorted?.length ?? 0) > 0 && <a href="#unsorted" className="ps-anchors__blk" onClick={(e) => jump(e, 'unsorted')}>Без статуса</a>}
       {otherShown && <a href="#other-platforms" className="ps-anchors__blk ps-anchors__m" onClick={(e) => jump(e, 'other-platforms')}>Другие платформы</a>}
     </nav>
@@ -307,6 +303,9 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         <div className="ps-pagehead__main">
           <h1 id="coll-title" className="ps-h1 ps-h1--coll" tabIndex={-1}>Коллекция</h1>
           <StatLine totals={summary?.totals ?? null} loading={!summary && !pool} />
+          {chronicleMode && !hiddenView && (summary?.counts.none ?? 0) > 0 && (
+            <p className="ps-pagehead__check"><TodayTriageLink count={summary?.counts.none ?? 0} fresh={inbox.chips.some((c) => c.id === 'new')} /></p>
+          )}
         </div>
         {!summary
           ? (!pool ? (mobileMq === null ? <><span className="ps-only-m"><ProfileRowSkeleton /></span><span className="ps-only-d"><ProfileSkeleton /></span></> : isMobile ? <ProfileRowSkeleton /> : <ProfileSkeleton />) : null)
@@ -320,22 +319,16 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         ? <MobileSearchSkeleton />
         : isMobile && <MobileSearch {...barProps} />}
 
-      <TodayBlock
-        openSsr={todayOpen}
-        playingCount={pool ? shownCount(counts.playing, playing) : null}
-        checkReason={checkCount > 0 && !unsortedShown ? `проверить ${checkCount}` : undefined}
-        side={<TodayTriageLink count={summary?.counts.none ?? 0} fresh={inbox.chips.some((c) => c.id === 'new')} />}
-        strip={chronicleMode && blocks.includes('playing') ? (pool ? <PlayingStrip games={playing} actions={actions} /> : !error && heroExpected && <PlayingStripSkeleton />) : null}
-      >
-        {chronicleMode && !hiddenView && <TodayHints total={rawCheckCount} actions={actions} />}
-        <InboxStrip ctl={inbox} />
-        <WrappedBanner ssr={wrappedSsr} compact />
-        {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
-        {chronicleMode && !hiddenView && <MonthGoalsCard />}
-        {chronicleMode && !hiddenView && <HuntCard />}
-        {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
-        {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}
-      </TodayBlock>
+      {/* t282u (П.2): прежняя главная без сворачивания — профиль в шапке, «Играю сейчас» крупно. От «Сегодня» остались
+          «Разбор N» в шапке (П.3) и 1–2 подсказки статусов над карточками (П.10). */}
+      {chronicleMode && !hiddenView && <TodayHints total={rawCheckCount} actions={actions} />}
+      <InboxStrip ctl={inbox} />
+      <WrappedBanner ssr={wrappedSsr} compact />
+      {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}
+      {chronicleMode && !hiddenView && <MonthGoalsCard />}
+      {chronicleMode && !hiddenView && <HuntCard />}
+      {chronicleMode && blocks.includes('playing') && (pool ? <PlayingHero games={playing} count={shownCount(counts.playing, playing)} now={now} actions={actions} /> : !error && heroExpected && <HeroSkeleton />)}
+      {recent ? <RecentHero game={recent} actions={actions} /> : chronicleMode && blocks.includes('playing') && !pool && !error && !heroExpected && <RecentHeroSkeleton />}
 
       {mobileMq === null ? <FilterBarSkeleton /> : isMobile ? <MobileChips {...barProps} /> : <FilterBar {...barProps} />}
 

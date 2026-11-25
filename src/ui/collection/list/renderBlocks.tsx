@@ -69,7 +69,7 @@ export function renderService(c: RenderCtx, list: GameItem[]): ReactNode {
   }
   return (
     <section key="service" className="ps-block" id="service" aria-labelledby="h-service">
-      <BlockHead id="h-service" title="Сервисы" count={total} icon={<StatusGlyph status="service" size={16} />} />
+      <BlockHead id="h-service" title="Сервис" count={total} icon={<StatusGlyph status="service" size={16} />} />
       {body}
       {toggleBtn && <div className="ps-more ps-more--service">{toggleBtn}</div>}
       {(serviceFull || (!isList && serviceOpen)) && moreBtn(c, 'service', counts.service - rawLoaded('service'))}

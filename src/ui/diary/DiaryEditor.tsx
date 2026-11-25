@@ -83,22 +83,3 @@ export function DiaryEditor({ gameId, entries: initial, onChanged, onEntries }: 
   );
 }
 
-/** Компактный список заметок в блоке истории игры. */
-export function DiaryHistory({ entries }: { entries: DiaryEntry[] }) {
-  if (!entries.length) return null;
-  return (
-    <div className="ps-diary-hist" data-testid="history-diary">
-      <h4 className="ps-diary-hist__h">Заметки</h4>
-      <ul className="ps-diary__list">
-        {entries.map((e) => (
-          <li key={e.id} className="ps-diary__item">
-            <div className="ps-diary__tx">
-              <time className="ps-diary__date" dateTime={e.createdAt}>{formatDayMonth(e.createdAt, true) ?? ''}</time>
-              <p className="ps-diary__body">{e.body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}

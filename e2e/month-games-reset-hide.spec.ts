@@ -40,7 +40,15 @@ async function goSettings(page: Page, mobile: boolean) {
 const settingsAction = (page: Page, item: RegExp) => page.locator('.ps-settings').getByRole('button', { name: item });
 async function statusMenu(page: Page, mobile: boolean, item: RegExp) {
   await goSettings(page, mobile);
+  await openRestoreChoice(page, item);
   await settingsAction(page, item).click();
+}
+/** t281u П.20: «Восстановить…» раскрывает выбор источника, если есть автокопия. */
+async function openRestoreChoice(page: Page, item: RegExp) {
+  if (!/автокопии/.test(item.source)) return;
+  const b = page.getByTestId('settings-restore');
+  await expect(b).toHaveAttribute('aria-expanded', /true|false/);
+  if ((await b.getAttribute('aria-expanded')) !== 'true') await b.click();
 }
 /** Раздел «Скрытые игры»: в фильтрах Коллекции (лист на телефоне, кнопка в панели на компьютере). Адрес /?hidden=1. */
 async function openHidden(page: Page, mobile: boolean) {
@@ -173,18 +181,19 @@ test.describe('Фаза 8: сброс статуса', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 
-  test('BUG-P8-4: «Вернуть статусы из копии» в меню после перезагрузки; без копии пункта нет; после отката скрыт', async ({ page, context, baseURL }, info) => {
+  test('BUG-P8-4: «Восстановить… → Статусы из автокопии» после перезагрузки; без копии выбора нет; после отката скрыт', async ({ page, context, baseURL }, info) => {
     const mock = await openCollection(page, context, baseURL!);
     const mobile = isMobile(info.project.name);
     const before = mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }));
     // копии нет: пункта в Настройках нет
     await goSettings(page, mobile);
     await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
-    await expect(settingsAction(page, /Вернуть статусы из копии/)).toHaveCount(0);
+    await expect(page.getByTestId('settings-restore')).not.toHaveAttribute('aria-expanded', /.+/);
+    await expect(settingsAction(page, /Статусы из автокопии/)).toHaveCount(0);
     mock.backups.push({ id: 1, reason: 'reset_all', rows: before.filter((g) => g.status) as never });
     for (const g of mock.games) { g.status = null; g.completedAt = null; g.droppedAt = null; }
     await page.reload();
-    await statusMenu(page, mobile, /Вернуть статусы из копии/);
+    await statusMenu(page, mobile, /Статусы из автокопии/);
     const dlg = page.getByRole('dialog', { name: 'Вернуть статусы из копии' });
     await expect(dlg).toContainText('Копия от 27.10.2026');
     await dlg.getByRole('button', { name: 'Вернуть статусы' }).click();
@@ -193,7 +202,8 @@ test.describe('Фаза 8: сброс статуса', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Статусы возвращены: 8 игр' })).toBeVisible();
     expect(mock.games.map((g) => ({ id: g.id, status: g.status, completedAt: g.completedAt, droppedAt: g.droppedAt }))).toEqual(before);
     await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
-    await expect(settingsAction(page, /Вернуть статусы из копии/)).toHaveCount(0);
+    await expect(page.getByTestId('settings-restore')).not.toHaveAttribute('aria-expanded', /.+/);
+    await expect(settingsAction(page, /Статусы из автокопии/)).toHaveCount(0);
   });
 
   test('в «…» и «Фильтрах» коллекции нет сброса и отката статусов; копия читается при открытии Настроек, не при загрузке', async ({ page, context, baseURL }, info) => {
@@ -218,7 +228,8 @@ test.describe('Фаза 8: сброс статуса', () => {
     await page.keyboard.press('Escape');
     expect(backupCalls).toEqual([]);
     await goSettings(page, mobile);
-    await expect(settingsAction(page, /Вернуть статусы из копии/)).toContainText('Копия от 27.10.2026');
+    await openRestoreChoice(page, /Статусы из автокопии/);
+    await expect(settingsAction(page, /Статусы из автокопии/)).toContainText('Копия от 27.10.2026');
     await expect(settingsAction(page, /Сбросить все статусы/)).toBeVisible();
     expect(backupCalls.length).toBe(1);
   });

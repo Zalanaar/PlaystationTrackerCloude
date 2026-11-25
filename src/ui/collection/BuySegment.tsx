@@ -36,8 +36,8 @@ export function BuySegment({
       ref={ref} className={`ps-seg ps-add-buy${compact ? ' ps-add-buy--compact' : ''}`} role="radiogroup" aria-label={`Покупка: ${title}`}
       data-testid={`${testPrefix}-buy`} onKeyDown={key}
     >
-      {opt(false, 'Не купил')}
-      {opt(true, 'Купил')}
+      {opt(false, 'Не куплено')}
+      {opt(true, 'Куплено')}
     </div>
   );
 }

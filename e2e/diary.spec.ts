@@ -19,7 +19,8 @@ test('добавить и удалить заметку дневника', async
   await diary.getByTestId('diary-add').click();
   const entry = diary.getByTestId('diary-entry');
   await expect(entry).toContainText('Сегодня прошёл главу');
-  await expect(d.getByTestId('history-diary')).toContainText('Сегодня прошёл главу');
+  // t281u П.17: заметка показана один раз — в «Дневнике», не в «Истории»
+  await expect(d.getByTestId('history-diary')).toHaveCount(0);
   await entry.getByTestId('diary-delete').click();
   await expect(diary.getByTestId('diary-entry')).toHaveCount(0);
   await expect(d.getByTestId('history-diary')).toHaveCount(0);

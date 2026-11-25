@@ -65,9 +65,9 @@ export function Overview({
       {/* Пакет 7, п. 1: прогресс по основной игре и каждому DLC, незакрытые дополнения — мини-бэклог */}
       {dlc && <DlcProgress data={dlc} onOpen={onOpenTrophies} />}
 
-      {details ? (historyView(details.history) || diary.length > 0) && (
+      {details ? historyView(details.history) && (
         <Fold id="history" title="История" testId="gd-fold-history">
-          <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} diary={diary} />
+          <History history={details.history} lastPlayedAt={game.lastPlayedAt ?? null} now={now} />
         </Fold>
       ) : loading && <div className="ps-skeleton ps-gd__sk-fold" aria-hidden="true" />}
       </div>

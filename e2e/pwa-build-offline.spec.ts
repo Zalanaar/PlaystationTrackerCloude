@@ -156,3 +156,19 @@ test('смена профиля стирает копию прежнего; но
   await expect(page.getByTestId('offline-snapshot')).toContainText('Friend');
   await expect(page.getByTestId('offline-snapshot')).not.toContainText('Zalanaar');
 });
+
+test('t281u П.9: без сети касание вкладки открывает тот же раздел офлайн-копии, а не общий /offline', async ({ page, context }) => {
+  const active = { id: 1 };
+  await setup(context, active);
+  await page.goto('/');
+  await swReady(page);
+  await page.reload();
+  await expect.poll(() => stored(page), { timeout: 15_000 }).toBe(1);
+  await context.setOffline(true);
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+  await page.getByRole('link', { name: 'Статистика' }).filter({ visible: true }).first().click();
+  await page.waitForURL(/\/stats$/, { timeout: 10_000 });
+  await expect(page.getByTestId('offline-asof')).toHaveText(/^Данные от /);
+  await expect(page.getByRole('tab', { name: 'Статистика' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('Раздел недоступен без сети', { exact: false })).toHaveCount(0);
+});

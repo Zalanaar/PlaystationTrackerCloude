@@ -189,3 +189,8 @@
 .ps-cost__m { grid-area: m; font-weight: 600; color: var(--text); }
 .ps-cost__d { grid-area: d; font-size: var(--fs-micro); color: var(--text-2); }
 @media (max-width: 767px) { .ps-cost__kpi { height: 76px; padding: var(--sp-2); } .ps-cost__kpi dd { font-size: 16px; } }
+/* t281u П.23: «Достижения» — строка в группе «Трофеи»: заголовок и «Получено N из 12» слева, «Показать» справа */
+.ps-ach { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
+.ps-ach > .ps-st-panel__t, .ps-ach > .ps-st-panel__s { grid-column: 1; margin: 0; }
+.ps-ach > .ps-ach__toggle { grid-column: 2; grid-row: 1 / span 2; min-height: var(--tap-min); padding-inline: var(--sp-2); }
+.ps-ach > .ps-ach__grid { grid-column: 1 / -1; }

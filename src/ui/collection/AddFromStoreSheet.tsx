@@ -207,7 +207,7 @@ export function AddFromStoreSheet({ onClose, initialQuery }: { onClose: (added: 
     <Sheet open onClose={requestClose} title="Добавить из магазина PS" className="ps-add-sheet" initialFocus="[data-testid='add-input']" busy={busy}>
       <div className="ps-add" data-testid="add-sheet" data-cart={cart.length > 0 || undefined}>
         <p className="ps-sheet__sub ps-add__sub">
-          Выбери «Купил» или «Не купил», нажми «+» у нужных игр и добавь всё сразу. «Не купил» попадёт в секцию «Не куплено», «Купил» будет ждать первого запуска.
+          Выбери «Куплено» или «Не куплено», нажми «+» у нужных игр и добавь всё сразу. «Не куплено» попадёт в секцию «Не куплено», «Куплено» будет ждать первого запуска.
         </p>
         <form
           className="ps-add__form" role="search"
@@ -352,7 +352,7 @@ function AddRow({
         {done ? (
           <span className="ps-add-row__done" data-testid="add-row-done" data-kind={done.kind}>
             <Icon name="check" size={14} />
-            {done.kind === 'added' ? `Добавлено · ${done.bought ? 'Купил' : 'Не куплено'}` : done.kind === 'marked' ? 'Уже в бэклоге · отмечено «Купил»' : 'Уже в бэклоге'}
+            {done.kind === 'added' ? `Добавлено · ${done.bought ? 'Куплено' : 'Не куплено'}` : done.kind === 'marked' ? 'Уже в бэклоге · отмечено «Купил»' : 'Уже в бэклоге'}
           </span>
         ) : needsDecision ? (
           <span className="ps-add-row__done ps-add-row__need" data-testid="add-row-need"><Icon name="circle-alert" size={14} />Нужно решение</span>

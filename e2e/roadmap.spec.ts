@@ -529,7 +529,7 @@ test.describe('План: игры-сервисы', () => {
     }));
     await expect(page.getByTestId('rm-services')).toHaveCount(0);
     await expect(page.locator('#rm-services')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /Сервисы: в план не берём/ })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Сервис: в план не берём/ })).toHaveCount(0);
   });
   test('нет сервисов: блока нет', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL as string);

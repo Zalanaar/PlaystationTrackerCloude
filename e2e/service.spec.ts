@@ -26,17 +26,17 @@ test.describe('блок «Сервисы»', () => {
   test('нет игр-сервисов: блок, якорь и счётчик-ссылка скрыты; пустой чип «Сервис» тоже скрыт (Пакет 6, п. 5)', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!);
     await expect(block(page)).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Сервисы' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Сервисы' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Сервис', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Сервис', exact: true })).toHaveCount(0);
     await expect(tab(page, /Сервис/)).toHaveCount(0);
   });
 
   test('на главной сервисы в строке-ссылке, не отдельным блоком; в фильтре «Сервис» — сетка', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(9)]);
-    await expect(page.getByRole('heading', { name: 'Сервисы' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Сервис', exact: true })).toHaveCount(0);
     await expect(block(page)).toHaveCount(0);
     const row = page.getByTestId('home-backlog-row');
-    await expect(row).toHaveText(/Бэклог 1 · Отложено 1 · Сервисы 9/);
+    await expect(row).toHaveText(/Бэклог 1 · Отложено 1 · Сервис 9/);
     await expect(row).toHaveAttribute('href', '/backlog');
     await expect(tab(page, /Сервис/)).toContainText('9');
     await expect(coll(page).locator('#y2026')).not.toContainText('Сервис 1');
@@ -59,7 +59,7 @@ test.describe('блок «Сервисы»', () => {
 
   test('строка ведёт в Бэклог; в фильтре «Сервис» на карточке ромб с подписью «Игра-сервис»', async ({ page, context, baseURL }) => {
     await open(page, context, baseURL!, '/', [...seed(), ...serviceGames(3)]);
-    await expect(page.getByRole('navigation', { name: 'Годы и блоки' }).getByRole('link', { name: 'Сервисы' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Годы и блоки' }).getByRole('link', { name: 'Сервис', exact: true })).toHaveCount(0);
     await expect(page.getByTestId('home-backlog-row')).toHaveAttribute('href', '/backlog');
     await tab(page, /Сервис/).click();
     await expect(block(page)).toBeVisible();
@@ -116,7 +116,7 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     await expect(tab(page, /Сервис/)).toContainText('1');
     await tab(page, /^Все/).click();
     await expect(tab(page, /Бэклог/)).toHaveCount(0); // Пакет 6, п. 5: пустой чип скрыт
-    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервис 1/);
     await expect(block(page)).toHaveCount(0);
     await tab(page, /Сервис/).click();
     await expect(block(page)).toBeVisible();
@@ -131,7 +131,7 @@ test.describe('смена статуса на «Сервис» (desktop)', () =>
     await expect(coll(page).locator('#y2026')).toContainText('God of War');
     await coll(page).getByRole('button', { name: 'Статус: God of War' }).click();
     await page.getByRole('menuitemradio', { name: 'Сервис' }).click();
-    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервисы 1/);
+    await expect(page.getByTestId('home-backlog-row')).toHaveText(/Сервис 1/);
     await expect(coll(page).locator('#y2026')).not.toContainText('God of War');
     await tab(page, /Сервис/).click();
     await expect(block(page)).toContainText('God of War');

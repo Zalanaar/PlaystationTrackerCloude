@@ -144,7 +144,6 @@ test.describe('Бэклог (/backlog)', () => {
     // в коллекции игра теперь в ленте «Играю»
     await page.getByRole('link', { name: 'К коллекции' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Коллекция' })).toBeVisible();
-    await expect(page.getByTestId('today-toggle')).toBeVisible();
     await expandToday(page);
     await expect(page.getByRole('region', { name: 'Играю' })).toContainText('Stray');
   });

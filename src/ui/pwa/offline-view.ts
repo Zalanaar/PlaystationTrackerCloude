@@ -13,7 +13,8 @@ export const OFFLINE_TABS: { id: OfflineTab; label: string }[] = [
 /** Вкладка по адресу, который открывали без сети (SW отдаёт /offline на любой закрытый адрес, URL остаётся прежним). */
 export function tabFromPath(pathname: string): OfflineTab {
   if (pathname === '/roadmap' || pathname.startsWith('/roadmap/')) return 'plan';
-  if (pathname === '/backlog' || pathname.startsWith('/backlog/')) return 'backlog';
+  // t281u П.9: «Подскажи» без сети не работает — показываем бэклог (тот же раздел «Что дальше»)
+  if (pathname === '/backlog' || pathname.startsWith('/backlog/') || pathname === '/recommend' || pathname.startsWith('/recommend/')) return 'backlog';
   if (pathname === '/stats' || pathname.startsWith('/stats/') || pathname === '/wrapped') return 'stats';
   return 'collection';
 }
