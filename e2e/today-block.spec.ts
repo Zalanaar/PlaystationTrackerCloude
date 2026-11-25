@@ -34,10 +34,54 @@ test.describe('Сегодня', () => {
     expect(filterBox).toBeTruthy();
     expect(barBox!.y).toBeGreaterThan(headBox!.y);
     expect(barBox!.height).toBeLessThanOrEqual(44);
-    // фильтры сразу под строкой, не после высокого hero
-    expect(filterBox!.y).toBeGreaterThan(barBox!.y);
-    expect(filterBox!.y - (barBox!.y + barBox!.height)).toBeLessThan(80);
+    // фильтры сразу под строкой и рядом обложек «Играю» (П.1), не после высокого hero
+    const strip = page.getByTestId('playing-strip');
+    await expect(strip).toBeVisible();
+    const stripBox = (await strip.boundingBox())!;
+    const bar2 = (await bar.boundingBox())!;
+    expect(stripBox.height).toBeLessThanOrEqual(56);
+    expect(stripBox.y).toBeGreaterThanOrEqual(bar2.y + bar2.height);
+    const filter2 = (await filters.boundingBox())!;
+    expect(filter2.y).toBeGreaterThan(bar2.y);
+    // на десктопе между ними ещё строка поиска (44 px + отступы)
+    expect(filter2.y - (stripBox.y + stripBox.height)).toBeLessThan(110);
     await expect(page.getByTestId('week1')).toBeHidden();
+  });
+
+  test('П.1: обложки «Играю» видны в свёрнутом виде, тап открывает игру; в раскрытом — только hero', async ({ page, baseURL }) => {
+    await openHome(page, baseURL!);
+    const strip = page.getByTestId('playing-strip');
+    await expect(strip.getByRole('button')).not.toHaveCount(0);
+    await strip.getByRole('button').first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expandToday(page);
+    await expect(strip).toHaveCount(0);
+  });
+
+  test('П.3: «Разбор N» рядом со строкой ведёт в очередь; П.10: 1–2 подсказки статусов, статус — вручную в окне игры', async ({ page, baseURL }) => {
+    await page.context().addCookies([{ name: 'pst_session', value: await signedSession(), url: baseURL! }]);
+    const m = await mockApi(page);
+    m.hints = [
+      { gameId: 6, rule: 'started', currentStatus: 'backlog' },
+      { gameId: 1, rule: 'stale', currentStatus: 'playing' },
+      { gameId: 2, rule: 'started', currentStatus: null },
+    ];
+    await page.goto('/');
+    const tri = page.getByTestId('today-triage');
+    await expect(tri).toBeVisible();
+    await expect(tri).toHaveAttribute('href', '/triage');
+    await expect(tri).toContainText(/Разбор\s*\d+/);
+    expect((await tri.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expandToday(page);
+    const hints = page.getByTestId('today-hint');
+    await expect(hints).toHaveCount(2);
+    await expect(page.getByTestId('today-hints')).toContainText('Все подсказки: 3');
+    const before = m.mutations.length;
+    await hints.first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(m.mutations.length).toBe(before); // сам статус не меняется
   });
 
   test('раскрытие показывает карточки; cookie помнит состояние', async ({ page, baseURL, context }) => {

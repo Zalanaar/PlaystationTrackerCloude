@@ -36,11 +36,12 @@ import { usePageArt } from './list/usePageArt';
 import { STATUSES_CHANGED_EVENT } from '../backup/StatusMenu';
 import { useDataRefresh } from '../shell/refresh';
 import { BacklogLinkRow, isHomeBacklogRow } from './BacklogLinkRow';
-import { PlayingHero } from './PlayingHero';
+import { PlayingHero, PlayingStrip, PlayingStripSkeleton } from './PlayingHero';
 import { FirstWeekCard } from '../checklist/FirstWeekCard';
 import { MonthGoalsCard } from '../goals/MonthGoalsCard';
 import { HuntCard } from '../hunts/HuntCard';
 import { TodayBlock } from './TodayBlock';
+import { TodayHints, TodayTriageLink } from './TodayExtras';
 import { RecentHero, RecentHeroSkeleton } from './RecentHero';
 import { StatLine } from './StatLine';
 import { storeView, useStoredView } from './view';
@@ -336,7 +337,10 @@ export function CollectionView({ heroHint, initial, layout, platformDefault = nu
         openSsr={todayOpen}
         playingCount={pool ? shownCount(counts.playing, playing) : null}
         checkReason={checkCount > 0 && !unsortedShown ? `проверить ${checkCount}` : undefined}
+        side={<TodayTriageLink count={summary?.counts.none ?? 0} fresh={inbox.chips.some((c) => c.id === 'new')} />}
+        strip={chronicleMode && blocks.includes('playing') ? (pool ? <PlayingStrip games={playing} actions={actions} /> : !error && heroExpected && <PlayingStripSkeleton />) : null}
       >
+        {chronicleMode && !hiddenView && <TodayHints total={rawCheckCount} actions={actions} />}
         <InboxStrip ctl={inbox} />
         <WrappedBanner ssr={wrappedSsr} compact />
         {chronicleMode && !hiddenView && <FirstWeekCard hint={week1Hint} />}

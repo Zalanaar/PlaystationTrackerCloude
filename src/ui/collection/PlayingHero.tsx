@@ -125,3 +125,23 @@ export function PlayingHero({ games, count, now, actions }: { games: GameItem[];
     </section>
   );
 }
+
+/** П.1 (t281u): обложки «Играю» под свёрнутой строкой «Сегодня» — ряд миниатюр, тап открывает игру. */
+export function PlayingStrip({ games, actions }: { games: GameItem[]; actions: GameActions }) {
+  if (!games.length) return null;
+  return (
+    <ul className="ps-pstrip" aria-label="Играю сейчас" data-testid="playing-strip">
+      {games.map((g) => (
+        <li key={g.id}>
+          <button type="button" className="ps-pstrip__it" aria-label={`Играю: ${g.title}`} title={g.title} onClick={() => actions.open(g)}>
+            <Cover url={g.coverUrl} title={g.title} className="ps-pstrip__cv" w={THUMB_W} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function PlayingStripSkeleton() {
+  return <div className="ps-pstrip ps-pstrip--sk" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className="ps-skeleton ps-pstrip__cv" />)}</div>;
+}

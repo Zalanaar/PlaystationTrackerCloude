@@ -72,3 +72,28 @@
 .ps-today__body .ps-hunt,
 .ps-today__body .ps-inbox,
 .ps-today__body .ps-wbanner { margin-bottom: 0; }
+/* П.1 (t281u): обложки «Играю» под свёрнутой строкой; высота фиксирована (скелет той же высоты — без CLS) */
+.ps-pstrip { display: flex; gap: var(--sp-2); height: 56px; margin: var(--sp-2) 0 0; padding: 0; list-style: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
+.ps-pstrip::-webkit-scrollbar { display: none; }
+.ps-pstrip li { flex: none; }
+.ps-pstrip__it { display: block; width: 56px; height: 56px; padding: 0; border: 0; border-radius: var(--r-sm, 8px); background: none; cursor: pointer; overflow: hidden; }
+.ps-pstrip__it:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-pstrip__cv { display: block; width: 56px; height: 56px; border-radius: var(--r-sm, 8px); object-fit: cover; }
+.ps-pstrip--sk .ps-pstrip__cv { flex: none; }
+/* П.3: «Разбор N» справа от строки; П.10: подсказки статусов в раскрытом блоке */
+.ps-today__row { display: flex; gap: var(--sp-2); align-items: stretch; min-width: 0; }
+.ps-today__row > .ps-today__bar { flex: 1 1 auto; min-width: 0; }
+.ps-today__triage { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 var(--sp-3); border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-2); font: 400 var(--fs-small)/20px var(--font-body); text-decoration: none; white-space: nowrap; }
+.ps-today__triage b { color: var(--text); font-weight: 600; }
+.ps-today__triage[data-fresh] { border-color: var(--accent); }
+.ps-today__triage:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-thints { border: var(--border-w) solid var(--border); border-radius: var(--r-md); background: var(--surface); padding: var(--sp-1) var(--sp-2); }
+.ps-thints__list { list-style: none; margin: 0; padding: 0; }
+.ps-thints__it { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 52px; padding: 4px 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.ps-thints__it:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.ps-thints li + li .ps-thints__it { border-top: var(--border-w) solid var(--border); }
+.ps-thints__cv { flex: none; width: 40px; height: 40px; border-radius: var(--r-sm, 6px); object-fit: cover; }
+.ps-thints__tx { display: flex; flex-direction: column; min-width: 0; }
+.ps-thints__t { color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-thints__q { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+.ps-thints__all { display: flex; align-items: center; min-height: 44px; color: var(--accent-text, var(--accent)); font-size: var(--fs-small); text-decoration: none; border-top: var(--border-w) solid var(--border); }

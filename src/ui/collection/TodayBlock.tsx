@@ -58,11 +58,13 @@ function pickReason(bits: TodayBits, check: string | undefined): string | undefi
 }
 
 function TodayInner({
-  openSsr, playingCount, checkReason, children,
+  openSsr, playingCount, checkReason, strip, side, children,
 }: {
   openSsr: boolean;
   playingCount: number | null;
   checkReason?: string;
+  strip?: ReactNode;
+  side?: ReactNode;
   children: ReactNode;
 }) {
   const bits: TodayBits = useContext(TodayCtx) ?? {};
@@ -82,6 +84,7 @@ function TodayInner({
 
   return (
     <section className="ps-today" data-open={open || undefined} data-testid="today-block">
+      <div className="ps-today__row">
       <button
         type="button"
         className="ps-today__bar"
@@ -123,6 +126,9 @@ function TodayInner({
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} className="ps-today__chev" />
         <span className="ps-sr">{open ? 'Свернуть' : 'Развернуть'}. {fullLabel}</span>
       </button>
+      {side}
+      </div>
+      {!open && strip}
       <div className="ps-today__panel" id="today-panel" hidden={!open}>
         <div className="ps-today__body">{children}</div>
       </div>
@@ -135,16 +141,20 @@ function TodayInner({
  * Состояние в cookie (SSR), раскрытие — карточки компактно. Повод (точка + текст) не увеличивает высоту строки.
  */
 export function TodayBlock({
-  openSsr, playingCount, checkReason, children,
+  openSsr, playingCount, checkReason, strip, side, children,
 }: {
   openSsr: boolean;
   playingCount: number | null;
   checkReason?: string;
+  /** Справа от строки (П.3: «Разбор N»). */
+  side?: ReactNode;
+  /** Обложки «Играю» под свёрнутой строкой (в раскрытом виде их показывает hero). */
+  strip?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <TodaySummaryProvider>
-      <TodayInner openSsr={openSsr} playingCount={playingCount} checkReason={checkReason}>{children}</TodayInner>
+      <TodayInner openSsr={openSsr} playingCount={playingCount} checkReason={checkReason} strip={strip} side={side}>{children}</TodayInner>
     </TodaySummaryProvider>
   );
 }
